@@ -28,13 +28,13 @@ import com.wangzan101.mika.core.tool.Verb
 import com.wangzan101.mika.core.assembly.toolDispatcher
 
 /**
- * 工具与主循环给模型的反馈文字(提示、错误说明、提醒):按典型情形逐条触发,原样写进金样。
- * 情形按行为描述,不依赖这些字放在哪个文件里。
+ * ツールおよびメイン ループによってモデルに与えられるフィードバック テキスト (プロンプト、エラー説明、リマインダー): 典型的な状況に応じて 1 つずつトリガーされ、そのままゴールド サンプルに書き込まれます。
+ * これらの単語がどのファイルに配置されているかに関係なく、状況は動作によって説明されます。
  */
 internal object PromptSurfaceFeedback {
     private fun call(name: String, args: String = "{}") = Part.ToolCall("c1", name, args)
 
-    /** 各错误码经一次失败的点击转成的说明(端口报什么码,模型就看到对应的说明)。 */
+    /** 各エラー コードは、クリックが失敗した後に説明に変換されます (ポートによってどのようなコードが報告されたとしても、モデルには対応する説明が表示されます)。 */
     private val FAILURE_CODES = listOf(
         "app_in_use_by_user", "app_in_use_by_other_task", "app_not_found", "no_focus", "not_editable", "no_app_open", "no_history",
         "tab_crashed", "obscured", "offscreen", "key_not_allowed", "no_tab_open", "handed_over", "site_mode_unavailable",
@@ -148,8 +148,8 @@ internal object PromptSurfaceFeedback {
     }
 
     /**
-     * 主循环的提醒、说明、来源标签:经主循环和它的策略里用它们的那些名字取(私有的按名字反射调),
-     * 证明每处用的是对的那条、填法对。带参数的照典型参数调。
+     * メイン ループのリマインダー、説明、ソース タグ: メイン ループとその戦略で使用される名前から取得 (名前によるプライベート リフレクション)、
+     * は、正しいアイテムが使用され、各場所で正しい充填方法が使用されていることを証明します。パラメータ付きのものは代表的なパラメータに合わせて調整されます。
      */
     fun loop(): String {
         fun fileCall(cls: String, name: String, vararg args: Any): String {
@@ -203,7 +203,7 @@ internal object PromptSurfaceFeedback {
         return PromptSurface.entries(items + loopResults())
     }
 
-    /** 主循环自己写的工具结果:一次给了多个调用、申报的 App 不是眼前的、没有确认关卡时申报。 */
+    /** メイン ループによって作成されたツールの結果: 複数の呼び出しが一度に行われ、宣言されたアプリは目の前にあるものではなく、レベルは確認なしで宣言されます。 */
     private fun loopResults(): List<Pair<String, String>> = runBlocking {
         fun reply(vararg calls: Part.ToolCall) = ModelReply(calls.toList(), StopReason.ToolUse, null)
         val done = com.wangzan101.mika.core.testing.answerReply("ok")

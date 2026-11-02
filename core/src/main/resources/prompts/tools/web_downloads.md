@@ -1,1 +1,1 @@
-List this task's downloads as {file, bytes, mime, status, error}; file is the path in the workspace. Only say a file was downloaded once its status is done.
+この作業のダウンロードを {file, bytes, mime, status, error} として列挙する。file は作業領域内のパス。ファイルがダウンロードされたと言うのは、その status が done の場合だけ。

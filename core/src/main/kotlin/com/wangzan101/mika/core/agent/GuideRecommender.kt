@@ -17,16 +17,16 @@ internal const val KNOWLEDGE_INDEX_HEADER = "App and website knowledge you can r
 private const val RECOMMEND_COUNT = 3
 
 /**
- * 任务开始时的索引(开局上下文里写一次,中途不改):
- * App/站点知识按任务文字检索,沿用原来的取法(与技能一起取前 3 条,只留知识);
- * 技能不挑,全部列出——内置在前、个人技能在后,各按名字排,每份一行(id、显示名、描述),
- * 用不用、用哪份由模型按描述判断,要用时自己用 skill_read 读全文。
+ * タスクの開始時のインデックス (デプロイメント コンテキストで一度だけ書き込み、途中で変更しないでください):
+ * タスク テキストに従ってアプリ/サイトのナレッジが検索され、独自の方法が使用されます (最初の 3 項目をスキルとともに取得し、ナレッジのみを残します)。
+ * スキルを選択するのではなく、すべてをリストします。先頭に組み込みスキル、最後に個人スキルを名前順に、コピーごとに 1 行 (ID、表示名、説明)、
+ * を使用するかどうか、およびどのコピーを使用するかは、モデルの説明によって決まります。使用したい場合は、skill_read を使用して全文を読んでください。
  */
 internal object GuideRecommender {
     fun id(info: GuideInfo) = "${info.kind}:${info.name}"
     fun line(info: GuideInfo) = "- ${id(info)}(${info.display}):${info.description}"
 
-    /** 知识与技能各列在自己的标题下;两样都没有为 null。个人技能只有在用和试用的(见 [GuideCatalog.items])。 */
+    /** 知識とスキルはそれぞれ独自の見出しの下にリストされています。どちらも null ではありません。個人スキルは使用中および試用中のみです ([GuideCatalog.items] を参照)。 */
     fun index(catalog: GuideCatalog, task: String): String? {
         val knowledge = catalog.find(task, limit = RECOMMEND_COUNT, minScore = RECOMMEND_MIN_SCORE).filter { it.kind in KNOWLEDGE_KINDS }
         val skills = catalog.items.filter { it.kind in SKILL_KINDS }.sortedWith(compareBy({ it.kind != KnowledgeIndex.SKILL }, { it.name }))
@@ -35,7 +35,7 @@ internal object GuideRecommender {
             ?.joinToString("\n") { (header, items) -> header + "\n" + items.joinToString("\n", transform = ::line) }
     }
 
-    /** skill_read 成功读了个人技能时给出技能名。 */
+    /** skill_read は、個人スキルの読み取りが成功した場合のスキル名を与えます。 */
     fun viewedPersonal(verb: Verb?, content: JsonObject): String? {
         if (verb != Verb.SkillRead || content["ok"] != JsonPrimitive(true)) return null
         if ((content["kind"] as? JsonPrimitive)?.contentOrNull != PERSONAL_KIND) return null

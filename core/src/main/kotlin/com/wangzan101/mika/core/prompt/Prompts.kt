@@ -3,15 +3,15 @@ package com.wangzan101.mika.core.prompt
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * 随 App 发布的提示词,都在资源目录 prompts/ 下,分层见 prompts/README.md:
- * system/ 身份(L0)、capabilities/ 各能力一段(L1)、tools/ 每个工具的说明、feedback/ 工具与主循环给模型的反馈、
- * roles/ 内部角色(列标准、核查、描述、定位……)。
- * 文字里的 {{name}} 由调用方填;漏填的直接报错,不把占位符发给模型。
+ * App と一緒に配布されるプロンプトはすべてリソースディレクトリ prompts/ の下にあり、階層は prompts/README.md を参照:
+ * システム/アイデンティティ (L0)、機能/各機能の 1 つのセクション (L1)、ツール/各ツールの説明、フィードバック/ツールとメイン ループからモデルへのフィードバック、
+ * の役割/内部の役割 (標準、検証、説明、位置付けなどのリスト)。
+ * テキスト内の {{name}} は発信者によって入力されます。省略した場合、エラーが直接報告され、プレースホルダーはモデルに送信されません。
  */
 object Prompts {
     private val cache = ConcurrentHashMap<String, String>()
 
-    /** 资源原文(去掉首尾空白)。 */
+    /** リソースの元のテキスト (先頭と末尾の空白を削除)。 */
     fun read(path: String): String = cache.getOrPut(path) {
         checkNotNull(Prompts::class.java.getResourceAsStream("/prompts/$path")) { "missing prompts/$path" }
             .bufferedReader(Charsets.UTF_8).use { it.readText() }.trim()
@@ -23,13 +23,13 @@ object Prompts {
 
     fun role(name: String): String = read("roles/$name.md")
 
-    /** 入口工具那一组收着时的短说明(prompts/entries/<工具名>.md)。 */
+    /** 一連の入力ツールの簡単な説明 (prompts/entries/<ツール名>.md)。 */
     fun entry(tool: String): String = read("entries/$tool.md")
 
-    /** 一个工具发给模型的说明(prompts/tools/<file>.md),填好占位符。 */
+    /** ツールはモデル (prompts/tools/<file>.md) に指示を送信し、プレースホルダーに入力します。 */
     fun tool(file: String, vararg vars: Pair<String, Any?>): String = fill(read("tools/$file.md"), vars.toMap())
 
-    /** 一遍替换:填进去的值(屏上的字、用户的话)里即使有 {{…}} 也原样保留。 */
+    /** ワンパス置換：入力値（画面上の文字、ユーザーの文字）に {{…}} があった場合でも、そのまま保持されます。 */
     fun fill(template: String, vars: Map<String, Any?>): String = PLACEHOLDER.replace(template) { m ->
         val k = m.groupValues[1]
         check(k in vars) { "unfilled placeholder {{$k}} in: ${template.take(80)}" }

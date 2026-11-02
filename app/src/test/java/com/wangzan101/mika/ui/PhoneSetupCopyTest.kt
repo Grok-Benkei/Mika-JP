@@ -18,8 +18,8 @@ import org.junit.Test
 class PhoneSetupCopyTest {
     @get:Rule val texts = ChineseTexts()
 
-    /** 给用户看的字里不出现这些技术说法(系统设置里本来就有的选项名除外,见下)。 */
-    private val jargon = listOf("shell", "端口", "mDNS", "TLS", "Binder", "uid", "进程")
+    /** これらの専門用語は、ユーザーに表示される単語には表示されません (システム設定にもともと存在するオプション名を除く、以下を参照)。 */
+    private val jargon = listOf("shell", "端口", "mDNS", "TLS", "Binder", "uid", "プロセス")
 
     private fun allText(): List<String> = buildList {
         add(PhoneSetupCopy.INTRO)
@@ -60,7 +60,7 @@ class PhoneSetupCopyTest {
         assertEquals(41235, ConnectPortInput.parse("41235"))
         assertEquals(41235, ConnectPortInput.parse(" 41 235 "))
         assertEquals(41235, ConnectPortInput.parse("４１２３５"))
-        // 整段粘了「IP 地址和端口」也行
+        // 「IPアドレスとポート」は全部貼り付けても大丈夫です
         assertEquals(41235, ConnectPortInput.parse("192.0.2.10:41235"))
         assertEquals(41235, ConnectPortInput.parse("192.0.2.10：41235"))
         assertEquals(1, ConnectPortInput.parse("1"))
@@ -78,7 +78,7 @@ class PhoneSetupCopyTest {
         reconnectable.forEach { s ->
             assertEquals(Fix.RetryPhoneHelper, StatusCopy.directFix(Problem.PhoneHelper(s)))
         }
-        // 没配对要走引导;无线调试关着要先去打开;没 Wi-Fi 会自己恢复;配对失效要重新配对
+        // がペアリングされていない場合は、起動する必要があります。ワイヤレス デバッグがオフになっている場合は、最初にオンにする必要があります。 Wi-Fi がない場合は自動的に回復します。ペアリングに失敗した場合は、再度ペアリングする必要があります。
         listOf(
             BuiltinShellStatus.NotPaired, BuiltinShellStatus.WirelessDebuggingOff, BuiltinShellStatus.Connecting,
             BuiltinShellStatus.Running, BuiltinShellStatus.Failed(BuiltinShellFailure.NoWifi),
@@ -92,7 +92,7 @@ class PhoneSetupCopyTest {
             val p = Problem.PhoneHelper(s)
             val fix = when {
                 PhoneSetupCopy.canReconnect(s) -> Fix.RetryPhoneHelper
-                // 这个 Wi-Fi 还没允许无线调试:直接去亲手打开一次
+                // この Wi-Fi ではまだワイヤレス デバッグが許可されていません。自分で開いてください。
                 s == BuiltinShellStatus.Failed(BuiltinShellFailure.WifiNotAllowed) -> Fix.OpenWirelessDebugging
                 else -> Fix.OpenPhoneSetup
             }
@@ -102,14 +102,14 @@ class PhoneSetupCopyTest {
     }
 
     @Test
-    fun copyIsPlainChinese() {
-        // 连不上时要用户照着「无线调试」页面填端口:只有这一句直说「端口」
+    fun copyIsPlainJapanese() {
+        // 接続が失敗すると、ユーザーは「ワイヤレス デバッグ」ページに従ってポートを入力するよう求められます。「ポート」と直接書かれているのは唯一の文です。
         val portAllowed = PhoneSetupCopy.failure(BuiltinShellFailure.ConnectFailed).body
         allText().forEach { t ->
             assertTrue("empty copy", t.isNotBlank())
             jargon.forEach { j -> if (!(j == "端口" && t == portAllowed)) assertFalse("「$j」 in: $t", t.contains(j, ignoreCase = true)) }
-            // 只有系统里那个选项名本身带 adb
-            if (t.contains("adb")) assertTrue(t, t.contains("「停用 adb 授权超时功能」"))
+            // システム内のオプション名のみに adb が含まれます
+            if (t.contains("adb")) assertTrue(t, t.contains("「adb 認証のタイムアウトを無効にする」"))
         }
     }
 
@@ -117,31 +117,31 @@ class PhoneSetupCopyTest {
     fun failuresAreDistinctAndActionable() {
         val titles = BuiltinShellFailure.entries.map { PhoneSetupCopy.failure(it).title }
         assertEquals(titles.size, titles.toSet().size)
-        assertEquals("重新配对", PhoneSetupCopy.fixLabel(BuiltinShellStatus.Failed(BuiltinShellFailure.WrongCode).fix))
-        assertEquals("重试", PhoneSetupCopy.fixLabel(BuiltinShellStatus.Failed(BuiltinShellFailure.HelperStartFailed).fix))
+        assertEquals("もう一度ペア設定", PhoneSetupCopy.fixLabel(BuiltinShellStatus.Failed(BuiltinShellFailure.WrongCode).fix))
+        assertEquals("再試行", PhoneSetupCopy.fixLabel(BuiltinShellStatus.Failed(BuiltinShellFailure.HelperStartFailed).fix))
     }
 
-    /** USB 命令起的助手停了:设置页、横幅都直说停了、再运行命令;不往无线调试引(有的手机根本没有)。 */
+    /** USB コマンドによって開始されたアシスタントが停止しました。設定ページとバナーにはすべて停止していることが表示され、コマンドを実行します。ワイヤレス デバッグにはつながりません (携帯電話によっては、ワイヤレス デバッグがまったくできない場合もあります)。 */
     @Test
     fun usbHelperStoppedSaysHowToStartItAgain() {
         val stopped = BuiltinShellStatus.Failed(BuiltinShellFailure.UsbHelperStopped)
-        assertEquals("手机助手已停止", PhoneSetupCopy.failure(BuiltinShellFailure.UsbHelperStopped).title)
+        assertEquals("スマホのヘルパーが停止しました", PhoneSetupCopy.failure(BuiltinShellFailure.UsbHelperStopped).title)
         val line = PhoneSetupCopy.statusLine(stopped)
-        assertTrue(line, line.contains("USB 启动命令") && line.contains("再运行一次"))
-        assertFalse(line, line.contains("无线调试"))
+        assertTrue(line, line.contains("USB の開始コマンド") && line.contains("もう一度実行"))
+        assertFalse(line, line.contains("ワイヤレス デバッグ"))
         assertEquals(BuiltinShellFix.RunUsbCommand, stopped.fix)
-        assertEquals("复制", PhoneSetupCopy.fixLabel(stopped.fix))
-        // 本来就是用命令起的:卡片说「再运行一次」,不说「打不开无线调试」
+        assertEquals("コピー", PhoneSetupCopy.fixLabel(stopped.fix))
+        // はもともとコマンドで開始されました。カードには「もう一度実行してください」と表示されましたが、「ワイヤレス デバッグを開けません」とは表示されませんでした。
         val (againTitle, againBody) = PhoneSetupCopy.usbCard(HelperRestart.UsbCommand)
-        assertEquals("再运行一次启动命令", againTitle)
-        assertTrue(againBody.contains("重启后"))
+        assertEquals("開始コマンドをもう一度実行", againTitle)
+        assertTrue(againBody.contains("再起動"))
         assertEquals(PhoneSetupCopy.USB_TITLE to PhoneSetupCopy.USB_BODY, PhoneSetupCopy.usbCard(HelperRestart.None))
         val banner = StatusCopy.banner(Problem.PhoneHelper(stopped))
-        assertEquals("手机助手已停止", banner.title)
+        assertEquals("スマホのヘルパーが停止しました", banner.title)
         assertEquals(line, banner.detail)
-        assertEquals("这台手机打不开无线调试？改用电脑启动", PhoneSetupCopy.USB_TITLE)
-        assertEquals("找不到无线调试？", PhoneSetupCopy.USB_ASK)
-        assertTrue(PhoneSetupCopy.USB_BODY.contains("数据线"))
-        assertTrue(PhoneSetupCopy.USB_BODY.contains("重启后"))
+        assertEquals("このスマホでワイヤレス デバッグを使えませんか？ 代わりにパソコンから開始します", PhoneSetupCopy.USB_TITLE)
+        assertEquals("ワイヤレス デバッグが見つかりませんか？", PhoneSetupCopy.USB_ASK)
+        assertTrue(PhoneSetupCopy.USB_BODY.contains("USB ケーブル"))
+        assertTrue(PhoneSetupCopy.USB_BODY.contains("再起動"))
     }
 }

@@ -5,7 +5,6 @@ import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,8 +15,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,8 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -55,7 +50,6 @@ import androidx.compose.ui.unit.dp
 import com.wangzan101.mika.R
 import com.wangzan101.mika.about.CheckStatus
 import com.wangzan101.mika.about.MikaLinks
-import com.wangzan101.mika.about.QrImage
 import com.wangzan101.mika.about.ReleaseInfo
 import com.wangzan101.mika.about.UpdateState
 import com.wangzan101.mika.ui.components.ButtonKind
@@ -70,14 +64,14 @@ import com.wangzan101.mika.ui.theme.MikaIcons
 import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 
-/** 关于页上点开的底部面板。 */
+/** 概要」ページをクリックしました。 */
 private enum class AboutSheet { Update, Changelog, Feedback, Group, Diagnostics }
 
 /**
- * 关于 Mika:顶上图标、名字、一句话介绍、版本(Beta 标记、构建编号);下面三组——检查更新与更新记录,
- * 联系作者与反馈,关注作者、开源仓库与使用说明;一段数据说明;最底下许可证与作者。
- * 外部链接都交给 [onOpenUrl](系统浏览器);手动检查的结果到了([UpdateState.manualRounds] 变了)才提示。
- * [diagnostics] 写出诊断信息(反馈面板里「复制诊断信息」点开预览时在后台线程调)。
+ * ミカについて: トップアイコン、名前、一文紹介、バージョン (ベータタグ、ビルド番号)。以下の 3 つのグループ - 更新の確認とレコードの更新、
+ * 著者に連絡してフィードバックを送り、著者、オープンソース ウェアハウスおよび使用手順に従ってください。データ説明の段落。一番下のライセンスと作者。
+ * の外部リンクは [onOpenUrl] (システム ブラウザ) に渡されます。手動チェックの結果は、結果が到着する ([UpdateState.manualRounds] が変更される) までプロンプトされません。
+ * [diagnostics] 診断情報を書き込みます (フィードバック パネルの [診断情報のコピー] をクリックしてプレビューを開くと、バックグラウンド スレッドで呼び出されます)。
  */
 @Composable
 fun AboutScreen(
@@ -88,7 +82,6 @@ fun AboutScreen(
     issueUrl: String,
     onCheck: () -> Unit,
     onOpenUrl: (String) -> Unit,
-    onSaveQr: () -> Boolean,
     onOpenLicense: () -> Unit,
     onBack: () -> Unit,
     diagnostics: () -> String = { "" },
@@ -96,7 +89,7 @@ fun AboutScreen(
     val c = MikaTheme.colors
     val context = LocalContext.current
     var sheet by rememberSaveable { mutableStateOf<AboutSheet?>(null) }
-    // 点了「检查更新」后等这一轮结果:有新版直接弹出说明,没有就提示一句
+    // [アップデートの確認] をクリックして、このラウンドの結果を待ちます。新しいバージョンがある場合は、ポップアップ説明が直接ポップアップ表示され、ない場合はプロンプトが表示されます。
     var waitingRound by remember { mutableIntStateOf(-1) }
     LaunchedEffect(update.manualRounds) {
         if (waitingRound >= 0 && update.manualRounds > waitingRound) {
@@ -108,9 +101,6 @@ fun AboutScreen(
                 else -> Toast.makeText(context, AboutCopy.UP_TO_DATE_TOAST, Toast.LENGTH_SHORT).show()
             }
         }
-    }
-    val saveQr = {
-        Toast.makeText(context, if (onSaveQr()) AboutCopy.QR_SAVED else AboutCopy.QR_SAVE_FAILED, Toast.LENGTH_SHORT).show()
     }
 
     PageScaffold(AboutCopy.TITLE, onBack) {
@@ -180,8 +170,9 @@ fun AboutScreen(
             onDismiss = close,
         )
         AboutSheet.Diagnostics -> DiagnosticsSheet(diagnostics, onDismiss = close)
-        AboutSheet.Group -> GroupSheet(
-            xFirst = AboutCopy.X_GROUP_FIRST, onSave = saveQr, onJoinX = { close(); onOpenUrl(MikaLinks.X_GROUP) }, onDismiss = close,
+        AboutSheet.Group -> SupportSheet(
+            onIssues = { close(); onOpenUrl(MikaLinks.X_GROUP) },
+            onUpstream = { close(); onOpenUrl(MikaLinks.UPSTREAM) }, onDismiss = close,
         )
         null -> Unit
     }
@@ -198,7 +189,7 @@ private fun Hero(versionName: String, build: String, beta: Boolean) {
             painterResource(R.drawable.mika_launcher_art), contentDescription = null,
             Modifier.size(72.dp).clip(RoundedCornerShape(20.dp)),
         )
-        Text("Mika", Modifier.padding(top = 12.dp), style = MikaType.Title, fontWeight = FontWeight.Bold, color = c.ink)
+        Text(stringResource(R.string.app_name), Modifier.padding(top = 12.dp), style = MikaType.Title, fontWeight = FontWeight.Bold, color = c.ink)
         Text(AboutCopy.TAGLINE, Modifier.padding(top = 4.dp), style = MikaType.Caption, color = c.ink2, textAlign = TextAlign.Center)
         Row(Modifier.padding(top = 10.dp).testTag("about-version"), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(AboutCopy.version(versionName), style = MikaType.Hint, color = c.ink3)
@@ -213,7 +204,7 @@ private fun Hero(versionName: String, build: String, beta: Boolean) {
     }
 }
 
-/** 行尾的值:转圈、红点加文字,或一段普通的值。 */
+/** 行末の値: 円、赤い点とテキスト、または通常の値。 新しいバージョンがある場合、 */
 @Composable
 internal fun TrailingValue(v: AboutCopy.CheckValue) {
     if (v.spinner) {
@@ -224,7 +215,7 @@ internal fun TrailingValue(v: AboutCopy.CheckValue) {
     v.text?.let { RowValue(it, if (v.highlight) ValueTone.Link else ValueTone.Plain) }
 }
 
-/** 有新版本时的小红点。 */
+/** には小さな赤い点が表示されます。 */
 @Composable
 internal fun UpdateDot(modifier: Modifier = Modifier) {
     Box(modifier.size(8.dp).background(MikaTheme.colors.bad, CircleShape).testTag("update-dot"))
@@ -235,7 +226,7 @@ private fun ExternalMark() {
     Icon(MikaIcons.External, null, Modifier.size(15.dp), tint = MikaTheme.colors.ink3)
 }
 
-// ---------- 底部面板 ----------
+// ---------- 底面パネル ----------
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -247,7 +238,7 @@ private fun AboutSheetFrame(title: String, sub: String?, tag: String, onDismiss:
         containerColor = c.surface,
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
     ) {
-        // 面板内容太高(矮屏、大字号)时整体能滚,底下的按钮总够得着
+        // パネルのコンテンツが多すぎる場合 (画面が短く、フォント サイズが大きい)、パネル全体をスクロールでき、その下のボタンが常に手の届く範囲にあります。
         Column(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding()
                 .padding(start = 16.dp, end = 16.dp, bottom = 16.dp).testTag(tag),
@@ -259,7 +250,7 @@ private fun AboutSheetFrame(title: String, sub: String?, tag: String, onDismiss:
     }
 }
 
-/** 更新说明(Markdown),浅底、太长时在框里滚。 */
+/** 更新命令 (マークダウン)、底が浅く、​​長すぎる場合はボックス内でスクロールします。 */
 @Composable
 private fun NotesBox(notes: String) {
     val c = MikaTheme.colors
@@ -308,7 +299,7 @@ private fun FeedbackSheet(onGitHub: () -> Unit, onDiagnostics: () -> Unit, onGro
         Column(Modifier.padding(top = 6.dp)) {
             FeedbackOption(MikaIcons.Code, AboutCopy.FEEDBACK_GITHUB, AboutCopy.FEEDBACK_GITHUB_SUB, first = true, onGitHub)
             FeedbackOption(MikaIcons.Copy, AboutCopy.DIAGNOSTICS, AboutCopy.DIAGNOSTICS_SUB, first = false, onDiagnostics)
-            // 作者微信、X 群聊都在联系作者面板里,这里只开那个面板
+            // 著者の WeChat および X グループ チャットは、著者に連絡するパネルにあります。ここではそのパネルのみが開いています。
             FeedbackOption(MikaIcons.Chats, AboutCopy.FEEDBACK_GROUP, AboutCopy.GROUP_SUB, first = false, onGroup)
         }
     }
@@ -322,41 +313,12 @@ private fun FeedbackOption(icon: ImageVector, title: String, sub: String, first:
 }
 
 /**
- * 联系作者面板:作者的微信二维码(长按或按钮存进相册)和 X 群聊入口。[xFirst] 时(英文界面)X 群聊在上、微信码在下,
- * 不然微信在前、X 群聊作为「不用微信？」的去处放在下面。
+ * 日本語版の問い合わせ先と、原作のクレジットを表示する。
  */
 @Composable
-internal fun GroupSheet(xFirst: Boolean, onSave: () -> Unit, onJoinX: () -> Unit, onDismiss: () -> Unit) {
-    val c = MikaTheme.colors
-    // 二维码最高占屏幕约三分之一,常见手机上不用滚就能看到底下的按钮
-    val qrHeight = (LocalConfiguration.current.screenHeightDp * 0.34f).coerceAtMost(280f).dp
-    val qr = painterResource(QrImage.RES)
+internal fun SupportSheet(onIssues: () -> Unit, onUpstream: () -> Unit, onDismiss: () -> Unit) {
     AboutSheetFrame(AboutCopy.GROUP_SHEET_TITLE, AboutCopy.GROUP_SHEET_SUB, "group-sheet", onDismiss) {
-        val weChat = @Composable {
-            Image(
-                qr, contentDescription = AboutCopy.GROUP_SHEET_TITLE,
-                Modifier.padding(top = 12.dp, bottom = 6.dp).align(Alignment.CenterHorizontally)
-                    .height(qrHeight).aspectRatio(qr.intrinsicSize.width / qr.intrinsicSize.height)
-                    .clip(RoundedCornerShape(12.dp))
-                    .pointerInput(Unit) { detectTapGestures(onLongPress = { onSave() }) }
-                    .testTag("wechat-qr"),
-            )
-            Text(AboutCopy.GROUP_HINT, Modifier.fillMaxWidth(), style = MikaType.Hint, color = c.ink3, textAlign = TextAlign.Center)
-            MikaButton(AboutCopy.SAVE_QR, onSave, Modifier.fillMaxWidth().padding(top = 14.dp), kind = ButtonKind.Tonal)
-        }
-        val x = @Composable { top: Boolean ->
-            // 放在上面时不用「不用微信？」引出,直接给按钮
-            if (!top) Text(AboutCopy.GROUP_NO_WECHAT, Modifier.fillMaxWidth().padding(top = 12.dp), style = MikaType.Hint, color = c.ink3, textAlign = TextAlign.Center)
-            MikaButton(AboutCopy.GROUP_JOIN_X, onJoinX, Modifier.fillMaxWidth().padding(top = if (top) 14.dp else 8.dp).testTag("group-join-x"))
-        }
-        if (xFirst) {
-            x(true)
-            HorizontalDivider(Modifier.padding(top = 16.dp), color = c.hair)
-            weChat()
-        } else {
-            weChat()
-            HorizontalDivider(Modifier.padding(top = 16.dp), color = c.hair)
-            x(false)
-        }
+        MikaButton(AboutCopy.FEEDBACK_GITHUB, onIssues, Modifier.fillMaxWidth().padding(top = 14.dp).testTag("support-issues"))
+        MikaButton(stringResource(R.string.about_upstream), onUpstream, Modifier.fillMaxWidth().padding(top = 10.dp).testTag("support-upstream"), kind = ButtonKind.Tonal)
     }
 }

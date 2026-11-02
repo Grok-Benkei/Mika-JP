@@ -25,14 +25,14 @@ import java.lang.reflect.Proxy
 import kotlin.system.exitProcess
 
 /**
- * 内置助手进程的入口。Mika 经本机无线调试(adbd 的 exec: 服务)以 shell 身份启动它:
- * `CLASSPATH=<base.apk> app_process /system/bin --nice-name=<包名>:helper com.wangzan101.mika.shell.HelperMain <包名> <Mika 的 uid> <签名指纹>`,
- * 一次性口令从标准输入读一行(见 [HelperHandoff.command])。电脑经 USB 调试跑「用电脑启动」脚本时起的也是它,命令和参数相同
- * (见 [HelperHandoff.usbScript])。
+ * 組み込みヘルパー プロセスへの入り口。 Mega は、ネイティブ ワイヤレス デバッグ (adbd の exec: サービス) を介してシェルとして起動します。
+ * `CLASSPATH=<base.apk> app_process /system/bin --nice-name=<パッケージ名>:helper com.wangzan101.mika.shell.HelperMain <パッケージ名> <MikaのUID> <署名証明書のフィンガープリント>`、
+ * ワンタイム パスワードは、標準入力から 1 行を読み取ります ([HelperHandoff.command] を参照)。これは、コンピュータが USB デバッグを通じて「コンピュータで起動」スクリプトを実行したときに起動するものでもあります。コマンドとパラメータは同じです。
+ * ([HelperHandoff.usbScript] を参照)。
  *
- * 特权逻辑全在 [ShellService];这里只负责把它的 Binder 交给 Mika,并且在 Mika 进程结束后不退出:
- * 撤掉 Mika 留下的改动,等 Mika 再起来时重新交接。Mika 死后一会儿还没回来、而它交来的心愿([RestoreWish])要拉起来时,
- * 把它的无障碍服务写回系统列表,再经交接用的 provider 把它的进程拉起来(见 [HelperRestorePolicy])。
+ * の特権ロジックはすべて [ShellService] にあります。ここでは、バインダーをミカに渡すことのみを担当し、ミカのプロセスが終了した後に終了することはありません。
+ * ミカが残した変更を元に戻し、ミカが再び立ち上がったときに再送信します。美香が死んでしばらく戻らず、彼女が与えた願い([RestoreWish])が引き上げられようとしたとき、
+ * は、アクセシビリティ サービスをシステム リストに書き込み、ハンドオーバー プロバイダーを通じてそのプロセスをプルアップします ([HelperRestorePolicy] を参照)。
  */
 object HelperProcess {
     private const val TAG = "MikaHelper"
@@ -46,17 +46,17 @@ object HelperProcess {
         val packageName = args[0]
         val appUid = args[1].toIntOrNull() ?: exitProcess(2)
         val certPin = args[2]
-        // 读完就关:标准输入只用来递口令
+        // 読み取り後に閉じる: 標準入力はパスワードを渡すためにのみ使用されます
         val launchNonce = runCatching { System.`in`.bufferedReader().readLine()?.trim() }.getOrNull()
         runCatching { System.`in`.close() }
         if (launchNonce.isNullOrEmpty()) {
             Log.e(TAG, "no nonce on stdin")
             exitProcess(2)
         }
-        // ShellContext 自建 ActivityThread 时要有主线程 Looper
+        // ShellContext は、独自の ActivityThread を構築するときにメイン スレッド Looper を必要とします
         Looper.prepareMainLooper()
         val service = ShellService(allowedUid = appUid)
-        // 上次在静音中被杀、没来得及恢复的 App,先把声音还回去
+        // 最後にアプリがミュート モードで終了し、復元できなかったときは、まずサウンドを戻してください。
         service.recoverMuted()
         val helper = Helper(service, packageName, appUid, certPin)
         helper.start(launchNonce)
@@ -72,17 +72,17 @@ object HelperProcess {
         private val context: Context = ShellContext.create()
         private val authority = HelperHandoff.authority(packageName)
         private val userId = appUid / PER_USER_RANGE
-        /** 交接、Mika 死亡处理都排在这一条线程上,彼此不交错,也不堵主线程。 */
+        /** の引き継ぎとミカの死亡処理は、相互に干渉したりメインスレッドをブロックしたりすることなく、すべてこのスレッド上に配置されます。 */
         private val worker = Handler(HandlerThread("helper-handoff").apply { start() }.looper)
-        /** 下次交接用的口令(Mika 上次收下时换发的)。 */
+        /** 次回引き継ぎ用のパスワード（前回美香が承諾した際に再発行）。 */
         private var nonce: String? = null
-        /** Mika 进程交给我们的令牌;为 null 表示 Mika 现在不在。 */
+        /** ミカプロセスによって渡されたトークン。 null は、ミカが今ここにいないことを意味します。 */
         private var appToken: IBinder? = null
         private var retrying = false
-        /** Mika 最后交来的心愿;助手刚起来时什么都不做。 */
+        /** 美香が託した最後の願い。助手は最初に立ち上がったとき何もしなかった。 */
         private var wish = RestoreWish.NONE
         private val restorePolicy = HelperRestorePolicy()
-        /** 每次 Mika 死去加一:等的这一会儿里 Mika 回来又死了,前一次的等待作废。 */
+        /** ミカが死ぬたびに 1 つ追加します。待っている間にミカは戻ってきて再び死に、前の待機は無効になります。 */
         private var deaths = 0
 
         init {
@@ -98,7 +98,7 @@ object HelperProcess {
         fun start(launchNonce: String) = worker.post {
             when (deliver(launchNonce)) {
                 Outcome.Accepted -> {
-                    // Mika 收下了这一个:之前起的(或残留的)助手实例都该走了
+                    // ミカはこれを受け入れました: 以前の (または残りの) ヘルパー インスタンスはすべて削除されるべきです
                     killOtherInstances()
                     watchUid()
                 }
@@ -109,11 +109,11 @@ object HelperProcess {
 
         private enum class Outcome { Accepted, Rejected, Failed }
 
-        /** 经 ActivityManager 拿 Mika 的 provider(同 `content call` 的做法),把 Binder 和自报的 uid/pid 交过去。 */
+        /** は、ActivityManager (`content call` と同じ) を通じてミカのプロバイダーを取得し、バインダーと自己報告の uid/pid を渡します。 */
         @SuppressLint("PrivateApi", "DiscouragedPrivateApi")
         private fun deliver(n: String?): Outcome {
             if (n == null) return Outcome.Rejected
-            // 包名和 uid 可能被重装的别的 App 占用:签名对不上就不交 Binder,撤掉改动退出
+            // パッケージ名と uid は、再インストールされた他のアプリによって占有されている可能性があります。署名が一致しない場合は、Binder に送信せず、変更を元に戻して終了してください。
             if (!signedAsPinned()) {
                 Log.e(TAG, "$packageName is missing or not signed with the pinned certificate; exiting")
                 runCatching { service.releaseAll() }
@@ -131,7 +131,7 @@ object HelperProcess {
                 return Outcome.Failed
             } ?: return Outcome.Failed
             try {
-                // 同名 authority 只可能属于一个包;还是核对一下,不把 Binder 交给 Mika 以外的 App
+                // と同じ名前の権限は 1 つのパッケージにのみ所属できます。確認して、Mika 以外のアプリにバインダーを渡さないほうがよいでしょう。
                 val info = holder.javaClass.getField("info").get(holder) as? ProviderInfo
                 if (info == null || info.packageName != packageName || info.applicationInfo?.uid != appUid) {
                     Log.e(TAG, "provider $authority does not belong to $packageName/$appUid")
@@ -181,7 +181,7 @@ object HelperProcess {
             }
         }
 
-        /** Mika 进程没了:它建的屏、静音、剪贴板改动跟着撤掉(和服务结束时一样),助手本身留着。 */
+        /** Mega プロセスはなくなりました。作成された画面、ミュート、およびクリップボードの変更は削除され (サービス終了時と同じ)、アシスタント自体は残ります。 */
         private fun onAppDied(token: IBinder) {
             if (appToken !== token) return
             appToken = null
@@ -196,9 +196,9 @@ object HelperProcess {
         }
 
         /**
-         * Mika 死了一会儿还没回来:按它最后交来的心愿决定拉不拉。拉的话先写回无障碍服务(被强行停止时系统会把它拿掉),
-         * 再重新交接:拿 Mika 的 provider 时系统会把它的进程起来(provider 不受后台启动限制,也不显示界面),
-         * Application 照常创建,胶囊和别的服务跟着起来。shell 能拿任意 App 的 provider(`content` 命令用的同一条路)。
+         * ミカはしばらく死んでまだ戻ってきません。最後の願いに従ってうんちをするかどうかを決定します。プルした場合は、最初にアクセシビリティ サービスに書き戻します (システムが強制的に停止すると削除されます)。
+         * 再度ハンドオーバー: ミカのプロバイダーを使用すると、システムはそのプロセスを開始します (プロバイダーはバックグラウンド起動の制限を受けず、インターフェイスは表示されません)。
+         * アプリケーションが通常どおり作成され、カプセルやその他のサービスが続きます。シェルは、任意のアプリのプロバイダーを取得できます (`content` コマンドで使用されるのと同じパス)。
          */
         private fun maybeRestore() {
             val now = System.currentTimeMillis()
@@ -216,7 +216,7 @@ object HelperProcess {
             redeliver(0)
         }
 
-        /** 把 Mika 的无障碍服务追加回系统列表、打开总开关;别的服务不动。失败只记日志,照样去拉 Mika(它起来后自己还会修)。 */
+        /** ミカのアクセシビリティ サービスをシステム リストに追加し、メイン スイッチをオンにします。他のサービスは変更ありません。失敗した場合は、ログを記録して、通常どおりミカをプルします (立ち上がると自動的に修復されます)。 */
         private fun restoreAccessibility() {
             val me = PermissionCommands.accessibilityService(packageName)
             val current = service.runCommand(PermissionCommands.READ_ACCESSIBILITY).getString("output")
@@ -236,20 +236,20 @@ object HelperProcess {
                 .invoke(context.packageManager, packageName, 0, userId)
             true
         }.getOrElse { t ->
-            // 包不在了才退出;反射不可用时看不清,当作还在
+            // パッケージが利用できなくなった場合にのみ終了します。反射が利用できない場合、はっきりと見ることができず、それがまだそこにあるかのように扱うことができます。
             val cause = (t as? java.lang.reflect.InvocationTargetException)?.targetException ?: t
             cause !is android.content.pm.PackageManager.NameNotFoundException
         }
 
         /**
-         * 盯着 Mika 的 uid:进程重新起来时(从不存在变成任一状态)系统会报一次,这时把 Binder 再交过去。
-         * 用的是 ActivityManager 的 uid 重要性监听(要 PACKAGE_USAGE_STATS,shell 有),回调在 binder 线程。
-         * 注册不上时由 Mika 那边兜底:等不到交接就经 adbd 另起一个助手,新的收下后会结束这个。
+         * ミカの uid を見つめます: プロセスが再起動されると (存在しない状態から任意の状態に)、システムは一度報告し、その後再びバインダーを渡します。
+         * は、ActivityManager の uid 重要度監視を使用し (PACKAGE_USAGE_STATS が必要、シェルにはそれがあります)、コールバックはバインダー スレッド内にあります。
+         * の登録に失敗した場合は、Mika が対応します。ハンドオーバーの前に、adbd を通じて別のアシスタントが作成され、新しいアシスタントが受け入れられた後に終了します。
          */
         @SuppressLint("PrivateApi", "DiscouragedPrivateApi")
         private fun watchUid() {
             runCatching {
-                // 用 shell 包名的上下文建 ActivityManager:注册时系统按调用方包名核对权限
+                // シェル パッケージ名のコンテキストを使用して、ActivityManager を作成します。登録時に、システムは呼び出し元のパッケージ名に基づいて権限をチェックします。
                 val manager = ActivityManager::class.java.getDeclaredConstructor(Context::class.java, Handler::class.java)
                     .apply { isAccessible = true }.newInstance(context, worker)
                 val listenerClass = Class.forName("android.app.ActivityManager\$OnUidImportanceListener")
@@ -272,12 +272,12 @@ object HelperProcess {
             worker.post { if (appToken == null && !retrying) redeliver(0) }
         }
 
-        /** 重新交接;provider 暂时不可用时隔一会儿再试几次,还不行就等下一次 Mika 起来。 */
+        /** 再ハンドオーバー;プロバイダーが一時的に利用できない場合は、しばらくしてからもう一度試してください。それでもダメなら、次にミカが起きるまで待ってください。 */
         private fun redeliver(attempt: Int) {
             if (appToken != null) return
             when (deliver(nonce)) {
                 Outcome.Accepted -> retrying = false
-                // Mika 不认这个助手了(重装过、解除了配对、或者已经换了新的):退出
+                // ミカはこのアシスタントを認識しません (再インストールされているか、ペアリングが解除されているか、新しいアシスタントに置き換えられています): 終了 現在
                 Outcome.Rejected -> exitProcess(0)
                 Outcome.Failed -> {
                     retrying = attempt + 1 < RETRY_DELAYS_MS.size
@@ -286,7 +286,7 @@ object HelperProcess {
             }
         }
 
-        /** 现在装着的 [packageName] 仍是这个 uid、签名证书指纹与启动时 Mika 给的一致。看不清一律当不一致。 */
+        /** にインストールされている [packageName] には、起動時にミカによって与えられたものと同じ uid と署名証明書のフィンガープリントがまだあります。はっきり見えないと矛盾しているとみなされてしまいます。 */
         @SuppressLint("DiscouragedPrivateApi")
         private fun signedAsPinned(): Boolean = runCatching {
             val pm = context.packageManager
@@ -301,7 +301,7 @@ object HelperProcess {
             false
         }
 
-        /** 只认进程名完全相同的同 uid 进程:别的 app_process 不能误伤。 */
+        /** は、同じプロセス名と同じ uid を持つプロセスのみを認識します。他の app_processes が誤って破損することはありません。 */
         private fun killOtherInstances() {
             val me = Process.myPid()
             val name = HelperHandoff.processName(packageName)

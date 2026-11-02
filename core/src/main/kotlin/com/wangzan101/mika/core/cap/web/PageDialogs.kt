@@ -2,30 +2,30 @@ package com.wangzan101.mika.core.cap.web
 
 import com.wangzan101.mika.core.uistate.PageDialog
 
-/** 页面弹框的回话:浏览器等着这一句才让页面接着跑。各实现只会被调用一次。 */
+/** ページのポップアップ ボックスに返信: ブラウザは、ページの実行を続行する前にこの文を待ちます。各実装は 1 回だけ呼び出されます。 */
 interface DialogReply {
-    /** 确定;[text] 只有输入框弹框(prompt)用。 */
+    /** OK; [text] は入力ボックス プロンプト (プロンプト) にのみ使用されます。 */
     fun accept(text: String?)
     fun dismiss()
 }
 
 sealed interface DialogAnswer {
-    /** 此刻没有等回话的弹框。 */
+    /** 現時点では返信待ちのポップアップはありません。 */
     data object NoDialog : DialogAnswer
-    /** [textIgnored]:给了文字,但这个弹框不是输入框弹框,文字没用上。 */
+    /** [textIgnored]: テキストが指定されていますが、このポップアップ ボックスは入力ボックス ポップアップ ボックスではないため、テキストは使用されません。 */
     data class Answered(val dialog: PageDialog, val accepted: Boolean, val textIgnored: Boolean) : DialogAnswer
 }
 
 /**
- * 一个标签上等回话的页面弹框(alert、confirm、prompt、离开页面确认)。
- * 弹框出现时只记下来,不替用户点:标签在后台、模型这一步没处理也一直挂着,下次读屏照样看得到,直到 [answer] 或 [close]。
- * 记下不占任何线程:浏览器那边只是停住这个页面的脚本,界面线程照常。
- * 同一时刻页面只会有一个弹框;万一又来一个(别的框架),旧的按取消回掉,只留新的。线程安全。
+ * ラベルおよびその他の応答 (アラート、確認、プロンプト、ページ終了確認) を含むページ ポップアップ ボックス。
+ * ポップアップ ボックスが表示されるときは、ユーザーがクリックするのではなく、書き留められるだけです。ラベルはバックグラウンドにあり、モデル ステップは処理されず、ハングしたままになります。次回画面を読み取るときに、[answer] または [close] まで表示されます。
+ * スレッドを占有しないことに注意してください。ブラウザはこのページのスクリプトを停止するだけで、インターフェイス スレッドは通常どおり残ります。
+ * ページ上に同時に存在するポップアップ フレームは 1 つだけです。別のフレーム (別のフレーム) が来た場合は、「キャンセル」を押して古いフレームを削除し、新しいフレームだけを残します。スレッドセーフ。
  */
 class PageDialogs {
     private var pending: Pair<PageDialog, DialogReply>? = null
 
-    /** 此刻等回话的弹框;没有为 null。 */
+    /** 現時点で応答を待っているポップアップ ボックス。そうでない場合は null です。 */
     val current: PageDialog? @Synchronized get() = pending?.first
 
     fun open(dialog: PageDialog, reply: DialogReply) {
@@ -33,7 +33,7 @@ class PageDialogs {
         old?.second?.dismiss()
     }
 
-    /** 回话并清掉;没有等回话的弹框时什么都不做。 */
+    /** は応答してクリアします。応答待ちのポップアップがない場合は何もしません。 */
     fun answer(accept: Boolean, text: String?): DialogAnswer {
         val (dialog, reply) = synchronized(this) { pending.also { pending = null } } ?: return DialogAnswer.NoDialog
         val prompt = dialog.kind == PageDialog.PROMPT
@@ -42,7 +42,7 @@ class PageDialogs {
         return DialogAnswer.Answered(dialog, accept, textIgnored = text != null && (!prompt || !accept))
     }
 
-    /** 标签关掉、页面换走时:按取消回掉,免得页面一直停着。 */
+    /** ラベルが閉じられてページが変更された場合: ページがスタックしないように、[キャンセル] を押して戻ります。 */
     fun close() {
         val old = synchronized(this) { pending.also { pending = null } }
         old?.second?.dismiss()

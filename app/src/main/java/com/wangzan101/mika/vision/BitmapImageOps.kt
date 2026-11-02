@@ -11,12 +11,12 @@ import java.io.ByteArrayOutputStream
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-/** 用系统 Bitmap 实现的图像处理;改过的图按 PNG 输出(不丢细节),只有 [toJpeg] 出 JPEG。 */
+/** はシステム ビットマップを使用して画像処理を実装します。変更された画像は (詳細を失うことなく) PNG として出力されますが、[toJpeg] のみが JPEG を出力します。 */
 object BitmapImageOps : ImageOps {
-    /** 亮度低于它的像素算黑。 */
+    /** よりも低い明るさのピクセルは黒とみなされます。 */
     private const val BLACK_LUMA = 16
     private const val BLACK_SHARE = 0.98
-    /** 判全黑时最多抽这么多个点,整屏逐点看太慢。 */
+    /** は真っ黒と判定された場合、最大でも数点しか描画できません。画面全体を 1 点ずつ表示するには遅すぎます。 */
     private const val SAMPLE_SIDE = 64
 
     private fun decode(img: ByteArray): Bitmap =
@@ -30,7 +30,7 @@ object BitmapImageOps : ImageOps {
     private fun Bitmap.encode(format: Bitmap.CompressFormat, quality: Int): ByteArray =
         ByteArrayOutputStream().also { compress(format, quality, it) }.toByteArray()
 
-    /** 编码后回收;结果可能就是原图(尺寸没变时系统直接返回原图),重复回收无害。 */
+    /** はエンコード後にリサイクルされます。結果は元の画像になる可能性があり (サイズが変更されていない場合、システムは直接元の画像に戻ります)、リサイクルを繰り返しても無害です。 */
     private fun Bitmap.png(): ByteArray = try { encode(Bitmap.CompressFormat.PNG, 100) } finally { recycle() }
 
     private fun toPx(n: Int, size: Int) = (n * (size - 1) / 999.0).roundToInt().coerceIn(0, size - 1)
@@ -44,7 +44,7 @@ object BitmapImageOps : ImageOps {
         return o.outWidth to o.outHeight
     }
 
-    /** 每块取真平均:一步缩到 8×8 只是抽点,同一画面两次结果可能不同。逐行读,不一次拿整屏像素。 */
+    /** は各ブロックの真の平均を取得します。1 ステップで 8×8 に縮小するのは単なるサンプリング ポイントであり、同じピクチャを 2 回行った場合の結果は異なる場合があります。画面全体のピクセルを一度に読み取るのではなく、行ごとに読み取ります。 */
     override fun aHash(img: ByteArray): Long = use(img) { bmp ->
         val w = bmp.width; val h = bmp.height
         val sum = LongArray(64); val count = IntArray(64)
@@ -74,7 +74,7 @@ object BitmapImageOps : ImageOps {
         require(box.size == 4) { "box must be [l, t, r, b]" }
         val out = bmp.copy(Bitmap.Config.ARGB_8888, true)
         val half = strokePx / 2f
-        // 描边以线为中心;右、下边的像素格是 [r, r+1),所以线要落在 r+1 上,四条边才一样宽且都在框内
+        // ストロークは線の中心に配置されます。右側と下のピクセル グリッドは [r, r+1) であるため、ラインは r+1 に位置し、4 つの辺が同じ幅を持ち、すべてフレーム内に収まるようにする必要があります。
         val rect = RectF(
             toPx(box[0], out.width) - expandPx + half, toPx(box[1], out.height) - expandPx + half,
             toPx(box[2], out.width) + 1 + expandPx - half, toPx(box[3], out.height) + 1 + expandPx - half,

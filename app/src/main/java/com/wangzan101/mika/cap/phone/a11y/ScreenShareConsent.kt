@@ -16,7 +16,7 @@ import com.wangzan101.mika.ui.theme.MikaTheme
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
-/** 用户主动分享的授权浮层;不会先读取应用内容。 */
+/** ユーザーによってアクティブに共有される認証フローティング レイヤー。アプリケーションのコンテンツは最初に読み取られません。 */
 internal suspend fun requestScreenShare(service: ScreenAccessibility, store: AppAccessStore, pkg: String, label: String): Boolean =
     suspendCancellableCoroutine { continuation ->
         val protection = store.protectUi()

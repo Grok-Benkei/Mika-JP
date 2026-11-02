@@ -8,26 +8,26 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * 元素融合:页面脚本的元素表(看得见、没被盖住的才列)与 DevTools 无障碍树按 backendNodeId 合成一份元素列表。纯函数。
- * - 两边都有:名字、角色、禁用/焦点等状态取无障碍树,位置、可见、遮挡取页面脚本。无障碍树里被忽略的节点不采信。
- *   输入框、下拉框的名字里带着已填的值,保留页面脚本的;文件控件、内嵌页面占位的角色保留页面脚本的。
- * - 只有无障碍树有:只收可交互的角色。页面脚本读不到的跨源框架(它只列出一个「内嵌页面」占位)里的,
- *   框剪到占位的可见范围内,插在占位后面;页面脚本读得到的文档里的(如封闭的 shadow root),要命中检测确认在最上面才收。
- * - 只有页面脚本有:原样保留;元素自己挂着点击类监听器的纯文字/图片升为可点。
- * 顺序:文档顺序。超出 [Input.budget] 时先丢没信息量的,再丢纯文字,最后才丢可交互的,丢掉的个数记在 omitted。
- * 编号重新按顺序排成 @e1…;[Result.pageRefs] 是新编号 → 页面脚本编号表里的编号(只有无障碍树有的元素没有)。
+ * 要素の融合: ページ スクリプトの要素テーブル (表示されている列とカバーされていない列) と DevTools アクセシビリティ ツリーが、backendNodeId に基づいて 1 つの要素リストに結合されます。純粋な機能。
+ * - 名前、役割、無効/フォーカス、その他のステータスとアクセス ツリー、位置、表示、オクルージョン、ページ スクリプトの両面があります。アクセシビリティ ツリー内の無視されたノードは考慮されません。
+ *   名前に値が入力された入力ボックスとドロップダウン ボックスはページ スクリプトを保持します。ファイル コントロールと埋め込みページ プレースホルダー ロールはページ スクリプトを保持します。
+ * - アクセシビリティ ツリーのみにあります: インタラクティブ文字のみが受け入れられます。ページ スクリプトで読み取れないクロスオリジン フレームワークでは (「埋め込みページ」プレースホルダーのみがリストされます)、
+ *   フレームがプレースホルダーの表示範囲に切り取られ、プレースホルダーの後ろに挿入されます。ページ スクリプトで読み取ることができるドキュメント (閉じられたシャドウ ルートなど) では、閉じる前に先頭でヒット検出を確認する必要があります。
+ * - ページ スクリプトのみが持っています: そのままにしておきます。要素自体にクリック リスナーがアタッチされたプレーン テキスト/画像は、クリック可能にアップグレードされます。
+ * シーケンス: ドキュメント シーケンス。 [Input.budget] を超えると、最初に情報のないものが失われ、次にプレーン テキスト、最後にインタラクティブなものが失われます。紛失個数は省略して記載されます。
+ * 番号は @e1... の順に並べ替えられます。 [Result.pageRefs] は新しい番号 → ページ スクリプト番号テーブルの番号です (アクセシビリティ ツリーの要素のみが番号ではありません)。
  */
 object ElementFusion {
     const val DEFAULT_BUDGET = 400
-    /** 只有无障碍树有的元素最多补这么多个(每个要一次取框、一次命中检测)。 */
+    /** アクセシビリティ ツリーだけが最大で非常に多くの要素を持ちます (それぞれに 1 つのフレーム削除と 1 つのヒット検出が必要です)。 */
     const val MAX_CANDIDATES = 60
-    /** 最多给这么多个页面脚本元素查监听器。 */
+    /** は、最大でこの数のページ スクリプト要素のリスナーをチェックできます。 */
     const val MAX_LISTENER_PROBES = 40
     private const val NAME_CHARS = 80
 
     /**
-     * 无障碍树的一个节点。[id]/[parent] 是本帧树里的节点号,[order] 是本帧树深度优先的先后;
-     * [states] 是为真的布尔/三态属性名(disabled、focused、readonly、editable、checked…)。
+     * アクセシビリティ ツリー内のノード。 [id]/[parent] はこのフレームのツリー内のノード番号、[order] はこのフレーム内のツリーの深度優先度です。
+     * [states] は、真のブール/3 状態の属性名 (無効、フォーカス、読み取り専用、編集可能、チェック済み...) です。
      */
     data class AxNode(
         val id: String,
@@ -41,7 +41,7 @@ object ElementFusion {
         val states: Set<String> = emptySet(),
     )
 
-    /** 顶层视口 CSS 像素的矩形。 */
+    /** トップレベルのビューポート CSS ピクセルの四角形。 */
     data class Box(val l: Double, val t: Double, val r: Double, val b: Double) {
         val cx get() = (l + r) / 2
         val cy get() = (t + b) / 2
@@ -52,9 +52,9 @@ object ElementFusion {
     enum class Origin { PAGE, BOTH, AX }
 
     /**
-     * [page] 是 PageTree 的结果(视图像素),[pageIds] 与它按下标对齐;[owners] 是框架元素的 backendNodeId → 它里面文档的 frameId。
-     * [boxes]/[onTop] 给只有无障碍树有的候选节点(按 backendNodeId):框(已换成顶层视口坐标)与命中检测结果。
-     * [listeners] 是挂着点击类监听器的元素。[scale] 是 CSS 像素 → 视图像素的倍数。
+     * [page] は PageTree の結果 (ビュー ピクセル) であり、[pageIds] はそれに添え字が揃えられています。 [owners] は、フレーム要素の backendNodeId → その中のドキュメントの FrameId です。
+     * [boxes]/[onTop] アクセシビリティ ツリーのみを持つ候補ノード (backendNodeId による) を提供します: ボックス (トップレベルのビューポート座標に置き換えられます) とヒット検出結果。
+     * [listeners] は、クリック リスナーがアタッチされた要素です。 [scale] は CSS ピクセル → ビュー ピクセルの倍数です。
      */
     class Input(
         val page: List<UiElement>,
@@ -76,26 +76,26 @@ object ElementFusion {
         val pageRefs: Map<String, String>,
         val backendIds: Map<String, Int>,
         val origins: Map<String, Origin>,
-        /** 只有无障碍树有的元素所在框架的占位元素(新编号 → 占位的 backendNodeId);在主文档的为空。 */
+        /** アクセシビリティ ツリー内の要素が配置されているフレームのプレースホルダー要素のみ (新しい番号 → プレースホルダーの backendNodeId)。メインドキュメントでは空です。 */
         val frameOwners: Map<String, Int>,
         val omitted: Int,
     )
 
-    /** 一个候选节点:[placeholder] 是它所在跨源框架在页面脚本元素表里的占位下标,在页面脚本读得到的文档里为 null。 */
+    /** 候補ノード: [placeholder] は、ページ スクリプト要素テーブルに配置されるクロスソース フレームワークのプレースホルダー添字であり、ページ スクリプトによって読み取られるドキュメントでは null です。 */
     class Candidate(val node: AxNode, val placeholder: Int?, val ownerId: Int?)
 
-    // ---------- 角色 ----------
+    // ---------- 役割 ----------
 
     private val CLICK_ROLES = setOf(
         "link", "button", "checkbox", "radio", "combobox", "switch", "tab", "menuitem", "option", "slider",
         "menuitemcheckbox", "menuitemradio", "treeitem", "listbox",
     )
     private val EDIT_ROLES = setOf("textbox")
-    /** 页面脚本给的这些角色不让无障碍树改:file 是上传要认的,frame 是跨源框架的占位。 */
+    /** ページ スクリプトによって与えられるロールでは、アクセシビリティの変更は許可されていません。アップロードにはファイルが必要で、フレームはクロスオリジン フレームワークのプレースホルダーです。 */
     private val KEEP_PAGE_ROLES = setOf("file", "frame")
     private val NON_INTERACTIVE_ROLES = setOf("heading", "image")
 
-    /** 无障碍树的角色 → 和页面脚本同一套词;没有语义的(generic、StaticText…)为 null。 */
+    /** アクセシビリティ ツリーの役割 → ページ スクリプトと同じ単語のセット。セマンティクスのないもの (ジェネリック、StaticText...) は null です。 */
     fun role(ax: String): String? = when (ax) {
         "searchbox", "spinbutton" -> "textbox"
         "img" -> "image"
@@ -108,9 +108,9 @@ object ElementFusion {
 
     private fun interactive(role: String?) = role != null && (role in CLICK_ROLES || role in EDIT_ROLES)
 
-    // ---------- 第一步:要补框的候选 ----------
+    // ---------- ステップ 1: フレーム埋めの候補 ----------
 
-    /** 只有无障碍树有、可交互、值得补的节点;页面脚本读不到的跨源框架里的排前面。 */
+    /** アクセシビリティ ツリーには、対話型で追加する価値のあるノードのみがあります。これらは、ページ スクリプトでは読み取れないクロスオリジン フレームワークで 1 位にランクされています。 */
     fun candidates(input: Input): List<Candidate> {
         val matched = input.pageIds.filterNotNull().toSet()
         val byFrame = input.ax.groupBy { it.frameId }.mapValues { (_, l) -> l.associateBy { it.id } }
@@ -122,7 +122,7 @@ object ElementFusion {
             if (n.ignored || id in matched || !interactive(role(n.role))) continue
             val ph = behind[n.frameId]
             if (ph == null) {
-                // 读得到的文档里,外层有页面脚本已列出的可交互元素:页面脚本看见了外层却没列它,多半被盖住或只是外层的一部分
+                // 読み取り可能なドキュメントでは、ページ スクリプトによってリストされた外側のレイヤーにインタラクティブな要素があります。ページ スクリプトは外側のレイヤーを認識しますが、リストしません。それらのほとんどは覆われているか、外層の一部のみです。
                 val nodes = byFrame[n.frameId].orEmpty()
                 var p = n.parent?.let(nodes::get)
                 var covered = false
@@ -138,7 +138,7 @@ object ElementFusion {
         return out.sortedBy { if (it.placeholder != null) 0 else 1 }.take(MAX_CANDIDATES)
     }
 
-    /** frameId → (占位在页面脚本元素表里的下标, 占位的 backendNodeId):占位框架本身及它里面套的框架。 */
+    /** FrameId → (ページ スクリプト要素テーブル内のプレースホルダーの添字、プレースホルダーの backendNodeId): プレースホルダー フレーム自体とその内部のフレーム。 */
     private fun placeholders(input: Input): Map<String, Pair<Int, Int>> {
         val direct = HashMap<String, Pair<Int, Int>>()
         input.pageIds.forEachIndexed { i, id ->
@@ -159,7 +159,7 @@ object ElementFusion {
         return out
     }
 
-    /** 一个节点在本帧无障碍树里的子孙(含自己)对应的 backendNodeId:命中检测落在这些节点上都算点到它。 */
+    /** このフレームのバリアフリー ツリー内のノードの子孫 (それ自体を含む) に対応する backendNodeId: これらのノードに該当するヒット検出は、ヒットしたものとしてカウントされます。 */
     fun subtreeIds(ax: List<AxNode>, node: AxNode): Set<Int> {
         val children = ax.filter { it.frameId == node.frameId }.groupBy { it.parent }
         val out = HashSet<Int>()
@@ -172,7 +172,7 @@ object ElementFusion {
         return out
     }
 
-    /** 候选节点可见的范围(CSS 像素):跨源框架里的是占位的可见部分,其余是视口。命中检测点取框与它相交部分的中心。 */
+    /** 候補ノードの表示範囲 (CSS ピクセル): クロスソース フレームの表示部分はプレースホルダーで、残りはビューポートです。当たり判定点はボックスとの交点の中心となります。 */
     fun clip(input: Input, c: Candidate): Box {
         val k = input.scale.takeIf { it > 0 } ?: 1.0
         val r = c.placeholder?.let { rectOf(input.page[it], input.width, input.height) }
@@ -180,7 +180,7 @@ object ElementFusion {
         return Box(r.l / k, r.t / k, r.r / k, r.b / k)
     }
 
-    /** 要查监听器的页面脚本元素下标:不可点的纯文字、图片,且无障碍树也没说它可交互。 */
+    /** リスナー用にチェックされるページ スクリプト要素の添え字: クリックできないプレーン テキストと画像、およびアクセシビリティ ツリーがインタラクティブであることを示していません。 */
     fun listenerProbes(input: Input): List<Int> {
         val axById = axByBackend(input.ax)
         return input.page.indices.filter { i ->
@@ -201,7 +201,7 @@ object ElementFusion {
         return m
     }
 
-    // ---------- 第二步:合并 ----------
+    // ---------- ステップ 2: マージ ----------
 
     fun fuse(input: Input): Result {
         val axById = axByBackend(input.ax)
@@ -210,7 +210,7 @@ object ElementFusion {
             Item(merge(e, id?.let(axById::get), id != null && id in input.listeners), id, e.ref, if (id?.let(axById::get) != null) Origin.BOTH else Origin.PAGE, null)
         }
         val extra = axOnly(input)
-        // 插入:跨源框架里的跟在占位后面;读得到的文档里的跟在同帧里无障碍树顺序在它前面的最后一个已对上的元素后面
+        // 挿入: クロスソース フレーム内の挿入はプレースホルダーの後に続きます。読み取られたドキュメント内の要素は同じフレームに従い、アクセシビリティ ツリーの順序はその前に位置合わせされた最後の要素の後にあります。
         val pageOrder = HashMap<Int, Pair<String, Int>>()
         input.pageIds.forEachIndexed { i, id -> id?.let(axById::get)?.let { pageOrder[i] = it.frameId to it.order } }
         val after = extra.groupBy { c ->
@@ -256,7 +256,7 @@ object ElementFusion {
             else -> base.role
         }
         val axName = cut(ax.name)
-        // 输入框、下拉框、滑块的名字里有值(密码框只说填了几位):保留页面脚本的
+        // 入力ボックス、ドロップダウン ボックス、およびスライダーの名前に値があります (パスワード ボックスには、入力された人数のみが表示されます): ページ スクリプトを保持します。
         val valued = base.editable || base.role in setOf("textbox", "combobox", "slider") || roleOut in EDIT_ROLES
         val name = when {
             valued -> base.name.ifBlank { axName }
@@ -287,7 +287,7 @@ object ElementFusion {
             val id = c.node.backendId ?: continue
             val box = input.boxes[id] ?: continue
             val top = input.onTop[id]
-            // 读得到的文档里:页面脚本没列它,要命中检测明说在最上面;跨源框架里:命中检测说被盖住才不收
+            // 読むことができるドキュメント内: ページ スクリプトにはリストされておらず、ヒット検出が先頭に記載されています。クロスソース フレームワークでは、ヒット検出ではカバーされているため、収集されないと表示されます。
             if (c.placeholder == null && top != true) continue
             if (c.placeholder != null && top == false) continue
             val clip = c.placeholder?.let { pageRects[it] } ?: view
@@ -296,7 +296,7 @@ object ElementFusion {
             if (vis.r - vis.l < 1 || vis.b - vis.t < 1) continue
             val roleOut = role(c.node.role) ?: continue
             val name = cut(c.node.name)
-            // 页面脚本那边没对上节点号、但其实是同一个元素(同名或可交互且大半重合):不重复列
+            // ノード番号がページ スクリプト内で一致しませんが、実際には同じ要素です (同じ名前、またはインタラクティブでほとんど重複しています): 重複する列はありません
             val dup = input.page.indices.any { i ->
                 val e = input.page[i]
                 if (input.pageIds[i] != null || e.role == "frame") return@any false
@@ -304,7 +304,7 @@ object ElementFusion {
                 r.contains(vis.cx, vis.cy) && (e.name.equals(name, ignoreCase = true) || ((e.clickable || e.editable) && r.iou(vis) > 0.5))
             }
             if (dup) continue
-            // 无障碍树里套着的同名可交互节点(链接里的按钮)、同角色同名几乎同框的:只留外层/第一个
+            // アクセシビリティ ツリーにネストされた同じ名前のインタラクティブ ノード (リンク内のボタン)、キャラクターと同じ名前、ほぼ同じフレーム: 外側のレイヤー/最初のレイヤーのみが残る
             val nested = keptRects.any { (k, r) ->
                 val sameName = k.item.element.name.equals(name, ignoreCase = true)
                 (sameName || name.isBlank()) && isAncestor(nodesByFrame[c.node.frameId].orEmpty(), k.node, c.node) ||
@@ -329,7 +329,7 @@ object ElementFusion {
                 scrollable = false,
                 focused = "focused" in c.node.states,
                 states = c.node.states.filter { it in UiStates.ALL }.toSet(),
-                // 只有无障碍树看得到的输入框(跨源框架、读屏脚本没列的):看不出是不是密码框,按密码框算
+                // アクセシビリティ ツリーには入力ボックスのみが表示されます (クロスソース フレームワークと画面読み上げスクリプトはリストされません): パスワード ボックスかどうかを見分けることができないため、パスワード ボックスとしてカウントされます。
                 secret = !disabled && "readonly" !in c.node.states && roleOut in EDIT_ROLES,
             )
             val x = Extra(c.node, c.placeholder, Item(el, id, null, Origin.AX, c.ownerId))
@@ -350,7 +350,7 @@ object ElementFusion {
         return false
     }
 
-    /** 超预算时按「没信息量 → 纯文字等不可交互 → 可交互」的次序、各自从后往前丢,保留的仍按原顺序。 */
+    /** 予算を超えた場合、「情報なし→プレーンテキスト等の非インタラクティブ→インタラクティブ」の順序は後ろから前に破棄され、残ったものは元の順序のままになります。 */
     private fun budget(all: List<Item>, budget: Int): List<Item> {
         if (all.size <= budget) return all
         fun tier(e: UiElement) = when {
@@ -390,7 +390,7 @@ object ElementFusion {
         }
     }
 
-    // 归一的 0–999 换回视图像素;误差不到一个像素
+    // は 0 ～ 999 を正規化して表示ピクセルに戻します。誤差は 1 ピクセル未満です
     private fun rectOf(e: UiElement, w: Int, h: Int): Rect {
         fun dx(v: Int) = v * (w - 1).coerceAtLeast(1) / 999.0
         fun dy(v: Int) = v * (h - 1).coerceAtLeast(1) / 999.0

@@ -24,7 +24,7 @@ class FileRunStateStoreTest {
             assertEquals(false, reopened.get(RunId("run-1"))?.runSucceeded)
             assertEquals(1, reopened.interruptUnfinished().size)
             assertEquals(RunPhase.Interrupted, FileRunStateStore(file).get(RunId("run-1"))?.phase)
-            // 账本只记阶段与交付:不存发给模型的上下文(图片、原始参数、密钥都不落盘)
+            // 台帳はステージと納品のみを記録します。モデルに送信されたコンテキストは保存されません (写真、元のパラメーター、およびキーは記録されません)
             assertFalse(file.readText().contains("\"context\""))
         } finally {
             dir.deleteRecursively()

@@ -6,20 +6,20 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
-/** README.md、docs/readme/README.zh-CN.md 里生成的段落(内置知识、服务商预设)和源头一致;不一致就跑 `./gradlew updateReadme`。 */
+/** README.md および docs/readme/README.zh-CN.md で生成された段落 (組み込みナレッジ、サービス プロバイダーのデフォルト) はソースと一致しています。矛盾している場合は、`./gradlew updateReadme` を実行します。 */
 class ReadmeSectionsTest {
     private val root = File("..").canonicalFile
 
     @Test fun readmeMatchesGenerated() {
         val readme = File(root, ReadmeSections.README).readText()
-        val expected = ReadmeSections.render(readme, ReadmeSections.sections(root, english = true))
-        assertEquals("README.md 里生成的段落过期了,运行 ./gradlew updateReadme", expected, readme)
+        val expected = ReadmeSections.render(readme, ReadmeSections.sections(root, japanese = true))
+        assertEquals("README.md の自動生成箇所が古くなっています。実行: ./gradlew updateReadme", expected, readme)
     }
 
-    @Test fun chineseReadmeMatchesGenerated() {
+    @Test fun legacyPathReadmeAlsoMatchesJapaneseGeneratedText() {
         val readme = File(root, ReadmeSections.README_ZH).readText()
-        val expected = ReadmeSections.render(readme, ReadmeSections.sections(root, english = false))
-        assertEquals("${ReadmeSections.README_ZH} 里生成的段落过期了,运行 ./gradlew updateReadme", expected, readme)
+        val expected = ReadmeSections.render(readme, ReadmeSections.sections(root, english = false, japanese = true))
+        assertEquals("${ReadmeSections.README_ZH} の自動生成箇所が古くなっています。実行: ./gradlew updateReadme", expected, readme)
     }
 
     @Test fun renderReplacesOnlyBetweenMarkers() {
@@ -32,7 +32,7 @@ class ReadmeSectionsTest {
 
     @Test fun missingMarkerFails() {
         val e = assertThrows(IllegalStateException::class.java) { ReadmeSections.render("没有标记", mapOf("x" to "新")) }
-        assertTrue(e.message.orEmpty(), "缺少" in e.message.orEmpty())
+        assertTrue(e.message.orEmpty(), "必要なマーカー" in e.message.orEmpty())
     }
 
     @Test fun readsPresetsFromSource() {
@@ -51,7 +51,7 @@ class ReadmeSectionsTest {
         )
     }
 
-    /** 自定义能接的接口也写 Responses,排在最后(和界面上的次序一致),不按预设里出现的先后。 */
+    /** によってカスタマイズできるインターフェイスは、デフォルトで表示される順序ではなく、最後にリストされる (インターフェイス上の順序と同じ) 応答としても書き込まれます。 */
     @Test fun customKindsListResponsesLast() {
         val presets = listOf(
             ReadmeSections.Preset("甲", "OpenAiCompat", "https://a.example/v1"),
@@ -59,7 +59,7 @@ class ReadmeSectionsTest {
             ReadmeSections.Preset("丙", "Gemini", "https://c.example"),
             ReadmeSections.Preset("自定义", "OpenAiCompat", ""),
         )
-        assertTrue(ReadmeSections.providers(presets).endsWith("内置 甲、乙、丙 等服务商预设；其他服务商选「自定义」，OpenAI 兼容、Gemini、OpenAI Responses 接口都能接。"))
-        assertTrue(ReadmeSections.providersEn(presets).endsWith("which takes any OpenAI-compatible, Gemini or OpenAI Responses endpoint."))
+        assertTrue(ReadmeSections.providers(presets).endsWith("甲、乙、丙 などのプロバイダーを内蔵しています。その他は「カスタム」で接続できます。対応API: OpenAI互換、Gemini、OpenAI Responses。"))
+        assertEquals(ReadmeSections.providers(presets), ReadmeSections.providersEn(presets))
     }
 }

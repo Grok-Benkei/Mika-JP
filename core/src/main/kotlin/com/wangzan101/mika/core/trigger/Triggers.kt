@@ -11,18 +11,18 @@ data class TriggerDefinition(
     val threadId: String,
     val goal: String,
     val nextAtMs: Long,
-    /** null 是一次性；间隔触发会合并积压的时段，只补跑一次。 */
+    /** null は 1 回限りの操作です。間隔トリガーはバックログ期間をマージし、1 回の実行のみを補います。 */
     val intervalMs: Long? = null,
-    /** 先在沙箱/网页里检查；检查成立才运行 [goal]。 */
+    /** は、最初にサンドボックス/Web ページでチェックされます。チェックが確立された後にのみ、[goal] を実行してください。 */
     val conditionGoal: String? = null,
     val enabled: Boolean = true,
-    /** 到点后只在没有前台任务时执行；忙时看门狗稍后重查。 */
+    /** ポイントに到達した後は、フォアグラウンド タスクがない場合にのみ実行されます。ビジーウォッチドッグは後で再度チェックします。 */
     val idleOnly: Boolean = false,
-    /** 上一次有效检查是否满足条件；用于只在状态变化时执行动作。 */
+    /** 最後の有効なチェックは、条件が満たされているかどうかです。ステータスが変化したときにのみアクションを実行するために使用されます。 */
     val lastConditionMet: Boolean? = null,
-    /** 固定提醒原文；非空时到点直接送达，不启动模型。 */
+    /** リマインダーの元のテキストを修正しました。空でない場合は、モデルを開始せずにポイントに直接配信されます。 */
     val reminderText: String? = null,
-    /** 按指定时区的当地钟点重复；空表示使用固定毫秒间隔或只运行一次。 */
+    /** 指定されたタイムゾーンのローカルクロックで繰り返します。 empty は、固定ミリ秒間隔を使用するか、1 回だけ実行することを意味します。 */
     val calendarTime: String? = null,
     val calendarZone: String? = null,
     val calendarDays: List<Int> = emptyList(),
@@ -49,24 +49,24 @@ data class TriggerWindow(
     val key get() = "$triggerId:$dueAtMs"
 }
 
-/** claimDue 必须把下次时间与待处理账本一起写入，返回后才可派发。 */
+/** claimDue は保留中の台帳と一緒に次回を書き込む必要があり、返却後にのみ配布できます。 */
 interface TriggerStore {
     fun upsert(trigger: TriggerDefinition)
     fun get(id: String): TriggerDefinition?
     fun all(): List<TriggerDefinition>
     fun windows(): List<TriggerWindow>
     fun claimDue(nowMs: Long, eligible: (TriggerDefinition) -> Boolean = { true }): List<TriggerWindow>
-    /** 手动执行一次，不改变原来的下一次计划时间。 */
+    /** 元の次回予定時刻を変更せずに手動で 1 回実行します。 */
     fun claimNow(id: String, nowMs: Long): TriggerWindow?
     fun mark(key: String, state: TriggerWindowState, reason: String? = null): Boolean
-    /** 一次性任务只在结果确定送达后删除。 */
+    /** ワンタイムタスクは、結果の配信が確認された後にのみ削除されます。 */
     fun retireDeliveredOneShots()
     fun remove(id: String)
 }
 
 @Serializable data class TriggerSnapshot(val triggers: List<TriggerDefinition>, val windows: List<TriggerWindow>)
 
-/** 纯内存实现，文件实现沿用相同的状态转换。 */
+/** は純粋なメモリ実装であり、ファイル実装は同じ状態遷移に従います。 */
 class MemoryTriggerStore(initial: TriggerSnapshot = TriggerSnapshot(emptyList(), emptyList())) : TriggerStore {
     private val triggers = linkedMapOf<String, TriggerDefinition>()
     private val ledger = linkedMapOf<String, TriggerWindow>()
@@ -140,7 +140,7 @@ class MemoryTriggerStore(initial: TriggerSnapshot = TriggerSnapshot(emptyList(),
     }
 }
 
-/** 以当地日历递进，跨夏令时仍保持同一钟点；不存在的钟点使用系统的向前调整规则。 */
+/** は現地のカレンダーに従って進み、夏時間を通じて同じ時間を維持します。システムの前方調整ルールは、存在しない時間に対して使用されます。 */
 fun nextCalendarAt(time: String, zone: String, days: List<Int>, afterMs: Long): Long {
     val localTime = LocalTime.parse(time)
     val zoneId = ZoneId.of(zone)
@@ -153,7 +153,7 @@ fun nextCalendarAt(time: String, zone: String, days: List<Int>, afterMs: Long): 
     error("calendar schedule has no matching day")
 }
 
-/** 排期由宿主实现；核心负责先记账再派发，异常重启时不会重复执行已认领的时段。 */
+/** スケジューリングはホストによって実装されます。コアは最初にアカウンティングを行ってからディスパッチを行う責任があり、異常な再起動が発生した場合、要求された期間は繰り返されません。 */
 class TriggerEngine(private val store: TriggerStore, private val scheduleAlarm: (Long?) -> Unit,
     private val isIdle: () -> Boolean = { true }, private val idleRetryMs: Long = 60_000L,
     private val dispatch: (TriggerDefinition, TriggerWindow) -> Unit) {
@@ -170,7 +170,7 @@ class TriggerEngine(private val store: TriggerStore, private val scheduleAlarm: 
         })
     }
 
-    /** 时区变化后,跟随设备旧时区的当地时间计划重算到新时区;显式钉了其他时区的计划不动。 */
+    /** タイム ゾーンが変更されると、デバイスの古いタイム ゾーンに従ったローカル タイム プランが新しいタイム ゾーンに再計算されます。明示的に固定されている他のタイムゾーンの計画は変更されません。 */
     fun rezone(nowMs: Long, fromZone: String, toZone: ZoneId) {
         if (fromZone == toZone.id) return
         store.all().filter { it.enabled && it.calendarTime != null && it.calendarZone == fromZone }

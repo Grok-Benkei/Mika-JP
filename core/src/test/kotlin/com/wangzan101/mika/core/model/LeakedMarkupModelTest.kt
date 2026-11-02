@@ -16,8 +16,8 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * 端到端:服务商把工具调用标记写在 content 里(而不是 tool_calls)时,
- * 适配器要把它还原成真正的工具调用,界面上不能出现标记本身。
+ * エンドツーエンド: サービス プロバイダーが (tool_calls の代わりに) コンテンツにツール呼び出しタグを書き込むとき、
+ * アダプターはそれを実際のツール呼び出しに復元する必要があり、マーク自体はインターフェイスに表示できません。 ツール呼び出しマーカーがテキストに吐き出される場合の
  */
 class LeakedMarkupModelTest {
     private lateinit var server: MockWebServer

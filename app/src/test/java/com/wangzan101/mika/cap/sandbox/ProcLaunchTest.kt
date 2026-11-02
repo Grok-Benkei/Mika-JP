@@ -12,7 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
-/** 起进程、收输出、兜底时限:用宿主的 /bin/sh 跑(不经启动器与 PRoot)。 */
+/** はプロセスを開始し、出力を収集し、制限時間を認識します。ホストの /bin/sh を使用して実行します (ランチャーと PRoot を経由せずに)。 */
 class ProcLaunchTest {
     private val env = mapOf("PATH" to "/usr/bin:/bin")
 
@@ -67,7 +67,7 @@ class ProcLaunchTest {
     }
 
     @Test fun cancelDuringStartLeavesNoOrphan() = runBlocking {
-        // 取消恰好落在 start() 返回之前:进程已经起来了,也必须被杀掉
+        // キャンセルは start() が戻る直前に行われます。プロセスはすでに開始されているため、強制終了する必要があります。
         val pidFile = File.createTempFile("pid", ".txt").apply { delete() }
         lateinit var job: Job
         job = launch(Dispatchers.Default) {

@@ -1,32 +1,32 @@
 ### completed
-All steps of the earlier way of doing this were run (3 steps):
+以前の進め方のすべての手順が実行された（3 手順）:
 1. phone_launch_app com.notes
 2. phone_tap 「新建」
 3. phone_type_text type 「今天天气不错」
-Read the app's current state to check the result; for a lookup task, find the answer in what you read, then answer the user directly.
+アプリの現在の状態を読んで結果を確認する。調べ物の作業については、読んだ内容の中から答えを見つけ、ユーザーに直接答える。
 
-Current screen (read result; its refs can be used directly):
+現在の状態（読み取り結果。その ref を直接使える）:
 ### diverged, not executed
-1 of 3 steps were run automatically, following a way that worked before:
+3 手順のうち 1 手順が、以前に成功した進め方に従って自動で実行された:
 1. phone_launch_app com.notes
-Step 2 expected phone_tap 「新建」 (the page before the action does not match), actually read com.notes: 请先登录 (this step was not run). Continue from the current screen or page.
+手順 2 は phone_tap 「新建」 (the page before the action does not match) を期待したが、実際に読まれたものは com.notes: 请先登录 だった（この手順は実行されなかった）。現在の表示またはページから続ける。
 
-Current screen (read result; its refs can be used directly):
+現在の状態（読み取り結果。その ref を直接使える）:
 ### diverged, executed without effect
-1 of 3 steps were run automatically, following a way that worked before:
+3 手順のうち 1 手順が、以前に成功した進め方に従って自動で実行された:
 1. phone_launch_app com.notes
-Step 2 was run, but the expected change did not show: expected phone_tap 「新建」 (no expected change after the action), actually read com.notes: 备忘录, 新建, 全部笔记. First check whether this step took effect; do not repeat it. Continue from the current screen or page.
+手順 2 は実行されたが、期待した変化が現れなかった。期待: phone_tap 「新建」 (no expected change after the action)、実際に読まれたもの: com.notes: 备忘录, 新建, 全部笔记。まずこの手順が反映されたか確認する。繰り返さない。現在の表示またはページから続ける。
 
-Current screen (read result; its refs can be used directly):
+現在の状態（読み取り結果。その ref を直接使える）:
 ### diverged with error code
-1 of 3 steps were run automatically, following a way that worked before:
+3 手順のうち 1 手順が、以前に成功した進め方に従って自動で実行された:
 1. phone_launch_app com.notes
-Step 2 was run, but the expected change did not show: expected phone_tap 「新建」 (the action failed: obscured), actually read com.notes: 备忘录, 新建, 全部笔记; error code: obscured. First check whether this step took effect; do not repeat it. Continue from the current screen or page.
+手順 2 は実行されたが、期待した変化が現れなかった。期待: phone_tap 「新建」 (the action failed: obscured)、実際に読まれたもの: com.notes: 备忘录, 新建, 全部笔记; エラーコード: obscured。まずこの手順が反映されたか確認する。繰り返さない。現在の表示またはページから続ける。
 
-Current screen (read result; its refs can be used directly):
+現在の状態（読み取り結果。その ref を直接使える）:
 ### stopped for confirmation
-1 of 2 steps were run automatically, following a way that worked before:
+2 手順のうち 1 手順が、以前に成功した進め方に従って自動で実行された:
 1. phone_launch_app com.notes
-Step 2 is 「phone_tap 「提交订单」」, which needs the user's confirmation, so it was not run. Continue from the current screen or page, and handle the confirmation the normal way.
+手順 2 は「phone_tap 「提交订单」」であり、ユーザーの確認が必要なため、実行されなかった。現在の表示またはページから続け、確認は通常の方法で扱う。
 
-Current screen (read result; its refs can be used directly):
+現在の状態（読み取り結果。その ref を直接使える）:

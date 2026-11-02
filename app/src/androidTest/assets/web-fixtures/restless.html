@@ -5,7 +5,7 @@
 <div id="slide">第 0 张</div>
 <button id="still" style="width:200px;height:40px">不动的按钮</button>
 <script>
-  // 一直在变的轮播:每 50 毫秒换一次内容
+  // 内容が変わり続けるカルーセル: 50ミリ秒ごとに切り替える。
   var n = 0;
   setInterval(function () { document.getElementById('slide').textContent = '第 ' + (++n) + ' 张'; }, 50);
 </script>

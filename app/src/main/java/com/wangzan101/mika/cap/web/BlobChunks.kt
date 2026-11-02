@@ -1,9 +1,9 @@
 package com.wangzan101.mika.cap.web
 
 /**
- * 页面分段交回的 blob 内容(base64)。页面报的长度、每段长度、累计长度都不信:
- * 报的长度超过 [maxBytes] 换算成 base64 的上限(每 3 字节 4 个字,另加填充余量)就在分配之前拒掉;
- * 不按报的长度预先分配;每段至多 [chunk] 个字,累计不超过报的长度。
+ * BLOB コンテンツ (base64) がページ セグメントによって返されました。このページで報告されている長さ、各段落の長さ、および累計の長さは信じられません。
+ * によって報告される長さが、base64 に変換された [maxBytes] の上限 (3 バイトあたり 4 ワード、およびパディングマージン) を超える場合、割り当て前に拒否されます。
+ * はメッセージの長さに応じて事前に割り当てられません。各セグメントは最大 [chunk] ワードであり、合計の長さはメッセージの長さを超えません。
  */
 internal class BlobChunks(private val declared: Int, private val maxBytes: Long, private val chunk: Int = CHUNK) {
     sealed interface Outcome {
@@ -13,7 +13,7 @@ internal class BlobChunks(private val declared: Int, private val maxBytes: Long,
 
     private val sb = StringBuilder()
 
-    /** 报的长度能不能收;不能时给原因。 */
+    /** 報告された長さが受け入れられるかどうか。そうでない場合は、その理由を教えてください。 */
     fun refusal(): String? = when {
         declared < 0 -> UNREADABLE
         declared > maxBase64(maxBytes) -> WebDownloads.TOO_LARGE
@@ -23,7 +23,7 @@ internal class BlobChunks(private val declared: Int, private val maxBytes: Long,
     val received: Int get() = sb.length
     val complete: Boolean get() = sb.length >= declared
 
-    /** 收下一段;超长、超出报的长度时为失败原因。 */
+    /** は次のセグメントを受け入れます。長すぎる場合、または報告された長さを超える場合は、失敗の原因となります。 */
     fun add(part: String): String? {
         if (part.length > chunk) return UNREADABLE
         if (sb.length.toLong() + part.length > declared) return UNREADABLE
@@ -38,7 +38,7 @@ internal class BlobChunks(private val declared: Int, private val maxBytes: Long,
     }
 
     companion object {
-        /** 与 page.js 的 BLOB_CHUNK 一致。 */
+        /** は page.js の BLOB_CHUNK と一致します。 */
         const val CHUNK = 1 shl 20
         const val UNREADABLE = "unreadable"
 

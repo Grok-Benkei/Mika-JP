@@ -4,8 +4,8 @@ import com.wangzan101.mika.core.model.ToolSpec
 import com.wangzan101.mika.core.prompt.Prompts
 
 /**
- * 本任务的工具:[all] 是各能力与核心可能提供的全部工具(按发给模型的顺序),本任务能调用的按配置筛过。
- * 每次调用按名字找到工具再执行,分发器不认识具体工具。[groupOf] 给出工具所属的组(见 [ToolGroups];一直都在为 null)。
+ * このタスクのツール: [all] は、各機能およびコアによって提供されるすべてのツールです (モデルに発行された順序で)。このタスクで呼び出すことができるツールは、構成によってフィルタリングされます。
+ * 呼び出されるたびに、名前でツールを見つけて実行します。配布者は具体的なツールを知りません。 [groupOf] は、ツールが属するグループを示します ([ToolGroups] を参照。常に null)。
  */
 internal class ToolRegistry(private val ctx: ToolContext, all: List<AgentTool>, private val groupOf: (AgentTool) -> String? = { null }) {
     private val declared: Map<String, AgentTool> = all.associateBy { it.name }
@@ -17,12 +17,12 @@ internal class ToolRegistry(private val ctx: ToolContext, all: List<AgentTool>, 
 
     operator fun get(name: String): AgentTool? = tools[name]
 
-    /** 按名字查工具的声明(风险、判定目标……),本任务没提供的也查得到;不认识的为 null。 */
+    /** ツールのステートメント (リスク、決定目標など) を名前で検索します。このタスクで提供されていないものも見つけることができます。認識されないものは null です。 */
     fun declared(name: String): AgentTool? = declared[name]
 
     /**
-     * 第一次取目录时冻结本 Run 的工具定义(全文、入口的短说明、所属的组);后续端口状态变化只能影响执行,不能改提示词前缀。
-     * 入口的短说明在 prompts/entries/<工具名>.md,参数和全文一样。
+     * は、ディレクトリを初めてフェッチするときに、この実行のツール定義 (フルテキスト、エントリの短い説明、およびエントリが属するグループ) をフリーズします。その後のポート ステータスの変更は実行にのみ影響し、プロンプト ワード プレフィックスは変更できません。
+     * エントリの簡単な説明は、prompts/entries/<ツール名>.md にあり、パラメータは全文と同じです。
      */
     private val frozen: List<ToolGroups.Slot> by lazy {
         tools.values.filter { it.offered(ctx) }.map { t ->
@@ -31,21 +31,21 @@ internal class ToolRegistry(private val ctx: ToolContext, all: List<AgentTool>, 
         }
     }
 
-    /** 本任务提供的全部工具(每组都展开、全文)。 */
+    /** このタスクに提供されるすべてのツール (各グループを展開、全文)。 */
     fun definitions(): List<ToolSpec> = frozen.map { it.full }
 
-    /** 此刻发给模型的工具:只展开 [expanded] 里的组(见 [ToolGroups.layout])。 */
+    /** 現時点でモデルに送信されるツール: [expanded] のグループのみを展開します ([ToolGroups.layout] を参照)。 */
     fun layered(expanded: Set<String>, extra: Map<String, List<ToolSpec>>): List<ToolSpec> = ToolGroups.layout(frozen, expanded, extra)
 
-    /** 组 [group] 里有发给模型的入口工具。 */
+    /** グループ [group] には、モデルに発行されたエントリ ツールが含まれています。 */
     fun hasEntry(group: String): Boolean = frozen.any { it.group == group && it.entry != null }
 
-    /** 组 [group] 里发给模型的工具名(按登记的顺序)。 */
+    /** グループ [group] のモデルに割り当てられたツール名 (登録順)。 */
     fun members(group: String): List<String> = frozen.filter { it.group == group }.map { it.full.name }
 
-    /** 能放进 do_steps 的工具名(本任务没提供的也列),按登记的顺序。 */
+    /** do_steps に入れることができるツール名 (このタスクで提供されていないツールもリストされています) が登録順に表示されます。 */
     fun batchable(): List<String> = declared.values.filter { it.batchable }.map { it.name }
 
-    /** 「未知工具」的说明里列出的名字:随时可用的那些(不动屏幕的一组看运行环境就绪,不列)。 */
+    /** 「不明なツール」の説明に記載されている名称：随時利用可能なもの（動作環境が整っているか確認するために画面を移動しないグループは記載していません）。 */
     fun listedNames(): List<String> = tools.values.filter { !it.offScreen }.map { it.name }
 }

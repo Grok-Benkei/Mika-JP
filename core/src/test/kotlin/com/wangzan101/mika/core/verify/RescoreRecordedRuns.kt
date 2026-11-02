@@ -7,13 +7,13 @@ import java.io.File
 import java.time.ZoneId
 
 /**
- * 离线重算:用现在的 [Grounding] 重新核对录下来的运行(不调模型)。没设目录时跳过。
+ * オフライン再計算: 現在の [Grounding] を使用して、記録された実行を再確認します (モデルを調整せずに)。ディレクトリが設定されていない場合はスキップします。
  *
  *   MIKA_RESCORE_DIR=/path/to/runs ./gradlew :core:test --tests '*RescoreRecordedRuns*' --rerun
  *
- * 递归找目录下所有 events.jsonl;每次核查(verifier 事件)按 [RecordedVerifications] 配上它核的那次 finish(不论先后)取回答,
- * 证据用核查之前的全部读屏文字和工具结果里的全部字符串(不含那次 finish 自己的),相对日期按那次核查的时刻换算(时区取
- * MIKA_RESCORE_ZONE,没设用本机的)。结果写到 <目录>/rescore.tsv:运行、当时的结论与理由、现在的兜底结论、找不到的事实。
+ * は、ディレクトリ内のすべての events.jsonl を再帰的に検索します。各検証 (検証者イベント) ごとに、コアで [RecordedVerifications] の終了 (順序に関係なく) を押して答えを取得します。
+ * の証拠では、検証前のすべての画面読み取りテキストとツール結果のすべての文字列 (フィニッシュ自身を除く) が使用され、相対日付は検証の時刻 (取得されたタイムゾーン) に従って変換されます。
+ * MIKA_RESCORE_ZONE、このマシンを使用するように設定されていません)。結果は <ディレクトリ>/rescore.tsv に書き込まれます: 実行、その時点の結論と理由、現在の結論、根拠のない事実。
  */
 class RescoreRecordedRuns {
     @Test fun rescore() {

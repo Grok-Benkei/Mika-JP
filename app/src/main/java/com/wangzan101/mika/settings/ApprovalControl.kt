@@ -4,11 +4,11 @@ import com.wangzan101.mika.core.action.ApprovalSettings
 import com.wangzan101.mika.core.gate.ConfirmationGate
 
 /**
- * 一个任务自己的审批设置:自主与否是开工时取全局的,之后跟着开发者选项里的「自主模式」变([set])。
- * 询问时只有付款先问;自主时连付款也不问。
+ * タスク独自の承認設定: 自律的かどうかは作業開始時にグローバルに決定され、開発者向けオプション ([set]) の「自律モード」によって変更されます。
+ * 要求するときは、最初に支払いだけを要求します。独立しているときは、支払いを要求することさえありません。
  */
 class RunApproval(startAutonomous: Boolean) : ApprovalSettings {
-    /** 开工时就是自主:这个任务没有确认关卡,也不给 request_confirmation;中途关掉自主留给下一个任务。 */
+    /** は開始時に自律的です。このタスクには確認レベルがなく、request_confirmation も与えられません。自律性は途中でオフになり、次のタスクに任せられます。 */
     val startedAutonomous: Boolean = startAutonomous
     @Volatile private var auto = startAutonomous
 
@@ -18,20 +18,20 @@ class RunApproval(startAutonomous: Boolean) : ApprovalSettings {
         auto = autonomous
     }
 
-    /** 这个任务(和它的子任务)用的付款确认关卡:开工时是询问才有,每次一份新的。 */
+    /** このタスク (およびそのサブタスク) で使用される支払い確認レベルは次のとおりです。作業開始時のリク​​エストに応じてのみ利用可能であり、毎回新しいレベルです。 */
     fun gate(): ConfirmationGate? = if (startedAutonomous) null else ConfirmationGate()
 }
 
 /**
- * 询问 / 自主是一个全局开关,存在 [ApprovalStore.autonomous],默认询问。每个任务开工时拿一份自己的([start]);
- * 换开关([setAutonomous]):存下来管之后的任务,正在跑的任务也跟着换(从询问换成自主,下一步起付款也不再问)。
+ * クエリ/自律性はグローバル スイッチであり、デフォルトのクエリである [ApprovalStore.autonomous] があります。各タスクの開始時に独自のコピー ([start]) を取得します。
+ * 変更スイッチ ([setAutonomous]): 今後のタスクを管理するために保存し、実行中のタスクを変更します (照会から自律に変更すると、次のステップから支払いを要求されなくなります)。
  */
 class ApprovalControl(private val store: ApprovalStore) {
     private val runs = mutableSetOf<RunApproval>()
 
     /**
-     * [remote] 为 true 是电脑经 MCP 交来的任务:不管开关,一律按询问开工、也不跟着开关变,
-     * 付款这一步在这类任务里永远不做(审批判定对非手机发起的一律拒绝),远端没有办法让它放行。
+     * [remote] は true です。これは、MCP を通じてコン​​ピュータによって与えられるタスクです。スイッチに関係なく、常にクエリを押して開始し、スイッチに応じて変更されることはありません。
+     * このタイプのタスクでは支払いステップが実行されることはありません (レビューでは、携帯電話以外から開始されたすべてのリクエストが拒否されます)。リモート エンドがそれを放棄する方法はありません。
      */
     @Synchronized fun start(remote: Boolean = false): RunApproval =
         if (remote) RunApproval(false) else RunApproval(store.autonomous.value).also { runs += it }

@@ -15,7 +15,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 模型页的文字:用途卡、服务商一行、删除提示,以及列表排序。 */
+/** モデル ページのテキスト: 使用状況カード、サービス プロバイダーの行、削除プロンプト、およびリストの並べ替え。 */
 class ModelsCopyTest {
     @get:Rule val texts = ChineseTexts()
 
@@ -35,7 +35,7 @@ class ModelsCopyTest {
         assertEquals(listOf("deepseek-reasoner", "deepseek-chat", "deepseek-coder"), u.sortedOptions(ds).map { it.id })
         assertEquals(listOf(ModelRole.Main, ModelRole.Vision, ModelRole.Light), u.rolesOf(ds.id, "deepseek-reasoner"))
         assertTrue(u.picked(ModelRole.Main, ds.id, "deepseek-reasoner"))
-        assertFalse("用主模型不算明确选了它", u.picked(ModelRole.Vision, ds.id, "deepseek-reasoner"))
+        assertFalse("メインモデルの継承は、そのモデルの明示的な選択とは扱わない", u.picked(ModelRole.Vision, ds.id, "deepseek-reasoner"))
     }
 
     @Test fun pickerFixedChoicesPerRole() {

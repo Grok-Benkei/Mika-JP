@@ -8,7 +8,7 @@ import com.wangzan101.mika.core.knowledge.ScriptEntry
 import com.wangzan101.mika.core.workspace.WorkspaceFileGate
 import com.wangzan101.mika.core.workspace.SandboxTree
 
-/** 宿主目录放在临时目录里的沙箱;命令不真跑,按 [next] 回结果并记下收到的参数。 */
+/** ホスト ディレクトリは、サンドボックスの一時ディレクトリに配置されます。コマンドは実際には実行されません。[next] を押して結果を返し、受け取ったパラメータを書き留めます。 */
 class FakeSandbox(var status: SandboxStatus = SandboxStatus.Ready(network = false)) : SandboxPort {
     class Run(val workspace: String, val argv: List<String>, val cwd: String?, val timeoutMs: Long)
 
@@ -28,7 +28,7 @@ class FakeSandbox(var status: SandboxStatus = SandboxStatus.Ready(network = fals
 
     override fun status() = status
 
-    /** awaitReady 之后的状态(模拟后台准备好了或失败了);null = 不变。 */
+    /** awaitReady 後の状態 (シミュレーション バックグラウンドが準備完了または失敗)。 null = 変更されていません。 */
     var afterWait: SandboxStatus? = null
     var waits = 0
 
@@ -82,7 +82,7 @@ class FakeSandbox(var status: SandboxStatus = SandboxStatus.Ready(network = fals
     override fun scriptManifest(skillPath: String): List<ScriptEntry> = manifests[skillPath].orEmpty()
 
     var prepares = 0
-    /** 与打包的那份不一致(且恢复不了)的脚本:"<技能>/<文件>"。 */
+    /** スクリプトはパッケージ化されたスクリプトと矛盾しています (復元できません): "<スキル>/<ファイル>"。 */
     val tampered = mutableSetOf<String>()
     override suspend fun prepare() { prepares++ }
     override suspend fun verifyScript(skillPath: String, file: String) = "$skillPath/$file" !in tampered

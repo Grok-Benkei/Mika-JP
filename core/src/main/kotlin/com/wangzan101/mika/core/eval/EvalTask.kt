@@ -21,7 +21,7 @@ enum class Expect {
     @SerialName("takeover") Takeover,
 }
 
-/** 客观核对项;JSON 里以 "type" 区分。 */
+/** 客観的なチェック項目。 JSONの「型」で区別します。 */
 @Serializable
 sealed interface Check {
     @Serializable @SerialName("answer_contains")
@@ -30,29 +30,29 @@ sealed interface Check {
     @Serializable @SerialName("answer_regex")
     data class AnswerRegex(val pattern: String) : Check
 
-    /** 回答条目必须都出现在最后几次读屏文字中。 */
+    /** 回答項目はすべて、最後の数回の画面読み取りに表示される必要があります。 */
     @Serializable @SerialName("answer_grounded")
     data class AnswerGrounded(val minItems: Int = 1) : Check
 
-    /** [packageName] 可写成 `{app:<能力>}`(见 [APP_CAPABILITIES]),跑的时候换成这台手机上的 App。 */
+    /** [packageName] は、`{app:<能力>}` ([APP_CAPABILITIES] を参照) と書くことができ、実行時にこの携帯電話のアプリに変更します。 */
     @Serializable @SerialName("screen_has")
     data class ScreenHas(val packageName: String, val text: String, val deepLink: String? = null) : Check
 
-    /** probe 必须是 [PROBE_ALLOWLIST] 里的名字。 */
+    /** プローブは、[PROBE_ALLOWLIST] 内の名前である必要があります。 */
     @Serializable @SerialName("probe_equals")
     data class ProbeEquals(val probe: String, val expected: String, val contains: Boolean = false) : Check
 
-    /** 这次任务开头带上了至少 [min] 条记忆(代码记录的 memory_used)。记忆题的第二题用。 */
+    /** このミッションは少なくとも [min] のメモリ (コードに記録されているmemory_used) で開始されました。 Used for the second question of memory questions. */
     @Serializable @SerialName("memory_used")
     data class MemoryUsed(val min: Int = 1) : Check
 
     /**
-     * 这次任务里 Agent 有没有向用户追问(ask_user):[expected] 为 true 时须问过,false 时须一次没问。
-     * 「该问还是该自己定」的题用:目标里缺了只有用户知道的信息就该问;只是没说偏好就该按常理定下并说明。
+     * このタスクでは、エージェントはユーザー (ask_user) に質問しましたか: [expected] は、true の場合は質問している必要がありますが、false の場合は一度も質問していません。
+     * 「聞いたほうがいいのか、自分で決めたほうがいいのか」ユーザーだけが知っている情報がターゲットに欠けているかどうかを尋ねる必要があります。好みが言及されていない場合は、常識に従って判断し、説明する必要があります。
      */
     @Serializable @SerialName("asked_user")
     data class AskedUser(val expected: Boolean = true) : Check
-    /** 任务结束后在新的网页标签里打开 [url] 读整页,要能找到 [text](忽略空白)。 */
+    /** タスクが完了したら、新しい Web ページ タブで [url] を開き、ページ全体を読んで [text] を見つけます (空白スペースは無視します)。 */
     @Serializable @SerialName("web_has")
     data class WebHas(val url: String, val text: String) : Check
 
@@ -66,13 +66,13 @@ sealed interface Check {
 }
 
 /**
- * 一道评测题。goal、marker、核对项里的字符串可写 `{run}` 和 `{probe:<名字>}`,跑前由 [EvalTasks.substitute] 替换;
- * `probesBefore` 是「占位名 → 白名单探针名」,跑任务前先执行这些探针得到期望值。
- * `apps` 和 screen_has 的包名可写 `{app:<能力>}`(手机自带的某类 App,见 [APP_CAPABILITIES]),由 [EvalTasks.resolveApps] 换成这台手机上的包名,
- * 题目不钉某个品牌的包名。
+ * レビューの質問です。ゴール、マーカー、チェック項目の文字列は `{run}` および `{probe:<名字>}` として記述でき、実行前に [EvalTasks.substitute] に置き換えられます。
+ * `probesBefore` は「プレースホルダー名→ホワイトリストプローブ名」です。期待値を取得するには、タスクを実行する前にこれらのプローブを実行します。
+ * 、`apps`、screen_has のパッケージ名は、`{app:<能力>}` と書くことができます (携帯電話に付属する特定の種類のアプリ。[APP_CAPABILITIES] を参照)。 [EvalTasks.resolveApps] をこの電話機のパッケージ名に置き換えます。
+ * タイトルは特定のブランドのパッケージ名を固定していません。
  *
- * `requires` 的写法:`installed:<包名>`;`app:<能力>`(这台手机上有处理这类事的 App);
- * `signedIn:<包名或网站>`(用户登录过:网站看设置「网站登录」里的登记,App 看人工标记;旧写法 `login:<包名>`、`site:<网站>` 照样认)。
+ * `requires` は次のように記述されます: `installed:<包名>`; `app:<能力>` (この携帯電話には、この種のことを処理するためのアプリがあります);
+ * `signedIn:<包名或网站>` (ユーザーがログイン済み: Web サイトの設定の「Web サイトログイン」で登録を確認し、アプリで手動マークを確認します。古い書き込み方法 `login:<包名>` および `site:<网站>` は引き続き認識されます)。
  */
 @Serializable
 data class EvalTask(
@@ -88,31 +88,31 @@ data class EvalTask(
     val marker: String? = null,
     val answers: Map<String, String> = emptyMap(),
     val probesBefore: Map<String, String> = emptyMap(),
-    /** 给评审看的说明(这道题为什么这样出),评测器不用。 */
+    /** 審査員への指示（この質問がこのように行われる理由）、評価者は使用されません。 */
     val note: String? = null,
-    /** 配对题:train(学技能的一轮跑)或 test(对比的一轮跑);评测器按 `-e split` 选。 */
+    /** マッチング質問: トレーニング (スキルを学ぶためのランニングのラウンド) またはテスト (比較のラウンド)。 `-e split` を押して評価者を選択します。 */
     val split: String? = null,
-    /** 同一 session 的题在同一个对话里按 id 顺序跑(记忆题:先告诉、再用上)。 */
+    /** 同じセッション内の質問は、同じ会話内の ID によって順番に実行されます (記憶に関する質問: 最初に質問してから使用します)。 */
     val session: String? = null,
-    /** 回放评测用的变体:换说法或换参数的同一件事;`evalVariants on` 时先跑原题记下路线,再跑这些。 */
+    /** 再生評価のバリエーション：方法を変えたりパラメータを変えたりしても同じ。 `evalVariants on` の場合は、最初に元の質問を実行してルートを書き留めてから、これらを実行します。 */
     val variants: List<Variant> = emptyList(),
-    /** 强制渠道:"web" 或 "app";非空时目标前加「用网页」/「用 App」(两条路线对比用)。 */
+    /** 必須チャネル: 「ウェブ」または「アプリ」。空でない場合は、ターゲットの前に「Web ページを使用」/「アプリを使用」を追加します (2 つのルート間の比較のため)。 */
     val channel: String? = null,
     /**
-     * 题目分池:tune(调提示词、知识时看的题)或 holdout(只在决定发版时看结果,不拿来调);评测器按 `-e evalSplit` 选。
-     * 和 [split](配对题的 train/test 两轮)是两回事。
+     * 質問プール: 調整 (プロンプトの単語と知識を調整するときに読み取られる質問) またはホールドアウト (結果は公開を決定するときにのみ表示され、調整には使用されません)。評価者は `-e evalSplit` に従って選択されます。
+     * と [split] (一致する質問のトレーニング/テスト ラウンド) は 2 つの異なるものです。
      */
     val partition: String? = null,
     /**
-     * 撞上这些障碍(屏上看得出来,见 [RunFacts.takeoverBarrier])后交给用户接管的,单列成「交给用户」([Scoring.handedOver]),
-     * 不算办成也不算别的失败,算不算由人定。为空时按类别取默认([Scoring.takeoverKinds]):读类题是 login,其余不认。
+     * がこれらの障害物 (画面上で確認できます。[RunFacts.takeoverBarrier] を参照) に衝突し、ユーザーに引き渡されると、「ユーザーに引き渡された」([Scoring.handedOver]) として個別にリストされます。
+     * is not considered a success or any other failure. It is up to people to decide whether it is considered a success or not. If it is empty, the default is selected by category ([Scoring.takeoverKinds]): the reading category question is login, and the others are not recognized.
      */
     val acceptTakeoverOn: List<String>? = null,
 )
 
 /**
- * 「手机自带的某类 App」按安卓标准 Intent 找:跑题前用这些 Intent 查出这台手机上能处理的 App(候选),
- * 跑完后优先取 Agent 实际打开过的那个候选。没有标准 Intent 的(备忘录)只能跑完后取 Agent 打开的 App。
+ * 「携帯電話に付属している特定の種類のアプリ」は、Android 標準インテントに従って検索されます。 話が逸れる前に、これらのインテントを使用して、この携帯電話で処理できるアプリ (候補) を見つけます。 After
+ * runs, the candidate actually opened by Agent will be given priority. If there is no standard intent (memo), you can only retrieve the app opened by the agent after running. The "Choose Which App to Use" interface of the
  */
 data class AppIntent(val action: String, val category: String? = null)
 
@@ -130,23 +130,23 @@ val APP_CAPABILITIES: Map<String, List<AppIntent>> = mapOf(
 
 object AppCapabilities {
     private val COMPONENT = Regex("^\\s*([A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z0-9_]+)+)/\\S+")
-    /** 系统的「选择用哪个 App」界面不是候选。 */
+    /** system is not a candidate. */
     private const val SYSTEM_PACKAGE = "android"
 
-    /** `cmd package resolve-activity --brief` / `query-activities --brief` 输出里的包名,按出现顺序去重。 */
+    /** `cmd package resolve-activity --brief` / `query-activities --brief` The package names in the output are deduplicated in the order of appearance. */
     fun packagesIn(output: String): List<String> =
         output.lines().mapNotNull { COMPONENT.find(it)?.groupValues?.get(1) }.filter { it != SYSTEM_PACKAGE }.distinct()
 
-    /** 查某个 Intent 的 shell 命令(参数来自 [APP_CAPABILITIES],任务文件写不进去)。 */
+    /** Check the shell command of an Intent (the parameters come from [APP_CAPABILITIES], the task file cannot be written). */
     fun commands(i: AppIntent): List<String> {
         val args = "-a ${i.action}" + (i.category?.let { " -c $it" } ?: "")
         return listOf("cmd package resolve-activity --brief $args", "cmd package query-activities --brief $args")
     }
 
     /**
-     * 跑完后 `{app:<能力>}` 取哪个包:Agent 打开过的候选优先(手机上可能有好几个日历),其次第一个候选。
-     * 没有候选(没有标准 Intent 或这台手机上查不到)时,只认 Agent 打字时在前台的 App([written],见 [RunFacts.appsWrittenIn]),
-     * 而且只有一个;说不准是哪个就不定(核对按没找到算),不拿「第一个打开的 App」凑数。[own] 是 Mika 自己的包名。
+     * `{app:<能力>}` を実行した後、どのパッケージを使用するか: エージェントによって開かれた候補が優先され (電話機には複数のカレンダーがある場合があります)、最初の候補が続きます。
+     * 候補がない場合 (標準インテントがない、またはこの電話で見つからない場合)、エージェントが入力しているときにフォアグラウンドにあるアプリ ([written]、[RunFacts.appsWrittenIn] を参照) のみが認識されます。
+     * そして、それは 1 つだけです。 I can’t say which one it is (it counts as not found), and the “first opened App” is not included to make up the number. [own] は、Mika 自身のパッケージ名です。 The value of
      */
     fun choose(candidates: List<String>, launched: List<String>, own: String? = null, written: List<String> = emptyList()): String? {
         val used = launched.filter { it != own && it != SYSTEM_PACKAGE }
@@ -156,17 +156,17 @@ object AppCapabilities {
     }
 }
 
-/** [EvalTask.channel] 的取值与加在目标前的说法。 */
-val CHANNEL_PREFIX = mapOf("web" to "用网页", "app" to "用 App")
+/** [EvalTask.channel] and the statement added before the target. */
+val CHANNEL_PREFIX = mapOf("web" to "ウェブで", "app" to "アプリで")
 
 /**
- * 原题的一个变体。[checks] 为空沿用原题的核对项。换参数时参数要在 [goal] 里逐字写出(回放只认原话里出现的槽值)。
- * 其余字段(App、类别、步数、时限、标记等)都沿用原题。
+ * 原題のバリエーション。 If [checks] is empty, the check items of the original question will be used.パラメータを変更する場合、パラメータは [goal] でそのまま書き出す必要があります (再生では、元の単語に表示されるスロット値のみが認識されます)。
+ * The remaining fields (App, category, number of steps, time limit, tags, etc.) follow the original title.
  */
 @Serializable
 data class Variant(val goal: String, val checks: List<Check>? = null)
 
-/** 只读设备探针:名字 → shell 命令。评测器只执行这里列出的命令,任务文件不能写任意命令。 */
+/** read-only device probe: name → shell command. The evaluator only executes the commands listed here, and the task file cannot write arbitrary commands. */
 val PROBE_ALLOWLIST: Map<String, String> = mapOf(
     "android_release" to "getprop ro.build.version.release",
     "android_sdk" to "getprop ro.build.version.sdk",
@@ -182,7 +182,7 @@ val PROBE_ALLOWLIST: Map<String, String> = mapOf(
     "auto_time" to "settings get global auto_time",
     "default_browser" to "cmd package resolve-activity --brief -a android.intent.action.VIEW -d https://example.com",
     "default_home" to "cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME",
-    /** 内部存储根目录里的文件和文件夹(建文件夹类题核对用,不依赖哪个文件管理 App)。 */
+    /** は、ファイルとフォルダーを内部的にルート ディレクトリに保存します (フォルダー作成に関する質問を確認するために使用され、ファイル管理アプリには依存しません)。 */
     "storage_root" to "ls -1 /sdcard/",
 )
 
@@ -190,17 +190,17 @@ object EvalTasks {
     private val json = Json { explicitNulls = false }
     private val ID = Regex("^[a-z0-9]+(-[a-z0-9]+)*$")
     private val SPLITS = setOf("train", "test")
-    /** [EvalTask.partition] 的取值。 */
+    /** [EvalTask.partition] の値。 */
     val PARTITIONS = setOf("tune", "holdout")
     private val PROBE_REF = Regex("""\{probe:([^}]*)\}""")
     private val APP_REF = Regex("""\{app:([^}]*)\}""")
     private val REQUIREMENT_KINDS = setOf("installed", "login", "site", "signedIn", "app")
 
-    /** 题目里用到的 `{app:<能力>}`。 */
+    /** 課題の中で使われる `{app:<能力>}`。 */
     fun appCapabilities(t: EvalTask): Set<String> =
         APP_REF.findAll(json.encodeToString(EvalTask.serializer(), t)).map { it.groupValues[1] }.toSet()
 
-    /** 把 `{app:<能力>}` 换成 [apps] 里的包名(能力 → 包名);[apps] 里没有的能力原样留着,`apps` 列表里没换上的去掉。 */
+    /** `{app:<能力>}` を [apps] の中のパッケージ名に置き換える（能力 → パッケージ名）; [apps] にない能力はそのまま残し、`apps` 一覧の中で置き換えられなかったものは取り除く。 */
     fun resolveApps(t: EvalTask, apps: Map<String, String>): EvalTask {
         fun s(x: String) = APP_REF.replace(x) { m -> apps[m.groupValues[1]] ?: m.value }
         return t.copy(
@@ -209,91 +209,92 @@ object EvalTasks {
         )
     }
 
-    /** 目标前加渠道说法([CHANNEL_PREFIX]);目标里已经这么说了(不计空白)就不再加。 */
+    /** 対象の前にチャネルの言い方（[CHANNEL_PREFIX]）を付ける; 対象が既にそう言っている場合は（空白を数えず）付けない。 */
     fun withChannel(goal: String, channel: String?): String {
         val prefix = channel?.let { CHANNEL_PREFIX[it] } ?: return goal
         fun squash(x: String) = x.filterNot(Char::isWhitespace)
-        return if (squash(prefix) in squash(goal)) goal else prefix + goal
+        val legacy = when (channel) { "web" -> "用网页"; "app" -> "用 App"; else -> "" }
+        return if (squash(prefix) in squash(goal) || legacy.isNotEmpty() && squash(legacy) in squash(goal)) goal else prefix + goal
     }
 
     fun parse(json: String): EvalTask = this.json.decodeFromString(EvalTask.serializer(), json)
 
-    /** 原题的各个变体,编号为 `<原题>~v<n>`(从 1 起);没有变体返回空。 */
+    /** 元の課題の各バリエーション。番号は `<元の課題>~v<n>`（1から）; バリエーションがなければ空を返す。 */
     fun variantsOf(t: EvalTask): List<EvalTask> = t.variants.mapIndexed { i, v ->
         t.copy(id = "${t.id}~v${i + 1}", goal = v.goal, checks = v.checks ?: t.checks, variants = emptyList())
     }
 
-    /** 单题合法性(含各变体);空列表 = 合法。 */
+    /** 単一の質問の合法性 (バリエーションを含む)。空のリスト = 合法。 */
     fun validate(t: EvalTask): List<String> {
         val errs = mutableListOf<String>()
-        // 变体按原题编号查,错误前面标上是第几个变体
+        // バリアントは、元のタイトル番号に従ってチェックされます。バリアントの数はエラーの前にマークされています。
         variantsOf(t).forEachIndexed { i, v -> validate(v.copy(id = t.id)).forEach { errs += "${t.id}: variant[${i + 1}]: $it" } }
-        if (!ID.matches(t.id)) errs += "id「${t.id}」须为小写字母数字加连字符"
-        if (t.goal.isBlank()) errs += "${t.id}: goal 为空"
-        t.channel?.let { if (it !in CHANNEL_PREFIX) errs += "${t.id}: channel 只能是 ${CHANNEL_PREFIX.keys.joinToString("/")}" }
-        t.maxSteps?.let { if (it <= 0) errs += "${t.id}: maxSteps 须为正数" }
-        t.split?.let { if (it !in SPLITS) errs += "${t.id}: split 须为 train 或 test" }
-        t.partition?.let { if (it !in PARTITIONS) errs += "${t.id}: partition 须为 tune 或 holdout" }
-        t.session?.let { if (!ID.matches(it)) errs += "${t.id}: session「$it」须为小写字母数字加连字符" }
-        t.timeoutSec?.let { if (it <= 0) errs += "${t.id}: timeoutSec 须为正数" }
+        if (!ID.matches(t.id)) errs += "id「${t.id}」は英小文字・数字・ハイフンで指定してください"
+        if (t.goal.isBlank()) errs += "${t.id}: goalが空です"
+        t.channel?.let { if (it !in CHANNEL_PREFIX) errs += "${t.id}: channelに指定できる値: ${CHANNEL_PREFIX.keys.joinToString("/")}" }
+        t.maxSteps?.let { if (it <= 0) errs += "${t.id}: maxStepsは正の数にしてください" }
+        t.split?.let { if (it !in SPLITS) errs += "${t.id}: splitはtrainまたはtestにしてください" }
+        t.partition?.let { if (it !in PARTITIONS) errs += "${t.id}: partitionはtuneまたはholdoutにしてください" }
+        t.session?.let { if (!ID.matches(it)) errs += "${t.id}: session「$it」は英小文字・数字・ハイフンで指定してください" }
+        t.timeoutSec?.let { if (it <= 0) errs += "${t.id}: timeoutSecは正の数にしてください" }
         t.requires.forEach { r ->
             val kind = r.substringBefore(':')
-            if (kind !in REQUIREMENT_KINDS || r.substringAfter(':', "").isBlank()) errs += "${t.id}: 不认识的前置条件「$r」"
-            if (kind == "app" && r.substringAfter(':') !in APP_CAPABILITIES) errs += "${t.id}: 前置条件「$r」不是已知的 App 能力"
+            if (kind !in REQUIREMENT_KINDS || r.substringAfter(':', "").isBlank()) errs += "${t.id}: 未知の前提条件「$r」です"
+            if (kind == "app" && r.substringAfter(':') !in APP_CAPABILITIES) errs += "${t.id}: 前提条件「$r」は既知のアプリ機能ではありません"
         }
-        appCapabilities(t).forEach { if (it !in APP_CAPABILITIES) errs += "${t.id}: {app:$it} 不是已知的 App 能力" }
+        appCapabilities(t).forEach { if (it !in APP_CAPABILITIES) errs += "${t.id}: {app:$it}は既知のアプリ機能ではありません" }
         t.probesBefore.forEach { (name, probe) ->
-            if (probe !in PROBE_ALLOWLIST) errs += "${t.id}: probesBefore.$name 用了白名单外的探针「$probe」"
+            if (probe !in PROBE_ALLOWLIST) errs += "${t.id}: probesBefore.${name}に許可されていないプローブ「$probe」が指定されています"
         }
         if (t.checks.isEmpty() && (t.expect == Expect.Succeeded || t.expect == Expect.Confirmation)) {
-            errs += "${t.id}: expect=${t.expect} 至少要有一条核对项"
+            errs += "${t.id}: expect=${t.expect}には1件以上の検証項目が必要です"
         }
         t.checks.forEachIndexed { i, c ->
             when (c) {
                 is Check.ProbeEquals -> {
-                    if (c.probe !in PROBE_ALLOWLIST) errs += "${t.id}: checks[$i] 用了白名单外的探针「${c.probe}」"
-                    if (c.expected.isBlank()) errs += "${t.id}: checks[$i] expected 为空"
+                    if (c.probe !in PROBE_ALLOWLIST) errs += "${t.id}: checks[$i]に許可されていないプローブ「${c.probe}」が指定されています"
+                    if (c.expected.isBlank()) errs += "${t.id}: checks[$i]のexpectedが空です"
                 }
-                is Check.AnswerGrounded -> if (c.minItems < 1) errs += "${t.id}: checks[$i] minItems 须 ≥ 1"
+                is Check.AnswerGrounded -> if (c.minItems < 1) errs += "${t.id}: checks[$i]のminItemsは1以上にしてください"
                 is Check.AnswerRegex ->
-                    if (c.pattern.isEmpty()) errs += "${t.id}: checks[$i] pattern 为空"
+                    if (c.pattern.isEmpty()) errs += "${t.id}: checks[$i]のpatternが空です"
                     else runCatching { Regex(c.pattern) }
-                        .onFailure { errs += "${t.id}: checks[$i] 正则无效:${it.message}" }
-                        // 能匹配空串的正则对任何回答都成立
-                        .onSuccess { if (it.containsMatchIn("")) errs += "${t.id}: checks[$i] 正则能匹配空串,核对不了任何东西" }
+                        .onFailure { errs += "${t.id}: checks[$i]の正規表現が無効です:${it.message}" }
+                        // 空の文字列に一致する規則的なパターンは、どの答えにも当てはまります。
+                        .onSuccess { if (it.containsMatchIn("")) errs += "${t.id}: checks[$i]の正規表現は空文字列に一致するため、検証に使えません" }
                 is Check.AnswerContains ->
-                    if (c.all.isEmpty() || c.all.any { it.isBlank() }) errs += "${t.id}: checks[$i] all 为空或含空串"
+                    if (c.all.isEmpty() || c.all.any { it.isBlank() }) errs += "${t.id}: checks[$i]のallが空か、空文字列を含んでいます"
                 is Check.ConfirmationShows -> {
                     val fields = listOf(c.action, c.target, c.content, c.amount)
-                    if (fields.all { it == null }) errs += "${t.id}: checks[$i] 没写任何要核对的字段"
-                    if (fields.any { it != null && it.isBlank() }) errs += "${t.id}: checks[$i] 有字段为空白"
+                    if (fields.all { it == null }) errs += "${t.id}: checks[$i]に検証対象のフィールドが指定されていません"
+                    if (fields.any { it != null && it.isBlank() }) errs += "${t.id}: checks[$i]に空白のフィールドがあります"
                 }
-                is Check.ScreenHas -> if (c.text.isBlank()) errs += "${t.id}: checks[$i] text 为空"
-                is Check.MemoryUsed -> if (c.min < 1) errs += "${t.id}: checks[$i] min 须 ≥ 1"
+                is Check.ScreenHas -> if (c.text.isBlank()) errs += "${t.id}: checks[$i]のtextが空です"
+                is Check.MemoryUsed -> if (c.min < 1) errs += "${t.id}: checks[$i]のminは1以上にしてください"
                 is Check.AskedUser -> Unit
                 is Check.WebHas -> {
                     val u = c.url.trim().lowercase()
-                    if (!u.startsWith("https://") && !u.startsWith("http://")) errs += "${t.id}: checks[$i] url 须是 http(s) 网址"
-                    if (c.text.isBlank()) errs += "${t.id}: checks[$i] text 为空"
+                    if (!u.startsWith("https://") && !u.startsWith("http://")) errs += "${t.id}: checks[$i]のurlはhttp(s)のURLにしてください"
+                    if (c.text.isBlank()) errs += "${t.id}: checks[$i]のtextが空です"
                 }
             }
         }
         val referenced = PROBE_REF.findAll(json.encodeToString(EvalTask.serializer(), t)).map { it.groupValues[1] }.toSet()
-        (referenced - t.probesBefore.keys).forEach { errs += "${t.id}: 占位符 {probe:$it} 没在 probesBefore 里声明" }
+        (referenced - t.probesBefore.keys).forEach { errs += "${t.id}: プレースホルダー{probe:$it}がprobesBeforeに定義されていません" }
         return errs
     }
 
-    /** 整个任务集:逐题校验,再查 id 重复。 */
+    /** タスク セット全体: 各質問を確認し、ID が繰り返されているかどうかを確認します。 */
     fun validateAll(ts: List<EvalTask>): List<String> =
         ts.flatMap { validate(it) } +
-            ts.groupingBy { it.id }.eachCount().filterValues { it > 1 }.keys.map { "id「$it」重复" }
+            ts.groupingBy { it.id }.eachCount().filterValues { it > 1 }.keys.map { "id「$it」が重複しています" }
 
-    /** 替换 `{run}` 和 `{probe:<名字>}`;probes 是 probesBefore 的执行结果(占位名 → 输出)。 */
+    /** は `{run}` および `{probe:<名字>}` を置き換えます。 probesはprobesBeforeの実行結果（地名→出力）です。 */
     fun substitute(t: EvalTask, run: String, probes: Map<String, String>): EvalTask {
         fun s(x: String): String = PROBE_REF.replace(x.replace("{run}", run)) { m ->
             probes[m.groupValues[1]]?.trim() ?: m.value
         }
-        // 正则里插入的探针值按字面量处理
+        // 正規表現に挿入されたプローブ値は文字通りに扱われます
         fun re(x: String): String = PROBE_REF.replace(x.replace("{run}", Regex.escape(run))) { m ->
             probes[m.groupValues[1]]?.let { Regex.escape(it.trim()) } ?: Regex.escapeReplacement(m.value)
         }

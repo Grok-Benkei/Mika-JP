@@ -8,12 +8,12 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * 订阅账号登录没成的原因。界面按它说人话。异常文字里只有类别和错误代码,不放令牌、授权码、设备码。
- * [NoSubscription] 是账号没有这项订阅;[BadIssuer] 是发现到的地址不在允许的主机上,请求不会发出去。
+ * サブスクリプション アカウントのログインが失敗した理由。インターフェイスはそれに応じて人間の言語を話します。例外テキストには、カテゴリとエラー コードのみが含まれ、トークン、認証コード、デバイス コードは含まれません。
+ * [NoSubscription] は、アカウントにこのサブスクリプションがないことを意味します。 [BadIssuer] は、見つかったアドレスが許可されたホスト上にないため、リクエストは送信されないことを意味します。
  */
 enum class AccountSignInFailure { Denied, Expired, TimedOut, Rejected, NoSubscription, Network, BadIssuer }
 
-/** [code] 是服务端的错误代码(不是机密)。 */
+/** [code] はサーバーのエラー コードです (機密ではありません)。 */
 class AccountSignInException(
     val reason: AccountSignInFailure,
     val code: String? = null,
@@ -23,18 +23,18 @@ class AccountSignInException(
     if (!code.isNullOrBlank()) append(": ").append(code)
 }, cause)
 
-/** 换令牌得到的一组令牌。刷新没给的字段保持 null,由调用方沿用旧的。 */
+/** トークンを交換して取得したトークンのセット。リフレッシュによって提供されないフィールドは null のままで、呼び出し元は古いフィールドを使用します。 */
 data class OauthTokens(
     val accessToken: String,
     val refreshToken: String? = null,
     val idToken: String? = null,
     val expiresInSec: Long = 3600,
     val scopes: List<String> = emptyList(),
-    /** 换到的接口根;没给为 null。 */
+    /** は、変更されたインターフェイス ルートです。指定されない場合は null になります。 */
     val apiBase: String? = null,
 )
 
-/** 换令牌的结果。被拒时 [terminal] 为真表示这份授权不能再用,该清掉重新登录。 */
+/** トークン交換の結果。拒否された場合、[terminal] は true になります。これは、この認証が使用できなくなるため、認証をクリアして再度ログインする必要があることを意味します。 */
 sealed interface OauthTokenResult {
     data class Ok(val tokens: OauthTokens) : OauthTokenResult
     data class Rejected(val code: String, val terminal: Boolean) : OauthTokenResult
@@ -42,9 +42,9 @@ sealed interface OauthTokenResult {
 }
 
 /**
- * 一个账号登录(目前是 xAI),整份按 API Key 的方式加密保存。
- * [accessToken] 是调用模型用的访问令牌,[refreshToken] 用来换新的。
- * 退出登录后令牌清空,账号名字留着给人看。
+ * 1 つのアカウント (現在は xAI) でログインすると、ファイル全体が暗号化され、API キーの形式で保存されます。
+ * [accessToken] はモデルを呼び出すために使用されるアクセス トークンであり、[refreshToken] はモデルを新しいものに置き換えるために使用されます。
+ * ログアウトすると、トークンはクリアされ、アカウント名は他の人が閲覧できるようになります。
  */
 @Serializable
 data class AccountSession(
@@ -58,7 +58,7 @@ data class AccountSession(
     val apiBase: String = "",
     val clientId: String = "",
     val issuer: String = "",
-    /** 登录时从发现文档读到、核对过主机的令牌地址;刷新用它。旧版本存下的没有,刷新时按签发方推。 */
+    /** ログイン時に、ホストのトークン アドレスが検出ドキュメントから読み取られて検証されました。リフレッシュに使ってください。古いバージョンは保存されず、更新時に発行者に従ってプッシュされます。 */
     val tokenUrl: String = "",
 ) {
     val signedIn: Boolean get() = accessToken.isNotEmpty() || refreshToken.isNotEmpty()
@@ -76,11 +76,11 @@ data class AccountSession(
 }
 
 /**
- * 调用时用的访问令牌。快过期或上一个被拒了就经 [refresh] 换新的,同一时刻只有一个在换。
- * 换到的令牌先 [save] 再拿去用;[save] 同时收到换之前的那份,存储据此判断这期间用户有没有退出或重新登录(那样就不该写回)。授权已不能用就清掉令牌、抛 [ModelError.SignInExpired];网络或服务端一时出错照常抛,令牌留着。
+ * を呼び出すときに使用されるアクセス トークン。有効期限が近づいている場合、または以前のものが拒否された場合は、[refresh] に連絡して新しいものと交換してください。同時に交換できるのは 1 つだけです。
+ * 交換されるトークンは最初に [save] で、その後使用されます。 [save] は交換前に同時にトークンを受信し、ストレージはこの期間中にユーザーがログアウトしたか再ログインしたかを判断します (この場合、書き戻されるべきではありません)。認証が利用できなくなった場合は、トークンをクリアして [ModelError.SignInExpired] をスローします。ネットワークまたはサーバーのエラーが発生した場合は、通常どおりトークンを破棄し、トークンを保管してください。
  */
 class AccountTokens(
-    /** 哪一家的登录(界面上的名字),登录失效时说给用户听。 */
+    /** ログインが失敗した場合、どの会社にログインするか (インターフェイス上の名前) がユーザーに通知されます。 */
     private val account: String,
     private val refresh: suspend (AccountSession) -> OauthTokenResult,
     private val load: () -> AccountSession?,

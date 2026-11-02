@@ -26,9 +26,9 @@ class PageConversationsTest {
         val stale = conv("stale", "https://shop.example.com/s?k=2", PageConversations.SAME_SITE_MS + 1)
         assertEquals("recent", PageConversations.pick(listOf(stale, recent), "https://shop.example.com/dp/B2", now)?.id)
         assertNull(PageConversations.pick(listOf(stale), "https://shop.example.com/dp/B2", now))
-        // 别的网站不算
+        // 他の Web サイトはカウントされません
         assertNull(PageConversations.pick(listOf(recent), "https://other.example.com/", now))
-        // 不是从网页开始的对话不算
+        // Web ページから始まらない会話はカウントされません
         assertNull(PageConversations.pick(listOf(conv("plain", null, 0)), "https://shop.example.com/", now))
     }
 

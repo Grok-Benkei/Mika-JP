@@ -7,7 +7,7 @@ import com.wangzan101.mika.about.CheckStatus
 import com.wangzan101.mika.about.MikaLinks
 import com.wangzan101.mika.about.UpdateState
 
-/** 关于页的文字,以及「检查更新」一行、设置首页「关于 Mika」一行、侧栏入口上的提示怎么显示。 */
+/** 概要ページ、「アップデートの確認」行、設定ホームページの「ミカについて」行、サイドバー入口のプロンプトのテキストを表示する方法。 */
 object AboutCopy {
     val TITLE: String get() = tr(R.string.settings_about)
     val TAGLINE: String get() = tr(R.string.about_tagline)
@@ -52,7 +52,7 @@ object AboutCopy {
     val GROUP_NO_WECHAT: String get() = tr(R.string.about_group_no_wechat)
     val GROUP_JOIN_X: String get() = tr(R.string.about_group_join_x)
 
-    /** 界面是英文时交流群面板先放 X 群聊、再放微信群码;中文界面微信在前。按 App 实际显示的语言(资源里的 ui_locale)算,不看系统语言。 */
+    /** インターフェイスが英語の場合、コミュニケーション グループ パネルでは X グループ チャットが最初に配置され、次に WeChat グループ コードが配置されます。中国語のインターフェースでは、WeChat が最初に表示されます。システム言語に関係なく、アプリで実際に表示される言語 (リソースの ui_locale) に基づいて計算します。 */
     val X_GROUP_FIRST: Boolean get() = uiLocale().language != "zh"
 
     val FOLLOW: String get() = tr(R.string.about_follow)
@@ -78,11 +78,11 @@ object AboutCopy {
     fun available(version: String): String = tr(R.string.about_available, version)
     fun updateTitle(version: String): String = tr(R.string.about_update_title, version)
 
-    /** 「当前 0.1.0 Beta · 2026-11-05 发布」;不知道发布日期时只写当前版本。 */
+    /** 「現在の 0.1.0 ベータ版 · 2026 年 11 月 5 日にリリースされました」;リリース日が不明な場合にのみ、現在のバージョンを書き込みます。 */
     fun updateSub(current: String, beta: Boolean, date: String?): String =
         tr(R.string.about_current, current + if (beta) " $BETA" else "") + (date?.let { tr(R.string.about_released_on, it) } ?: "")
 
-    /** 「检查更新」一行右边:正在查转圈,有新版写版本号带红点,查过一次写结果;从没查过什么都不写。 */
+    /** 「アップデートの確認」行の右側: 円を確認し、新しいバージョンがある場合は、赤い点でバージョン番号を書き込み、一度確認して結果を書き込みます。確認したことがない場合は、何も書き込まないでください。 */
     data class CheckValue(val text: String?, val dot: Boolean = false, val spinner: Boolean = false, val highlight: Boolean = false)
 
     fun checkValue(s: UpdateState): CheckValue = when {
@@ -93,11 +93,11 @@ object AboutCopy {
         else -> CheckValue(null)
     }
 
-    /** 设置首页「关于 Mika」一行右边:有新版写「x 可更新」带红点,不然写当前版本号。 */
+    /** ホームページの「ミカについて」の行の右側に、新しいバージョンがある場合は「×は更新可能」と赤い点で書き込み、そうでない場合は現在のバージョン番号を書き込みます。 */
     fun settingsValue(updateVersion: String?, versionName: String): CheckValue =
         if (updateVersion != null) CheckValue(available(updateVersion), dot = true, highlight = true)
         else CheckValue(versionName.takeIf { it.isNotEmpty() })
 
-    /** 侧栏「关于 Mika」上的红点。 */
+    /** 「ミカについて」サイドバーの赤い点。 下部パネルで「 */
     fun drawerDot(s: UpdateState): Boolean = s.hasUpdate
 }

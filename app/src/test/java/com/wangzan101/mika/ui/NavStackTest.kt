@@ -12,7 +12,7 @@ class NavStackTest {
         assertFalse(nav.canGoBack)
         assertFalse(nav.back())
 
-        // 侧栏进记忆,返回回到对话;从设置进记忆,返回回到设置
+        // サイドバーからメモリに入り、ダイアログに戻ります。設定からメモリに入り、設定に戻ります。
         nav.push(Route.Memory)
         assertTrue(nav.back())
         assertEquals(Route.Chat, nav.current)

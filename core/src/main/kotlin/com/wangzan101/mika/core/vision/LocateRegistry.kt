@@ -2,12 +2,12 @@ package com.wangzan101.mika.core.vision
 
 import java.util.UUID
 
-/** 0–999 归一化坐标,与 tap 同一坐标系。 */
+/** 0 ～ 999 正規化された座標。タップと同じ座標系。 */
 data class Point(val x: Int, val y: Int)
 
 /**
- * find_visually 找到的点:按 (ref, snapshotId) 登记,只留最近 [capacity] 个(先进先出),
- * 记下找到时那张截图的哈希,tap 时据此判断画面变没变。任何写操作后由调用方 [clear]。
+ * find_visually found Points: (ref, snapshotId) を押して登録し、最新の [capacity] (先入れ先出し) のみを残します。
+ * スクリーンショットを見つけたらそのハッシュを書き留め、それをタップしたときに画面が変化したかどうかを判断するために使用します。書き込み操作後の呼び出し元による [clear]。
  */
 class LocateRegistry(private val capacity: Int = 20) {
     private class Entry(val point: Point, val hash: Long)
@@ -15,7 +15,7 @@ class LocateRegistry(private val capacity: Int = 20) {
     private var next = 1
     private val entries = LinkedHashMap<String, Entry>()
 
-    /** 返回 (ref, snapshotId),形如 ("@v3", "loc_…")。编号在一次任务里不复用。 */
+    /** は、(ref、snapshotId) を ("@v3"、"loc_…") の形式で返します。この番号はミッション内では再利用されません。 */
     fun put(x: Int, y: Int, hash: Long): Pair<String, String> {
         val ref = "@v${next++}"
         val snapshotId = "loc_${UUID.randomUUID()}"
@@ -28,7 +28,7 @@ class LocateRegistry(private val capacity: Int = 20) {
 
     fun clear() = entries.clear()
 
-    /** [snapshotId] 是这里登记过、还留着的点的。 */
+    /** [snapshotId] はここに登録され、今もここにあります。 */
     fun has(snapshotId: String): Boolean = entries.keys.any { it.startsWith("$snapshotId|") }
 
     private fun key(ref: String, snapshotId: String) = "$snapshotId|$ref"

@@ -20,7 +20,7 @@ import org.junit.Test
 import com.wangzan101.mika.core.testing.WEB_SCRIPT_TOOL
 import com.wangzan101.mika.core.assembly.toolDispatcher
 
-/** 页面脚本轮询一个不变的页面:读只在这次脚本调用里计数,最多提醒,不叫停任务,也不带到之后模型的读上。 */
+/** ページ スクリプトは変更されていないページをポーリングします。読み取りはこのスクリプト呼び出しでのみカウントされ、タスクを停止せずに最大でも通知され、モデルの後続の読み取りには引き継がれません。 */
 class ScriptReadsTest {
     @Test fun pollingAnUnchangedPageNeitherStopsTheTaskNorLeaks() = runTest {
         val web = FakeWebPort().apply { elements = listOf(UiElement("@e1", "button", "搜索", 540, 120, listOf(0, 0, 999, 100), "#go", true, false, false)) }
@@ -37,11 +37,11 @@ class ScriptReadsTest {
         assertTrue("$script", script is ActionOutcome.Ran)
         assertNull(guards.stop)
         val reads = (script as ActionOutcome.Ran).after.filter { it.code == "read_loop" }
-        assertTrue("脚本里的重读要提醒", reads.isNotEmpty())
-        // 读的重复(read_loop、repeating_action)都只提醒
+        assertTrue("スクリプト内の再読み取りにも注意を表示する必要があります", reads.isNotEmpty())
+        // は、繰り返しの読み取り (read_loop、repeat_action) のみを思い出させます。
         assertTrue(script.verdicts.all { it.severity == com.wangzan101.mika.core.guard.Severity.Warn })
 
-        // 之后模型自己读同一页:按任务的计数从头算,头几次不提醒
+        // の後、モデルは同じページを自動的に読み取ります。タスクの数に応じて最初からカウントし、最初の数回はリマインドしません。
         val later = (2..5).map { executor.run(Part.ToolCall("m$it", "phone_list_elements", "{}"), Origin.Model(it)) as ActionOutcome.Ran }
         assertEquals(emptyList<String>(), later.flatMap { o -> o.verdicts.map { it.code } }.filter { it == "read_loop" })
         assertNull(guards.stop)

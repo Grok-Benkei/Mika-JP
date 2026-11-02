@@ -21,7 +21,7 @@ class MemoryIndexTest {
     }
 
     @Test fun singleRareTermWithoutKeywordNoHit() {
-        // 只此一条有「以后」,但它不是检索词:不算相关
+        // 「後で」が付いているのはこれだけですが、検索用語ではありません。関連性がありません
         val index = MemoryIndex(distractors(20) + mem("用户以后都用支付宝付款", keywords = listOf("支付宝", "付款")))
         assertTrue(index.search("以后再说吧", 8).isEmpty())
         assertTrue(MemoryIndex(listOf(mem("外卖不要香菜"))).search("点外卖", 8).isEmpty())

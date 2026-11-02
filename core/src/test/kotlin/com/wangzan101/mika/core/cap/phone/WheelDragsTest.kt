@@ -6,13 +6,13 @@ import org.junit.Test
 import kotlin.math.roundToInt
 
 /**
- * 拿模拟的、App 自己画的滚轮跑 [WheelDrags]:只能拖,读回的是选中项上下各 [radius] 项,选中项的名字可能带状态词。
- * 重现真机上的时钟:24 小时的时、分滚轮都循环,选中项叫「已选中，21」,上下是 20、22。
+ * アプリによって描画されたシミュレートされたスクロール ホイールを使用して、[WheelDrags] を実行します。ドラッグすることのみ可能です。読み戻されるのは、選択した項目の上下の [radius] 項目です。選択した項目の名前にはステータスワードが含まれる場合があります。
+ * は実機の時計を再現しており、時分歯車は24時間周期、選択項目は「Selected, 21」、上下は20と22となります。
  */
 class WheelDragsTest {
     /**
-     * [size] 个值(0 起),[value] 选中的;手指往上拖一格 [rowPx] 像素转过一格(数变大,[upIncreases] 为 false 时变小);
-     * 前 [deadDrags] 次拖动没有反应;[label] 是每一项的名字(选中项第二个参数为 true)。
+     * [size] 値 (0 から開始)、[value] が選択されます。指を 1 つのグリッド上にドラッグします。 [rowPx] ピクセルは 1 つのグリッドを回転します (数字は大きくなり、[upIncreases] が false の場合は小さくなります)。
+     * 最初の [deadDrags] 回ドラッグした後、応答がありません。 [label] は各項目の名前です (選択された項目の 2 番目のパラメーターは true です)。
      */
     private class Wheel(
         var value: Int,
@@ -32,7 +32,7 @@ class WheelDragsTest {
         }
         fun items() = visibleValues().map { (v, sel) -> label(v, sel) }
         fun selected() = visibleValues().indexOfFirst { it.second }
-        /** 读回的各项中心:按估的一格 80 像素排(实际一格是 [rowPx]),好测校准。 */
+        /** によって読み取られた中心は、80 ピクセルの推定グリッド (実際のグリッドは [rowPx]) に従って配置されており、調整が簡単です。 */
         fun centers() = visibleValues().indices.map { 300 + it * 80 }
         fun drag(upPx: Int) {
             drags++
@@ -42,7 +42,7 @@ class WheelDragsTest {
         }
     }
 
-    /** 跑到停为止,返回最后一步和第一次拖了几格。 */
+    /** は停止するまで実行され、最後のステップに戻り、初めていくつかのスペースをドラッグします。 */
     private fun run(w: Wheel, target: String, rowHeight: Int = 80): Pair<WheelDrags.Step, Int?> {
         val plan = WheelDrags(target, rowHeight)
         var dragged = 0
@@ -83,7 +83,7 @@ class WheelDragsTest {
         assertEquals(7, unit.value)
     }
 
-    /** 看得到 23 → 0 时走近的一边:21 → 7 往前 10 格,不是往回 14 格。 */
+    /** では、23 → 0:21 → 7 が 14 ブロック後ではなく 10 ブロック前にあるときに、サイドが近づいてくるのがわかります。 */
     @Test fun wrapSeenTakesTheShortWayRound() {
         val w = Wheel(21, 24, wrap = true, radius = 3)
         val (step, first) = run(w, "7")
@@ -92,14 +92,14 @@ class WheelDragsTest {
         assertEquals(7, w.value)
     }
 
-    /** 第一下拖了没反应(拖得太短、刚好被当成点按):不当作到头,拖远一点再来。 */
+    /** 初めてドラッグした後、応答がありません (ドラッグが短すぎてクリックとみなされます): これで終了とみなされず、さらにドラッグして再試行してください。 */
     @Test fun aDragWithNoEffectIsRetriedNotReportedAsTheEnd() {
         val w = Wheel(21, 24, wrap = true, deadDrags = 1)
         assertEquals(WheelDrags.Step.Done, run(w, "7").first)
         assertEquals(7, w.value)
     }
 
-    /** 怎么拖都不动:报 not_moving(模型自己划),不报 at_end。 */
+    /** はどれだけドラッグしても移動できません。not_moving が報告され (モデルは自動的に描画されます)、at_end は報告されません。 */
     @Test fun wheelThatNeverMovesIsNotMovingNotAtEnd() {
         val w = Wheel(21, 24, wrap = true, deadDrags = 100)
         assertEquals(WheelDrags.Step.Stop("not_moving"), run(w, "7").first)
@@ -107,21 +107,21 @@ class WheelDragsTest {
         assertEquals(21, w.value)
     }
 
-    /** 不循环的滚轮拖到了头、往那边已经没有项:才是到头。 */
+    /** 非循環スクロール ホイールが最後までドラッグされましたが、その方向には項目がありません。これで終了です。 */
     @Test fun nonWrappingWheelStopsAtItsEnd() {
         val w = Wheel(8, 11, wrap = false)
         assertEquals(WheelDrags.Step.Stop("at_end"), run(w, "15").first)
         assertEquals(10, w.value)
     }
 
-    /** 往上拖数变小的滚轮:第一次转动后校正方向。 */
+    /** ホイールを上にドラッグして数値を減らします。最初の回転後に方向を修正します。 */
     @Test fun wheelWhoseUpDragDecreasesIsCalibrated() {
         val w = Wheel(21, 60, wrap = true, upIncreases = false)
         assertEquals(WheelDrags.Step.Done, run(w, "25").first)
         assertEquals(25, w.value)
     }
 
-    /** 一格比估的高:按实际转过的格数校准后补拖到位。 */
+    /** 1 つのグリッドが推定よりも高くなっています。回転した実際のグリッドの数に応じて調整し、所定の位置にドラッグします。 */
     @Test fun rowHeightIsCalibrated() {
         val w = Wheel(21, 60, wrap = true, rowPx = 120)
         val (step, _) = run(w, "40", rowHeight = 80)

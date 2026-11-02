@@ -9,7 +9,7 @@ class RestartsTest {
     fun normalRestartIsImmediate() {
         val r = Restarts()
         assertEquals(Restarts.Decision.Restart(0), r.onEmpty(0))
-        // 隔得够久的空段(没开口超时)不算连着
+        // 十分な長い期間 (開始タイムアウトなし) で区切られた空のセグメントは、接続されているとは見なされません。
         assertEquals(Restarts.Decision.Restart(0), r.onEmpty(6_000))
         assertEquals(Restarts.Decision.Restart(0), r.onEmpty(12_000))
         assertEquals(Restarts.Decision.Restart(0), r.onEmpty(18_000))
@@ -44,7 +44,7 @@ class RestartsTest {
         val client = SpeechRecognizer.ERROR_CLIENT
         assertEquals(SystemSpeech.Outcome.Retry, SystemSpeech.afterError(no, holding = true, heard = false))
         assertEquals(SystemSpeech.Outcome.Finish, SystemSpeech.afterError(no, holding = false, heard = false))
-        // 松开后有的服务报 CLIENT:什么都没听到就是没听清,不是麦克风坏了
+        // 一部のサービスは、緩めた後に CLIENT を報告します。何も聞こえませんでした。はっきりと聞こえなかっただけです。マイクが壊れているわけではありません。
         assertEquals(SystemSpeech.Outcome.Finish, SystemSpeech.afterError(client, holding = false, heard = false))
         assertEquals(SystemSpeech.Outcome.Fail(SpeechFailure.MicUnavailable), SystemSpeech.afterError(client, holding = true, heard = false))
         assertEquals(SystemSpeech.Outcome.Finish, SystemSpeech.afterError(SpeechRecognizer.ERROR_NETWORK, holding = true, heard = true))

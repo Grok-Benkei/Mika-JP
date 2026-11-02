@@ -22,7 +22,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.atomic.AtomicLong
 
-/** 与 uiautomator dump 一样压制再恢复服务,保留任务原来拿到的实例和事件订阅。 */
+/** は、uiauTomator ダンプなどのサービスを抑制して復元し、タスクによって最初に取得されたインスタンスとイベント サブスクリプションを保持します。 */
 @RunWith(AndroidJUnit4::class)
 class AccessibilityReconnectDeviceTest {
     @Test fun firstNotificationAfterSubscribingIsNotLost() = runBlocking<Unit> {

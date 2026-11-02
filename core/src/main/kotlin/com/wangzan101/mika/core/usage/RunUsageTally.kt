@@ -8,9 +8,9 @@ import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 
 /**
- * 一次运行里经计量的模型请求合计。运行把它放进自己的协程上下文,[metered] 套上的模型每次请求结束顺手加一笔,
- * 所以主循环之外的旁路调用(意图判断、核查、看图、压缩……)和失败重试的每一次都算在这次运行名下;
- * 不在这个上下文里的调用(交出回答后的结局判定、记忆提取)不算,Token 用量页照样都记。只在内存里加,多线程安全。
+ * 1 回の実行で測定されたモデル リクエストの合計数。それを実行し、独自のコルーチン コンテキストに配置します。 [metered] に関連付けられたモデルは、各リクエストの最後に追加されます。
+ * したがって、メイン ループ外のすべてのバイパス呼び出し (意図の判断、検証、画像の表示、圧縮など) と失敗した再試行は、この実行名でカウントされます。
+ * このコンテキスト (応答を渡した後の終了判定、メモリの検索) に含まれない呼び出しはカウントされず、トークン使用状況ページは引き続き記録されます。メモリ内にのみ追加され、マルチスレッドセーフです。
  */
 class RunUsageTally : AbstractCoroutineContextElement(Key) {
     companion object Key : CoroutineContext.Key<RunUsageTally>
@@ -21,7 +21,7 @@ class RunUsageTally : AbstractCoroutineContextElement(Key) {
     private val output = AtomicLong()
     private val cached = AtomicLong()
 
-    /** 记一次请求;[usage] 为 null 表示没报用量或调用失败。 */
+    /** はリクエストを記録します。 [usage] は null で、使用状況が報告されないか、呼び出しが失敗したことを示します。 この時点の */
     fun add(usage: Usage?) {
         calls.incrementAndGet()
         if (usage == null) {
@@ -33,6 +33,6 @@ class RunUsageTally : AbstractCoroutineContextElement(Key) {
         cached.addAndGet(usage.cachedInputTokens.toLong())
     }
 
-    /** 此刻的合计,作为运行记录里的一条 [RunEvent.ModelCalls]。 */
+    /** の合計が走行記録上1つの[RunEvent.ModelCalls]とみなされます。 */
     fun event(atMs: Long) = RunEvent.ModelCalls(atMs, calls.get(), unreported.get(), input.get(), output.get(), cached.get())
 }

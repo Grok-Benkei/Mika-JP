@@ -43,7 +43,7 @@ class CapsuleContentTest {
         show(CapsuleView.Shown(CapsuleKind.Running, "在搜牙膏", count = 1, runKey = "a", conversationId = "c"))
         compose.onNodeWithContentDescription("Mika 在干活：在搜牙膏，点开看详情").assertIsDisplayed()
         compose.onNodeWithTag("capsule-ring", useUnmergedTree = true).assertIsDisplayed()
-        // 一颗上不写那句话
+        // その文章は書かないでください
         compose.onNodeWithText("在搜牙膏").assertDoesNotExist()
         compose.onNodeWithTag("capsule-ball").performClick()
         assertEquals(listOf("open"), clicks)
@@ -54,24 +54,24 @@ class CapsuleContentTest {
         compose.setContent {
             MikaTheme(dark = false, reduceMotion = true) { CapsuleContent(view, {}, {}, {}) }
         }
-        // 好几件:角上写件数
+        // 数個：角に個数を記入
         compose.onNodeWithTag("capsule-count", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText("3", useUnmergedTree = true).assertIsDisplayed()
-        // 等条件:灰圈,没有件数
+        // およびその他の条件: 灰色の円、個数なし
         view = CapsuleView.Shown(CapsuleKind.Held, "先等等：排队中", count = 1)
         compose.onNodeWithTag("capsule-ring", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("capsule-count", useUnmergedTree = true).assertDoesNotExist()
-        // 看过的要你处理:还是一颗,橙圈
+        // 私が見たものに対処してほしい: オレンジ色の丸がまだ 1 つあります
         view = CapsuleView.Shown(CapsuleKind.NeedConfirm, "要你同意：发送", count = 1, needCount = 1)
         compose.onNodeWithContentDescription("要你同意：发送，点开处理").assertIsDisplayed()
         compose.onNodeWithTag("capsule-ring", useUnmergedTree = true).assertIsDisplayed()
-        // 办好了、没办成、已停止:角标,没有圈
+        // 完了、未完了、停止：コーナーマーク、丸なし
         for (kind in listOf(CapsuleKind.Done, CapsuleKind.Failed, CapsuleKind.Cancelled)) {
             view = CapsuleView.Shown(kind, "结果")
             compose.onNodeWithTag("capsule-badge", useUnmergedTree = true).assertIsDisplayed()
             compose.onNodeWithTag("capsule-ring", useUnmergedTree = true).assertDoesNotExist()
         }
-        // 空闲:只有图标
+        // アイドル: アイコンのみ
         view = CapsuleView.Shown(CapsuleKind.Idle, "")
         compose.onNodeWithContentDescription(CapsuleCopy.IDLE).assertIsDisplayed()
         compose.onNodeWithTag("capsule-badge", useUnmergedTree = true).assertDoesNotExist()
@@ -100,7 +100,7 @@ class CapsuleContentTest {
         assertEquals(listOf("open"), clicks)
     }
 
-    /** 展开、缩回:同一块底换宽度,缩回后是一颗那么宽。 */
+    /** 伸縮：同じベースの幅を変更すると、収納時は星の幅になります。 */
     @Test fun pillShrinksBackToBall() {
         var view by mutableStateOf(CapsuleView.Shown(CapsuleKind.Done, "办好了 · 点开看结果", pill = true))
         compose.setContent {
@@ -124,7 +124,7 @@ class CapsuleContentTest {
         assertEquals(listOf("stop", "back"), clicks)
     }
 
-    /** 同一段([CapsuleView.Shown.widthEpoch] 不变)里换成短句,胶囊不变窄;换了一段才重新定宽。 */
+    /** 同じ段落 ([CapsuleView.Shown.widthEpoch] は変更されません) が短い文に変更されますが、カプセルは狭くなりません。段落を変更すると幅が再設定されます。 */
     @Test fun widthOnlyGrowsWithinEpoch() {
         var view by mutableStateOf(CapsuleView.Shown(CapsuleKind.NeedAnswer, "Mika 问你：要三家店里哪一家的", pill = true, widthEpoch = 1))
         compose.setContent {
@@ -139,7 +139,7 @@ class CapsuleContentTest {
         assertTrue("new epoch should re-fit: $narrow vs $wide", narrow < wide)
     }
 
-    /** 一颗淡下去时外圈和角标照样在;读屏时能「移到屏幕另一边」。 */
+    /** がフェードアウトしても、外側のリングとコーナー マークはまだ残っています。画面を読み取っているときに「画面の反対側に移動」することができます。 */
     @Test fun fadedBallKeepsMarksAndOffersSwapSide() {
         var swapped = 0
         compose.setContent {
@@ -157,7 +157,7 @@ class CapsuleContentTest {
         assertEquals(1, swapped)
     }
 
-    /** 读屏时多一个「说话」代替长按;长按说话中胶囊亮蓝边。 */
+    /** には、画面を読むときに長押しする代わりに「トーク」が追加されています。長押しして話すと、カプセルが青い枠で点灯します。 */
     @Test fun talkActionAndHoldingRing() {
         var talked = 0
         compose.setContent {

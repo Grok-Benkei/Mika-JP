@@ -27,10 +27,10 @@ class HistoryPrunerTest {
     )
     private fun shot(id: Int) = Message(Role.User, listOf(Part.Text("screen"), Part.Image("AAAA", "image/jpeg", 580, 1280, screenshotId = id)), Author.Mika)
 
-    /** [n] 次读屏往返。 */
+    /** [n] 画面読み取り往復。 最後の 2 往復は、 */
     private fun observations(n: Int) = listOf(task) + (1..n).flatMap { obs("c$it") }
     private fun results(ms: List<Message>) = ms.flatMap { it.parts }.filterIsInstance<Part.ToolResult>()
-    /** 线前留最近 2 次往返原样(压缩时用的线由 [ContextCompressor] 定,这里只测裁法)。 */
+    /** ネジの前でそのままにしておきます (圧縮中に使用されるネジは [ContextCompressor] によって決定されます。ここでは切断方法のみが測定されます)。 5 回目以降の */
     private val cut = HistoryPruner.Cut(2)
     private fun full(ms: List<Message>) = results(ms).filter { "@e1" in it.content }.map { it.callId }
 
@@ -42,13 +42,13 @@ class HistoryPrunerTest {
     @Test fun beforeTheLineShrinksExceptLatestFullRead() {
         val h = observations(7)
         val out = HistoryPruner.prune(h, TOOLS, cut)
-        // 线在第 5 次之后:c1–c4 裁掉,线前最近的全量 c5 和线后的 c6、c7 原样
+        // ライン: c1 ～ c4 が切り取られ、ラインの前の最も近い全額 c5 とラインの後ろの c6 と c7 はそのまま残ります。
         assertEquals(listOf("c5", "c6", "c7"), full(out))
         val first = results(out).first { it.callId == "c1" }.content
         assertTrue(HistoryPruner.OMITTED in first && "\"snapshotId\":\"sc1\"" in first && "\"currentApp\":\"com.x\"" in first)
         assertEquals(h.size, out.size)
         assertEquals(results(h).map { it.callId }, results(out).map { it.callId })
-        // 原历史不变
+        // 元の歴史は変わりません
         assertTrue("@e1" in results(h).first { it.callId == "c1" }.content)
     }
 
@@ -73,12 +73,12 @@ class HistoryPrunerTest {
     @Test fun diffChainKeepsItsBase() {
         val h = listOf(task) + obs("c1") + (1..6).flatMap { act("a$it", "d$it") }
         val r = results(HistoryPruner.prune(h, TOOLS, cut))
-        // 线前最近的全量 c1 是差异的底,不裁;线前的差异裁掉(短字段留着),线后的原样
+        // 線の前にある最も近い全額 c1 は差の底であり、カットされません。ラインが切れる前（ショートフィールドが残る）の差はそのまま、ライン後ろの差はそのままとなります。
         assertTrue("@e1" in r.first { it.callId == "c1" }.content)
         val diffs = r.filter { it.callId.startsWith("a") }
         assertTrue(diffs.take(4).all { HistoryPruner.OMITTED in it.content && "@e1" !in it.content && "\"ok\":true" in it.content })
         assertTrue(diffs.drop(4).all { "@e1" in it.content })
-        // 全量的 screen 结果也算全量读屏:线前最近的全量是 f,c1 照常裁
+        // の全画面結果も全画面読み取りとみなされます。行の前の最も近い全画面は f であり、c1 は通常どおり切り取られます。
         val withFull = listOf(task) + obs("c1") +
             listOf(Message(Role.Assistant, listOf(Part.ToolCall("f", "phone_back", "{}")), Author.Mika),
                 Message(Role.Tool, listOf(Part.ToolResult("f", """{"ok":true,"screen":{"snapshotId":"z","full":true,"elements":$big}}""", false)), Author.Mika)) +
@@ -88,24 +88,24 @@ class HistoryPrunerTest {
         assertTrue("@e1" in r2.first { it.callId == "f" }.content)
     }
 
-    // 压缩时线之前的图换占位;平常只有图的张数超过服务商上限时才换
+    // 圧縮タイムライン前の画像が置き換えられます。通常、サービスプロバイダーの上限を超えた写真のみが置き換えられます。
     @Test fun imagesDroppedBeforeTheLineAndAtTheProviderLimit() {
         val file = Message(Role.User, listOf(Part.Text("file"), Part.Image("BBBB", "image/jpeg")), Author.Mika)
         val h = listOf(task) + tap("t0") + file + (1..6).flatMap { tap("t$it") + shot(it) }
         fun ids(out: List<Message>) = out.flatMap { it.parts }.filterIsInstance<Part.Image>().map { it.screenshotId }
         assertEquals(h, HistoryPruner.limitImages(h, Int.MAX_VALUE))
-        // 压缩:线在第 6 次往返之后,画面 1–5 换成可回看的占位,读到的图片文件换成省略
+        // 圧縮: 6 往復後、写真 1 ～ 5 は再生プレースホルダーに置き換えられ、読み込まれた画像ファイルは省略されたものに置き換えられます。
         val tight = HistoryPruner.prune(h, TOOLS, HistoryPruner.LAST)
         assertEquals(listOf<Int?>(6), ids(tight))
         val texts = tight.flatMap { it.parts }.filterIsInstance<Part.Text>().map { it.text }
         assertTrue((1..5).all { HistoryPruner.olderImage(it) in texts } && HistoryPruner.OMITTED_IMAGE in texts)
-        // 服务商明确给出上限后,只从最早的助手画面开始换,留下最多 4 张
+        // サービスプロバイダーが上限を明示した後は、最初のアシスタント画面からのみ変更され、最大 4 枚の写真が残ります。
         assertEquals(listOf<Int?>(3, 4, 5, 6), ids(HistoryPruner.limitImages(h, 4)))
         val early = listOf(task) + tap("t0") + file + (1..5).flatMap { tap("t$it") + shot(it) }
         assertEquals(listOf<Int?>(2, 3, 4, 5), ids(HistoryPruner.limitImages(early, 4)))
     }
 
-    // 缩短按结果里读到的观察是什么样的东西,缩短后留着结局和观察编号
+    // 結果にどのような観測結果が含まれているかを短くして押してください。短縮後はエンディングと観測番号を保持します。
     @Test fun shrinksByObservationFormAndKeepsOutcomeAndObsIds() {
         fun round(id: String, tool: String, content: String, form: com.wangzan101.mika.core.observation.ObsForm, obsId: Int) = listOf(
             Message(Role.Assistant, listOf(Part.ToolCall(id, tool, "{}")), Author.Mika),
@@ -120,7 +120,7 @@ class HistoryPrunerTest {
             round("c", "run_command", """{"ok":false,"error":"exit_nonzero","message":"命令失败","exitCode":2,"output":"$long"}""", com.wangzan101.mika.core.observation.ObsForm.Command, 5) +
             (1..6).flatMap { tap("t$it") }
         val rs = results(HistoryPruner.prune(h, TOOLS, cut)).associateBy { it.callId }
-        // 界面状态一律缩短;页面、命令输出只在大时缩短;用户说的不缩
+        // インターフェイスのステータスは常に短縮されます。ページとコマンド出力は、サイズが大きい場合にのみ短縮され​​ます。ユーザーは短縮されないと言いました。
         assertTrue(HistoryPruner.OMITTED in rs["i"]!!.content && "\"obsIds\":[1]" in rs["i"]!!.content && "\"currentApp\":\"com.x\"" in rs["i"]!!.content)
         assertTrue(HistoryPruner.OMITTED_READ in rs["p"]!!.content && "\"obsIds\":[2]" in rs["p"]!!.content && "https://a.example.com/" in rs["p"]!!.content)
         assertTrue("短的正文" in rs["s"]!!.content && "obsIds" !in rs["s"]!!.content)

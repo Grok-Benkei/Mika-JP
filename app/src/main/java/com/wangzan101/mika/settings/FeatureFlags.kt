@@ -14,9 +14,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 
-/** 功能开关。提速开关存成 [SpeedFlags.describe] 的格式,评测跑器可用参数覆盖。 */
+/** ファンクションスイッチ。高速化スイッチは[SpeedFlags.describe]の形式で保存されており、評価ランナーはパラメータで上書き可能です。 */
 class FeatureFlags(private val prefs: SharedPreferences) {
-    /** 还没做过的默认值升级(见 [SPEED_UPGRADES])各做一次;升级之后用户手动关掉就保持关闭。 */
+    /** まだ実行されていないデフォルト値のアップグレード ([SPEED_UPGRADES] を参照) を 1 回ずつ実行します。アップグレード後、ユーザーが手動でオフにすると、オフのままになります。 */
     fun speedFlags(): SpeedFlags {
         val flags = prefs.getString(SPEED_FLAGS, null)?.let { runCatching { SpeedFlags.parse(it) }.getOrNull() } ?: SpeedFlags.OFF
         val pending = SPEED_UPGRADES.filter { (key, _) -> !prefs.getBoolean(key, false) }
@@ -32,45 +32,45 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         edit.commit()
     }
 
-    /** 并行任务时最多同时跑几个(用户设定,1–3);真正的上限还要看设备,见 ParallelCapability。 */
+    /** 同時に実行できる並列タスクの最大数 (ユーザー設定、1 ～ 3)。実際の上限はデバイスによって異なります。「ParallelCapability」を参照してください。 */
     fun parallelMax(): Int = prefs.getInt(PARALLEL_MAX, ParallelCapability.DEFAULT_MAX)
 
     fun setParallelMax(max: Int) {
         prefs.edit().putInt(PARALLEL_MAX, max).commit()
     }
 
-    /** 每个任务最多走多少步;null 表示不限制。默认不限制,下次任务起生效。 */
+    /** 各タスクの最大ステップ数。 null は制限がないことを意味します。デフォルトでは制限はなく、次のタスクから有効になります。 */
     fun taskStepLimit(): Int? = prefs.getInt(TASK_STEP_LIMIT, 0).takeIf { it in 1..MAX_TASK_STEP_LIMIT }
 
     fun setTaskStepLimit(limit: Int?) {
         prefs.edit().putInt(TASK_STEP_LIMIT, (limit ?: 0).coerceIn(0, MAX_TASK_STEP_LIMIT)).commit()
     }
 
-    /** 干活时屏幕保持常亮;默认开,用户可以关。 */
+    /** 作業中は画面が常にオンのままです。これはデフォルトでオンになっており、ユーザーがオフにすることができます。 */
     fun keepScreenOn(): Boolean = prefs.getBoolean(KEEP_SCREEN_ON, true)
 
     fun setKeepScreenOn(on: Boolean) {
         prefs.edit().putBoolean(KEEP_SCREEN_ON, on).commit()
     }
 
-    /** 干活时把被操作的 App 静音;默认开,用户可以关。 */
+    /** 作業中に操作したアプリをミュートします。これはデフォルトで有効になっており、ユーザーはオフにすることができます。 アプリ内の */
     fun muteTarget(): Boolean = prefs.getBoolean(MUTE_TARGET, true)
 
     fun setMuteTarget(on: Boolean) {
         prefs.edit().putBoolean(MUTE_TARGET, on).commit()
     }
 
-    /** 在 App 里操作的节奏:快、标准(默认)、像人(见 [OperatingPace])。 */
+    /** の動作リズム: 高速、標準 (デフォルト)、人間に近い ([OperatingPace] を参照)。 */
     fun operatingPace(): OperatingPace = OperatingPace.parse(prefs.getString(OPERATING_PACE, null)) ?: OperatingPace.DEFAULT
 
     fun setOperatingPace(pace: OperatingPace) {
         prefs.edit().putString(OPERATING_PACE, pace.name).commit()
     }
 
-    /** 界面配色:跟随系统、一直浅色、一直深色(见 [ThemeMode])。界面跟着 [themeModeChanges] 当场换,不用重建。 */
+    /** インターフェイスのカラー マッチング: システムに従い、常に明るい色、常に暗い色 ([ThemeMode] を参照)。インターフェースは、再構築することなく、[themeModeChanges]に従ってその場で変更できます。 */
     fun themeMode(): ThemeMode = ThemeMode.parse(prefs.getString(THEME_MODE, null))
 
-    /** 外观的当前值,之后每次改动再发一次(设置页改的、任务里改的都一样)。 */
+    /** の外観の現在値。変更されるたびに再送信されます (設定ページでの変更とタスクでの変更は同じです)。 */
     fun themeModeChanges(): Flow<ThemeMode> = callbackFlow {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == null || key == THEME_MODE) trySend(themeMode())
@@ -85,8 +85,8 @@ class FeatureFlags(private val prefs: SharedPreferences) {
     }
 
     /**
-     * 允许 Mika 改自己的设置(见 core 的 SelfConfig):模型与 Key、删数据不在允许之列。
-     * 默认关;开着的时候任务里才有 settings_list、settings_set 这两件工具。
+     * を使用すると、Mika は独自の設定を変更できます (Core の SelfConfig を参照)。モデルとキー、およびデータの削除は許可されません。
+     * はデフォルトではオフです。オンの場合のみ、タスク内に settings_list と settings_set という 2 つのツールがあります。
      */
     fun selfConfig(): Boolean = prefs.getBoolean(SELF_CONFIG, false)
 
@@ -94,17 +94,17 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         prefs.edit().putBoolean(SELF_CONFIG, on).commit()
     }
 
-    /** 悬浮胶囊:关闭、有任务时显示(默认)、一直显示。 */
+    /** サスペンション カプセル: オフ、タスクがある場合に表示 (デフォルト)、常に表示されます。 */
     fun capsuleMode(): CapsuleMode = CapsuleMode.parse(prefs.getString(CAPSULE_MODE, null))
 
     fun setCapsuleMode(mode: CapsuleMode) {
         prefs.edit().putString(CAPSULE_MODE, mode.name).commit()
     }
 
-    /** 胶囊开关的当前值,之后每次改动再发一次。 */
+    /** カプセル スイッチの現在値。変更されるたびに再送信されます。 すべての設定をクリアすると、 */
     fun capsuleModeChanges(): Flow<CapsuleMode> = callbackFlow {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            // 清空全部设置时 key 为 null
+            // キーが null になります
             if (key == null || key == CAPSULE_MODE) trySend(capsuleMode())
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
@@ -112,7 +112,7 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }.distinctUntilChanged()
 
-    /** 胶囊停在哪:左边还是右边、高度占可摆范围的比例;没拖过时在右上角。 */
+    /** カプセルはどこに止まりますか: 左または右、スイング可能な範囲の比率としての高さ。ドラッグしていない場合は、右上隅にあります。 */
     fun capsuleDock(): CapsuleDock = CapsuleDock(
         if (prefs.getString(CAPSULE_SIDE, null) == DockSide.Left.name) DockSide.Left else DockSide.Right,
         prefs.getFloat(CAPSULE_HEIGHT, 0f).coerceIn(0f, 1f),
@@ -123,8 +123,8 @@ class FeatureFlags(private val prefs: SharedPreferences) {
     }
 
     /**
-     * 展开的卡片停在哪:上边在可摆范围里的比例(见 [com.wangzan101.mika.capsule.CardDocking.release]);没记过时最高的卡片在正中。
-     * 以前按固定高的卡片记的比例正好就是它的上边比例,照样读。
+     * 展開されたカードがどこで止まるか: スイング可能範囲内の上部の割合 ([com.wangzan101.mika.capsule.CardDocking.release] を参照)。覚えていないかもしれませんが、最も高いカードが中央にあります。
+     * 以前は、固定の高さに応じて記録されたカードの割合は、その上の割合とまったく同じであり、依然として読み取られていました。
      */
     fun capsuleCardFraction(): Float = prefs.getFloat(CAPSULE_CARD_HEIGHT, CardDocking.DEFAULT_FRACTION).coerceIn(0f, 1f)
 
@@ -134,12 +134,12 @@ class FeatureFlags(private val prefs: SharedPreferences) {
 
     companion object {
         const val PREFS = "feature_flags"
-        /** 每个任务步数上限能设的最大值;0/null 表示不限制。 */
+        /** 各タスクステップの上限として設定できる最大値。 0/null は制限がないことを意味します。 */
         const val MAX_TASK_STEP_LIMIT = 500
         private const val SPEED_FLAGS = "speed_flags"
         /**
-         * 提速开关默认值的升级,按先后各做一次(键记下做过没有):v2 打开分级读屏、连续操作、按需看图;
-         * v3 打开经验回放(学习改看结局判定之后路线才记得下来)。
+         * 高速化スイッチのデフォルト値をアップグレードします。順番に 1 回ずつ実行します (実行したかどうかに注意してください): v2 では、階層的な画面読み取り、連続操作、オンデマンドでの画像表示が開きます。
+         * v3 では、体験リプレイが開きます (エンディング判定の変更を学習した後でのみルートを思い出すことができます)。
          */
         private val SPEED_UPGRADES: List<Pair<String, (SpeedFlags) -> SpeedFlags>> = listOf(
             "speed_defaults_applied_v2" to { f -> f.copy(inlineScreen = true, batchSteps = true, adaptiveVision = true) },

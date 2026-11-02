@@ -81,22 +81,22 @@ import com.wangzan101.mika.core.userscreen.UserScreenSource
 import com.wangzan101.mika.core.general.HISTORY_READ
 import com.wangzan101.mika.core.general.VIEW_USER_SCREEN
 
-/** 批做完后另看的一眼:内容和画面同一时刻。 */
+/** バッチ終了後の別の外観: コンテンツと画面が同時に表示されます。 */
 private fun batchViewNote(content: String) = Feedback.format("batch_view_note", "screen" to content)
 private val MEMORY_VERBS = setOf(Verb.MemorySearch, Verb.MemorySave)
-/** 讨论历史时仍可查本地记忆与技能资料、之前几轮的记录；这些调用不会打开 App 或网站。 */
+/** 歴史について話し合うときも、ローカル メモリとスキル データ、および以前のラウンドの記録を確認できます。これらの呼び出しでは、アプリや Web サイトは開きません。 */
 private val DISCUSSION_LOOKUP_VERBS = setOf(Verb.MemorySearch, Verb.KnowledgeSearch, Verb.KnowledgeRead, Verb.SkillSearch, Verb.SkillRead, Verb.HistoryRead)
 
 /**
- * 驱动“模型 ↔ 工具”的循环,只做调度:问模型([ModelCaller])→ 交执行入口([ActionExecutor])→
- * 按策略([TurnPolicy]、[StopRules]、[StuckAdvice]、[NoticePolicy])决定提醒、建议与结局 → 写进历史。
- * 结局:不带工具调用的回复就是给用户的最终回答(核对见 [AnswerReview],来源由代码从证据账本里找);
- * 随调用写的文字是进度说明([TaskState.Running.narration])。做不成、要问用户、要用户亲手做,各走 end_not_done、
- * ask_user、hand_to_user。只有空回复(或被输出上限截断的回复)会被提醒,而且只提醒一次。
- * 每轮只执行第一个工具调用,写操作前过 [gate](能力的前置条件不满足时挂起,如手机锁屏),守卫结论放进工具结果的 guard 字段。
- * gate 挂起前用 setWaiting 报告原因(能力给的 [TaskState.Held]),放行时传 null;
- * 等待期间对外显示该状态,结束后恢复 Running。
- * 运行过程以 [RunEvent] 交给 [sink](已脱敏、大字段截短),存下的画面经 [RunSink.media] 交出。
+ * は「モデル↔ツール」のサイクルを回し、モデルに依頼（[ModelCaller]）→実行エントリを渡す（[ActionExecutor]）→というスケジューリングのみを行います。
+ * 戦略に応じてリマインダー、提案、エンディングを決定 ([TurnPolicy]、[StopRules]、[StuckAdvice]、[NoticePolicy]) → 履歴に書き込みます。
+ * 終了: ツール呼び出しのない応答がユーザーへの最終応答です (検証については、[AnswerReview] を参照してください。ソースはコードによって証拠簿に見つかります)。
+ * 通話とともに書き込まれるテキストは、進行状況の説明 ([TaskState.Running.narration]) です。それができない場合は、ユーザーに尋ねる必要があり、手動で行う必要があり、誰もが独自の方法で進みます。
+ * ユーザーに尋ね、ユーザーに渡します。空の返信 (または出力制限によって切り捨てられた返信) のみがリマインドされます。リマインドされるのは 1 回だけです。
+ * は、各ラウンドの最初のツール呼び出しのみを実行します。 [gate] は書き込み操作の前に渡され (携帯電話のロック画面など、機能の前提条件が満たされない場合は中断されます)、ガードの結論がツール結果のガード フィールドに入れられます。
+ * ゲートは、中断する前に setWaiting を使用して理由 (機能によって指定される [TaskState.Held]) を報告し、解放時に null を渡します。
+ * は待機期間中にこのステータスを外部に表示し、終了後に実行を再開します。
+ * の実行プロセスは [RunEvent] として [sink] に引き継がれ (感度が低くなり、大きなフィールドは切り捨てられます)、保存された画面は [RunSink.media] に引き継がれます。
  */
 class AgentLoop(
     private val model: ChatModel,
@@ -106,85 +106,85 @@ class AgentLoop(
     private val gate: suspend (setWaiting: (TaskState?) -> Unit) -> Unit = {},
     private val knowledge: KnowledgeStore? = null,
     sink: RunSink = RunSink.NONE,
-    /** 已安装 App(包名, 显示名),只用于按任务文字挑参考资料;取不到时按空列表处理。 */
+    /** はアプリ (パッケージ名、表示名) をインストールしました。これは、タスクのテキストに従って参考資料を選択するためにのみ使用されます。取得できない場合は空のリストとして処理されます。 */
     private val installedApps: suspend () -> List<Pair<String, String>> = { emptyList() },
-    /** 最终回答交出前、按风险才请的独立核查(见 [AnswerReview]);为 null 时只做字面核对(产品路径必须给)。 */
+    /** 最終的な回答が渡される前に、リスクに基づいて独立した検証が要求されます ([AnswerReview] を参照)。 null の場合、リテラル検証のみが行われます (製品パスを指定する必要があります)。 */
     private val verifier: Verifier? = null,
-    /** 付款的确认关卡；自主执行路径传 null，也不向模型提供 request_confirmation。 */
+    /** 支払い確認レベル;独立した実行パスは null を渡し、モデルに request_confirmation を提供しません。 */
     private val confirmations: ConfirmationGate? = ConfirmationGate(),
-    /** 询问 / 自主(中途换成自主时从下一步起照它);默认询问。 */
+    /** Query / Autonomous (途中で Autonomous に切り替えた場合は、次のステップからに従ってください);デフォルトのクエリ。 */
     private val approvals: ApprovalSettings = ApprovalSettings.ASK,
-    /** 等用户回答确认的时限,到时按不同意;为 null 时一直等(测试)。 */
+    /** ユーザーが応答を確認し、同意しないを押すまで待機する時間制限。 null の場合は、待ち続けます (テスト)。 */
     confirmTimeoutMs: Long? = null,
-    /** Mika 自己的包名:作用在它上面的写操作不做。 */
+    /** ミカ自身のパッケージ名: これに対する書き込み操作は実行されません。 */
     private val selfPackage: String? = null,
-    /** 追问(ask_user 与开工前的歧义问题)等用户回答的时限;计时走协程调度器的时钟,测试里用虚拟时间。 */
+    /** ユーザーがフォローアップの質問 (ask_user と作業開始前のあいまいな質問) に回答するまでの制限時間。タイミングはコルーチン スケジューラのクロックに基づいており、テストでは仮想時間が使用されます。 */
     inputTimeoutMs: Long = DEFAULT_INPUT_TIMEOUT_MS,
-    /** 选渠道用的事实;给了就在任务开头注入一行「可用渠道」。 */
+    /** チャンネル選択に関する事実。指定されている場合は、タスクの開始時に「利用可能なチャネル」の行を挿入します。 */
     private val channelFacts: (suspend () -> ChannelFacts)? = null,
-    /** 提速开关;默认全关。 */
+    /** スピードアップ スイッチ;デフォルトでは完全にオフになっています。 */
     val flags: SpeedFlags = SpeedFlags.OFF,
-    /** 事件时间与耗时用的钟;测试里换成假时钟。 */
+    /** イベント時間と経過時間に使用されるクロック。テストでは偽の時計に置き換えました。 */
     private val clock: () -> Long = System::currentTimeMillis,
-    /** 大小模型分工;只在 flags.lightSteps 打开时用。 */
+    /** 大型モデルと小型モデルの分業。 flags.lightSteps がオンになっている場合にのみ使用されます。 */
     router: ModelRouter? = null,
-    /** UI 对话第一次要用工具时的独立意图判断；null 保留评测与其他入口的原行为。 */
+    /** ツールを初めて使用するときの UI ダイアログの独立した意図判断。 null は、評価およびその他のエントリの元の動作を保持します。 */
     intentJudge: ChatModel? = null,
-    /** 经验回放的路线匹配;只在 flags.replay 打开时用。 */
+    /** エクスペリエンスをリプレイするためのルート マッチング。 flags.replay がオンになっている場合にのみ使用されます。 */
     routes: RouteMatcher? = null,
-    /** 技能目录(含个人技能);任务开始时列出全部技能,并按目标给几条 App/站点知识的索引。为 null 或 [recommendSkills] 关着时不给索引。 */
+    /** スキルディレクトリ (個人スキルを含む);タスクの開始時にすべてのスキルがリストされ、ターゲットに応じていくつかのアプリ/サイトの知識インデックスが与えられます。 null の場合、または [recommendSkills] がオフの場合、インデックスは与えられません。 */
     private val skills: GuideCatalog? = null,
     private val recommendSkills: Boolean = true,
-    /** 记忆;为 null(或总开关关)时不检索、不注入、不提供 memory_* 工具。 */
+    /** メモリ; null の場合 (またはメイン スイッチがオフの場合)、取得、注入、memory_* ツールは提供されません。 */
     private val memory: MemoryStore? = null,
-    /** 运行时状态里的本地时间按这个时区写。 */
+    /** ランタイム状態の現地時間は、このタイムゾーンに従って書き込まれます。 */
     private val zone: ZoneId = ZoneId.systemDefault(),
-    /** 模型调用遇到一时的故障(限流、5xx、网络)时的重试。 */
+    /** モデル呼び出しで一時的な障害 (電流制限、5xx、ネットワーク) が発生した場合に再試行します。 */
     retry: RetryPolicy = RetryPolicy(),
-    /** 不带调用的回复收下当最终回答之前问一次(见 [BeforeAccept]);默认照收。步数用完后的最后一轮不问。 */
+    /** 通話なしの応答は受け入れられ、最終応答の前に 1 回尋ねられます ([BeforeAccept] を参照)。デフォルトが受け入れられます。ステップ数を使い果たした後の最終ラウンドは問われません。 */
     private val beforeAccept: suspend (answer: String) -> BeforeAccept = { BeforeAccept.Accept },
     private val interaction: Interaction = LocalInteraction,
     private val profileSnapshot: List<ProfileEntry> = emptyList(),
     private val autonomous: Boolean = false,
-    /** 交互界面开启可见文字流；评测和后台调用保持原请求格式。 */
+    /** インタラクティブ インターフェイスにより、目に見えるテキスト フローが可能になります。評価呼び出しとバックグラウンド呼び出しでは、元の要求形式が維持されます。 */
     private val streamReplies: Boolean = false,
-    /** 这个对话里用户发来的屏幕(见 [UserScreenTurns]);没有时带屏幕的那一行原样给模型。 */
+    /** この会話でユーザーによって送信された画面 ([UserScreenTurns] を参照)。そうでない場合は、画面のある線がそのままモデルに与えられます。 */
     private val userScreens: UserScreenSource? = null,
-    /** 评测可保留旧收尾核查；交互产品由执行过程观察结果，收尾只整理来源。 */
+    /** 評価では古い終了検証を保持できます。インタラクティブな製品は実行プロセスの結果を観察し、終了はソースを分類するだけです。 */
     private val reviewFinalAnswer: Boolean = true,
-    /** 同一网站、App 里连着做对外动作(发送、提交)时两次之间的间隔;默认不等。 */
+    /** 同じ Web サイトまたはアプリ上での 2 つの連続した外部アクション (送信、送信) 間の間隔。デフォルトは等しくありません。 */
     private val outwardPacing: OutwardPacing = OutwardPacing.Off,
     private val trace: RunTrace? = null,
 ) {
     init {
         require(maxSteps > 0) { "maxSteps must be positive" }
-        // 只有开着回放才在写操作前取目标元素与锚点
+        // 再生がオンになっている場合にのみ、書き込み操作の前にターゲット要素とアンカー ポイントが取得されます。
         tools.captureTargets = flags.replay
     }
 
-    /** 运行记录:按因果先后写(见 [RecordOrder])。 */
+    /** 走行記録: 原因と結果の順に書き込まれます ([RecordOrder] を参照)。 */
     val events = RunEventBus().also { bus ->
         bus.subscribe(sink)
         trace?.let { bus.subscribe(it) }
     }
     private val sink = RecordOrder(events).also { order ->
-        // 记进证据账本的每条观察原样进运行记录(跟在读到它的那次调用的结果后面)
+        // 証拠台帳に入力された各観察は、そのまま実行レコードに入力されます (その後、それを読み取る呼び出しの結果が続きます)。
         tools.observer = { record { order.observed(RunEvent.Observed.of(it)) } }
     }
 
     private val caller = ModelCaller(model, tools, router, flags, retry, ::emit, ::now, autonomous, trace)
     private val intentGate = intentJudge?.let { IntentGate(it, model.takeUnless { main -> main === it }) }
     private val routeMatcher = routes
-    /** 本任务的上下文生成器(外壳、预算、已给过的参考资料)。 */
+    /** このタスクのコンテキスト ジェネレーター (シェル、予算、指定された参照)。 */
     private var ctx = ContextBuilder()
-    /** 本任务里用户发来的屏幕(开局时建)。 */
+    /** このタスクでユーザーによって送信された画面 (最初に作成)。 */
     private var screens: UserScreenTurns? = null
-    /** 这次的原话给模型时的样子(带着屏幕时换成了说明,见 [UserScreenTurns]);还没开始为 null。判结局、提取记忆按它读。 */
+    /** 今回は、元の単語がモデルに与えられます (画面を使用するときの指示に置き換えられます。[UserScreenTurns] を参照)。開始する前は null です。結果を決定し、クリックして読むことで記憶を取得します。 */
     @Volatile var taskText: String? = null
         private set
     /**
-     * 用户最近一句话(开局原话或插话)里他这次打的字,见 [ownWords];插话里没打字(只发了屏幕、只选了字)时沿用上一句的。
-     * 语言提示和回答的语言检查按它;记忆、技能的引文收的是 [UserWords.said](还认他引的自己说过的话)。
+     * ユーザーの最新の文に入力した単語 (最初または中断部分の元の単語) が [ownWords] に表示されます。中断中に入力がない場合 (画面のみが送信され、単語のみが選択されている場合)、前の文が使用されます。
+     * これをクリックして言語のプロンプトと回答を確認します。記憶とスキルの引用は [UserWords.said] です (私は彼が自分自身を引用して言ったことも認識しています)。
      */
     private var latestWords = ""
 
@@ -192,37 +192,38 @@ class AgentLoop(
     val state: StateFlow<TaskState> = _state.asStateFlow()
 
     @Volatile private var usedMemory: List<String> = emptyList()
-    /** 本次任务记忆块里列出的条目编号;任务结束后读取。 */
+    /** このタスクのメモリ ブロックにリストされているエントリ番号。タスクが完了したら読んでください。 */
     val usedMemoryIds: List<String> get() = usedMemory
 
-    /** 本次任务真的用过的能力组(记进这一轮,下一轮开局预先展开);任务结束后读取。 */
+    /** このミッションで実際に使用される能力グループ (このラウンドで記録され、次のラウンドの開始時に事前拡張されます)。ミッション終了後に読んでください。 */
     val usedGroups: Set<String> get() = tools.used
 
-    /** 用户本次说的话(memory_save、skill_save 的引文校验用);给了就收集,只在内存里、每个任务开始清空。 */
+    /** ユーザーが今回言ったこと (memory_save と skill_save の引用検証に使用);与えられるとすぐに収集され、メモリ内にのみ保存され、各タスクの開始時にクリアされます。 */
     private val utterances get() = tools.utterances
 
     private val user = UserExchange(tools, confirmations, confirmTimeoutMs, inputTimeoutMs, { utterances }, { _state.value = it }, ::emit, ::now)
     private val replay = routes?.let { RouteReplay(it, tools, ::awaitGate, { r -> gateState = r; _state.value = r }, ::emit, clock) }
 
     @Volatile private var job: Job? = null
-    /** 锁屏/被拿走关卡等完之后恢复的界面状态(当前这一步、批或回放)。 */
+    /** 画面のロック/レベルの解除と待機 (現在のステップ、バッチ、または再生) 後に復元されたインターフェイスの状態。 */
     @Volatile private var gateState: TaskState = TaskState.Idle
     @Volatile private var cancelRequested = false
-    /** 被插话撤掉请求的那一步;之后迟到的流式文字不再显示。 */
+    /** は、リクエストが削除されるステップで中断されます。その後、遅延ストリーミング テキストは表示されなくなります。 */
     @Volatile private var interruptedStep = 0
-    /** 本对话之前几轮用户说的话,只给核查器理解追问;不含干活模型的任何东西。 */
+    @Volatile private var streamedText: String? = null
+    /** このダイアログの前のラウンドでユーザーが言ったことは、検証者が理解してフォローアップするためだけに使用されます。作業モデルについては何も含まれていません。 */
     private var earlierGoals: List<String> = emptyList()
-    /** 本次运行的结局;判过结局后路线计数要用([noteOutcome])。 */
+    /** このランの終わり。ルートカウントはエンディング決定後に使用されます（[noteOutcome]）。 */
     @Volatile private var lastEnd: TaskState? = null
     private val review = AnswerReview(tools, verifier, ::emit, ::now)
-    /** 本任务每一步存下的画面编号(步 → 编号),回答的来源按它附上画面。 */
+    /** このタスクの各ステップで保存された画面番号 (ステップ → 番号)、回答のソースをクリックして画面を添付します。 */
     private val media = mutableMapOf<Int, MutableList<Int>>()
-    /** 本任务的回答已因核对没对上退回过一次;再没对上就标成未确认交出,不再退回。 */
+    /** このタスクに対する回答は、検証中に正しくなかったため、一度返されました。再度正しくない場合は、未確認としてマークされて引き渡され、再度返却されません。 */
     private var gapsNudged = false
     private var provenance = RunProvenance()
     val activeAsk: Delivery.Ask? get() = user.activeAsk
 
-    /** 新入口:同一对话里的插话和控制经 [inbox] 进入;旧入口继续使用相同的执行路径。 */
+    /** 新しい入口: 同じ会話の中断と制御は、[inbox] を通じて入力されます。古い入口は引き続き同じ実行パスを使用します。 */
     suspend fun run(spec: RunSpec, inbox: RunInbox): TaskState = runInternal(spec.goal, spec.priorTurns, inbox, spec.provenance, spec.threadId)
 
     suspend fun run(task: String, priorTurns: List<Turn> = emptyList()): TaskState = runInternal(task, priorTurns, null, RunProvenance(), "local")
@@ -238,7 +239,7 @@ class AgentLoop(
             override fun cancel() = this@AgentLoop.cancel()
         })
         caller.reset(basePrompt)
-        // 同意只在一次任务内有效
+        // の同意は 1 つのミッション内でのみ有効です
         confirmations?.reset()
         utterances?.clear()
         emit(RunEvent.TaskStarted(now(), Redactor.text(task), model.name,
@@ -263,7 +264,7 @@ class AgentLoop(
     private suspend fun runLoop(task: String, priorTurns: List<Turn>, inbox: RunInbox?): TaskState {
         val end = try {
             coroutineScope {
-                // 插话的信号装在整个运行的上下文里:撤掉也不丢东西的等待据此提前结束(见 waitOrSteer)
+                // 介在シグナルは実行コンテキスト全体にインストールされます。待機は削除されても何も失われずに途中で終了します (waitOrSteer を参照) 書き込み前は
                 val body = async(inbox?.signal ?: EmptyCoroutineContext) { loop(task, priorTurns, inbox) }
                 job = body
                 if (cancelRequested) body.cancel()
@@ -281,7 +282,7 @@ class AgentLoop(
         return end
     }
 
-    /** 写操作前过 [gate]:挂起期间对外显示等待原因,结束后恢复 [gateState]。 */
+    /** [gate]：一時停止期間中は外部に待機理由が表示され、終了後は[gateState]が復帰します。 */
     private suspend fun awaitGate() {
         try {
             gate { waiting ->
@@ -294,22 +295,22 @@ class AgentLoop(
     }
 
     /**
-     * 交出的回答判过结局([OutcomeJudge])之后调用:回放走完的路线只在办成([LearnGate])时记一次成功。
-     * 失败、取消的任务不判也不用调用;不调用就不记成功。
+     * は、渡された回答がエンディングを通過した後に呼び出されます ([OutcomeJudge])。完了したルートが再生され、完了時に 1 つの成功のみが記録されます ([LearnGate])。
+     * 失敗またはキャンセルされたタスクは判断されないため、呼び出す必要はありません。呼び出されなかった場合、成功は記録されません。
      */
     suspend fun noteOutcome(outcome: RunOutcome) {
         val end = lastEnd ?: return
         replay?.noteResult(end, outcome)
     }
 
-    /** 交回接管的结局;结局作为 hand_to_user 的工具结果交给模型。 */
+    /** エンディングを譲ってください。エンディングは、hand_to_user のツール結果としてモデルに渡されます。 */
     suspend fun resumeAfterTakeover(result: HandBack) = user.resumeAfterTakeover(result)
 
-    /** 旧的交回方式:一律算 complete;[note] 为 [USER_FINISHED_NOTE] 时表示用户说已自己办完。 */
+    /** の古い戻りメソッドは常に完了したものとみなされます。 [note] が [USER_FINISHED_NOTE] の場合は、ユーザーが自分で完了したことを意味します。 */
     suspend fun resumeAfterTakeover(note: String) =
         resumeAfterTakeover(HandBack(HandBackOutcome.complete, userFinished = note == USER_FINISHED_NOTE))
 
-    /** 回答追问;没有在等的问题(已超时、已答过)时返回 false,由界面告诉用户回答来晚了。 */
+    /** は追加の質問に答えます。待っている質問がない場合 (タイムアウト、回答済み)、 false が返され、インターフェイスはユーザーに回答が遅れていることを伝えます。 */
     suspend fun answerInput(text: String): Boolean = user.answerInput(text)
 
     suspend fun answerConfirmation(approved: Boolean) = answerConfirmation(if (approved) ConfirmChoice.Once else ConfirmChoice.Deny)
@@ -322,7 +323,7 @@ class AgentLoop(
     }
 
     private suspend fun loop(raw: String, rawPrior: List<Turn>, inbox: RunInbox?): TaskState {
-        // 用户发来的屏幕:这一句给全(那句话、截图、详情),之前几轮里的收成一行;下面都用换好的这句
+        // ユーザーから送信された画面: この文は全体 (その文、スクリーンショット、詳細) であり、前のラウンドでの収穫が連続しています。次の文は次のように置き換えられます
         val shots = UserScreenTurns(userScreens, zone, tools.seesImages, canAskVision = !tools.seesImages && tools.vision != null && tools.definitions().any { it.name == VIEW_USER_SCREEN },
             image = { tools.modelImage(it, null) }, seen = tools::noteUserScreen).also { screens = it }
         user.answerText = shots::asText
@@ -332,13 +333,13 @@ class AgentLoop(
         latestWords = ownWords(raw, opening)
         val priorTurns = shots.collapse(rawPrior)
         earlierGoals = priorTurns.map { it.userText }
-        // 之前的轮次只作参考,放在本次任务之前
+        // 前のラウンドは参照専用であり、このタスクの前に配置する必要があります。
         val context = Conversation.context(priorTurns)
         utterances?.add(UserWords.said(opening?.words ?: raw, tools))
-        // 记忆块:对话上文之后、任务原文之前;用到的条目由代码记下
+        // メモリ ブロック: 上のダイアログの後、元のタスク テキストの前。使用されたエントリはコードに記録されます
         usedMemory = emptyList()
-        // 上次没读出记忆文件(密钥库一时不可用)就再读一次;还读不出就这次不带记忆
-        // 产品路径用 Auto:记忆总量装得下就全量注入(不漏检索),装不下才退回检索
+        // メモリ ファイルが最後に読み込まれなかった場合 (キーストアが一時的に利用できなくなった場合)、もう一度読み取ります。それでも読み取れない場合は、今回はメモリ ファイルを使用しないでください。
+        // プロダクト パスは自動を使用します。メモリの総量が適合する場合は、全量を注入し (取得の欠落なし)、適合しない場合は取得に戻ります。
         val block = memory?.takeIf { it.reloadIfNeeded() }?.let {
             MemoryContext.build(it.items.value, task, priorTurns.lastOrNull()?.userText, tools.legacy::rewrite,
                 mode = MemoryContext.Mode.Auto)
@@ -348,7 +349,7 @@ class AgentLoop(
             memory?.markUsed(block.usedIds)
             emit(RunEvent.MemoryUsed(now(), block.usedIds))
         }
-        // 开局预先展开:上一轮用过的组,和这次的话一定用得上的(见 ToolDispatcher.preload)
+        // 開始時に事前展開: 前回のラウンドで使用され、今回も必ず使用されるグループ (ToolDispatcher.preload を参照)
         tools.preload(task, priorTurns.lastOrNull()?.groups.orEmpty()).forEach { emit(RunEvent.State(now(), "tools_preloaded", it)) }
         var openGroups = tools.expanded
         val batchSpec = BatchRunner.spec(tools.batchable()).takeIf { flags.batchSteps }
@@ -356,11 +357,11 @@ class AgentLoop(
             val verb = tools.verb(s.name)
             return (confirmations != null || verb != Verb.RequestConfirmation) && (memory != null || verb !in MEMORY_VERBS)
         }
-        // 提示词版本按每组都展开的样子算:同一版提示词不因这次展开了哪几组而不同
+        // プロンプト ワードのバージョンは、各グループが展開されるときに計算されます。同じバージョンのプロンプト ワードは、今回どのグループが展開されるかによって異なりません。
         val everything = tools.offeredNow(listOfNotNull(batchSpec), all = true).filter(::keep)
         emit(RunEvent.PromptVersion(now(), PromptVersion.of(SystemPrompt.assemble(basePrompt, tools.promptSections(everything, all = true)), everything)))
         var specs = emptyList<ToolSpec>()
-        // 每次问模型之前:展开了新的组时,工具和系统提示词跟着换;没展开就一字不变
+        // 毎回モデルについて尋ねる前に、新しいグループが展開されると、それに応じてツールとシステムのプロンプトの単語が変わります。拡張されない場合は、変更されないままになります。
         fun refreshOffer() {
             val offer = tools.offeredNow(listOfNotNull(batchSpec)).filter(::keep)
             if (offer == specs) return
@@ -376,22 +377,22 @@ class AgentLoop(
             provenance = provenance,
             selfPackage = selfPackage, autonomous = autonomous, pacing = outwardPacing)
         var emptyNudged = false
-        // 调过工具才有可核对的材料;交给用户付款和放行过对外动作一样,回答要另请核查
+        // ツールを調整した後でのみ、材料を検証できます。ユーザーに支払いを行うことは、それを外部の世界に解放することと同じです。答えは別途検証する必要があります。
         var acted = false
         var paymentHandedOver = false
-        // 用户回答了追问、还没做别的事:这时就要交回答,先提醒一次照做(见 [owedFollowUp])
+        // ユーザーはフォローアップの質問に回答し、他には何もしていません。現時点では、回答を送信する必要があり、そうするよう促されます ([owedFollowUp] を参照)
         var answered: String? = null
         var followUpNudged = false
         var resultReadNudged = false
         var languageNudged = false
-        // 工具调用漏成文字的回复刚退回过一次(见 [LeakedToolCall]);正常调了工具就重新算
+        // ツールの呼び出し時にテキストとして見逃された応答が 1 回だけ返されました ([LeakedToolCall] を参照)。ツールを正常に調整した後、再計算されます。
         var leakNudged = false
         fun facts() = ReviewFacts(acted, paymentHandedOver || recorder.outwardActs > 0, recorder.lastChangeMark?.let { !tools.readSince(it) } == true)
         media.clear()
         gapsNudged = false
         interruptedStep = 0
         var note = ""
-        // 除用户原话以外的上下文都经它生成:统一外壳、统一预算
+        // ユーザーの元の単語以外のすべてのコンテキストは、統合シェル、統合バジェットを通じて生成されます。
         ctx = ContextBuilder(zone = zone)
         val installed = try { installedApps() } catch (e: CancellationException) { throw e } catch (e: Exception) { emptyList() }
         val labels = installed.toMap()
@@ -399,7 +400,7 @@ class AgentLoop(
         val index = if (skills != null && recommendSkills) GuideRecommender.index(skills, task) else null
         val start = ctx.start(
             task, priorTurns = context?.let { (it.parts.single() as Part.Text).text }?.let { prior ->
-                // 之前几轮读到的东西查得到时说一句(只在有记过运行的轮次、提供了 history_read 时)
+                // 前のラウンドで読んだ内容が判明した場合に発言します（デメリットがあり、実行ラウンドがあり、history_readが提供されている場合のみ）
                 if (tools.definitions().any { it.name == HISTORY_READ }) Feedback.format("history_hint", "turns" to prior) else prior
             },
             memory = listOfNotNull(ProfileContext.render(profileSnapshot), block?.message).takeIf { it.isNotEmpty() }?.joinToString("\n\n"),
@@ -410,12 +411,12 @@ class AgentLoop(
         )
         val history = start.messages.toMutableList()
         start.knowledge.filter { it.trial }.forEach { emit(RunEvent.State(now(), "knowledge_trial_used", it.name)) }
-        // 链接只在 open_link 可用时给,且只放行真的给了模型的那几份
+        // リンクは、open_link が利用可能な場合にのみ与えられ、モデルに実際に与えられたコピーのみがリリースされます。
         if (flags.deepLinks) start.knowledge.forEach { if (it.links.isNotEmpty()) tools.allowLinks(it.links) }
-        // 网页上每个站点只在第一次进入时按域名找一次知识
+        // Web ページ上の各サイトは、初めてアクセスするときにドメイン名でナレッジを 1 回だけ検索します。
         val visitedSites = mutableSetOf<String>()
 
-        // 任务此刻在哪(App、站点……);由能力一侧按每次调用的结果给出
+        // 現時点でのタスクはどこですか (アプリ、サイト...)。各呼び出しの結果に応じて機能側によって与えられる
         var place: Place? = null
         var stuck = StuckState()
         var lastProgressVersion = guards.progressVersion
@@ -429,17 +430,17 @@ class AgentLoop(
         val track = StepTrack()
         var intent: IntentGate.Intent? = null
         var intentAssessed = false
-        // 每次运行只判断一次;判断不出(调用失败、回复不是三个词之一)时为 null,照主模型自己的决定走
+        // は実行ごとに 1 回だけ判定されます。判断できない場合 (呼び出しが失敗する、応答が 3 つの単語のいずれでもない場合) は null となり、メイン モデルは独自の決定に従います。
         suspend fun assessIntent(): IntentGate.Intent? {
             intentAssessed = true
-            // 只发来屏幕、没说话:没有话可判,按屏幕猜意图的规矩交给主模型
+            // は画面を送信するだけで、言葉はありません。判断する言葉はありません。画面の意図を推測するルールに従って、メインモデルに渡します。
             val result = if (opening != null && opening.words.isEmpty()) null else intentGate?.assess(task, priorTurns)
             emit(RunEvent.State(now(), "intent_gate", result?.name ?: "unavailable"))
             return result
         }
-        // 第一次模型调用之前:有合适的路线就先照着做,不调模型;做完或对不上都交还模型
-        // 路线只记、只放手机上的做法:点名用网页的任务不回放
-        if (flags.replay && replay != null && !task.trimStart().startsWith(WEB_CHANNEL_PREFIX)) {
+        // 初めてモデルを呼び出す前に: 適切なルートがある場合は、モデルを調整せずにそのルートに従います。完了するか一致しない場合はモデルを返します。
+        // ルートだけを記憶して携帯電話に保存する方法: 点呼用 Web ページを使用してタスクを再生しない
+        if (flags.replay && replay != null && WEB_CHANNEL_PREFIXES.none(task.trimStart()::startsWith)) {
             val reviewRoute = provenance.origin == RunOrigin.Ui && intentGate != null && routeMatcher?.candidates(task)?.isNotEmpty() == true
             if (reviewRoute) intent = assessIntent()
             if (!reviewRoute || intent == IntentGate.Intent.Read || intent == IntentGate.Intent.Act) {
@@ -471,7 +472,7 @@ class AgentLoop(
                 tools.verb(proposed.name) !in DISCUSSION_LOOKUP_VERBS) {
                 if (!intentAssessed) intent = assessIntent()
                 if (intent == IntentGate.Intent.Discuss) {
-                    // 提议的调用尚未写进历史、也没有执行；重问一次，只给直接回答的机会。
+                    // 提案された通話は履歴に書き込まれず、実行されていません。もう一度質問し、直接答える機会だけを与えてください。
                     val discussion = history + ctx.notice("conversation_intent",
                         "The user is discussing or reviewing this time. Answer this question directly, without reading or operating apps, websites or other outside content.")
                     reply = try { caller.ask(discussion, emptyList(), step, using = model, onText = previewFor(step)) }
@@ -483,19 +484,21 @@ class AgentLoop(
             val text = reply.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }.trim()
             history += Message(Role.Assistant, reply.parts, Author.Mika).also { caller.noteReply(it, used, reply.usage) }
             val calls = reply.parts.filterIsInstance<Part.ToolCall>()
-            note = text.ifEmpty { calls.firstOrNull()?.name ?: note }
+            val visibleText = displayReply(text, calls.isNotEmpty())
+            note = visibleText.ifEmpty { calls.firstOrNull()?.name ?: "" }
             val tool = calls.firstOrNull()?.name
             val reason = calls.firstOrNull()?.let { tools.callReason(it.name, parseArgs(it.argsJson)) }
+                ?.let { if (JapaneseOutput.isJapaneseProse(it)) it else GENERIC_PROGRESS }
             val retryWaitMs = caller.lastRetryWaitMs
             val repliedAtMs = now()
             val latencyMs = repliedAtMs - asked - retryWaitMs
-            // 随调用写的字是进度说明,界面上的实时那一行先用它
-            val narration = text.takeIf { calls.isNotEmpty() && it.isNotEmpty() }
+            // 通話とともに書かれた言葉は進行状況の説明です。最初にインターフェイスのリアルタイム ラインで使用します。
+            val narration = visibleText.takeIf { calls.isNotEmpty() && it.isNotEmpty() }
             _state.value = TaskState.Running(step, note, tool, reason = reason, narration = narration,
-                preview = text.takeIf { streamReplies && calls.isEmpty() && it.isNotEmpty() })
-            // 带调用的回复等执行完再记:要看端口是否报告了密码框
+                preview = visibleText.takeIf { streamReplies && calls.isEmpty() && it.isNotEmpty() })
+            // 通話による応答は、実行後に記録されます。これは、ポートがパスワード ボックスを報告するかどうかによって異なります。
             fun recordReply(argsJson: String?) = emit(RunEvent.ModelReply(
-                now(), step, RunEvent.clip(Redactor.text(text)), tool, argsJson,
+                now(), step, RunEvent.clip(Redactor.text(visibleText)), tool, argsJson,
                 reply.usage?.inputTokens, reply.usage?.outputTokens, reply.usage?.cachedInputTokens, latencyMs,
                 if (caller.recordRoles) used.name else null, if (caller.recordRoles) caller.roleOf(used) else null, retryWaitMs = retryWaitMs,
                 repliedAtMs = repliedAtMs,
@@ -504,9 +507,9 @@ class AgentLoop(
             if (calls.isEmpty()) {
                 track.after(null, ok = false, guard = false, changed = null, recovery = false, app = null)
                 recordReply(null)
-                // 模型给出最终回答时,先收下在途的用户插话,再决定是否交出回答。
+                // モデルが最終的な答えを与えるとき、最初に途中でユーザーからのコメントを受け入れ、その後、答えを渡すかどうかを決定します。
                 if (keepFinished(history, inbox)) continue
-                // 空回复、被输出上限截断的半截话不是回答:提醒一次,再这样就结束
+                // 空の返信、出力上限で切り取られた文の半分は回答ではありません。一度リマインドして、これで終了します。
                 if (text.isEmpty() || reply.stopReason == StopReason.MaxTokens) {
                     val n = TurnPolicy.afterEmpty(emptyNudged, truncated = text.isNotEmpty()) ?: return StopRules.noAnswer()
                     emptyNudged = true
@@ -514,8 +517,8 @@ class AgentLoop(
                     continue
                 }
                 emptyNudged = false
-                // 工具调用原样漏成了文字(服务端没解析成调用):不是回答。退回一次,经工具接口重新调用;
-                // 紧接着又漏就结束,不把原样的标记交给用户
+                // ツール呼び出しがテキストとして漏洩します (サーバーはそれを呼び出しに解析しません): これは答えではありません。一度戻って、ツールインターフェイスを通じて再度呼び出します。
+                // は別のリークが発生するとすぐに終了し、元のマークはユーザーに引き継がれません。
                 val leaked = LeakedToolCall.find(text, everything.map { it.name })
                 if (leaked != null) {
                     if (leakNudged) return StopRules.toolCallAsText()
@@ -524,7 +527,7 @@ class AgentLoop(
                     TurnPolicy.leakedToolCall(leaked).let { history += ctx.notice(it.source, it.text) }
                     continue
                 }
-                // 用户刚同意或回答了什么、之后却什么也没做:先提醒一次照做或说明为什么不做;之后照常核对
+                // ユーザーは、何かに同意または回答した​​だけで、その後は何もしませんでした。まず、ユーザーにそれを実行するよう思い出させるか、実行しなかった理由を説明します。それからいつものようにチェックしてください
                 val owed = owedFollowUp(answered).takeIf { !followUpNudged }
                 if (owed != null) {
                     followUpNudged = true
@@ -539,22 +542,25 @@ class AgentLoop(
                 val currentFacts = facts()
                 if (!reviewFinalAnswer && currentFacts.unreadChange && !resultReadNudged) {
                     resultReadNudged = true
-                    history += ctx.notice("operation_result", "The result of the last action has not been read yet. Look at the current screen first to confirm the actual state, then answer; if it cannot be read, say so plainly.")
+                    history += ctx.notice("operation_result", "直前の操作結果をまだ読み取っていません。現在の画面で実際の状態を確認してから回答してください。読み取れない場合は、その旨を明示してください。")
                     continue
                 }
-                // 回答的正文不是用户最近那句的语言:退回一次整段改写;改写后还不对照样交出
-                if (!languageNudged) {
-                    val mismatch = ReplyLanguage.mismatch(latestWords, text)
-                    if (mismatch != null) {
+                // 回答本文が日本語でない場合:1回だけ差し戻して全文を日本語に書き直させる。
+                // 書き直しても日本語にならなければ、外国語の回答をそのまま渡さず日本語で失敗を返す(翻訳を捏造しない)。
+                // 引用・コード・短い固有名詞のみの回答は [ReplyLanguage] が不一致としないため、そのまま渡す。
+                val languageMismatch = ReplyLanguage.mismatch(text)
+                if (languageMismatch != null) {
+                    if (!languageNudged) {
                         languageNudged = true
-                        TurnPolicy.language(mismatch).let { history += ctx.notice(it.source, it.text) }
+                        TurnPolicy.language(languageMismatch).let { history += ctx.notice(it.source, it.text) }
                         continue
                     }
+                    return StopRules.languageNotJapanese(languageMismatch)
                 }
-                // 不带调用的回复就是最终回答；产品路径只整理来源。
+                // 電話をかけずに返信することが最終的な回答です。製品パスはソースを分類するだけです。
                 val result = conclude(task, text, step, currentFacts, history)
                 if (result != null) {
-                    // 交出之前还有插话(核对、整理来源时到的):不收尾,带着它接着做;没有就关上收件箱,之后的话才是下一件事
+                    // 引き渡す前にもう 1 つコメントがあります (ソースの確認と整理から来ています): 完成せずに持ち帰って作業を続けてください。そうでない場合は、受信箱を閉じてください。そうすれば、次のことになります
                     if (inbox?.closeUnlessSteered() == false) { keepFinished(history, inbox); continue }
                     return result
                 }
@@ -563,7 +569,7 @@ class AgentLoop(
             emptyNudged = false
             leakNudged = false
             acted = true
-            // 回答之后又做了别的:那个回答算有了下文
+            // は回答後に別のことを行いました。その回答には続きがあります。
             answered = null
 
             val first = calls.first()
@@ -577,7 +583,7 @@ class AgentLoop(
             }
             val args = parseArgs(first.argsJson)
 
-            // 用户刚同意的那一步要单独做:批里的步不带同意,混进去会被关卡拦下,同意也可能被别的步用掉或作废
+            // ユーザーが同意したステップは個別に実行する必要があります。バッチ内のステップには同意がありません。これらのステップが混在している場合、レベルによってブロックされます。同意は他の手順で使用または無効化される場合もあります。
             if (((flags.batchSteps && first.name == DO_STEPS_TOOL) || tools.composite(first.name)) && confirmations?.hasGrant == true) {
                 val content = buildJsonObject {
                     put("ok", false); put("error", "approved_step_first"); put("message", APPROVED_STEP_FIRST); put("recoverable", true)
@@ -592,7 +598,7 @@ class AgentLoop(
                 when (val end = batch(first, skipped, history, specs, guards, executor, track, step, note, tool, reason, narration, recordReply = ::recordReply,
                     app = { place = it }, steerWaiting = { inbox?.hasSteers() == true },
                     noteVerdicts = { s, sub, v ->
-                        // 和单步一样计卡住提醒与同一段字的重复输入
+                        // シングルステップと同様に、スタックリマインダーや同じ段落の繰り返し入力もカウントされます。
                         val typed = StuckAdvice.typedText(tools.verb(s.tool), parseArgs(s.argsJson), sub?.content)
                         stuckAdvice(v, typed)
                     })) {
@@ -611,15 +617,15 @@ class AgentLoop(
                 override suspend fun resolve(exec: ToolExecution): ToolExecution? {
                     var e = exec
                     (e.outcome as? Outcome.Confirm)?.let { e = user.confirm(it, step, running) }
-                    // 要等用户的(追问、接管):等之前先记下这次回复,等待中取消任务,运行记录里也留得住
+                    // ユーザーの応答を待ちたい場合 (質問、引き継ぎ): 待つ前にこの応答を書き留め、待機中にタスクをキャンセルし、実行記録に残します。
                     waitsForUser = e.outcome is Outcome.Input || e.outcome is Outcome.Takeover
                     if (waitsForUser) recordReply(Redactor.args(tools.verb(first.name), first.argsJson, secretField = true))
-                    // 追问的回答(或超时)就是这次调用的工具结果,调用与结果配对
+                    // 質問に対する答え (またはタイムアウト) は、この呼び出しのツール結果であり、呼び出しは結果とペアになっています。
                     (e.outcome as? Outcome.Input)?.let { o ->
                         e = user.input(o, running)
                         if (e.content["ok"] == JsonPrimitive(true)) answered = o.prompt
                     }
-                    // 等到交回,交回的结局就是这次调用的工具结果;取消任务就此结束
+                    // ハンドオーバーが完了するまで待ちます。ハンドオーバーの結果は、この呼び出しのツールの結果になります。キャンセルタスクが終了する
                     (e.outcome as? Outcome.Takeover)?.let { e = user.takeover(it, running) ?: return null }
                     return e
                 }
@@ -634,7 +640,7 @@ class AgentLoop(
                         (advice?.let { mapOf("advice" to JsonPrimitive(it)) } ?: emptyMap()))
                     val isError = (e.content["ok"] as? JsonPrimitive)?.booleanOrNull == false
                     history += Message(Role.Tool, listOf(Part.ToolResult(first.id, content.toString(), isError, e.observations.map { it.tag })) + skipped, Author.Mika)
-                    // 只有端口明确说「不是密码框」才记原文
+                    // ポートに「パスワード ボックスではありません」と明確に表示されている場合にのみ、元のテキストを思い出すことができます。
                     val secret = (e.content["secret"] as? JsonPrimitive)?.booleanOrNull != false
                     if (!waitsForUser) recordReply(Redactor.args(tools.verb(first.name), first.argsJson, secret))
                     return Presented(e, content)
@@ -652,14 +658,14 @@ class AgentLoop(
                         recordReply(Redactor.args(tools.verb(first.name), first.argsJson, secretField = true))
                         return StopRules.guard(it)
                     }
-                    // 应用权限拒绝已经由执行入口作为工具结果交给模型:不结束任务,让模型换路线或向用户说明
+                    // アプリケーションのアクセス許可の拒否が、実行ポータルによるツールの結果としてモデルに引き渡されました。タスクを終了せず、モデルにルートを変更させるか、ユーザーに説明させてください。
                     if (AppAccessDenied.isAppAccessCode(action.code)) {
                         track.after(tools.verb(first.name), ok = false, guard = false, changed = null, recovery = false, app = null)
                         continue
                     }
-                    // 模型单步只会被守卫叫停、被确认关卡拦下或因作用在 Mika 自己身上不做;别的拒绝说明执行入口和这里对不上
+                    // モデルの単一ステップは、ガードによって停止されるか、確認レベルによってブロックされるか、ミカ自身に影響するため実行されません。他の拒否は、実行入口がここで一致しないことを示します。
                     check(action.hit != null || action.code == Refusals.OWN_APP) { "unexpected refusal ${action.code} for ${first.name}" }
-                    // 被确认关卡拦下:不计入失败熔断,交给模型走确认流程
+                    // は確認レベルによって停止されました。これは故障したサーキット ブレーカーとしてカウントされず、モデルに引き渡されて確認プロセスが実行されます。
                     track.after(tools.verb(first.name), ok = false, guard = action.before.isNotEmpty(), changed = null, recovery = false, app = null)
                     continue
                 }
@@ -682,7 +688,7 @@ class AgentLoop(
             val stopNow = guards.stop ?: executor.offScreenStop
             val end = StopRules.afterAction(exec.outcome, stopNow)
             if (end != null) {
-                // 模型自己说做不成(end_not_done)时用户刚补了话:不收尾,带着这句话接着做;守卫叫停照样结束
+                // モデルがそれは実行できない (end_not_done) と言ったとき、ユーザーは次のように付け加えました。終了せずに、この文を念頭に置き続けてください。警備員がそれを止めますが、それでも終わります。
                 if (stopNow == null && exec.outcome is Outcome.Failure && inbox?.closeUnlessSteered() == false) {
                     appendSteers(history, inbox)
                     continue
@@ -691,13 +697,13 @@ class AgentLoop(
             }
 
             if (exec.images.isNotEmpty()) {
-                // 读到的图片文件不是屏幕画面,不带 screenshotId
+                // 読み取られた画像ファイルは画面イメージではなく、screenshotId がありません。
                 history += Message(Role.User, listOf(Part.Text(NoticePolicy.imageNote(verb, offScreen))) +
                     exec.images.mapIndexed { i, img -> tools.modelImage(img, if (offScreen) null else exec.imageIds.getOrNull(i)) }, Author.Mika)
             }
             for (lookup in NoticePolicy.knowledgeAfter(verb, exec.place, !isError)) when (lookup) {
                 is KnowledgeLookup.App -> knowledge?.byPackage(lookup.pkg).let { injectKnowledge(history, it) }
-                // 同一份知识不会重复注入
+                // 同じ知識は繰り返し注入されません
                 is KnowledgeLookup.Site -> if (visitedSites.add(lookup.host)) knowledge?.byDomain(lookup.host).let { injectKnowledge(history, it) }
             }
         }
@@ -706,7 +712,7 @@ class AgentLoop(
         return finalTurn(task, history, specs, maxSteps + 1, labels, place, recorder, facts(), inbox)
     }
 
-    /** 运行记录里按结果另记的事:报告的障碍(供评测按 barrier 类归因;参数不对被拒的不算)、看过的个人技能、存下的记忆。 */
+    /** 走行記録の結果に応じて個別に記録されるもの：報告された障害物（評価用、バリアカテゴリーに応じて属性が付けられます。パラメータが間違っていたり拒否されたものはカウントされません）、見た個人スキル、保存された記憶。 */
     private fun noteResultEvents(verb: Verb?, content: JsonObject) {
         if (verb == Verb.HandleObstacle && content["ok"] == JsonPrimitive(true)) {
             (content["kind"] as? JsonPrimitive)?.contentOrNull?.let { emit(RunEvent.Barrier(now(), it)) }
@@ -716,7 +722,7 @@ class AgentLoop(
             content["id"]?.jsonPrimitive?.content ?: "", content["kind"]?.jsonPrimitive?.content ?: "", content["status"]?.jsonPrimitive?.content ?: ""))
     }
 
-    /** 前台 App/站点的参考资料补进历史(确定性,不靠关键词猜);技能开局已全部列出,这里不再补。 */
+    /** フロントエンド アプリ/サイトの参考資料には履歴が補足されています (確実性、キーワードに基づく推測はありません)。すべてのスキルの空き領域がリストされているため、ここでは補足しません。 */
     private fun injectKnowledge(history: MutableList<Message>, e: KnowledgeEntry?) {
         ctx.knowledge(e, toolsNote(tools.scriptsOffered()), flags.deepLinks)?.let { m ->
             if (flags.deepLinks && e!!.links.isNotEmpty()) tools.allowLinks(e.links)
@@ -726,9 +732,9 @@ class AgentLoop(
     }
 
     /**
-     * 这一步的运行时状态接在本步最后一条消息的末尾(还没发过的那条),和这一步一起被裁剪、折叠;
-     * 发过的消息一概不改,请求前缀逐步只增不变。最后一条是助手消息时(不会发生在正常流程里)单独追加一条。
-     * 网页上的版本从浏览器当前标签实际用的版本读。
+     * このステップの実行時ステータスは、このステップの最後のメッセージ (まだ送信されていないメッセージ) の末尾に接続されており、このステップと一緒に切り取られて折りたたまれます。
+     * によって送信されるメッセージはまったく変更されず、要求プレフィックスは徐々に増加するだけです。最後のメッセージがアシスタント メッセージである場合 (通常のプロセスでは発生しません)、別のメッセージを追加します。
+     * Web ページ上のバージョンは、ブラウザーの現在のタブで実際に使用されているバージョンから読み取られます。
      */
     private suspend fun appendRuntimeState(history: MutableList<Message>, place: Place?, labels: Map<String, String>, step: Int) {
         val mode = if (place?.kind == PlaceKind.Site) tools.placeMode() else null
@@ -739,9 +745,9 @@ class AgentLoop(
     }
 
     /**
-     * 用户这句话里他这次打的字:屏幕的说明、浏览器页的页面说明、引的那一段和附件行先后去掉(见 [UserWords.typed];几样都带着时都去掉),
-     * 都没有时是原话;只发了屏幕、只引了一段、只选了字、只带了附件时为空。
-     * 给模型的那句带着固定的英文说明、插话标记,后面还可能接着运行时状态,不能拿来判断用户用的语言。
+     * 今回ユーザーが入力した内容：画面の説明文、ブラウザページのページ説明文、引用文の段落、添付ファイルの行が次々に削除されました（[UserWords.typed]を参照、持参の際はすべて削除してください）、
+     * 何もない場合は、元の単語を意味します。画面のみ送信、段落引用のみ、単語選択のみ、添付ファイルのみの場合は空です。
+     * モデルに与えられた文には、固定の英語の説明と中断マークがあり、その後に実行時のステータスが続く場合があります。ユーザーが使用する言語を判断することはできません。
      */
     private fun ownWords(raw: String, shown: UserScreenTurns.Rendered?): String = UserWords.typed(shown?.words ?: raw, tools)
 
@@ -752,8 +758,8 @@ class AgentLoop(
     }
 
     /**
-     * 插话是独立的真实用户行;只在两步之间追加,绝不改写已经发给模型的消息。
-     * 插话带着用户此刻的屏幕时和开局原话一样换好:那句话连同截图,后面跟着屏幕的详情。
+     * 介入は実際のユーザーの個別の行です。これらはステップ間でのみ追加され、すでにモデルに送信されたメッセージを上書きすることはありません。
+     * が中断してその時点でユーザーの画面を取得すると、最初の元の単語に置き換えられます。その文にはスクリーンショットが伴い、その後に画面の詳細が続きます。
      */
     private suspend fun appendSteers(history: MutableList<Message>, inbox: RunInbox?): Boolean =
         appendSteers(history, inbox?.takeSteers().orEmpty())
@@ -772,9 +778,9 @@ class AgentLoop(
     }
 
     /**
-     * 不带调用的回复已经记进历史、也显示出来了,这时有插话:接上插话接着做(返回 true)。
-     * 屏幕上那段回复要留着:下一步一开始界面上的实时文字就清掉了,所以发 `reply_finished_before_steer` 把它挂到插话上方。
-     * 没有插话返回 false,什么也不动。
+     * 通話なしの応答が履歴に記録され、表示されます。このとき、割り込みが発生します。割り込みを接続して続行します（true を返します）。
+     * 応答を画面上に保持します。インターフェイス上のリアルタイム テキストは、次のステップが開始するとすぐにクリアされるため、`reply_finished_before_steer` を送信して割り込みの上にハングします。
+     * は、中断がない場合は false を返し、何も行いません。
      */
     private suspend fun keepFinished(history: MutableList<Message>, inbox: RunInbox?): Boolean {
         val steers = inbox?.takeSteers().orEmpty()
@@ -782,13 +788,13 @@ class AgentLoop(
         val current = _state.value as? TaskState.Running
         val shown = current?.preview?.trim()
         if (current?.preview != null) _state.value = current.copy(preview = null)
-        // 不截短:这是一段完整的回答,界面要和没插话时一样显示全文(长度本来就受模型输出上限约束)
+        // 切り詰められていません: これは完全な答えです。インターフェイスは、中断がなかったかのように全文を表示する必要があります (長さはモデル出力の上限によって本質的に制限されます)。
         if (!shown.isNullOrEmpty()) emit(RunEvent.State(now(), "reply_finished_before_steer", Redactor.text(shown)))
         appendSteers(history, steers)
         return true
     }
 
-    /** 插话只取消正在等待的模型请求(本步不写进历史,下一步带着插话重问);工具调用进入执行入口后由它自己做完。 */
+    /** 割り込みは待機中のモデル要求のみをキャンセルします (このステップは履歴に書き込まれず、次のステップでは割り込みを使用して再度要求します)。ツール呼び出しは、実行入口に入ると自動的に完了します。 */
     private suspend fun routedOrRedirect(
         inbox: RunInbox?, history: List<Message>, specs: List<ToolSpec>, track: StepTrack, step: Int, restarted: (Long) -> Unit,
         onText: ((String) -> Unit)?,
@@ -807,32 +813,42 @@ class AgentLoop(
     }
 
     /**
-     * 插话撤掉了第 [step] 步的请求:用户已经看到的那段字(界面上的 preview)作为一条只有文字的回复记进历史,
-     * 接着才是插话,模型下一次看到的和用户看到的一样。没看到字、或没有插话时什么也不记。
-     * 思考内容和半截工具调用本来就不在 preview 里。界面上的那段字在这里清掉,改由 `reply_interrupted` 事件挂到插话上方。
+     * ステップ[step]のモデル要求を中断する。生の部分応答は次のモデル要求の履歴に保持する。
+     * `reply_interrupted`にはユーザーが実際に見た日本語の状況表示だけを渡し、未検証の部分応答は表示しない。
+     * 再試行で応答が取り消された場合や、部分応答がない場合は何も残さない。
      */
     private suspend fun keepInterrupted(history: MutableList<Message>, inbox: RunInbox?, step: Int) {
         val steers = inbox?.takeSteers().orEmpty()
         interruptedStep = step
         val current = _state.value as? TaskState.Running
-        val partial = current?.takeIf { it.step == step }?.preview?.trim()
+        val partial = streamedText?.trim()
+        val shown = current?.takeIf { it.step == step }?.preview?.trim()
+        streamedText = null
         if (current?.preview != null) _state.value = current.copy(preview = null)
         if (!partial.isNullOrEmpty() && steers.isNotEmpty()) {
             history += Message(Role.Assistant, listOf(Part.Text(partial)), Author.Mika)
-            emit(RunEvent.State(now(), "reply_interrupted", RunEvent.clip(Redactor.text(partial))))
+            if (!shown.isNullOrEmpty()) emit(RunEvent.State(now(), "reply_interrupted", RunEvent.clip(Redactor.text(shown))))
         }
         appendSteers(history, steers)
     }
 
-    private fun previewFor(step: Int): ((String) -> Unit)? = if (!streamReplies) null else { preview ->
-        val current = _state.value as? TaskState.Running
-        // 撤掉之后网络线程可能还送来一段:不再显示,免得屏幕上比历史里多
-        if (current?.step == step && interruptedStep != step) _state.value = current.copy(preview = preview.takeIf(String::isNotEmpty))
+    private fun previewFor(step: Int): ((String) -> Unit)? {
+        streamedText = null
+        if (!streamReplies) return null
+        return { preview ->
+            val current = _state.value as? TaskState.Running
+            // 未完の文は後半で外国語になる可能性があるため、内容を表示せず日本語の状況だけを示す。
+            // 生の部分応答は内部に保ち、中断時のモデル履歴とユーザーが見た表示を分ける。
+            if (current?.step == step && interruptedStep != step) {
+                streamedText = preview
+                _state.value = current.copy(preview = GENERIC_PROGRESS.takeIf { preview.isNotEmpty() })
+            }
+        }
     }
 
     /**
-     * 执行一次 do_steps:整批对步数上限算一步,每个子步对守卫和运行记录各算一个动作(由 [BatchRunner] 记)。
-     * 批停下时让下一步回到主模型。返回非 null 表示任务就此结束。
+     * は do_steps を 1 回実行します。バッチ全体はステップの上限に対して 1 ステップとしてカウントされ、各サブステップはガードおよび実行レコード ([BatchRunner] によって記録される) に対して 1 つのアクションとしてカウントされます。
+     * バッチが停止したら、次のステップをメイン モデルに戻します。 null 以外を返すと、タスクが完了したことを示します。
      */
     private suspend fun batch(
         first: Part.ToolCall, skipped: List<Part.ToolResult>, history: MutableList<Message>, specs: List<ToolSpec>, guards: OperationGuards,
@@ -840,9 +856,9 @@ class AgentLoop(
         recordReply: (String?) -> Unit, app: (Place) -> Unit, steerWaiting: () -> Boolean,
         noteVerdicts: (BatchStep, ToolExecution?, List<GuardVerdict>) -> String?,
     ): TaskState? {
-        // 收着的组里的工具也能放进批里(和单步一样照常执行、展开它那一组)
+        // 閉じたグループのツールをバッチに入れることもできます (通常どおり実行し、単一ステップのようにグループを展開します)
         val (parsed, problem) = BatchRunner.parse(first.argsJson, tools.definitions().map { it.name }.toSet(), tools.batchable())
-        // 一批只在一块屏上做:混了两块屏的整批不做
+        // 1 つのバッチは 1 つの画面でのみ作成されます。2 つの画面が混在したバッチ全体は作成されません
         val mixed = parsed?.let { BatchRunner.mixedSurface(it, tools::surfaceOf) }
         val steps = parsed.takeIf { mixed == null }
         val running = TaskState.Running(step, note, tool, steps?.let { RunProgress.Batch(it.size) }, reason, narration)
@@ -859,7 +875,7 @@ class AgentLoop(
         val durationMs = now() - started
         val isError = exec.content["ok"] != JsonPrimitive(true)
         history += Message(Role.Tool, listOf(Part.ToolResult(first.id, exec.content.toString(), isError, exec.observations.map { it.tag })) + skipped, Author.Mika)
-        // 批做完(或停下)后再给模型一份当前元素表；只有元素信息不足才附画面。
+        // バッチが終了 (または停止) した後、モデルに現在の要素リストのコピーを与えます。要素情報が不足している場合は画面のみ添付となります。
         if (steps != null && ranAnyStep(exec.content)) {
             tools.lookNow()?.let { v ->
                 history += Message(Role.User, listOfNotNull(Part.Text(batchViewNote(v.content.toString())), v.image?.let { tools.modelImage(it, v.imageId) }), Author.Mika)
@@ -868,16 +884,16 @@ class AgentLoop(
         recordReply(BatchRunner.redactArgs(first.argsJson))
         val picture = exec.frame
         val shotId = picture?.let { executor.recorder.nextShot() }
-        // 子步之后按条件等界面的时间另记,小结里算等待
+        // サブステップの後、条件に応じたインターフェイスの待機時間が別途記録され、待機時間はサマリーに含まれます。
         emit(RunEvent.ToolResult(now(), step, first.name, RunEvent.clipResult(Redactor.text(exec.content.toString())), exec.changed, shotId, durationMs,
             waitMs = runner?.waitedMs ?: 0, callId = first.id))
         val currentPlace = exec.place
         currentPlace?.let(app)
-        // 要确认不算失败(和单步被拦一样不进失败熔断),但同样交给主模型
-        // 为新插话停下的批同样不算失败
+        // は故障ではないことの確認が必要ですが（一段ブロックのように故障ヒューズが入りません）、これもメイン機種に引き継がれます。 新たな中断のために停止された
+        // バッチも失敗とみなされません。
         val confirm = exec.content["error"] == JsonPrimitive("confirmation_required") || exec.content["reason"] == JsonPrimitive(BatchRunner.NEW_MESSAGE)
         track.after(tools.verb(first.name), !isError || confirm, runner?.verdicts?.isNotEmpty() == true || exec.content["advice"] != null, exec.changed, false, currentPlace?.name)
-        // 批停下(核对没过、要确认):下一步交给主模型
+        // バッチ停止 (チェック失敗、確認が必要): 次のステップはメイン モデルに引き渡すことです
         if (isError) track.markRecovery()
         if (picture != null && shotId != null) {
             record { sink.media(shotId, picture) }
@@ -887,13 +903,13 @@ class AgentLoop(
         return guards.stop?.let(StopRules::guard)
     }
 
-    /** do_steps 的结果里至少有一个子步真的执行了(没执行的停止项标着 executed=false)。 */
+    /** do_steps の結果では、少なくとも 1 つのサブステップが実際に実行されます (実行されない停止項目には、executed=false のマークが付けられます)。 */
     private fun ranAnyStep(content: JsonObject): Boolean =
         (content["steps"] as? JsonArray)?.any { (it as? JsonObject)?.get("executed") != JsonPrimitive(false) } == true
 
     /**
-     * 用户同意了、还没用掉的那次操作,或回答了的追问([answered] 是那个问题,之后又做了别的就是 null):回答交出前还欠着的下文;
-     * 都没有为 null。
+     * ユーザーが同意したがまだ使用していない操作、または回答されたフォローアップの質問 ([answered] がその質問であり、その後何か他のことをした場合は無効です): 引き渡す前にまだ残っている次の質問に回答してください。
+     * のどれも null ではありません。
      */
     private fun owedFollowUp(answered: String?): String? {
         confirmations?.granted?.let { r ->
@@ -904,9 +920,9 @@ class AgentLoop(
     }
 
     /**
-     * 第 [step] 步的回复没调工具,文字 [answer] 就是最终回答:按风险核对([AnswerReview]),来源由代码找。
-     * 核对没对上:能退回([history] 不为 null,而且本任务还没退回过)就提醒模型一次、返回 null 接着做;
-     * 否则照样交出,没对上的几处标成未确认。[facts] 是核对要看的任务情况(见 [ReviewFacts])。
+     * ステップ [step] の応答では、ツールは調整されません。テキスト [answer] は最終的な回答です: リスク別チェック ([AnswerReview])。ソースはコード内にあります。
+     * はチェックに一致しません。返せる場合 ([history] が null ではなく、このタスクがまだ返されていない)、モデルに一度通知し、null を返して続行します。
+     * それ以外は通常通りのお渡しとなり、欠品部分は未確認とさせていただきます。 [facts] は、チェックするタスクのステータスです ([ReviewFacts] を参照)。
      */
     private suspend fun conclude(task: String, answer: String, step: Int, facts: ReviewFacts, history: MutableList<Message>?): TaskState? {
         if (!reviewFinalAnswer) {
@@ -931,8 +947,8 @@ class AgentLoop(
     }
 
     /**
-     * 步数用完后最后给一轮,工具只剩 end_not_done:做完了就用文字回答(照样核对,但不再退回,没对上的标成未确认),
-     * 做不成就如实说查过什么。这一轮什么也没给(或被截断)仍算步数用完。
+     * ステップ数を使い果たした後、最終ラウンドが与えられ、ツールだけが残ります。 end_not_done: 完了したらテキストで回答します (通常どおりチェックしますが、返されず、未確認のものは未確認としてマークされます)。
+     * それができない場合は、確認した内容を正直に話してください。このラウンドでは何も与えられず (または切り捨てられ)、ステップ数はまだ使い果たされています。
      */
     private suspend fun finalTurn(
         task: String, history: MutableList<Message>, specs: List<ToolSpec>, step: Int, labels: Map<String, String>, place: Place?, recorder: ActionRecorder,
@@ -959,18 +975,20 @@ class AgentLoop(
             val repliedAtMs = now()
             val latencyMs = repliedAtMs - asked - retryWaitMs
             emit(RunEvent.ModelReply(
-                now(), step, RunEvent.clip(Redactor.text(text)), call?.name, call?.let { Redactor.args(tools.verb(it.name), it.argsJson, secretField = false) },
+                now(), step, RunEvent.clip(Redactor.text(displayReply(text, calls.isNotEmpty()))), call?.name, call?.let { Redactor.args(tools.verb(it.name), it.argsJson, secretField = false) },
                 reply.usage?.inputTokens, reply.usage?.outputTokens, reply.usage?.cachedInputTokens, latencyMs, retryWaitMs = retryWaitMs,
                 repliedAtMs = repliedAtMs,
             ))
-            // 收尾模型也可能正在生成时收到插话。最多重答两次，其余交给下一任务。
+            // 仕上げモデルは、生成中に補間を受ける場合もあります。答えを最大 2 回繰り返し、残りを次のタスクに渡します。
             if (attempt < 2 && keepFinished(history, inbox)) return@repeat
             if (call == null) {
                 if (calls.isNotEmpty() || text.isEmpty() || reply.stopReason == StopReason.MaxTokens) return StopRules.stepLimit(maxSteps)
+                // 最終ターンでも日本語でない回答はそのまま渡さない(差し戻すステップは残っていないため日本語で失敗を返す)
+                ReplyLanguage.mismatch(text)?.let { return StopRules.languageNotJapanese(it) }
                 return conclude(task, text, step, facts, history = null)!!
             }
             val started = now()
-            // 只剩放弃,不改变手机
+            // 諦めて電話機は変えないでください
             val exec = tools.executeRead(call)
             recorder.result(step, call.name, tools.verb(call.name), exec.content, exec.record, null, null, now() - started, "model", call.id)
             return StopRules.afterFinalTurn(exec.outcome, maxSteps)
@@ -979,22 +997,33 @@ class AgentLoop(
     }
 
     companion object {
+        private const val GENERIC_PROGRESS = "処理を続けています。"
+        private const val CHECKING_JAPANESE = "日本語の回答を確認しています。"
+
+        /** 元の応答は履歴と照合に保持し、採用前の表示には日本語の説明だけを渡す。 */
+        private fun displayReply(text: String, hasTools: Boolean): String = when {
+            text.isEmpty() -> ""
+            JapaneseOutput.isJapaneseProse(text) -> text
+            hasTools -> GENERIC_PROGRESS
+            else -> CHECKING_JAPANESE
+        }
+
         const val STEER_MARKER = "<user_interjection>"
         const val DEFAULT_MAX_STEPS = 60
-        /** 正常任务没有固定步数截止；显式步数预算只用于评测和指定上限的子任务。 */
+        /** 通常のタスクには固定ステップカットオフがありません。明示的なステップ予算は、上限が指定された評価およびサブタスクにのみ使用されます。 */
         const val UNLIMITED_STEPS = Int.MAX_VALUE
-        /** 核查期间界面上这一步的说明。 */
-        const val VERIFYING_NOTE = "正在核实结果"
+        /** 照合中に画面へ出すこのステップの説明。 */
+        const val VERIFYING_NOTE = "結果を確認しています"
         val APPROVED_STEP_FIRST: String get() = Feedback["approved_step_first"]
-        /** 回答里退回一次后仍没对上的几处,结局说明里这样开头(界面另按 [TaskState.Succeeded.unconfirmed] 逐条标出)。 */
-        const val UNCONFIRMED_NOTE = "未确认:"
-        /** hand_to_user 交给用户付款时的原因;付款是不可逆的事,回答要另请核查。 */
+        /** 回答を1回差し戻しても一致しなかった箇所について、結末説明の冒頭に付ける(画面では [TaskState.Succeeded.unconfirmed] を項目別に表示する)。 */
+        const val UNCONFIRMED_NOTE = "未確認:"
+        /** hand_to_user 支払いのためにユーザーに渡すときの理由。支払いは取り消すことができません。回答は別途ご確認ください。 */
         private const val PAYMENT = "payment"
         const val DEFAULT_INPUT_TIMEOUT_MS = 15 * 60_000L
-        /** 交回接管后工具结果里的提醒(界面测试按它认)。 */
+        /** は、引き継ぎ後にツール結果にリマインダーを返します (これをクリックしてインターフェイス テストを確認します)。 ユーザー */
         val HANDBACK_NOTE: String get() = UserExchange.HANDBACK_NOTE
 
-        /** 用户点了「我自己做完了」。 */
+        /** は「自分でやった」をクリックしました。 */
         val USER_FINISHED_NOTE: String get() = Feedback["user_finished_note"]
     }
 
@@ -1008,18 +1037,18 @@ class AgentLoop(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            // 记录失败不影响任务
+            // 記録の失敗はタスクに影響しません
         }
     }
 
     private fun emit(e: RunEvent) = record { sink.event(e) }
 
     private fun ended(end: TaskState?): RunEvent.TaskEnded = when (end) {
-        // 核对过却没能核实(含标成未确认的):记成 unverified,和评测、对话记录同一个说法
+        // 照合しても確認できなかった場合(未確認として付けた場合を含む): unverified として記録し、評価・会話記録と同じ言い方にする
         is TaskState.Succeeded -> RunEvent.TaskEnded(now(), if (end.doubtful) "unverified" else "succeeded", Redactor.text(end.answer))
         is TaskState.Failed -> RunEvent.TaskEnded(now(), "failed", Redactor.text(end.reason), end.kind.name.lowercase())
-        TaskState.Cancelled -> RunEvent.TaskEnded(now(), "cancelled", "已取消")
-        else -> RunEvent.TaskEnded(now(), "error", "任务异常中断")
+        TaskState.Cancelled -> RunEvent.TaskEnded(now(), "cancelled", "キャンセルされました")
+        else -> RunEvent.TaskEnded(now(), "error", "タスクが異常終了しました")
     }
 
     private fun waitingEvent(s: TaskState): RunEvent.State = when (s) {
@@ -1028,5 +1057,5 @@ class AgentLoop(
     }
 }
 
-/** 用户点名走网页的说法(评测强制网页渠道时也加在目标前)。 */
-private const val WEB_CHANNEL_PREFIX = "用网页"
+/** 名前による Web ページへのアクセスに関するユーザーのステートメント (必須 Web ページ チャネルを評価するときにターゲットの前にも追加されます)。 */
+private val WEB_CHANNEL_PREFIXES = listOf("ウェブで", "用网页")

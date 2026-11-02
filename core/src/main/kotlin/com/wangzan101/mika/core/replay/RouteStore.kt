@@ -1,6 +1,6 @@
 package com.wangzan101.mika.core.replay
 
-/** 已学会的做法。 */
+/** が学んだこと。 */
 interface RouteStore {
     fun all(): List<Route>
     fun put(r: Route)
@@ -8,12 +8,12 @@ interface RouteStore {
     fun clear()
     fun count(): Int
 
-    /** 读出 [id] 那条、改写、写回;[change] 返回 null 不改。并发使用的实现要整体加锁,读和写之间不能插进别的改动。 */
+    /** は [id] を読み出し、書き換えて、書き戻します。 [change] は null を返し、変更されません。同時使用の実装は全体としてロックする必要があり、読み取りと書き込みの間に他の変更を挿入することはできません。 */
     fun update(id: String, change: (Route) -> Route?) {
         all().firstOrNull { it.id == id }?.let(change)?.let(::put)
     }
 
-    /** 同一模板已有路线时用新路线替换旧的(见 [replacing])。并发使用的实现要整体加锁。 */
+    /** 同じテンプレートにすでにルートがある場合は、古いルートを新しいルートで置き換えます ([replacing] を参照)。同時使用の実装には全体的なロックが必要です。 */
     fun putReplacing(r: Route) {
         val old = all().filter { it.template == r.template }
         put(replacing(r, old))
@@ -21,13 +21,13 @@ interface RouteStore {
     }
 }
 
-/** 同一条路:每步的工具、参数、目标都一样(锚点每次读屏略有出入,不算)。 */
+/** 同じパス: 各ステップのツール、パラメーター、目標は同じです (アンカー ポイントは画面を読み取るたびにわずかに異なるため、カウントされません)。 */
 fun samePath(a: Route, b: Route): Boolean =
     a.steps.size == b.steps.size && a.steps.zip(b.steps).all { (x, y) -> x.tool == y.tool && x.argsJson == y.argsJson && x.target == y.target }
 
 /**
- * 替换同模板旧路线时新路线带上什么:成功计数取最大;路径没变就沿用失误计数和停用状态
- * (同一条路之前在哪一步对不上,换个新记录不该抹掉);路径变了是新做法,失误计数从零开始。
+ * 古いルートを同じテンプレートで置き換えた場合、新しいルートは何をもたらしますか。最大成功数を取得します。パスが変更されない場合は、エラー数と非アクティブ化ステータスが使用されます。
+ * (同じパス上のどのステップが以前に一致しなかったため、新しいレコードを消去すべきではありません);パスの変更は新しいアプローチであり、エラー カウントは 0 から始まります。
  */
 fun replacing(r: Route, old: List<Route>): Route {
     val successes = maxOf(r.successes, old.maxOfOrNull { it.successes } ?: 0)

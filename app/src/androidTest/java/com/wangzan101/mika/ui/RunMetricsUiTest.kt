@@ -17,7 +17,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 「查看过程」顶上的小结一行和开发者选项里的运行统计页(不用真机任务)。 */
+/** 「プロセスの表示」の上部にある概要行と、開発者向けオプションの実行統計ページ (実際のマシンのタスクは必要ありません)。 */
 @RunWith(AndroidJUnit4::class)
 class RunMetricsUiTest {
     @get:Rule(order = Int.MIN_VALUE) val chinese = ChineseUi()

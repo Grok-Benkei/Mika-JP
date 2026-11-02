@@ -28,7 +28,7 @@ class TaskRegistryTest {
 
     @Test fun sameConversationQueues() {
         registry.tryStart("a", "一")
-        // 同一对话里已有任务:照 M1 规则交给对话自己排队,登记处不收
+        // 同じ会話内にすでにタスクがあります。M1 ルールに従い、キューに入る会話に任せてください。登録局では受け付けません。
         assertSame(StartResult.AlreadyRunningInConversation, registry.tryStart("a", "二"))
         assertEquals(1, registry.runs().size)
     }
@@ -51,7 +51,7 @@ class TaskRegistryTest {
         assertEquals(listOf("a"), registry.running().map { it.conversationId })
         assertEquals(listOf("b", "c"), registry.queued().map { it.conversationId })
         assertTrue(registry.isQueued(b.run))
-        // 排着队的对话也不能再收第二个
+        // キュー内の 2 番目の会話を受け入れることはできません
         assertSame(StartResult.AlreadyRunningInConversation, registry.tryStart("c", "四"))
     }
 
@@ -64,23 +64,23 @@ class TaskRegistryTest {
         assertEquals(listOf("b"), registry.running().map { it.conversationId })
         assertEquals(listOf("c"), registry.queued().map { it.conversationId })
         assertNull(registry.byConversation("a"))
-        // 排队中的被取消:不放出新的,队伍往前挪
+        // キューに入れられたアイテムはキャンセルされました。新しいアイテムはリリースされず、キューは前に進みます。
         val c = registry.byConversation("c")!!
         assertEquals(emptyList<Run>(), registry.onEnded(c))
         assertEquals(emptyList<Run>(), registry.queued())
     }
 
-    // 两个任务同时要开同一个 App:先占到的那个才能开,另一个拿到「别的任务在用」
+    // 2 つのタスクが同じアプリを同時に開く必要があります。最初に占有されているタスクは開くことができ、もう 1 つは「他のタスクに使用」されます。
     @Test fun sameAppReservedByFirstRun() {
         val a = (registry.tryStart("a", "一") as StartResult.Started).run
         val b = (registry.tryStart("b", "二") as StartResult.Started).run
         assertTrue(registry.reserve("settings", a.key) { true })
         assertTrue(registry.reserve("settings", a.key) { true })
         assertFalse(registry.reserve("settings", b.key) { true })
-        // 占着的任务已不在用它(App 自己关了):放给后来的
+        // が占有しているタスクはそれを使用しなくなりました (アプリ自体が閉じられました)。後続のタスクのために残しておきます。
         assertTrue(registry.reserve("settings", b.key) { false })
         assertFalse(registry.reserve("settings", a.key) { true })
-        // 任务结束,占的包一起放掉
+        // タスクは終了し、占有されているパッケージはまとめて解放されます。
         registry.onEnded(b)
         assertTrue(registry.reserve("settings", a.key) { true })
     }
@@ -121,14 +121,14 @@ class TaskRegistryTest {
         val run = (registry.tryStart("thread", "原来的") as StartResult.Started).run
         assertFalse(registry.deferOrStart("thread", "first"))
         assertFalse(registry.deferOrStart("thread", "second"))
-        // 对话还有任务:不交出
+        // 会話中にまだタスクがあります: 渡さないでください
         assertEquals(emptyList<Pair<String, String>>(), registry.takeReady())
         registry.onEnded(run)
         assertEquals(listOf("thread" to "first", "thread" to "second"), registry.takeReady())
         assertEquals(emptyList<Pair<String, String>>(), registry.takeReady())
     }
 
-    // 收尾和留话同时发生:要么当场开始,要么留下后在收尾时交出,不会两头都落空
+    // 終了とメッセージの残しは同時に行われます。その場で開始するか、メッセージを残して終了時に渡すため、両端が失われることはありません。
     @Test fun deferRacingWithEndNeverStrandsTheMessage() {
         repeat(200) { i ->
             val run = (registry.tryStart("t$i", "原来的") as StartResult.Started).run
@@ -142,7 +142,7 @@ class TaskRegistryTest {
         }
     }
 
-    // 留下的话只等自己的对话空出来,不等别的对话的任务
+    // そのままの場合は、他のダイアログ タスクを待たずに、自分のダイアログが空くまで待ってください。
     @Test fun deferredMessageStartsWhenItsConversationIsFree() {
         val a = (registry.tryStart("a", "一") as StartResult.Started).run
         registry.tryStart("b", "别的对话")

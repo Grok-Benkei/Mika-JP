@@ -1,14 +1,14 @@
 package com.wangzan101.mika.core.uistate
 
-/** 站点知识、App 知识里 `pace` 说的这个网站或 App 对浏览快慢的要求(App 里的节奏见 [com.wangzan101.mika.core.cap.phone.AppPacing])。 */
+/** サイトの知識とアプリの知識では、`pace` がこの Web サイトまたはアプリの閲覧速度要件について説明します (アプリのリズムについては、[com.wangzan101.mika.core.cap.phone.AppPacing] を参照してください)。 */
 enum class PlacePace {
-    /** 没有特别说法。 */
+    /** 特に記載はありません。 */
     NORMAL,
-    /** 这个网站或 App 限制浏览快慢(看得太快、太多会被拦):每页停得更久、一个任务里看的页、屏更少。 */
+    /** この Web サイトまたはアプリでは閲覧速度が制限されています (閲覧速度が速すぎたり多すぎるとブロックされます)。各ページの一時停止時間が長くなり、1 つのタスクで表示されるページが小さくなり、画面が小さくなります。 */
     CAREFUL;
 
     companion object {
-        /** 站点知识头部的值(`careful`;不写为 null)。 */
+        /** サイトナレッジヘッダーの値 (`careful`、null として書き込まれません)。 */
         fun of(value: String?): PlacePace = if (value == "careful") CAREFUL else NORMAL
     }
 }

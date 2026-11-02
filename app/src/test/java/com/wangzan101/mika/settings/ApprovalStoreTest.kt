@@ -17,7 +17,7 @@ class ApprovalStoreTest {
     }
 
     @Test fun olderFilesKeepTheirAutonomousSwitch() {
-        // 旧版本的文件里还有审批档位和长期授权:不认了,只读询问 / 自主
+        // 古いバージョンのファイルには、承認レベルと長期承認も含まれています: もはや認識されず、読み取り専用の問い合わせ/独立
         val f = tmp.root.resolve("a.json").apply {
             writeText("""{"mode":"AUTO","autonomous":true,"grants":[{"action":"send","app":"com.chat","target":"张三","element":"发送"}]}""")
         }
@@ -55,7 +55,7 @@ class ApprovalStoreTest {
     @Test fun remoteRunsAlwaysAskAndIgnoreTheSwitch() {
         val c = control()
         c.setAutonomous(true)
-        // 电脑经 MCP 交来的任务:开关开着也按询问开工,中途换开关也不跟
+        // コンピュータに割り当てられたタスク: スイッチをオンにしても、コンピュータはクエリに従って動作を開始し、途中でスイッチを変更しても追従しません。
         val remote = c.start(remote = true)
         assertFalse(remote.startedAutonomous)
         assertFalse(remote.autonomous())
@@ -70,14 +70,14 @@ class ApprovalStoreTest {
         val a = c.start()
         val b = c.start()
         c.setAutonomous(true)
-        // 正在跑的任务从下一步起付款也不再问;它们开工时有关卡,这一点不变
+        // 実行中のタスクの次のステップから支払いを求める必要はありません。仕事を始めるときにカードがありますが、これは変わりません。
         assertTrue(a.autonomous())
         assertTrue(b.autonomous())
         assertFalse(a.startedAutonomous)
         c.setAutonomous(false)
         assertFalse(a.autonomous())
         assertFalse(b.autonomous())
-        // 结束后再换,不再碰那个任务;下一个任务按新的开关开工
+        // 完了後、タスクを変更し、そのタスクには触れなくなります。新しいスイッチを押して次のタスクを開始します。
         c.end(a)
         c.setAutonomous(true)
         assertFalse(a.autonomous())

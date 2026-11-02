@@ -25,11 +25,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 按描述指输入框,而树读不出这一屏:改看图找这个框,之后和传 @vN 一样核对、判不可逆、粘贴核对。 */
+/** は入力ボックスを指しますが、ツリーはこの画面を読み取ることができません。画像を見てこのボックスを見つけ、@vN をアップロードするのと同じようにチェックし、元に戻せないと判断して、検証のために貼り付けます。 */
 class DescribedBySightTest {
     private val sink = object : RunSink { override fun event(e: RunEvent) {} }
 
-    /** 一屏(默认树里什么都没有,即树不能用);记下端口收到的打字。 */
+    /** 1 つの画面 (デフォルトのツリーには何もありません。つまり、ツリーは使用できません)。ポートが受信した入力内容を記録します。 */
     private class Blind(inner: LocScreen = LocScreen()) : ScreenPort by inner {
         val calls = mutableListOf<String>()
         override suspend fun typeText(ref: String?, snapshotId: String?, text: String): ActionResult { calls += "type $ref $text"; return ActionResult.Ok(changed = true) }
@@ -56,12 +56,12 @@ class DescribedBySightTest {
         val vision = model("""{"bbox_2d":[0,880,800,940],"seen":"输入框"}""", "是")
         val c = content(type(executor(screen, vision), """{"element":"底部的消息输入框","text":"明天见"}"""))
         assertEquals(c.toString(), "true", c.s("ok"))
-        // 0–999 的框中心换成像素,点一下再粘贴
+        // 0～999のフレームの中心をピクセルに変更し、クリックして貼り付けます
         assertEquals(listOf("typeAt 432,2183 明天见"), screen.calls)
         assertEquals("true", c.s("foundBySight"))
         assertEquals("底部的消息输入框", c.s("resolvedFrom"))
         assertEquals("输入框", c.s("seen"))
-        // 只靠看图、没有佐证:照样标出来
+        // 写真を見てください。裏付けとなる証拠はありません。とにかくマークを付けてください。
         assertEquals("true", c.s("unverifiedPoint"))
         assertEquals(2, vision.requests.size)
     }
@@ -75,7 +75,7 @@ class DescribedBySightTest {
     }
 
     @Test fun boxFoundOnASendButtonIsUsedWithoutAsking() = runTest {
-        // 判过不可逆:是发送,不花钱,不先问
+        // 判決は取り消すことができません。お金を費やすことなく、最初に質問することなく送信されます。
         val screen = Blind()
         val vision = model("""{"bbox_2d":[800,880,999,940],"seen":"发送"}""", "是")
         val o = type(executor(screen, vision), """{"element":"右下角的框","text":"明天见"}""")

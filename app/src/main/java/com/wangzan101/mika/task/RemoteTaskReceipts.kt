@@ -12,10 +12,10 @@ import com.wangzan101.mika.core.remote.RemoteTask
 import com.wangzan101.mika.core.remote.RemoteTaskError
 
 /**
- * 收件先于启动服务落盘。只保存电脑发起的任务，进度仍从正在执行的 TaskRun 读取。
- * 盘上的终态和插话去向按 [RemoteTaskRecord] 的格式存，不直接序列化领域类型。
- * 收尾了的和删对话留下的占位按 [KEEP_MS] / [KEEP] 清掉（收件时和打开时各清一次），没收尾的不清；
- * 清掉之后同一 request_id 会被当成新请求，所以去重只在这个窗口里成立。
+ * を受信します。コンピューターによって開始されたタスクのみが保存され、進行状況は実行中の TaskRun から読み取られます。
+ * ディスク上の最終状態と割り込み宛先は、[RemoteTaskRecord] の形式で保存され、フィールド タイプは直接シリアル化されません。
+ * [KEEP_MS] / [KEEP] を押して、エンディングおよび削除された会話によって残されたスペースをクリアします (受信時と開くときにそれぞれ 1 回クリアします)。エンディングは明確ではありません。
+ * がクリアされると、同じ request_id が新しいリクエストとして扱われるため、重複排除はこのウィンドウでのみ確立されます。
  */
 internal class RemoteTaskReceipts(
     context: Context, name: String = "remote-tasks.db",
@@ -39,8 +39,8 @@ internal class RemoteTaskReceipts(
     }
 
     /**
-     * 只清已收尾的（result 非空）和删对话留下的占位（goal 为空）：超过 [KEEP_MS] 的，以及按收件先后排在最近 [keep] 条收件之外的。
-     * 没收尾的还可能在跑，留着；进程重建时它们已在上面标成中断。
+     * は、終了した (結果が空ではない) および削除された会話によって残されたプレースホルダー (目標が空である) のみをクリアします。 [KEEP_MS] を超えるもの、および受信順に最新の [keep] 受信以外のもの。
+     * 終了していないものはまだ実行されている可能性があるため、保存しておいてください。プロセスが再構築されると、それらは中断としてマークされます。
      */
     private fun prune(now: Long) {
         writableDatabase.execSQL("""DELETE FROM receipts WHERE (result IS NOT NULL OR goal IS NULL) AND
@@ -80,14 +80,14 @@ internal class RemoteTaskReceipts(
         prune(clock())
     }
 
-    /** Android 可能在进程重建后才投递一个已排队的 Intent，已中断或已领取的都不能执行。 */
+    /** Android は、プロセスが再構築された後にのみキューに入れられたインテントを配信することができ、中断または受信されたインテントは実行できません。 */
     fun claimStart(id: String): Boolean = writableDatabase.update("receipts", ContentValues().apply { put("claimed", 1) },
         "id=? AND goal IS NOT NULL AND result IS NULL AND claimed=0", arrayOf(id)) == 1
 
     fun finish(id: String, state: TaskState.Terminal, steers: List<RemoteSteer>, onlyUnclaimed: Boolean = false): Boolean {
         val condition = "id=? AND goal IS NOT NULL AND result IS NULL" + if (onlyUnclaimed) " AND claimed=0" else ""
         return writableDatabase.update("receipts", ContentValues().apply {
-            // 远程接口不暴露回答的证据账本。
+            // リモート インターフェイスは、回答の証拠台帳を公開しません。
             val end = if (state is TaskState.Succeeded) state.copy(sources = emptyList()) else state
             put("result", RemoteTaskRecord.encode(end))
             if (steers.isNotEmpty()) put("steers", RemoteTaskRecord.encodeSteers(steers))
@@ -95,15 +95,15 @@ internal class RemoteTaskReceipts(
     }
 
     fun forget(conversation: String) {
-        // 留下占用过的编号，迟到的重试不能重新执行已删除的任务；收件时间留着，占位和收尾的记录一样按时间清。
+        // は占有された番号を残し、遅れて再試行しても削除されたタスクを再実行できません。受信時刻は保持され、プレースホルダーと終了レコードは時間に従ってクリアされます。
         writableDatabase.execSQL("UPDATE receipts SET conversation=NULL, goal=NULL, result=NULL, steers=NULL, claimed=0, new_chat=0 WHERE conversation=?",
             arrayOf(conversation))
     }
 
     companion object {
-        /** 收尾后的记录和占位留 30 天：电脑丢了回执、隔天再查或重试都还认得这个编号。 */
+        /** レコードとプレースホルダーは、取引終了後 30 日間保持されます。コンピューターは、レシートを紛失した場合でもこの番号を認識し、翌日に確認または再試行します。 */
         const val KEEP_MS = 30L * 24 * 60 * 60_000
-        /** 至多留这么多条已收尾的或占位（按收件先后取最近的），远多于电脑一次会补查的任务数。 */
+        /** が残すクローズ済みアイテムまたはプレースホルダー アイテム (受信順に最も近いものを取得します) は、多くても非常に多く、コンピューターが一度に再チェックできるタスクの数よりもはるかに多くなります。 */
         const val KEEP = 1_000
     }
 }

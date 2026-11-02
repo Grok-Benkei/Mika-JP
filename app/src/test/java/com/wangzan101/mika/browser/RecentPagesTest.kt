@@ -60,7 +60,7 @@ class RecentPagesTest {
         r.add("https://b.example.com/", "B")
         r.retitle("https://a.example.com/", "A 页面")
         assertEquals(listOf("B", "A 页面"), r.entries.value.map { it.title })
-        // 没有这一条时不加
+        // 該当する項目がない場合は追加しないでください。
         r.retitle("https://z.example.com/", "Z")
         assertEquals(2, r.entries.value.size)
     }

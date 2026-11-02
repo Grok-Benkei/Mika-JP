@@ -1,8 +1,8 @@
 package com.wangzan101.mika.core.uistate
 
 /**
- * 网页读屏时附在 ScreenSnapshot 上的页面信息;手机读屏时为空。
- * [truncated]:页面元素超过单次上限,列表按文档顺序截断了。
+ * Web ページを読み取るときに ScreenSnapshot に添付されるページ情報。携帯電話で画面を読むときは空です。
+ * [truncated]: ページ要素が単一制限を超えているため、リストはドキュメントの順序で切り捨てられます。
  */
 data class WebInfo(
     val url: String,
@@ -10,15 +10,15 @@ data class WebInfo(
     val tabId: String,
     val httpStatus: Int?,
     val truncated: Boolean = false,
-    /** 元素融合超出预算没列出的元素个数。 */
+    /** 要素の融合が予算を超えており、リストされていない要素の数を超えています。 */
     val omitted: Int = 0,
-    /** 页面弹出、还在等回话的弹框;有它时页面脚本停着,元素表读不到。 */
+    /** ページ上にポップアップ ボックスが表示されますが、応答を待っています。これが存在すると、ページ スクリプトが停止し、要素テーブルを読み取ることができなくなります。 */
     val dialog: PageDialog? = null,
 )
 
 /**
- * 页面自己弹的框(window.alert/confirm/prompt、离开页面确认)。[kind] 是 [ALERT]、[CONFIRM]、[PROMPT]、[BEFORE_UNLOAD] 之一;
- * [message] 是页面给的字(页面数据,不是指令);[defaultText] 是输入框弹框里预填的字。
+ * ページ自体にポップアップするボックス (window.alert/confirm/prompt、確認するためにページを離れます)。 [kind] は、[ALERT]、[CONFIRM]、[PROMPT]、および [BEFORE_UNLOAD] のいずれかです。
+ * [message] はページによって与えられるワードです (命令ではなくページ データ)。 [defaultText] は、入力ボックスのポップアップ ボックスに事前に入力されている単語です。
  */
 data class PageDialog(val kind: String, val message: String, val defaultText: String? = null) {
     companion object {
@@ -26,7 +26,7 @@ data class PageDialog(val kind: String, val message: String, val defaultText: St
         const val CONFIRM = "confirm"
         const val PROMPT = "prompt"
         const val BEFORE_UNLOAD = "beforeunload"
-        /** 给模型和判定看的字最多这么长。 */
+        /** モデルと判定の文字数は最大でもこれくらいです。 */
         const val MAX_MESSAGE = 500
     }
 }

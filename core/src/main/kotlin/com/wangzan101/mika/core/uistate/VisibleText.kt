@@ -6,16 +6,16 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** OCR 只补无障碍树没有的可见文字，不把图上的字误认为可点击控件。 */
+/** OCR は、アクセシビリティ ツリーで利用できない表示テキストのみを補正し、画像上のテキストをクリック可能なコントロールと誤認することはありません。 */
 internal object VisibleText {
-    /** ML Kit 给了置信度、又低于这个值的行不要;没给的照留。 */
+    /** ML キット: この値よりも低い信頼レベルを持つ行を破棄しないでください。信頼レベルのないものはそのままにしておきます。 */
     private const val MIN_CONFIDENCE = 0.4f
-    /** 以中文为主的屏上,不含中文、字母数字不超过这么多个的零碎串才可能是认错的。 */
+    /** 主に中国語の画面では、漢字を含まず、この文字数と数字を超えない断片的な文字列のみが誤られる可能性があります。 */
     private const val FRAGMENT = 4
 
     /**
-     * 去掉认错的行:置信度低的;一个字母或数字也没有的;符号比字还多的;以中文为主的屏上不含中文的零碎串
-     * (单个字母,或 [FRAGMENT] 个以内、字母和数字或符号混在一起的,多半是头像、图标被认成了字)。纯数字(时间、数量)和完整的短词照留。
+     * 間違った行を削除します: 信頼性が低いです。単一の文字や数字ではありません。言葉よりも記号が多い。主に中国語の画面上に中国語を含まない断片的な文字列が表示される
+     * (単一の文字、または [FRAGMENT] 内の文字と数字または記号が混在したもの。主にアバターとアイコンが単語として認識されます)。純粋な数値 (時間、数量) と完全な短い単語が保持されます。
      */
     fun legible(lines: List<VisibleTextLine>): List<VisibleTextLine> {
         val letters = lines.flatMap { line -> line.text.filter(Char::isLetter).toList() }
@@ -67,7 +67,7 @@ internal object VisibleText {
         for (line in lines) add(buildJsonObject {
             put("text", line.text)
             put("bounds", JsonArray(line.bounds.map(::JsonPrimitive)))
-            // 和 tap 的 x/y 同一套 0–999 坐标,模型不用自己换算
+            // とタップの x/y は 0 ～ 999 の同じ座標セットを持っているため、モデルを自分で変換する必要はありません。
             put("center", JsonArray(listOf(JsonPrimitive((line.bounds[0] + line.bounds[2]) / 2), JsonPrimitive((line.bounds[1] + line.bounds[3]) / 2))))
             put("source", "ocr")
         })
@@ -77,7 +77,7 @@ internal object VisibleText {
 
     private fun same(a: String, b: String) = a == b || a.length >= 3 && b.contains(a) || b.length >= 3 && a.contains(b)
 
-    /** 交集占 OCR 行本身面积的比例；大容器节点不会靠面积相等掩盖行文字。 */
+    /** OCR ライン自体の面積に対する交差点の比率。大きなコンテナ ノードは、等しい面積で行テキストを隠しません。 */
     private fun overlap(a: List<Int>, b: List<Int>): Double {
         if (b.size != 4) return 0.0
         val width = (minOf(a[2], b[2]) - maxOf(a[0], b[0])).coerceAtLeast(0)

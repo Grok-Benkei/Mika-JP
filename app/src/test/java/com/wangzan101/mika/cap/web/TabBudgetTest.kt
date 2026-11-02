@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TabBudgetTest {
-    /** 一个任务(标签池)的假成员:按打开先后用预算的钟记「最近用过」。 */
+    /** タスクの偽のメンバー (タグ プール): [開く] を押して、予算クロックを使用して「最近使用したもの」を記録します。 */
     private class Run(val budget: TabBudget, val name: String) : TabBudget.Member {
         val tabs = LinkedHashMap<String, Long>()
         val locked = mutableSetOf<String>()
@@ -51,7 +51,7 @@ class TabBudgetTest {
         assertTrue(b.evictOldest(except = null))
         assertEquals(listOf("a2"), a.evicted)
         a.open("a3")
-        // a1 锁着、a3 是要保留的:没有可关的
+        // a1 はロックされており、a3 は予約されています: 閉じるものはありません
         assertFalse(b.evictOldest(except = "a3"))
     }
 }

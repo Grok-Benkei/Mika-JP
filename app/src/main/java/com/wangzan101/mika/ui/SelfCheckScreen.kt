@@ -63,7 +63,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
-/** 兼容性自检页的文字(纯函数,便于测试):每项的名字、状态、下面那一句大白话。 */
+/** 互換性セルフテスト ページのテキスト (純粋な機能、テストが簡単): 各項目の名前、ステータス、および次の文。 */
 object SelfCheckCopy {
     fun name(c: SelfCheck): String = tr(
         when (c) {
@@ -93,7 +93,7 @@ object SelfCheckCopy {
         },
     )
 
-    /** 一项下面的那一句:没通过时说原因和下一步,因为前一项没过而跳过时说缺哪一项。 */
+    /** 項目の下の文: 不合格の場合は、その理由と次のステップを教えてください。失敗したために前の項目をスキップした場合は、どの項目が不足しているかを伝えてください。 */
     fun line(r: CheckResult): String {
         r.blockedBy?.let { return tr(R.string.selfcheck_line_needs, name(it)) }
         r.advice?.let { return advice(it) }
@@ -141,8 +141,8 @@ object SelfCheckCopy {
 }
 
 /**
- * 设置 › 恢复与修复 › 兼容性自检:接上真实的自检。离开这一页就取消,取消时虚拟屏、自检页、网页标签当场放掉。
- * 有任务在跑时不让开始(两边会抢同一块主屏的注意)。[status] 是此刻的系统状态。
+ * 設定 › 回復と修復 › 互換性セルフテスト: 実際のセルフテストに接続します。このページを離れるときはキャンセルしてください。キャンセルすると仮想画面、セルフテストページ、Webページのタグがその場で解除されます。
+ * では、タスクの実行中にタスクを開始することはできません (双方が同じホーム画面を取得することに注意してください)。 [status] は現時点のシステムステータスです。
  */
 @Composable
 fun SelfCheckScreen(status: SystemStatus, onBack: () -> Unit) {
@@ -161,7 +161,7 @@ fun SelfCheckScreen(status: SystemStatus, onBack: () -> Unit) {
         onStart = {
             val r = SelfCheckRunner(AndroidSelfCheck(context) { current.value })
             runner = r
-            // 读屏、调助手都是阻塞调用:不放在主线程上跑
+            // 画面の読み取りとアシスタントの呼び出しは呼び出しをブロックしています。これらはメインスレッドで実行されません。
             job = scope.launch(Dispatchers.Default) { r.run() }
         },
         onCancel = { job?.cancel() },
@@ -181,7 +181,7 @@ private fun copyReport(context: Context, text: String, toast: String) {
     Toast.makeText(context, toast, Toast.LENGTH_LONG).show()
 }
 
-/** 不带状态的自检页,便于测试:顶上一段说明和开始 / 取消,下面每项一行;跑完后给出报告全文和复制、去 GitHub 两个按钮。 */
+/** 状態を持たないセルフチェックページで、テストしやすくする: 上部に説明文と開始 / キャンセル、下部に各項目を1行ずつ; 実行後はレポート全文と、コピーと GitHub へ行く2つのボタンを出す。 */
 @Composable
 fun SelfCheckContent(
     state: SelfCheckState,

@@ -1,165 +1,597 @@
 "use strict";
 
 const STRINGS = {
-  title: ["Mika · 会话桌面", "Mika · Conversation desk"],
-  heading: ["会话桌面", "Conversation desk"],
-  displayLanguage: ["界面语言", "Language"],
-  browserLanguage: ["跟随浏览器", "Browser default"],
-  newChat: ["新对话", "New chat"],
-  recentChats: ["最近会话", "Recent conversations"],
-  conversations: ["会话导航", "Conversations"],
-  currentChat: ["当前对话", "Current conversation"],
-  openNav: ["打开会话导航", "Open conversations"],
-  closeNav: ["关闭会话导航", "Close navigation"],
-  myPhone: ["我的手机", "My phone"],
-  networkPhone: ["局域网手机", "Network phone"],
-  adbPhone: ["ADB 手机", "ADB phone"],
-  connectionDetails: ["连接详情", "Connection details"],
-  connectedPhone: ["连接的手机", "Connected phone"],
-  taskService: ["任务服务", "Task service"],
-  phoneState: ["手机状态", "Phone state"],
-  chooseDevice: ["选择设备", "Choose a phone"],
-  usePhone: ["使用此设备", "Use this phone"],
-  refreshNow: ["立即更新", "Update now"],
-  updated: ["更新于 {time}", "Updated {time}"],
-  autoUpdate: ["自动更新", "Updates automatically"],
-  connecting: ["连接中", "Connecting"],
-  connected: ["已连接", "Connected"],
-  online: ["在线", "Online"],
-  offline: ["未连接", "Offline"],
-  choosing: ["待选机", "Choose phone"],
-  unlocked: ["已解锁", "Unlocked"],
-  locked: ["已锁屏", "Locked"],
-  screenOff: ["未亮屏", "Screen off"],
-  unknown: ["未知", "Unknown"],
-  helperOnline: ["助手在线", "Helper online"],
-  helperOffline: ["助手离线", "Helper offline"],
-  recentHint: ["按对话归集最近 50 个远程任务", "Grouped from the latest 50 remote tasks"],
-  noChats: ["还没有近期会话", "No recent conversations"],
-  newHeading: ["想让手机帮你做什么？", "What can your phone do for you?"],
-  newHint: ["把要做的事告诉 Mika。它的进展、追问和答复会出现在这里。", "Tell Mika what you want done. Its updates, questions, and replies will appear here."],
-  connectHint: ["连接手机后就可以派任务。", "Connect a phone to send a task."],
-  loading: ["正在读取会话…", "Reading conversations…"],
-  unavailableChat: ["这段会话不在近期任务中", "This conversation is no longer available"],
-  unavailableHint: ["从左侧选择其他会话，或新建对话。", "Choose another conversation or start a new one."],
-  remoteTask: ["远程任务", "Remote task"],
-  rounds: ["{n} 轮", "{n} turns"],
-  round: ["第 {n} 轮", "Turn {n}"],
-  attention: ["待回答", "Answer"],
-  handoff: ["接管", "On phone"],
-  active: ["进行中", "Active"],
-  starting: ["正在启动", "Starting"],
-  queued: ["排队中", "Queued"],
-  running: ["进行中", "Running"],
-  paused: ["已暂停", "Paused"],
-  waiting_for_answer: ["等你回答", "Needs your answer"],
-  waiting_on_phone: ["需手机接管", "Needs you on the phone"],
-  done: ["已返回结果", "Result returned"],
-  failed: ["未能完成", "Not completed"],
-  cancelled: ["已取消", "Cancelled"],
-  msgStarting: ["任务已交给手机，正在等待启动。", "The phone accepted the task and is about to start."],
-  msgRunning: ["Mika 正在执行任务。", "Mika is working on the task."],
-  msgQueued: ["排在前面的任务做完后自动开始。", "Starts by itself once the tasks ahead finish."],
-  msgPaused: ["正在等待手机继续执行。", "Waiting for the phone to continue."],
-  waitingCondition: ["等待条件", "Waiting for"],
-  msgQuestion: ["Mika 正在等你回答。", "Mika is waiting for your answer."],
-  msgConfirm: ["请在手机上确认这一步。", "Confirm this step on the phone."],
-  msgHandoff: ["请在手机上接管这一步。", "Take over this step on the phone."],
-  msgNoAnswer: ["手机没有附上答复正文。", "The phone returned no answer text."],
-  msgNoReason: ["手机没有附上失败原因。", "The phone gave no failure reason."],
-  msgCancelled: ["这轮任务已停止。", "This turn was stopped."],
-  handoffGuide: ["打开手机上的 Mika 通知处理，完成后这里会自动更新。", "Open Mika’s notification on the phone; this conversation updates automatically."],
-  verified: ["已核实", "Verified"],
-  verifyFailed: ["核实未通过", "Verification failed"],
-  verifyUnknown: ["未报告核实结果", "Verification not reported"],
-  verification: ["核实情况", "Verification"],
-  expandGoal: ["展开要求", "Show full request"],
-  collapseGoal: ["收起要求", "Collapse request"],
-  viewProcess: ["查看过程", "View process"],
-  closeProcess: ["收起过程", "Hide process"],
-  process: ["执行过程", "Execution process"],
-  sidePanel: ["侧栏", "Side panel"],
-  copyResult: ["复制结果", "Copy result"],
-  copied: ["已复制结果。", "Result copied."],
-  copyFailed: ["未能复制，可以直接选择答复文字。", "Could not copy. You can select the reply text instead."],
-  cancelTask: ["取消本轮", "Cancel turn"],
-  confirmCancel: ["向手机发送这轮任务的取消请求？", "Ask the phone to cancel this turn?"],
-  targetTurn: ["处理这轮", "Respond to this turn"],
-  message: ["给 Mika 的消息", "Message to Mika"],
-  newPlaceholder: ["把任务交给手机…", "Give your phone a task…"],
-  followPlaceholder: ["接着这段对话说…", "Continue this conversation…"],
-  askPlaceholder: ["回答 Mika 的问题…", "Answer Mika’s question…"],
-  steerPlaceholder: ["补充这轮任务的要求…", "Add instructions to this turn…"],
-  onPhonePlaceholder: ["请在手机上完成这一步…", "Complete this step on the phone…"],
-  waitingPlaceholder: ["等待手机继续…", "Waiting for the phone…"],
-  noConversation: ["要发送新的要求，请选「新对话」。", "Start a new chat to send another request."],
-  continueChat: ["继续此对话", "Continue this conversation"],
-  reply: ["回答追问", "Answer question"],
-  steer: ["追加要求", "Add instructions"],
-  submit: ["交给手机", "Send to phone"],
-  sendAnswer: ["发送回答", "Send answer"],
-  sendSteer: ["追加到本轮", "Add to this turn"],
-  sendContinue: ["在此对话继续", "Continue in this conversation"],
-  startAt: ["开始时间", "Started"],
-  phoneReport: ["手机当前记录", "Latest phone report"],
-  observed: ["本页看到的进展", "Progress seen in this tab"],
-  noSteps: ["手机未提供这轮的历史步骤。", "The phone did not provide past steps for this turn."],
-  observingNow: ["后续收到的步骤和状态变化会显示在这里。", "New steps and state changes will appear here as they arrive."],
-  recentChanges: ["显示最近 {n} 次变化。", "Showing the last {n} changes."],
-  stepN: ["第 {n} 步", "Step {n}"],
-  original: ["任务信息", "Task information"],
-  taskGoal: ["原始要求", "Original request"],
-  taskId: ["任务编号", "Task ID"],
-  observationText: ["手机返回", "Phone update"],
-  steerRecords: ["追加要求", "Added instructions"],
-  received: ["手机已收到", "Received by the phone"],
-  joined: ["已加入任务上下文", "Added to the task context"],
-  not_applied: ["未被采用", "Not applied"],
-  questionFromPhone: ["Mika 的追问", "Mika asked"],
-  yourAnswer: ["你的回答", "Your answer"],
-  yourSteer: ["你的追加要求", "Your instructions"],
-  cancelSent: ["已送出取消请求，以手机返回的状态为准。", "Cancellation requested. The phone will report the final state."],
-  notAccepted: ["手机未接受这次操作，请查看当前状态。", "The phone did not accept this request. Check the current state."],
-  errSession: ["当前任务台会话已失效，请重新打开任务台链接。", "This desk session expired. Reopen the current desk link."],
-  errDeviceSelection: ["请连接手机，或从在线设备中选择一台。", "Connect a phone or choose an online device."],
-  errDevicePinned: ["这个任务台已选择另一台手机，请重新读取。", "This desk already uses another phone. Refresh its state."],
-  errAdb: ["无法读取所选手机，请检查 ADB 连接。", "Cannot read the selected phone. Check its ADB connection."],
-  errAdbUnavailable: ["找不到可运行的 adb，请先安装 Android platform-tools，或检查 --adb 指定的路径。", "adb was not found or cannot be run. Install Android platform-tools or check the --adb path."],
-  errConnectionInfo: ["无法读取 Mika 的连接信息。请解锁手机，打开一次 Mika，然后重新连接。", "Could not read Mika’s connection information. Unlock the phone, open Mika once, then connect again."],
-  errDeviceOffline: ["这台手机已离线，重连后会自动更新。", "This phone is offline. Updates resume after reconnection."],
-  errDeviceUnauthorized: ["手机还没授权这台电脑。请解锁手机，允许 USB 调试，任务台会自动重试。", "The phone hasn’t authorized this computer. Unlock it and allow USB debugging; the desk retries by itself."],
-  errDeviceReconnect: ["这台手机处于离线状态。请重新插拔数据线，或在手机上重新打开 USB 调试，任务台会自动重试。", "This phone is offline. Reconnect the cable or turn USB debugging off and on; the desk retries by itself."],
-  errStale: ["手机已重启，请重新运行 mika connect。", "The phone restarted. Run mika connect again."],
-  errConnection: ["未能读取手机回复，任务台会自动重连。", "No reply from the phone. The desk will reconnect."],
-  errDeskOffline: ["无法读取本机任务台，请检查它是否仍在运行。", "Cannot reach the local desk. Check that it is running."],
-  errOutcomeUnknown: ["操作可能已到达手机。请核对会话，再决定是否重新提交。", "The request may have reached the phone. Check the conversation before sending again."],
-  errConflict: ["这轮的状态已改变，正在读取手机的最新状态。", "This turn changed. Reading its latest state."],
-  errFallback: ["暂时无法更新任务。", "Cannot update tasks right now."],
-  keptList: ["保留上次读取的会话。", "Showing the last successful read."],
-  taskGone: ["手机已找不到之前选中的任务。", "The phone no longer knows the previously selected task."],
-  pendingRun: ["待核对的提交 · {id}", "Submission to check · {id}"],
-  lostReceipt: ["手机可能已受理。连接恢复后，点「查找原任务」核对。", "The phone may have accepted this task. Once connected, choose Find task to check."],
-  recoveredRun: ["已按编号确认手机收到任务 · {id}", "Submission confirmed by its task ID · {id}"],
-  lookupRun: ["查找原任务", "Find task"],
-  retryRun: ["用同一编号重试", "Retry with the same ID"],
-  forgetRun: ["放弃核对", "Dismiss"],
-  forgetConfirm: ["放弃核对不会取消手机上的任务。之后再次发送会创建新任务，确定放弃？", "Dismiss this receipt? Any task on the phone keeps running. Sending again will create a new task."],
-  notReceived: ["手机暂未查到这个编号。要再提交，请用同一编号重试。", "The phone does not have this ID yet. Retry with the same ID if you still want to submit it."],
-  removedRun: ["这次提交已受理过，所属对话后来被删除。", "This submission was accepted and its conversation was later deleted."],
+  "title": [
+    "Mika JP · 会話デスク",
+    "Mika JP · 会話デスク"
+  ],
+  "heading": [
+    "会話デスク",
+    "会話デスク"
+  ],
+  "displayLanguage": [
+    "表示言語",
+    "表示言語"
+  ],
+  "browserLanguage": [
+    "日本語",
+    "日本語"
+  ],
+  "newChat": [
+    "新しい会話",
+    "新しい会話"
+  ],
+  "recentChats": [
+    "最近の会話",
+    "最近の会話"
+  ],
+  "conversations": [
+    "会話一覧",
+    "会話一覧"
+  ],
+  "currentChat": [
+    "現在の会話",
+    "現在の会話"
+  ],
+  "openNav": [
+    "会話一覧を開く",
+    "会話一覧を開く"
+  ],
+  "closeNav": [
+    "会話一覧を閉じる",
+    "会話一覧を閉じる"
+  ],
+  "myPhone": [
+    "自分のスマホ",
+    "自分のスマホ"
+  ],
+  "networkPhone": [
+    "ネットワーク接続のスマホ",
+    "ネットワーク接続のスマホ"
+  ],
+  "adbPhone": [
+    "ADB接続のスマホ",
+    "ADB接続のスマホ"
+  ],
+  "connectionDetails": [
+    "接続の詳細",
+    "接続の詳細"
+  ],
+  "connectedPhone": [
+    "接続中のスマホ",
+    "接続中のスマホ"
+  ],
+  "taskService": [
+    "タスクサービス",
+    "タスクサービス"
+  ],
+  "phoneState": [
+    "スマホの状態",
+    "スマホの状態"
+  ],
+  "chooseDevice": [
+    "スマホを選ぶ",
+    "スマホを選ぶ"
+  ],
+  "usePhone": [
+    "このスマホを使う",
+    "このスマホを使う"
+  ],
+  "refreshNow": [
+    "更新する",
+    "更新する"
+  ],
+  "updated": [
+    "更新: {time}",
+    "更新: {time}"
+  ],
+  "autoUpdate": [
+    "自動更新",
+    "自動更新"
+  ],
+  "connecting": [
+    "接続中",
+    "接続中"
+  ],
+  "connected": [
+    "接続済み",
+    "接続済み"
+  ],
+  "online": [
+    "オンライン",
+    "オンライン"
+  ],
+  "offline": [
+    "未接続",
+    "未接続"
+  ],
+  "choosing": [
+    "スマホを選んでください",
+    "スマホを選んでください"
+  ],
+  "unlocked": [
+    "ロック解除済み",
+    "ロック解除済み"
+  ],
+  "locked": [
+    "ロック中",
+    "ロック中"
+  ],
+  "screenOff": [
+    "画面は消灯中",
+    "画面は消灯中"
+  ],
+  "unknown": [
+    "不明",
+    "不明"
+  ],
+  "helperOnline": [
+    "ヘルパーは稼働中",
+    "ヘルパーは稼働中"
+  ],
+  "helperOffline": [
+    "ヘルパーは停止中",
+    "ヘルパーは停止中"
+  ],
+  "recentHint": [
+    "直近50件のリモートタスクを会話ごとに表示",
+    "直近50件のリモートタスクを会話ごとに表示"
+  ],
+  "noChats": [
+    "最近の会話はありません",
+    "最近の会話はありません"
+  ],
+  "newHeading": [
+    "スマホで何をしますか？",
+    "スマホで何をしますか？"
+  ],
+  "newHint": [
+    "Mika JPに依頼してください。進捗、質問、回答がここに表示されます。",
+    "Mika JPに依頼してください。進捗、質問、回答がここに表示されます。"
+  ],
+  "connectHint": [
+    "スマホを接続すると依頼できます。",
+    "スマホを接続すると依頼できます。"
+  ],
+  "loading": [
+    "会話を読み込み中…",
+    "会話を読み込み中…"
+  ],
+  "unavailableChat": [
+    "この会話は最近のタスクにありません",
+    "この会話は最近のタスクにありません"
+  ],
+  "unavailableHint": [
+    "別の会話を選ぶか、新しい会話を始めてください。",
+    "別の会話を選ぶか、新しい会話を始めてください。"
+  ],
+  "remoteTask": [
+    "リモートタスク",
+    "リモートタスク"
+  ],
+  "rounds": [
+    "{n}回のやり取り",
+    "{n}回のやり取り"
+  ],
+  "round": [
+    "{n}回目",
+    "{n}回目"
+  ],
+  "attention": [
+    "回答が必要",
+    "回答が必要"
+  ],
+  "handoff": [
+    "スマホでの操作が必要",
+    "スマホでの操作が必要"
+  ],
+  "active": [
+    "実行中",
+    "実行中"
+  ],
+  "starting": [
+    "開始中",
+    "開始中"
+  ],
+  "queued": [
+    "待機中",
+    "待機中"
+  ],
+  "running": [
+    "実行中",
+    "実行中"
+  ],
+  "paused": [
+    "一時停止中",
+    "一時停止中"
+  ],
+  "waiting_for_answer": [
+    "回答を待っています",
+    "回答を待っています"
+  ],
+  "waiting_on_phone": [
+    "スマホで操作してください",
+    "スマホで操作してください"
+  ],
+  "done": [
+    "結果を受信しました",
+    "結果を受信しました"
+  ],
+  "failed": [
+    "完了できませんでした",
+    "完了できませんでした"
+  ],
+  "cancelled": [
+    "キャンセル済み",
+    "キャンセル済み"
+  ],
+  "msgStarting": [
+    "スマホが依頼を受け付けました。開始を待っています。",
+    "スマホが依頼を受け付けました。開始を待っています。"
+  ],
+  "msgRunning": [
+    "Mika JPがタスクを実行しています。",
+    "Mika JPがタスクを実行しています。"
+  ],
+  "msgQueued": [
+    "先のタスクが終わると自動で開始します。",
+    "先のタスクが終わると自動で開始します。"
+  ],
+  "msgPaused": [
+    "スマホでの再開を待っています。",
+    "スマホでの再開を待っています。"
+  ],
+  "waitingCondition": [
+    "待っている条件",
+    "待っている条件"
+  ],
+  "msgQuestion": [
+    "Mika JPが回答を待っています。",
+    "Mika JPが回答を待っています。"
+  ],
+  "msgConfirm": [
+    "スマホでこの操作を確認してください。",
+    "スマホでこの操作を確認してください。"
+  ],
+  "msgHandoff": [
+    "スマホでこの手順を操作してください。",
+    "スマホでこの手順を操作してください。"
+  ],
+  "msgNoAnswer": [
+    "スマホから回答の本文が返されませんでした。",
+    "スマホから回答の本文が返されませんでした。"
+  ],
+  "msgNoReason": [
+    "スマホから失敗の理由が返されませんでした。",
+    "スマホから失敗の理由が返されませんでした。"
+  ],
+  "msgCancelled": [
+    "このタスクを停止しました。",
+    "このタスクを停止しました。"
+  ],
+  "handoffGuide": [
+    "スマホのMika JPの通知を開いて操作してください。完了すると会話が自動で更新されます。",
+    "スマホのMika JPの通知を開いて操作してください。完了すると会話が自動で更新されます。"
+  ],
+  "verified": [
+    "確認済み",
+    "確認済み"
+  ],
+  "verifyFailed": [
+    "確認に失敗",
+    "確認に失敗"
+  ],
+  "verifyUnknown": [
+    "確認結果は未報告",
+    "確認結果は未報告"
+  ],
+  "verification": [
+    "確認の状況",
+    "確認の状況"
+  ],
+  "expandGoal": [
+    "依頼の全文を表示",
+    "依頼の全文を表示"
+  ],
+  "collapseGoal": [
+    "依頼を折りたたむ",
+    "依頼を折りたたむ"
+  ],
+  "viewProcess": [
+    "実行の様子を表示",
+    "実行の様子を表示"
+  ],
+  "closeProcess": [
+    "実行の様子を閉じる",
+    "実行の様子を閉じる"
+  ],
+  "process": [
+    "実行の様子",
+    "実行の様子"
+  ],
+  "sidePanel": [
+    "サイドパネル",
+    "サイドパネル"
+  ],
+  "copyResult": [
+    "結果をコピー",
+    "結果をコピー"
+  ],
+  "copied": [
+    "結果をコピーしました。",
+    "結果をコピーしました。"
+  ],
+  "copyFailed": [
+    "コピーできませんでした。回答の文字を選択してコピーしてください。",
+    "コピーできませんでした。回答の文字を選択してコピーしてください。"
+  ],
+  "cancelTask": [
+    "このタスクをキャンセル",
+    "このタスクをキャンセル"
+  ],
+  "confirmCancel": [
+    "このタスクのキャンセルをスマホへ依頼しますか？",
+    "このタスクのキャンセルをスマホへ依頼しますか？"
+  ],
+  "targetTurn": [
+    "このやり取りに回答",
+    "このやり取りに回答"
+  ],
+  "message": [
+    "Mika JPへのメッセージ",
+    "Mika JPへのメッセージ"
+  ],
+  "newPlaceholder": [
+    "スマホへの依頼を入力…",
+    "スマホへの依頼を入力…"
+  ],
+  "followPlaceholder": [
+    "この会話を続ける…",
+    "この会話を続ける…"
+  ],
+  "askPlaceholder": [
+    "Mika JPの質問に回答…",
+    "Mika JPの質問に回答…"
+  ],
+  "steerPlaceholder": [
+    "このタスクへの追加の依頼…",
+    "このタスクへの追加の依頼…"
+  ],
+  "onPhonePlaceholder": [
+    "スマホで操作してください…",
+    "スマホで操作してください…"
+  ],
+  "waitingPlaceholder": [
+    "スマホでの再開を待っています…",
+    "スマホでの再開を待っています…"
+  ],
+  "noConversation": [
+    "新しい依頼は「新しい会話」から始めてください。",
+    "新しい依頼は「新しい会話」から始めてください。"
+  ],
+  "continueChat": [
+    "この会話を続ける",
+    "この会話を続ける"
+  ],
+  "reply": [
+    "質問に回答",
+    "質問に回答"
+  ],
+  "steer": [
+    "依頼を追加",
+    "依頼を追加"
+  ],
+  "submit": [
+    "スマホへ依頼",
+    "スマホへ依頼"
+  ],
+  "sendAnswer": [
+    "回答を送信",
+    "回答を送信"
+  ],
+  "sendSteer": [
+    "このタスクへ追加",
+    "このタスクへ追加"
+  ],
+  "sendContinue": [
+    "この会話で続ける",
+    "この会話で続ける"
+  ],
+  "startAt": [
+    "開始時刻",
+    "開始時刻"
+  ],
+  "phoneReport": [
+    "スマホの最新の記録",
+    "スマホの最新の記録"
+  ],
+  "observed": [
+    "この画面で確認した進捗",
+    "この画面で確認した進捗"
+  ],
+  "noSteps": [
+    "スマホから過去の手順が返されませんでした。",
+    "スマホから過去の手順が返されませんでした。"
+  ],
+  "observingNow": [
+    "これから届く手順や状態の変化をここに表示します。",
+    "これから届く手順や状態の変化をここに表示します。"
+  ],
+  "recentChanges": [
+    "直近{n}回の変化を表示。",
+    "直近{n}回の変化を表示。"
+  ],
+  "stepN": [
+    "手順{n}",
+    "手順{n}"
+  ],
+  "original": [
+    "タスクの情報",
+    "タスクの情報"
+  ],
+  "taskGoal": [
+    "元の依頼",
+    "元の依頼"
+  ],
+  "taskId": [
+    "タスクID",
+    "タスクID"
+  ],
+  "observationText": [
+    "スマホからの更新",
+    "スマホからの更新"
+  ],
+  "steerRecords": [
+    "追加の依頼",
+    "追加の依頼"
+  ],
+  "received": [
+    "スマホが受信済み",
+    "スマホが受信済み"
+  ],
+  "joined": [
+    "タスクに反映済み",
+    "タスクに反映済み"
+  ],
+  "not_applied": [
+    "未反映",
+    "未反映"
+  ],
+  "questionFromPhone": [
+    "Mika JPからの質問",
+    "Mika JPからの質問"
+  ],
+  "yourAnswer": [
+    "あなたの回答",
+    "あなたの回答"
+  ],
+  "yourSteer": [
+    "あなたの追加の依頼",
+    "あなたの追加の依頼"
+  ],
+  "cancelSent": [
+    "キャンセルを依頼しました。最終的な状態はスマホからの報告を確認してください。",
+    "キャンセルを依頼しました。最終的な状態はスマホからの報告を確認してください。"
+  ],
+  "notAccepted": [
+    "スマホが操作を受け付けませんでした。現在の状態を確認してください。",
+    "スマホが操作を受け付けませんでした。現在の状態を確認してください。"
+  ],
+  "errSession": [
+    "会話デスクの接続が失効しました。現在のリンクを開き直してください。",
+    "会話デスクの接続が失効しました。現在のリンクを開き直してください。"
+  ],
+  "errDeviceSelection": [
+    "スマホを接続するか、接続中の端末から選んでください。",
+    "スマホを接続するか、接続中の端末から選んでください。"
+  ],
+  "errDevicePinned": [
+    "この会話デスクでは別のスマホを選択済みです。状態を更新してください。",
+    "この会話デスクでは別のスマホを選択済みです。状態を更新してください。"
+  ],
+  "errAdb": [
+    "選んだスマホを読み取れません。ADB接続を確認してください。",
+    "選んだスマホを読み取れません。ADB接続を確認してください。"
+  ],
+  "errAdbUnavailable": [
+    "adbを実行できません。Android platform-toolsと、--adbで指定した場所を確認してください。",
+    "adbを実行できません。Android platform-toolsと、--adbで指定した場所を確認してください。"
+  ],
+  "errConnectionInfo": [
+    "接続情報を読み取れません。スマホのロックを解除し、Mika JPを開いてから再接続してください。",
+    "接続情報を読み取れません。スマホのロックを解除し、Mika JPを開いてから再接続してください。"
+  ],
+  "errDeviceOffline": [
+    "スマホがオフラインです。接続が戻ると自動で更新します。",
+    "スマホがオフラインです。接続が戻ると自動で更新します。"
+  ],
+  "errDeviceUnauthorized": [
+    "スマホでPCを許可してください。ロックを解除してUSBデバッグを許可すると、自動で再試行します。",
+    "スマホでPCを許可してください。ロックを解除してUSBデバッグを許可すると、自動で再試行します。"
+  ],
+  "errDeviceReconnect": [
+    "スマホがオフラインです。ケーブルの接続やUSBデバッグを確認してください。自動で再試行します。",
+    "スマホがオフラインです。ケーブルの接続やUSBデバッグを確認してください。自動で再試行します。"
+  ],
+  "errStale": [
+    "スマホが再起動しました。mika connectを再実行してください。",
+    "スマホが再起動しました。mika connectを再実行してください。"
+  ],
+  "errConnection": [
+    "スマホから応答がありません。自動で再接続します。",
+    "スマホから応答がありません。自動で再接続します。"
+  ],
+  "errDeskOffline": [
+    "PC上の会話デスクに接続できません。起動状態を確認してください。",
+    "PC上の会話デスクに接続できません。起動状態を確認してください。"
+  ],
+  "errOutcomeUnknown": [
+    "操作がスマホに届いている可能性があります。再送する前に会話を確認してください。",
+    "操作がスマホに届いている可能性があります。再送する前に会話を確認してください。"
+  ],
+  "errConflict": [
+    "タスクの状態が変わりました。最新の状態を読み込みます。",
+    "タスクの状態が変わりました。最新の状態を読み込みます。"
+  ],
+  "errFallback": [
+    "タスクを更新できません。",
+    "タスクを更新できません。"
+  ],
+  "keptList": [
+    "最後に読み取れた会話を表示しています。",
+    "最後に読み取れた会話を表示しています。"
+  ],
+  "taskGone": [
+    "選択中のタスクがスマホにありません。",
+    "選択中のタスクがスマホにありません。"
+  ],
+  "pendingRun": [
+    "受信確認待ち · {id}",
+    "受信確認待ち · {id}"
+  ],
+  "lostReceipt": [
+    "スマホが受け付けた可能性があります。接続後に「元のタスクを探す」で確認してください。",
+    "スマホが受け付けた可能性があります。接続後に「元のタスクを探す」で確認してください。"
+  ],
+  "recoveredRun": [
+    "タスクIDで受信を確認しました · {id}",
+    "タスクIDで受信を確認しました · {id}"
+  ],
+  "lookupRun": [
+    "元のタスクを探す",
+    "元のタスクを探す"
+  ],
+  "retryRun": [
+    "同じIDで再試行",
+    "同じIDで再試行"
+  ],
+  "forgetRun": [
+    "受信確認を終了",
+    "受信確認を終了"
+  ],
+  "forgetConfirm": [
+    "受信確認を終了してもスマホのタスクは取り消されません。再送すると新しいタスクになります。終了しますか？",
+    "受信確認を終了してもスマホのタスクは取り消されません。再送すると新しいタスクになります。終了しますか？"
+  ],
+  "notReceived": [
+    "このIDはスマホで見つかりません。再送する場合は同じIDで再試行してください。",
+    "このIDはスマホで見つかりません。再送する場合は同じIDで再試行してください。"
+  ],
+  "removedRun": [
+    "受け付け済みの依頼ですが、その会話は後から削除されました。",
+    "受け付け済みの依頼ですが、その会話は後から削除されました。"
+  ]
 };
 
 const $ = id => document.getElementById(id);
 // Reattach the same detail view to its turn when a refresh rebuilds the transcript.
 const processContent = $("process-content");
 const processSlotId = id => "turn-process-" + id;
-const browserLanguage = navigator.languages?.[0] || navigator.language || "en";
-let lang;
+const lang = 0;
 const t = (key, vars = {}) => STRINGS[key][lang].replace(/\{(\w+)\}/g, (_, name) => vars[name]);
 function applyLanguage() {
-  const pref = localStorage.getItem("mikaDeskLanguage");
-  $("language").value = pref === "zh" || pref === "en" ? pref : "auto";
-  lang = (pref === "zh" || pref === "en" ? pref : browserLanguage).toLowerCase().startsWith("zh") ? 0 : 1;
-  document.documentElement.lang = lang ? "en" : "zh-CN";
+  $("language").value = "ja";
+  document.documentElement.lang = "ja";
   document.title = t("title");
   for (const node of document.querySelectorAll("[data-i18n]")) node.textContent = t(node.dataset.i18n);
   for (const node of document.querySelectorAll("[data-i18n-label]"))
@@ -184,9 +616,9 @@ const isActive = task => !terminal.has(task.status);
 const urgency = task => (tones[task.status] === "attention" ? 0 : isActive(task) ? 1 : 2);
 const threadOf = task => (task.conversation ? "chat:" + task.conversation : "task:" + task.task_id);
 const date = ms =>
-  new Date(ms).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  new Date(ms).toLocaleString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 const clock = ms =>
-  new Date(ms).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  new Date(ms).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 const byId = (items, id) => items?.find(task => task.task_id === id);
 const label = task =>
   (task?.goal || "")

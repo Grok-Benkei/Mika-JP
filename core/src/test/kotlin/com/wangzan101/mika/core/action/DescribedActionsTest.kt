@@ -23,7 +23,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 一屏:登录、两个关注、删除、一个搜索框和「提交订单」;记下端口收到的动作。 */
+/** 1 つの画面: ログイン、2 つのフォロー、削除、検索ボックス、および「注文の送信」。ポートが受信したアクションを記録します。 */
 private class Shop : ScreenPort by FakeScreen() {
     val calls = mutableListOf<String>()
     private var reads = 0
@@ -39,7 +39,7 @@ private class Shop : ScreenPort by FakeScreen() {
     override suspend fun typeText(ref: String?, snapshotId: String?, text: String) = ActionResult.Ok(changed = true).also { calls += "type $ref $text" }
 }
 
-/** 按描述指目标:先在此刻那一屏里换成编号,之后判定、审批、执行和按编号的一样;对不上就不做。 */
+/** 説明に従ってターゲットをポイントします。まず現在の画面上の番号を変更し、次に番号に従って判断、承認、実行します。一致しない場合は実行しないでください。 */
 class DescribedActionsTest {
     private val sink = object : RunSink { override fun event(e: com.wangzan101.mika.core.record.RunEvent) {} }
 
@@ -66,7 +66,7 @@ class DescribedActionsTest {
         val c = content(o)
         assertEquals(JsonPrimitive("element_ambiguous"), c["error"])
         val message = (c["message"] as JsonPrimitive).content
-        assertTrue(message, "2 elements" in message && "@e2" in message && "@e3" in message && "near 「" in message && "at [" in message)
+        assertTrue(message, "2 件の要素" in message && "@e2" in message && "@e3" in message && "付近の文字「登录」" in message && "付近の文字「删除」" in message && "位置 [0, 260, 999, 340]" in message)
         assertTrue(screen.calls.isEmpty())
     }
 
@@ -85,7 +85,7 @@ class DescribedActionsTest {
         assertEquals("confirmation_required", o.code)
         assertEquals(IrrevAction.order, o.hit?.action)
         assertTrue(screen.calls.isEmpty())
-        // 删除不花钱:按描述找到就做
+        // 削除には費用はかかりません。説明に従って見つけてください。 説明によると、
         assertTrue(run(executor(toolDispatcher(screen)), "phone_tap", """{"element":"删除"}""") is ActionOutcome.Ran)
         assertEquals(listOf("tap @e4"), screen.calls)
     }

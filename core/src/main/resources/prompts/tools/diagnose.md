@@ -1,1 +1,1 @@
-Find out why this screen is unusable: blank, still loading, locked or protected. Look at usable, state and hint in the result. When needsHuman is true, hand the step to the user instead of tapping around.
+この状態が使えない理由を調べる。空白、読み込み中、ロックされている、保護されているなど。結果の usable、state、hint を確認する。needsHuman が true の場合は、タップを繰り返さず、その手順をユーザーに引き継ぐ。

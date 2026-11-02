@@ -24,7 +24,7 @@ import kotlinx.serialization.json.put
 import java.util.UUID
 import kotlin.coroutines.resume
 
-/** 按编号做点击前的核对:点得到([x],[y] 为顶层视口 CSS 像素)、被别的元素盖住、在视口外、元素已不在。 */
+/** は、クリックする前に番号でチェックされます。クリックが取得され ([x]、[y] はトップ ビューポートの CSS ピクセル)、他の要素で覆われ、ビューポートの外側にあり、要素は存在しません。 */
 sealed interface HitResult {
     data class Hit(val x: Int, val y: Int) : HitResult
     data class Obscured(val byName: String) : HitResult
@@ -32,10 +32,10 @@ sealed interface HitResult {
     data object Gone : HitResult
 }
 
-/** 障碍判定用:页面上有没有密码框,跨源框架的完整地址。 */
+/** 障害物の判定: ページ上にパスワード ボックスがあるかどうか、およびクロスオリジン フレームの完全なアドレス。 */
 data class PageFacts(val passwordField: Boolean, val frameUrls: List<String>)
 
-/** 输入框的当前值;密码框只给长度。 */
+/** 入力ボックスの現在の値。パスワードボックスには長さのみが表示されます。 */
 sealed interface FieldValue {
     data class Text(val value: String) : FieldValue
     data class Password(val length: Int) : FieldValue
@@ -43,15 +43,15 @@ sealed interface FieldValue {
 }
 
 /**
- * 页面脚本 assets/web/page.js 的 App 端:注入、调用、轮询异步结果。模型写的脚本不经这里
- * (读脚本、页面脚本各在自己的隔离世界里跑),这里只调用我们自己的固定代码。
- * 系统支持时在每个文档开始时注入(先于页面自己的脚本,原始入口不会被页面先改掉),否则在加载完成后注入。
- * 页面上只有一个随机名字的桥函数,要用只有这里知道的密钥才能取到接口;页面拿不到任何通往 App 的入口,
- * 结果全部由这里经 evaluateJavascript 取回。主文档换了而脚本不在时,下次调用自动补注入。
+ * ページ スクリプトのアプリ側、assets/web/page.js: 非同期結果の挿入、呼び出し、ポーリング。モデルが書いたスクリプトはここを通過しません
+ * (読み取りスクリプトとページ スクリプトはそれぞれ独自の隔離された世界で実行されます)、ここでは独自の固定コードのみが呼び出されます。
+ * システムがサポートしている場合、各ドキュメントの先頭 (ページ独自のスクリプトの前、元のエントリは最初にページによって変更されません) に挿入されます。それ以外の場合は、読み込みの完了後に挿入されます。
+ * ページには、ランダムな名前のブリッジ関数のみがあります。インターフェイスを取得するには、ここでのみ知られているキーを使用する必要があります。ページはアプリへの入り口を取得できません。 すべての
+ * の結果は、evaluateJavascript を介してここから取得されます。メインドキュメントが変更され、スクリプトが存在しない場合、次回呼び出されたときにスクリプトが自動的に挿入されます。
  */
-/** [useDocumentStart] 为 false 时只在加载完成后注入(系统不支持文档开始注入时就是这样;测试也用它)。 */
+/** [useDocumentStart] が false の場合、読み込みが完了した後にのみ挿入されます (これは、システムが最初からドキュメントの挿入をサポートしていない場合に当てはまります。これはテストにも使用されます)。 */
 class PageScript(private val tab: WebTab, private val useDocumentStart: Boolean = true) {
-    /** 页面上桥函数的名字;加载完成后注入时每个文档换一个(连同密钥),文档开始注入时固定用注册时的那一对。 */
+    /** ページ上のブリッジ関数の名前。読み込み完了後の挿入時に、ドキュメントごとに 1 つ (キーとともに) 変更します。原稿の投入が開始されると、登録時のペアが固定される。 */
     @Volatile internal var bridgeName = newBridgeName()
         private set
     @Volatile private var secret = UUID.randomUUID().toString()
@@ -61,11 +61,11 @@ class PageScript(private val tab: WebTab, private val useDocumentStart: Boolean 
     private val bootstrap: String get() = "(\n$source\n)(${quote(bridgeName)},${quote(secret)})"
     private var documentStartRegistered = false
 
-    /** 是否走文档开始注入;为 false 时页面脚本可能先于本脚本改动全局对象。 */
+    /** ドキュメントから注入を開始するかどうか。 false の場合、ページ スクリプトはこのスクリプトの前にグローバル オブジェクトを変更する可能性があります。 */
     var documentStart: Boolean = false
         private set
 
-    /** 注册文档开始注入(只做一次),并在当前文档里还没有时注入。 */
+    /** は、登録されたドキュメントの挿入を開始し (1 回のみ)、現在のドキュメントにない場合はそれを挿入します。 */
     suspend fun install() {
         withContext(Dispatchers.Main) {
             if (!documentStartRegistered) {
@@ -82,7 +82,7 @@ class PageScript(private val tab: WebTab, private val useDocumentStart: Boolean 
     private suspend fun present(): Boolean =
         raw("(function(){var g=window[${quote(bridgeName)}];return typeof g==='function'&&!!g(${quote(secret)});})()") == "true"
 
-    // 加载完成后注入:每个新文档用新的名字和密钥,上一个文档里泄露的名字对新文档没用
+    // ロード後のインジェクション: 新しいドキュメントごとに新しい名前とキーが使用されます。前の文書で漏洩した名前は、新しい文書では役に立ちません。
     private suspend fun inject() {
         if (!documentStart) {
             bridgeName = newBridgeName()
@@ -92,15 +92,15 @@ class PageScript(private val tab: WebTab, private val useDocumentStart: Boolean 
     }
 
     /**
-     * 视口内可见元素的 JSON(PageTree 的输入格式);页面读不到时给空树。
-     * 编号表按 [key](快照号)存,页面里保留最近几张;[key] 为 null 时只读不登记。
+     * ビューポートに表示される要素の JSON (PageTree の入力形式)。ページを読み取れない場合は、空のツリーが表示されます。
+     * 番号テーブルは [key] (スナップショット番号) として保存され、最新の番号テーブルがページに保持されます。 [key] が null の場合、読み取り専用となり登録されません。
      */
     suspend fun tree(key: String? = DEFAULT_KEY): String =
         call("tree(${key?.let(::quote) ?: "null"})")?.takeIf { it is JsonObject }?.toString() ?: EMPTY_TREE
 
     /**
-     * 经 DevTools 在页面主环境里求值的表达式:返回编号表 [key](null 为最近一次读屏)里的元素数组,脚本不在时为 null。
-     * 只给 DevTools 用(返回的是元素对象),不经 [call]。
+     * は、DevTools を介してページのメイン環境で評価される式です。数値テーブル [key] の要素配列を返します (null は最後に読み取られた画面です)。スクリプトが使用できない場合は null を返します。
+     * は、[call] を経由せず、DevTools によってのみ使用されます (要素オブジェクトを返します)。
      */
     internal fun refNodesExpression(key: String?): String =
         "(function(){var g=window[${quote(bridgeName)}];var m=typeof g==='function'&&g(${quote(secret)});" +
@@ -114,7 +114,7 @@ class PageScript(private val tab: WebTab, private val useDocumentStart: Boolean 
 
     suspend fun mutationCount(): Long = (call("mutationCount()") as? JsonPrimitive)?.long ?: 0L
 
-    /** 先把元素滚进视口中央,再给它可见部分的中心(顶层视口 CSS 像素);元素已不在为 null。 */
+    /** まず要素をビューポートの中心までスクロールし、次に表示部分 (上部のビューポート CSS ピクセル) の中心に配置します。要素は null ではなくなりました。 */
     suspend fun centerOf(ref: String, key: String = DEFAULT_KEY): Pair<Int, Int>? = pair(call("centerOf(${quote(ref)},${quote(key)})"))
 
     suspend fun hitTest(ref: String, key: String = DEFAULT_KEY): HitResult {
@@ -127,16 +127,16 @@ class PageScript(private val tab: WebTab, private val useDocumentStart: Boolean 
         }
     }
 
-    /** [ref] 为 null 时读当前焦点所在的输入框。 */
-    /** 页面里一个 blob: 网址的内容;读不出、超过 [maxBytes] 时给原因。 */
+    /** [ref] が null の場合、現在フォーカスがある入力ボックスを読み取ります。 */
+    /** ページ内の BLOB: URL のコンテンツ。 [maxBytes]を超えて読み取れない場合は理由を記載してください。 */
     sealed interface Blob {
         class Ok(val mime: String?, val bytes: ByteArray) : Blob
         class Failed(val error: String) : Blob
     }
 
     /**
-     * 让页面脚本把 blob: 内容读成 base64,分段取回再解码。页面报的长度与每段内容都按 [BlobChunks] 的上限核;
-     * 等结果超时、出错都让页面丢掉这份内容(页面那边另有到期自清)。
+     * を使用すると、ページ スクリプトで blob: コンテンツを Base64 に読み取り、セグメントで取得してデコードできます。ページの長さと各段落の内容は、[BlobChunks] の上限に従って計算されます。
+     * およびその他の結果のタイムアウトやエラーにより、ページはこのコンテンツを破棄します (ページには有効期限切れと自動消去もあります)。
      */
     suspend fun readBlob(url: String, maxBytes: Long): Blob {
         val token = nextToken()
@@ -162,18 +162,18 @@ class PageScript(private val tab: WebTab, private val useDocumentStart: Boolean 
     }
 
     /**
-     * 页面在指向 [url] 的链接上给的下载名(`<a download="…">`):点击时页面脚本记下的,或文档里指向它的链接上的。
-     * 没有为 null。名字是网页给的,由下载那边按文件名规则清洗。很长的 data: 网址不拿去比。
+     * ページの [url] を指すリンクに指定されたダウンロード名 (`<a download="…">`): クリックされたときにページ スクリプトによって記録されるか、ドキュメント内でそれを指すリンクに指定されます。
+     * は null ではありません。名前は Web ページによって付けられ、ファイル名の規則に従ってダウンローダーによってクリーンアップされます。非常に長いデータ: URL は比較できません。
      */
     suspend fun downloadName(url: String): String? {
         if (url.length > MAX_NAMED_URL_CHARS) return null
         return (call("downloadName(${quote(url)})") as? JsonPrimitive)?.takeIf { it.isString }?.content
     }
 
-    /** 主文档响应的 HTTP 状态;拿不到为 null。 */
+    /** メインドキュメント応答の HTTP ステータス。利用できない場合は null。 */
     suspend fun navStatus(): Int? = (call("navStatus()") as? JsonPrimitive)?.intOrNull
 
-    /** 当前焦点是不是这个元素(或在它这个可编辑区里)。 */
+    /** この要素 (またはその編集可能領域) の現在のフォーカスです。 */
     suspend fun isActive(ref: String, key: String = DEFAULT_KEY): Boolean =
         (call("isActive(${quote(ref)},${quote(key)})") as? JsonPrimitive)?.booleanOrNull == true
 
@@ -187,8 +187,8 @@ class PageScript(private val tab: WebTab, private val useDocumentStart: Boolean 
     }
 
     /**
-     * 整页可读文字(PageText 的 JSON)。[scroll] 为真时读第一页前先往下滚至多 5 屏触发懒加载,读完复位;
-     * 核实结果时用 false,不碰页面的滚动位置。
+     * 読み取り可能なテキストの全ページ (PageText の JSON)。 [scroll] が true の場合、最初のページを読み取る前に最大 5 画面下にスクロールして遅延読み込みをトリガーし、読み取り後にリセットします。
+     * ページのスクロール位置に触れずに結果を確認する場合は false を使用します。
      */
     suspend fun readPage(maxChars: Int, offset: Int, scroll: Boolean = true): String {
         val token = nextToken()
@@ -202,7 +202,7 @@ class PageScript(private val tab: WebTab, private val useDocumentStart: Boolean 
         return r.toString()
     }
 
-    /** web_read_page 的整页读取(分段、可折叠的列表块、质量迹象;格式见 PageDigest),不滚动;读不到为 null。 */
+    /** web_read_page 全ページ読み取り (セグメント、折りたたみ可能なリスト ブロック、品質表示。形式については PageDigest を参照)、スクロールなし。読み取られない場合は null。 */
     suspend fun digest(): JsonObject? {
         val token = nextToken()
         if (call("startDigest(${quote(token)},${PageDigest.scriptOptions})") == null) return null
@@ -211,11 +211,11 @@ class PageScript(private val tab: WebTab, private val useDocumentStart: Boolean 
         return (r as? JsonObject)?.takeIf { it["error"] == null }
     }
 
-    /** 正文的(长度, 摘要),判断正文稳定用;读不到为 null。 */
+    /** テキストの (長さ、要約)。テキストが安定しているかどうかを判断するために使用されます。読み取れない場合は null です。 */
     suspend fun contentSample(): Pair<Int, Int>? = runCatching { pair(call("contentSample()")) }.getOrNull()
 
     /**
-     * 往下滚几屏触发懒加载,滚完才返回;之后必须调 [endLazy] 复位滚动位置。返回令牌;页面脚本不在时为 null。
+     * いくつかの画面を下にスクロールして遅延読み込みをトリガーし、スクロール後に戻ります。その後、[endLazy] を調整してスクロール位置をリセットする必要があります。トークンを返します。ページスクリプトが存在しない場合はnull。
      */
     suspend fun startLazy(): String? {
         val token = nextToken()
@@ -228,7 +228,7 @@ class PageScript(private val tab: WebTab, private val useDocumentStart: Boolean 
         call("endLazy(${quote(token)})")
     }
 
-    /** 滚动位置(CSS 像素);[ref] 为 null 时是页面本身。元素已不在为 null。 */
+    /** スクロール位置 (CSS ピクセル)。 [ref] が null の場合、それはページ自体です。要素は null ではなくなりました。 */
     suspend fun scrollState(ref: String?, key: String = DEFAULT_KEY): Pair<Int, Int>? =
         pair(call("scrollState(${ref?.let(::quote) ?: "null"},${quote(key)})"))
 
@@ -243,7 +243,7 @@ class PageScript(private val tab: WebTab, private val useDocumentStart: Boolean 
         return null
     }
 
-    /** 调用页面脚本的一个方法;脚本不在(主文档换过)时注入后重试一次。取不到结果为 null。 */
+    /** ページ スクリプトを呼び出すメソッド。スクリプトが使用できなくなった場合 (メインドキュメントが変更された場合)、スクリプトを挿入して再試行してください。結果が取得できない場合はnullとなります。 */
     private suspend fun call(expr: String): JsonElement? {
         repeat(2) { attempt ->
             val js = "(function(){var g=window[${quote(bridgeName)}];var m=typeof g==='function'&&g(${quote(secret)});" +
@@ -257,7 +257,7 @@ class PageScript(private val tab: WebTab, private val useDocumentStart: Boolean 
         return null
     }
 
-    /** evaluateJavascript 的原始回调字符串;超时或标签已作废为 null。 */
+    /** EvaluateJavascript の生のコールバック文字列。タイムアウトしたか、ラベルが無効化されて null になりました。 */
     private suspend fun raw(js: String, timeoutMs: Long = CALL_TIMEOUT_MS): String? {
         if (tab.crashed) return null
         return withTimeoutOrNull(timeoutMs) {
@@ -287,11 +287,11 @@ class PageScript(private val tab: WebTab, private val useDocumentStart: Boolean 
         private fun newBridgeName() = "_" + UUID.randomUUID().toString().replace("-", "").take(16)
         private const val ASSET = "web/page.js"
         private const val MAX_NAMED_URL_CHARS = 100_000
-        /** 不指定快照号时页面脚本用的编号表。 */
+        /** スナップショット番号が指定されていない場合にページ スクリプトによって使用される番号テーブル。 */
         const val DEFAULT_KEY = "default"
         private const val MAX_READ_CHARS = 30_000
         private const val READ_TIMEOUT_MS = 15_000L
-        /** 滚几屏、每屏等一会儿,正常两秒内滚完;页面卡住时不为它拖住读页。 */
+        /** いくつかの画面をスクロールし、各画面でしばらく待ちます。通常、スクロールは 2 秒以内に完了します。ページがスタックしている場合、ページの読み取りは保留されません。 */
         private const val LAZY_TIMEOUT_MS = 5_000L
         private const val BLOB_TIMEOUT_MS = 30_000L
         private const val CALL_TIMEOUT_MS = 5_000L

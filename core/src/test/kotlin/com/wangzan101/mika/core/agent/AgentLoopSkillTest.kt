@@ -52,22 +52,22 @@ class AgentLoopSkillTest {
     @Test fun knowledgeIndexStillByTaskWords() {
         val r = run("用闲鱼查手机,再发微信给小王,再在知乎搜一下")
         val idx = r.requests.first().index().single()
-        // 知识和技能各在自己的标题下(标题里写着用哪个工具读全文)
-        assertTrue(idx.lines().first() == KNOWLEDGE_INDEX_HEADER && idx.lines().any { it.startsWith("- app:xianyu(闲鱼):") })
+        // 知識とスキルにはそれぞれ独自のタイトルが付けられています（タイトルには、全文を読むためにどのツールを使用するかを示しています）
+        assertTrue(idx.lines().first() == KNOWLEDGE_INDEX_HEADER && idx.lines().any { it.startsWith("- app:xianyu(Xianyu):") })
         assertTrue(SKILL_INDEX_HEADER in idx.lines())
-        // 索引行在任务原文之后
+        // インデックス行はタスクの元のテキストの後にあります
         val texts = r.requests.first().userTexts()
         assertTrue(texts.indexOf(idx) > texts.indexOfFirst { it.startsWith("用闲鱼") })
     }
 
-    // 目标和技能名一个字面也对不上:技能照样全部列出,由模型按描述判断
+    // ターゲット名とスキル名は文字通り一致しません。スキルは通常どおりすべてリストされており、モデルは説明によって判断できます。
     @Test fun allSkillsListedEvenWithoutSharedWords() {
         val r = run("知乎上我一共建了几个收藏夹？哪个收藏夹里的内容最多？", zhihu, personalSkill("a-trip", display = "我的出行"))
         val lines = r.requests.first().skillLines()
         val builtIn = bundled.items.filter { it.kind == "skill" }.map { it.name }.sorted()
         assertEquals(builtIn.map { "skill:$it" } + listOf("personal:a-trip", "personal:zhihu-collections"), lines.map { it.removePrefix("- ").substringBefore('(') })
         assertTrue(lines.contains("- personal:zhihu-collections(查看知乎收藏夹列表):打开知乎我的收藏,数收藏夹和条数"))
-        // 和任务毫不相干的也列出:不按字面挑
+        // タスクに関係のないものもリストされます。文字通り選択しないでください。
         assertTrue(run("把屏幕亮度调高一点", zhihu).requests.first().skillLines().any { it.startsWith("- personal:zhihu-collections(") })
     }
 
@@ -80,7 +80,7 @@ class AgentLoopSkillTest {
         assertTrue(lines.none { "old-one" in it || "draft-one" in it })
     }
 
-    // 开头只给索引,个人技能的全文要模型自己用 skill_read 读
+    // の先頭にはインデックスのみが記載されています。個人スキルの全文は、skill_read を使用してモデル自身が読み取る必要があります。
     @Test fun noPersonalFullTextAtStart() {
         val mine = personalSkill("lao-ma-msg", body = "## 入口\n打开微信找老妈", display = "给老妈发消息")
         val r = run("给老妈发消息说晚点到", mine)
@@ -93,10 +93,10 @@ class AgentLoopSkillTest {
     @Test fun skillReadOfPersonalRecordsSkillUsed() {
         val r = run("知乎上我一共建了几个收藏夹？", zhihu, personalSkill("my-trip", display = "我的出行"), script = listOf(
             reply(call("skill_read", """{"name":"zhihu-collections"}""")),
-            reply(call("knowledge_read", """{"name":"app:wechat"}""")), // 内置的不记
+            reply(call("knowledge_read", """{"name":"app:wechat"}""")), // 内蔵が記憶しません
             finish,
         ))
-        // 全文由 skill_read 的结果给出
+        // の全文は skill_read の結果によって得られます。
         assertTrue(r.requests.last().any { m -> m.parts.any { it is Part.ToolResult && "打开 App" in it.content } })
         val used = r.events.filterIsInstance<RunEvent.SkillUsed>().map { it.name to it.how }
         assertEquals(listOf("zhihu-collections" to "viewed"), used)

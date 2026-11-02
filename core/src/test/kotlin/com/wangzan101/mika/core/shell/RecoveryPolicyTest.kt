@@ -27,7 +27,7 @@ class RecoveryPolicyTest {
 
     @Test
     fun helperVanishedIsRetriedWithBackoff() {
-        // 拔 USB / adbd 重启会带走所有 shell 身份的进程:不管上一次报的是什么,只要不是要用户出手的失败就重试
+        // USB/adbd を取り外して再起動すると、すべてのシェル ID プロセスが削除されます。前回報告された内容に関係なく、ユーザーがアクションを実行する必要がある障害でない限り、もう一度試してください。
         listOf(
             BuiltinShellStatus.Failed(BuiltinShellFailure.ConnectFailed),
             BuiltinShellStatus.Failed(BuiltinShellFailure.HelperStartFailed),
@@ -41,7 +41,7 @@ class RecoveryPolicyTest {
 
     @Test
     fun unknownWirelessStateStillTries() {
-        // 有的手机读不到无线调试开关;信任网络与否也读不到:都按「试一下」处理
+        // 一部の携帯電話では、ワイヤレス デバッグ スイッチを読み取ることができません。ネットワークを信頼するかどうかに関係なく、ネットワークを読み取ることはできません。 「試してみる」を押して処理してください。
         assertEquals(RecoveryDecision.Try(0), RecoveryPolicy.decide(inputs(wireless = null), 0))
     }
 
@@ -117,15 +117,15 @@ class RecoveryPolicyTest {
 
     @Test
     fun bootRestoreGate() {
-        // 默认打开、连接可用时补上的:没拨过开关,生效了就算同意
+        // はデフォルトでオンになっており、接続が利用可能になったときに追加されます。スイッチは切り替えられておらず、同意されていても有効になります。
         val on = RecoveryConsent(applied = setOf(RecoveryCapability.RestoreAfterReboot))
         for (sdk in 31..33) assertEquals(BootRestore.Gate.Act, BootRestore.gate(sdkInt = sdk, consent = on, holdsPermission = true))
         assertEquals(BootRestore.Gate.Skip, BootRestore.gate(sdkInt = 30, consent = on, holdsPermission = true))
-        // 默认要但还没生效(从没配对过),或用户亲手关掉:不动手
+        // はデフォルトで必須ですが、まだ有効になっていない (ペアリングされていない) か、ユーザーが自分でオフにしました。何もしないでください。
         assertEquals(BootRestore.Gate.Skip, BootRestore.gate(sdkInt = 34, consent = RecoveryConsent(), holdsPermission = true))
         val declined = RecoveryConsent(declined = setOf(RecoveryCapability.RestoreAfterReboot))
         assertEquals(BootRestore.Gate.Skip, BootRestore.gate(sdkInt = 34, consent = declined, holdsPermission = true))
-        // 打开过,但授权没了(被系统或用户收回):如实报出来,不去硬写
+        // は開かれましたが、認証は失われています (システムまたはユーザーによって取り消されました)。正直に報告し、ハードライトしないでください。
         assertEquals(BootRestore.Gate.PermissionMissing, BootRestore.gate(sdkInt = 34, consent = on, holdsPermission = false))
     }
 }

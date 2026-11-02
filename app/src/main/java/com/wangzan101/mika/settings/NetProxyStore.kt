@@ -9,26 +9,26 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
 /**
- * 设置 › 网络代理,形如 `http://[用户:密码@]主机:端口`;空串表示不用,直连。
- * 地址里可能带账号密码,所以和服务商的 Key 一样经 [KeyCipher] 加密后单独存一个文件,不进明文的偏好设置,也不写进日志。
+ * 設定 › ネットワーク プロキシ、`http://[用户:密码@]主机:端口` の形式。空の文字列は使用せず、直接接続することを意味します。
+ * アドレスにはアカウントのパスワードが含まれる場合があるため、[KeyCipher] によって暗号化され、サービス プロバイダーのキーと同様に別のファイルに保存されます。クリア テキストの基本設定は入力されず、ログにも書き込まれません。
  *
- * 谁用它:Mika 自己的连接(调模型、列模型、账号登录换令牌、下更新、内置浏览器)经 [NetProxy],本机和局域网地址直连;
- * 文件与计算环境里的命令在允许联网时经环境变量拿到它(见 `AndroidSandbox`)。
+ * 使用者: ミカ自身の接続 (モデル調整、列モデル、トークン交換のためのアカウント ログイン、ダウンロード更新、内蔵ブラウザ) は、[NetProxy] 経由でローカル エリア ネットワーク アドレスに直接接続されます。 ネットワークが許可されている場合、コンピューティング環境内の
+ * ファイルとコマンドは、環境変数を通じてそれを取得できます (`AndroidSandbox` を参照)。
  *
- * 早先它只给容器用,存在 `container-proxy.bin`(另一把密钥):第一次读时用 [legacyCipher] 解出来、按新的存好,再删掉旧文件。
+ * は以前はコンテナーにのみ使用されていましたが、`container-proxy.bin` (別のキー) があります。初めて読み取るときに [legacyCipher] を使用して抽出し、新しいファイルとして保存し、古いファイルを削除します。
  */
 class NetProxyStore(
     private val dir: File,
     private val cipher: KeyCipher,
     private val legacyCipher: KeyCipher? = null,
-    /** 存了新值之后调(让已建好的连接按新设置重连)。 */
+    /** 新しい値を保存した後に調整します (確立された接続を新しい設定に従って再接続します)。 */
     private val onChange: () -> Unit = {},
 ) {
     private val file = File(dir, FILE)
     private val legacy = File(dir, LEGACY_FILE)
     @Volatile private var cached: String? = null
 
-    /** 存着的代理;没有、或解不开(换过机、密钥没了)时为空串。 */
+    /** 既存のエージェント。存在しない場合、またはロックを解除できない場合 (マシンが変更されたか、キーが紛失した場合)、空の文字列になります。 */
     @Synchronized fun get(): String {
         cached?.let { return it }
         migrate()
@@ -36,7 +36,7 @@ class NetProxyStore(
         return stored.also { cached = it }
     }
 
-    /** 存下 [proxy](去掉两头空白);空的就删掉文件。调用方先用 [valid] 核对过。 */
+    /** [proxy] を保存 (両端の空白を削除);ファイルが空の場合は削除します。発信者は最初に [valid] を確認しました。 */
     fun set(proxy: String) {
         synchronized(this) {
             val v = proxy.trim()
@@ -48,7 +48,7 @@ class NetProxyStore(
         onChange()
     }
 
-    /** 旧版只给容器用时存的那一份:解得开就按新的存好;新的已经有了、或解不开就不动它,之后存新值时一并删掉。 */
+    /** 古いバージョンでは、コンテナーの使用時にのみコピーが保存されます。ロックを解除できる場合は、新しいものとして保存します。新しい値がすでに存在する場合、またはロックを解除できない場合は、移動せず、新しい値を保存するときに削除してください。 */
     private fun migrate() {
         val old = legacyCipher ?: return
         if (file.isFile || !legacy.isFile) return
@@ -72,15 +72,15 @@ class NetProxyStore(
         private const val KEY_ALIAS = "mika-net-proxy"
         private const val LEGACY_KEY_ALIAS = "mika-container-proxy"
 
-        /** 空串(不用),或带协议、主机、端口的代理地址(http、https、socks5、socks5h),后面不带路径。 */
+        /** 空の文字列 (未使用)、またはプロトコル、ホスト、ポート (http、https、socks5、socks5h) を含むプロキシ アドレス。背後にパスはありません。 */
         fun valid(proxy: String): Boolean = ProxyAddress.valid(proxy)
 
-        /** 给人看的写法:不带账号密码(那一行在设置页上随时看得到)。 */
+        /** 人々が見ることができるように書かれています: アカウントとパスワードなし (その行は設定ページでいつでも見ることができます)。 */
         fun display(proxy: String): String = ProxyAddress.parse(proxy)?.display.orEmpty()
 
         @Volatile private var instance: NetProxyStore? = null
 
-        /** 产品里的那一份;第一次取时把 [NetProxy.shared] 接上它。 */
+        /** は製品に含まれています。初めて手に取るときに [NetProxy.shared] を接続してください。 */
         fun get(context: Context): NetProxyStore = instance ?: synchronized(this) {
             instance ?: NetProxyStore(
                 File(context.applicationContext.filesDir, "settings"), KeystoreKeyCipher(KEY_ALIAS), KeystoreKeyCipher(LEGACY_KEY_ALIAS),

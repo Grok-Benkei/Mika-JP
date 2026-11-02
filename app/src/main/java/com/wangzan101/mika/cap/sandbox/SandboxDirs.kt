@@ -9,14 +9,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * 沙箱在宿主上的目录:`files/sandbox/` 下的根文件系统、工作区、技能、/proc 替身;PRoot 的临时目录在缓存里;
- * 可执行文件只在 [nativeDir](安卓 10 起数据目录里的文件不能 execve)。
+ * サンドボックスのディレクトリ: `files/sandbox/` の下のルート ファイル システム、ワークスペース、スキル、/proc アバター。 PRoot の一時ディレクトリはキャッシュ内にあります。
+ * 実行可能ファイルは、[nativeDir] にのみあります (Android 10 以降、データ ディレクトリ内のファイルは実行できません)。
  */
 class SandboxDirs internal constructor(
     val root: File, val tmp: File, val nativeDir: File,
-    /** 宿主侧读写这些目录(沙箱碰得到)都过它;手机上是 [AndroidFdSys.gate],JVM 测试传按路径的那份。 */
+    /** は、ホスト側でこれらのディレクトリ (サンドボックスによってアクセス可能) の読み取りと書き込みに使用できます。携帯電話では、これは [AndroidFdSys.gate]、JVM テスト転送パスのコピーです。 */
     val gate: WorkspaceFileGate,
-    /** 往这棵树里写都先拿它的许可;手机上是进程里那一份([SandboxOwner]),测试自己给一份。不设默认:私有的一份锁不住别人。 */
+    /** このツリーに書き込む前に、まずその許可を取得する必要があります。携帯電話では、処理中のコピー ([SandboxOwner]) です。テストするときはコピーを自分に渡してください。デフォルトなし: プライベート コピーを他の人にロックすることはできません。 */
     val tree: SandboxTree,
 ) {
     constructor(context: Context) : this(
@@ -29,28 +29,28 @@ class SandboxDirs internal constructor(
     val skills: File get() = File(root, "skills")
     val procStandIns: File get() = File(root, "proc")
 
-    /** 一个对话一个工作区:简单名字的 ID 为 c-<ID>,其余为 h-<哈希>(不让 ID 拼出别的路径,两类也不会撞名)。 */
+    /** 1 つの会話と 1 つのワークスペース: 単純名の ID は c-<ID> で、残りは h-<ハッシュ> (ID に他のパスを指定することは許可されず、2 つのカテゴリは衝突しません)。 サンドボックス内の */
     fun workspace(conversationId: String): File = File(work, dirName(conversationId))
 
     fun lib(name: String): File = File(nativeDir, name)
 
     /**
-     * 删、换沙箱里的命令写得到的整棵目录(工作区、运行环境)都经这里:拿着 [tree] 的独占许可在 IO 线程里做,
-     * 等在跑的命令和别的写入都结束才开始,做完之前新的命令、导入也等着,免得一边删一边有人往里写。
-     * 代价:删一个大目录要多久,所有对话的沙箱命令就要等多久。等许可时情况可能变了(比如对话又有了任务),
-     * 要看的条件在 [block] 里拿到许可后再查。
+     * 削除および置換コマンドによって書き込まれたディレクトリ全体 (ワークスペース、実行環境) はここを通過します。 [tree] の独占ライセンスを使用して IO スレッドで実行します。
+     * は、実行中のコマンドやその他の書き込みが完了するまで待ってから開始します。新しいコマンドとインポートも、削除と誰かによる書き込みを同時に避けるために、完了する前に待機します。
+     * コスト: 大きなディレクトリを削除するのにかかる時間、およびすべての会話のサンドボックス コマンドを待つのにかかる時間。許可を待っている間に状況が変化した可能性があります (たとえば、ダイアログに別のタスクがあるなど)。
+     * は[block]でライセンス取得後に条件を確認する必要があります。
      */
     suspend fun <T> exclusiveWrite(block: suspend () -> T): T = tree.exclusive { withContext(Dispatchers.IO) { block() } }
 
-    /** 删掉对话 [conversationId] 的整个工作区(按句柄删、不跟进链接,见 [exclusiveWrite])。 */
+    /** は、会話 [conversationId] のワークスペース全体を削除します (ハンドルによって削除します。リンクをたどらないでください。[exclusiveWrite] を参照)。 */
     suspend fun deleteWorkspace(conversationId: String) = deleteWorkDir(workspace(conversationId).name)
 
-    /** 删掉 `work/` 下名为 [dirName] 的工作区。 */
+    /** は、`work/` の下の [dirName] という名前のワークスペースを削除します。 */
     suspend fun deleteWorkDir(dirName: String) = exclusiveWrite { gate.deleteTree(work, dirName) }
 
     /**
-     * 绑定前把要绑的目录都建好:源目录不存在时 PRoot 会往标准错误写一句警告,
-     * 而标准错误并进了命令输出,模型会看到。技能目录还没同步时就是空目录。
+     * バインドする前に、バインドするすべてのディレクトリを作成します。ソース ディレクトリが存在しない場合、PRoot は標準エラーに警告を書き込みます。
+     * と標準エラーはコマンド出力にマージされ、モデルはそれを確認します。スキルディレクトリが同期されていない場合、空のディレクトリとなります。
      */
     fun ensureBindSources(workspace: File) {
         for (d in listOf(workspace, skills, tmp)) d.mkdirs()

@@ -24,9 +24,9 @@ import kotlinx.serialization.json.put
 import java.util.WeakHashMap
 
 /**
- * 一个标签的网络记录:第一次用到(动作后的自动等待、web_capture)时才打开 Network,
- * 订阅这个标签会话的 `Network.*` 事件喂给 [NetworkLedger]。会话断了或标签关了就停,下次用到时按新会话重建。
- * 只有一个会话的事件进来,所以不必再按标签筛;子会话(sessionId 非空)的请求按会话分开记。
+ * ラベルのネットワーク レコード: 初回使用時のみオープン ネットワーク (アクション、web_capture 後の自動待機)、
+ * は、このタグ セッションの `Network.*` イベントをサブスクライブし、それを [NetworkLedger] にフィードします。セッションが切断されるか、ラベルが閉じられると停止します。新しいセッション ボタンをクリックすると、次回使用するときにセッションが再作成されます。
+ * 1 つのセッションからのイベントのみが受信されるため、ラベルでフィルターする必要はありません。サブセッション (sessionId が空ではない) のリクエストはセッションごとに個別に記録されます。
  */
 class NetworkTracker private constructor(
     private val session: CdpSession,
@@ -38,7 +38,7 @@ class NetworkTracker private constructor(
     @Volatile var enabled = false
         private set
 
-    // 先订阅再发 Network.enable:事件流不重放
+    // 最初にサブスクライブしてから Network.enable を送信します: イベント ストリームが再生されません
     private suspend fun start(): Boolean {
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
             session.events.collect { e ->
@@ -47,8 +47,8 @@ class NetworkTracker private constructor(
         }
         scope.launch { session.closed.first { it }; close() }
         enabled = try {
-            // 渲染进程替 getResponseBody 留的正文也设上限:单个与账本收的上限一致(更大的反正不取);
-            // 总量给账本的两倍,图片脚本等小资源也占这块缓冲,留点余地让接口响应不被挤掉
+            // getResponseBody のレンダリング プロセスによって残されるテキストにも上限があります。個々のテキストは元帳の上限と一致します (大きいテキストはいずれにせよ取得されません)。
+            // の合計金額は元帳の 2 倍です。画像やスクリプトなどの小さなリソースもこのバッファを占有するため、インターフェースの応答が圧迫されない余地が残されています。
             session.send(
                 "Network.enable",
                 buildJsonObject {
@@ -74,10 +74,10 @@ class NetworkTracker private constructor(
 
     fun idle(): Boolean = synchronized(ledger) { ledger.isIdle(clock()) }
 
-    /** 本次动作发出的请求还在途(或刚结束);会话断了当作不忙。 */
+    /** このアクションによって送信されたリクエストはまだ進行中です (または終了したばかりです)。セッションは切断されており、ビジーではないと見なされます。 */
     fun actionBusy(): Boolean = alive && synchronized(ledger) { ledger.actionBusy(clock()) }
 
-    /** 等到网络空闲(无在途请求且安静 [NetworkLedger.quietMs]),至多 [capMs];到时还不空闲返回 false。 */
+    /** ネットワークがアイドル状態になる (転送中のリクエストがなく、静かな [NetworkLedger.quietMs]) (最大 [capMs]) まで待ちます。まだアイドル状態でない場合は false を返します。 */
     suspend fun awaitIdle(capMs: Long): Boolean {
         val deadline = clock() + capMs
         while (true) {
@@ -91,7 +91,7 @@ class NetworkTracker private constructor(
     fun list(urlContains: String?, method: String?, sinceLastAction: Boolean): List<CapturedResponse> =
         synchronized(ledger) { ledger.list(urlContains, method, sinceLastAction) }
 
-    /** 取一个响应;该有正文还没取时用 `Network.getResponseBody` 取回(取不到就不带正文)。 */
+    /** が応答を取得します。テキストがまだ取得されていない場合は、`Network.getResponseBody` を使用して取得します (テキストが取得できない場合、テキストは含まれません)。 */
     suspend fun get(id: String): CapturedResponse? = bodyLock.withLock {
         val fetch = synchronized(ledger) { ledger.bodyToFetch(id) }
         if (fetch != null && alive) {
@@ -108,7 +108,7 @@ class NetworkTracker private constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                // 页面已丢掉这个响应(导航后常见)、或调用超时:照常返回,不带正文
+                // ページがこの応答を失ったか (ナビゲーション後によくある)、または呼び出しがタイムアウトしました: テキストなしで通常どおりに戻ります
                 Log.i(TAG, "getResponseBody $id failed: ${e.message}")
             }
         }
@@ -135,8 +135,8 @@ class NetworkTracker private constructor(
         private val creating = Mutex()
 
         /**
-         * 这个标签的网络记录,第一次调用时打开 Network。没有 DevTools 会话、或打开失败时为 null(调用方走老路)。
-         * 会话换了(重连)或标签已关时按当前会话重建。
+         * このラベルのネットワーク レコード。初めて呼び出されたときにネットワークが開きます。 DevTools セッションがない場合、またはオープンに失敗した場合 (呼び出し元が古いルートを選択した場合)、Null になります。
+         * セッションが変更 (再接続) されるか、ラベルが閉じられると、現在のセッションに従って再構築されます。
          */
         suspend fun of(tab: WebTab, clock: () -> Long): NetworkTracker? {
             if (tab.destroyed || tab.crashed) {
@@ -154,7 +154,7 @@ class NetworkTracker private constructor(
             }
         }
 
-        /** 标签关了:停掉它的记录。 */
+        /** タグがオフです: 記録を停止します。 */
         fun release(tab: WebTab) {
             synchronized(trackers) { trackers.remove(tab) }?.close()
         }

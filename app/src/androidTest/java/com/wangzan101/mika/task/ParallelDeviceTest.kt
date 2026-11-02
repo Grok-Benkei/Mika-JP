@@ -31,8 +31,8 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * 真机测试:开关 parallelTasks 打开时,两个对话的任务同时跑,各占一块虚拟屏。
- * 需要安卓 14+、内置助手在运行、Mika 无障碍服务已开启。脚本模型按开始顺序分给两个任务。
+ * 実機テスト: スイッチParallelTask​​sをオンにすると、2つのダイアログタスクが同時に実行され、それぞれが仮想画面を占有します。
+ * には、Android 14 以降、内蔵アシスタントが実行されており、Mika アクセシビリティ サービスがオンになっている必要があります。スクリプト モデルは、開始順に 2 つのタスクに分割されます。
  */
 @RunWith(AndroidJUnit4::class)
 class ParallelDeviceTest {
@@ -49,7 +49,7 @@ class ParallelDeviceTest {
         DeviceSupport.service()
         sh("pm grant ${context.packageName} android.permission.POST_NOTIFICATIONS")
         val flags = FeatureFlags.get(context)
-        // 杀进程测试的第二次运行:第一次被杀时没跑收尾,开关还开着;要还原成第一次开始前记下的,不是此刻的
+        // キル プロセス テストの 2 回目の実行: 最初にキルされたとき、エンディングは実行されず、スイッチはまだオンでした。現時点ではなく、最初の開始前に書き留められた内容に復元する必要があります。
         priorFlags = killRecord.takeIf { it.exists() }?.let { runCatching { SpeedFlags.parse(JSONObject(it.readText()).getString(FLAGS_KEY)) }.getOrNull() }
             ?: flags.speedFlags()
         flags.setSpeed(priorFlags.copy(parallelTasks = true))
@@ -73,7 +73,7 @@ class ParallelDeviceTest {
         context.packageManager.resolveActivity(Intent(AlarmClock.ACTION_SHOW_ALARMS), 0)?.activityInfo?.packageName
             ?: error("no clock app handles ACTION_SHOW_ALARMS")
 
-    /** 开一个新对话的任务,等它的模型第一次被调到;返回对话编号。 */
+    /** は、新しいダイアログ タスクを開き、そのモデルが初めて呼び出されるのを待ちます。ダイアログ番号を返します。 */
     private fun startTask(goal: String, model: ScriptedModel): String {
         val before = DeviceTaskState.conversationId.value
         TaskService.start(context, goal)
@@ -91,7 +91,7 @@ class ParallelDeviceTest {
         return run.state.value.takeIf { it is TaskState.Succeeded || it is TaskState.Failed || it is TaskState.Cancelled }
     }
 
-    /** 两个任务同时跑在两块屏上,都能做完;期间用户的主屏不受影响。 */
+    /** 2 つのタスクが 2 つの画面で同時に実行され、完了できます。この期間中、ユーザーのホーム画面は影響を受けません。 */
     @Test
     fun twoTasksRunOnTwoDisplays() {
         val mainBefore = DeviceSupport.mainScreenState(shell)
@@ -110,7 +110,7 @@ class ParallelDeviceTest {
         assertNotEquals(displayA, displayB)
         assertTrue(shell.topTaskId(displayA) >= 0)
         assertTrue(shell.topTaskId(displayB) >= 0)
-        // 两块屏各自操作,主屏的焦点与最上面的任务都不变
+        // 2 つの画面は独立して動作し、メイン画面と最上位のタスクのフォーカスは変わりません。
         a.feed("phone_back")
         b.feed("phone_back")
         assertEquals(3, a.awaitCall().number)
@@ -125,7 +125,7 @@ class ParallelDeviceTest {
         assertFalse("Mika display left behind", "mika-agent" in sh("dumpsys display"))
     }
 
-    /** 两个任务都要开设置:后开的那个拿到 app_in_use_by_other_task,不把设置从第一个任务手里抢走。 */
+    /** 両方のタスクで設定を開く必要があります。後で開いたタスクは app_in_use_by_other_task を取得し、最初のタスクから設定を取り除きません。 */
     @Test
     fun sameAppSecondTaskGetsConflictError() {
         val (a, b) = models
@@ -147,12 +147,12 @@ class ParallelDeviceTest {
     }
 
     /**
-     * Review Focus 5:两个任务进行中 Mika 进程被杀,下次启动两个包的 PLAY_AUDIO 都恢复,Mika 的虚拟屏都不在了。
-     * 测试跑在 Mika 进程里,杀进程会连测试一起结束,所以分两次运行,中间由外面杀进程:
-     * 第一次布置好、在 files/parallel-kill-test.json 留下记录(两个包原来的 PLAY_AUDIO 和开始前的开关),然后等着;
-     * 看到记录出现后在开发机上跑 `adb shell am force-stop <Mika 包名>`(这次报崩溃)。
-     * 第二次(进程重新拉起,启动时做恢复)按记录检查,并把开关还原成记录里的(第一次被杀时没跑收尾)。
-     * 注意:force-stop 会把 Mika 从已开启的无障碍服务里去掉(系统行为),第二次运行前要重新开启。
+     * レビュー フォーカス 5: 2 つのタスク中に、Mika プロセスが強制終了されました。両方のパッケージの PLAY_AUDIO は、次回 2 つのタスクが開始されるときに復元されます。ミカの仮想画面はもう存在しません。
+     * テストは、Mika プロセスで実行されます。プロセスを強制終了するとテストも一緒に終了するため、2 回に分けて実行され、途中でプロセスが外部から強制終了されます。
+     * が初めて配置され、files/Parallel-kill-test.json (元の PLAY_AUDIO と開始前のスイッチの 2 つのパッケージ) に記録が残され、待機します。
+     * レコードを確認した後、開発マシンで `adb shell am force-stop <Mika 包名>` を実行します (今回はクラッシュが報告されます)。
+     * 2 回目 (プロセスは起動時に再起動され復元されます)、レコード チェックを押してスイッチをレコード内のスイッチに復元します (最初に強制終了されたときはエンディングは実行されませんでした)。
+     * 注: 強制停止により、有効なアクセシビリティ サービス (システム動作) からミカが削除されるため、2 回目に実行する前に再度有効にする必要があります。
      */
     private val killRecord get() = File(context.filesDir, "parallel-kill-test.json")
 
@@ -170,7 +170,7 @@ class ParallelDeviceTest {
                 }
                 assertFalse("Mika display left behind", "mika-agent" in sh("dumpsys display"))
             } finally {
-                // 收尾里也会还原;这里先还原,断言失败时开关也不留着开
+                // も最後に復元されます。ここでは、最初に復元され、アサーションが失敗したときにスイッチが開いたままになることはありません。
                 FeatureFlags.get(context).setSpeed(priorFlags)
             }
             return
@@ -188,8 +188,8 @@ class ParallelDeviceTest {
         assertEquals("ignore", pollUntil(5_000) { shell.getAudioMode(SETTINGS)?.takeIf { it == "ignore" } })
         assertEquals("ignore", pollUntil(5_000) { shell.getAudioMode(clock)?.takeIf { it == "ignore" } })
         record.writeText(prior.toString())
-        // 进程内放到后台的自杀命令不会执行(随测试的 shell 会话一起结束),只能由外面结束:
-        // 看到记录文件出现后在开发机上跑 adb shell am force-stop <包名>。等不到就清掉记录、按失败收尾
+        // プロセスのバックグラウンドに配置された自殺コマンドは実行されず (テスト シェル セッションで終了します)、外部からのみ終了できます。
+        // レコード ファイルが表示されたことを確認した後、開発マシンで adb shell amforce-stop <パッケージ名> を実行します。待ちきれない場合は、記録をクリアして失敗として終了してください。
         Thread.sleep(KILL_WAIT_MS)
         record.delete()
         error("Mika was not killed: run `adb shell am force-stop ${context.packageName}` after ${record.name} appears, then rerun this test")

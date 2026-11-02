@@ -1,12 +1,12 @@
 package com.wangzan101.mika.capsule
 
 /**
- * 胶囊上的单击和双击(纯逻辑,时钟由调用方给):单击展开卡片,双击把此刻的屏幕发出去。
- * 按下一下([tap])先不算单击:[timeoutMs] 内又来一下就是双击;到时还没有第二下([settle])才是单击。
+ * カプセルをクリックしてダブルクリックします (純粋なロジック、クロックは呼び出し元によって与えられます)。クリックしてカードを展開し、ダブルクリックして現在の画面を送信します。
+ * ([tap]) を 1 回押すと、クリックとしてカウントされません。[timeoutMs] をもう一度押すと、ダブルクリックとしてカウントされます。 2 回目のクリック ([settle]) はクリックとしてカウントされません。
  */
 class DoubleTap(val timeoutMs: Long) {
     enum class Tap {
-        /** 第一下:等 [timeoutMs] 再 [settle]。 */
+        /** 初回: [timeoutMs] を待ってから、[settle] を待ちます。 */
         First,
         Double,
     }
@@ -24,7 +24,7 @@ class DoubleTap(val timeoutMs: Long) {
         }
     }
 
-    /** 第一下之后到时了:还在等第二下就是单击(返回 true,只返回一次);已经成了双击或还没到时返回 false。 */
+    /** 最初のクリック後にタイムアップです。まだ 2 番目のクリックを待っています (true を返します。1 回だけ戻ります)。ダブルクリックされた場合、またはまだ到着していない場合は false を返します。 */
     fun settle(now: Long): Boolean {
         val first = firstAt ?: return false
         if (now - first < timeoutMs) return false
@@ -32,7 +32,7 @@ class DoubleTap(val timeoutMs: Long) {
         return true
     }
 
-    /** 不再等(胶囊收起、换成别的样子)。 */
+    /** もう待つ必要はありません (カプセルをしまって別のものに変更してください)。 */
     fun reset() {
         firstAt = null
     }

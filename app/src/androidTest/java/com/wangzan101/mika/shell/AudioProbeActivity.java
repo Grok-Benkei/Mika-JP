@@ -6,8 +6,8 @@ import android.media.AudioTrack;
 import android.os.Bundle;
 
 /**
- * 正在出声的探针页:打开后一直循环播放一段无声的声音(播放器状态是「在播」,听不到),关掉时停下。
- * 其余同 {@link ShellProbeActivity}(把屏、任务报给测试)。任务结束时「正在出声的 App 默认关掉」用它来测。
+ * 音を発するプローブのページ: 開くと無音音がループ再生され (プレーヤーのステータスは「再生中」であり、聞こえません)、閉じると停止します。
+ * 残りは {@link ShellProbeActivity} と同じです（画面とタスクをテストにレポートします）。タスクの最後に、「音を鳴らしているアプリをデフォルトでオフにする」ので、これをテストに使用します。
  */
 public class AudioProbeActivity extends ShellProbeActivity {
     private static final int RATE = 8000;
@@ -41,7 +41,7 @@ public class AudioProbeActivity extends ShellProbeActivity {
             try {
                 track.stop();
             } catch (IllegalStateException ignored) {
-                // 没开始播放就被关掉了
+                // は再生開始前にオフになりました
             }
             track.release();
             track = null;

@@ -33,12 +33,12 @@ import org.junit.Test
 import com.wangzan101.mika.core.testing.BATCHABLE
 import com.wangzan101.mika.core.assembly.toolDispatcher
 
-/** 元素:名字 → 归一化 bounds;每次读屏换下一屏(读完最后一屏就停在它);动作结果按顺序取。 */
+/** 要素: 名前 → 正規化された範囲;画面が読み取られるたびに、次の画面に変わります (最後の画面を読み取った後、その画面で停止します)。アクションの結果は順番に取得されます。 */
 private class BatchScreen(vararg val screens: List<Pair<String, List<Int>>>) : ScreenPort by FakeScreen() {
     val calls = mutableListOf<String>()
     var reads = 0
     val results = ArrayDeque<ActionResult>()
-    /** 设了就一直显示这一屏(模拟等关卡期间屏幕换了)。 */
+    /** を設定すると、常にこの画面が表示されます（シミュレーション中などで画面が切り替わります）。 */
     var replaced: List<Pair<String, List<Int>>>? = null
     var settles = 0
     override suspend fun waitStable(timeoutMs: Long): Boolean { settles++; return true }
@@ -50,7 +50,7 @@ private class BatchScreen(vararg val screens: List<Pair<String, List<Int>>>) : S
     private fun next(): ActionResult = results.removeFirstOrNull() ?: ActionResult.Ok(changed = true)
     override suspend fun tapRef(ref: String, snapshotId: String): ActionResult { calls += "tapRef $ref $snapshotId"; return next() }
     override suspend fun tapXY(x: Int, y: Int): ActionResult { calls += "tapXY $x $y"; return next() }
-    // 端口写完读回过、一致(真实端口都会读回)
+    // ポートは書き込み後に読み戻され、一貫性があります (実際のポートが読み戻されます)
     override suspend fun typeText(ref: String?, snapshotId: String?, text: String): ActionResult {
         calls += "type $text"; return results.removeFirstOrNull() ?: ActionResult.Ok(verification = Verification.MATCH)
     }
@@ -84,7 +84,7 @@ class BatchRunnerTest {
         assertEquals(RunEvent.Batch(events.filterIsInstance<RunEvent.Batch>().single().atMs, 3, 3, false, null), events.filterIsInstance<RunEvent.Batch>().single())
     }
 
-    // 第一步做完时用户插了话:后面的子步不做,各给一条「为新消息跳过」的结果,整批交回循环去送插话
+    // 最初のステップが完了すると、ユーザーは中断します。次のサブステップは実行されず、それぞれに「新規メッセージのスキップ」の結果が与えられ、バッチ全体がループに戻されて割り込みを送信します。
     @Test fun newUserMessageStopsBatchAtTheNextBoundary() = runTest {
         val s = BatchScreen(home)
         val d = toolDispatcher(s)
@@ -105,7 +105,7 @@ class BatchRunnerTest {
         assertTrue(events.filterIsInstance<RunEvent.Batch>().single().stopped)
     }
 
-    // 子步里的等待被插话截断:这一步算没做,和后面的一起跳过,不等满也不接着做
+    // サブステップでの待機は割り込みによって中断されました。このステップは実行されず、次のステップとともにスキップされます。満杯になるまで続行されません。
     @Test fun steerCuttingAWaitStepSkipsItAndTheRest() = runTest {
         val s = BatchScreen(home)
         val inbox = com.wangzan101.mika.core.run.RunInbox()
@@ -139,12 +139,12 @@ class BatchRunnerTest {
         val last = r["steps"]!!.jsonArray.last().jsonObject
         assertEquals("搜索结果", last.s("expect"))
         assertEquals(listOf("back"), s.calls)
-        // 屏上有的文字就算对上
+        // 画面上のテキストは正しいです
         val ok = runner(toolDispatcher(BatchScreen(home))).run(steps(st("phone_back", expect = "搜索"), st("phone_back")), "c2").content
         assertEquals("true", ok.s("ok"))
     }
 
-    // 网站说到上限了:这一步之后的不再做,结果里带着那句话
+    // Web サイトが上限に達しました: このステップ以降はこれ以上のステップはありません。結果にはその文が含まれています
     @Test fun stopsWhenALimitIsReported() = runTest {
         val s = BatchScreen(home)
         val port = object : ScreenPort by s {
@@ -171,7 +171,7 @@ class BatchRunnerTest {
         assertEquals(2, r["completed"]!!.jsonPrimitive.int)
         assertEquals("false", r["steps"]!!.jsonArray.last().jsonObject.s("executed"))
         assertEquals(listOf("tapRef @e1 p1", "type 你好"), s.calls)
-        assertEquals(3, gates) // 先过关卡再按此刻的屏幕判,第 3 步判出不可逆就不执行
+        assertEquals(3, gates) // まずレベルを通過してから、現在の画面を押して判定します。ステップ 3 が不可逆であると判断された場合、ステップ 3 は実行されません。
         assertNotNull(events.filterIsInstance<RunEvent.Confirmation>().singleOrNull())
     }
 
@@ -190,7 +190,7 @@ class BatchRunnerTest {
     }
 
     @Test fun laterRefTranslatedThroughStabilizer() = runTest {
-        // 第一步之后屏幕变了:端口给「确定」换了编号,模型编号仍是第一屏的
+        // 最初のステップの後に画面が変わりました。ポート番号は「OK」に変更されましたが、モデル番号は最初の画面のもののままでした。
         val after = listOf("提示" to listOf(0, 300, 999, 400), "搜索框" to listOf(0, 0, 999, 80), "确定" to listOf(400, 500, 600, 560))
         val before = listOf("搜索框" to listOf(0, 0, 999, 80), "确定" to listOf(400, 500, 600, 560))
         val s = BatchScreen(before, after)
@@ -238,13 +238,13 @@ class BatchRunnerTest {
         assertTrue("steps" in BatchRunner.parse("""{"steps":[]}""", avail, BATCHABLE).second!!)
         assertEquals(1, BatchRunner.parse("""{"steps":[{"tool":"phone_back","args":{}}]}""", avail, BATCHABLE).first!!.size)
         assertTrue("expect" in BatchRunner.parse("""{"steps":[{"tool":"phone_back","args":{},"expect":"${"x".repeat(201)}"},{"tool":"phone_back","args":{}}]}""", avail, BATCHABLE).second!!)
-        // 此刻没提供的工具(开关关着的 phone_open_link)也不行
+        // 現時点で提供されていないツール (スイッチがオフになっているphone_open_link) も機能しません。
         assertTrue("phone_open_link" in BatchRunner.parse("""{"steps":[{"tool":"phone_back","args":{}},{"tool":"phone_open_link","args":{}}]}""", setOf("phone_back"), BATCHABLE).second!!)
         assertEquals(2, BatchRunner.parse("""{"steps":[{"tool":"phone_back","args":{}},{"tool":"phone_back"}]}""", avail, BATCHABLE).first!!.size)
     }
 
     @Test fun gateBeforeIrreversibleCheck() = runTest {
-        // 等锁屏/被拿走的关卡期间屏幕换了:同一位置现在是「提交订单」,按过关卡之后的屏幕判,不点
+        // レベル中に画面がロック/剥奪されたときに画面が変更されました。同じ位置が「注文の送信」になりました。レベルを通過した後は画面をクリックしてください。クリックしないでください。
         val s = BatchScreen(listOf("确定" to listOf(400, 450, 600, 550), "返回" to listOf(0, 900, 100, 999)))
         onGate = { if (gates == 2) s.replaced = listOf("提交订单" to listOf(400, 450, 600, 550)) }
         val r = runner(toolDispatcher(s)).run(steps(st("phone_back"), st("phone_tap", """{"x":500,"y":500}""")), "c1").content
@@ -255,7 +255,7 @@ class BatchRunnerTest {
     @Test fun waitsForStableScreenBetweenSteps() = runTest {
         val s = BatchScreen(home)
         runner(toolDispatcher(s)).run(steps(st("phone_back"), st("phone_back", expect = "搜索"), st("phone_back")), "c1")
-        // 步与步之间等两次;端口在动作里已等过界面(报了变没变),判效果时不再另等
+        // ステップ間で 2 回待機します。ポートはアクションでインターフェイスをすでに待機しており (変更は報告されたが変更されていない)、効果を判断するときに再び待機することはありません。
         assertEquals(2, s.settles)
     }
 

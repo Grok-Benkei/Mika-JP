@@ -15,7 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class StopSummaryTest {
-    private val labels = mapOf("launch_app" to "打开 App", "phone_tap" to "点击", "web_open" to "打开网页", "web_read" to "读网页")
+    private val labels = mapOf("launch_app" to "アプリを開く", "phone_tap" to "タップ", "web_open" to "ページを開く", "web_read" to "ページを読む")
     private fun label(tool: String) = labels[tool] ?: tool
     private fun app(pkg: String) = if (pkg == "com.android.settings") "设置" else pkg
 
@@ -25,7 +25,7 @@ class StopSummaryTest {
     private fun said(step: Int, tool: String, text: String = "", args: String? = null) =
         RunEvent.ModelReply(step.toLong(), step, text, tool, args, null, null, null)
 
-    /** 一次成批打招呼:打开站点、读推荐列表、给三个人打了招呼、第四个没发出去。 */
+    /** 一度にまとめて挨拶されました。サイトを開いて、推奨リストを読み、3 人に挨拶しましたが、4 人目は送信されませんでした。 */
     private val greeting = listOf(
         said(1, "web_open"), act(1, "web_open", "网站 jobs.example.com"),
         act(2, "web_read", "网站 jobs.example.com", kind = "observe", title = "推荐职位"),
@@ -41,13 +41,13 @@ class StopSummaryTest {
         val text = StopSummary.plain("把推荐里的岗位都打个招呼", greeting, null, ::label, ::app)
         assertEquals(
             listOf(
-                "已经停下,停止前做了这些:",
-                "- 去过:jobs.example.com",
-                "- 看过:jobs.example.com的推荐职位",
-                "- 做过:打开网页",
-                "- 对外发出了 3 次(jobs.example.com):给张三的产品经理岗位打招呼、给李四的运营岗位打招呼、给王五的设计岗位打招呼",
-                "- 有 1 步没成功",
-                "「把推荐里的岗位都打个招呼」还没做完的部分没有接着做。",
+                "停止しました。停止前の状況:",
+                "- 開いた場所: jobs.example.com",
+                "- 確認した内容: jobs.example.comの「推荐职位」",
+                "- 行った操作: ページを開く",
+                "- 外部への送信・提出は 3 回(jobs.example.com):「给张三的产品经理岗位打招呼」、「给李四的运营岗位打招呼」、「给王五的设计岗位打招呼」",
+                "- 1 ステップが失敗しました",
+                "「把推荐里的岗位都打个招呼」の未完了部分は、その後実行していません。",
             ).joinToString("\n"),
             text,
         )
@@ -60,11 +60,11 @@ class StopSummaryTest {
             act(4, "phone_read", "com.android.settings", kind = "observe", title = "网络和互联网"),
         )
         val text = StopSummary.plain("看看设置里有什么", events, "网络页有 WLAN、热点", ::label, ::app)
-        assertTrue(text, text.contains("- 去过:设置\n"))
-        assertTrue(text, text.contains("- 看过:设置的网络和互联网\n"))
-        assertTrue(text, text.contains("- 做过:打开 App、点击 2 次\n"))
-        assertTrue(text, text.contains("- 停下时正在写:网络页有 WLAN、热点\n"))
-        assertFalse(text, text.contains("对外发出"))
+        assertTrue(text, text.contains("- 開いた場所: 设置\n"))
+        assertTrue(text, text.contains("- 確認した内容: 设置の「网络和互联网」\n"))
+        assertTrue(text, text.contains("- 行った操作: アプリを開く、タップ 2 回\n"))
+        assertTrue(text, text.contains("- 停止時の書きかけ（原文）: 「网络页有 WLAN、热点」\n"))
+        assertFalse(text, text.contains("外部送信済み"))
     }
 
     @Test fun nothingToSayWithoutActionsOrDraft() {
@@ -75,16 +75,16 @@ class StopSummaryTest {
     }
 
     @Test fun modelWritesTheSummaryWithoutToolsFromBoundedFacts() = runTest {
-        val light = FakeModel(answerReply("  已经停下。给张三、李四、王五打了招呼,赵六没发出去。  "))
+        val light = FakeModel(answerReply("  停止しました。张三・李四・王五へ連絡しましたが、赵六へは送信していません。  "))
         val text = StopSummary(light).summarize("把推荐里的岗位都打个招呼", greeting, "写到一半", ::label, ::app)
-        assertEquals("已经停下。给张三、李四、王五打了招呼,赵六没发出去。", text)
+        assertEquals("停止しました。张三・李四・王五へ連絡しましたが、赵六へは送信していません。", text)
         assertTrue(light.offeredTools.single().isEmpty())
         val input = (light.requests.single().single().parts.single() as Part.Text).text
         assertTrue(input, input.contains("<request>\n把推荐里的岗位都打个招呼\n</request>"))
-        assertTrue(input, input.contains("第 3 步 点击 · jobs.example.com(对外发出) —— 用意:给张三的产品经理岗位打招呼"))
-        assertTrue(input, input.contains("第 6 步 点击 · jobs.example.com(没成功) —— 用意:给赵六的测试岗位打招呼"))
-        // 连着读同一处只记一行
-        assertEquals(1, Regex("第 2 步 读网页").findAll(input).count())
+        assertTrue(input, input.contains("ステップ 3: タップ · jobs.example.com(外部送信済み) — 目的: 给张三的产品经理岗位打招呼"))
+        assertTrue(input, input.contains("ステップ 6: タップ · jobs.example.com(失敗) — 目的: 给赵六的测试岗位打招呼"))
+        // 同じ場所を続けて読むときは 1 行だけ覚えてください
+        assertEquals(1, Regex("ステップ 2: ページを読む").findAll(input).count())
         assertTrue(input, input.contains("<last_read>\n推荐职位:张三"))
         assertTrue(input, input.contains("<draft>\n写到一半\n</draft>"))
         assertTrue(light.system!!.isNotBlank())
@@ -100,17 +100,31 @@ class StopSummaryTest {
         val many = (1..500).flatMap { listOf(said(it, "phone_tap", "第 $it 个".repeat(50)), act(it, "phone_tap", "com.a.b")) }
         val facts = StopSummary.facts("g", many, "x".repeat(10_000))
         assertTrue("${facts.length}", facts.length < 15_000)
-        assertTrue(facts.contains("中间省略"))
+        assertTrue(facts.contains("途中の"))
     }
 
     @Test fun fallsBackToMainModelThenToPlainText() = runTest {
-        val main = FakeModel(answerReply("主模型写的"))
-        assertEquals("主模型写的", StopSummary(FakeModel(IllegalStateException("down")), main).summarize("g", greeting, null))
-        // 都写不出(出错、空回复):按记录直接拼
+        val main = FakeModel(answerReply("メインモデルが書いた要約です"))
+        assertEquals("メインモデルが書いた要約です", StopSummary(FakeModel(IllegalStateException("down")), main).summarize("g", greeting, null))
+        // を書き込むことができません (エラー、空の応答): 直接綴るにはレコードを押してください
         val plain = StopSummary(FakeModel(IllegalStateException("down")), FakeModel(answerReply("  "))).summarize("g", greeting, null, ::label, ::app)
         assertEquals(StopSummary.plain("g", greeting, null, ::label, ::app), plain)
-        // 没有模型
+        // モデルなし
         assertEquals(StopSummary.plain("g", greeting, null), StopSummary(null).summarize("g", greeting, null))
+    }
+
+    @Test fun foreignSummaryFallsBackToJapaneseFacts() = runTest {
+        val text = StopSummary(FakeModel(answerReply("I have stopped.")), FakeModel(answerReply("已经停止。")))
+            .summarize("依頼", greeting, null, ::label, ::app)
+        assertEquals(StopSummary.plain("依頼", greeting, null, ::label, ::app), text)
+        assertTrue(text, text.startsWith("停止しました。"))
+        assertFalse(text, "I have stopped." in text)
+    }
+
+    @Test fun currentAndLegacySiteLabelsBothUseTheDomain() {
+        val current = listOf(act(1, "web_open", "ウェブサイト example.com"))
+        val legacy = listOf(act(1, "web_open", "网站 example.com"))
+        assertEquals(StopSummary.plain("依頼", legacy, null, ::label), StopSummary.plain("依頼", current, null, ::label))
     }
 
     @Test fun timeoutFallsBackToPlainText() = runTest {

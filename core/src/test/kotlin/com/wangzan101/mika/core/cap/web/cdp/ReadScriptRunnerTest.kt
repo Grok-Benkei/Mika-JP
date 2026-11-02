@@ -14,11 +14,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 读脚本执行器对着假 DevTools:世界留着复用、页面换文档后重建,以及跳转、非 GET 请求的兜底。 */
+/** 読み取りスクリプト実行プログラムが偽の DevTools に直面しています: 世界には、ジャンプや非 GET リクエストだけでなく、ページ変更後の再利用、再構築、ドキュメントが残されています。 */
 class ReadScriptRunnerTest {
     private val origin = "https://shop.test"
 
-    /** [onRun] 收到跑脚本的那条 Runtime.evaluate 时做什么:回一个结果,或发事件、不回。 */
+    /** [onRun] スクリプトを実行するための Runtime.evaluate メッセージを受信した場合の対処方法: 結果を返すか、イベントを送信しますが、戻りません。 */
     private fun server(onRun: (FakeDevTools.Conn, JsonObject) -> Unit): FakeDevTools {
         val s = FakeDevTools()
         var ctx = 0
@@ -59,7 +59,7 @@ class ReadScriptRunnerTest {
         var destroyNext = false
         lateinit var srv: FakeDevTools
         srv = server { c, m ->
-            // 不开 Runtime 时没有上下文销毁的事件:主框架换了文档由 Page.frameNavigated 报
+            // ランタイムが有効になっていない場合、コンテキスト破棄イベントはありません。メイン フレームがドキュメントを変更し、Page.frameNavigated によって報告されます。
             if (destroyNext) { destroyNext = false; c.event("Page.frameNavigated", buildJsonObject { put("frame", buildJsonObject { put("id", "M"); put("url", "https://shop.test/2") }) }) }
             else answer(c, m, """{"ok":true,"json":"1","truncated":false}""")
         }
@@ -75,7 +75,7 @@ class ReadScriptRunnerTest {
         assertEquals("navigated", (gone as EvalJs.Failed).error)
         assertEquals(EvalJs.Ok("1", false, fresh = true), third)
         assertEquals(2, methods(srv).count { it == "Page.createIsolatedWorld" })
-        // 开着 Runtime 时页面察觉得到调试器:从不打开
+        // ランタイムがオンになっている場合、ページはデバッガーを検出します。決して開かないでください。
         assertTrue("Runtime.enable" !in methods(srv))
     }
 
@@ -93,7 +93,7 @@ class ReadScriptRunnerTest {
         assertEquals("blocked_navigation", (r as EvalJs.Failed).error)
         val sent = methods(srv)
         assertTrue(sent.toString(), "Page.stopLoading" in sent)
-        // 收尾时让脚本之后的 fetch、sleep 失败
+        // により、スクリプトが最後に失敗した後にフェッチとスリープが発生します
         assertTrue(srv.connections.single().received.any { it["params"]?.jsonObject?.get("expression")?.jsonPrimitive?.content == ReadScriptProtocol.STOP })
     }
 

@@ -45,9 +45,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * 内置助手的自动恢复和那几项能力。跑 shell 命令用 [runner](经助手或已配对的连接;两样都没有时不给);
- * 能力与开机结果记在 [settings];[control] 是内置助手本身。由 [com.wangzan101.mika.cap.phone.PhoneServices] 建一份,
- * App 启动时由 [start] 开始看着连接。
+ * には、アシスタントの自動回復機能といくつかの機能が組み込まれています。 [runner] を使用してシェル コマンドを実行します (アシスタントまたはペア接続経由。どちらも使用できない場合は指定されません)。
+ * の機能とブート結果は [settings] に記録されます。 [control] は組み込みアシスタントそのものです。作成者: [com.wangzan101.mika.cap.phone.PhoneServices],
+ * アプリを起動すると、[start] から接続が開始されます。
  */
 class BuiltinShellRecovery(
     context: Context,
@@ -61,13 +61,13 @@ class BuiltinShellRecovery(
     private var started = false
 
     val permissions: RecoveryPermissions by lazy {
-        // 助手在运行(不论怎么起的)或配对过,命令就有路可走
+        // アシスタントが実行中 (起動方法に関係なく) またはペアリングされている場合、コマンドは使用可能になります。
         RecoveryPermissions({ runner.takeIf { control.status.value == BuiltinShellStatus.Running || control.paired } }, settings, app.packageName)
     }
 
     /**
-     * 无障碍服务没在运行时自动打开它;结果([AccessibilityRepair.last])给设置页说一句。
-     * App 自己有修改系统设置的授权(「重启后自动恢复」给的)就直接写,不必等助手;没有才经助手。
+     * アクセシビリティ サービスは、実行時に自動的にオンになりません。結果 ([AccessibilityRepair.last]) は、設定ページに何かを言うことになります。
+     * アプリ システム設定を変更する権限 (「再起動後の自動回復」によって付与) がある場合は、アシスタントを待たずに直接書き込むことができます。アシスタントを経由する必要はありません。 手順は、
      */
     val accessibilityRepair = AccessibilityRepair(
         restart = { gap -> if (canWriteSecure()) restartDirectly(gap) else permissions.restartAccessibility(gap) },
@@ -78,7 +78,7 @@ class BuiltinShellRecovery(
     private fun canWriteSecure() =
         app.checkSelfPermission(PermissionCommands.WRITE_SECURE_SETTINGS) == PackageManager.PERMISSION_GRANTED
 
-    /** 和 [RecoveryPermissions.restartAccessibility] 同样的步骤,只是由 App 自己写系统设置:没有就加上,有却没绑定就去掉再加回。 */
+    /** と [RecoveryPermissions.restartAccessibility] の場合と同じですが、アプリが独自にシステム設定を書き込む点が異なります。利用できない場合は追加します。バインドされていない場合は、削除してから再度追加します。 */
     private suspend fun restartDirectly(gapMs: Long): PermissionResult = withContext(Dispatchers.IO) {
         val cr = app.contentResolver
         val me = PermissionCommands.accessibilityService(app.packageName)
@@ -93,7 +93,7 @@ class BuiltinShellRecovery(
                 write(AccessibilityList.without(current, me))
                 withContext(NonCancellable) {
                     delay(gapMs)
-                    // 加回失败时把原来的列表(连同总开关)写回,不让 Mika 从列表里消失;这次仍按加回失败报
+                    // 追加が失敗すると、Mika がリストから消えるのを防ぐために、元のリスト (メイン スイッチとともに) が書き戻されます。今回も追加の失敗が報告されています。
                     try {
                         write(AccessibilityList.with(read(), me))
                     } catch (e: Exception) {
@@ -113,9 +113,9 @@ class BuiltinShellRecovery(
     }
 
     /**
-     * 助手每次变成运行中(刚配对完、掉线后重起、App 启动时本来就配过对、开机自动恢复连上),就把默认打开、
-     * 用户没关掉、还没生效的几项补上。这几条路最后都落到同一个状态,所以只在这里看,不在各处分别调。
-     * 同时看着无障碍服务:没在运行、又有办法写系统设置(App 自己有授权或助手在运行)时,自动打开它。
+     * アシスタントが実行されるたびに (ペアリング直後、切断後の再起動、アプリの起動時にすでにペアリングされており、起動後に接続が自動的に復元されます)、デフォルトでオンになります。
+     * ユーザーがオフにしていないため、まだ有効になっていないものがいくつか追加されました。これらの道路は最終的にすべて同じ状態になるため、ここでのみ確認し、どこでも個別に調整することはありません。
+     * 同時に、アクセシビリティ サービスにも注目してください。サービスが実行されておらず、システム設定を書き込む方法がある場合 (アプリ自体に承認があるか、アシスタントが実行されている場合)、自動的にオンになります。
      */
     @Synchronized
     fun start() {
@@ -123,7 +123,7 @@ class BuiltinShellRecovery(
         started = true
         scope.launch { permissions.applyWhenRunning(control.status) }
         val service = accessibility
-        // 启动时看一眼:被强行停止后系统会把服务从列表里拿掉,或者在列表里却迟迟不绑定;记下来给诊断信息
+        // 起動を見てください。強制的に停止された後、システムはサービスをリストから削除するか、リストには含まれていてもバインドされていません。診断情報として書き留めます
         val initial = service.value
         val seen = settings.accessibilitySeen
         scope.launch {
@@ -137,8 +137,8 @@ class BuiltinShellRecovery(
     }
 
     /**
-     * 开机后用户解锁过没有([UserManager.isUserUnlocked]):没解锁时无障碍服务本来就绑不上,自动修复先不动;
-     * 收到 [Intent.ACTION_USER_UNLOCKED] 时重读一次,让自动修复再判断。整个进程一份。
+     * 起動後にユーザーがロックを解除しましたか ([UserManager.isUserUnlocked]): ロックが解除されていない場合、アクセシビリティ サービスをバインドできず、自動修復は機能しません。
+     * [Intent.ACTION_USER_UNLOCKED]受信時に再度読み込み、自動修復して判定させます。プロセス全体の 1 つのコピー。
      */
     private val userUnlocked: StateFlow<Boolean> by lazy {
         fun read() = runCatching { app.getSystemService(UserManager::class.java)?.isUserUnlocked }.getOrNull() != false
@@ -149,12 +149,12 @@ class BuiltinShellRecovery(
             val filter = IntentFilter(Intent.ACTION_USER_UNLOCKED)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) app.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
             else app.registerReceiver(receiver, filter)
-            trySend(read()) // 注册前后之间的变化
+            trySend(read()) // 登録前後の変更点
             awaitClose { runCatching { app.unregisterReceiver(receiver) } }
         }.stateIn(scope, SharingStarted.Eagerly, read())
     }
 
-    /** 系统列表里有没有 Mika(跟着系统设置的变化)和服务实例是否连着(跟着连上、断开)。整个进程一份。 */
+    /** システム リストにミカがあるかどうか (システム設定の変更後)、およびサービス インスタンスが接続されているかどうか (接続と切断の後)。プロセス全体の 1 つのコピー。 */
     val accessibility: StateFlow<A11yObservation> by lazy { serviceObservations() }
 
     private fun serviceObservations(): StateFlow<A11yObservation> {
@@ -173,20 +173,20 @@ class BuiltinShellRecovery(
             .stateIn(scope, SharingStarted.Eagerly, A11yObservation(enabled(), ScreenAccessibility.instance.value != null))
     }
 
-    /** 解除配对:先趁连接还在收回授权,再删配对。 */
+    /** ペアリングの解除: まず、接続がまだ存在している間に認証を取り消してから、ペアリングを削除します。 */
     suspend fun unpair() {
         val a11yApplied = settings.consent.value.isApplied(RecoveryCapability.Accessibility)
         val result = permissions.revokeAll()
-        // 连接已经不在时,无障碍服务至少能自己关掉;电池白名单和修改系统设置的授权只能靠连接收回
+        // 接続が利用できなくなった場合、ユーザー補助サービスは少なくとも単独でオフにすることができます。バッテリーのホワイトリストとシステム設定を変更する許可は、接続によってのみ取り消すことができます。
         if (result != PermissionResult.Done && a11yApplied) {
             runCatching { ScreenAccessibility.instance.value?.disableSelf() }
         }
         control.unpair()
     }
 
-    /** 开机后按已生效的「重启后自动恢复」重新打开无线调试并重起助手;不需要动手时返回 null。 */
+    /** をオンにした後、[再起動後の自動回復] を押して、ワイヤレス デバッグを再開し、アシスタントを再起動します。アクションが必要ない場合は null を返します。 */
     suspend fun restoreAfterBoot(): RestoreOutcome? {
-        // 没配对过(助手是电脑经 USB 起的):Mika 自己起不来助手,不去动无线调试
+        // はペアリングされていません (アシスタントは USB 経由でコンピュータから起動されます): ミカは自分でアシスタントを起動できず、ワイヤレス デバッグを使用しません
         if (!control.paired) return null
         val holds = app.checkSelfPermission(PermissionCommands.WRITE_SECURE_SETTINGS) == PackageManager.PERMISSION_GRANTED
         when (BootRestore.gate(Build.VERSION.SDK_INT, settings.consent.value, holds)) {
@@ -195,7 +195,7 @@ class BuiltinShellRecovery(
             BootRestore.Gate.Act -> Unit
         }
         val cr = app.contentResolver
-        // 能力检测:写入被拒(抛异常/返回 false)或写了读回来不是 1,都当这台手机不支持
+        // 機能の検出: 書き込みが拒否される (例外がスローされる/false が返される)、または書き込みと読み取りが 1 ではないため、この電話機はサポートされていないと想定されます。
         val written = DeveloperSettings.turnOnWirelessDebugging(cr) && DeveloperSettings.wirelessDebugging(cr)
         if (!written) return RestoreOutcome.SettingUnavailable.also(settings::recordRestore)
 
@@ -204,7 +204,7 @@ class BuiltinShellRecovery(
                 inputs = {
                     RecoveryInputs(
                         paired = control.paired,
-                        // 不在信任的 Wi-Fi 上时系统会把开关拨回去:每轮重读,拨回去就停
+                        // が信頼できる Wi-Fi に接続されていない場合、システムはスイッチを元に戻します。各ラウンドを再読み込みし、元に戻して停止します。
                         wirelessDebugging = DeveloperSettings.wirelessDebugging(cr),
                         status = control.status.value,
                     )
@@ -217,7 +217,7 @@ class BuiltinShellRecovery(
     }
 
     private companion object {
-        /** 开机广播 goAsync 之后约有一分钟;留余量。 */
+        /** は起動後約 1 分間 goAsync をブロードキャストします。余白を残してください。 */
         const val BOOT_BUDGET_MS = 50_000L
     }
 }

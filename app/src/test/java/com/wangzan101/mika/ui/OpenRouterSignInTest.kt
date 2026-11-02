@@ -33,8 +33,8 @@ import java.io.File
 import javax.crypto.KeyGenerator
 
 /**
- * 用 OpenRouter 账号登录走一遍:浏览器(假的)打开授权页,带着 code 回到本机回调,换到 Key,
- * 按 OpenRouter 预设存成服务商、选上主模型、打开详情;退出只删本机的 Key。换 Key 的接口是本地假服务。
+ * OpenRouter アカウントでログインし、プロセスを実行します。ブラウザー (偽) で認証ページを開き、コードを使用してローカル コールバックに戻り、Key に変更します。
+ * OpenRouter を押してデフォルトでサービスプロバイダーとして保存し、メインモデルを選択して詳細を開きます。終了し、本機のキーのみを削除してください。キーを変更するためのインターフェイスは、ローカルの偽のサービスです。
  */
 class OpenRouterSignInTest {
     @get:Rule val texts = ChineseTexts()
@@ -61,7 +61,7 @@ class OpenRouterSignInTest {
         },
     )
 
-    /** 假浏览器:打开授权页时照用户同意了那样,带着 code 和 state 请求本机回调;[pages] 记下回调后浏览器里显示的结果。 */
+    /** 偽ブラウザ: 認証ページを開くときに、ユーザーが同意したコードと状態を使用してローカル コールバックを要求します。 [pages] コールバック後にブラウザに表示される結果に注目してください。 */
     private inner class Browser(private val approve: Boolean = true) : SignInBrowser {
         val opened = mutableListOf<String>()
         val pages = mutableListOf<String?>()
@@ -97,14 +97,14 @@ class OpenRouterSignInTest {
         assertEquals("sk-or-v1-SECRET", s.providerKey(p.id))
         assertEquals(listOf(OpenRouterAuth.API_BASE to "sk-or-v1-SECRET"), listCalls)
         assertTrue(ui.openRouterAccount!!.signedIn)
-        assertNotNull("还没有主模型时选一个", ui.roles.main)
+        assertNotNull("メインモデルがない場合は 1 つ選ぶ", ui.roles.main)
         assertEquals(listOf<String?>(null), browser.pages)
         assertTrue(browser.opened.single().startsWith("https://openrouter.ai/auth?"))
         val sent = server.takeRequest().body.readUtf8()
         assertTrue(sent, sent.contains("\"code\":\"the-code\""))
-        // Key 只加密存,不进配置文件
+        // キーは暗号化して保存するだけであり、構成ファイルには入力されません
         tmp.root.walk().filter(File::isFile).forEach { f -> assertFalse(f.name, f.readText().contains("SECRET")) }
-        // 重新读入时还认得是授权来的
+        // は、再読み取り時にまだ承認済みとして認識します。
         assertEquals(p.id, store().openRouterAccount()?.id)
 
         vm.signedInShown()
@@ -114,7 +114,7 @@ class OpenRouterSignInTest {
             withTimeout(5_000) { vm.state.first { it.openRouterAccount?.signedIn == false } }
         }
         assertNull(s.providerKey(p.id))
-        assertNotNull("服务商和模型留着", s.provider(p.id)?.models)
+        assertNotNull("プロバイダーとモデルを保持する", s.provider(p.id)?.models)
         assertTrue(vm.state.value.signedOut(s.provider(p.id)!!))
     }
 
@@ -124,15 +124,15 @@ class OpenRouterSignInTest {
         val vm = ModelSetupViewModel(s, scope, io = Dispatchers.IO, browser = browser, signIns = ChatGptSignIns(scope))
         val ui = vm.signInAndWait(AccountProvider.OpenRouter)
         assertEquals(AccountProvider.OpenRouter, ui.accountSignIn.provider)
-        assertEquals("已取消登录。", ui.accountSignIn.failure)
-        assertEquals(listOf<String?>("已取消登录。"), browser.pages)
+        assertEquals("ログインがキャンセルされました。", ui.accountSignIn.failure)
+        assertEquals(listOf<String?>("ログインがキャンセルされました。"), browser.pages)
         assertTrue(s.providers.value.isEmpty())
         assertEquals(0, server.requestCount)
     }
 
     /**
-     * 用户已经自己填了 OpenRouter 的 Key:授权登录另存一家,不顶掉那把 Key;退出登录只删授权来的那把。
-     * 之后再自己填 Key「测试并保存」,也只更新自己填的那一家,不碰授权来的。
+     * ユーザーが自分で OpenRouter キーを入力しました。ログインを認証し、キーを削除せずに別のキーに保存します。ログアウトし、許可されたキーのみを削除してください。
+     * 次に、キーを自分で入力して「テストして保存」し、承認されたキーではなく、入力したキーのみを更新します。
      */
     @Test fun signInKeepsAKeyTheUserTypedForOpenRouter() {
         val s = store()
@@ -143,19 +143,19 @@ class OpenRouterSignInTest {
         assertEquals("sk-or-v1-signed", s.providerKey(signed.id))
         assertNull(typed.signIn)
         assertEquals(signed.id, s.openRouterAccount()?.id)
-        // 再登录一次更新授权来的那一家,不多出第三家
+        // 再度ログインして承認されたものを更新します。3 番目のものはもう存在しません。
         assertEquals(signed.id, s.connectOpenRouter("sk-or-v1-again", emptyList()).id)
         assertEquals(2, s.providers.value.size)
-        // 自己再填一次 Key:更新自己那一家
+        // もう一度入力してください キー: 自分のものを更新してください
         assertEquals(typed.id, s.connect("OpenRouter", ProviderConfig.Kind.OpenAiCompat, OpenRouterAuth.API_BASE, "sk-typed-2", emptyList()).id)
         assertEquals("sk-or-v1-again", s.providerKey(signed.id))
         s.signOutOpenRouter(signed.id)
         assertNull(s.providerKey(signed.id))
         assertEquals("sk-typed-2", s.providerKey(typed.id))
-        // 填 Key 的那一家不能被当成登录退出
+        // Keyを入力した会社はログインまたはログアウトとみなされません。
         s.signOutOpenRouter(typed.id)
         assertEquals("sk-typed-2", s.providerKey(typed.id))
-        // 重新读入后两家照样分开
+        // 読み返してみると、やはり両家族は離れ離れになっていました。
         val reloaded = store()
         assertEquals(signed.id, reloaded.openRouterAccount()?.id)
         assertEquals("sk-typed-2", reloaded.providerKey(typed.id))

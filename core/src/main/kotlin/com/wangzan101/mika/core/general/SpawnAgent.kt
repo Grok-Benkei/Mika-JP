@@ -25,10 +25,10 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 internal object SpawnAgent : AgentTool {
-    /** 子任务默认的步数、步数上限。 */
+    /** サブタスクのデフォルトのステップ数とステップ数の上限。 */
     const val DEFAULT_STEPS = 15
     const val MAX_STEPS = 40
-    /** 子任务结果默认留多少字、最多留多少字、最少留多少字。 */
+    /** サブタスク結果に残されるデフォルトの単語数、残される最大単語数、および残される最小単語数。 */
     const val DEFAULT_RESULT_CHARS = 4_000
     const val MAX_RESULT_CHARS = 8_000
     const val MIN_RESULT_CHARS = 500
@@ -51,7 +51,7 @@ internal object SpawnAgent : AgentTool {
         val host = ctx.config.childHost ?: error("no child host")
         val goal = a.str("goal", max = 4000)!!
         val format = a.str("format")
-        // 只校验是整数;超出范围的拉回范围内,不当错误(子任务照样能派)
+        // は、それが整数であることのみを検証します。範囲を超えた場合は範囲内に戻され、不適切なエラーが発生します (サブタスクは引き続きディスパッチできます)。
         val steps = (a.int("maxSteps", Int.MIN_VALUE, Int.MAX_VALUE) ?: DEFAULT_STEPS).coerceIn(1, MAX_STEPS)
         val limit = (a.int("maxResultChars", Int.MIN_VALUE, Int.MAX_VALUE) ?: DEFAULT_RESULT_CHARS).coerceIn(MIN_RESULT_CHARS, MAX_RESULT_CHARS)
         val child = RunSpec(RunId(UUID.randomUUID().toString()), goal, parent.threadId,

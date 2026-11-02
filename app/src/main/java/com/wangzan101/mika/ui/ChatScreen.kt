@@ -150,9 +150,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalTime
 
 /**
- * 对话页:顶栏(左边打开侧栏、中间对话标题和此刻在做什么、右边新对话),对话在顶栏和玻璃输入栏之间滚动。
- * 进行中是一行状态加一条竖线步骤,不套卡片;要你处理时停在当前步,下面一张白卡;完成后过程收成一行,回答直接排在背景上。
- * Agent 的虚拟屏以悬浮小窗([AgentPip])盖在对话上,不占布局。
+ * 会話ページ: トップ バー (左側にサイドバーが開いており、中央に会話のタイトルと現在行っている内容、右側に新しい会話)、会話はトップ バーとガラス入力フィールドの間でスクロールします。
+ * 「進行中」はステータスの行と、カードのない垂直のステップの行です。処理中に現在のステップで停止するように求められ、下の白いカードが表示されます。プロセスが完了すると、プロセスは 1 行になり、答えは背景に直接配置されます。
+ * エージェントの仮想画面は、レイアウトを占有しない小さなフローティング ウィンドウ ([AgentPip]) で会話をカバーします。
  */
 @Composable
 fun ChatScreen(
@@ -161,30 +161,30 @@ fun ChatScreen(
     frames: StateFlow<Bitmap?>,
     webOpen: StateFlow<Boolean>,
     reduceMotion: Boolean,
-    /** 左上角菜单:打开侧栏。 */
+    /** 左上隅のメニュー: サイドバーを開きます。 */
     onOpenDrawer: () -> Unit,
-    /** 被拦下的提示里的「去设置」。 */
+    /** 停止したプロンプトで「設定に移動」。 */
     openSettings: () -> Unit,
     openRun: (String) -> Unit = {},
-    /** 任务要用手机而手机操作没准备好:最后一轮下面放一行去设置。 */
+    /** このタスクでは携帯電話の使用が必要ですが、携帯電話の操作の準備ができていません。最後のラウンドの下に行を入れて設定してください。 */
     phoneSetupNeeded: Boolean = false,
     openPhoneSetup: () -> Unit = {},
-    /** 按运行记录取依据的来处(「来源」胶囊和点开后的截图);读盘的活由调用方放到后台线程。 */
+    /** は、実行レコードのソース (「ソース」カプセルとクリック後のスクリーンショット) に基づいて基準を取得します。ディスク読み取りアクティビティは、呼び出し元によってバックグラウンド スレッドに配置されます。 */
     loadSource: suspend (runId: String) -> EvidenceSource? = { null },
     openSource: (runId: String?, legacyText: String?) -> Unit = { _, _ -> },
-    /** 输入栏按住说话从这里开会话;null 时只能打字。 */
+    /** 入力フィールドを長押しして発言し、ここからセッションを開きます。 null の場合は、入力のみが可能です。 */
     voice: VoiceSource? = null,
-    /** 「还不能语音输入」里的「去选」。 */
+    /** 「音声入力はまだ利用できません」の「選択に移動」。 */
     openSpeechModel: () -> Unit = {},
 ) {
     val ui by vm.ui.collectAsState()
     val others by vm.otherRunning.collectAsState()
     val keptAny by vm.keptPage.collectAsState()
-    // 只管这个对话留下的那一页
+    // この会話で残されたページはそのままにしておいてください
     val kept = keptAny?.takeIf { it.conversationId == ui.conversationId }
     val live by frames.collectAsState()
     val webLive by webOpen.collectAsState()
-    // 任务一结束虚拟屏就释放了;完成时小窗还要停留几秒打勾,继续显示最后一帧
+    // 仮想画面はタスクが完了するとすぐに解放されます。完了すると、小さなウィンドウが数秒間表示され、最後のフレームを確認して表示し続けます。
     var lastFrame by remember { mutableStateOf<Bitmap?>(null) }
     var lastFrameWasWeb by remember { mutableStateOf(false) }
     LaunchedEffect(live, webLive, ui.pip.mode) {
@@ -205,7 +205,7 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
-    // 只有原本跟着最新消息时才继续跟随。这个状态与列表位置一起跨页面保存。
+    // は最新ニュースを追い続けるだけです。この状態は、リストの位置とともにページ全体に保存されます。
     var followingTail by rememberSaveable { mutableStateOf(true) }
     var previousScrollMarker by rememberSaveable { mutableStateOf<String?>(null) }
     var previousConversation by rememberSaveable { mutableStateOf<String?>(null) }
@@ -218,7 +218,7 @@ fun ChatScreen(
         }
     }
 
-    // 返回聊天时同一条内容不重新滚动；新进展仅在跟随末尾时滚动。
+    // チャットに戻ったときに、同じコンテンツは再スクロールされません。新しい進行状況は、最後に続く場合にのみスクロールされます。
     val last = ui.exchanges.lastOrNull()
     val scrollMarker = "${ui.conversationId}:${ui.exchanges.size}:${last?.steps?.size}:${last?.steers?.size}:${last?.status?.hashCode()}:${ui.blocked?.hashCode()}"
     LaunchedEffect(scrollMarker) {
@@ -235,7 +235,7 @@ fun ChatScreen(
             else listState.animateScrollToItem(count - 1)
         }
     }
-    // 流式文字增长时跟住底部；用户主动向上翻看过程时不拉回去。
+    // ストリーミングテキストが増加すると下に進みます。ユーザーが積極的に上方向にスクロールしているときに後退しないでください。
     LaunchedEffect(last?.draft?.length) {
         if (last?.draft.isNullOrEmpty() || !followingTail || listState.isScrollInProgress) return@LaunchedEffect
         val layout = listState.layoutInfo
@@ -248,8 +248,8 @@ fun ChatScreen(
         listState.scrollToItem(end, offset)
     }
 
-    // 输入栏变高(多半是输入法弹起,也可能是附件、多行输入):原本跟着最新消息时,对话流一起往上顶同样的距离,
-    // 最后一条仍贴着输入栏;用户正往上翻看时不动。变矮时列表到底自己会收回来。
+    // 入力フィールドが高くなる (主に入力方法のポップアップ、添付ファイル、または複数行入力が原因): もともと、最新ニュースを追うとき、会話の流れは同じ距離まで上がりました。
+    // 最後の項目はまだ入力フィールドに添付されています。ユーザーが上にスクロールしているときは動きません。リストは短くなると自動的に撤回されます。
     var lastComposerHeight by remember { mutableIntStateOf(composerHeight) }
     LaunchedEffect(composerHeight) {
         val grown = composerHeight - lastComposerHeight
@@ -257,25 +257,25 @@ fun ChatScreen(
         if (grown > 0 && followingTail && !listState.isScrollInProgress) listState.scrollBy(grown.toFloat())
     }
 
-    // 已结束各轮的运行小结:每轮结束那一行写这一轮的 token,顶栏闲着时写这个对话合起来的
+    // 終了した各ラウンドの操作の概要: 各ラウンドの最後の行にこのラウンドのトークンを書き込み、一番上の列がアイドル状態のときにこのダイアログを書き込みます。
     val endedRuns = ui.exchanges.filter { !it.status.isActive() }.mapNotNull { it.runId }
     val runMetrics = rememberRunMetrics(endedRuns)
 
     val c = MikaTheme.colors
     val backdrop = rememberGlassBackdrop()
     val context = LocalContext.current
-    /** 长按了的那条消息;菜单开着(收起的动画放完才清掉)。 */
+    /** 長押しされたメッセージ。メニューが開きます (折りたたみアニメーションは再生後にのみクリアされます)。 */
     var menu by remember { mutableStateOf<MessageTarget?>(null) }
-    /** 选了「选择文字」的那条:它换回系统的长按选中;换对话时清掉。 */
+    /** 「テキストの選択」項目を選択します。システムの長押し選択に戻ります。ダイアログを変更するとクリアされます。 */
     var selecting by remember(ui.conversationId) { mutableStateOf<String?>(null) }
-    /** 菜单出现的进度:0 是没有,1 是完全出来;关了动画时直接到位。 */
+    /** メニューの外観の進行状況: 0 は存在しないことを意味し、1 は完全に存在しないことを意味します。アニメーションがオフになると、アニメーションは直接配置されます。 */
     val lift = remember { Animatable(0f) }
     LaunchedEffect(menu) {
         if (menu != null) {
             if (reduceMotion) lift.snapTo(1f) else lift.animateTo(1f, tween(MENU_IN_MS, easing = MikaMotion.Decelerate))
         }
     }
-    /** 收起菜单:倒着放一遍出现的动画,放完再清掉;[then] 当场做。 */
+    /** メニューを折りたたむ: 表示されるアニメーションを逆方向に再生し、再生後にクリアします。 [then] その場でやってください。 */
     fun closeMenu(then: () -> Unit = {}) {
         then()
         scope.launch {
@@ -321,8 +321,8 @@ fun ChatScreen(
             }
         }
 
-        // 没有任务在跑、这个对话留着一页在后台运行时:顶栏写「后台保持着 1 个网页」;都没有时写这个对话用了多少 token
-        // (对话合计只在最后这一行,不要它时删掉这一行)
+        // 実行中のタスクがなく、この会話が 1 つのページのバックグラウンドで実行されている場合: 一番上の列に「1 つの Web ページがバックグラウンドで維持されている」と書き込みます。タスクがない場合は、この会話に使用されるトークンの数を書き込みます。
+        // (会話の総数は最後の行のみです。不要な場合はこの行を削除してください)
         val sub: Pair<String, ChatCopy.Tone?>? = ChatCopy.subtitle(last, last?.let(vm::livePlace))
             ?: kept?.let { ChatCopy.KEPT_PAGE to ChatCopy.Tone.Ok }
             ?: ChatTokensCopy.conversationSubtitle(endedRuns, runMetrics)?.let { it to null }
@@ -330,7 +330,7 @@ fun ChatScreen(
             TopBar(
                 ChatCopy.APP_TITLE,
                 left = MikaIcons.Menu, leftLabel = stringResource(R.string.chat_menu), onLeft = onOpenDrawer,
-                // 别的对话里还有任务在跑(并行时):菜单上一个小圆点,侧栏「进行中」里能切过去
+                // 他の会話で実行中のタスクがあります (並行して): メニュー上の小さな点。「進行中」サイドバーでそれに切り替えることができます
                 leftBadge = others.isNotEmpty(),
                 right = { BarIconButton(MikaIcons.New, stringResource(R.string.chat_new), { vm.newConversation() }, enabled = vm.canSwitch()) },
                 subtitle = sub?.first,
@@ -365,7 +365,7 @@ fun ChatScreen(
             quote = ui.quote,
             onRemoveQuote = vm::clearQuote,
             voice = voice,
-            // 说的话接在已有的字后面;任务在跑时发出去就是插话
+            // の発言の後には既存の単語が続きます。実行中にタスクが送信されると、タスクが挿入されます。
             onVoiceText = { input = HoldToTalk.join(input, it) },
             onPickSpeech = openSpeechModel,
             steerTarget = last?.goal?.let(ChatCopy::plainTitle),
@@ -382,13 +382,13 @@ fun ChatScreen(
             bottomInset = composerHeight.toFloat(),
             onExpand = vm::expandPip,
             onCollapse = vm::collapsePip,
-            // 关掉小画面:这个任务结束前只剩右下角的小按钮;提示一句还能去哪看
+            // 小さな画面をオフにします。このタスクが終了する前に、右下隅の小さなボタンだけが残ります。他にどこを見るべきかを思い出させる
             onClose = {
                 vm.closePip()
                 Toast.makeText(context, context.getString(R.string.pip_closed_hint), Toast.LENGTH_SHORT).show()
             },
             onReopen = vm::reopenPip,
-            // 要你处理时点小窗:收起,滚到要你处理的那张卡片(在最后一问一答里,它后面只可能还有文件卡片和去设置那一行)
+            // が処理したい場合は、小さなウィンドウをクリックして、それを片付け、処理したいカードまでスクロールします（最後の質問と回答では、ファイルカードとその後に設定する行しかない場合があります）
             onAttention = {
                 vm.attendPip()
                 val count = listState.layoutInfo.totalItemsCount
@@ -398,8 +398,8 @@ fun ChatScreen(
             },
         )
 
-        // 长按消息的菜单盖在最上面:复制纯文字;引用放到输入框上方;选择文字让那条换回系统的长按选中;
-        // 已经答完的一轮还能从这里分支
+        // 長押しメッセージのメニューが上部にあります: プレーンテキストをコピーします。入力ボックスの上に引用符を置きます。テキストを選択し、長押しして選択してシステムに戻します。
+        // 完了したラウンドは、ここから分岐することができます。
         menu?.let { m ->
             val pending = withdrawableSteer(ui.exchanges, m.key)
             val canEdit = input.isBlank() && ui.quote == null && ui.attachments.isEmpty() && !ui.importing
@@ -457,7 +457,7 @@ fun ChatScreen(
     }
 }
 
-/** 最后一项可能是一段很长的答复，仅仅看到它的开头不代表用户正在看末尾。 */
+/** 最後の項目は非常に長い返信になる可能性があり、その冒頭を見ただけでは、ユーザーが最後まで読んだことにはなりません。 */
 private fun LazyListState.nearTail(thresholdPx: Int): Boolean {
     val layout = layoutInfo
     val end = layout.totalItemsCount - 1
@@ -465,9 +465,9 @@ private fun LazyListState.nearTail(thresholdPx: Int): Boolean {
     return tail.offset + tail.size - layout.viewportEndOffset <= thresholdPx
 }
 
-// ---------- 空对话 ----------
+// ---------- 空のダイアログ ----------
 
-/** 问候、一句「想让 Mika 做什么？」和一列示例;点示例把它填进输入框,改好了再发。 */
+/** はじめまして、「ミカさんにしてほしいことは何ですか？」および例のリスト。例をクリックして入力ボックスに入力し、修正して再送信してください。 */
 @Composable
 private fun EmptyState(conversation: String?, onPick: (String) -> Unit) {
     val c = MikaTheme.colors
@@ -513,13 +513,13 @@ private fun ExampleRow(icon: ImageVector, text: String, first: Boolean, onClick:
     }
 }
 
-// ---------- 一问一答 ----------
+// ---------- Q&A ----------
 
 private fun LazyListScope.exchange(
     index: Int, ex: Exchange, conversationId: String?, stage: Takeover.Stage, vm: ChatViewModel, reduceMotion: Boolean, backgroundNote: Boolean,
     openRun: (String) -> Unit, loadSource: suspend (String) -> EvidenceSource?, openSource: (String?, String?) -> Unit,
     kept: KeptPage? = null,
-    /** 这一轮用了多少 token(结束后、读到运行小结时才有)。 */
+    /** このラウンドで使用されたトークンの数 (終了後および実行概要を読んだ後にのみ利用可能)。 */
     tokens: Long? = null,
 ) {
     if (ex.goal.isNotEmpty()) item("u$index") { UserBubble(ex.goal, conversationId, key = "u$index") }
@@ -530,9 +530,9 @@ private fun LazyListScope.exchange(
     } else if (ex.steps.isNotEmpty() || ex.runId != null) {
         item("s$index") { DoneLine(ex, reduceMotion, openRun, tokens) }
     }
-    // 任务进行中插的话:用户的原话,下面一行小字说它的去向。
-    // 插话之前已经说完的回复照常显示;插话打断的那段留在原处(淡色、标「被你的新消息打断」);接着才是插话。
-    // 还没交给模型的插话排在正在长出来的回答后面:那段回答是它到之前就在写的,不是对它的回复。
+    // タスクの進行中の介入: ユーザーのオリジナルの言葉と、その場所を説明する下の小さな文字の行。
+    // 中断前に終了した返信は通常どおり表示されます。中断によって中断されたセクションはそのまま残ります (明るい色で「新しいメッセージによって中断されました」とマークされます)。次に中断が起こります。
+    // モデルにまだ与えられていない間投詞が、増加する回答の背後にリストされています。その回答は、回答が到着する前に書かれたものであり、返信ではありません。
     fun steer(n: SteerNote) {
         n.finished?.takeIf(String::isNotBlank)?.let { done -> item("a$index-${n.id}") { FinishedReply(done, "a$index-${n.id}") } }
         n.interrupted?.takeIf(String::isNotBlank)?.let { cut -> item("i$index-${n.id}") { InterruptedReply(cut) } }
@@ -543,15 +543,15 @@ private fun LazyListScope.exchange(
     ex.draft?.takeIf(String::isNotBlank)?.let { draft -> item("d$index") { DraftText(draft, ex.waitingForModel) } }
     waiting.forEach(::steer)
     item("r$index") { StatusCard(ex.status, stage, vm, ex.runId, loadSource, openSource, "r$index") }
-    // 这一轮结束后留在后台运行的那一页:还开着是绿色一行(能关),关了是一句原因
+    // このラウンドの後、ページがバックグラウンドで実行されたままになっています。ページがまだ開いている場合は、緑色の線が表示されます (オフにすることができます)。オフになっている場合は、理由があります。
     keptPageRow(index, ex, kept, vm::closeKeptPage)
     if (ex.files.isNotEmpty()) item("f$index") { FileCards(ex.files) }
     learningNotes(index, ex, vm)
 }
 
 /**
- * 插话分成两段:第一句还没交给模型的([SteerState.unconsumed])之前的,和它连同之后的。
- * 正在长出来的回答排在两段中间。
+ * の間投詞は、モデル ([SteerState.unconsumed]) に引き渡される前の最初の文と、モデルに渡された後の文の 2 つの段落に分かれています。
+ * が導き出した答えは、2 つの段落の間にランク付けされています。
  */
 internal fun steersAroundDraft(steers: List<SteerNote>): Pair<List<SteerNote>, List<SteerNote>> {
     val visible = steers.filterNot { it.state == SteerState.Withdrawn }
@@ -560,8 +560,8 @@ internal fun steersAroundDraft(steers: List<SteerNote>): Pair<List<SteerNote>, L
 }
 
 /**
- * 长按的 [key] 是进行中那一问一答里、模型还没取走的手机插话时给出它,菜单据此提供撤回和编辑(编辑另看 [editableSteer])。
- * 电脑追加的([SteerNote.remote])不给:编辑会把只归当前任务的话变成手机插话、可能转成下一件事;撤不撤由电脑定。
+ * [key] の長押しは、携帯電話が進行中の質疑応答を中断し、モデルが奪われていない場合に与えられます。メニューには、それに応じて取り消しと編集が表示されます (編集については、[editableSteer] も参照してください)。
+ * はコンピュータによって追加されません ([SteerNote.remote])。編集者は現在のタスクにのみ属する単語を携帯電話の中断に変換し、次のタスクに転送される可能性があります。撤退するか否かはコンピュータが判断します。
  */
 internal fun withdrawableSteer(exchanges: List<Exchange>, key: String): SteerNote? = exchanges.mapIndexedNotNull { i, ex ->
     if (ex.status.isActive()) ex.steers.firstOrNull { key == "m$i-${it.id}" && it.state.unconsumed && !it.remote } else null
@@ -571,11 +571,11 @@ private fun ExchangeStatus.isActive() =
     this !is ExchangeStatus.Done && this !is ExchangeStatus.Failed && this !is ExchangeStatus.Cancelled
 
 /**
- * 用户的话:蓝色气泡,圆角 20、右下尾角 6,最宽八成。[note] 是插话的去向。
- * 带着用户此刻的屏幕时上面是截图缩略图和「你此刻的屏幕 · App · 时刻」,附言在下面的气泡里(见 [UserMessage])。
- * 带着附件时上面是照片格子和文件卡片(见 [SentAttachments]),点开在 App 里的查看页看;写的话在下面另起一个气泡,路径那几行不显示。
- * 引用了前面的消息时最上面是引的那条(见 [SentQuote])。长按气泡弹出复制 / 引用 / 选择文字([key] 认是哪一条,见 [MessageArea])。
- * 在浏览器页上对着一页问的,最上面是「网页 · 网站」和选中的字(见 [SentPage]),页面说明那几行不显示。
+ * ユーザーの言葉: 青いバブル、角丸 20、右下隅角 6、最大幅 80%。 [note] が間投詞の場所です。
+ * がユーザーの現在の画面を取得すると、スクリーンショットのサムネイルと「現在の画面 · アプリ · モーメント」が表示され、下の吹き出し内に追記が表示されます ([UserMessage] を参照)。
+ * にアタッチメントが付属している場合、上部に写真グリッドとファイル カードがあります ([SentAttachments] を参照)。アプリの表示ページをクリックして表示します。書きたい場合は下に吹き出しを作成するとパスの線が表示されなくなります。
+ * が前のメッセージを引用する場合、先頭のメッセージが引用されます ([SentQuote] を参照)。バブルを長押しすると、テキストのコピー/引用/選択がポップアップ表示されます ([key] でどれを識別するかについては、[MessageArea] を参照してください)。
+ * はブラウザ ページ上のページについて質問しました。一番上には「ウェブページ・ウェブサイト」と選択した単語（[SentPage]を参照）が表示されますが、ページ説明の行は表示されません。
  */
 @Composable
 internal fun UserBubble(text: String, conversationId: String?, note: String? = null, key: String = "") {
@@ -597,7 +597,7 @@ internal fun UserBubble(text: String, conversationId: String?, note: String? = n
             }
             if (attached.hasAttachments && attached.words.isNotEmpty()) Spacer(Modifier.size(6.dp))
             if ((!attached.hasAttachments || attached.words.isNotEmpty()) && (paged.page == null || quoted.words.isNotEmpty())) UserMessage(conversationId, attached.words.takeIf { attached.hasAttachments } ?: quoted.words, ChatThumbWidth) { words ->
-                // 选择文字时蓝底上选中的底色用白色半透明,把手照旧是蓝色(画在气泡外面)
+                // テキストを選択すると、青色の背景で選択された背景色は白で半透明になり、ハンドルは青色のままになります（バブルの外側に描画されます）
                 val colors = MikaTheme.colors
                 CompositionLocalProvider(LocalTextSelectionColors provides TextSelectionColors(colors.accent, colors.onAccent.copy(alpha = 0.35f))) {
                     MessageArea(
@@ -617,7 +617,7 @@ private fun UserBubbleText(words: String) {
     Text(words, Modifier.padding(horizontal = 14.dp, vertical = 10.dp), style = BubbleText, color = MikaTheme.colors.onAccent)
 }
 
-/** 长按抬起的那条消息:[color] 底、带阴影;太长时(最高半屏)只露开头,下面裁掉。 */
+/** 長押ししてメッセージを持ち上げます: [color] 下、影付き。長すぎる場合（画面の半分まで）、上部のみが露出し、下部が切り取られます。 */
 @Composable
 private fun LiftedMessage(shape: Shape, color: Color, content: @Composable () -> Unit) {
     Box(
@@ -626,10 +626,10 @@ private fun LiftedMessage(shape: Shape, color: Color, content: @Composable () ->
     ) { content() }
 }
 
-/** 对话页里截图缩略图的宽。 */
+/** 会話ページのスクリーンショットのサムネイルの幅。 */
 private val ChatThumbWidth = 110.dp
 
-/** 正在生成的回答:和完成后的回答一样放在淡灰底上。 */
+/** 生成中の回答: 完成した回答と同様に明るい灰色の背景に配置されます。 */
 @Composable
 private fun DraftText(text: String, generating: Boolean) {
     MarkdownText(
@@ -638,7 +638,7 @@ private fun DraftText(text: String, generating: Boolean) {
     )
 }
 
-/** 插话交给模型之前已经说完的回复:和回答一样的底和字,长按一样能复制、引用、选择文字。 */
+/** が口を挟んで、すでに完成していた回答をモデルに渡す前に渡しました。回答と同じベースと文字があり、長押しするとコピー、引用、テキストの選択が可能です。 */
 @Composable
 private fun FinishedReply(text: String, key: String) {
     Box(Modifier.padding(bottom = 4.dp)) {
@@ -649,8 +649,8 @@ private fun FinishedReply(text: String, key: String) {
 }
 
 /**
- * Mika 的一段回答:长按弹出复制 / 引用 / 选择文字(见 [MessageArea]),复制、引用的是去掉 Markdown 符号的纯文字;
- * [modifier] 是回答的底,抬起的那张是同样的字放在白卡上。选择文字时选区的把手在单独的弹出窗口里,拖把手不会带出侧栏。
+ * ミカの答え: 長押しすると、コピー/引用/テキストの選択がポップアップ表示されます ([MessageArea] を参照)。コピーして引用するものは、Markdown 記号が削除されたプレーン テキストです。
+ * [modifier] が答えの一番下です。持ち上げられたものには、白いカードに同じ文字が書かれています。テキストを選択する場合、選択ハンドルは別のポップアップ ウィンドウに表示され、ハンドルをドラッグしてもサイドバーは表示されません。
  */
 @Composable
 private fun AnswerArea(key: String, answer: String, modifier: Modifier, content: @Composable () -> Unit) {
@@ -665,7 +665,7 @@ private fun AnswerArea(key: String, answer: String, modifier: Modifier, content:
     ) { content() }
 }
 
-/** 被插话打断的那段回复:和回答同样的底,字用次要色,下面一行小字「被你的新消息打断」。 */
+/** 中断により中断された返信: 回答と同じ背景に、単語が 2 番目の色で表示され、「新しいメッセージにより中断されました」の下に小さな単語が並んでいます。 */
 @Composable
 private fun InterruptedReply(text: String) {
     Column(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
@@ -674,16 +674,16 @@ private fun InterruptedReply(text: String) {
     }
 }
 
-/** Mika 回答的底:很淡的灰,左下尾角。 */
+/** ミカの答え: 非常に明るいグレー、左下隅。 */
 @Composable
 private fun Modifier.answerSurface(): Modifier =
     background(MikaTheme.colors.answer, MikaShapes.AnswerBubble).padding(horizontal = 14.dp, vertical = 12.dp)
 
-// ---------- 进度 ----------
+// ---------- 進捗 ----------
 
 /**
- * 进行中:一行状态(转圈 + 此刻的进展 + 用时),下面一条竖线步骤(做完的灰点、当前的蓝点;停下来等你时当前步是橙点)。
- * 在后台操作手机时最下面一行小字。
+ * 進行中: ステータスの行 (円 + 現在の進行状況 + 時間)、その下のステップの縦線 (完了した灰色の点、現在の青い点。停止して待っているとき、現在のステップはオレンジ色の点)。
+ * バックグラウンドで電話を操作しているときの小さな言葉の最後の行。
  */
 @Composable
 private fun WorkBlock(ex: Exchange, reduceMotion: Boolean, backgroundNote: Boolean, openRun: (String) -> Unit) {
@@ -707,7 +707,7 @@ private fun WorkBlock(ex: Exchange, reduceMotion: Boolean, backgroundNote: Boole
             if (elapsed != null) Text(ChatCopy.clock(elapsed), style = ClockText, color = c.ink3)
         }
         if (ex.steps.isNotEmpty()) StepLine(ex.steps, ex.stepActions, live = true, paused = paused)
-        // 跑的时候就能进运行过程(页面按秒接着长);结束后收进「做了 N 步 · 查看过程」那一行
+        // の実行中に、実行中のプロセスに入ることができます (ページは秒単位で拡大し続けます)。終了後、「N ステップ完了・プロセスの表示」の行に含まれます。
         ex.runId?.let { id ->
             Text(
                 stringResource(R.string.chat_view_process),
@@ -728,7 +728,7 @@ private fun WorkBlock(ex: Exchange, reduceMotion: Boolean, backgroundNote: Boole
     }
 }
 
-/** 从 [startedAt] 起的用时,每秒更新;不知道开始时刻(为 0)时为 null。 */
+/** [startedAt] からの時間。毎秒更新されます。開始時間が不明な場合は null (0)。 */
 @Composable
 private fun rememberElapsed(startedAt: Long): Long? {
     if (startedAt <= 0L) return null
@@ -744,14 +744,14 @@ private fun rememberElapsed(startedAt: Long): Long? {
 private enum class Dot { Done, Current, Paused, Dim }
 
 /**
- * 竖线步骤。[live] 时最后一步按任务此刻的状态标蓝点或橙点;在跑时只列最近 [ChatCopy.VISIBLE_STEPS] 步,
- * 前面的收成一行,点开看全部。
+ * の縦ラインステップ。 [live] の場合、その時点のタスクのステータスに応じて、最後のステップが青またはオレンジの点でマークされます。実行中は、最新の [ChatCopy.VISIBLE_STEPS] ステップのみがリストされます。
+ * 以前の収穫ライン、クリックするとすべて表示されます。
  */
 @Composable
 private fun StepLine(steps: List<StepRow>, actions: Map<Int, List<StepAction>>, live: Boolean, paused: Boolean) {
     val c = MikaTheme.colors
     var all by rememberSaveable { mutableStateOf(!live) }
-    // 哪几步点开了:按这一屏里的序号记,列表变长也不乱
+    // どのステップがクリックされたか: この画面でシリアル番号を押してマークすると、リストが長くなっても乱雑になりません。
     val expanded = remember { mutableStateMapOf<Int, Boolean>() }
     val hidden = if (all) 0 else (steps.size - ChatCopy.VISIBLE_STEPS).coerceAtLeast(0)
     Column(
@@ -777,7 +777,7 @@ private fun StepLine(steps: List<StepRow>, actions: Map<Int, List<StepAction>>, 
             StepItem(
                 row.text, row.subtitle, dot, current = dot == Dot.Current || dot == Dot.Paused,
                 actions = detail, open = open,
-                // 有具体动作才点得开:点开看这一步实际做了什么、对什么、结果如何
+                // 特定のアクションがある場合にのみクリックしてください。クリックすると、このステップが実際に何を行ったのか、実行された内容、およびその結果が表示されます。
                 onClick = if (detail.isEmpty()) null else ({ expanded[key] = !open }),
             )
         }
@@ -813,7 +813,7 @@ private fun StepItem(
                 maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
             if (subtitle.isNotEmpty()) Text(subtitle, style = MikaType.Hint, color = c.ink3, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            // 点开:这一步实际做的几件事,一件一行「做了什么 · 对什么 · 结果」,说法和运行过程页一样
+            // クリックして開きます: このステップで実際に行われたいくつかのこと、「何が行われたか、何が行われたか、結果」が 1 つずつ表示されます。ステートメントは実行中のプロセス ページと同じです。
             if (open) actions.forEach { a ->
                 Text(
                     ChatCopy.actionLine(a), Modifier.padding(top = 2.dp),
@@ -821,7 +821,7 @@ private fun StepItem(
                 )
             }
         }
-        // 能点开的只有有动作的那些:右边一个小箭头,点开时朝下
+        // クリックできるのはアクションのあるものだけです。右側にある小さな矢印が、クリックすると下を向きます。
         if (actions.isNotEmpty()) Icon(
             MikaIcons.Chevron, null,
             Modifier.padding(start = 6.dp).size(12.dp).graphicsLayer { rotationZ = if (open) 90f else 0f },
@@ -830,7 +830,7 @@ private fun StepItem(
     }
 }
 
-/** 步骤点:8dp 实心;当前步外面一圈 3dp 的淡色光环。 */
+/** ステップポイント: 8dp ソリッド。現在のステップの外側にある 3dp ライト ハロー。 */
 @Composable
 private fun StepDot(dot: Dot) {
     val c = MikaTheme.colors
@@ -840,7 +840,7 @@ private fun StepDot(dot: Dot) {
         Dot.Current -> c.accent to c.accentSoft
         Dot.Paused -> c.warnSolid to c.warnSoft
     }
-    // 底色先盖住竖线,点才是干净的
+    // 背景色が最初に縦線を覆い、その後ドットがきれいになります
     val bg = c.bg
     Box(
         Modifier.size(14.dp).drawBehind {
@@ -854,7 +854,7 @@ private fun StepDot(dot: Dot) {
     )
 }
 
-/** 转圈:淡色圆环,顶上一段实色。[spinning] 为假(关了动画、停下来等你)时停在原处。 */
+/** 回転円: 上部に単色が付いている明るい色のリング。 [spinning] が false (アニメーションをオフにして停止して待機する) の場合、その場で停止します。 */
 @Composable
 internal fun Spinner(modifier: Modifier, spinning: Boolean, track: Color, head: Color) {
     val turn = if (!spinning) 0f else rememberInfiniteTransition(label = "spin").animateFloat(
@@ -872,8 +872,8 @@ internal fun Spinner(modifier: Modifier, spinning: Boolean, track: Color, head: 
 }
 
 /**
- * 结束后过程收成一行:「做了 N 步 · 用时 · 1.2 万 Token」(点了在下面展开步骤)和「查看过程」(进时间线)。
- * 没做步骤的(只聊了几句)只写 token;[tokens] 为 null(还没读到小结、服务商没报用量)时不写。
+ * が完了すると、プロセスにより「N ステップ実行 · 所要時間 · 12,000 トークン」 (クリックして以下のステップを展開) と「プロセスの表示」 (タイムラインを入力) という 1 行が表示されます。
+ * が手順を実行していない場合 (数単語チャットしただけ)、トークンを書き込むだけです。 [tokens] が null の場合 (概要が読み取られていない、サービス プロバイダーが使用状況を報告していない)、書き込まないでください。
  */
 @Composable
 private fun DoneLine(ex: Exchange, reduceMotion: Boolean, openRun: (String) -> Unit, tokens: Long? = null) {
@@ -897,7 +897,7 @@ private fun DoneLine(ex: Exchange, reduceMotion: Boolean, openRun: (String) -> U
             }
             ex.runId?.let { id ->
                 Text(
-                    // 灰色斜体加下划线:和回答融在一起,又看得出能点
+                    // 灰色の斜体と下線: 答えに溶け込んでいて、はっきりと見えます。
                     stringResource(R.string.chat_view_process), Modifier.clip(MikaShapes.Pill).clickable(role = Role.Button) { openRun(id) }.padding(horizontal = 4.dp, vertical = 4.dp),
                     style = DoneText.copy(fontStyle = FontStyle.Italic, textDecoration = TextDecoration.Underline), color = c.ink3,
                 )
@@ -907,7 +907,7 @@ private fun DoneLine(ex: Exchange, reduceMotion: Boolean, openRun: (String) -> U
     }
 }
 
-/** 点开的内容:平时展开收起带动画,关了动画时直接出现、消失。 */
+/** クリックされたコンテンツ: 通常はアニメーションとともに展開および縮小されますが、アニメーションがオフになると直接表示および非表示になります。 */
 @Composable
 private fun Reveal(visible: Boolean, reduceMotion: Boolean, content: @Composable () -> Unit) {
     if (reduceMotion) {
@@ -917,7 +917,7 @@ private fun Reveal(visible: Boolean, reduceMotion: Boolean, content: @Composable
     }
 }
 
-// ---------- 状态与结果 ----------
+// ---------- ステータスと結果 ----------
 
 @StringRes
 fun takeoverReasonLabel(reason: String): Int? = when (reason) {
@@ -929,12 +929,12 @@ fun takeoverReasonLabel(reason: String): Int? = when (reason) {
     else -> null
 }
 
-/** 一问一答此刻的状态:要你做的事是一张白卡([NeedCard]),结果直接排在背景上。 */
+/** Q&A 現状: 求められているのは白いカード([NeedCard])で、結果は背景に直接配置されます。 */
 @Composable
 private fun StatusCard(
     status: ExchangeStatus, stage: Takeover.Stage, vm: ChatViewModel, runId: String?,
     loadSource: suspend (String) -> EvidenceSource?, openSource: (String?, String?) -> Unit,
-    /** 回答的长按菜单认这一条用的(见 [MessageArea])。 */
+    /** は、長押しメニューに応答してこの項目を認識します ([MessageArea] を参照)。 */
     key: String,
 ) {
     when (status) {
@@ -945,7 +945,7 @@ private fun StatusCard(
             val title = if (label != null) stringResource(R.string.takeover_title_reason, stringResource(label)) else stringResource(R.string.takeover_title)
             val handedOver = stage == Takeover.Stage.HandedOver
             val text = if (handedOver) stringResource(R.string.takeover_handed_over_hint) else status.message
-            // 付款的商品、金额、地址单独成行:这张卡片就是付款前的确认
+            // 支払い商品、金額、住所は別の行にあります。このカードは支払い前の確認です。
             val body = listOfNotNull(text, StatusCopy.paymentLines(status.item, status.amount, status.address)).joinToString("\n")
             NeedCard(title, body, footer = { TextLink(stringResource(R.string.action_cancel_task), vm::cancel) }) {
                 if (handedOver) {
@@ -969,7 +969,7 @@ private fun StatusCard(
                 if (options.isEmpty()) CardButton(stringResource(R.string.action_cancel_task), onClick = vm::cancel)
             }
         }
-        // 只有花钱的操作要你同意,每次只同意这一次
+        // お金を稼ぐ操作のみがあなたの同意を必要とし、これに同意するのは毎回 1 回だけです
         is ExchangeStatus.NeedsConfirmation -> NeedCard(status.title, status.body + "\n" + ConfirmationCopy.NOTE) {
             CardButton(stringResource(R.string.chat_refuse), onClick = { vm.decline(status.key) })
             CardButton(stringResource(R.string.chat_allow_once), primary = true, onClick = { vm.approve(status.key) })
@@ -978,11 +978,11 @@ private fun StatusCard(
             CardButton(stringResource(R.string.action_cancel_task), onClick = vm::cancel)
             if (status.resumable) CardButton(stringResource(R.string.chat_continue), primary = true, onClick = vm::resume)
         }
-        // 排队等开始:轮到时自动开始,点继续不能插队,只给取消
+        // キューイングの開始: 自分の番になると自動的に開始されます。 [続行] をクリックした場合、キューに参加することはできません。キャンセルのみ可能です。
         is ExchangeStatus.Queued -> NeedCard(stringResource(R.string.chat_queued), status.why) {
             CardButton(stringResource(R.string.action_cancel_task), onClick = vm::cancel)
         }
-        // 长按整块回答弹菜单;复制、引用的只是回答的字,不带上面的提示和下面的来源
+        // 答え全体を押し続けると、メニューがポップアップします。上記のプロンプトや以下のソースは含まれず、回答の単語のみがコピーおよび引用されます。
         is ExchangeStatus.Done -> Box(Modifier.padding(bottom = 12.dp)) {
             AnswerArea(key, status.answer, Modifier.fillMaxWidth().answerSurface()) {
                 Column {
@@ -995,7 +995,7 @@ private fun StatusCard(
                         }
                     }
                     MarkdownText(status.answer, AnswerText.copy(color = MikaTheme.colors.ink))
-                    // 来源:旧记录里模型写的依据文字,或运行记录里代码记下的来源;都没有就不显示
+                    // ソース: 古いレコード内のモデルによって書き込まれた基本テキスト、または実行中のレコード内のコードによって記録されたソース。どちらも見つからない場合は表示されません。
                     if (status.evidence != null || runId != null) SourceChip(status.evidence, runId, loadSource, openSource)
                 }
             }
@@ -1007,7 +1007,7 @@ private fun StatusCard(
             }
             Text(status.reason, Modifier.padding(top = 4.dp), style = CardBody, color = MikaTheme.colors.ink2)
         }
-        // 停止后补上的交代当作这一轮的回答,排在「已停止」下面;还在写时一行小字
+        // 停止後に追加された説明は、このラウンドの解答とみなされ、「停止済み」にリストされます。書いている途中に小さな文字が並んでいます
         is ExchangeStatus.Cancelled -> Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
             Text(stringResource(R.string.chat_stopped), Modifier.padding(start = 2.dp), style = MikaType.Body, color = MikaTheme.colors.ink2)
             if (status.summarizing) Text(
@@ -1024,7 +1024,7 @@ private fun StatusCard(
     }
 }
 
-/** 回答下面的「来源」小胶囊,只是入口;依据和截图在独立页面看。 */
+/** は、以下の「ソース」カプセルに答えました。これは単なる入り口です。基礎とスクリーンショットは別のページでご覧いただけます。 */
 @Composable
 private fun SourceChip(text: String?, runId: String?, loadSource: suspend (String) -> EvidenceSource?, openSource: (String?, String?) -> Unit) {
     val source by produceState<EvidenceSource?>(null, runId) { value = runId?.let { loadSource(it) } }
@@ -1044,8 +1044,8 @@ private fun SourceChip(text: String?, runId: String?, loadSource: suspend (Strin
 }
 
 /**
- * 「需要你」卡片(要你处理、提问、确认、暂停、锁屏、被拦下):白卡,标题前一个橙色圆点,下面说明;
- * [options] 是一列可点的答案;按钮并排,次要的在左(浅色)、主要的在右(蓝色);[footer] 在最下面。
+ * 「Need you」カード (処理、質問、確認、一時停止、画面ロック、および停止が必要): 白いカード、タイトルの前のオレンジ色の点、以下の手順。
+ * [options] は、クリック可能な回答のリストです。ボタンは並んでおり、左側にセカンダリ (明るい色)、右側 (青色) にプライマリがあります。 [footer] が一番下にあります。
  */
 @Composable
 private fun NeedCard(
@@ -1087,7 +1087,7 @@ private fun TextLink(text: String, onClick: () -> Unit) {
     Text(text, Modifier.clip(MikaShapes.Pill).clickable(onClick = onClick).padding(4.dp), style = MikaType.Caption, color = MikaTheme.colors.ink3)
 }
 
-/** 导出到「下载/Mika」的文件:小卡片,名字、大小和存放处;点了能看的在 App 里打开([FileViewer]),其余交给系统里能打开它的 App。 */
+/** 「ダウンロード/ミカ」にエクスポートされたファイル: 小さいカード、名前、サイズ、保存場所。表示されているものをクリックしてアプリ ([FileViewer]) で開き、残りはシステムで開くことができるアプリに任せます。 */
 @Composable
 private fun FileCards(files: List<SharedFile>) {
     val context = LocalContext.current
@@ -1119,15 +1119,15 @@ private fun FileCards(files: List<SharedFile>) {
 
 private fun openShared(context: Context, f: SharedFile) = FileViewer.open(context, Uri.parse(f.uri), f.name)
 
-// ---------- 输入栏 ----------
+// ---------- 入力フィールド ----------
 
-/** 「＋」面板:关着、开着、正让给键盘(点了输入框:键盘升起来时面板跟着矮下去,键盘到位再关)。 */
+/** 「+」パネル: 閉じている、開いている、キーボードに道を譲ります (入力ボックスをクリックします。キーボードが上がるとパネルが下がり、キーボードが所定の位置に来ると閉じます)。 */
 private enum class Panel { Closed, Open, Yielding }
 
 /**
- * 玻璃胶囊输入栏:左边「＋」,右边发送(没内容时灰);任务在跑时多一个停止,输入框的灰字提示插话会交给当前任务。
- * 「＋」点开的附件面板([attachPanel])在输入栏下面、占键盘那块位置,和键盘互换:开面板收键盘,
- * 再点「＋」(这时是 ×)或点输入框就收起面板、换成键盘;返回先收面板。待发的附件在输入栏上方一排([PendingTray])。
+ * ガラスカプセル入力フィールド: 左側に「+」、右側に送信 (コンテンツがない場合は灰色);タスクの実行中に追加の停止が発生し、入力ボックスの灰色のテキストで、中断が現在のタスクに引き継がれることが示されます。
+ * 「＋」をクリックして開くアクセサリ パネル ([attachPanel]) は入力フィールドの下にあり、キーボードのスペースを占めます。キーボードと交換可能です。パネルを開いてキーボードを閉じます。
+ * 「+」（今回は×）をクリックするか、入力ボックスをクリックしてパネルを閉じ、キーボードに切り替えます。戻るときは、パネルを閉じてください。送信される添付ファイルは、入力フィールド ([PendingTray]) の上の行にあります。
  */
 @Composable
 internal fun Composer(
@@ -1138,7 +1138,7 @@ internal fun Composer(
     hasHistory: Boolean,
     onSend: () -> Unit,
     onStop: () -> Unit,
-    /** 沙箱就绪、没有任务在跑时才有「＋」;点开是这块面板。 */
+    /** サンドボックスの準備ができており、実行中のタスクがない場合は「+」が表示されます。クリックしてこのパネルを開きます。 */
     attachPanel: (@Composable () -> Unit)? = null,
     attachments: List<PendingAttachment> = emptyList(),
     importing: Boolean = false,
@@ -1146,22 +1146,22 @@ internal fun Composer(
     overLimit: Int = 0,
     onRemove: (String) -> Unit = {},
     onDismissRejected: () -> Unit = {},
-    /** 要随下一句话发出去的引用;有时输入框上方一张小条,× 去掉。 */
+    /** 次の文と一緒に送信される引用。場合によっては、入力ボックスの上にある小さなバー「×」が削除されることがあります。 */
     quote: QuoteMessage.Quote? = null,
     onRemoveQuote: () -> Unit = {},
     editRequest: Int = 0,
-    /** 输入栏后面那层内容的画面;为 null 时输入栏不做模糊、用不透明底。 */
+    /** 入力フィールドの後ろにあるコンテンツの画面。 null の場合、入力フィールドはぼかされず、背景が不透明になります。 */
     backdrop: GlassBackdrop? = null,
     reduceMotion: Boolean = false,
-    /** 按住说话从这里开会话;null 时输入框只能打字。 */
+    /** ここからセッションを開始するには、長押しして話します。 null の場合、入力ボックスは入力のみ可能です。 */
     voice: VoiceSource? = null,
-    /** 说完的字;调用方把它接在已有的字后面,不自动发送。 */
+    /** 完成した言葉。呼び出し側はそれを既存の単語に接続し、自動的には送信しません。 */
     onVoiceText: (String) -> Unit = {},
-    /** 「还不能语音输入」里的「去选」:到设置里选转文字。 */
+    /** 「音声入力はまだ利用できません」の「選択を解除」：設定に移動し、テキスト変換を選択します。 */
     onPickSpeech: () -> Unit = {},
-    /** 任务在跑时说的话交给谁:卡片顶上写「插话给『…』」。 */
+    /** タスクの実行中に誰に言葉を伝えますか: カードの上部に「「...」への感動詞」と書きます。 */
     steerTarget: String? = null,
-    /** 按着说话时为 true:对话内容跟着虚化。 */
+    /** は、押すと話すときに true になります。会話の内容はぼやけます。 */
     onVoiceHolding: (Boolean) -> Unit = {},
 ) {
     val c = MikaTheme.colors
@@ -1170,7 +1170,7 @@ internal fun Composer(
     val voiceHolding = vh?.holding == true
     LaunchedEffect(voiceHolding) { onVoiceHolding(voiceHolding) }
     var fieldFocused by remember { mutableStateOf(false) }
-    // 底部从页面底色淡出到透明,输入栏是浮在上面的玻璃
+    // ページの下部の色が背景色から透明になり、入力フィールドはその上に浮かぶガラスになります。
     val fade = remember(c) { Brush.verticalGradient(0f to c.bg.copy(alpha = 0f), 0.6f to c.bg, 1f to c.bg) }
     val busy = mode == ComposerMode.Busy
     val density = LocalDensity.current
@@ -1187,14 +1187,14 @@ internal fun Composer(
             keyboard?.show()
         }
     }
-    // 面板和键盘一样高:记下见过的键盘高度(在导航栏之上的那段),没见过时用默认高度
+    // パネルはキーボードと同じ高さです。これまでに見たキーボード (ナビゲーション バーの上のセクション) の高さをメモし、これまでに見たことがない場合はデフォルトの高さを使用します。
     var keyboardPx by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(ime, nav, density) {
         snapshotFlow { ime.getBottom(density) - nav.getBottom(density) }.collect { if (it > keyboardPx) keyboardPx = it }
     }
-    // 输入框聚焦时长按留给系统的选字、粘贴(悬浮、分体、实体键盘也一样);没聚焦时输入框上盖一层按住说话的手势
+    // 入力ボックスがフォーカスされている場合、長押ししてシステムを終了し、単語を選択して貼り付けます (フローティング キーボード、分割キーボード、および物理キーボードにも同じことが当てはまります)。入力ボックスにフォーカスがない場合、入力ボックスは長押しジェスチャで覆われます。
     val voiceGesture = vh != null && (!fieldFocused || voiceHolding)
-    // 键盘从弹着到收起(返回键、键盘自己的收起键):输入框跟着失焦,又能按住说话。只看键盘的变化,实体键盘(从不弹出)不受影响
+    // キーボードの再生から格納まで (リターン キー、キーボード自体の格納キー): その後、入力ボックスはフォーカスを失い、長押しして発話できるようになります。キーボードの変更のみが表示されます。物理キーボード (決してポップアップしない) は影響を受けません。
     LaunchedEffect(ime, density, vh != null) {
         if (vh == null) return@LaunchedEffect
         var wasUp = false
@@ -1203,7 +1203,7 @@ internal fun Composer(
             wasUp = up
         }
     }
-    // 输入框外面的字一变(说完填进来、点了示例),光标放到末尾,接着说或接着打都在后面
+    // 入力ボックスの外側の単語が変わると (話し終わった後に入力し、例をクリックします)、カーソルは最後に置かれ、次の単語または入力が遅れます。
     var fieldValue by remember { mutableStateOf(TextFieldValue(text, TextRange(text.length))) }
     val shownValue = if (fieldValue.text == text) fieldValue else TextFieldValue(text, TextRange(text.length))
     val panelPx = with(density) {
@@ -1211,7 +1211,7 @@ internal fun Composer(
     }
     LaunchedEffect(attachPanel == null) { if (attachPanel == null) panel = Panel.Closed }
     BackHandler(enabled = panel == Panel.Open) { panel = Panel.Closed }
-    // 让给键盘:等键盘升到差不多面板高(没有键盘弹出来时最多等一会儿)再关
+    // キーボードに道を譲ります: キーボードがパネルの高さ近くまで上昇するまで待ちます (キーボードがポップアップしない場合は、長くてもしばらく待ちます)。
     LaunchedEffect(panel, panelPx) {
         if (panel != Panel.Yielding) return@LaunchedEffect
         withTimeoutOrNull(YIELD_MS) {
@@ -1283,7 +1283,7 @@ internal fun Composer(
                         { v -> fieldValue = v; if (v.text != text) onText(v.text) },
                         Modifier.fillMaxWidth().testTag("composer-field").focusRequester(field)
                             .alpha(if (converting) 0f else 1f)
-                            // 面板开着时点输入框:面板让给键盘
+                            // パネルが開いているときに入力ボックスをクリックすると、パネルがキーボードに代わって表示されます。
                             .onFocusChanged {
                                 fieldFocused = it.isFocused
                                 if (it.isFocused && panel == Panel.Open) panel = Panel.Yielding
@@ -1292,14 +1292,14 @@ internal fun Composer(
                         cursorBrush = SolidColor(c.accent),
                         maxLines = 5,
                     )
-                    // 服务商松开后在转:输入框里转圈,转好的字填进来
+                    // サービス プロバイダーは、リリース後に回転します。入力ボックスを丸で囲み、転送された単語を入力します。
                     if (converting) VoiceConverting(Modifier.align(Alignment.CenterStart))
                     if (voiceGesture && vh != null) {
                         Box(Modifier.matchParentSize().holdToTalk(vh) { field.requestFocus(); keyboard?.show() })
                     }
                 }
                 val canSend = AttachTray.canSend(text, attachments, importing)
-                // 键盘出来以后长按输入框留给系统选字;话筒按住才听,点一下只提示按住
+                // キーボードが出てきたら、入力ボックスを長押しして、システムが単語を選択できるようにします。マイクを押し続けて聞くと、クリックしたままにしてプロンプトが表示されます。
                 if (fieldFocused && vh != null) {
                     val hint = stringResource(R.string.voice_hold_to_talk)
                     Box(
@@ -1309,7 +1309,7 @@ internal fun Composer(
                         Icon(MikaIcons.Mic, hint, Modifier.size(MikaSize.Icon), tint = c.ink)
                     }
                 }
-                // 任务在跑时停止一直在;写了字再多一个发送,发出去的话交给当前任务
+                // タスクは実行中に停止します。単語を書いたら、別の単語を送信します。送信されると、現在のタスクに引き渡されます。
                 if (busy) {
                     Box(
                         Modifier.size(MikaSize.IconButton).background(c.ink, CircleShape).clip(CircleShape)
@@ -1335,7 +1335,7 @@ internal fun Composer(
             }
             if (vh != null) VoiceSheetHost(vh, onPickSpeech)
             if (panel != Panel.Closed && attachPanel != null) {
-                // 键盘还在(刚开面板时正在收、让给键盘时正在升)的那一段从面板里扣掉:输入栏不跟着上下跳
+                // キーボードがまだ存在するセクション (パネルが最初に開かれたときに閉じ、キーボードに与えられたときに上昇します) がパネルから削除されます。入力フィールドは上下にジャンプしません。
                 Box(
                     Modifier.fillMaxWidth().clipToBounds().layout { m, cons ->
                         val keyboardNow = (ime.getBottom(this) - nav.getBottom(this)).coerceAtLeast(0)
@@ -1351,21 +1351,21 @@ internal fun Composer(
     }
 }
 
-/** 面板高度:没见过键盘时的默认值,以及跟着键盘时的上下限。 */
+/** パネルの高さ: キーボードが見えていない場合のデフォルト値、およびキーボードに従う場合の上限と下限。 */
 private val PanelDefault = 320.dp
 private val PanelMin = 280.dp
 private val PanelMax = 420.dp
-/** 让给键盘时最多等这么久(毫秒)。 */
+/** は、キーボードに譲るときに最大でこの時間 (ミリ秒) 待機できます。 */
 private const val YIELD_MS = 700L
 
-/** 竖线的位置(从左边算起);步骤点、转圈的中心都在这条线上。 */
+/** 垂直線の位置 (左から数えて)。ステップ点と円の中心はすべてこの線上にあります。 */
 private val StepRail = 8.dp
 
 private val FileTileShape = RoundedCornerShape(10.dp)
 private val EmptyLead = TextStyle(fontSize = 15.sp, lineHeight = 21.sp)
 private val ExampleText = TextStyle(fontSize = 15.sp, lineHeight = 21.sp)
 private val BubbleText = TextStyle(fontSize = 15.5.sp, lineHeight = 22.5.sp)
-/** 回答:正文字号,行距放宽到 1.7。 */
+/** 回答：本文の文字サイズと行間を1.7に緩和しました。 */
 private val AnswerText = TextStyle(fontSize = 15.5.sp, lineHeight = 26.sp)
 private val NowText = TextStyle(fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium)
 private val ClockText = TextStyle(fontSize = 12.5.sp, lineHeight = 17.sp, fontFeatureSettings = "tnum")

@@ -36,7 +36,7 @@ class PairingScreenTest {
     @Test
     fun twoDifferentCodesOnOneWindowAreAmbiguous() {
         assertNull(read("111111", "222222", "10.0.0.2:40000").code)
-        // 同一个码出现两次(比如标题和正文)不算歧义
+        // 同じコードが 2 回出現する場合 (タイトルとテキストなど) はあいまいとはみなされません。
         assertEquals("111111", read("111111", "111 111").code)
     }
 
@@ -76,11 +76,11 @@ class PairingScreenTest {
         val codeOnly = PairingScreenReading("482913", null)
         val idle = BuiltinShellStatus.NotPaired
         assertEquals(PairingAttempt("482913", 37145), PairingScreen.attempt(both, portFound = false, status = idle, tried = emptySet()))
-        // 屏上没读到端口:已经找到配对窗口时用找到的那个
+        // 画面上でポートが読み取られません: ペアリング ウィンドウが見つかった場合は、見つかったポートを使用します。
         assertEquals(PairingAttempt("482913", null), PairingScreen.attempt(codeOnly, portFound = true, status = idle, tried = emptySet()))
         assertNull(PairingScreen.attempt(codeOnly, portFound = false, status = idle, tried = emptySet()))
         assertNull(PairingScreen.attempt(PairingScreenReading(null, 37145), portFound = true, status = idle, tried = emptySet()))
-        // 试过的码(比如码不对)不再试,换了新码才试
+        // 試行されたコードはもう試行せず (コードが間違っている場合など)、新しいコードのみを試行してください。
         val wrong = BuiltinShellStatus.Failed(BuiltinShellFailure.WrongCode)
         assertNull(PairingScreen.attempt(both, portFound = true, status = wrong, tried = setOf("482913")))
         assertEquals(

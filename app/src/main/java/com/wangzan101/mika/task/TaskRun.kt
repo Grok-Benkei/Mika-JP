@@ -138,11 +138,11 @@ import com.wangzan101.mika.core.assembly.toolDispatcher
 import com.wangzan101.mika.core.cap.web.WEB
 
 /**
- * 一个任务的全部状态:虚拟屏、循环、关卡、接管、静音、监视。[TaskService] 只管服务生命周期、意图分发与通知。
- * 本任务自己的流只在它是「显示中」的任务([service.taskState.shownRun])时同步写到服务对外的流;
- * 别的任务(并行时)、或被新任务换下去的旧任务的写入只落在自己这份,不会盖掉显示中的那个。
- * [scope] 是服务的作用域:旁路协程挂在它下面,不随任务协程一起取消,由 [execute] 收尾时取消。
- * [slot] 决定它的通知编号与按钮请求码;[parallel] 为 true 时(开关 parallelTasks)打开 App 前查别的任务是否在用。
+ * タスクのすべてのステータス: 仮想画面、ループ、レベル、テイクオーバー、ミュート、モニタリング。 [TaskService] は、サービスのライフサイクル、インテントの配布、および通知のみを考慮します。
+ * このタスク自身のストリームは、「表示」タスク ([service.taskState.shownRun]) の場合にのみ、サービスの外部ストリームに同期的に書き込まれます。
+ * 他のタスク (並行) の書き込み、または新しいタスクによって置き換えられた古いタスクは、それ自体の部分にのみ適用され、表示内のタスクは上書きされません。
+ * [scope] はサービスのスコープです。バイパス コルーチンはその下にハングされ、タスク コルーチンとともにキャンセルされません。最後に[execute]でキャンセルされます。
+ * [slot] は通知番号とボタン要求コードを決定します。 [parallel] が true (ParallelTask​​s の切り替え) の場合、アプリを開く前に他のタスクが使用中かどうかを確認します。
  */
 class TaskRun(
     val conversationId: String,
@@ -159,22 +159,22 @@ class TaskRun(
     internal var mcpExternalId: String? = null
     internal val conditionCheck get() = triggerActionGoal != null
     @Volatile private var children: ChildAgentRunner? = null
-    /** 这次任务连上的外部 MCP server;结束时关闭会话。 */
+    /** このタスクに接続された外部 MCP サーバー。セッションが終了したら閉じます。 */
     @Volatile private var mcpConnections: com.wangzan101.mika.settings.McpConnections? = null
 
     /**
-     * 这次任务接上的全部外部 MCP 端点,交给 toolDispatcher 的就这一份。别的来源(以后的扩展等)也提供这类端点时在这里拼上,
-     * 不给 toolDispatcher 另加参数;各来源连上的都要归任务的 ResourceScope,收尾时一起关。
+     * このタスクに接続されているすべての外部 MCP エンドポイントは、toolDispatcher に渡されます。他のソース (将来の拡張機能など) もそのようなエンドポイントを提供する場合は、ここに入力してください。
+     * は、toolDispatcher にパラメータを追加しません。各ソースからのすべての接続はタスクの ResourceScope に属し、最後にまとめて閉じられます。
      */
     private fun mcpEndpoints(): List<com.wangzan101.mika.core.cap.mcp.McpConnection> = buildList {
         mcpConnections?.let { addAll(it.connections) }
     }
-    /** 自己的一份;显示中时同步写到服务对外的那份。[show] 时整份抄过去。 */
-    /** App 给的模型来源、评测钩子、屏幕画面的开关。 */
+    /** 自身のコピー。表示されると、同時にサービスの外部コピーに書き込まれます。 [show] のコピー全体をコピーします。 */
+    /** アプリは、モデルソース、評価フック、画面切り替えを提供します。 */
     private val env = TaskEnvironment.of(service)
-    /** 这段对话对外的会话号:这次运行建的模型(主、轻量、看图,及核查、意图判断、停止交代等旁路)都用它。 */
+    /** この会話の外部会話番号: この実行で構築されたすべてのモデル (メイン、軽量、画像表示、検証、意図判断、停止説明などのバイパス) がこれを使用します。 */
     private val session = ModelSession.of(conversationId)
-    /** App 给的手机服务(共用的 shell 连接、「去设置」提示)、记忆、经验路线、异常退出后的恢复。 */
+    /** アプリは、携帯電話サービス (共有シェル接続、「設定に移動」プロンプト)、メモリー、体験ルート、および異常終了後の回復を提供します。 */
     private val phoneServices = PhoneServices.of(service)
     private val memoryRuntime = MemoryRuntime.of(service)
     private val routeStore = FileRouteStore.shared(service)
@@ -194,19 +194,19 @@ class TaskRun(
         fun copyOut() { shown.value = own.value }
     }
 
-    /** 静音等恢复记录按它分开,几个任务各记各的。 */
+    /** ミュートとその他の回復記録はそれに応じて分離され、いくつかのタスクが個別に記録されます。 */
     val key: String = UUID.randomUUID().toString()
     private val inbox = RunInbox()
 
     private val _runId = Mirrored<String?>(null, service.taskState._runId)
     private val _sharedFiles = Mirrored<List<SharedFile>>(emptyList(), service.taskState._sharedFiles)
     private val _state = Mirrored<TaskState>(TaskState.Running(0, TaskService.PREPARING), service.taskState._state)
-    /** 同一状态带上对话编号,和 [_state] 一起写:界面据此只收屏上那个对话的状态。 */
+    /** は同じ状態に会話番号を追加し、それを [_state] と一緒に書き込みます。インターフェイスは画面上のその会話の状態のみを収集します。 */
     private val _tagged = Mirrored<Pair<String, TaskState>?>(conversationId to _state.value, service.taskState._shownTask)
     private val _takeoverStage = Mirrored(Takeover.Stage.None, service.taskState._takeoverStage)
     private val _frames = Mirrored<Bitmap?>(null, service.taskState._frames)
     private val _activities = Mirrored<List<RunEvent.Activity>>(emptyList(), service.taskState._activities)
-    /** 活动只追加;发布的是前 n 条的只读视图,每来一条不复制已有的。 */
+    /** アクティビティは追加のみです。最初の n 項目の読み取り専用ビューが公開され、新しい項目ごとに既存のビューはコピーされません。 */
     private val activityLog = ArrayList<RunEvent.Activity>()
     private fun logView(n: Int): List<RunEvent.Activity> = object : AbstractList<RunEvent.Activity>() {
         override val size = n
@@ -214,26 +214,26 @@ class TaskRun(
     }
     private val _steers = Mirrored<List<SteerNote>>(emptyList(), service.taskState._steers)
     private val _displayId = Mirrored(-1, env.agentDisplayId)
-    /** 虚拟屏上打开过 App:画中画据此才出来(只建了空屏、没打开过 App 时没有画面)。 */
+    /** アプリが仮想画面上で開かれました。それに応じてピクチャーインピクチャーが表示されます (空白の画面のみが作成され、アプリが開かれていないときは画像は表示されません)。 */
     private val _appShown = Mirrored(false, env.agentAppShown)
-    /** 正在用内置浏览器:画中画改显示网页画面。 */
+    /** は、組み込みブラウザーのピクチャー・イン・ピクチャーを使用して Web ページを表示します。 */
     private val _webOpen = Mirrored(false, env.webScreenOpen)
 
     val state: StateFlow<TaskState> = _state.flow
     val runId: StateFlow<String?> = _runId.flow
-    /** 本任务导出的文件;结束时随这一轮存进对话。 */
+    /** このタスクによってエクスポートされたファイル。終了すると、このラウンドの会話に保存されます。 */
     val sharedFiles: StateFlow<List<SharedFile>> = _sharedFiles.flow
     val takeoverStage: StateFlow<Takeover.Stage> = _takeoverStage.flow
     val frames: StateFlow<Bitmap?> = _frames.flow
-    /** 本任务到此刻的活动(实际做过的事);悬浮胶囊的卡片按任务取,不只看显示中的那个。 */
+    /** 現時点までのこのタスクのアクティビティ (実際に実行されたこと)。吊り下げられたカプセルのカードは、ディスプレイ上のカードだけでなく、タスクに従って取得されます。 */
     val activities: StateFlow<List<RunEvent.Activity>> = _activities.flow
-    /** 本任务的虚拟屏编号;屏到用到系统命令、事件工具或第一次打开 App 时才建,之前和释放之后为 -1。 */
+    /** このタスクの仮想画面番号。画面は、システム コマンド、イベント ツール、またはアプリが初めて開かれるまで作成されません。リリース前後では-1です。 */
     val displayId: StateFlow<Int> = _displayId.flow
-    /** 此刻在用内置浏览器(工具的界面是网页);没用、任务结束后为 false。 */
+    /** は現在、内蔵ブラウザを使用しています (ツールのインターフェイスは Web ページです)。これは役に立たず、タスクが完了すると false になります。 */
     val webOpen: StateFlow<Boolean> = _webOpen.flow
-    /** 本任务进行中插的话和它们的去向;悬浮胶囊的对话卡片按任务取。 */
+    /** このタスク中に挿入された単語とその所在。吊り下げられたカプセルの対話カードはタスクに応じて取得されます。 */
     val steers: StateFlow<List<SteerNote>> = _steers.flow
-    // 带对话编号的那份先写:收不带编号的状态时读到的编号就已经是这个任务的(界面据此不把别的对话的状态接到屏上)
+    // 最初に会話番号を持つものを書き込みます。番号なしのステータスを受信したときに読み取られる番号は、すでにこのタスク用のものです (それに応じて、インターフェイスは他の会話のステータスを画面に接続しません)
     private val mirrored = listOf(_runId, _sharedFiles, _tagged, _state, _takeoverStage, _frames, _displayId, _appShown, _webOpen, _activities, _steers)
 
     private fun setState(s: TaskState) = synchronized(service.taskState.shownLock) {
@@ -241,20 +241,20 @@ class TaskRun(
         _state.value = s
     }
 
-    /** 让界面显示这个任务:成为显示中的任务,并把自己的各项抄到服务对外的流。 */
+    /** インターフェイスにこのタスクを表示させます。表示されたタスクになり、独自の項目をサービスの外部フローにコピーします。 */
     fun show() = synchronized(service.taskState.shownLock) {
         service.taskState.shownRun = this
         mirrored.forEach { it.copyOut() }
     }
 
-    /** 跑 [execute] 的协程,由服务启动后填上。 */
+    /** は、サービスの開始後に入力される [execute] のコルーチンを実行します。 */
     @Volatile var job: Job? = null
         internal set(v) {
             field = v
             if (cancelRequested) v?.cancel()
         }
     @Volatile private var cancelRequested = false
-    /** 用户点了停止:还没交给模型的插话一起作废,不当成下一件事。 */
+    /** ユーザーが [停止] をクリックしました: まだモデルに渡されていない割り込みは無効になり、次のものとしてみなされません。 */
     @Volatile private var stopPressed = false
     @Volatile private var loop: AgentLoop? = null
     val activeAsk: Delivery.Ask? get() = loop?.activeAsk
@@ -264,10 +264,10 @@ class TaskRun(
     @Volatile var muteFailedFor: String? = null
         private set
     @Volatile private var awake: KeepAwake? = null
-    /** shell 进程没了,虚拟屏和上面的 App 一起没了;任务没法接着做。 */
+    /** シェル プロセスがなくなり、仮想画面とその上のアプリがなくなりました。タスクを続行できません。 */
     @Volatile var shellDied = false
         internal set
-    /** 发布与收尾互斥;[ended] 之后不再写状态,迟到的发布不能盖掉终态或重新拿锁。 */
+    /** のリリースとクローズは相互に排他的です。 [ended] の後に状態は書き込まれず、後期リリースでは最終状態を上書きしたり、ロックを再取得したりすることはできません。 */
     private val publishLock = Any()
     private var ended = false
 
@@ -280,7 +280,7 @@ class TaskRun(
             t != null -> scope.launch { t.cancel() }
             running != null -> inbox.cancel()
             else -> {
-                // 刚从队里放出来、协程还没挂上时点的取消:挂上时立即取消
+                // チームから解放されたばかりで、コルーチンがハングアップしていない場合のキャンセル: ハングアップしたらすぐにキャンセルします。
                 cancelRequested = true
                 job?.cancel()
             }
@@ -291,7 +291,7 @@ class TaskRun(
         val g = gate ?: return
         val wasOnPage = g.userOnPagePending
         g.resume()
-        // 用户在页面上操作的那种暂停:循环可能还没走到关卡(还在想),按它此刻的状态重新显示,不再写着暂停
+        // ユーザーがページ上で操作する一時停止の種類。ループはまだそのレベルに達していない可能性があり (まだ検討中)、現在の状態に応じて再表示され、一時停止とは表示されなくなります。
         if (wasOnPage) loop?.state?.value?.takeIf { it is TaskState.Running }?.let(::publish)
     }
     fun takeOver(waitKey: Int?) { takeover?.let { t -> scope.launch { t.handOver(waitKey) } } }
@@ -300,7 +300,7 @@ class TaskRun(
     fun skip(waitKey: Int?) { takeover?.let { t -> scope.launch { t.skip(waitKey) } } }
     fun putAside(waitKey: Int?) { takeover?.let { t -> scope.launch { t.putAside(waitKey) } } }
 
-    /** 回答提问;已经不在等(超时后才答、已答过)时调 [tooLate] 告诉用户这条回答没用上。 */
+    /** が質問に答えます。待機状態がなくなったとき (タイムアウト後の応答が応答されたとき)、[tooLate] が呼び出され、この応答が役に立たないことをユーザーに伝えます。 */
     fun answer(text: String, tooLate: () -> Unit) {
         if (loop == null) return
         if (_state.value is TaskState.WaitingInput) scope.launch {
@@ -310,13 +310,13 @@ class TaskRun(
     }
 
     /**
-     * 同一对话在任务进行中的新原话，交给下一次模型步；准备阶段也会先排在 Inbox。
-     * [messageId] 是界面给这句话的编号,界面据此标出它的去向(见 [SteerNote])。
+     * タスクの進行中の同じ会話の新しい元の単語は、次のモデル ステップに渡されます。準備フェーズも最初に受信箱のキューに入れられます。
+     * [messageId] はインターフェイスによってこのセンテンスに与えられた番号であり、インターフェイスはそれに応じて宛先をマークします ([SteerNote] を参照)。
      */
     fun steer(text: String, messageId: String = UUID.randomUUID().toString()) {
         synchronized(service.taskState.shownLock) {
             _steers.value = _steers.value + SteerNote(messageId, text, SteerState.Pending)
-            // 收件箱收下了就马上告诉用户:模型此刻的请求已撤掉,下一步就带着这句话想(交给模型时再改成已加入)
+            // 受信箱で受け取った後、ユーザーにはすぐに通知されます: 現時点でのモデルのリクエストは取り下げられており、次のステップはこの文を念頭に置きます (モデルに引き渡されるときに追加されるように変更します)
             if (inbox.steer(messageId, text) == InputReceipt.Accepted) markSteers(setOf(messageId), SteerState.Received, from = SteerState.Pending)
             else {
                 if (stopPressed) markSteers(setOf(messageId), SteerState.Cancelled)
@@ -328,13 +328,13 @@ class TaskRun(
         }
     }
 
-    /** 远程追加只归当前任务;与状态发布互斥,收件箱再原子核对是否已经结束/取消。 */
+    /** リモート追加は現在のタスクにのみ属します。これはステータス公開とは相互に排他的であり、受信トレイは終了/キャンセルされたかどうかを原子的にチェックされます。 */
     fun steerRemote(text: String): String? = synchronized(publishLock) delivery@{
         if (ended || stopPressed || mcpExternalId == null || _state.value !is TaskState.Running) return@delivery null
         if (loop?.state?.value?.let { it !is TaskState.Running } == true) return@delivery null
         val id = UUID.randomUUID().toString()
         synchronized(service.taskState.shownLock) {
-            // 先记消息,再唤醒模型;消费事件可能紧跟着发生,不能把 Joined 改回 Received。
+            // まずメッセージを思い出してから、モデルを起動します。消費イベントはすぐに発生する可能性があり、参加済みを受信済みに戻すことはできません。
             _steers.value = _steers.value + SteerNote(id, text, SteerState.Received, remote = true)
             if (inbox.steerCurrent(id, text) != InputReceipt.Accepted) {
                 _steers.value = _steers.value.filterNot { it.id == id }
@@ -344,14 +344,14 @@ class TaskRun(
         }
     }
 
-    /** 撤回手机上插的、模型还没取走的那句;已取走、已收尾或是电脑追加的(收件箱拒绝)返回 false,去向不变。 */
+    /** 携帯電話に挿入された文を元に戻します。モデルは削除されていません。コンピュータによって削除、終了、または追加された文 (受信箱拒否) は false を返し、宛先は変更されません。 */
     fun withdrawSteer(messageId: String): Boolean = synchronized(service.taskState.shownLock) {
         if (!inbox.withdrawSteer(messageId)) return@synchronized false
         markSteers(setOf(messageId), SteerState.Withdrawn)
         true
     }
 
-    /** 手机插话可转下一任务;远程插话只能用于当前任务,未消费的一律作废,不改变来源和权限。 */
+    /** 携帯電話でのチャットは次のタスクに転送できます。リモート チャットは現在のタスクにのみ使用でき、未使用のチャットは無効になり、ソースと権限は変更されません。 */
     fun handoffUnconsumed(cancelled: Boolean = stopPressed) {
         val left = inbox.handoffUnconsumed()
         val (discard, next) = left.partition { cancelled || it.currentTaskOnly }
@@ -360,29 +360,29 @@ class TaskRun(
         next.forEach { service.deferMessage(conversationId, it.text) }
     }
 
-    /** 已交给这个任务的插话,随这一轮存进对话。 */
-    /** 这次任务真的用过的能力组(手机、网页、沙箱);记进这一轮,下一轮开局预先展开。 */
+    /** このタスクに与えられた間投詞は、このラウンドの会話に保存されます。 */
+    /** このミッションで実際に使用された能力グループ (携帯電話、Web ページ、サンドボックス)。このラウンドで記録され、次のラウンドが事前に開始されます。 */
     @Volatile var usedGroups: List<String> = emptyList()
         private set
 
     fun joinedSteers(): List<String> = joined().map { it.text }
 
-    /** 和 [joinedSteers] 一一对应:每句插话打断的那段回复,没打断的是空串。 */
+    /** と [joinedSteers] は 1 対 1 に対応しており、各割り込みによって割り込まれる応答は空の文字列です。 */
     fun joinedInterrupted(): List<String> = joined().map { it.interrupted.orEmpty() }
 
-    /** 和 [joinedSteers] 一一对应:每句插话交给模型之前已经说完的那段回复,没有的是空串。 */
+    /** と [joinedSteers] は 1 対 1 に対応します。各感動詞はモデルの前に終了した応答に与えられ、空の文字列はありません。 */
     fun joinedFinished(): List<String> = joined().map { it.finished.orEmpty() }
 
     private fun joined() = _steers.value.filter { it.state == SteerState.Joined }
 
-    /** 插话撤掉的那段回复,等这一批插话里第一句交给模型时挂到它上面。 */
+    /** 間投詞から削除された応答は、この間投詞のバッチの最初の文がモデルに与えられるときにそれに添付されます。 */
     private val steerJoin = SteerJoin()
 
     private fun joinSteer(id: String) {
         synchronized(service.taskState.shownLock) { _steers.value = steerJoin.joined(_steers.value, id) }
     }
 
-    /** 把 [ids] 这几句改成 [to];给了 [from] 时只改还在那个状态的(收下和交给模型可能先后颠倒,不往回改)。 */
+    /** 文 [ids] を [to] に変更します。 [from] を与えるときは、まだその状態にあるものだけを変更してください (モデルの受け入れと引き渡しは逆になる可能性があり、元に戻されることはありません)。 */
     private fun markSteers(ids: Set<String>, to: SteerState, from: SteerState? = null) {
         if (ids.isEmpty()) return
         synchronized(service.taskState.shownLock) {
@@ -390,7 +390,7 @@ class TaskRun(
         }
     }
 
-    /** 运行事件里界面要跟的两样:实际做过的事,和插话已交给模型。 */
+    /** 実行中のイベントのインターフェイスは同じである必要があります。つまり、実際に実行されたものと、介入がモデルに引き継がれています。 */
     private val liveEvents = object : RunSink {
         override fun event(e: RunEvent) {
             when {
@@ -405,7 +405,7 @@ class TaskRun(
         }
     }
 
-    /** 通知和卡片的按钮都带着它所属的申报 [key];点在已经换掉的旧通知、旧卡片上不算数。 */
+    /** 通知とカード ボタンにはすべて、[key] に属する宣言が含まれています。古い通知や置き換えられた古いカードをクリックしてもカウントされません。 */
     fun confirm(choice: ConfirmChoice, key: Int?) {
         val running = loop
         val waiting = _state.value as? TaskState.WaitingConfirmation
@@ -415,8 +415,8 @@ class TaskRun(
     }
 
     /**
-     * 任务的终态:[execute] 收尾之后才写,不经 [publish]。不论显示的是不是自己,都先把本次的运行编号记到
-     * 自己对话名下([TaskService.endedRunIds]),界面收到结束状态时按对话取;显示中时也写 [TaskService.endedRunId]。
+     * タスクの最終状態: [execute] は、完了後に [publish] なしで書き込まれます。あなたであろうとなかろうと、まずは今回の走行番号を記録してください。
+     * は自分の会話名 ([TaskService.endedRunIds]) の下にあります。インターフェイスが終了ステータスを受信したら、ダイアログ ボタンを押してそれを取得します。表示されたら、[TaskService.endedRunId] も書き込みます。
      */
     fun end(end: TaskState) = synchronized(service.taskState.shownLock) {
         service.taskState._endedRunIds.value = service.taskState._endedRunIds.value + (conversationId to _runId.value)
@@ -424,36 +424,36 @@ class TaskRun(
         setState(end)
     }
 
-    /** 超出并行上限在排队;放出来开跑时 [dequeue]。 */
+    /** は、並列制限を超えるとキューに入れられます。 [dequeue] がリリースされ、実行が開始されました。 */
     fun queue(position: Int) { setState(TaskState.Held(GateReason.queued(trPlural(R.plurals.queue_ahead, position)))) }
     fun dequeue() { setState(TaskState.Running(0, TaskService.PREPARING)) }
 
-    /** 本任务的沙箱:一个任务一份(导出额度按任务算),工作区是本对话的。 */
+    /** このタスクのサンドボックス: タスクごとに 1 つのコピー (エクスポート量はタスクに基づいて計算されます)、ワークスペースはこの会話に属します。 */
     private val sandbox by lazy { AndroidSandbox(service, SandboxState.get(service), onShared = ::addShared) }
 
-    /** 沙箱导出了一个文件(share_file 或 `mika share`)。 */
+    /** サンドボックスはファイル (share_file または `mika share`) をエクスポートしました。 */
     fun addShared(f: SharedFile) = synchronized(service.taskState.shownLock) { _sharedFiles.value = _sharedFiles.value + f }
 
     fun clearTakeoverStage() { _takeoverStage.value = Takeover.Stage.None }
 
-    /** 此刻要显示的状态;已收尾时为空,不再重画通知。 */
+    /** 現時点で表示されるステータス。終了すると空になり、通知は再描画されません。 */
     fun shownState(): TaskState? = synchronized(publishLock) { if (ended) null else _state.value }
 
-    /** 因模型失败、主模型在它那家还没测试通过时,提示去那家「重新测试」(见 [RetestHint])。测试换了主模型时不看设置里的配置。 */
+    /** モデルが失敗し、メイン モデルがそのストアでのテストに合格しなかった場合、そのストアに行って「再テスト」するように求められます ([RetestHint] を参照)。メインモデルをテストする場合、設定の構成はチェックされません。 */
     private fun withRetestHint(end: TaskState): TaskState {
         if (end !is TaskState.Failed || env.modelFactory !== TaskEnvironment.defaultModelFactory) return end
         return RetestHint.apply(end, ProviderStore.get(service).untestedMainProvider()) { tr(R.string.fail_model_untested, it) }
     }
 
     suspend fun execute(priorTurns: List<Turn>): TaskState {
-        // 手机一侧(内置助手、无障碍、虚拟屏)第一次 launch_app 时才接上:只用网页、沙箱的任务不需要它们
+        // 携帯電話側 (内蔵アシスタント、アクセシビリティ、仮想画面) は、app の初回起動時にのみ接続されます: Web ページとサンドボックスのみを使用するタスクにはそれらは必要ありません
         var connection: com.wangzan101.mika.cap.phone.shell.ShellBinding? = null
         var phone: PhoneSide? = null
-        // 虚拟屏、网页显示等:建好当场归它,收尾时一起放掉;不经「建完再记到变量」,取消落在中间也不会漏
+        // 仮想画面、Webページ表示等：構築後その場で返却、終了時に一緒にリリース; 「ビルド後に変数を記録する」必要がなく、途中で落としてもキャンセルを取り逃がしません。
         val resources = ResourceScope()
         var watcher: DeviceStateWatcher? = null
         var mute: AudioMute? = null
-        // 模型标下的任务结束时各 App 的去留(在手机端口上);收尾时交给内置助手
+        // モデルのタスクが完了すると、各アプリの宛先 (携帯電話ポート上)。最後に、組み込みアシスタントに渡します
         var afterTask: com.wangzan101.mika.core.uistate.AfterTaskMarks? = null
         var shellDeath: IBinder.DeathRecipient? = null
         var shellBinder: IBinder? = null
@@ -461,42 +461,42 @@ class TaskRun(
         val traceTicket = traces.ticket()
         var record: RunHandle? = null
         var runStore: RunStore? = null
-        // 这次运行里经计量的模型请求(含旁路调用),收尾时记进运行记录
+        // この実行で測定されたモデル リクエスト (バイパス呼び出しを含む) は、最後に実行レコードに記録されます。
         val tally = RunUsageTally()
-        // 第一次打开网址时才建;没建过就不用关
+        // は、Web サイトを初めて開いたときに構築されます。以前にビルドされていない場合は、閉じる必要はありません。
         var webStack: WebStack? = null
-        // 当前界面(手机/网页)要看分发器;画中画的画面来源随它切换
+        // 現在のインターフェイス (携帯電話/Web ページ) はディストリビュータによって異なります。ピクチャー・イン・ピクチャーの映像ソースもそれに合わせて切り替わります
         var dispatcher: ToolDispatcher? = null
         var mcpEvents: AutoCloseable? = null
         var liveFeed: AutoCloseable? = null
-        // 询问 / 自主:开工时取一份,开发者选项里换开关时跟着变;收尾时交还
+        // 問い合わせ / 自主性: 作業を開始するときにコピーを 1 部取り、開発者向けオプションでスイッチが変更されたときに変更します。最後に返してください
         val approvalControl = (service.application as MikaApp).approvalControl
         var approval: RunApproval? = null
-        // 任务期间的旁路协程(助手连接状态、静音与挪走监视、状态发布),任务结束一并取消
+        // タスク中はコルーチンをバイパス（アシスタント接続ステータス、ミュートと削除の監視、ステータス解除）、タスク終了時にキャンセル
         val side = CoroutineScope(
             scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]) +
                 CoroutineExceptionHandler { _, e -> Log.w(TAG, "task side job failed", e) },
         )
         sideScope = side
         try {
-            // 用户在「干活时」关掉了常亮就不拿唤醒锁;开跑就按此刻的状态(准备中)拿上:
-            // 开模型、读知识、选路线、判断意图这些第一步之前的准备和推理期间屏幕也不熄
+            // ユーザーは、「作業中」には常時点灯ライトをオフにし、ウェイクロックを取得しません。実行を開始するときは、現在のステータスに応じて実行します (準備中)。
+            // モデルを開き、知識を読み取り、ルートを選択し、意図を判断する最初のステップである準備と推論中に画面がオフになりません。
             awake = if (FeatureFlags.get(service).keepScreenOn()) KeepAwake(service.wakeLock.lease(), side).also { it.onState(_state.value) } else null
             val model = env.modelFactory(service, session) ?: return TaskState.Failed(tr(R.string.fail_no_main_model), FailKind.Environment)
-            // 用户在浏览器页上对着一页问的:那一页借给这个任务当当前网页标签(见 PageLoans);开跑时页面还开着才借得到
+            // ユーザーは、ブラウザ ページ上のページに、どのページを現在の Web ページ ラベルとしてこのタスクに貸与する必要があるかを尋ねました (PageLoans を参照)。実行中にページがまだ開いている場合にのみ借用できます。
             val pageLoan = if (provenance.origin == RunOrigin.Ui) withContext(Dispatchers.Main) { UserBrowser.existing()?.claim(conversationId, key) } else null
             val light = env.lightModelFactory(service, session)
             val vision = env.visionModelFactory(service, session)
 
             val (knowledge, skills) = withContext(Dispatchers.IO) {
-                // 用户对某个 App/站点的补充放在私有目录 personal/apps、personal/sites 下
+                // ユーザーによるアプリ/サイトへの追加は、プライベート ディレクトリpersonal/appsおよびpersonal/sitesに配置されます。
                 val userNotes = KnowledgeStore.loadNotes(File(service.filesDir, "personal"))
-                // 自学的 App 知识里改名前写下的工具名换成现在的
+                // 自習アプリのナレッジにおいて、以前に記載していたツール名を現在のものに変更しました
                 val learnedNotes = legacyNames().let { legacy -> memoryRuntime.appKnowledge().notes().mapValues { it.value.copy(text = legacy.rewrite(it.value.text)) } }
                 KnowledgeStore(KnowledgeStore.loadBundled(), userNotes, learnedNotes) to GuideCatalog.loadBundled()
             }
             val appAccess = (service.application as MikaApp).appAccess
-            // 应用访问边界:工具和预览画面共用一份(下面接手机端口时建),窗口没变时核对结果直接沿用,预览不必每一帧都问窗口
+            // アプリケーションのアクセス境界: ツールとプレビュー画面は 1 つのコピーを共有します (以下の携帯電話ポートに接続するときに構築されます)。ウィンドウが変化しない場合には、検証結果がそのまま使用される。プレビューはフレームごとにウィンドウに問い合わせる必要はありません。 アプリでの
             var accessGuard: com.wangzan101.mika.core.uistate.AppAccessScreenPort? = null
             suspend fun previewAllowed(): Boolean {
                 val guard = accessGuard ?: return false
@@ -507,30 +507,30 @@ class TaskRun(
                 catch (_: com.wangzan101.mika.core.access.AppAccessDenied) { false }
             }
             val metrics = mainScreenMetrics()
-            // 在 App 里操作的节奏(设置 › 干活时);评测、真机验收按钩子覆盖
+            // 操作のリズム (設定 › 作業中)。評価と実機受け入れはフックでカバー
             val pace = env.evalHooks.operatingPace ?: FeatureFlags.get(service).operatingPace()
-            // 助手是否连着;没接上手机之前当作连着(网页、沙箱的步骤不看它)
+            // アシスタントが接続されているかどうか。携帯電話に接続されるまで接続されたとみなされます (Web ページやサンドボックスのステップでは見ないでください)。
             val shellUp = MutableStateFlow(true)
             val states = DeviceStateWatcher(service) { id -> phone?.shell?.topTaskId(id) ?: -1 }.also { watcher = it }
 
-            /** 接上手机:连内置助手、等无障碍、备好(到第一次 launch_app 才建的)虚拟屏;缺一样就报 phone_unavailable。 */
+            /** 携帯電話に接続します: 内蔵アシスタントに接続し、アクセシビリティを待ち、仮想画面を準備します (最初の launch_app までに構築されます)。何かが不足している場合は、phone_unavailable が報告されます。 */
             suspend fun connectPhone(): AndroidScreen {
-                // 版本要求只属于手机操作;旧系统仍可聊天、使用网页和沙箱,也不应被引导去配对不支持的助手。
+                // バージョンでは携帯電話の操作のみが必要です。古いシステムでもチャットしたり、Web ページやサンドボックスを使用したりできますが、サポートされていないアシスタントとペアリングするように指示されるべきではありません。
                 if (Build.VERSION.SDK_INT < Prerequisites.MIN_SDK) throw PhoneUnavailable(TaskService.TOO_OLD)
                 val conn = connection ?: phoneServices.sharedShell.acquire().also { connection = it }
                 val shell = withTimeoutOrNull(SHELL_WAIT_MS) { conn.shell.filterNotNull().first() }
                     ?: run {
                         phoneServices.setupPrompt.request()
-                        // 只用 USB 命令起过的助手停了:照实说要再运行命令,不让人去找无线调试
+                        // USB コマンドのみを使用して開始されたアシスタントが停止しました。真実を伝えてコマンドを再度実行し、ユーザーがワイヤレス デバッグを探すのを防ぎます。
                         throw PhoneUnavailable(
                             if (phoneServices.shellControl.restart == HelperRestart.UsbCommand) NO_PHONE_HELPER_USB else NO_PHONE_HELPER,
                         )
                     }
-                // 服务卡在「开着却没运行」、正在自动重启时多等一会儿,修好了接着做,放弃了照常报错
+                // サービス カードは「開いていますが実行されていません」であり、自動的に再起動しています。しばらく待って修正して続行し、あきらめて通常どおりエラーを報告します。
                 val a11y = AccessibilityRepair.awaitService(ScreenAccessibility.instance, phoneServices.recovery.accessibilityRepair.phase, A11Y_WAIT_MS)
                     ?: throw PhoneUnavailable(NO_ACCESSIBILITY)
                 recovery.beginRun(shell, key)
-                // 只有用过手机的任务才跟着 shell 的死活:shell 没了,虚拟屏和上面的 App 一起没了
+                // 携帯電話を使用するタスクのみがシェルの生と死に従います。シェルはなくなり、仮想画面はその上のアプリとともに消えます。
                 shellDeath = IBinder.DeathRecipient {
                     shellDied = true
                     val running = loop
@@ -545,7 +545,7 @@ class TaskRun(
                     } catch (e: Exception) {
                         if (e is CancellationException || e !is IllegalStateException && e !is RemoteException) throw e
                         if (!parallel || !service.otherRunHasDisplay(this@TaskRun)) throw e
-                        // 外壳建不出第二块屏:这次运行期间不再并行;本任务排在后面,等别的任务的屏都放掉再建
+                        // 2 番目の画面をシェルに構築することはできません。この間、並列操作は行われません。このタスクは後ろのキューに入れられ、他のタスクのすべての画面が解放された後に構築されます。
                         service.taskState.markSecondDisplayFailed()
                         publish(TaskState.Held(GateReason.queued(WAITING_DISPLAY)))
                         while (service.otherRunHasDisplay(this@TaskRun)) delay(DISPLAY_RETRY_MS)
@@ -558,7 +558,7 @@ class TaskRun(
                 }
                 val audio = recovery.audioMute(shell, key).also { mute = it }
                 val muter = appMuter(shell, audio)
-                // 占用登记里的名字:另一份用户里的那份单独占,和本来那份互不挡;占着的任务还在不在用它,问内置助手
+                // は登録内の名前を占有します。別のユーザーの共有は個別に占有され、元の共有をブロックしません。占有されているタスクがまだそれを使用している場合は、内蔵アシスタントに尋ねます
                 fun claimKey(pkg: String, user: Int?) = if (user == null) pkg else "$pkg@$user"
                 fun stillUsed(pkg: String, user: Int?): () -> Boolean = {
                     runCatching { if (user == null) shell.displayOfPackage(pkg) else shell.displayOfPackageInUser(pkg, user) }.getOrDefault(-1) >= 0
@@ -569,15 +569,15 @@ class TaskRun(
                     reserve = { pkg -> service.reservePackage(pkg, key, stillUsed(pkg, null)) },
                     reserveCopy = { pkg, user -> service.reservePackage(claimKey(pkg, user), key, stillUsed(pkg, user)) },
                     appFree = { pkg, user -> service.packageFree(claimKey(pkg, user), key, stillUsed(pkg, user)) },
-                    // 模型要了等:等的时候界面写「等另一个任务用完某 App」(仍是在干活,不算要你处理),等完放回原来那句
+                    // モデルは待機する必要があります: 待機中、インターフェイスには「アプリの使用が完了する別のタスクを待機しています」と表示され (アプリはまだ動作しており、処理する必要はありません)、待機後、元の文に戻ります。
                     awaitApp = { pkg, user, timeoutMs, free ->
                         waitingForApp(ConfirmationNotifier.appLabel(service, pkg)) { service.awaitPackage(claimKey(pkg, user), key, timeoutMs, free) }
                     },
                     clipSaved = { original, ours -> recovery.saveClip(original, ours) },
                     handedOver = { handoverRef?.handedOver == true },
-                    // 打字一段一段出来;App 知识说限制浏览快慢的 App 打得更慢
+                    // 一度に 1 段落ずつ入力します。アプリの知識によると、アプリの閲覧速度を制限すると入力が遅くなるそうです。
                     typing = { pkg -> pace.typing(PlacePace.of(pkg?.let(skills::appPace))) },
-                    // 启动前就静上,开头几秒也没声;启动被拒就还原
+                    // は開始前に沈黙し、最初の数秒間は音が聞こえません。起動が拒否された場合は復元します。
                     beforeOpen = muter::beforeOpen,
                     notOpened = muter::notOpened,
                     appAccess = appAccess,
@@ -589,7 +589,7 @@ class TaskRun(
             }
             val phoneScreen = LazyPhoneScreen(metrics.widthPixels, metrics.heightPixels,
                 listApps = { withContext(Dispatchers.IO) { launchableApps(service.packageManager, service.packageName) } },
-                // 另一份用户里的 App 要问内置助手:助手已经连着才问,不为它去接
+                // 別のユーザーのアプリが組み込みアシスタントに質問しようとしています: アシスタントがすでに接続されている場合にのみ質問し、それに応答しません
                 appCopies = {
                     phoneServices.hub.shell.value?.let { s ->
                         withContext(Dispatchers.IO) { runCatching { AppCopyReader.read(s, launchableApps(service.packageManager, service.packageName)) }.getOrNull() }
@@ -602,14 +602,14 @@ class TaskRun(
                 windowToken = { ScreenAccessibility.windowGeneration() },
             ).also { accessGuard = it }
             afterTask = phoneScreen.afterTask
-            // 挪回虚拟屏后等窗口出现,Agent 接下来读屏才读得到
+            // 仮想画面に戻り、ウィンドウが表示されるまで待ちます。次にエージェントが画面を読み上げます。
             suspend fun moveTask(taskId: Int, to: Int): Boolean {
                 val p = phone ?: return false
                 val moved = withContext(Dispatchers.IO) { runCatching { p.shell.moveTask(taskId, to) }.getOrDefault(false) }
                 if (moved && to == p.display.current?.displayId) p.screen.awaitContent()
                 return moved
             }
-            // 挪回去的 App 原本就在虚拟屏上,屏一定已经建好;没有屏就没有可挪回的
+            // 元に戻されたアプリは元々仮想画面上にあり、画面は構築されている必要があります。スクリーンがなければ、後戻りすることはできません。
             suspend fun moveBackToAgent(taskId: Int): Boolean {
                 val id = phone?.display?.current?.displayId ?: return false
                 return moveTask(taskId, id)
@@ -619,7 +619,7 @@ class TaskRun(
                 t != null && t.taskId >= 0 && moveBackToAgent(t.taskId)
             }
             gate = taskGate
-            // 记录开不起来就不记,任务照跑
+            // レコードを開けない場合、レコードは記録されず、タスクは引き続き実行されます。
             val sink: RunSink = withContext(Dispatchers.IO) {
                 runCatching {
                     val runs = RunStore(service).also { runStore = it }
@@ -629,10 +629,10 @@ class TaskRun(
             val trace = record?.takeIf { traceTicket != null }?.let { run ->
                 resources.acquire(Dispatchers.IO, traces.store::finish) { traces.start(traceTicket, run.runId) }
             }
-            // 装了哪些 App:每个任务读一次,读不到就当没有;参考资料用
+            // にインストールされているアプリ: 各タスクを 1 回読みます。読めない場合は無視してください。参考にしてください
             val apps = try { phoneScreen.listApps() } catch (e: CancellationException) { throw e } catch (e: Exception) { emptyList() }
             val speed = FeatureFlags.get(service).speedFlags()
-            // 记忆与个人技能:进程内同一份;总开关关着就不给记忆(不检索、不注入、不提取、没有记忆工具)
+            // 記憶と個人スキル: プロセス内の同じコピー。メインスイッチがオフの場合、メモリは与えられません (検索なし、注入なし、抽出なし、メモリツールなし)。 今回の
             val switches = memoryRuntime.settings().switches.value.let { sw ->
                 sw.copy(learnSkills = env.evalHooks.learnSkills ?: sw.learnSkills, autoRemember = env.evalHooks.rememberMemory ?: sw.autoRemember)
             }
@@ -640,24 +640,24 @@ class TaskRun(
             val profileSnapshot = if (switches.useMemory) withContext(Dispatchers.IO) {
                 runCatching { memoryRuntime.profile().snapshot() }.onFailure { Log.w(TAG, "profile unavailable", it) }.getOrDefault(emptyList())
             } else emptyList()
-            // 用户本次说的话:记忆的引文、按用户要求写下技能的引文都据此核对(只在内存里,任务开始清空)
+            // ユーザーの発言：記憶した名言やユーザーの要望に沿って書かれたスキルの名言は全て適宜チェックされる（記憶の中だけでタスククリアが始まる）
             val utterances = UserUtterances()
-            // 改名前沉淀的个人技能:里面的旧工具名载入时换成现在的
+            // 名前変更前に蓄積された個人スキル: 内部の古いツール名はロード時に現在のものに置き換えられます
             val catalog = GuideCatalog.withPersonal(skills, memoryRuntime.skills(), legacyNames()::rewrite)
-            // 内置浏览器:每个任务自己的后台网页显示、标签池和脚本引擎,第一次打开网址时才建(只用手机的任务不建);
-            // 系统里没有 WebView 时不提供网页工具
+            // 内蔵ブラウザ: 各タスクには独自のバックグラウンド Web ページ表示、タグ プール、およびスクリプト エンジンがあり、これらは URL が初めて開かれたときに構築されます (携帯電話のみを使用するタスク用には構築されていません)。 システムに WebView がない場合、
+            // は Web ツールを提供しません
             val webInstalled = runCatching { WebViewCompat.getCurrentWebViewPackage(service) != null }.getOrDefault(false)
             val web = if (!webInstalled) null else LazyWebPort {
                 val stack = resources.acquire(Dispatchers.Main, WebStack::close) { WebStack.create(
                         service, key, metrics.widthPixels, metrics.heightPixels, metrics.densityDpi,
-                        // 下载、上传走本对话的工作区:只是 App 私有目录里的文件夹,不要求沙箱已装好
+                        // この会話のワークスペースをダウンロードしてアップロードします。これはアプリのプライベート ディレクトリ内の単なるフォルダーであり、サンドボックスをインストールする必要はありません。
                         workspace = SandboxDirs(service).let { d -> WebStack.Workspace(d.workspace(conversationId), d.gate, d.tree) },
                     ) }
                 webStack = stack
-                // 模型用 web_keep_open 标过的那一页,任务结束时留在后台,记在这一轮名下(对话里那一轮下面显示、关了补一句)
+                // モデルで web_keep_open とマークされたページは、タスクが完了するとバックグラウンドに残され、このラウンドの名前で記録されます (ラウンドの下部がダイアログに表示され、閉じられた場合は文が追加されます)
                 stack.keepOrigin = { KeptOrigin(conversationId, _runId.value, goal) }
                 side.launch {
-                    // 网页界面时画中画显示网页显示的画面;换界面时先清掉上一边的画面;怎么显示见 WebPreview
+                    // Web インターフェイスでは、Web ページに表示されている画面をピクチャ イン ピクチャで表示します。インターフェースを変更するときは、まず前の画面をクリアしてください。表示方法については、「WebPreview」を参照してください。
                     var last: String? = null
                     while (true) {
                         delay(WEB_FRAME_MS)
@@ -666,7 +666,7 @@ class TaskRun(
                             _frames.value = null
                             last = surface
                         }
-                        // 当前标签是借来的那一页时它就在用户眼前,和接管中一样不放画面
+                        // 現在のラベルが借用ページの場合、ユーザーの目の前にあり、引き継ぎ時のように画面は表示されません。
                         val show = WebPreview.of(onWeb = surface == WEB, hasTab = stack.hasVisibleTab, handedOver = stack.handedOver || stack.onBorrowedTab)
                         when (show) {
                             WebPreview.Frames -> withContext(Dispatchers.IO) { stack.host.latestFrame() }?.let { _frames.value = it }
@@ -679,7 +679,7 @@ class TaskRun(
                 stack.screen
             }
             if (conditionCheck && !webInstalled) return TaskState.Failed(tr(R.string.fail_no_web), FailKind.Environment)
-            // 借来的页面:开局就建好网页这一套,把它当当前标签借进去;用户摸了它就暂停(此刻正在手机屏上操作时不算)
+            // 借用ページ: 最初に Web ページを作成し、それを現在のラベルとして借用します。ユーザーがタッチすると一時停止します（現時点では携帯電話の画面で操作している場合はカウントされません）
             if (pageLoan != null && web != null && web.prepare()) webStack?.let { stack ->
                 withContext(Dispatchers.Main) {
                     stack.borrowedTouches = { pageLoan.touches }
@@ -694,22 +694,22 @@ class TaskRun(
                     })
                 }
             }
-            // 这个对话里用户发来的屏幕(跟着对话存在工作区里)
+            // この会話でユーザーによって送信された画面 (会話とともにワークスペースに保存されます)
             val userScreens = (service.application as MikaApp).userScreens.source(conversationId)
             val stepLimit = if (conditionCheck) null else FeatureFlags.get(service).taskStepLimit()
             val runSpec = RunSpec(RunId(key), goal, conversationId,
                 priorTurns,
                 provenance, if (conditionCheck) setOf("web", "sandbox") else null, readOnly = conditionCheck,
                 stepBudget = stepLimit)
-            // 外部 MCP server 只在主任务接;子任务/条件检查/评测不接,避免绕过父任务审批、影响评测可复现
+            // 外部 MCP サーバーはメイン タスクにのみ接続されています。親タスクの承認をバイパスして評価の再現性に影響を与えることを避けるため、サブタスク/条件チェック/評価は接続されていません。
             if (!conditionCheck) {
-                // 连上的当场归 resources:收尾(含取消、失败、连到一半被停)关作用域时一起关,stdio server 的进程和沙箱租约跟着放掉
+                // 接続されているリソースはその場で返却されます。最後にスコープがクローズされた場合（キャンセル、失敗、接続途中での停止を含む）、stdioサーバープロセスとサンドボックスのリースは解放されます。
                 mcpConnections = (service.application as MikaApp).mcpServers.connectionsFor(
                     resources,
                     com.wangzan101.mika.mcp.ConversationMcpResultStore(SandboxDirs(service), conversationId),
                     conversationId,
                 )
-                // 连接失败、超过总时限没连上的只在任务卡片上提示一句,不打断任务;详情在设置页的健康状态里
+                // 接続が失敗した場合、または合計制限時間を超えた後に接続に失敗した場合は、タスクは中断されずにタスク カードにプロンプ​​トのみが表示されます。詳細は設定ページの健全性ステータスにあります
                 mcpConnections?.failures?.takeIf { it.isNotEmpty() }?.let { failures ->
                     val store = (service.application as MikaApp).mcpServers
                     val names = store.servers.value.associate { it.id to it.name }
@@ -729,7 +729,7 @@ class TaskRun(
                         conversationId = conversationId, inlineScreen = speed.inlineScreen,
                         adaptiveVision = speed.adaptiveVision)
                     AgentLoop(model, childTools, SystemPrompt.identity(), maxSteps = childSpec.stepBudget ?: AgentLoop.UNLIMITED_STEPS,
-                        // 子任务跟着询问 / 自主;询问时它也过关卡,子任务里花钱的一步一律不做
+                        // サブタスクは問い合わせ/自律に続きます。また、要求されたときにレベルをパスし、お金がかかるサブタスクのステップは実行されません。
                         confirmations = runApproval.gate(), approvals = runApproval, autonomous = runApproval.startedAutonomous,
                         reviewFinalAnswer = false, flags = speed, outwardPacing = OutwardPacing.human())
                 },
@@ -737,7 +737,7 @@ class TaskRun(
                 ownerAlive = { job?.isActive == true },
             ).also { children = it } else null
             val tools = toolDispatcher(accessedPhone, model.capabilities.vision, catalog, recordFrames = true, vision = vision?.let { VisionService(it, BitmapImageOps) },
-                // 设置里允许 Mika 改自己时,才把 settings_list、settings_set 发给模型
+                // は、Mika が設定で自身を変更できる場合にのみ、settings_list と settings_set をモデルに送信します。
                 selfConfig = if (FeatureFlags.get(service).selfConfig()) {
                     com.wangzan101.mika.settings.SelfConfigImpl(FeatureFlags.get(service))
                 } else null,
@@ -746,16 +746,16 @@ class TaskRun(
                 deepLinks = speed.deepLinks, memory = memory, profile = if (memory != null) memoryRuntime.profile() else null,
                 utterances = utterances, conversationId = conversationId,
                 web = web,
-                // 同一个网站一页一页看:换页前补足停留,不连着秒开
+                // 同じ Web サイトをページごとに表示します。ページを変更する前に一時停止を埋めて、中断することなく数秒で開きます。
                 webPacing = { PagePacing.human() },
-                // 停留时像人一样把页面轻轻滚几下
+                // 滞在中は、人間のようにゆっくりとページを数回スクロールしてください。
                 webIdleScroll = { IdleScroll(Random.Default) },
-                // 在 App 里一步一步操作:动作之间停一会儿,限制浏览快慢的 App 停得更久、屏数有上限(按设置里的操作节奏)
+                // アプリのステップバイステップ操作: アクションの間にしばらく一時停止します。ブラウジング速度を制限するアプリは一時停止時間が長くなり、画面数が制限されます (設定の操作リズムに応じて)
                 appPacing = { pace.appPacing() },
                 appIdleScroll = { IdleScroll(Random.Default) },
-                // 上传只认本对话工作区里的普通文件(与沙箱同一套路径规则);技能目录、工作区外一律越界
+                // アップロードは、この会話のワークスペース内の通常のファイルのみを認識します (サンドボックスと同じパス規則のセット)。スキルディレクトリとワークスペースの外はすべて範囲外です
                 workspacePath = web?.let { { p: String -> sandbox.uploadCheck(conversationId, p) } },
-                // 工作区 = 对话:同一对话的追问接着用上一轮的文件,不同对话互不可见
+                // ワークスペース = 会話: 同じ会話内の質問は前回のラウンドのファイルを引き続き使用し、異なる会話は相互に表示されません。
                 sandbox = sandbox, workspace = { conversationId },
                 onSandboxCommand = { sandboxNote(StatusCopy.sandboxCommand(it, sandboxOnline())) },
                 onSandboxProgress = { sandboxNote(StatusCopy.sandboxProgress(it, sandboxOnline())) },
@@ -766,21 +766,21 @@ class TaskRun(
                 scheduleTrigger = if (provenance.origin == RunOrigin.Ui) { trigger -> TriggerRuntime.schedule(service, trigger) } else null,
                 scheduleAdmin = if (provenance.origin == RunOrigin.Ui) LocalScheduleAdmin(service) else null,
                 childHost = childRunner,
-                // 用户要求时写下或改写个人技能(和自学收下的放在同一处,设置里立刻能看到)
+                // ユーザーのリクエストに応じて個人スキルを書き換えます (自習で収集したものと同じ場所に配置し、設定ですぐに確認できます)
                 personalSkills = memoryRuntime.skills(),
-                // 这个对话之前几轮的运行记录(只读;history_read 只认 runSpec 里这个对话的轮次)
+                // この会話の前のラウンドの実行レコード (読み取り専用。history_read は runSpec でこの会話のラウンドのみを認識します)
                 runRecords = RunStore(service).reader(),
                 mcpServers = mcpEndpoints())
             dispatcher = tools
             val agent = AgentLoop(
                 model, tools,
                 SystemPrompt.identity(),
-                // 助手断开、被挪走只在这一步用的是手机时才查
+                // アシスタントが切断または移動されました。この手順では携帯電話を使用する場合のみチェックを入れてください。
                 gate = { w ->
                     if (phoneScreen.acquired && dispatcher?.surface != WEB) phone?.screen?.let { awaitUserPick(it, taskGate, w) }
                     taskGate.pass({ phoneScreen.acquired && dispatcher?.surface != WEB }, w)
                 }, knowledge = knowledge, sink = sink, trace = trace, installedApps = { apps },
-                // 选渠道用的事实:装了哪些 App、在 Mika 里登录过哪些网站、有没有内置浏览器
+                // チャネル選択に関する事実: どのアプリがインストールされているか、どの Web サイトがミカにログインしているか、内蔵ブラウザがあるかどうか
                 channelFacts = {
                     val registry = WebSites.registry(service)
                     ChannelFacts(
@@ -793,18 +793,18 @@ class TaskRun(
                 maxSteps = env.evalHooks.maxSteps ?: runSpec.stepBudget ?: AgentLoop.UNLIMITED_STEPS,
                 reviewFinalAnswer = false,
                 inputTimeoutMs = TaskService.INPUT_TIMEOUT_MS,
-                // 询问 / 自主:询问时只有花钱的一步先问(有确认关卡和 request_confirmation);自主时连付款也不问。
-                // 开工时询问、中途换成自主的,下一步起不再问;开工时自主的,换成询问留给下一个任务
+                // 問い合わせ / 自律: 問い合わせるときは、最初にお金を要求するだけです (確認レベルと request_confirmation があります)。自立していれば、支払いについて尋ねることさえしません。
+                // 作業開始時に質問し、途中で独立に変更し、次のステップからは質問しなくなります。仕事を始めるときに自主的に質問し、質問に切り替えて次のタスクに任せる
                 confirmations = runApproval.gate(),
                 approvals = runApproval,
                 autonomous = runApproval.startedAutonomous,
                 confirmTimeoutMs = TaskService.CONFIRM_TIMEOUT_MS,
                 selfPackage = service.packageName,
                 flags = speed,
-                // 只在 lightSteps 打开、轻量模型能调工具时生效
+                // は、lightSteps がオンで、軽量モデル調整ツールが有効になっている場合にのみ有効になります。
                 router = light?.let { ModelRouter(model, it) },
                 intentJudge = if (provenance.origin == RunOrigin.Ui) light ?: model else null,
-                // 选路线是辅助判断:用轻量模型,没配用主模型
+                // ルート選択は補助的な判断です。メインモデルではなく軽量モデルを使用してください。
                 routes = if (speed.replay) RouteMatcher(light ?: model, routeStore, knowledge) else null,
                 skills = catalog,
                 memory = memory,
@@ -812,7 +812,7 @@ class TaskRun(
                 profileSnapshot = profileSnapshot,
                 streamReplies = true,
                 userScreens = userScreens,
-                // 同一网站、App 里连着联系别人、提交:两次之间隔一段随机的时间
+                // 同じ Web サイトまたはアプリ上で他の人に連絡して送信する場合: 2 回の試行の間にランダムな時間が経過します。
                 outwardPacing = OutwardPacing.human(),
             )
             loop = agent
@@ -821,7 +821,7 @@ class TaskRun(
             kit = LearnKit(switches, memory, utterances, tools, agent, catalog, knowledge, model, light, runStore, agent.flags.replay, priorTurns)
             suspend fun <T> io(fallback: T, call: () -> T): T =
                 withContext(Dispatchers.IO) { runCatching(call).getOrDefault(fallback) }
-            // 接管期间才订阅主屏的无障碍事件:平时没人订阅,服务不复制事件
+            // 引き継ぎ中にホーム画面のアクセシビリティ イベントのみをサブスクライブします。通常は誰もそれらをサブスクライブせず、サービスはイベントをコピーしません。
             var counter: HandoverActivityCounter? = null
             var counting: Job? = null
             val handover = Takeover(object : TakeoverPort {
@@ -834,7 +834,7 @@ class TaskRun(
                 override suspend fun moveBack(taskId: Int) = moveBackToAgent(taskId)
                 override fun setSound(packageName: String, on: Boolean) {
                     val p = phone ?: return
-                    // 交出去的若是目标 App,按目标所属的那份算;别的按本来那份
+                    // 対象アプリが引き渡された場合、対象が属するシェアがカウントされます。それ以外の場合は、元のシェアがカウントされます。
                     val user = p.screen.target.value?.takeIf { it.packageName == packageName }?.let { copyUser(it.userId) }
                     if (on) {
                         if (!p.audio.release(packageName, user)) Log.w(TAG, "could not restore sound of $packageName for takeover")
@@ -845,7 +845,7 @@ class TaskRun(
                 override fun watchInput(packageName: String) {
                     counting?.cancel()
                     val c = HandoverActivityCounter(packageName).also { counter = it }
-                    // 立即订阅:接着发生的第一下操作不能漏
+                    // 今すぐ購読: 次に起こる最初の操作を見逃すことはできません
                     val a11y = phone?.a11y ?: return
                     counting = side.launch(start = CoroutineStart.UNDISPATCHED) {
                         a11y.eventsFor(Display.DEFAULT_DISPLAY).collect { e ->
@@ -867,9 +867,9 @@ class TaskRun(
                 override suspend fun resume(result: HandBack) { inbox.send(RunInput.HandBack(result)) }
                 override fun cancel() { inbox.cancel() }
 
-                // 网页界面:把当前标签(同一个页面)拿到主屏的接管界面;手机界面返回 null,走挪任务
+                // Web インターフェイス: 現在のタブ (同じページ) をメイン画面の引き継ぎインターフェイスに移動します。モバイルインターフェイスはnullを返し、タスクを移動します
                 override suspend fun showWeb(reason: String, key: Int): Boolean? {
-                    // 没打开过网页就不会在网页界面上
+                    // が開かれていない場合、Web インターフェイスには表示されません。
                     val w = webStack ?: return null
                     if (tools.surface != WEB) return null
                     val message = takeoverMessage(_state.value)
@@ -893,7 +893,7 @@ class TaskRun(
                     val previous = _state.value as? TaskState.Running
                     if (it is TaskState.Running && previous != null && previous.preview != it.preview &&
                         previous.copy(preview = it.preview) == it) {
-                        // 文字增量只刷新聊天；通知、接管和设备唤醒不需要每个 token 都重跑。
+                        // テキストの増加はチャットのみを更新します。通知、テイクオーバー、デバイスのウェイクアップをトークンごとに再実行する必要はありません。
                         synchronized(publishLock) { if (!ended) setState(it) }
                         return@collect
                     }
@@ -903,7 +903,7 @@ class TaskRun(
                     env.evalHooks.decisionFor(it)?.let { approved -> agent.answerConfirmation(approved) }
                 }
             }
-            // 别的任务的接管进出队时,本任务的接管通知要跟着换(排到最前、或后面多了一个)
+            // 他のタスクの引き継ぎがキューに出入りする場合、このタスクの引き継ぎ通知もそれに応じて変更する必要があります (キューの先頭に入れられるか、最後にもう 1 つ追加されます)。
             if (parallel) side.launch { service.takeoverQueue.changes.collect { service.refreshNotifications(this@TaskRun) } }
             side.launch {
                 combine(handover.stage, handover.problem) { stage, _ -> stage }.collect {
@@ -923,7 +923,7 @@ class TaskRun(
             shellDeath?.let { d -> runCatching { shellBinder?.unlinkToDeath(d, 0) } }
             loop = null
             children = null
-            // 早点关:后面收尾要等屏和网页;resources 关时还会再关一次(只关一次,不重复)
+            // 早めに閉じてください。画面と Web ページが後で終了するまで待つ必要があります。リソースが閉じられると、再び閉じられます (1 回だけ、繰り返されません)。
             mcpConnections?.close()
             mcpConnections = null
             mcpEvents?.close()
@@ -933,12 +933,12 @@ class TaskRun(
             takeover = null
             handoverRef = null
             sideScope = null
-            // 借来的页面还回浏览器页(在关掉网页这一套之前)
+            // 借用したページをブラウザページに戻します（Webページを閉じる前）
             withContext(Dispatchers.Main + NonCancellable) { runCatching { UserBrowser.existing()?.loans?.end(key) } }
             withContext(Dispatchers.IO + NonCancellable) {
-                // 前面哪步抛错,屏和网页显示也照放(按建的反序)
+                // 前の手順でエラーが発生した場合は、画面と Web ページの表示も表示されます (逆の順序)。
                 try {
-                    // 先定 Mika 屏上 App 的去留(留下的挪到主屏后面、正在出声的关掉)并释放屏,再还原静音:留下的不会突然出声
+                    // まず、Mika 画面上のどこにアプリを保持するかを決定し (残りのアプリをメイン画面の後ろに移動し、音が出ているアプリをオフにします)、画面を放してからミュートに戻します。残りのアプリが突然音を出すことはありません。
                     val apps = phone?.takeIf { !shellDied }?.let { p ->
                         p.display.current?.let { d -> AppsAfterTaskEnd.finish(p.shell, d.displayId, afterTask) }
                     }
@@ -948,29 +948,29 @@ class TaskRun(
                         r.close()
                         if (BuildConfig.DEBUG) runStore?.mirrorToExternal(r.runId)
                     }
-                    // 恢复抛错也要撤掉「在跑」的登记,否则这份记录永远不归恢复处理
+                    // エラーを回復するときは、「実行中」の登録も削除する必要があります。そうしないと、このレコードは復元されません。
                     try { mute?.restoreAll() } finally { recovery.endRun(key) }
                     watcher?.close()
                 } finally {
                     resources.close()
                 }
             }
-            // 屏释放后、对外报结束前清掉:界面看到任务结束时已经没有屏了
+            // 画面が解放された後、外部レポートが終了する前に画面がクリアされます。インターフェイスでは、タスクの終了時に画面が存在しないことが認識されます。
             _displayId.value = -1
             _appShown.value = false
             if (connection != null) phoneServices.sharedShell.release()
         }
     }
 
-    /** 手机一侧:用过手机的任务才有。 */
+    /** 携帯電話側：携帯電話で使用したタスクのみ利用可能です。 */
     private class PhoneSide(
         val shell: com.wangzan101.mika.shell.IMikaShell, val a11y: ScreenAccessibility, val screen: AndroidScreen,
         val display: LazyAgentDisplay, val audio: AppMuter,
     )
 
     /**
-     * 这次任务的静音规则(见 [AppMuter]):Mika 自己不静;没有桌面入口的系统包不静(系统界面、选择框一类);
-     * 用户在主屏上看得见的不静;没静成的记下,任务进度上提示可能出声。
+     * このタスクのミュート ルール ([AppMuter] を参照): ミカ自身はミュートされていません。デスクトップ エントリを持たないシステム パッケージ (システム インターフェイス、選択ボックスなど) はミュートされません。
+     * ユーザーは、ホーム画面が静かではないことがわかります。静かでない場合は、タスクの進行状況を知らせる音が鳴る可能性があることに注意してください。
      */
     private fun appMuter(shell: com.wangzan101.mika.shell.IMikaShell, audio: AudioMute): AppMuter {
         val pm = service.packageManager
@@ -990,15 +990,15 @@ class TaskRun(
         )
     }
 
-    /** 任务所属的用户 → 静音按哪一份:本来那份(或读不到)为 null,另一份用户里的为那个用户编号。 */
+    /** タスクが属するユーザー → どのコピーをミュートするか: 元のコピー (または読み取れない) は null で、他のユーザー コピーにあるものがそのユーザー番号です。 */
     private fun copyUser(userId: Int): Int? = userId.takeIf { it >= 0 && it != AppCopyReader.myUser }
 
     @Volatile private var handoverRef: Takeover? = null
     @Volatile private var sideScope: CoroutineScope? = null
 
     /**
-     * 系统在用户主屏上问打开哪一个(见 [AndroidScreen.userPick]):停在这里,胶囊上请用户在屏幕上选一下,选好自动接着做;
-     * 选出来的 App 要用户亲手处理的,留在主屏,请用户处理好了点继续。不在等时直接返回。
+     * システムはユーザーにホーム画面でどれを開くかを尋ねます ([AndroidScreen.userPick] を参照): ここで停止します。ユーザーは画面上でカプセルを選択するように求められ、選択後は自動的に続行されます。
+     * 選択したアプリはユーザーが個人的に処理する必要があり、ホーム画面に残されます。ユーザーが処理を完了してから続行してください。待たずに直接返却。
      */
     private suspend fun awaitUserPick(screen: AndroidScreen, gate: TaskGate, setWaiting: (TaskState?) -> Unit) {
         val pick = screen.userPick.value ?: return
@@ -1009,16 +1009,16 @@ class TaskRun(
     }
 
     /**
-     * 目标 App 换了就静音(启动前多半已静上,这里补上没静成的),并盯着它有没有被用户挪到主屏。
-     * Mika 屏上冒出别的 App(从目标 App 里点开的、另一份顶上来的)也是第一次看到就静;静音按「包 + 用户」,另一份单独静。
-     * 用户接管期间屏上的事归用户,不去静。
+     * 変更後に対象のアプリをミュートし (開始前にミュートされている可能性が高いですが、ミュートされていないものは次のとおりです)、ユーザーによってホーム画面に移動されたかどうかを監視します。
+     * Mito 別のアプリが画面上にポップアップ表示されると (ターゲット アプリからクリックすると、別のコピーがアップロードされます)、最初に表示されたときはミュートになります。ミュートするには、「パッケージ + ユーザー」を押すと、他のアプリが単独でミュートされます。
+     * ユーザーの引き継ぎ中に画面に表示されているものはユーザーのものであり、消えることはありません。
      */
     private fun watchTarget(p: PhoneSide, states: DeviceStateWatcher) {
         val side = sideScope ?: return
         side.launch(Dispatchers.IO) {
             p.screen.foregroundApps().collect { t ->
                 if (handoverRef?.handedOver != true) p.audio.opened(t.packageName, copyUser(t.userId))
-                // 窗口变得很密:两次之间至少隔一会儿,中间的变化合成一次
+                // ウィンドウは非常に密になります。2 つの時間の間には少なくともしばらく時間が必要で、中央の変更は 1 回合成されます。
                 delay(FOREGROUND_GAP_MS)
             }
         }
@@ -1026,14 +1026,14 @@ class TaskRun(
             p.screen.target.filterNotNull().collectLatest { t ->
                 _appShown.value = true
                 if (handoverRef?.handedOver != true) p.audio.opened(t.packageName, copyUser(t.userId))
-                // 有目标 App 就说明 launch_app 已经建好了屏
+                // 対象のAppが存在する場合、launch_appはすでに画面を構築していることを意味します。
                 val displayId = p.display.current?.displayId
                 if (t.taskId >= 0 && displayId != null) {
                     states.taskMovedAway(displayId, t.taskId).collect {
-                        // 用户点「我来处理」后 App 本来就该在主屏
+                        // ユーザーが「処理します」をクリックすると、アプリがホーム画面に表示されます。
                         if (handoverRef?.handedOver == true) return@collect
                         gate?.onTaskMovedAway()
-                        publish(_state.value) // 立即显示暂停,不等下一个改动屏幕的工具
+                        publish(_state.value) // 次のツールによる画面の変更を待たずに、表示がすぐに一時停止されます。
                     }
                 }
             }
@@ -1041,8 +1041,8 @@ class TaskRun(
     }
 
     /**
-     * 用户在浏览器页上亲手摸了借给这个任务的页面:正在干活时马上显示暂停,下一个会改动屏幕的工具之前停下,
-     * 用户点「继续」再接着做(见 [TaskGate.onUserOnPage])。等用户回答、接管中等别的状态不动。主线程。
+     * ユーザーがブラウザ ページでこのタスクに割り当てられたページをタッチしました。作業中にすぐに一時停止が表示され、画面を変更する次のツールの前に停止しました。
+     * ユーザーは「続行」をクリックして続行します ([TaskGate.onUserOnPage] を参照)。ユーザーの応答待ち、引き継ぎなどの状態は変わりません。メインスレッド。
      */
     private fun userOnPage() {
         if (_state.value !is TaskState.Running) return
@@ -1051,7 +1051,7 @@ class TaskRun(
         publish(_state.value)
     }
 
-    /** 任务收尾后判结局、学东西要用的;[execute] 里填上。 */
+    /** は、ミッション完了後に結果を決定し、学習するために使用されます。 [execute]を記入してください。 */
     private class LearnKit(
         val switches: MemorySwitches, val memory: MemoryStore?, val utterances: UserUtterances?, val dispatcher: ToolDispatcher,
         val agent: AgentLoop, val catalog: GuideCatalog, val knowledge: KnowledgeStore,
@@ -1060,15 +1060,15 @@ class TaskRun(
     )
     @Volatile private var kit: LearnKit? = null
 
-    /** 停下时正在写的那段字(模型请求已流出的可见文字);收尾前取,收尾后状态就换成终态了。 */
+    /** 停止時に書き込まれていたテキスト (モデルリクエストが流出した目に見えるテキスト)。終了前に取得され、終了後に最終状態に変更されます。 */
     fun draftText(): String? = (_state.value as? TaskState.Running)?.preview?.takeIf(String::isNotBlank)
 
-    /** 停止后有没有可交代的:做过至少一件事,或停下时已经写出了字。 */
+    /** 停止後に説明することはありますか。少なくとも 1 つのことを実行したか、停止したときにすでに何かを書いていました。 */
     fun hasStopMaterial(draft: String?): Boolean = synchronized(activityLog) { activityLog.isNotEmpty() } || !draft.isNullOrBlank()
 
     /**
-     * 用户停止之后:按这次已经做了的事写几行交代(见 [StopSummary]),只读运行记录,不再操作任何东西。
-     * 轻量模型优先,没配用主模型;没模型、出错、超时就按记录直接拼。没什么可交代的为 null。
+     * ユーザーが停止した後: 今回何が行われたかを説明するために数行を書き込み ([StopSummary] を参照)、実行レコードを読み取るだけで、何も操作しません。
+     * 軽量モデル優先のため、メインモデルはございません。モデル、エラー、タイムアウトがない場合は、レコードを押すだけでプロセスが開始されます。説明するものが何もない場合は null。
      */
     suspend fun stopSummary(draft: String?): String? {
         val k = kit
@@ -1076,7 +1076,7 @@ class TaskRun(
         val recorded = withContext(Dispatchers.IO) { runId?.let { id -> runCatching { k?.runStore?.events(id) }.getOrNull() } }
         val events = recorded?.takeIf { e -> e.any { it is RunEvent.Activity } } ?: synchronized(activityLog) { activityLog.toList() }
         if (!StopSummary.worthSaying(events, draft)) return null
-        // 还没开出模型就停下的(准备阶段):按设置现取
+        // はモデルが起動される前に停止しました (準備段階): 今すぐ取得するには設定を押してください
         val (main, light) = if (k != null) k.model to k.light else withContext(Dispatchers.IO) {
             runCatching { env.modelFactory(service, session) }.getOrNull() to runCatching { env.lightModelFactory(service, session) }.getOrNull()
         }
@@ -1087,9 +1087,9 @@ class TaskRun(
     }
 
     /**
-     * 结果交给用户之后调用(不拖慢、不改交出的回答):回答按用户的要求判结局([OutcomeJudge],轻量模型优先),
-     * 记进运行记录和这一轮对话;只有办成的([LearnGate])才记路线、给回放的路线记成功。
-     * 放弃、失败、取消的不判(结局已经清楚),返回 null;判不成是 [RunOutcome.Unknown]。
+     * は、結果がユーザーに引き渡された後に呼び出されます (引き渡された応答を遅らせたり変更したりすることなく): 応答はユーザーの要求に従って決定されます ([OutcomeJudge]、軽量モデルが推奨されます)。
+     * は走行記録とこのラウンドの会話に記録されます。完了したルート ([LearnGate]) のみが記録され、再生されたルートは成功として記録されます。
+     * は諦め・失敗・中止（エンディングはクリア済み）の判定は行われずnullが返ります。判定されなかった場合は[RunOutcome.Unknown]となります。
      */
     suspend fun settleOutcome(end: TaskState, conversations: ConversationStore): JudgedOutcome? {
         val k = kit ?: return null
@@ -1103,7 +1103,7 @@ class TaskRun(
                 .onFailure { Log.w(TAG, "could not save run outcome", it) }
         }
         k.agent.noteOutcome(judged.outcome)
-        // 只有办成的才记成路线;从落盘的运行事件里取
+        // 完了したルートのみがルートとして記録されます。プレースメントの実行イベントから取得されます
         if (runId != null && LearnGate.shouldSaveRoute(k.routesOn, end, judged.outcome, runId, goal)) k.runStore?.let { s ->
             saveRoute(goal, withContext(Dispatchers.IO) { s.events(runId) }, k.dispatcher.index)
         }
@@ -1111,8 +1111,8 @@ class TaskRun(
     }
 
     /**
-     * 结果通知发出之后调用:记下用到的个人技能的结果、提取记忆、起草技能,提示挂到这一轮的结果卡片上并存进对话。
-     * 在进程级的作用域里跑,服务退出也不中断。
+     * 結果通知の送信後に呼び出されます。使用した個人スキルの結果を書き留め、記憶を取得し、スキルをドラフトします。プロンプトはこのラウンドの結果カードにハングアップされ、ダイアログに保存されます。
+     * はプロセス レベルのスコープで実行され、サービスが終了しても中断されません。
      */
     suspend fun learnAfter(end: TaskState, outcome: RunOutcome?, conversations: ConversationStore) {
         val k = kit ?: return
@@ -1144,7 +1144,7 @@ class TaskRun(
         }
     }
 
-    /** 办成的运行记成路线;记不成(不该记、写盘失败)不影响任务结局。 */
+    /** 成功した操作はルートとして記録されます。記録に失敗しても (記録すべきではない、ディスクへの書き込みに失敗しました)、タスクの結果には影響しません。 */
     private suspend fun saveRoute(goal: String, events: List<RunEvent>, tools: ToolIndex) = withContext(Dispatchers.IO) {
         runCatching {
             val route = RouteRecorder.record(goal, events, System.currentTimeMillis(), tools) ?: return@runCatching
@@ -1155,14 +1155,14 @@ class TaskRun(
         }.onFailure { Log.w(TAG, "route not saved", it) }
     }
 
-    /** 主屏上该包最上面那个窗口的标题;窗口按从上到下排列。 */
+    /** ホーム画面上のパッケージの上部ウィンドウのタイトル。ウィンドウは上から下に配置されます。 */
     private fun mainWindowTitle(a11y: ScreenAccessibility, packageName: String): String? = runCatching {
         a11y.windowsOn(Display.DEFAULT_DISPLAY).firstNotNullOfOrNull { w ->
             w.title?.toString()?.takeIf { it.isNotBlank() && w.root?.packageName?.toString() == packageName }
         }
     }.getOrNull()
 
-    /** 沙箱这一步的说明写到任务卡片上(当前这一步的 note)。 */
+    /** サンドボックス ステップの手順は、タスク カード (現在のステップのメモ) に書かれています。 */
     private fun sandboxNote(text: String) {
         val s = _state.value as? TaskState.Running ?: return
         publish(s.copy(note = text))
@@ -1171,8 +1171,8 @@ class TaskRun(
     private fun sandboxOnline() = (sandbox.status() as? SandboxStatus.Ready)?.network == true
 
     /**
-     * 等另一个任务放开 [app] 的这段时间:对外的进展写「等另一个任务用完 [app]」,仍是 Running,不是暂停、也不要你处理;
-     * 等完(放开了、等不到、被停掉)把等之前那一句放回去。等之前不在干活(比如已经停下来要你处理)就不改。
+     * が別のタスクが [app] を解放するのを待っている間、外部の進行状況は「別のタスクが [app] を終了するのを待っている」と書き込まれ、まだ実行中であり、一時停止されていないため、これに対処する必要はありません。
+     * 待った後（手を離す、待ちきれない、立ち止まる）、待つ前の文に戻します。動作しなくなるまでは変更しないでください (たとえば、停止して処理を要求するなど)。
      */
     private suspend fun <T> waitingForApp(app: String, wait: suspend () -> T): T {
         val before = _state.value as? TaskState.Running ?: return wait()
@@ -1186,12 +1186,12 @@ class TaskRun(
     }
 
     private fun publish(state: TaskState) {
-        // 被挪走后到 gate 拦下之前,循环可能还在推理:对外先显示暂停
-        // 循环自己报的终态不往外发:终态只由 [end] 在记好运行编号之后写,否则界面先收到结束、拿不到编号
+        // が移動された後、ゲートで停止される前に、ループはまだ推論を行っている可能性があります。最初に一時停止を外の世界に表示します。
+        // ループ自体によって報告される最終状態は送信されません。最終状態は、実行中の番号を記憶した後で [end] によってのみ書き込まれます。それ以外の場合、インターフェイスは最初に終了を受信し、番号を取得できません。
         if (!TaskService.loopMayPublish(state)) return
         val shown = when {
             state is TaskState.Running && gate?.movedAwayPending == true -> TaskState.Held(TaskGate.paused(TaskGate.MOVED_AWAY))
-            // 用户在借出的页面上操作:到关卡之前也先显示暂停
+            // ユーザーが借用したページで操作: レベルに到達する前に一時停止も表示されます。
             state is TaskState.Running && gate?.userOnPagePending == true -> TaskState.Held(TaskGate.paused(TaskGate.USER_ON_PAGE))
             else -> state
         }
@@ -1208,7 +1208,7 @@ class TaskRun(
         service.getSystemService(DisplayManager::class.java).getDisplay(Display.DEFAULT_DISPLAY).getRealMetrics(it)
     }
 
-    /** 网页接管界面顶部的说明:接管原因的话,付款时再带上商品、金额、地址。 */
+    /** Web ページの乗っ取りインターフェイスの上部にある指示: 乗っ取りの理由がある場合は、支払いの際に製品、金額、住所をご持参ください。 */
     private fun takeoverMessage(state: TaskState): String? {
         val w = state as? TaskState.WaitingTakeover ?: return null
         return listOfNotNull(
@@ -1220,11 +1220,11 @@ class TaskRun(
     }
 
     private companion object {
-        /** 网页界面时画中画取画面的间隔。 */
+        /** Web インターフェースのピクチャー・イン・ピクチャー画像間の間隔。 */
         const val WEB_FRAME_MS = 500L
         const val SHELL_WAIT_MS = 15_000L
         const val DISPLAY_RETRY_MS = 1_000L
-        /** Mika 屏上的前台 App 两次重读之间至少隔这么久。 */
+        /** ミカの画面上のフロントエンド アプリを再読み込みするまでに、少なくともこのくらいの時間がかかります。 */
         const val FOREGROUND_GAP_MS = 300L
         val WAITING_DISPLAY: String get() = tr(R.string.task_waiting_display)
         const val A11Y_WAIT_MS = 5_000L

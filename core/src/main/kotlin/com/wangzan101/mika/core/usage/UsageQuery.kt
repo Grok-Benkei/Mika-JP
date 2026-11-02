@@ -7,9 +7,9 @@ import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 /**
- * 看哪段时间。[Last24Hours] 是滚动的最近 24 小时(含此刻所在的小时),按小时分;
- * [LastDays] 是含今天在内的最近几个本地日历日,[Custom] 是本地日期 [from]..[to](含两头),都按天分,
- * 超过 [UsageQuery.MAX_DAILY_BARS] 天时按周分。
+ * は期間によって異なります。 [Last24Hours] は、ローリングの過去 24 時間 (現在の時間を含む) を時と分で示します。
+ * [LastDays] は今日を含むローカル暦の過去数日、 [Custom] はローカル日付 [from]..[to] (両端を含む)、すべて日ベースです。
+ * は [UsageQuery.MAX_DAILY_BARS] を日単位で超えています。
  */
 sealed interface UsageRange {
     data object Last24Hours : UsageRange
@@ -17,10 +17,10 @@ sealed interface UsageRange {
     data class Custom(val from: LocalDate, val to: LocalDate) : UsageRange
 }
 
-/** 趋势图一根柱子多长。 */
+/** トレンド チャートのバーの長さはどれくらいですか? */
 enum class UsageStep { Hour, Day, Week }
 
-/** 一段时间里的合计。[tokens] 是输入加输出(缓存命中算在输入里,不另加)。 */
+/** 一定期間にわたる合計。 [tokens] は入力と出力です (キャッシュ ヒットは入力でカウントされ、個別に追加されません)。 */
 data class UsageTotals(
     val input: Long = 0,
     val output: Long = 0,
@@ -35,9 +35,9 @@ data class UsageTotals(
 }
 
 /**
- * 趋势图的一根:[start] 是这一格开始的本地时间(按小时时是整点,按天、按周时是第一天零点),
- * [lastDay] 是按周时这一格的最后一天(含;最后一格可能不满 7 天),其余为 null。
- * [byProvider] 是各服务商在这一格的 token(没有用量的不列)。
+ * トレンド チャートの 1 つのブランチ: [start] は、このグリッドの先頭の現地時間です (毎時は時間、日と週は最初の日がゼロになります)。
+ * [lastDay] は、週単位でのこのグリッドの最終日 (両端を含みます。最後のグリッドは 7 日未満の場合があります) であり、残りは null です。
+ * [byProvider] は、このフィールドの各サービス プロバイダーのトークンです (使用されていないものはリストされていません)。
  */
 data class UsageBucket(
     val start: LocalDateTime,
@@ -46,16 +46,16 @@ data class UsageBucket(
     val lastDay: LocalDate? = null,
 )
 
-/** 一个模型里某个用途的用量;[share] 是占这个模型的比例(0..1)。用途只作统计的一个维度,界面上不分。 */
+/** は、モデルにおける特定の目的の使用法です。 [share] は、このモデルの比率 (0..1) です。これは統計の一次元にのみ使用され、インターフェイス上では区別されません。 */
 data class PurposeUsage(val purpose: UsagePurpose, val totals: UsageTotals, val share: Double)
 
-/** 一个服务商下一个模型的用量;[share] 是占这个服务商的比例。 */
+/** は、サービス プロバイダーの次のモデルの使用法です。 [share] は、このサービス プロバイダーの割合です。 */
 data class ModelUsage(val model: String, val totals: UsageTotals, val share: Double, val purposes: List<PurposeUsage>)
 
 /**
- * 一个服务商的用量;[share] 是占全部的比例。[name] 是现在的名字,服务商已删除([deleted])时是记账时留下的名字。
- * [order] 是这个服务商固定的先后(连着的按连接的先后,删掉的排在后面、按最早记账的时间),配色按它定,
- * 换时间范围也不变。
+ * は 1 つのサービス プロバイダーの使用法です。 [share] は全体の割合です。 [name] は現在の名前です。サービスプロバイダーが削除したとき ([deleted]) は、会計時に残された名前です。
+ * [order] は、このサービスプロバイダの固定順序（接続されているものは接続順、削除されたものは後ろ、課金時間の早い順）であり、これに従ってカラーマッチングが決定されます。
+ * の交換時間範囲は変更されません。
  */
 data class ProviderUsage(
     val id: String,
@@ -67,7 +67,7 @@ data class ProviderUsage(
     val order: Int = 0,
 )
 
-/** 一段时间的统计:合计、趋势图([step] 一格多长)、按服务商 › 模型 › 用途的分项,各层按 token 从多到少。 */
+/** 一定期間の統計: 合計、トレンド チャート ([step] は 1 つのグリッドと同じ長さ)、サービス プロバイダー別の内訳 › モデル › 目的、各レイヤーはトークンごとに最も多いものから最も少ないものの順に並べられています。 */
 data class UsageReport(
     val range: UsageRange,
     val step: UsageStep,
@@ -81,24 +81,24 @@ data class UsageReport(
 }
 
 /**
- * 从账本内容算统计。账本按 UTC 整点存,换成本地时间在这里做:一个整点桶按它开始的时刻落到本地的哪一天
- * (日期边界用 [LocalDate.atStartOfDay] 的规则,夏令时那天 23 或 25 小时也照样对);
- * 时区和 UTC 差半小时的地方,跨本地零点的那一个小时整个算到它开始的那天。
+ * は台帳の内容から統計を計算します。台帳は UTC で正時に保存されます。これを現地時間に変更して、ここでこれを実行します。1 時間ごとのバケットは、開始時刻に従って現地の日に該当します。
+ * (日付境界は [LocalDate.atStartOfDay] のルールを使用し、夏時間の 23 時間目または 25 時間目も正しいです)。
+ * タイム ゾーンが UTC と 30 分異なる場合、ローカル ゼロを越えた時間が開始日としてカウントされます。
  */
 object UsageQuery {
     private const val HOUR_MS = UsageLedger.HOUR_MS
 
-    /** 按天分时最多几根;再长按周分(从第一天起每 7 天一根)。 */
+    /** 最大個数は日ごとに分割できます。長押しすると週ごとに分割されます（初日から7日ごとに1枚）。 */
     const val MAX_DAILY_BARS = 45
 
     /**
-     * [live] 是现在还连着的服务商(id → 名字),按连接的先后排(迭代顺序就是先后);
-     * 不在里面的算已删除,名字用账本留下的。
+     * [live] は、まだ接続されているサービス プロバイダー (ID → 名前) であり、接続順に並べられています (反復順序が順序です)。
+     * 存在しない場合は削除されており、台帳に名前が残っています。
      */
     fun report(snapshot: UsageSnapshot, range: UsageRange, now: Instant, zone: ZoneId, live: Map<String, String>): UsageReport {
         val nowHour = Math.floorDiv(now.toEpochMilli(), HOUR_MS)
         val today = now.atZone(zone).toLocalDate()
-        // 每一行落到第几根柱子;不在范围里为 null
+        // 各行がどの列に属するか。範囲内にない場合は null
         val slot: (Long) -> Int?
         val starts: List<LocalDateTime>
         val lastDays: List<LocalDate?>
@@ -141,7 +141,7 @@ object UsageQuery {
             total += row.counts
         }
 
-        // 固定先后:连着的按连接先后,删掉的排在后面、按最早记账的时间
+        // 固定順序: 接続されているものが最初にリストされ、削除されたものが次にリストされ、最も早いアカウンティング時間が使用されます。
         val liveOrder = live.keys.withIndex().associate { (i, id) -> id to i }
         val goneOrder = firstSeen.keys.filter { it !in live }.sortedWith(compareBy<String> { firstSeen.getValue(it) }.thenBy { it })
             .withIndex().associate { (i, id) -> id to live.size + i }
@@ -173,7 +173,7 @@ object UsageQuery {
         )
     }
 
-    /** 按天的范围落到哪几天(含两头);自定义的两头写反了就对调。 */
+    /** 日の範囲がどの日に該当するかを示します (両端を含む)。カスタムの終端が逆に書かれている場合は、それらを入れ替えてください。 */
     fun days(range: UsageRange, today: LocalDate): Pair<LocalDate, LocalDate> = when (range) {
         is UsageRange.LastDays -> today.minusDays(range.days.coerceAtLeast(1) - 1L) to today
         is UsageRange.Custom -> if (range.from <= range.to) range.from to range.to else range.to to range.from

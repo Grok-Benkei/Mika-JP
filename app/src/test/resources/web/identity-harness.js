@@ -1,5 +1,5 @@
-// 给桌面身份补丁搭一个最小的「手机浏览器」环境:内置 getter / 方法遇到不对的接收者像内核一样报 Illegal invocation。
-// 用法:node identity-harness.js <补丁文件>;输出一行 JSON 供测试断言。
+// は、デスクトップ ID パッチ用の最小限の「モバイル ブラウザ」環境を作成します。組み込みのゲッター/メソッドは、不正なレシーバーに遭遇したときにカーネルと同様に不正な呼び出しを報告します。
+// 使用法: ノードidentity-harness.js <パッチファイル>;テスト アサーション用の JSON 行を出力します。
 'use strict';
 const fs = require('fs');
 const vm = require('vm');
@@ -46,7 +46,7 @@ function makeRealm() {
 const script = fs.readFileSync(process.argv[2], 'utf8');
 const top = makeRealm();
 const sub = makeRealm();
-// 父页面脚本新建的同源框架:不经文档开始注入
+// 親ページ スクリプトによって作成された新しい同一オリジン フレーム: ドキュメントなしで注入が開始されます
 vm.runInContext('child = null', top);
 top.child = vm.runInContext('globalThis', sub);
 vm.runInContext(script, top);
@@ -75,11 +75,11 @@ out.lengths = run('[matchMedia.length, document.createEvent.length, Function.pro
 out.sources = run('[String(matchMedia), String(Object.getOwnPropertyDescriptor(Navigator.prototype, "maxTouchPoints").get), Function.prototype.toString.call(Function.prototype.toString)]');
 out.hasPrototype = run('"prototype" in Object.getOwnPropertyDescriptor(Navigator.prototype, "maxTouchPoints").get');
 out.chrome = run('typeof window.chrome');
-// 框架:取 contentWindow 时补上;两个窗口的 toString 互相看也是内置的样子
+// フレームワーク: contentWindow を取得するときに追加します。 2 つのウィンドウを互いに見ると、その toString は組み込みのように見えます。
 out.childTouch = run('new HTMLIFrameElement().contentWindow.navigator.maxTouchPoints');
 out.crossSource = vm.runInContext('Function.prototype.toString.call(child.matchMedia)', top);
 out.crossSourceBack = vm.runInContext('Function.prototype.toString.call(Object.getOwnPropertyDescriptor(Navigator.prototype, "platform").get)', sub);
-// 已补过的窗口不再补第二遍
+// すでにパッチが適用されているウィンドウには、再度パッチは適用されません。
 vm.runInContext(script, top);
 out.matchMediaStillOnce = run("matchMedia('(pointer: fine)').matches");
 console.log(JSON.stringify(out));

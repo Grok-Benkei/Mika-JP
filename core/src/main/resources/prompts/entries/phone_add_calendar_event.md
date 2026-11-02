@@ -1,1 +1,1 @@
-Open the calendar's new-event screen on the phone with the details filled in; you then save it there with the phone screen tools that come with it.
+詳細を入力済みにして、スマートフォンでカレンダーの新規予定の状態を開く。その後、加わるスマートフォン表示向け手段でそこで保存する。

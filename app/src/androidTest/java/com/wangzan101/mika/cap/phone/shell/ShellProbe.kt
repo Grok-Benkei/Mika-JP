@@ -8,7 +8,7 @@ import android.os.Build
 import java.util.concurrent.CopyOnWriteArrayList
 import com.wangzan101.mika.shell.ShellProbeActivity
 
-/** 探针页发来的一条记录。 */
+/** プローブ ページから送信されたレコード。 */
 data class ProbeEvent(
     val kind: String,
     val display: Int,
@@ -20,7 +20,7 @@ data class ProbeEvent(
     val keyCode: Int,
 )
 
-/** 在 Mika 进程里收 [ShellProbeActivity] 的广播。用完 close。 */
+/** は、Mika プロセスで [ShellProbeActivity] のブロードキャストを受信します。近くで終わった。 */
 class ShellProbe(private val context: Context) : AutoCloseable {
     private val events = CopyOnWriteArrayList<ProbeEvent>()
     private val receiver = object : BroadcastReceiver() {
@@ -49,7 +49,7 @@ class ShellProbe(private val context: Context) : AutoCloseable {
 
     fun all(): List<ProbeEvent> = events.toList()
 
-    /** 等到最近一条满足条件的记录;超时返回 null。 */
+    /** は、条件を満たす最新のレコードが見つかるまで待機します。タイムアウトが発生するとnullを返します。 */
     fun await(timeoutMs: Long = 10_000, match: (ProbeEvent) -> Boolean): ProbeEvent? {
         val end = System.currentTimeMillis() + timeoutMs
         while (true) {

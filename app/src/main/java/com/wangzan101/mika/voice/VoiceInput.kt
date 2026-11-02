@@ -7,16 +7,16 @@ import com.wangzan101.mika.i18n.AppLanguage
 import com.wangzan101.mika.settings.Provider
 import com.wangzan101.mika.settings.ProviderStore
 
-/** 界面(输入栏、悬浮胶囊)拿语音会话的地方;App 里是 [VoiceInput],界面测试换成假的。 */
+/** インターフェイス (入力フィールド、フローティング カプセル) は音声会話が行われる場所です。アプリは [VoiceInput] で、インターフェース テストは偽のものに置き換えられています。 */
 interface VoiceSource {
     fun spec(): SpeechEngineSpec
     fun start(language: String? = null): SpeechSession
 }
 
 /**
- * 语音输入的入口:对话页输入框和悬浮胶囊只经这里拿会话。
- * 先按用户的选择、手机能力和现有服务商定下引擎([spec]),再开一次会话([start])。
- * [transcriber] 按服务商给出转写器:每家的请求头(客户端标识、它要的会话头)不同。
+ * 音声入力への入り口: ダイアログページの入力ボックスとフローティングカプセルにはここでのみアクセスできます。
+ * まず、ユーザーの選択、携帯電話の機能、既存のサービスに従ってエンジン ([spec]) を設定し、次にセッション ([start]) を開きます。
+ * [transcriber] 転記者はサービスプロバイダーに応じて指定されます。各社のリクエストヘッダー（クライアントID、必要なセッションヘッダー）は異なります。
  */
 class VoiceInput(
     context: Context,
@@ -26,13 +26,13 @@ class VoiceInput(
 ) : VoiceSource {
     private val context = context.applicationContext
 
-    /** 界面先问一下能不能用、用的是哪个(卡片顶上那个小标签)。 */
+    /** インターフェイスは、最初に、それが使用できるかどうか、およびどれが使用されるかを尋ねます (カード上部の小さなラベル)。 */
     override fun spec(): SpeechEngineSpec =
         SpeechResolver.resolve(settings.choice.value, SystemSpeech.capability(context, settings.systemSilent.value), providers.providers.value)
 
     /**
-     * 开一次会话,按下时调(要在主线程)。[language] 是识别语言(BCP-47);null 跟 App 界面语言。
-     * 没有录音权限、引擎用不了时,给出只发一个 Failed 的会话,界面按同一套处理。
+     * セッションを開き、押されたときに呼び出します (メインスレッド内にある必要があります)。 [language] は認識言語 (BCP-47) です。 null はアプリのインターフェース言語です。
+     * に記録権限がなく、エンジンが使用できない場合は、失敗セッションが 1 つだけ送信され、インターフェイスは同様に処理されます。
      */
     override fun start(language: String?): SpeechSession {
         val spec = spec()

@@ -1,16 +1,16 @@
 package com.wangzan101.mika.core.knowledge
 
-/** 知识或技能目录里的一个脚本此刻能不能跑;不能跑时 [reason] 写原因。 */
+/** ナレッジ ディレクトリまたはスキル ディレクトリ内のスクリプトが現時点で実行できるかどうか。 [reason] 実行できない場合の理由を書きます。 組み込みスクリプトを実行する */
 data class ScriptState(val file: String, val runnable: Boolean, val reason: String?)
 
-/** 能跑自带脚本的能力交给 knowledge_read、skill_read 与参考资料附注的。 */
+/** の機能は、knowledge_read、skill_read、およびリファレンス ノートに任されています。 */
 interface BundledScripts {
-    /** 本任务提供跑脚本的工具(运行环境可能还在准备)。 */
+    /** このタスクは、スクリプトを実行するためのツールを提供します (実行環境はまだ準備されている可能性があります)。 */
     fun offered(): Boolean
 
-    /** 运行环境此刻就绪时先把技能目录核对成打包的那份,返回 true;没就绪为 false。 */
+    /** この時点で実行環境の準備ができたら、まずスキル ディレクトリをパッケージ化されたコピーにチェックインし、true を返します。準備ができていない場合は false になります。 */
     suspend fun ready(): Boolean
 
-    /** [skillDir] 下清单里的脚本与此刻能不能跑。 */
+    /** [skillDir] 現時点では、次のリストのスクリプトを実行できます。 */
     fun scripts(skillDir: String): List<ScriptState>
 }

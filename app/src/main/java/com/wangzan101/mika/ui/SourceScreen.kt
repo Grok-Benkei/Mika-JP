@@ -50,7 +50,7 @@ import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaIcons
 import com.wangzan101.mika.ui.theme.MikaType
 
-/** 一次答复的来源:每条是「第几步 · 在哪 · 标题」,下面是当时的画面;没有画面的(后台读的网页正文、文件、命令输出)是摘录原文。 */
+/** 回答元：各項目は「ステップ・場所・タイトル」で、以下がその時の写真です。画像のないもの (Web ページのテキスト、ファイル、バックグラウンドで読み取られるコマンド出力) は、元のテキストの抜粋です。 */
 @Composable
 fun SourceScreen(vm: SourceViewModel, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
@@ -76,7 +76,7 @@ fun SourceScreen(vm: SourceViewModel, onBack: () -> Unit) {
                                         listOfNotNull(stringResource(R.string.step_number, entry.step), entry.place, entry.title).joinToString(" · "),
                                         style = MikaType.BodyStrong, color = c.ink,
                                     )
-                                    // 有画面就只给画面:识别出的文字和画面重复;没有画面时摘录就是唯一的依据
+                                    // 画像がある場合は、画像のみが表示されます。認識されたテキストと画像が繰り返されます。写真がない場合は、抜粋が唯一の根拠となります
                                     if (entry.screenshots.isEmpty()) {
                                         entry.text?.let { Text(it, Modifier.padding(top = 6.dp), style = MikaType.Caption, color = c.ink2) }
                                     }
@@ -108,7 +108,7 @@ private fun SourceShot(vm: SourceViewModel, id: Int) {
     }
 }
 
-/** 全屏看一张画面,点一下或按返回收起。 */
+/** 画像を全画面で表示するには、 をクリックするか、Return キーを押して画像を閉じます。 */
 @Composable
 private fun ZoomedShot(image: ImageBitmap, onClose: () -> Unit) {
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {

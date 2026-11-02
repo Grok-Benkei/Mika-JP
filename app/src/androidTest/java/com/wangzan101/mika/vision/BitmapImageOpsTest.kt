@@ -18,7 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.ByteArrayOutputStream
 
-/** 图像处理在真机 Bitmap 上的行为;哈希两项在 Agent 虚拟屏上只读浏览系统设置(需要内置助手与无障碍服务)。 */
+/** 実機での画像処理の動作 Bitmap;ハッシュ 2 つの項目は、エージェント仮想画面上のシステム設定を読み取り専用で参照します (組み込みのアシスタントとアクセシビリティ サービスが必要です)。 */
 @RunWith(AndroidJUnit4::class)
 class BitmapImageOpsTest {
     private val ops = BitmapImageOps
@@ -48,7 +48,7 @@ class BitmapImageOpsTest {
         s
     }
 
-    /** 等画面稳定(过渡动画结束)后取一帧。 */
+    /** 画像が安定した後 (トランジションアニメーションが終了した後) 1 フレームを撮影します。 */
     private fun DeviceSupport.Agent.settledFrame(): ByteArray {
         Thread.sleep(1_000)
         val png = runBlocking { screen.screenshotPng() }
@@ -81,7 +81,7 @@ class BitmapImageOpsTest {
         val out = ops.drawFrame(img, intArrayOf(250, 250, 749, 749))
         val bmp = BitmapFactory.decodeByteArray(out, 0, out.size)
         assertEquals(200 to 100, bmp.width to bmp.height)
-        // 框 [50,25]–[149,74] 外扩 3 像素,四条边都是 4 像素宽、都画在外扩后的框内:x 47..50 / 149..152,y 22..25 / 74..77
+        // フレーム [50,25] ～ [149,74] は 3 ピクセル拡張され、4 辺すべてが 4 ピクセル幅で、拡張されたフレーム内に描画されます: x 47..50 / 149..152、y 22..25 / 74..77
         assertEquals(Color.RED, bmp.getPixel(48, 50))
         assertEquals(Color.RED, bmp.getPixel(100, 23))
         assertEquals(Color.RED, bmp.getPixel(47, 50))
@@ -101,7 +101,7 @@ class BitmapImageOpsTest {
 
     @Test
     fun toJpegShrinks() {
-        // 像照片的图:平滑的明暗加噪点。规则的渐变 PNG 压得比 JPEG 还小,比不出缩小
+        // 写真のような画像: 滑らかな明暗とノイズ。通常のグラデーション PNG は JPEG よりも小さく圧縮されるため、JPEG と比較して縮小することはできません。
         val noise = java.util.Random(7)
         val img = png(1440, 3200) { x, y ->
             val n = noise.nextInt(48) - 24

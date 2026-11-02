@@ -29,18 +29,18 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-/** 连接外部 MCP server 失败(网络、HTTP、JSON-RPC 或协议不匹配)。消息不包含令牌/请求头。 */
+/** 外部 MCP サーバーへの接続に失敗しました (ネットワーク、HTTP、JSON-RPC、またはプロトコルの不一致)。メッセージにはトークン/リクエスト ヘッダーが含まれません。 */
 class McpClientException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /**
- * 外部 MCP server 的最小 Streamable HTTP 客户端(2025-03-26)。
+ * 外部 MCP サーバー用の最小限のストリーミング可能な HTTP クライアント (2025-03-26)。
  *
- * [connect] 完成 initialize / notifications/initialized / tools/list,之后 [tools] 返回开局时的目录,
- * [call] 只发 tools/call。目录在连接时冻结,和 [McpEndpoint] 的约定一致。
+ * [connect] は、initialize / notification/initialized / tools/list を完了し、[tools] はデプロイ時のディレクトリに戻ります。
+ * [call] はツール/コールのみを送信します。 [McpEndpoint] の規則に従って、ディレクトリは接続中にフリーズされます。
  *
- * 不自动重试 tools/call(结果未知,避免重复副作用);网络、HTTP 非 2xx、JSON-RPC error 都转成
- * [McpResult.isError] 或 [McpClientException],不抛到任务循环外。
- * 令牌等自定义头只放在请求里,不写日志。
+ * は、ツール/呼び出しを自動的に再試行しません (反復的な副作用を避けるため、結果は不明です)。ネットワーク、HTTP 非 2xx、および JSON-RPC エラーはすべて次のように変換されます。
+ * [McpResult.isError] または [McpClientException] はタスク ループの外にスローされません。
+ * トークンなどのカスタム ヘッダーはリクエストにのみ配置され、ログは書き込まれません。
  */
 class HttpMcpEndpoint private constructor(
     override val serverId: String,
@@ -58,7 +58,7 @@ class HttpMcpEndpoint private constructor(
 ) : McpEndpoint, Closeable {
     private val json = Json { ignoreUnknownKeys = true }
     private val ids = AtomicLong(1)
-    // MCP 端点不应该靠重定向跳转;禁止重定向,避免把请求(含认证头)带去别的主机
+    // MCP エンドポイントはリダイレクトに依存すべきではありません。他のホストへのリクエスト (認証ヘッダーを含む) の受信を避けるため、リダイレクトは禁止されています。
     private val client = http.newBuilder().followRedirects(false).followSslRedirects(false).build()
 
     override fun tools(): List<McpToolDescriptor> = tools
@@ -103,7 +103,7 @@ class HttpMcpEndpoint private constructor(
         }
     }
 
-    /** 关闭会话(如果服务端给了会话编号);失败忽略。 */
+    /** セッションを閉じます (サーバーがセッション番号を与えた場合)。失敗は無視されます。 */
     override fun close() {
         val sid = sessionId ?: return
         runCatching {
@@ -111,7 +111,7 @@ class HttpMcpEndpoint private constructor(
                 .header("MCP-Session-Id", sid)
                 .header("MCP-Protocol-Version", protocolVersion)
                 .build()
-            // 关闭不阻塞调用方(设置页/任务收尾);失败忽略
+            // は発信者をブロックせずに閉じます (設定ページ/タスクの終了)。失敗は無視される
             client.newCall(request).enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) = Unit
                 override fun onResponse(call: Call, response: Response) = response.close()
@@ -186,8 +186,8 @@ class HttpMcpEndpoint private constructor(
         private val json = Json { ignoreUnknownKeys = true }
 
         /**
-         * 连接并读取工具目录。返回的 endpoint 已经初始化;失败时 [Result.failure] 里是 [McpClientException]。
-         * [clientInfo] 里的 name/version 只用于 initialize,不参与认证。
+         * はツール ディレクトリに接続して読み取ります。返されたエンドポイントは初期化されています。失敗すると、[Result.failure] は [McpClientException] になります。
+         * [clientInfo] の名前/バージョンは初期化にのみ使用され、認証には関与しません。
          */
         suspend fun connect(
             serverId: String,
@@ -267,7 +267,7 @@ class HttpMcpEndpoint private constructor(
                 requestId++
             } while (cursor != null && pages < MAX_TOOL_PAGES)
 
-            // resources/prompts 是可选能力:服务端自称支持却报错时,工具照常可用,不让整个连接失败
+            // リソース/プロンプトはオプションの機能です。サーバーがサポートしていると主張していてもエラーを報告した場合でも、ツールは引き続き使用可能であり、接続全体が失敗することはありません。
             val caps = initResult["capabilities"] as? JsonObject
             val resources = if (caps?.get("resources") is JsonObject) {
                 try {
@@ -433,7 +433,7 @@ class HttpMcpEndpoint private constructor(
 
 private val JSON_MEDIA = "application/json".toMediaType()
 
-/** OkHttp 的异步调用包成可取消的 suspend;取消时取消底层 call。 */
+/** OkHttp の非同期呼び出しは、キャンセル可能なサスペンドにラップされます。キャンセルされると、基になる通話もキャンセルされます。 */
 internal suspend fun Call.await(timeoutSec: Int): Response = suspendCancellableCoroutine { continuation ->
     timeout()?.timeout(timeoutSec.toLong(), TimeUnit.SECONDS)
     continuation.invokeOnCancellation { cancel() }
@@ -448,7 +448,7 @@ internal suspend fun Call.await(timeoutSec: Int): Response = suspendCancellableC
     })
 }
 
-/** SSE 长连接不能设整次调用超时(会在一段时间后掐断流);只等响应头,之后的超时由协议层控制。 */
+/** SSE の長い接続では、通話全体にタイムアウトを設定できません (一定時間が経過するとストリームが切断されます)。応答ヘッダーを待つだけで、後続のタイムアウトはプロトコル層によって制御されます。 */
 internal suspend fun Call.awaitStream(): Response = suspendCancellableCoroutine { continuation ->
     continuation.invokeOnCancellation { cancel() }
     enqueue(object : Callback {

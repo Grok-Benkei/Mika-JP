@@ -30,8 +30,8 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 /**
- * 浏览器页此刻打开的网页。[desktop]:标签此刻用的是电脑版网页;[loginFor]:这次是「给 Mika 登录」,为要登录的网站
- * (照 Mika 办事时的身份打开,见 [BrowserIdentity]),平常浏览为 null。
+ * ブラウザ ページが現在開いている Web ページ。 [desktop]: ラベルは現在、Web ページのコンピューター バージョンを使用しています。 [loginFor]: 今回は「ログイン for ミカ」、ログインする Web サイトです
+ * (作業中は Mega として開きます。[BrowserIdentity] を参照)、通常のブラウジングは null です。
  */
 data class BrowserPage(
     val url: String,
@@ -45,19 +45,19 @@ data class BrowserPage(
 )
 
 /**
- * 用户自己用的浏览器(侧栏「浏览器」):一个看得见的 [WebTab],和 Agent 的标签同一个网页配置(Cookie、网页存储)。
- * 在这里登录了,Mika 办事时也是登录的。用哪一版网页由 [BrowserIdentity] 定:平常默认手机版、按网站可换成电脑版
- * (记在 [modes]),「给 Mika 登录」时照 Mika 办事时的那一版;规则只装在这个标签上(WebDevtools.setModePolicy),
- * Agent 的标签不受影响。
+ * ユーザー独自のブラウザ (サイドバー「ブラウザ」): 表示される [WebTab]、エージェントのラベルと同じ Web ページ構成 (Cookie、Web ページ ストレージ)。 ここでは
+ * がログインしており、作業中はMikaもログインしています。使用する Web ページのバージョンは [BrowserIdentity] によって決まります。通常はモバイル バージョンがデフォルトですが、Web サイトを押すとコンピューター バージョンに変更できます。
+ * ([modes] に記録)、ミカが動作しているときのバージョンに応じて「ミカにログイン」。ルールはこのラベル (WebDevtools.setModePolicy) にのみインストールされます。
+ * エージェントのタグは影響を受けません。
  *
- * 不进任何任务的标签池,也不走 [com.wangzan101.mika.cap.web.WebHandover] 的那一次接管:Agent 的标签、接管照常进行,互不影响。
- * 标签放在进程里(转屏、页面重建时同一个 WebView 接着用),离开浏览器页时关掉。界面不止一个实例时,浏览器页可能同时有几处:
- * 视图挂在哪一处、哪一处走了才关网页,见 [PageHosts]。
- * WebView 的环境是 [MutableContextWrapper]:挂到界面上时换成那个 Activity(下拉框、长按菜单要它),摘下时换回 App。
- * 页面打开前过一遍 [WebUrlPolicy.checkNavigable];访问过的页面记进 [recent];页面停下来后看一眼登录状态,记进站点登记表。
- * 用户在页面上问 Mika 时,看着的这一页借给那个对话的任务当当前网页标签(见 [loans]):页面开关弹窗时借的跟着换,
- * 关掉页面时交给任务接着用、不销毁;用户亲手摸页面([userTouched])时告诉借着它的任务。
- * 只在主线程调用。
+ * はどのタスクのタグ プールにも入りません。また、[com.wangzan101.mika.cap.web.WebHandover] のテイクオーバーも引き継ぎません。エージェント タグとテイクオーバーは、相互に影響を与えることなく通常どおりに進行します。
+ * タグはプロセス内に配置され (画面の切り替えとページの再構築時に同じ WebView が使用されます)、ブラウザ ページを離れるときに閉じられます。インターフェイスのインスタンスが複数ある場合、ブラウザ ページには同時に複数の場所が存在する可能性があります。
+ * ビューをハングする場所と Web ページを閉じる場所については、[PageHosts] を参照してください。
+ * WebView の環境は [MutableContextWrapper] です。インターフェースにぶら下がっているときは、そのアクティビティ (ドロップダウン ボックス、メニューを長押しして要求) に変更し、それを外すときは、アプリに戻ります。
+ * ページを開く前に、[WebUrlPolicy.checkNavigable] を参照してください。訪問したページは [recent] に記録されます。ページを停止した後、ログイン ステータスを確認し、サイト登録フォームに記録します。
+ * ユーザーがページ上でミカに質問すると、彼が見ているページはその会話のタスクを借用します。現在の Web ページのラベル ([loans] を参照): ページが切り替わってポップアップすると、それに応じてページも変化します。
+ * ページが閉じられると、継続使用のためにタスクに渡され、破棄されません。ユーザーがページ ([userTouched]) にタッチすると、そのページに依存していたタスクが通知されます。
+ * はメインスレッドでのみ呼び出されます。
  */
 class UserBrowser private constructor(private val app: Context) {
     val sites: SiteRegistry = WebSites.registry(app)
@@ -66,52 +66,52 @@ class UserBrowser private constructor(private val app: Context) {
     val favorites = BrowserFavorites(dir)
     val looks = SiteLooks(dir)
     private val modes = UserSiteModes(dir)
-    /** 看着的这一页借给任务(见 [PageLoans])。 */
+    /** が見ているページはタスクに貸与されています ([PageLoans] を参照)。 */
     val loans = PageLoans<WebTab>()
-    /** 标签编号:每个都不一样(页面和它弹出的窗口可能先后借给同一个任务)。 */
+    /** タグ番号: それぞれが異なります (ページとそのポップアップ ウィンドウが同じタスクに次々に貸される場合があります)。 */
     private var tabCount = 0
 
     private val main = Handler(Looper.getMainLooper())
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val wrapper = MutableContextWrapper(app)
     private var tab: WebTab? = null
-    /** 页面弹出的窗口开着时([tab] 是弹窗),打开它的那一页;没有弹窗为 null。 */
+    /** ページのポップアップ ウィンドウが開いている場合 ([tab] はポップアップ ウィンドウです)、開いているページを開きます。ポップアップ ウィンドウがない場合は null になります。 */
     private var opener: WebTab? = null
     private val hosts = PageHosts<ViewGroup, Context>()
     private var probe: Runnable? = null
-    /** 「给 Mika 登录」要登录的网站;平常浏览为 null。标签的版本规则在后台线程也会读。 */
+    /** 「ミカのログイン」 ログインするためのウェブサイト;通常のブラウジングは null です。タグのバージョン ルールもバックグラウンド スレッドで読み取られます。 */
     @Volatile private var loginHost: String? = null
 
     private val _page = MutableStateFlow<BrowserPage?>(null)
-    /** 为 null 时没有打开的网页(显示起始页)。 */
+    /** が null の場合、Web ページは開かれていません (スタート ページが表示されます)。 */
     val page: StateFlow<BrowserPage?> = _page.asStateFlow()
 
     private val _dialog = MutableStateFlow<PageDialog?>(null)
-    /** 页面弹出、等用户回话的框。 */
+    /** ページでは、ユーザーの応答を待つボックスがポップアップ表示されます。 */
     val dialog: StateFlow<PageDialog?> = _dialog.asStateFlow()
 
     private val _notice = MutableStateFlow<String?>(null)
-    /** 给用户的一句提示(拦下了什么、页面崩了);显示后调 [noticeShown]。 */
+    /** はユーザーへのリマインダー (何かがブロックされた、ページがクラッシュした) です。表示後、[noticeShown]を調整してください。 */
     val notice: StateFlow<String?> = _notice.asStateFlow()
 
     /**
-     * 打开地址栏或搜索框里的一句话(见 [AddressInput])。打不开时返回给用户看的原因,不动当前页面。
+     * は、アドレス バーまたは検索ボックスで文を開きます ([AddressInput] を参照)。開くことができず、現在のページが移動されない場合にユーザーに返される理由。
      */
     fun submit(input: String): String? {
         val url = AddressInput.resolve(input) ?: return null
         return open(url)
     }
 
-    /** 平常浏览打开网址;打不开时返回原因。 */
+    /** 通常の閲覧用に URL を開きます。開けない場合は理由を返します。 */
     fun open(url: String): String? = load(url, null)
 
-    /** 打开常用网站:还没登录的走「给 Mika 登录」,照 Mika 办事时的那一版打开。 */
+    /** よく使うWebサイトを開く: まだログインしていない場合は、「Mikaにログイン」に進み、Mikaが動作しているときと同じバージョンで開きます。 */
     fun openFavorite(site: FavoriteSite): String? =
         load("https://${site.host}/", site.host.takeIf { BrowserIdentity.loginFlow(site) })
 
     /**
-     * 当前网站换成电脑版([desktop])或换回手机版,记住,下次也这样;不再算「给 Mika 登录」。
-     * 按新的版本重新打开当前页。
+     * 現在の Web サイトをコンピューター バージョン ([desktop]) に変更するか、モバイル バージョンに戻します。次回も同じようにしてください。 「ミカのログイン」としてカウントされなくなります。
+     * 新しいバージョンに従って現在のページを再度開きます。
      */
     fun setDesktop(desktop: Boolean) {
         val t = tab ?: return
@@ -123,8 +123,8 @@ class UserBrowser private constructor(private val app: Context) {
     }
 
     /**
-     * 「给 Mika 登录」里点了「登录好了」:看一眼页面。看出还没登录时提示一句;看出已登录、或看不出来(信用户的话)时
-     * 把这个网站记成已登录,回到起始页。页面还在加载等看不了时,等 [CONFIRM_WAIT_MS] 后按看不出来算。
+     * 「ログインミカ」の「ログインOK」をクリック： ページを見てください。ログインしていない場合は、プロンプトが表示されます。ログインしていることがわかる場合、またはログインしていることがわからない場合 (ユーザーを信頼できる場合)、プロンプトが表示されます。
+     * この Web サイトをログイン済みとしてマークし、ホームページに戻ります。ページの読み込み中のため表示できない場合は、[CONFIRM_WAIT_MS] まで待ってから、[表示できない] をクリックします。
      */
     fun confirmLogin() {
         val t = tab ?: return
@@ -168,7 +168,7 @@ class UserBrowser private constructor(private val app: Context) {
 
     private fun navigate(t: WebTab, url: String) {
         scope.launch {
-            // 和 Agent 的标签一样:导航前按这个标签的规则把桌面版或手机版的设置与仿真换好(至多等一小会儿)
+            // にはエージェントと同じラベルが付いています。ナビゲートする前に、このラベルのルールに従ってデスクトップまたはモバイル バージョンの設定とシミュレーションを変更します (長くても少しの間待ちます)。
             t.devtools.beforeLoad(t, url)
             if (!t.destroyed) t.view.loadUrl(url)
         }
@@ -184,14 +184,14 @@ class UserBrowser private constructor(private val app: Context) {
         refresh()
     }
 
-    /** 系统返回键:网页能后退就后退,不能时开着弹窗就关掉弹窗,否则关掉网页回到起始页。没有打开的网页时返回 false。 */
+    /** システムリターンキー: Web ページに戻れる場合は戻ります。ポップアップ ウィンドウが開けない場合は閉じます。それ以外の場合は、Web ページを閉じて、開始ページに戻ります。開いている Web ページがない場合は false を返します。 */
     fun systemBack(): Boolean {
         val v = tab?.view ?: return false
         if (v.canGoBack()) v.goBack() else if (!closePopup()) closePage()
         return true
     }
 
-    /** 关掉网页回到起始页。借给任务的那个标签交给任务接着用(任务收下了就不销毁)。 */
+    /** Web ページを閉じて、ホームページに戻ります。タスクに貸与されたタグは、その後の使用のためにタスクに与えられます (タスクがタグを受け入れた後は破棄されません)。 */
     fun closePage() {
         probe?.let(main::removeCallbacks)
         probe = null
@@ -209,22 +209,22 @@ class UserBrowser private constructor(private val app: Context) {
         _dialog.value = null
     }
 
-    // 交给任务的标签:不再是这里的(视图已由任务挂到它的网页显示上),环境换回 App(不留着界面)
+    // タスクに割り当てられたラベルはここになくなり (ビューはタスクによってその Web ページ表示にリンクされました)、環境はアプリに戻ります (インターフェイスは残りません)。
     private fun handedOff(t: WebTab) {
         wrapper.baseContext = app
         Log.i(TAG, "browser page ${t.id} handed to the task that borrowed it")
     }
 
-    // ---------- 在这一页上问 Mika ----------
+    // ---------- このページでミカさんに質問してください ----------
 
-    /** 此刻看着的这一页(给 Mika 的说明用);没有打开的网页为 null。 */
+    /** あなたが今見ているページ（ミカの説明用）;開かれていない Web ページは null です。 */
     fun pageInfo(): com.wangzan101.mika.core.cap.web.AttachedPage.Page? {
         val url = currentUrl()?.takeIf { it.startsWith("http") } ?: return null
         val title = tab?.view?.title?.takeIf { it != url }.orEmpty().ifEmpty { _page.value?.title.orEmpty() }
         return com.wangzan101.mika.core.cap.web.AttachedPage.Page(url, title)
     }
 
-    /** 读用户在页面上选中的字,交给 [onText](没选、读不到为 null)。 */
+    /** は、ページ上でユーザーが選択した単語を読み取り、それを [onText] に渡します (選択されていないか読み取ることができない場合は null)。 */
     fun readSelection(onText: (String?) -> Unit) {
         val t = tab ?: return onText(null)
         t.view.evaluateJavascript(SELECTION_SCRIPT) { raw ->
@@ -233,19 +233,19 @@ class UserBrowser private constructor(private val app: Context) {
         }
     }
 
-    /** 用户在这一页上问了,页面借给对话 [conversationId] 接下来开跑的任务。 */
+    /** ユーザーがこのページで質問しました。このページは会話に貸与されました。 [conversationId] 次に実行するタスク。 */
     fun lend(conversationId: String) = loans.offer(conversationId)
 
-    /** 对话 [conversationId] 的任务 [runKey] 开跑时来取答应借给它的页面;没答应过、页面没了、已借出时为 null。 */
+    /** ダイアログ [conversationId] タスク [runKey] 実行時に貸し出されたページを取得します。同意されていない場合、ページがなくなっている場合、または貸し出されている場合は null になります。 */
     fun claim(conversationId: String, runKey: String): PageLoans.Loan<WebTab>? =
         loans.claim(conversationId, runKey, tab?.takeIf { !it.destroyed && !it.crashed })
 
-    /** 用户亲手摸了看着的页面(真实的触摸,不是 Mika 自己发的输入)。 */
+    /** ユーザーは、見ていたページにタッチしました (ミカ自身が送信した入力ではなく、実際のタッチです)。 */
     fun userTouched() {
         tab?.let(loans::touched)
     }
 
-    /** 回答页面弹框。 */
+    /** [回答] ページのポップアップ ボックス。 */
     fun answerDialog(accept: Boolean, text: String?) {
         tab?.dialogs?.answer(accept, text)
         _dialog.value = tab?.dialogs?.current
@@ -255,22 +255,22 @@ class UserBrowser private constructor(private val app: Context) {
         _notice.value = null
     }
 
-    /** 一处浏览器页(界面的一个实例上)要用的位置;交给 [openHost]、[setContainer]、[hostStarted]、[closeHost]。 */
+    /** ブラウザー ページに使用される場所 (インターフェイスのインスタンス上)。 [openHost]、[setContainer]、[hostStarted]、[closeHost]に与えられます。 */
     fun newHost(activity: Context): PageHosts.Host<ViewGroup, Context> = PageHosts.Host(activity)
 
-    /** 这一处进了浏览器页。 */
+    /** このポイントはブラウザ ページに入ります。 */
     fun openHost(host: PageHosts.Host<ViewGroup, Context>) {
         hosts.open(host)
         place()
     }
 
-    /** 这一处回到了前台:网页视图挂到它这里。 */
+    /** この点はフロントデスクに戻ります。Web ページのビューがここでハングしています。 */
     fun hostStarted(host: PageHosts.Host<ViewGroup, Context>) {
         hosts.started(host)
         place()
     }
 
-    /** 这一处给网页留的容器有了([container])或没了(null)。 */
+    /** ここの Web ページに残されているコンテナーは利用可能 ([container]) または欠落しています (null)。 */
     fun setContainer(host: PageHosts.Host<ViewGroup, Context>, container: ViewGroup?) {
         val old = host.container
         hosts.setContainer(host, container)
@@ -279,8 +279,8 @@ class UserBrowser private constructor(private val app: Context) {
     }
 
     /**
-     * 这一处离开了浏览器页。是最后一处、又不是转屏([keepPage] 为 false)时关掉网页;
-     * 不是最后一处时网页留给别处(视图换到别处去)。
+     * この時点でブラウザ ページが終了します。 Web ページが最後の位置で、画面の回転ではない場合 ([keepPage] が false)、Web ページを閉じます。
+     * が最後のページではない場合は、Web ページを別の場所に残します (ビューを別の場所に変更します)。
      */
     fun closeHost(host: PageHosts.Host<ViewGroup, Context>, keepPage: Boolean) {
         host.container?.removeAllViews()
@@ -288,8 +288,8 @@ class UserBrowser private constructor(private val app: Context) {
     }
 
     /**
-     * 把网页视图挂到该挂的那一处([PageHosts.target]),环境换成那一处的界面;没有能挂的地方时摘下,环境换回 App
-     * (不留着旧界面)。
+     * Web ページ ビューをハングする場所 ([PageHosts.target]) にハングすると、環境がその場所のインターフェイスに変更されます。掛ける場所がない場合は外すと、環境がアプリに戻ります
+     * (古いインターフェースは保持されません)。
      */
     private fun place() {
         val v = tab?.view
@@ -316,7 +316,7 @@ class UserBrowser private constructor(private val app: Context) {
             builtInZoomControls = true
             displayZoomControls = false
         }
-        // 用户亲手看、亲手点:电脑版也不定死缩放,能双指放大
+        // ユーザーは自分の手で見てクリックできます。コンピュータ版は必ずしもズームインする必要はなく、2 本の指でズームインできます。
         t.devtools.setHandOperated(t)
         t.devtools.setModePolicy(t) { host ->
             BrowserIdentity.mobile(loginForMika = loginHost != null, agentMobile = t.devtools.agentWantsMobile(host), userDesktop = modes.isDesktop(host))
@@ -388,7 +388,7 @@ class UserBrowser private constructor(private val app: Context) {
 
         override fun onCrashed(tab: WebTab) {
             if (tab !== this@UserBrowser.tab) return
-            // 在回调之外销毁
+            // はコールバックの外で破棄されます
             main.post {
                 if (tab === this@UserBrowser.tab) closePage()
                 _notice.value = tr(R.string.browser_crashed)
@@ -396,9 +396,9 @@ class UserBrowser private constructor(private val app: Context) {
         }
 
         /**
-         * 页面要开新窗口(target=_blank、window.open):只认用户点出来的,只开一层。新窗口盖在当前页上显示,
-         * 当前页留着([opener]):「用第三方账号登录」这类弹窗登录完要把结果交回打开它的页面,页面没了就停在白屏。
-         * 弹窗关掉自己,或在弹窗里退无可退时,回到打开它的那一页。
+         * ページは新しいウィンドウ (target=_blank、window.open) を開く必要があります。ユーザーがクリックしたウィンドウのみが認識され、レイヤーは 1 つだけ開きます。現在のページの上に新しいウィンドウが表示されます。
+         * 現在のページはそのままです ([opener]): 「サードパーティ アカウントでログイン」ポップアップ ウィンドウ。ログイン後、結果はそれを開いたページに返される必要があります。ページがなくなると白い画面で止まります。
+         * ポップアップ ウィンドウが自動的に閉じたり、ポップアップ ウィンドウから退避できない場合は、開いたページに戻ります。
          */
         override fun onCreateWindow(tab: WebTab, isUserGesture: Boolean, resultMsg: Message): Boolean {
             if (!isUserGesture || tab !== this@UserBrowser.tab || opener != null) return false
@@ -410,7 +410,7 @@ class UserBrowser private constructor(private val app: Context) {
             opener = tab
             this@UserBrowser.tab = popup
             place()
-            // 借给任务的是看得见的那一个:跟着换成弹出的窗口
+            // タスクに貸与されたものは表示されているものです。それをポップアップ ウィンドウに置き換えます。
             loans.swapped(tab, popup)
             return true
         }
@@ -420,7 +420,7 @@ class UserBrowser private constructor(private val app: Context) {
         }
     }
 
-    /** 关掉弹出的窗口,回到打开它的那一页;没有弹窗时返回 false。 */
+    /** ポップアップ ウィンドウを閉じて、開いたページに戻ります。ポップアップウィンドウがない場合は false を返します。 */
     private fun closePopup(): Boolean {
         val o = opener ?: return false
         opener = null
@@ -435,8 +435,8 @@ class UserBrowser private constructor(private val app: Context) {
     }
 
     /**
-     * 页面脚本多在加载完后才画出账号区:停一会儿再看登录状态;还在加载或地址变了就再等,至多几次。
-     * 登记表里有的网站按看到的记上或去掉;没有的只在看出已登录时记上(用户在这里登录了新网站)。
+     * ページ スクリプトのほとんどは、読み込み後にアカウント領域を描画します。しばらく停止してからログイン ステータスを確認します。ロード中またはアドレスが変更されている間、最大でも数回待ちます。
+     * 登録フォーム内の一部の Web サイトは、表示内容に応じてマークまたは削除されます。見つからないものは、ログインした場合にのみマークされます (ユーザーはここで新しい Web サイトにログインします)。
      */
     private fun scheduleProbe(t: WebTab, attempt: Int) {
         probe?.let(main::removeCallbacks)
@@ -457,7 +457,7 @@ class UserBrowser private constructor(private val app: Context) {
                     state == LoginState.SignedIn -> sites.markLoggedIn(host)
                     else -> Unit
                 }
-                // 「给 Mika 登录」时自己看出登录好了:告诉用户一声(横幅随登录状态收起)
+                // 「Mika にログイン」すると、ログインしたことがわかります: ユーザーに伝えます (ログイン状態でバナーが閉じられます)
                 if (login != null && !wasIn && state == LoginState.SignedIn && BrowserFavorites.siteKey(host) == BrowserFavorites.siteKey(login)) {
                     _notice.value = LOGGED_IN_NOTICE
                 }
@@ -468,7 +468,7 @@ class UserBrowser private constructor(private val app: Context) {
         main.postDelayed(run, PROBE_DELAY_MS)
     }
 
-    /** 页面加载完后读网站名(页面声明的网站名或标题),记进 [looks]。 */
+    /** ページが読み込まれた後、Web サイト名 (ページ上で宣言されている Web サイト名またはタイトル) を読み取り、[looks] に記録します。 */
     private fun readName(t: WebTab, url: String) {
         val host = WebUrlPolicy.host(url) ?: return
         if (AddressInput.searchQuery(url) != null) return
@@ -482,21 +482,21 @@ class UserBrowser private constructor(private val app: Context) {
 
     companion object {
         private const val TAG = "MikaUserBrowser"
-        /** 这个标签不属于任何任务。 */
+        /** このタグはどのタスクにも属しません。 */
         const val OWNER = "user-browser"
         private const val PROBE_DELAY_MS = 1_500L
         private const val PROBE_RETRIES = 3
         private const val CONFIRM_WAIT_MS = 2_500L
-        /** 收下的网站图标至少这么大,存的时候至多这么大(像素)。 */
+        /** 受け取った Web サイトのアイコンは少なくともこの大きさ、保存時は最大でもこの大きさ（ピクセル）。 */
         private const val MIN_ICON_PX = 16
         private const val MAX_ICON_PX = 128
         val LOGGED_IN_NOTICE: String get() = tr(R.string.browser_logged_in)
-        /** 页面上选中的字(含输入框里选中的那段)。 */
+        /** ページ上で選択された文字（入力欄の中で選択された部分を含む）。 */
         private const val SELECTION_SCRIPT = "(function(){var s=window.getSelection();var t=s?String(s):'';" +
             "var a=document.activeElement;if(!t&&a&&typeof a.selectionStart==='number'&&a.type!=='password')" +
             "t=String(a.value||'').substring(a.selectionStart,a.selectionEnd);return t;})()"
 
-        /** 进程里已经有的那一份;还没打开过浏览器页为 null(不为它建一份)。 */
+        /** プロセス内に既にあるもの; ブラウザページをまだ開いていなければ null（そのために新規作成はしない）。 */
         fun existing(): UserBrowser? = instance
 
         @Volatile private var instance: UserBrowser? = null

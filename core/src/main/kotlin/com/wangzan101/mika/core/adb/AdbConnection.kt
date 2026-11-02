@@ -21,22 +21,22 @@ class AdbConnectionException(val reason: Reason, message: String, cause: Throwab
     enum class Reason {
         CONNECT_FAILED,
         TLS_FAILED,
-        /** 设备不认这把钥匙(没配对、被撤销或授权过期),要重新配对。 */
+        /** デバイスはこのキーを認識しない (ペアリングされていない、取り消されている、または認証の有効期限が切れている) ため、再度ペアリングする必要があります。 */
         UNAUTHORIZED,
         PROTOCOL,
     }
 }
 
 /**
- * 到 adbd 的一条连接。握手:发 CNXN → 设备回 STLS → 回 STLS 并以已配对的证书做 TLS 1.3 →
- * 设备在 TLS 上发 CNXN(横幅)。之后在其上多路复用流:OPEN → OKAY,WRTE 每包都要等对方 OKAY。
- * 不声明任何 feature(不用 delayed ack),OPEN 的 arg1 因此为 0。
+ * adbd への接続。ハンドシェイク: CNXN を送信 → デバイスが STLS に応答 → STLS に応答し、ペアの証明書を使用して TLS 1.3 を実行 →
+ * デバイスは TLS 経由で CNXN (バナー) を送信します。次に、ストリームを多重化します: OPEN → OKAY、WRTE。各パケットは相手の OKAY を待つ必要があります。
+ * は機能を宣言していない (遅延 ACK は使用されていない) ため、OPEN の arg1 は 0 です。
  */
 class AdbConnection private constructor(
     private val socket: Socket,
     private val input: DataInputStream,
     private val output: OutputStream,
-    /** 设备横幅,如 `device::ro.product.name=…;features=…`。 */
+    /** デバイス バナー (`device::ro.product.name=…;features=…` など)。 */
     val banner: String,
     private val peerVersion: Int,
     private val peerMaxData: Int,
@@ -50,7 +50,7 @@ class AdbConnection private constructor(
 
     val isClosed: Boolean get() = closed
 
-    /** 运行 `exec:` 服务:命令的原始标准输出(不经 pty),写入的数据进它的标准输入。 */
+    /** は、コマンドの元の標準出力 (pty なし) である `exec:` サービスを実行し、書き込まれたデータはその標準入力に入ります。 */
     fun exec(command: String): AdbStream = open("exec:$command")
 
     fun open(destination: String): AdbStream {
@@ -109,7 +109,7 @@ class AdbConnection private constructor(
                         s.opened.complete(false)
                         s.remoteClosed()
                     }
-                    else -> Unit // 连接建立后的 CNXN/AUTH 等不处理
+                    else -> Unit // 接続確立後はCNXN/AUTH等は処理されません。
                 }
             }
         } catch (_: IOException) {
@@ -118,7 +118,7 @@ class AdbConnection private constructor(
         }
     }
 
-    /** 一条流。[read] 阻塞到有数据,流结束返回 null。 */
+    /** ストリーム。 [read] はデータが存在するまでブロックし、ストリームが終了すると null を返します。 相手が閉じるまで */
     inner class AdbStream internal constructor(val localId: Int) : Closeable {
         @Volatile internal var remoteId = 0
         internal val opened = CompletableFuture<Boolean>()
@@ -136,7 +136,7 @@ class AdbConnection private constructor(
             return b
         }
 
-        /** 读到对方关闭为止。 */
+        /** 。 */
         fun readAll(): ByteArray {
             val out = ByteArrayOutputStream()
             while (true) out.write(read() ?: return out.toByteArray())
@@ -196,7 +196,7 @@ class AdbConnection private constructor(
         private val EOF = ByteArray(0)
         private val HOST_BANNER = "host::\u0000".toByteArray(Charsets.US_ASCII)
 
-        /** 连上 [host]:[port] 的 adbd(通常是 127.0.0.1 + mDNS 找到的无线调试端口)。 */
+        /** は、[host]:[port] の adbd に接続されています (通常は、127.0.0.1 + mDNS によって検出されるワイヤレス デバッグ ポート)。 */
         fun open(host: String, port: Int, tls: AdbTls, timeoutMs: Int = 10_000): AdbConnection {
             val plain = Socket()
             try {
@@ -232,8 +232,8 @@ class AdbConnection private constructor(
                         throw AdbConnectionException(AdbConnectionException.Reason.TLS_FAILED, "TLS handshake failed", e)
                     }
                     val input = DataInputStream(ssl.inputStream)
-                    // TLS 1.3 里设备拒绝客户端证书发生在握手之后,表现为读第一个包时出错或断开。
-                    // 客户端分不清是 adbd 不认这把钥匙,还是另一个服务接住了这次握手,由调用方再试(见 AdbConnectPort)
+                    // TLS 1.3 では、デバイスはハンドシェイク後にクライアント証明書を拒否し、最初のパケットの読み取り時にエラーまたは切断として現れます。
+                    // クライアントは、adbd がキーを認識しないのか、それとも別のサービスがハンドシェイクを受信したのかを判断できません。再試行するかどうかは呼び出し側次第です (AdbConnectPort を参照)
                     val cnxn = try {
                         AdbMessage.read(input)
                     } catch (e: SSLException) {

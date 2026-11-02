@@ -18,7 +18,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.random.Random
 
-/** 对外动作之间的间隔:第一次不等、隔够了不等、别的网站各算各的,间隔有上下限且随次数变长;执行入口照它等,等的时间记成等待。 */
+/** 外部アクション間の間隔: 初回は等しくなく、間隔が十分ではなく、他の Web サイトは個別にカウントされます。間隔には上限と下限があり、回数に応じて長くなります。実行エントリはそれに応じて待機し、待機時間は待機として記録されます。 */
 class OutwardPacingTest {
     private val limits = OutwardPacing.Limits()
 
@@ -36,7 +36,7 @@ class OutwardPacingTest {
             p.noteDone("example.com", 1_000)
             val gap = p.waitBefore("example.com", 1_000)
             assertTrue("$gap", gap in limits.firstGapMs)
-            // 中间读页面、想下一步花掉的时间算在间隔里
+            // ページを読んで次のステップを考えるのに費やした時間もインターバルに含まれます。
             assertEquals(gap - 3_000, p.waitBefore("example.com", 4_000))
             assertEquals(0, p.waitBefore("example.com", 1_000 + gap))
         }
@@ -67,7 +67,7 @@ class OutwardPacingTest {
         assertEquals(null, OutwardPacing.siteOf(null, web = false))
     }
 
-    /** 一屏:一个「立即沟通」、一个普通按钮;记下点了什么。 */
+    /** 1 つの画面: 1 つの「今すぐ通信」ボタンと 1 つの通常のボタン。クリックした内容を書き留めます。 */
     private class GreetPage : ScreenPort by FakeScreen() {
         val taps = mutableListOf<String>()
         private val shown = listOf(
@@ -79,7 +79,7 @@ class OutwardPacingTest {
         override suspend fun tapRef(ref: String, snapshotId: String) = ActionResult.Ok(changed = true).also { taps += ref }
     }
 
-    // 自主执行时也照判定隔开:第二次「立即沟通」前等够间隔,记成这次调用的等待,不算进操作用时;普通点击不等
+    // も、単独で実行する場合の判断に従って分離されます。2 回目の「即時通信」までに十分な時間待機します。これは、この呼び出しの待機として記録され、操作時間には含まれません。通常のクリックはカウントされません
     @Test fun executorWaitsBetweenOutwardTapsAndRecordsTheWait() = runTest {
         val events = mutableListOf<RunEvent>()
         val sink = object : RunSink { override fun event(e: RunEvent) { events += e } }
@@ -100,10 +100,10 @@ class OutwardPacingTest {
         val results = events.filterIsInstance<RunEvent.ToolResult>().associateBy { it.callId }
         assertEquals(0L, results.getValue("c1").waitMs)
         assertEquals(0L, results.getValue("c2").waitMs)
-        // 普通点击花掉的时间算在间隔里,只补不够的部分
+        // 通常のクリック時間もインターバルに含まれ、不足分のみを補います。
         assertEquals(gap - spent, results.getValue("c3").waitMs)
         assertTrue(results.getValue("c3").durationMs < results.getValue("c3").waitMs)
-        // 活动上标出哪几次是对外动作:停止后交代时按它数发出了几次
+        // アクティビティ上の外部アクションの数をマークします。これを押すと、停止後に指示を与えるときに送信された回数がカウントされます。
         val outward = events.filterIsInstance<RunEvent.Activity>().associate { it.callId to it.outward }
         assertEquals(mapOf("c1" to true, "c2" to false, "c3" to true), outward)
     }

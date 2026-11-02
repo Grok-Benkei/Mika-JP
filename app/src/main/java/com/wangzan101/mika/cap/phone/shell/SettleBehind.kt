@@ -1,32 +1,32 @@
 package com.wangzan101.mika.cap.phone.shell
 
 /**
- * 收尾时挪到主屏后面的任务,等它们真的退到用户看不见的地方(纯逻辑,不碰系统接口,单元测试直接测)。
+ * 最後にタスクをメイン画面の後ろに移動し、ユーザーから見えない場所にタスクが実際に退避するまで待ちます (純粋なロジック、システム インターフェイスに触れず、単体テストで直接測定します)。
  *
- * 挪过去以后系统要放一段 TO_BACK 过渡,这期间 TaskInfo.isVisible 仍是 true,不能拿某一次读到的「看得见」当失败,
- * 所以隔 [POLL_MS] 看一次:都看不见了就定下来;还看得见的每隔 [REORDER_EVERY_MS] 再排一次到最后面;
- * 到 [TIMEOUT_MS] 还看得见的不能留在用户眼前,交给退路([Plan.Done.fallback]):挪回 Mika 的屏随屏关掉,挪不回再直接关掉
- * (和挪过去又出声的同一条路),结果里记成没留下。已经不在主屏的(被别的任务拿去用了,或已经关了)不再管,也不算留下。
+ * が移動された後、システムは TO_BACK 遷移を行います。この期間中、TaskInfo.isVisible は依然として true です。 「可視」の読み取りを失敗とみなすことはできません。
+ * 、つまり [POLL_MS] ごとに見てください。見えない場合は、判断してください。まだ表示される場合は、[REORDER_EVERY_MS] ごとに最後まで再度並べてください。
+ * ～ [TIMEOUT_MS] まだ見えているものは目の前に残せないので、逃げ道に任せる([Plan.Done.fallback]): ミカの画面を後ろに移動し、画面ごとオフにします。元に戻せない場合は、直接オフにしてください。
+ * （上に移動して音が出たのと同じ経路）、結果は残ってませんでした。ホーム画面に表示されなくなったもの（他のタスクに使用されたり、閉じられたりしたもの）は管理されなくなり、残っているものとしてカウントされません。
  */
 object SettleBehind {
     const val TIMEOUT_MS = 2_000L
     const val REORDER_EVERY_MS = 750L
     const val POLL_MS = 100L
 
-    /** 一个挪过去的任务此刻的样子:[onMain] 还在主屏上;[visible] 在主屏看得见(读不到 isVisible 时调用方按「是不是主屏最上面」给)。 */
+    /** 移動されたタスクは次のようになります。 [onMain] はまだメイン画面にあります。メイン画面に [visible] が表示されます (isVisible が読み取れない場合、発信者は「メイン画面の一番上にありますか」を押します)。 */
     data class Seen(val id: Int, val onMain: Boolean, val visible: Boolean)
 
     sealed interface Plan {
-        /** 还在过渡:[reorder] 是这一轮要再排到最后面的(可能为空),[gone] 从此不再跟;过 [POLL_MS] 再看。 */
+        /** はまだ移行中です。[reorder] はこのラウンドの終了時にランク付けされます (空の場合があります)。[gone] はその後に続きません。 [POLL_MS] を通過して、もう一度見てください。 */
         data class Wait(val reorder: Set<Int>, val gone: Set<Int>) : Plan
 
-        /** 定了:[kept] 留在主屏后面;[fallback] 超时还看得见,走退路;[gone] 已不在主屏。 */
+        /** が決定されます。[kept] はメイン画面の後ろに残ります。 [fallback] はタイムアウト後も表示されるため、後退する必要があります。 [gone] はメイン画面に表示されなくなりました。 */
         data class Done(val kept: Set<Int>, val fallback: Set<Int>, val gone: Set<Int>) : Plan
     }
 
     /**
-     * 这一轮怎么办。[moved] 是还在跟的任务,[seen] 是它们此刻的样子(没列出的当作已不在主屏),
-     * [elapsedMs] 是从开始等起过了多久,[sinceReorderMs] 是离上次再排过了多久(还没排过为 null)。
+     * このラウンドで何をするか。 [moved] はまだ追跡中のタスク、[seen] は現時点でのタスクの様子 (リストされていないタスクはホーム画面に存在しないとみなされます)、
+     * [elapsedMs] は待機開始からの経過時間、[sinceReorderMs] は最後にキューに登録されてからの経過時間です (まだキューに登録されていない場合は null)。
      */
     fun plan(moved: Set<Int>, seen: List<Seen>, elapsedMs: Long, sinceReorderMs: Long?): Plan {
         val byId = seen.associateBy { it.id }
@@ -40,9 +40,9 @@ object SettleBehind {
     }
 
     /**
-     * 等完以后、回到锁里再定一次(等的时候不占锁,这段时间里任务可能被别的任务拿走)。[moved] 是挪过去的全部,
-     * [fallback] 是等到超时还看得见的,[seen] 是此刻主屏上的样子:不在主屏的不再算留下;走退路的只限超时那几个、此刻仍看得见的;
-     * 原本已退到后面、此刻又看得见的是用户自己点开的,照留不动。
+     * 待機後、ロックに戻り、再度ロックを設定します（待機中はロックが占有されていないため、その間に他のタスクにタスクが奪われてしまう可能性があります）。 [moved] はすべて移行されました、
+     * [fallback] はタイムアウト後も表示されます。現時点でのメイン画面の表示は [seen] です。メイン画面にいない人は残りとしてカウントされなくなります。撤退する者は、タイムアウトになり、現時点でまだ見える者に限定されます。
+     * 元々は背面に移動していましたが、現在は表示されているものは、ユーザーがクリックしたものであり、そこに残すことはできません。
      */
     fun closeOut(moved: Set<Int>, fallback: Set<Int>, seen: List<Seen>): Plan.Done {
         val byId = seen.associateBy { it.id }

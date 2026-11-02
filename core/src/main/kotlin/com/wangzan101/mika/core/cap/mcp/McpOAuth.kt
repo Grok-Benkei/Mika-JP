@@ -20,10 +20,10 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 
-/** OAuth 失败;消息只带错误类别/代码,不带令牌或响应正文。 */
+/** OAuth が失敗しました。エラー カテゴリ/コードのみが含まれ、トークンや応答本文が含まれていないメッセージ。 */
 class McpOAuthException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
-/** 一次 OAuth 登录的随机值。[redirectUri] 是本机回调地址。 */
+/** OAuth ログインのランダムな値。 [redirectUri] はローカル コールバック アドレスです。 */
 data class McpOAuthAttempt(
     val state: String,
     val verifier: String,
@@ -32,7 +32,7 @@ data class McpOAuthAttempt(
     val challenge: String get() = Pkce.challenge(verifier)
 }
 
-/** 授权服务器的端点(RFC 8414 / RFC 9728 发现结果)。 */
+/** 認可サーバーのエンドポイント (RFC 8414 / RFC 9728 検出結果)。 */
 data class McpOAuthServer(
     val authorizationEndpoint: HttpUrl,
     val tokenEndpoint: HttpUrl,
@@ -41,10 +41,10 @@ data class McpOAuthServer(
     val scope: String? = null,
 )
 
-/** 动态注册得到的公开客户端(RFC 7591)。 */
+/** 動的に登録されたパブリック クライアント (RFC 7591)。 */
 data class McpOAuthRegistration(val clientId: String, val clientSecret: String?)
 
-/** 加密存储的令牌;刷新时只需要 tokenEndpoint、clientId 和 refreshToken。 */
+/** は保存されたトークンを暗号化します。更新時に必要なのは、tokenEndpoint、clientId、およびrefreshTokenのみです。 */
 @Serializable
 data class McpOAuthTokens(
     val accessToken: String,
@@ -60,10 +60,10 @@ data class McpOAuthTokens(
 }
 
 /**
- * MCP 的 OAuth 2.1 客户端(RFC 9728 资源元数据 → RFC 8414 授权服务器元数据 → RFC 7591 动态注册 → PKCE 授权码)。
+ * MCP の OAuth 2.1 クライアント (RFC 9728 リソース メタデータ → RFC 8414 認可サーバー メタデータ → RFC 7591 動的登録 → PKCE 認可コード)。
  *
- * 只做公开客户端:注册时 `token_endpoint_auth_method=none`,不保存密钥(个别服务器仍会给 client_secret,原样带上)。
- * 所有端点必须是 HTTPS;本机/私有地址的 HTTP 只在测试和 localhost 开发时接受。令牌只进内存/加密存储,不进日志。
+ * はパブリック クライアントのみです。`token_endpoint_auth_method=none` は登録時にキーを保存しません (一部のサーバーでは client_secret がそのまま提供されます)。
+ * すべてのエンドポイントは HTTPS である必要があります。ネイティブ/プライベート アドレスの HTTP は、テストとローカルホスト開発の場合にのみ受け入れられます。トークンはメモリ/暗号化ストレージにのみ入力され、ログには入力されません。
  */
 class McpOAuth(
     private val http: OkHttpClient,
@@ -76,7 +76,7 @@ class McpOAuth(
         .followSslRedirects(false)
         .build()
 
-    /** 从 MCP server 地址发现授权服务器;没有资源元数据时退回 server 同源。 */
+    /** は、MCP サーバー アドレスから認可サーバーを検出します。リソースのメタデータがない場合は、サーバーのオリジンに戻ります。 */
     suspend fun discover(serverUrl: HttpUrl): McpOAuthServer {
         val resourceMetadata = fetchMetadata(
             listOfNotNull(
@@ -111,7 +111,7 @@ class McpOAuth(
         return McpOAuthServer(authorization, token, registration, resource, scopes)
     }
 
-    /** 动态注册公开客户端;redirect URI 用本机回调。 */
+    /** はパブリック クライアントを動的に登録します。リダイレクト URI はネイティブ コールバックを使用します。 */
     suspend fun register(server: McpOAuthServer, redirectUri: String, clientName: String = "Mika"): McpOAuthRegistration {
         val endpoint = server.registrationEndpoint ?: throw McpOAuthException("oauth_registration_unsupported")
         requireSafeEndpoint(endpoint)
@@ -132,7 +132,7 @@ class McpOAuth(
         return McpOAuthRegistration(clientId, root["client_secret"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() })
     }
 
-    /** 授权页地址(PKCE S256 + state + RFC 8707 resource)。 */
+    /** 認証ページ アドレス (PKCE S256 + 状態 + RFC 8707 リソース)。 */
     fun authorizeUrl(
         server: McpOAuthServer,
         registration: McpOAuthRegistration,
@@ -149,7 +149,7 @@ class McpOAuth(
         .apply { server.scope?.let { addQueryParameter("scope", it) } }
         .build().toString()
 
-    /** 用授权码换令牌。 */
+    /** は、認証コードをトークンと交換します。 */
     suspend fun exchange(
         server: McpOAuthServer,
         registration: McpOAuthRegistration,
@@ -168,7 +168,7 @@ class McpOAuth(
         return readTokens(postForm(server.tokenEndpoint, form), registration, server.tokenEndpoint, resource)
     }
 
-    /** 用 refresh token 换新 access token;服务器没给新 refresh token 时沿用旧的。 */
+    /** リフレッシュ トークンを使用して新しいアクセス トークンを交換します。サーバーが新しいリフレッシュ トークンを提供しない場合は、古いリフレッシュ トークンが使用されます。 */
     suspend fun refresh(tokens: McpOAuthTokens): McpOAuthTokens {
         val refresh = tokens.refreshToken?.takeIf { it.isNotBlank() } ?: throw McpOAuthException("oauth_refresh_missing")
         val endpoint = tokens.tokenEndpoint.toHttpUrlOrNull()?.also(::requireSafeEndpoint)
@@ -185,7 +185,7 @@ class McpOAuth(
         return next.copy(refreshToken = next.refreshToken ?: refresh)
     }
 
-    /** 用户拒绝或回调带错误:只认 state 对得上的。 */
+    /** ユーザーが拒否したか、コールバックでエラーが発生しました。状態に一致する状態のみが認識されます。 */
     fun readCallbackError(params: Map<String, String>, attempt: McpOAuthAttempt): McpOAuthException? {
         val state = params["state"]
         if (state != attempt.state) return McpOAuthException("oauth_state_mismatch")
@@ -194,7 +194,7 @@ class McpOAuth(
         return McpOAuthException("oauth_denied_" + (params["error"]?.take(40) ?: "no_code"))
     }
 
-    /** 回调里取授权码;state 必须匹配。 */
+    /** コールバックで認証コードを取得します。状態が一致する必要があります。 */
     fun readCode(params: Map<String, String>, attempt: McpOAuthAttempt): String {
         if (params["state"] != attempt.state) throw McpOAuthException("oauth_state_mismatch")
         return params["code"]?.takeIf { it.isNotBlank() } ?: throw McpOAuthException("oauth_no_code")
@@ -244,7 +244,7 @@ class McpOAuth(
         return null
     }
 
-    /** 资源元数据不在 well-known 时,按 MCP 规范从 401 的 WWW-Authenticate 里找 `resource_metadata`。 */
+    /** リソース メタデータがよく知られていない場合は、MCP 仕様に従って 401 WWW-Authenticate から `resource_metadata` を検索します。 */
     private suspend fun probeResourceMetadata(serverUrl: HttpUrl): JsonObject? {
         val response = try {
             executeRaw(

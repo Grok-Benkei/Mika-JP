@@ -37,7 +37,7 @@ class McpRpcTest {
     private fun modernHeaders(method: String, version: String = McpRpc.MODERN, name: String? = null) =
         mapOf("MCP-Protocol-Version" to version, "Mcp-Method" to method) + (name?.let { mapOf("Mcp-Name" to it) } ?: emptyMap())
 
-    // ---------- 老一代:握手 ----------
+    // ---------- 旧世代: ハンドシェイク ----------
 
     @Test fun initializeNegotiatesALegacyVersion() {
         val r = post("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"desk","version":"1"}}}""")
@@ -48,7 +48,7 @@ class McpRpcTest {
         assertTrue(result["capabilities"]!!.jsonObject.containsKey("tools"))
         assertNull("no sessions", r.headers["Mcp-Session-Id"])
         assertEquals(listOf<String?>("desk"), seen)
-        // 不认的版本给最新的老一代版本
+        // は最新の旧世代バージョンまでのバージョンを認識しません
         val other = post("""{"jsonrpc":"2.0","id":2,"method":"initialize","params":{"protocolVersion":"2024-01-01","capabilities":{}}}""")
         assertEquals(McpRpc.LEGACY_VERSIONS.first(), other.json()["result"]!!.jsonObject["protocolVersion"]!!.jsonPrimitive.content)
     }
@@ -109,7 +109,7 @@ class McpRpcTest {
         assertEquals(400, post("""{"jsonrpc":"2.0","id":1,"method":"ping"}""", mapOf("MCP-Protocol-Version" to "1999-01-01")).status)
     }
 
-    // ---------- 新一代:每个请求自带版本 ----------
+    // ---------- 新世代: 各リクエストには独自のバージョンが付属します ----------
 
     @Test fun modernDiscoverAndToolsList() {
         val d = post("""{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{${modernMeta()}}}""", modernHeaders("server/discover"))
@@ -122,7 +122,7 @@ class McpRpcTest {
         val l = post("""{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{${modernMeta()}}}""", modernHeaders("tools/list"))
         assertEquals(7, l.json()["result"]!!.jsonObject["tools"]!!.jsonArray.size)
 
-        // 新一代规定这两种完整结果必须带缓存提示,缺了客户端(如 Claude Code)整个拒收
+        // 新しい世代では、これら 2 つの完全な結果にはキャッシュ プロンプトが必要であると規定されています。クライアント (Claude Code など) がないと、結果全体が拒否されます。
         for (r in listOf(result, l.json()["result"]!!.jsonObject)) {
             assertTrue(r["ttlMs"]!!.jsonPrimitive.content.toLong() >= 0)
             assertEquals("private", r["cacheScope"]!!.jsonPrimitive.content)
@@ -133,7 +133,7 @@ class McpRpcTest {
         val body = """{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"mika_list_tasks","arguments":{},${modernMeta()}}}"""
         post(body, modernHeaders("tools/call", name = "mika_list_tasks")).let {
             assertEquals(200, it.status)
-            assertFalse("工具调用的结果不可缓存,不带缓存提示", "ttlMs" in it.json()["result"]!!.jsonObject)
+            assertFalse("ツール呼び出しの結果はキャッシュできないため、キャッシュのヒントを付けません", "ttlMs" in it.json()["result"]!!.jsonObject)
         }
         val encoded = "=?base64?" + Base64.getEncoder().encodeToString("mika_list_tasks".toByteArray()) + "?="
         assertEquals(200, post(body, modernHeaders("tools/call", name = encoded)).status)
@@ -159,7 +159,7 @@ class McpRpcTest {
         }
         val noCaps = """{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"${McpRpc.MODERN}"}}}"""
         post(noCaps, modernHeaders("tools/list")).let { assertEquals(400, it.status); assertEquals(McpRpc.INVALID_PARAMS, it.errorCode()) }
-        // 头里是新一代版本、正文却没有 _meta
+        // 新世代バージョンはヘッド内にありますが、テキストは _meta ではありません
         post("""{"jsonrpc":"2.0","id":1,"method":"tools/list"}""", modernHeaders("tools/list")).let {
             assertEquals(400, it.status); assertEquals(McpRpc.INVALID_PARAMS, it.errorCode())
         }

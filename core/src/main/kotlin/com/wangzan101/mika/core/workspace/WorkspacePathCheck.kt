@@ -1,4 +1,4 @@
 package com.wangzan101.mika.core.workspace
 
-/** 工作区路径检查的结果(由 app 侧按工作区的路径规范化实现)。 */
+/** ワークスペース パス チェックの結果 (アプリ側を押してワークスペースのパスを正規化することで実装)。 */
 enum class WorkspacePathCheck { Ok, NotFound, Outside }

@@ -31,8 +31,8 @@ import com.wangzan101.mika.task.testTasks
 import com.wangzan101.mika.task.TaskEnvironment
 
 /**
- * 真机:脚本模型跑一个 3 步任务(打开设置、看屏幕、交结果),在结果卡片上点「查看过程」,
- * 时间线上应有 3 行,点有画面的那行能看到当时的缩略图。需要内置助手在运行、Mika 无障碍服务已开启。
+ * 実機: スクリプト モデルは 3 ステップのタスク (設定を開き、画面を表示し、結果を送信) を実行し、結果カードの [プロセスの表示] をクリックします。
+ * タイムラインには 3 つの行があるはずです。画像のある行をクリックすると、その時点のサムネイルが表示されます。内蔵アシスタントを実行し、Mika アクセシビリティ サービスをオンにする必要があります。
  */
 @OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)

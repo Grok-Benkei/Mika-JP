@@ -26,14 +26,14 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** 传输层桩实现这个接口，外部连接只能拿到 ID 和事件流。 */
+/** トランスポート層スタブはこのインターフェイスを実装しており、外部接続は ID とイベント ストリームのみを取得できます。 */
 fun interface McpTaskHost {
     fun submit(spec: RunSpec): McpTaskLink
 }
 
 class McpTaskLink(val id: RunId, val events: RunEventBus, val cancel: () -> Unit = {})
 
-/** 一个无模型的会话型 Run。目录开局冻结，所有工具都经过 ActionExecutor。 */
+/** モデルのない会話型 Run。ディレクトリの開始は凍結され、すべてのツールは ActionExecutor を経由します。 */
 class McpToolSession internal constructor(
     val spec: RunSpec,
     private val tools: ToolDispatcher,
@@ -77,7 +77,7 @@ class McpToolSession internal constructor(
     private fun error(code: String) = buildJsonObject { put("ok", false); put("error", code) }
 }
 
-/** 本机传输桩的核心入口；真正的 socket/授权层只需映射到这三个操作。 */
+/** ネイティブ転送スタブのコア エントリ ポイント。実際のソケット/認可層は、これら 3 つの操作にマッピングするだけで済みます。 */
 class McpServer(
     private val assemble: (RunSpec) -> ToolDispatcher,
     private val tasks: McpTaskHost,

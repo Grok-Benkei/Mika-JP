@@ -24,8 +24,8 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /**
- * Mika 自己的 adb 身份:一把 RSA-2048 钥匙 + 自签名证书。配对时把 [adbPublicKey] 交给设备,
- * 之后每次 TLS 连接都出示 [certificate](设备只比对证书里的公钥)。
+ * ミカ自身の adb ID: RSA-2048 キー + 自己署名証明書。ペアリング時にデバイスに[adbPublicKey]を与え、
+ * の後、TLS 接続ごとに [certificate] が表示されます (デバイスは証明書内の公開キーのみを比較します)。
  */
 class AdbIdentity(val keyPair: KeyPair, val name: String) {
     val publicKey: RSAPublicKey get() = keyPair.public as RSAPublicKey
@@ -33,15 +33,15 @@ class AdbIdentity(val keyPair: KeyPair, val name: String) {
     val certificate: X509Certificate by lazy { SelfSignedCertificate.create(keyPair) }
 
     /**
-     * 设备 keystore 里的一行:base64(524 字节公钥结构) + 空格 + 名字。
-     * 名字里不能有空白:系统设置按空白切分这一行,名字带空格时「已配对的设备」里删不掉。
+     * デバイス キーストアの行:base64 (524 バイトの公開キー構造) + スペース + 名前。
+     * 名前に空白を含めることはできません。システム設定により、この行は空白に応じて分割されます。名前にスペースが含まれている場合は、「ペアリングされたデバイス」から削除できません。
      */
     val adbPublicKey: String by lazy {
         Base64.getEncoder().encodeToString(AdbPublicKey.encode(publicKey)) + " " + name.replace(Regex("\\s"), "_")
     }
 
     companion object {
-        /** 新钥匙的公开指数:F4(65537)。读回钥匙时拿不到指数就按它补,并验证补得对。 */
+        /** 新しいキーの公開インデックス: F4 (65537)。キーを読み戻すときにインデックスを取得できない場合は、キーを押してインデックスを入力し、それが正しいことを確認します。 */
         val PUBLIC_EXPONENT: BigInteger = RSAKeyGenParameterSpec.F4
 
         fun generate(name: String): AdbIdentity {
@@ -51,8 +51,8 @@ class AdbIdentity(val keyPair: KeyPair, val name: String) {
         }
 
         /**
-         * 从存下的 PKCS#8 读回身份。不要求平台给的是带 CRT 参数的私钥:只要是 RSA 私钥就取模数,
-         * 公开指数按 [publicExponent] 找。读不出抛 [AdbKeyUnreadableException]。
+         * 保存された PKCS#8 から ID を読み取ります。プラットフォームは、CRT パラメーターを含む秘密キーを提供する必要はありません。RSA 秘密キーである限り、モジュラスを取得するだけです。
+         * 公開インデックスは [publicExponent] によって見つかりました。スロー [AdbKeyUnreadableException] を読み取れません。
          */
         fun fromPkcs8(pkcs8: ByteArray, name: String): AdbIdentity {
             val kf = KeyFactory.getInstance("RSA")
@@ -67,8 +67,8 @@ class AdbIdentity(val keyPair: KeyPair, val name: String) {
         }
 
         /**
-         * 私钥对应的公开指数:平台给了 CRT 形式就直接用;否则从 PKCS#8 里的 RSAPrivateKey 结构读;
-         * 结构里没有(写的是 0)才按 [PUBLIC_EXPONENT] 补,补之前签一次名验一次,对不上就抛,不拿错的公钥去连。
+         * 秘密キーに対応する公開インデックス: プラットフォームが CRT 形式を提供する場合は直接使用します。それ以外の場合は、PKCS#8 の RSAPrivateKey 構造体から読み取ります。 構造内に
+         * がない場合 (0 として書き込まれます)、[PUBLIC_EXPONENT] を押して埋めます。入力する前に、署名と検証を 1 回行ってください。合わなかったら捨ててください。接続に間違った公開キーを使用しないでください。
          */
         internal fun publicExponent(key: RSAPrivateKey, pkcs8: ByteArray): BigInteger {
             (key as? RSAPrivateCrtKey)?.publicExponent?.takeIf { it.signum() > 0 }?.let { return it }
@@ -86,25 +86,25 @@ class AdbIdentity(val keyPair: KeyPair, val name: String) {
     }
 }
 
-/** 已存的钥匙在,却读不出来(解不开或解析不了)。不能悄悄换新的:设备只认配对时那一把。 */
+/** 保存されたキーは存在しますが、読み取ることができません (ロック解除または解析できません)。静かに新しいものと交換することはできません。デバイスはペアリングされたもののみを認識します。 */
 class AdbKeyUnreadableException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
-/** 钥匙此刻的状况(诊断信息用)。 */
+/** キーの現在のステータス (診断情報用)。 */
 enum class AdbKeyState {
-    /** 这个进程里还没用过钥匙。 */
+    /** キーはこのプロセスでは使用されていません。 */
     NotLoaded,
-    /** 读回了已存的那把。 */
+    /** は保存したものを読み戻します。 以前は */
     Loaded,
-    /** 之前没有(或配对时换掉了读不出的那把),新建了一把并存下。 */
+    /** がなかったので（もしくはペアリング時に読み取れなくなったものを差し替えた）、新しく作成して保存しました。 */
     Created,
-    /** 存着一把却读不出来:要重新配对。 */
+    /** 持っていますが、読み取れません。再ペアリングする必要があります。 */
     Unreadable,
 }
 
 /**
- * 一个进程里的 adb 身份只有一份:配对和连接拿到的一定是同一把钥匙,不会因为某次读失败各用各的。
- * 只有配对([forPairing])会在存着的钥匙读不出时换一把新的(配对本来就会把新钥匙交给设备);
- * 连接([forConnect])遇到读不出就抛 [AdbKeyUnreadableException],界面据此请用户重新配对。
+ * プロセスには adb ID が 1 つだけあります。ペアリングと接続は同じキーを取得する必要があり、特定の読み取り失敗のために異なるキーを使用することはありません。
+ * ペアリング ([forPairing]) のみが、保存されたキーを読み取れない場合に新しいキーに置き換えます (ペアリングは元々デバイスに新しいキーを与えます)。
+ * 接続 ([forConnect]) は、読み取れない場合に [AdbKeyUnreadableException] をスローし、それに応じてインターフェイスはユーザーに再ペアリングを要求します。
  */
 class AdbIdentitySource(
     private val store: AdbKeyStore,
@@ -116,15 +116,15 @@ class AdbIdentitySource(
     @Volatile var state: AdbKeyState = AdbKeyState.NotLoaded
         private set
 
-    /** 最近一次读不出的原因(诊断信息用);读得出时为 null。 */
+    /** 最新を読み取れない理由 (診断情報用)。読み取れる場合は null です。 */
     @Volatile var problem: String? = null
         private set
 
-    /** 连接用:已存的那把;一把都没有就新建并存下;存着却读不出就抛,不覆盖。 */
+    /** 接続に使用: 保存されているもの。存在しない場合は、新しいものを作成して保存します。保存しても読み取れない場合は、上書きせずに破棄してください。 ペアリング用の */
     @Synchronized
     fun forConnect(): AdbIdentity = cached ?: load()
 
-    /** 配对用:和 [forConnect] 同一把;只有存着的读不出时,在这里换一把新的存下(随后的配对会把它交给设备)。 */
+    /** : [forConnect]と同じもの。保存したものだけが読み取れない場合は、新しいものに置き換えてここに保存します（その後のペアリングでデバイスに保存されます）。 */
     @Synchronized
     fun forPairing(): AdbIdentity = cached ?: try {
         load()
@@ -134,7 +134,7 @@ class AdbIdentitySource(
         create()
     }
 
-    /** 解除配对:钥匙和缓存一起删掉,下次配对用新钥匙。 */
+    /** ペアリング解除: キーとキャッシュは一緒に削除され、次のペアリングには新しいキーが使用されます。 */
     @Synchronized
     fun forget() {
         cached = null
@@ -176,8 +176,8 @@ class AdbIdentitySource(
 }
 
 /**
- * 钥匙(PKCS#8)的存取。App 里用 Android Keystore 包一层加密存放。
- * [read] 没存过返回 null;存着却读不出抛 [AdbKeyUnreadableException](两者要分开,后者不能当作没有)。
+ * キー (PKCS#8) へのアクセス。アプリは Android キーストアを使用して、暗号化されたストレージのレイヤーをラップします。
+ * [read] が保存されていない場合は、null が返されます。保存されていても読み取れない場合は、[AdbKeyUnreadableException] がスローされます (2 つは分離する必要があり、後者は存在しないものとして扱うことはできません)。
  */
 interface AdbKeyStore {
     fun read(): ByteArray?
@@ -186,8 +186,8 @@ interface AdbKeyStore {
 }
 
 /**
- * 加密存放在文件里的钥匙:文件内容 = 1 字节 IV 长度 + IV + AES-GCM 密文。
- * IV 由 Cipher 自己生成(Android Keystore 的密钥不许调用方指定 IV)。
+ * は、ファイルに保存されているキーを暗号化します: ファイルの内容 = 1 バイトの IV 長 + IV + AES-GCM 暗号文。
+ * IV は Cipher 自体によって生成されます (Android キーストアのキーでは呼び出し元が IV を指定することはできません)。
  */
 class WrappedKeyFile(private val file: File, private val wrappingKey: () -> SecretKey) : AdbKeyStore {
     override fun read(): ByteArray? {
@@ -222,8 +222,8 @@ class WrappedKeyFile(private val file: File, private val wrappingKey: () -> Secr
 }
 
 /**
- * 从 PKCS#8 里读 RSA 公开指数:PrivateKeyInfo ::= SEQUENCE { version, algorithm, privateKey OCTET STRING },
- * privateKey 里是 RSAPrivateKey ::= SEQUENCE { version, modulus, publicExponent, ... }。结构不对返回 null。
+ * PKCS#8:PrivateKeyInfo から RSA 公開インデックスを読み取ります::= SEQUENCE { バージョン、アルゴリズム、privateKey OCTET STRING }、
+ * privateKey は RSAPrivateKey ::= SEQUENCE { バージョン、モジュラス、publicExponent、... } です。構造が正しくない場合は null を返します。
  */
 internal object Pkcs8Rsa {
     fun publicExponent(pkcs8: ByteArray): BigInteger? = runCatching {
@@ -235,7 +235,7 @@ internal object Pkcs8Rsa {
         BigInteger(rsa.read(0x02))
     }.getOrNull()
 
-    /** 只够读上面那几层的 DER:按顺序取指定标签的内容。 */
+    /** は、DER の上位層を読み取るのにのみ十分です。つまり、指定されたタグの内容を順番に取得します。 */
     private class Der(private val b: ByteArray) {
         private var pos = 0
 
@@ -255,8 +255,8 @@ internal object Pkcs8Rsa {
 }
 
 /**
- * adb 的 RSA 公钥二进制格式(全部小端,共 524 字节):
- * 模数字数(64)、n0inv = −1/n mod 2^32、模数 n、rr = (2^2048)^2 mod n、公开指数。
+ * adb の RSA 公開キー バイナリ形式 (すべてリトル エンディアン、合計 524 バイト):
+ * モジュロ桁 (64)、n0inv = −1/n mod 2^32、モジュラス n、rr = (2^2048)^2 mod n、公開指数。
  */
 object AdbPublicKey {
     private const val WORDS = 64
@@ -278,7 +278,7 @@ object AdbPublicKey {
     }
 }
 
-/** 最小的自签名 X.509 v3 证书(无扩展):CN=Mika,1970-01-01 到 2099-12-31,SHA256withRSA。 */
+/** 最小限の自己署名 X.509 v3 証明書 (拡張子なし): CN=Mika、1970-01-01 ～ 2099-12-31、SHA256withRSA。 */
 internal object SelfSignedCertificate {
     private val SHA256_WITH_RSA = byteArrayOf(0x2a, 0x86.toByte(), 0x48, 0x86.toByte(), 0xf7.toByte(), 0x0d, 0x01, 0x01, 0x0b)
     private val COMMON_NAME = byteArrayOf(0x55, 0x04, 0x03)

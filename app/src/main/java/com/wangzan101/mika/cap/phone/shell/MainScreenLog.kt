@@ -1,14 +1,14 @@
 package com.wangzan101.mika.cap.phone.shell
 
 /**
- * 主屏(0 号屏)上「冒到最上面」的任务的记录,内置助手每看一次任务列表就喂一次([scan])。
- * 只记事实,不判是不是 Agent 的动作引起的(那在 Mika 一侧,见 MainScreenSpill):
- * 主屏最上面换了一个任务记一条;还是那个任务、但它最上面的页面换了也记一条([Arrival.sameTask])。
- * 每条带上这个任务上一次被看到时在哪块屏([Arrival.from],之前没见过为 [NEW]),从别的屏挪过来的(接管)据此认出。
- * 纯逻辑,时钟由调用方给。
+ * メイン画面 (画面 0) に「先頭に表示される」タスクの記録は、タスク リスト ([scan]) を表示するたびに、組み込みアシスタントによって供給されます。
+ * は事実を記録するだけであり、それがエージェントのアクションによって引き起こされたかどうかは判断しません (つまり、Mika 側のアクションです。MainScreenSpill を参照)。
+ * メイン画面の上部でタスクを変更すると、エントリが記録されます。同じ作業ですが、ホーム画面のトップページが変更され、エントリが記録されます([Arrival.sameTask])。
+ * 各ストリップでは、このタスクが最後に表示された画面 (以前に表示されていない場合は [Arrival.from]、[NEW]) が別の画面から移動されたかどうか (テイクオーバー)、それに応じて認識されます。
+ * は純粋なロジックであり、クロックは呼び出し元によって与えられます。
  */
 internal class MainScreenLog(private val keepMs: Long = KEEP_MS) {
-    /** 看到的一个任务:[topActivity] 是它最上面页面的完整类名,[standard] 是普通 App 的页面(不是桌面、最近任务、助理一类)。 */
+    /** によって表示されるタスク: [topActivity] はトップ ページの完全なクラス名で、[standard] は通常のアプリ (デスクトップ、最近のタスク、アシスタントなどではありません) のページです。 */
     data class Task(
         val taskId: Int,
         val displayId: Int,
@@ -34,8 +34,8 @@ internal class MainScreenLog(private val keepMs: Long = KEEP_MS) {
     private val arrivals = ArrayDeque<Arrival>()
 
     /**
-     * 喂一次任务列表([tasks]:所有屏上的任务,按最近使用排,和系统 getTasks 的顺序一样)。
-     * [record] 为 false 时只记下此刻的样子当底,不记冒出来的(没盯着的这段时间里换的,说不清是什么时候)。
+     * タスク リストを 1 回フィードします ([tasks]: システムの getTasks と同じ順序で、最近の使用順に並べ替えられた画面上のすべてのタスク)。
+     * [record] が false の場合、現在の見た目のみが記録され、見た目は記録されません（見つめていない間に変更されました。いつ変更されたかはわかりません）。
      */
     fun scan(tasks: List<Task>, now: Long, record: Boolean) {
         val mainTop = tasks.firstOrNull { it.displayId == MAIN }
@@ -55,13 +55,13 @@ internal class MainScreenLog(private val keepMs: Long = KEEP_MS) {
         arrivals.addLast(Arrival(t.taskId, t.packageName, t.userId, now, from, sameTask, t.standard, t.topActivity))
     }
 
-    /** 主屏此刻最上面的任务;还没看过或主屏没有任务为 -1。 */
+    /** 現時点でホーム画面の一番上のタスク。表示されていない場合、またはホーム画面にタスクがない場合は -1 です。 */
     val topTaskId: Int get() = top?.taskId ?: -1
 
-    /** [since](含)之后的记录,先后排。 */
+    /** [since] (両端を含む) 以降のレコードが順番に配置されます。 */
     fun since(since: Long): List<Arrival> = arrivals.filter { it.at >= since }
 
-    /** 这个任务最近一次被看到时在哪块屏;不在了为 -1。 */
+    /** このタスクが最後に表示された画面。表示されなくなると -1。 */
     fun displayOf(taskId: Int): Int = displays[taskId] ?: -1
 
     companion object {

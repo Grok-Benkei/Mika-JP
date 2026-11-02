@@ -7,20 +7,20 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.receiveAsFlow
 
 /**
- * 一次按住说话的会话,两种引擎(手机自带识别、服务商转写)对界面长一个样:
- * 界面只收 [events]、在松开时调 [release]、在取消时调 [cancel],不用管背后是哪种引擎。
+ * トーク セッションを長押しすると、2 つのエンジン (携帯電話の内蔵認識、サービス プロバイダーの文字起こし) に同じインターフェイスが表示されます。
+ * インターフェイスは、背後にあるエンジンの種類に関係なく、[events] のみを受け入れ、リリース時に [release] を調整し、キャンセル時に [cancel] を調整します。
  */
 sealed interface SpeechEvent {
-    /** 0..1,画波形。 */
+    /** 0..1、波形を描画します。 */
     data class Level(val value: Float) : SpeechEvent
 
-    /** 到此刻听到的全文:[tail] 是末尾还可能变的几个字,其余是 [stable]。 */
+    /** 私がこれまでに聞いた全文: [tail] は変更される可能性がある最後のいくつかの単語で、残りは [stable] です。 */
     data class Partial(val stable: String, val tail: String) : SpeechEvent
 
-    /** 服务商:松开后在转。 */
+    /** サービスプロバイダー：緩めてから回してください。 */
     data object Converting : SpeechEvent
 
-    /** 最终文字;空串 = 没听清。 */
+    /** 最終テキスト;空の文字列 = はっきりと聞こえませんでした。 */
     data class Final(val text: String) : SpeechEvent
 
     data class Failed(val why: SpeechFailure) : SpeechEvent
@@ -30,11 +30,11 @@ sealed interface SpeechFailure {
     data object NoPermission : SpeechFailure
     data object Busy : SpeechFailure
     data object Network : SpeechFailure
-    /** 麦克风起不来(识别服务报客户端出错、开始听时抛错、服务商那条路的录音起不来):多半是被别的应用占着。 */
+    /** マイクを開始できません (識別サービスがクライアントでエラーを報告し、リッスンを開始するとエラーがスローされ、サービス プロバイダーのパスの記録を開始できません): 他のアプリケーションによって占有されている可能性があります。 */
     data object MicUnavailable : SpeechFailure
     /**
-     * 识别服务报录音出错(ERROR_AUDIO):录音权限给了也可能录不到,例如系统的麦克风使用总开关关着,
-     * 或系统权限管理里单独关掉了麦克风。界面据此说明该去哪里看。
+     * 認識サービスが録音エラー(ERROR_AUDIO)を報告しました: 録音許可が与えられていても録音できない場合があります。たとえば、メイン スイッチを使用してシステム マイクをオフにします。
+     * またはシステム権限管理でマイクが個別にオフになっています。インターフェースはどこを見るべきかを示します。
      */
     data object AudioError : SpeechFailure
     data class Provider(val error: ModelError) : SpeechFailure
@@ -42,22 +42,22 @@ sealed interface SpeechFailure {
 }
 
 interface SpeechSession {
-    /** 只给一个收集者;每个事件只送一次,[SpeechEvent.Final]/[SpeechEvent.Failed] 之后或 [cancel] 之后流就结束。 */
+    /** は 1 人のコレクターにのみ与えられます。各イベントは 1 回だけ送信され、ストリームは [SpeechEvent.Final]/[SpeechEvent.Failed] または [cancel] の後に終了します。 */
     val events: Flow<SpeechEvent>
 
-    /** 能边说边出字(系统、原生流式 ASR 为 true,整段文件转写为 false)。 */
+    /** は、発話中に単語を生成できます (システムとネイティブ ストリーミング ASR は true、ファイル全体のトランスコーディングは false)。 */
     val live: Boolean
 
-    /** 松开:收尾并给 Final。 */
+    /** リリース: まとめてファイナルを与えます。 */
     fun release()
 
-    /** 丢掉;幂等。 */
+    /** は破棄されました。冪等。 */
     fun cancel()
 }
 
 /**
- * 会话的事件出口:无界缓冲,界面晚一点开始收也不丢;结束事件发出后关上。
- * 取消时连同还没被收走的一起丢掉——用户已经不要这次了,迟到的结果不该再冒出来。
+ * セッション イベント終了: 無制限のバッファリング。インターフェイスは失われることなく後で収集されます。終了イベントが送信された後に閉じられます。
+ * キャンセルするときは、持ち去られていないアイテムも一緒に捨ててください。ユーザーは今回はもう必要ないので、遅れた結果が再び表示されることはありません。
  */
 internal class SessionEvents {
     private val channel = Channel<SpeechEvent>(Channel.UNLIMITED)
@@ -76,7 +76,7 @@ internal class SessionEvents {
         if (!finished && !cancelled) channel.trySend(e)
     }
 
-    /** 发最后一个事件并关上;已经结束或取消了就什么都不做。返回这次是不是真的发了。 */
+    /** 最後のイベントを送信して閉じます。終了またはキャンセルされた場合は何もしません。今度は本当に送信されたかどうかを確認してください。 */
     @Synchronized
     fun finish(e: SpeechEvent): Boolean {
         if (finished || cancelled) return false
@@ -86,7 +86,7 @@ internal class SessionEvents {
         return true
     }
 
-    /** 返回这次是不是第一次取消。 */
+    /** は、キャンセルするのが初めてかどうかを返します。 */
     @Synchronized
     fun cancel(): Boolean {
         if (cancelled) return false
@@ -96,7 +96,7 @@ internal class SessionEvents {
     }
 }
 
-/** 一开始就用不了的会话(没权限、引擎不可用):只发一个 Failed。 */
+/** 最初から使用できないセッション (権限なし、エンジンが使用不可): Failed が 1 つだけ送信されます。 */
 internal class FailedSession(why: SpeechFailure) : SpeechSession {
     private val out = SessionEvents().also { it.finish(SpeechEvent.Failed(why)) }
     override val events: Flow<SpeechEvent> = out.flow

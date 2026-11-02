@@ -14,7 +14,7 @@ class TaskRecoveryTest {
         override fun setMode(packageName: String, mode: String): Boolean { modes[packageName] = mode; return true }
     }
 
-    // Review Focus 5:两个任务各自静音了自己的 App,进程被杀;下次启动两份记录都要恢复
+    // レビュー フォーカス 5: 2 つのタスクがそれぞれ独自のアプリをミュートし、プロセスが強制終了されました。両方のレコードは次回起動時に復元されます。
     @Test fun restoresAllMutedPackagesOfAllRuns() {
         val audio = FakeAudio(mutableMapOf("settings.app" to "allow", "clock.app" to "default"))
         val a = MemoryMarker()
@@ -29,7 +29,7 @@ class TaskRecoveryTest {
         assertNull(b.saved)
     }
 
-    // 第二个任务开工时的恢复不能动还在跑的第一个任务的静音
+    // 最初のタスクがまだ実行されている間は、2 番目のタスクのリカバリを移動できません。
     @Test fun leavesLiveRunsAlone() {
         val audio = FakeAudio(mutableMapOf("settings.app" to "allow"))
         val a = MemoryMarker()
@@ -45,7 +45,7 @@ class TaskRecoveryTest {
         override fun decrypt(data: ByteArray) = encrypt(data)
     }
 
-    // Focus 5 的剪贴板一半:Mika 借着剪贴板粘贴时被杀,下次启动把用户原来的文字还回去;留底是加密的,用完即删
+    // Focus 5 のクリップボード半分: クリップボードを介して貼り付けたときにミカが殺され、ユーザーの元のテキストは次回起動時にユーザーの元のテキストに戻されます。残りのコンテンツは暗号化され、使用後に削除されます。
     @Test fun restoresClipboardFromEncryptedBackupAfterKill() {
         var stored: String? = null
         val backup = ClipBackup({ stored }, { stored = it }, XorCipher())
@@ -56,7 +56,7 @@ class TaskRecoveryTest {
         assertTrue(TaskRecovery.restoreClip(ClipBackup({ stored }, { stored = it }, XorCipher())) { o, u -> restored += o to u })
         assertEquals(listOf("用户原来的文字" to "Mika 要粘贴的"), restored)
         assertNull(stored)
-        // 没有留底就什么也不做
+        // 痕跡を残さずに何もしない
         assertTrue(TaskRecovery.restoreClip(backup) { _, _ -> error("nothing to restore") })
     }
 }

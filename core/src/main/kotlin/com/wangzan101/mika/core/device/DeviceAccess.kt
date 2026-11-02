@@ -4,7 +4,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/** 主屏状态,与 Agent 的虚拟屏无关。读不到状态时由端口报错,不推定已解锁。 */
+/** メイン画面のステータス。エージェントの仮想画面とは関係ありません。ステータスを読み取れない場合、ポートによってエラーが報告され、ロックが解除されているとはみなされません。 */
 data class DeviceState(val interactive: Boolean, val keyguardShowing: Boolean, val deviceLocked: Boolean,
     val secure: Boolean, val helperAvailable: Boolean, val userUnlocked: Boolean) {
     val ready: Boolean get() = interactive && !keyguardShowing && !deviceLocked && userUnlocked
@@ -12,7 +12,7 @@ data class DeviceState(val interactive: Boolean, val keyguardShowing: Boolean, v
 
 enum class CredentialKind { Pin, Password }
 
-/** 凭据只在本机确定性流程内短暂存在;不提供带原文的 toString。用完擦除。 */
+/** 資格情報は、ネイティブの決定論的プロセス内に一時的にのみ存在します。テキストを含む toString は提供されません。終わったら消去します。 */
 class DeviceCredential(val kind: CredentialKind, val value: CharArray, val revision: String = "") : AutoCloseable {
     override fun close() { value.fill('\u0000') }
     override fun toString() = "DeviceCredential($kind, redacted)"
@@ -25,7 +25,7 @@ class DeviceCredential(val kind: CredentialKind, val value: CharArray, val revis
     }
 }
 
-/** 平台适配:唤醒、显示系统凭据页、确认输入目标、输入。绝不改变系统锁屏凭据。 */
+/** プラットフォーム適応: ウェイクアップ、システム資格情報ページの表示、入力ターゲットの確認、入力。システムのロック画面の認証情報は決して変更しないでください。 */
 interface DeviceAccessPort {
     suspend fun state(): DeviceState
     suspend fun wake(): Boolean
@@ -34,7 +34,7 @@ interface DeviceAccessPort {
     suspend fun enter(credential: DeviceCredential): Boolean
 }
 
-/** 许可和凭据来自手机设置,电脑不能修改。输入前持久化占位,失败/取消/崩溃后不再自动重试。 */
+/** ライセンスと資格情報は電話の設定から取得され、コンピューターでは変更できません。プレースホルダーは入力前に保持され、失敗/キャンセル/クラッシュ後に自動的に再試行されなくなります。 */
 interface DeviceAccessStore {
     val enabled: Boolean
     val credentialConfigured: Boolean
@@ -47,7 +47,7 @@ interface DeviceAccessStore {
 data class DeviceAccessResult(val status: String, val state: DeviceState?, val enabled: Boolean,
     val credentialConfigured: Boolean, val attemptBlocked: Boolean)
 
-/** 整个进程共用一份。并发调用串行化,成功依据系统状态,不依据按键或命令的返回码。 */
+/** はプロセス全体で共有されます。同時呼び出しはシリアル化され、成功はキーストロークやコマンドの戻りコードではなく、システムのステータスに基づきます。 */
 class DeviceAccess(private val port: DeviceAccessPort, private val store: DeviceAccessStore,
     private val pollMs: Long = 150, private val waitMs: Long = 5_000) {
     private val mutex = Mutex()
@@ -97,7 +97,7 @@ class DeviceAccess(private val port: DeviceAccessPort, private val store: Device
             if (!targetReady) return@withLock result("unsupported_keyguard", read())
             if (!store.enabled) return@withLock result("disabled", read())
             if (!store.beginAttempt(it)) return@withLock result("attempt_blocked", read())
-            // 从此刻起中断也保留占位,不重复输入。只有系统已解锁才清掉。
+            // 今後、割り込みもプレースホルダーを保持し、繰り返し入力されることはありません。システムのロックが解除されている場合にのみクリアできます。
             if (!store.enabled) return@withLock result("disabled", read())
             if (!port.enter(it)) {
                 val after = read()

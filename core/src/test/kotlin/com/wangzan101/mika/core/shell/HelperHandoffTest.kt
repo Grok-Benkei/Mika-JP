@@ -44,7 +44,7 @@ class HelperHandoffTest {
         assertEquals(1, written.size)
         val stale = gate.usbNonce()
         assertTrue(written[0].contains(stale))
-        // 解除配对:助手一直不在,也要重写,新脚本里是新口令,旧的不再认
+        // ペアリング解除: アシスタントが不在のため、再書き込みする必要があります。新しいパスワードは新しいスクリプト内にあり、古いパスワードは認識されなくなります。 使用後、
         gate.clear()
         assertEquals(2, written.size)
         assertFalse(written[1].contains(stale))
@@ -77,9 +77,9 @@ class HelperHandoffTest {
         val next = g.accept(launch)
         assertNotNull(next)
         assertNotEquals(launch, next)
-        // 用过就不认了
+        // は認識されなくなります。
         assertNull(g.accept(launch))
-        // 换发的口令也只能用一次
+        // 変更したパスワードは 1 回のみ使用できます。
         val after = g.accept(next)
         assertNotNull(after)
         assertNull(g.accept(next))
@@ -90,7 +90,7 @@ class HelperHandoffTest {
         val g = nonces()
         val resume = g.accept(g.issueLaunch())!!
         val launch = g.issueLaunch()
-        // 旧助手先交接:新起的那个口令作废,它会被拒绝并自己退出
+        // 古いアシスタントが最初に引き継ぎます。新しいパスワードは無効です。拒否され、自動的に終了します。
         assertNotNull(g.accept(resume))
         assertNull(g.accept(launch))
 
@@ -104,7 +104,7 @@ class HelperHandoffTest {
     fun resumeNonceSurvivesProcessRestart() {
         val store = MemStore()
         val resume = nonces(store).accept(nonces(store).issueLaunch())
-        // 新进程:新对象读同一份存储
+        // 新しいプロセス: 新しいオブジェクトは同じストレージを読み取ります
         assertNotNull(nonces(store).accept(resume))
     }
 
@@ -136,7 +136,7 @@ class HelperHandoffTest {
 
     @Test
     fun launchNonceFromTheFutureIsNotTrusted() {
-        // 记录的签发时间晚于现在(比如重启后时钟从零开始):当作过期
+        // レコードの発行時刻が現在より遅い (たとえば、再起動後に時計が 0 から始まる): 期限切れとして扱われます。
         val store = MemStore()
         val launch = nonces(store).issueLaunch()
         now -= 1
@@ -179,7 +179,7 @@ class HelperHandoffTest {
         assertNull(HelperHandoff.certPin(null))
     }
 
-    // ---------- 用电脑经 USB 启动 ----------
+    // ---------- USB 経由でコンピュータから起動 ----------
 
     private val apk = "/data/app/~~x/com.wangzan101.mika-y/base.apk"
     private val scriptPath = "/storage/emulated/0/Android/data/com.wangzan101.mika/files/usb-start.sh"
@@ -187,7 +187,7 @@ class HelperHandoffTest {
     @Test
     fun usbCommandUsesTheShortSdcardPathForTheMainUser() {
         assertEquals("adb shell sh /sdcard/Android/data/com.wangzan101.mika/files/usb-start.sh", HelperHandoff.usbCommand(scriptPath))
-        // 别的用户的存储照实际路径写
+        // 他のユーザーのストレージは実際のパスに従って書き込まれます。
         assertEquals(
             "adb shell sh /storage/emulated/10/Android/data/com.wangzan101.mika/files/usb-start.sh",
             HelperHandoff.usbCommand("/storage/emulated/10/Android/data/com.wangzan101.mika/files/usb-start.sh"),
@@ -198,7 +198,7 @@ class HelperHandoffTest {
     fun usbScriptStartsTheSameHelperDetachedWithTheNonceOnStdin() {
         val script = HelperHandoff.usbScript(apk, "com.wangzan101.mika", 10234, "ab'cd", "f00d", scriptPath)
         assertTrue(script.startsWith("#!/system/bin/sh\n"))
-        // 和无线调试同一个入口、同样的参数;指纹里的单引号转义好;忽略挂断信号、另起会话、放到后台、输出丢掉
+        // には、ワイヤレス デバッグと同じ入り口とパラメータがあります。フィンガープリント内の単一引用符は適切にエスケープされます。ハングアップ信号は無視され、新しいセッションが開始されてバックグラウンドに配置され、出力が失われます。
         assertTrue(
             script,
             script.contains(
@@ -206,16 +206,16 @@ class HelperHandoffTest {
                     "com.wangzan101.mika.shell.HelperMain 'com.wangzan101.mika' 10234 'ab'\\''cd' >/dev/null 2>&1 &)",
             ),
         )
-        // 口令只在变量里,经内建 echo 走管道,不进命令行参数
+        // パスワードは変数内にのみあります。コマンド ライン パラメーターを入力せずに、組み込みのエコーを通じてパイプ処理されます。
         assertTrue(script.contains("\nn='f00d'\n"))
         assertEquals(1, script.split("f00d").size - 1)
-        // 只有 shell 身份才起;APK 不在(更新过)就请用户先打开 Mika
+        // はシェル ID でのみ機能します。 APK が存在しない (更新された) 場合は、まずミカを開いてください
         assertTrue(script.contains("if [ \"\$(id -u)\" != \"2000\" ]; then"))
         assertTrue(script.contains("if [ ! -f '$apk' ]; then"))
-        // 等 setsid 生效再返回,并说清结果和怎么确认
+        // setsid が有効になるのを待ってから戻り、結果とその確認方法を説明します スクリプトを書き直すと、
         assertTrue(script.contains("\nsleep 2\n"))
         assertTrue(script.contains("if pidof 'com.wangzan101.mika:helper' >/dev/null 2>&1; then"))
-        assertTrue(script.contains("Mika helper starting... Open Mika to confirm"))
+        assertTrue(script.contains("Mikaの操作アシスタントを起動しています。Mikaを開き"))
         assertTrue(script.contains("adb shell sh /sdcard/Android/data/com.wangzan101.mika/files/usb-start.sh"))
         assertTrue(script.endsWith("fi\n"))
     }
@@ -235,7 +235,7 @@ class HelperHandoffTest {
         assertEquals(0, asked)
         assertFalse(stub.contains("secret"))
         assertFalse(stub.contains("app_process"))
-        assertTrue(stub.contains("already running"))
+        assertTrue(stub.contains("起動済み"))
         assertTrue(stub.contains("pidof 'com.wangzan101.mika:helper'"))
         val live = HelperHandoff.usbFile(false, apk, "com.wangzan101.mika", 10234, { "pin" }, { "secret" }, scriptPath)
         assertTrue(live.contains("n='secret'"))
@@ -246,12 +246,12 @@ class HelperHandoffTest {
     fun usbNonceIsReusedWhileFreshAndHandsOffOnce() {
         val g = nonces()
         val usb = g.usbNonce()
-        // 重写脚本时还新:沿用,电脑正在跑的那份不作废
+        // はまだ新しいです。引き続き使用してください。現在コンピューターで実行されているスクリプトは無効になりません。
         wall += HandoffNonces.USB_TTL_MS / 2
         assertEquals(usb, g.usbNonce())
         assertTrue(g.matches(usb))
         assertNotNull(g.accept(usb))
-        // 用过就作废;下一份脚本是新口令
+        // は使用後は無効になります。次のスクリプトは新しいパスワードです
         assertNull(g.accept(usb))
         assertNotEquals(usb, g.usbNonce())
     }
@@ -283,11 +283,11 @@ class HelperHandoffTest {
     fun usbNonceSurvivesARebootButNotAnotherHandoff() {
         val store = MemStore()
         val usb = nonces(store).usbNonce()
-        // 重启后开机计时归零,墙上时钟照走:脚本照样能用
+        // 再起動後、電源オン タイマーはゼロに戻り、壁の時計はまだ動き続けています。スクリプトは引き続き使用できます。
         now = 0
         val g = nonces(store)
         assertTrue(g.matches(usb))
-        // 无线调试那边起的助手先被收下:脚本里的口令作废
+        // ワイヤレス デバッグ側からのアシスタントが最初に受け入れられました: スクリプト内のパスワードが無効です
         assertNotNull(g.accept(g.issueLaunch()))
         assertFalse(g.matches(usb))
         assertNull(store.slots.usb)

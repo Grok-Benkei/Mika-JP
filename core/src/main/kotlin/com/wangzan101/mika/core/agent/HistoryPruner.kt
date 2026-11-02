@@ -14,37 +14,37 @@ import com.wangzan101.mika.core.tool.ToolIndex
 import com.wangzan101.mika.core.tool.Verb
 
 /**
- * 压缩时裁掉过时的内容:旧的界面早已不是现状,旧的大结果可以按位置重读,留着只会撑大上下文。
- * 只在 [ContextCompressor] 压缩的那一次调用(平常发过的消息原样再发);只返回副本,调用方保存的完整历史不变;
- * 调用与结果的 id 配对、其他消息都原样保留。
+ * 圧縮時に古いコンテンツを削除します。古いインターフェイスはもはや現状ではなく、古い大きな結果は位置ごとに再読み込みでき、それらを残すことはコンテキストを拡張するだけです。
+ * は、[ContextCompressor] が圧縮されている場合にのみ呼び出されます (通常送信されるメッセージはそのまま送信されます)。コピーのみが返され、呼び出し元によって保存された完全な履歴は変更されません。
+ * 呼び出しは結果の ID とペアになり、他のメッセージはそのまま残ります。
  *
- * 按一条裁剪线([Cut]):线之后的往返原样,线之前的按结果里读到的观察是什么样的东西([ObsForm],见 [BY_FORM])缩短:
- * 界面状态(读界面、动作带回的界面、回看的元素文字)一律换成 [OMITTED];页面内容、命令输出、文件、回复只在结果很大
- * (超过 [BIG_RESULT_TOKENS] 个 token)时把长字段换成 [OMITTED_READ];用户说的(记忆)和参考资料不裁。没有观察的结果按动作认。
- * 缩短后的结果留着结局(ok、错误与原因)和指回证据账本的观察编号([OBS_IDS])。线之前最近的一次全量界面不裁:之后的动作、差异要靠它才看得懂。
- * 线之前的图换成占位(界面画面是可回看的 [olderImage],读到的图片文件是 [OMITTED_IMAGE]);用户的话连同照片不裁。
+ * 切断線 ([Cut]) を押します。線の後の往復はそのままで、線の前の線は結果で観察されるように短縮されます ([ObsForm]、[BY_FORM] を参照)。
+ * インターフェイスのステータス (読み取りインターフェイス、アクションによって戻されたインターフェイス、レビュー用の要素テキスト) はすべて [OMITTED] に置き換えられます。ページのコンテンツ、コマンド出力、ファイル、および応答は、結果が大きい場合にのみ使用されます。
+ * ([BIG_RESULT_TOKENS] トークンを超える) の場合、長いフィールドを [OMITTED_READ] に置き換えます。ユーザーの発言（記憶）や参考資料はカットされません。観察しなくても結果は行動によって認識されます。
+ * 短縮された結果には、終了 (OK、エラー、理由) と、証拠台帳を参照する観察番号 ([OBS_IDS]) が保持されます。行が切断される前の最新の完全なインターフェイス。その後のアクションと違いは、それを通じて理解する必要があります。
+ * 行の前の画像はプレースホルダーに置き換えられます (インターフェース画面は戻ることができる [olderImage]、読み取られた画像ファイルは [OMITTED_IMAGE])。ユーザーの言葉や写真は切り取られません。
  *
- * 服务商有明确的图片上限时([limitImages]),超出才从最早的助手图片开始换占位。
+ * サービスプロバイダーには、撮影時間の明確な上限があります ([limitImages])。制限を超える場合、プレースホルダーは最も古いアシスタント画像から置き換えられます。
  */
 object HistoryPruner {
     const val OMITTED = "(screen read earlier, omitted; read it again if needed)"
     const val OMITTED_IMAGE = "(old image omitted)"
 
-    /** 更早的界面画面的占位。 */
+    /** は、以前のインターフェイス画面のプレースホルダーです。 */
     fun olderImage(imageId: Int) = "(earlier screen image omitted; to see it again use view_past_screens with ids [$imageId])"
     const val OMITTED_READ = "(content read earlier, omitted; read it again with nextOffset, path and so on if needed)"
-    /** 缩短后的结果里指回证据账本的观察编号。 */
+    /** は、短縮結果内の証拠台帳の観察番号を参照します。 */
     const val OBS_IDS = "obsIds"
     /**
-     * 超过这么多 token 的工具结果算「大结果」。工具结果多是英文和 JSON(约 4 个字符一个 token),
-     * 取原来 4000 字符那条线对应的 token 数,英文结果的裁法不变;中文结果按真实占用算,比原来更早算大。
+     * この多くのトークンを超えるツールの結果は、「大きな結果」とみなされます。ツールの結果はほとんどが英語と JSON (トークンごとに約 4 文字) です。
+     * は、元の 4000 文字行に対応するトークンの数を受け取り、英語の結果は変わりません。中国語の結果は実際の職業に基づいて計算され、元の結果よりも早く計算されます。
      */
     const val BIG_RESULT_TOKENS = 1_000
 
-    /** 线之前各种观察怎么缩短。 */
+    /** 線を短くする前にさまざまな観察。 */
     private enum class Shrink { Interface, IfBig, Never }
 
-    /** 按观察的形态定缩短方式:界面状态一律缩短,页面、命令输出、文件、回复、事实只在大时缩短,用户说的不缩。 */
+    /** 短縮方法は観察された形式に従って決定されます。インターフェイスのステータスはすべて短縮され、ページ、コマンド出力、ファイル、応答、およびファクトはサイズが大きい場合にのみ短縮され​​、ユーザーの指示に従って短縮されません。 */
     private val BY_FORM = mapOf(
         ObsForm.Interface to Shrink.Interface,
         ObsForm.Page to Shrink.IfBig, ObsForm.Command to Shrink.IfBig, ObsForm.File to Shrink.IfBig,
@@ -52,29 +52,29 @@ object HistoryPruner {
         ObsForm.UserSaid to Shrink.Never,
     )
 
-    /** 模型照着做的参考资料:不按大小裁。 */
+    /** モデルの参考資料: サイズに合わせてカットされていません。 */
     private val REFERENCE_VERBS = setOf(Verb.KnowledgeSearch, Verb.KnowledgeRead, Verb.SkillSearch, Verb.SkillRead, Verb.MemorySearch)
-    /** 没带观察的结果:读界面的动作照样按界面状态缩短。 */
+    /** 観察結果はありません。インターフェイスの読み取りアクションは、インターフェイスのステータスに応じて依然として短縮されています。 */
     private val INTERFACE_VERBS = setOf(Verb.Observe, Verb.ListElements, Verb.Diagnose)
     private const val LONG_TEXT = 300
-    /** 全量的界面读取(回看结果里的元素文字同样会过时;回看本身不算一次读取)。 */
+    /** 全量の UI 読み取り（振り返り結果の中の要素テキストも同様に古くなる; 振り返り自体は読み取り1回とは数えない）。 */
     private val FULL_VERBS = setOf(Verb.Observe, Verb.ListElements)
     private const val SCREEN = "screen"
-    /** 缩短时一定留着的结局字段。 */
+    /** 短縮するときも必ず残す結末フィールド。 */
     private val OUTCOME = setOf("ok", "error", "message", "recoverable", "exitCode")
 
-    /** 裁剪线:最近 [window] 次工具往返原样,之前的缩短。 */
+    /** 切り取りの線: 直近 [window] 回のツール往復はそのまま、それより前は短縮する。 */
     data class Cut(val window: Int) {
         init { require(window >= 1) { "need window >= 1" } }
 
-        /** 共 [rounds] 次往返时线之前有几次。 */
+        /** 合計 [rounds] 回の往復があるとき、線より前に何回あるか。 */
         fun before(rounds: Int): Int = (rounds - window).coerceAtLeast(0)
     }
 
-    /** 压缩后仍超:只留最近一次往返原样。 */
+    /** を超えています。最新の往復のみがそのまま残ります。 */
     val LAST = Cut(1)
 
-    /** [tools]:按调用的工具名查它做的动作。 */
+    /** [tools]: 呼び出されたツール名によって実行されるアクションを確認します。 */
     fun prune(input: List<Message>, tools: ToolIndex, cut: Cut): List<Message> {
         val starts = input.indices.filter { i -> input[i].role == Role.Assistant && input[i].parts.any { it is Part.ToolCall } }
         val k = cut.before(starts.size)
@@ -82,17 +82,17 @@ object HistoryPruner {
         val line = starts[k]
         val names = callVerbs(input, tools)
         val screens = screenResults(input)
-        // 线之前最近的全量界面
+        // ライン以前の最新の完全なインターフェイス
         val anchor = (0 until line).lastOrNull { i ->
             input[i].parts.any { it is Part.ToolResult && (names[it.callId] in FULL_VERBS || screens[it.callId] == true) }
         }
-        // 用户的话(连同照片)不裁
+        // ユーザーの言葉 (写真とともに) は切り取られません
         return input.mapIndexed { i, m -> if (i >= line || i == anchor || m.author == Author.User) m else shrinkMessage(m, names, screens) }
     }
 
     /**
-     * 压到最重仍放不下时的兜底:从最新的开始,把超过 [BIG_RESULT_TOKENS] 个 token 的工具结果(不论哪种)的长字段换成 [OMITTED_READ],
-     * 结局字段和观察编号留着,直到 [fits]。用户的话不动。
+     * を最大まで押しても放せない場合の結論: 最新のものから始めて、ツール結果の長いフィールド (種類を問わず) を [BIG_RESULT_TOKENS] を超えるトークンで [OMITTED_READ] に置き換えます。
+     * 終了フィールドと観測番号は、[fits] まで残ります。ユーザーの言葉は動かない。
      */
     fun shrinkOversized(messages: List<Message>, fits: (List<Message>) -> Boolean): List<Message> {
         val out = messages.toMutableList()
@@ -107,7 +107,7 @@ object HistoryPruner {
         return out
     }
 
-    /** [maxImages]:服务商确知的一次请求图片上限;超出时从最早的助手画面开始换占位,用户原话与附件保持原样。 */
+    /** [maxImages]: サービスプロバイダーが確認した 1 つのリクエスト画像の上限。この値を超えると、プレースホルダーは最初のアシスタント画面から置き換えられ、ユーザーの元の言葉と添付ファイルはそのまま残ります。 */
     fun limitImages(messages: List<Message>, maxImages: Int): List<Message> {
         require(maxImages >= 0)
         var excess = messages.sumOf { m -> m.parts.count { it is Part.Image } } - maxImages
@@ -149,7 +149,7 @@ object HistoryPruner {
         return if (content == p.content) p else withObsIds(p, content)
     }
 
-    /** 缩短的结果指回证据账本里那几条观察。 */
+    /** 短縮された結果は、証拠台帳内の観察を参照します。 */
     private fun withObsIds(p: Part.ToolResult, content: String): Part.ToolResult {
         val ids = p.reads.map { it.obsId }.distinct()
         val withIds = if (ids.isEmpty()) content else parse(content)?.let { o ->
@@ -158,7 +158,7 @@ object HistoryPruner {
         return p.copy(content = withIds)
     }
 
-    /** 长字段(长字符串、大数组/对象)换成 [OMITTED_READ],结局字段留着;不是 JSON 的整段换掉。 */
+    /** の長いフィールド (長い文字列、大きな配列/オブジェクト) は [OMITTED_READ] に置き換えられ、最後のフィールドは保持されます。 JSON ではない段落全体が置き換えられます。 */
     private fun shrinkRead(content: String): String {
         val obj = parse(content) ?: return OMITTED_READ
         return JsonObject(obj.mapValues { (k, v) ->
@@ -173,7 +173,7 @@ object HistoryPruner {
         return verbs
     }
 
-    /** 带 screen 对象的工具结果:callId → screen 是不是全量。 */
+    /** 画面オブジェクトを使用したツールの結果: callId → 画面がいっぱいです。 */
     private fun screenResults(messages: List<Message>): Map<String, Boolean> {
         val out = HashMap<String, Boolean>()
         messages.forEach { m ->
@@ -205,7 +205,7 @@ object HistoryPruner {
         null
     }
 
-    /** 界面状态:元素表和长字段换成 [OMITTED],结局字段留着。 */
+    /** インターフェイスのステータス: 要素テーブルとロング フィールドは [OMITTED] に置き換えられ、終了フィールドは保持されます。 */
     private fun shrinkInterface(content: String): String {
         val obj = parse(content) ?: return content
         val small = obj.mapValues { (k, v) ->

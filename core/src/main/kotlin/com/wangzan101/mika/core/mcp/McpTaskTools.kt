@@ -19,7 +19,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
-/** 电脑能用的工具:只给高层的「把事交给 Mika」,具体怎么做由手机上的 Mika 自己决定。 */
+/** パソコンで使えるツール「ミカに任せる」上級者限定。やり方は携帯電話のミカが決める。 */
 class McpTaskTools(
     private val service: RemoteTaskService,
     device: DeviceAccess? = null,
@@ -79,7 +79,7 @@ class McpTaskTools(
             }, readOnly = true),
     ) + deviceTools?.tools.orEmpty()
 
-    /** MCP 的工具定义(tools/list 的一项)。 */
+    /** MCP のツール定義 (tools/list の項目)。 */
     fun definitions(): JsonArray = buildJsonArray {
         tools.forEach { t ->
             add(buildJsonObject {
@@ -97,7 +97,7 @@ class McpTaskTools(
 
     fun has(name: String) = tools.any { it.name == name }
 
-    /** 只做协议参数转换和 MCP 展示;业务规则由两个入口共用的 service 执行。 */
+    /** はプロトコル パラメーターの変換と MCP 表示のみを行います。ビジネス ルールは、2 つの入り口で共有されるサービスによって実行されます。 */
     suspend fun call(name: String, args: JsonObject): JsonObject = try {
         when (name) {
             RUN -> {
@@ -136,7 +136,7 @@ class McpTaskTools(
                 else throw ToolError("Unknown tool: $name")
         }
     } catch (e: RemoteTaskError) {
-        // 按错误类型换回原 MCP 客户端看到的说法(带 MCP 工具名);共用服务不包含 MCP 命令名。
+        // エラーの種類に応じて、元の MCP クライアント (MCP ツール名付き) によって表示されるステートメントに戻ります。共有サービスには MCP コマンド名が含まれていません。
         throw ToolError(when (e) {
             is RemoteTaskError.NoSuchTask -> "No MCP task with id ${e.id}"
             is RemoteTaskError.BadConversation -> "conversation must be one returned by an earlier MCP task (looks like mcp-<uuid>)"

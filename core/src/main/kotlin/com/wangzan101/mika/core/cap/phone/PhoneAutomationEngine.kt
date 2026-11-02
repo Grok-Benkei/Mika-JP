@@ -8,7 +8,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** 手机界面上的结构化查询和跨屏文本合并。工具和后续本地调用共用这套语义。 */
+/** モバイル インターフェイスでの構造化クエリとクロススクリーン テキストの結合。ツールと後続のネイティブ呼び出しは、この一連のセマンティクスを共有します。 */
 internal object PhoneAutomationEngine {
     data class Query(val text: String? = null, val resourceId: String? = null, val role: String? = null)
 
@@ -73,7 +73,7 @@ internal object PhoneAutomationEngine {
         }
     }
 
-    /** 重叠区域按整段顺序合并,同文的两条独立消息仍可保留。 */
+    /** 重複する領域は段落全体の順序でマージされ、同じテキストの 2 つの独立したメッセージを保持できます。 */
     fun appendPage(accumulated: List<String>, page: List<String>): List<String> {
         if (page.isEmpty()) return accumulated
         val overlap = (minOf(accumulated.size, page.size) downTo 1).firstOrNull { n -> accumulated.takeLast(n) == page.take(n) } ?: 0

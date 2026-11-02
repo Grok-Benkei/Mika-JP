@@ -13,9 +13,9 @@ import java.nio.file.StandardCopyOption
 import java.util.UUID
 
 /**
- * App 知识补充的各个版本与阶段账本;待确认的(草稿)不会被知识库读取。每个 App 至多一份待确认的、只注入一份
- * ([AppKnowledgeTrial.inUse]):收下的修订试用期间顶替旧的那份,转正式才把旧的归档,被归档就换回旧的
- * (改动前的文件都留在 archive 里)。
+ * 各バージョンと段階台帳のアプリ知識補足。確認すべきもの（草案）はナレッジベースでは読み取られません。各アプリには最大 1 つの確認対象があり、挿入されるのは 1 つだけです。
+ * ([AppKnowledgeTrial.inUse]): 試用期間中に、承認されたリビジョンが古いリビジョンに置き換わります。古いものは公式になったらアーカイブされます。アーカイブされると、古いものに置き換えられます。
+ * (変更前のファイルはアーカイブに残ります)。
  */
 class AppKnowledgeFiles(dir: File) : AppKnowledgeDraftStore {
     private val root = File(dir, "knowledge/app-drafts")
@@ -60,7 +60,7 @@ class AppKnowledgeFiles(dir: File) : AppKnowledgeDraftStore {
         return true
     }
 
-    /** 试用的是注入的那份;转正式时它顶替过的旧版本一并归档,归档时旧版本自然换回来。 */
+    /** の試用版は注入されたものです。置き換えられた古いバージョンは正式版に変換されるときに一緒にアーカイブされ、古いバージョンはアーカイブ時に自然に置き換えられます。 */
     @Synchronized override fun recordTrial(appName: String, good: Boolean): AppKnowledgeDraft? {
         val rows = all()
         val old = AppKnowledgeTrial.inUse(rows, appName)?.takeIf { it.stage == AppKnowledgeStage.Trial } ?: return null
@@ -73,20 +73,20 @@ class AppKnowledgeFiles(dir: File) : AppKnowledgeDraftStore {
         return next
     }
 
-    /** 每个 App 注入的那份;旧版本起草的是带头部的整份 APP.md,只取正文。 */
+    /** 各アプリに挿入されるコピー。古いバージョンでは、ヘッダーを含む APP.md 全体が作成され、本文のみが取り込まれていました。 */
     @Synchronized override fun notes(): Map<String, LearnedNote> {
         val rows = all()
         return rows.map { it.appName }.distinct().mapNotNull { app -> AppKnowledgeTrial.inUse(rows, app) }
             .associate { row -> row.appName to LearnedNote(FrontMatter.parse(row.markdown).second.trim(), trial = row.stage == AppKnowledgeStage.Trial) }
     }
 
-    /** 修订起草时对着的那份已经不是现在注入的了(另一份修订先收下了):收下它会丢掉那一份。 */
+    /** リビジョンのドラフトの対象となったコピーは、現在のものではなくなりました (別のリビジョンが最初に受け入れられました)。受け入れると、そのコピーは破棄されます。 */
     private fun stale(draft: AppKnowledgeDraft, rows: List<AppKnowledgeDraft>) =
         draft.revises != AppKnowledgeTrial.inUse(rows, draft.appName)?.id
 
     /**
-     * 在用的那份变了(收下、归档、试用改了阶段)之后,对着别的那份起草的待确认修订再也收不下:归档,
-     * 免得它一直占着「每个 App 至多一份待确认的」,挡住这个 App 往后的草稿。
+     * 使用していたコピーが変更された後 (受け入れられ、アーカイブされ、試用段階が変更されました)、他のコピーでドラフトされた確認対象のリビジョンは受け入れられなくなりました: アーカイブ済み、
+     * 常に「確認される各アプリの最大 1 つのコピー」を占有し、このアプリの将来のドラフトをブロックしないようにします。
      */
     private fun archiveStale(appName: String) {
         val rows = all()

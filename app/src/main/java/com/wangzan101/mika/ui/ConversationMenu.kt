@@ -55,13 +55,13 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-/** 长按菜单摆在哪:抬起的那一行的顶边(可能为了放下菜单挪过)、菜单的顶边、菜单是不是在那一行上面。 */
+/** 長押しメニューを配置する場所: 盛り上がった行の上端 (メニューをドロップするために移動することもできます)、メニューの上端、およびメニューがその行にあるかどうか。 */
 internal data class MenuPlacement(val rowTop: Float, val menuTop: Float, val above: Boolean)
 
 /**
- * 长按菜单的位置。[top]、[bottom] 是能放东西的上下边(去掉状态栏、导航栏、键盘)。
- * 那一行先挪进这个范围;下面放得下菜单就放下面,不然上面放得下就放上面;两边都放不下(键盘占了大半屏)时把那一行往上挪,
- * 菜单接在它下面,还不够就让那一行顶到最上面。
+ * メニューの場所を長押しします。 [top] と [bottom] は、物を配置できる上側と下側です (ステータス バー、ナビゲーション バー、およびキーボードを削除します)。 まず、
+ * 行をこの範囲に移動します。メニューが下部に収まる場合は、その下に配置します。それ以外の場合、上に収まる場合は上に置きます。どちらの側にも収まらない場合 (キーボードが画面の半分以上を占める場合)、その行を上に移動します。
+ * その下にメニューが接続されています。それが十分でない場合は、その行を一番上に押し上げます。
  */
 internal fun placeMenu(rowTop: Float, rowHeight: Float, menuHeight: Float, gap: Float, top: Float, bottom: Float): MenuPlacement {
     val row = rowTop.coerceIn(top, max(top, bottom - rowHeight))
@@ -72,8 +72,8 @@ internal fun placeMenu(rowTop: Float, rowHeight: Float, menuHeight: Float, gap: 
 }
 
 /**
- * 侧栏里长按一条对话后的菜单(见 [LongPressMenu]):那一行抬起成一张白卡,菜单里是置顶 / 取消置顶、改名、红字删除。
- * [bounds] 是那一行在窗口里的位置和大小。
+ * サイドバーで会話を長押しした後のメニュー ([LongPressMenu] を参照): その行が白いカードに表示され、メニューには固定/固定解除、名前の変更、赤いテキストの削除が含まれます。
+ * [bounds] は、ウィンドウ内のその線の位置とサイズです。
  */
 @Composable
 internal fun ConversationMenu(
@@ -97,15 +97,15 @@ internal fun ConversationMenu(
     ) { LiftedRow(item) }
 }
 
-/** 长按菜单里的一项:文字、右边的图标、测试标签、颜色(为 null 是正文色)。 */
+/** メニュー内の項目を長押しします: テキスト、右側のアイコン、テスト ラベル、色 (NULL はテキストの色)。 */
 internal class MenuEntry(val text: String, val icon: ImageVector, val tag: String, val color: Color? = null, val onClick: () -> Unit)
 
 /**
- * 长按某样东西后原地弹出的菜单(侧栏里的对话、对话页里的消息共用):后面整屏变暗(安卓 12 起还模糊,由外面给后面的内容加,见 [MenuBlur]),
- * 那样东西原地「抬起」([lifted],自己画成白卡之类,略微放大),下面(放不下就上面)一张窄一点的白卡列出 [entries],文字在左、图标在右。
- * 点外面、按返回都收起。[progress] 是出现的进度(0 到 1),外面按关没关动画决定是动着过去还是直接到位;
- * 只在绘制、摆放时读,动画时不重组。[bounds] 是那样东西在窗口里的位置和大小:抬起的那张和它一样宽,高按自己的内容,
- * 最高半屏(很长的回答只抬起开头那一截,由 [lifted] 自己裁掉)。[alignEnd] 时菜单和它的右边对齐(用户自己的话靠右)。
+ * 何かを長押しした後にポップアップするメニュー (サイドバーの会話と会話ページのメッセージで共有): 背後の画面全体が暗くなります (Android 12 以降ではまだぼやけていて、背後のコンテンツは外部から追加されています。[MenuBlur] を参照)、
+ * は、所定の位置にあるものを「持ち上げ」 ([lifted]、白いカードかそれに似たものとして描き、わずかに拡大します)、その下に (置くことができない場合は、上に置くだけです) 狭い白いカードに [entries] がリストされ、左側にテキスト、右側にアイコンが表示されます。
+ * 外側をクリックし、Return キーを押して閉じます。 [progress] は出現の進行状況（0～1）です。外側のボタンを押してアニメーションをオフにすると、その位置に移動するか直接移動するかが決まります。
+ * は描画および配置中にのみ読み取られ、アニメーション中に再構成されません。 [bounds] はウィンドウ内のそのものの位置とサイズです。持ち上げられたものの幅はそれと同じで、高さはそれ自体のコンテンツと同じです。
+ * の半分の画面が最も高くなります (非常に長い回答の場合は、[lifted] で切り取られた最初のセクションのみを持ち上げてください)。 [alignEnd] を使用すると、メニューは右揃え (ユーザー自身の言葉で言えば右揃え) になります。
  */
 @Composable
 internal fun LongPressMenu(
@@ -122,7 +122,7 @@ internal fun LongPressMenu(
     val insets = WindowInsets.safeDrawing
     val view = LocalView.current
     val close = stringResource(R.string.collapse)
-    // 能模糊时后面已经糊了,暗一点就够;不能模糊时只靠变暗把后面压下去
+    // ぼかせるときは後ろがすでにぼけているので、暗くするだけです。ぼかせないときは後ろを暗くして抑えましょう。
     val dim = c.floatShadow.copy(alpha = if (GlassBlurSupported) 0.16f else 0.32f)
     BackHandler(onBack = onDismiss)
     Layout(
@@ -152,7 +152,7 @@ internal fun LongPressMenu(
         val menuW = min(MenuWidth.roundToPx(), w).coerceAtLeast(0)
         val menu = measurables[1].measure(Constraints(minWidth = menuW, maxWidth = menuW, maxHeight = h))
         layout(w, h) {
-            // 那一行的位置是窗口坐标;这一层不一定从窗口左上角开始(没有铺到系统栏底下时)
+            // その行の位置はウィンドウ座標です。このレイヤーは必ずしもウィンドウの左上隅から始まるとは限りません (システム バーの下部まで広がっていない場合)。
             val origin = coordinates?.positionInWindow() ?: Offset.Zero
             val top = max(0f, insets.getTop(this@Layout) - origin.y)
             val bottom = min(h.toFloat(), view.rootView.height - insets.getBottom(this@Layout) - origin.y)
@@ -174,7 +174,7 @@ internal fun LongPressMenu(
     }
 }
 
-/** 抬起的那一行:和侧栏里那一行一样的内容,换成白底圆角、带阴影。 */
+/** 盛り上がった行: 横列の行と同じ内容ですが、白い背景、丸い角、影に置き換えられます。 */
 @Composable
 private fun LiftedRow(item: DrawerConversation) {
     val c = MikaTheme.colors
@@ -219,7 +219,7 @@ private fun MenuDivider(color: Color) {
     Box(Modifier.fillMaxWidth().height(0.5.dp).background(color))
 }
 
-/** 菜单出现时后面那层内容模糊到多少(安卓 12 起)。 */
+/** メニューが表示されたときに、バックレイヤーのコンテンツがどの程度ぼかされるか（Android 12以降）。 */
 internal val MenuBlur = 14.dp
 private val MenuWidth = 220.dp
 private val MenuGap = 8.dp

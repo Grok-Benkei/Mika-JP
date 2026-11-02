@@ -21,13 +21,13 @@ import java.security.Signature
 import java.security.spec.RSAPublicKeySpec
 import java.util.Base64
 
-/** 一次登录尝试的随机值:每次都新生成,回调和换令牌时核对。[redirectUri] 是这次监听的回调地址。 */
+/** ログイン試行のランダム値: 毎回新たに生成され、コールバックおよびトークン交換中にチェックされます。 [redirectUri] は、この監視のコールバック アドレスです。 */
 data class SignInAttempt(val state: String, val nonce: String, val verifier: String, val redirectUri: String) {
-    /** PKCE S256(见 [Pkce.challenge])。 */
+    /** PKCE S256 ([Pkce.challenge] を参照)。 */
     val challenge: String get() = Pkce.challenge(verifier)
 }
 
-/** 换令牌(用授权码或刷新令牌)得到的一组令牌;[scopes] 是实际授予的权限。 */
+/** は、(認可コードまたはリフレッシュ トークンを使用して) トークンを交換することによって取得されたトークンのセットです。 [scopes] は、実際に付与された権限です。 */
 data class TokenSet(
     val accessToken: String,
     val refreshToken: String?,
@@ -36,39 +36,39 @@ data class TokenSet(
     val scopes: List<String>,
 )
 
-/** 换令牌的结果:拿到了、被拒(带服务端的错误代码;[terminal] 为真表示这个刷新令牌不能再用)、或一时失败(网络、5xx)。 */
+/** トークン交換の結果: 取得、拒否 (サーバー エラー コードあり。[terminal] は true、リフレッシュ トークンが使用できなくなったことを示します)、または一時的に失敗しました (ネットワーク、5xx)。 */
 sealed interface TokenResult {
     data class Ok(val tokens: TokenSet) : TokenResult
     /**
-     * [detail] 是服务端给的错误说明(error_description 或 error.message),只用于给人看,不含令牌。
-     * [nonJson] 为真表示返回的不是 JSON(多半是防护页面的 HTML),这时 [code] 是 `http_<状态码>`。
+     * [detail] は、サーバーによって与えられたエラーの説明 (error_description または error.message) です。これは人間が閲覧することのみを目的としており、トークンは含まれません。
+     * [nonJson] が true の場合、戻り値が JSON ではないことを意味します (ほとんどの場合、保護ページの HTML)。この場合、[code] は `http_<状态码>` になります。
      */
     data class Rejected(val code: String, val terminal: Boolean, val detail: String? = null, val nonJson: Boolean = false) : TokenResult
     data class Failed(val error: ModelError) : TokenResult
 }
 
-/** ID 令牌里核对过的身份:[sub] 是账号标识,[email] 只用来给人看(可能为空)。 */
+/** ID トークン内の検証済み ID: [sub] はアカウント ID、[email] は人々が見るためだけに使用されます (空の場合もあります)。 */
 data class IdClaims(val sub: String, val email: String)
 
 /**
- * 登录为什么没成;界面按它说原因(见 [ChatGptAuth.failureOf])。[CodeExpired] 是授权码过期、用过或对不上;
- * [Region] 是所在地区不被支持;[Blocked] 是请求被防护拦下(返回的是网页不是 JSON);[NoPlanScope] 只在服务端
- * 说了套餐、权限,或授予的权限里没有套餐那一项时用;别的被拒都是 [Exchange](带上错误代码)。
+ * ログインに失敗したのはなぜですか?インターフェイスに理由が表示されます ([ChatGptAuth.failureOf] を参照)。 [CodeExpired] は、認証コードの有効期限が切れているか、使用されているか、または間違っていることを意味します。
+ * [Region] はこの地域ではサポートされていません。 [Blocked] は、リクエストが保護によってブロックされたことを示します (返された Web ページは JSON ではありません)。 [NoPlanScope] はサーバー側のみにあります
+ * は、パッケージと権限が言及されている場合、または付与された権限にパッケージ項目がない場合に使用されます。他の拒否は [Exchange] (エラー コード付き) です。
  */
 enum class SignInFailure { Denied, StateMismatch, ClientMismatch, NoClientId, TimedOut, Exchange, CodeExpired, Region, Blocked, IdToken, NoPlanScope, Network }
 
-/** [code] 是服务端给的错误代码(不是机密,可以给人看、写进诊断信息);没有为 null。 */
+/** [code] は、サーバーによって与えられたエラー コードです (機密ではありません。他の人が表示したり、診断情報に書き込むことができます)。そうでない場合は null です。 */
 class SignInException(val reason: SignInFailure, detail: String = "", cause: Throwable? = null, val code: String? = null) :
     Exception(if (detail.isEmpty()) reason.name else "${reason.name}: $detail", cause)
 
 /**
- * 「用 ChatGPT 登录」并用用户的 ChatGPT 套餐额度调用模型(OpenAI 为开源、本机运行的 App 提供的这条路):
- * 公开客户端、没有密钥,授权码 + PKCE(S256)。第一次用 `dynamic_agent_client` 注册,回调里给出这个账号专属的
- * client_id,之后换令牌、刷新、再登录都用它。本机标识([hostId],`urn:uuid:…`)每台设备生成一次、一直用。
- * 回调地址只能是 `http://127.0.0.1:<端口>/auth/callback`(端口可变)。
+ * 「ChatGPT でログイン」し、ユーザーの ChatGPT パッケージ クォータを使用してモデルを呼び出します (OpenAI は、オープン ソースでネイティブに実行されるアプリにこのパスを提供します)。
+ * パブリック クライアント、キーなし、認証コード + PKCE (S256)。初めて `dynamic_agent_client` に登録すると、コールバックによってこのアカウントの一意のパスワードが与えられます。
+ * client_id。後でトークンを変更し、更新し、再度ログインするときに使用します。ローカル ID ([hostId]、`urn:uuid:…`) はデバイスごとに 1 回生成され、永久に使用されます。
+ * コールバック アドレスは、`http://127.0.0.1:<端口>/auth/callback` (ポート変数) のみです。
  *
- * ID 令牌按发布的 JWKS 验签(RS256),核对签发方、受众(= client_id)、过期时间和这次的 nonce;
- * 授予的权限里要有 [PLAN_SCOPE] 才能用套餐额度调用。
+ * ID トークンは、公開された JWKS (RS256) に従って検証され、発行者、対象者 (= client_id)、有効期限、およびこの nonce がチェックされます。 パッケージ クォータを使用するには、
+ * によって付与される権限に [PLAN_SCOPE] が必要です。
  */
 class ChatGptAuth(
     private val http: OkHttpClient,
@@ -81,15 +81,15 @@ class ChatGptAuth(
     private val revokeUrl = "$issuer/api/accounts/oauth/revoke"
     private val jwksUrl = "$issuer/.well-known/jwks.json"
 
-    /** 最近一次取到的 JWKS(kid → 公钥参数);验签时找不到 kid 再取一次(服务端换了密钥)。 */
+    /** 最新の JWKS (kid → 公開鍵パラメータ) を取得しました。署名検証中に kid が見つからず、再度取得できませんでした (サーバーがキーを変更しました)。 */
     @Volatile private var jwks: Map<String, JsonObject> = emptyMap()
 
     fun newAttempt(redirectUri: String) = SignInAttempt(randomString(), randomString(), randomString(48), redirectUri)
 
     /**
-     * 打开授权页的地址。[clientId] 为 null 表示第一次,用 `dynamic_agent_client` 注册并带上 App 名;
-     * 再次登录带上次的 ID 令牌([idTokenHint],可以已过期;退出登录后不带)和邮箱([loginHint])。
-     * 地址里可能有 ID 令牌,不要写进日志。
+     * 認証ページのアドレスを開きます。 [clientId] が null の場合、初めて `dynamic_agent_client` を使用して登録し、アプリ名を取得することを意味します。
+     * 最後の ID トークン ([idTokenHint]、有効期限が切れている可能性があります。ログアウト後は使用されません) と電子メール アドレス ([loginHint]) を使用して再度ログインします。
+     * アドレスに ID トークンが存在する可能性があるため、ログに書き込まないでください。
      */
     fun authorizeUrl(attempt: SignInAttempt, clientId: String?, hostId: String, idTokenHint: String? = null, loginHint: String? = null): String =
         "$issuer/api/accounts/authorize".toHttpUrl().newBuilder()
@@ -111,13 +111,13 @@ class ChatGptAuth(
             .build().toString()
 
     /**
-     * 读回调参数,得到(授权码, 这次用的 client_id)。先核对 state;用户拒绝、state 不对、client_id 和这次请求的不一致、
-     * 第一次注册却没给出 client_id,都抛 [SignInException]。
+     * はコールバックパラメータを読み込んで(認可コード、今回使用したclient_id)を取得します。まず状態を確認します。ユーザーが拒否した場合、状態が正しくない場合、client_id がこのリクエストと一致しない場合、
+     * は初めて登録されましたが、client_id が指定されていなかったため、[SignInException] がスローされました。
      */
     fun readCallback(params: Map<String, String>, attempt: SignInAttempt, clientId: String?): Pair<String, String> {
         if (params["state"] != attempt.state) throw SignInException(SignInFailure.StateMismatch)
         params["error"]?.let { err ->
-            // 授权页带回的错误:地区、套餐说得出来的照说,其余都当用户没同意
+            // 認証ページによって返されるエラー: 地域とパッケージについて言える場合は、それを伝えるだけで、残りの部分はユーザーが同意していないかのように扱います。 スコープなしの
             val f = failureOf(err, params["error_description"])
             throw SignInException(if (f == SignInFailure.Region || f == SignInFailure.NoPlanScope) f else SignInFailure.Denied, err, code = err)
         }
@@ -133,13 +133,13 @@ class ChatGptAuth(
             .add("code_verifier", attempt.verifier).add("redirect_uri", attempt.redirectUri).add("resource", RESOURCE).build(),
     )
 
-    /** 不带 scope:保留原来授予的权限。 */
+    /** : 最初に付与された権限を保持します。 */
     suspend fun refresh(clientId: String, refreshToken: String): TokenResult = token(
         FormBody.Builder().add("grant_type", "refresh_token").add("client_id", clientId).add("refresh_token", refreshToken)
             .add("resource", RESOURCE).build(),
     )
 
-    /** 注销刷新令牌;服务端确认(HTTP 200,令牌本来就失效了也是 200)为真。注销不删注册的 client。 */
+    /** はリフレッシュ トークンをログアウトします。サーバー側は (HTTP 200、トークンはすでに無効です、これも 200) が true であることを確認します。ログアウトしても、登録されているクライアントは削除されません。 */
     suspend fun revoke(clientId: String, refreshToken: String): Boolean = try {
         val form = FormBody.Builder().add("token", refreshToken).add("token_type_hint", "refresh_token").add("client_id", clientId).build()
         HttpSupport.execute(http, Request.Builder().url(revokeUrl).post(form).build()).status == 200
@@ -164,7 +164,7 @@ class ChatGptAuth(
             val detail = root?.let { it.str("error_description") ?: (it["error"] as? JsonObject)?.str("message") }
             return TokenResult.Rejected(code, code in TERMINAL_REFRESH_ERRORS, detail, nonJson = root == null)
         }
-        val access = root?.str("access_token") ?: return TokenResult.Failed(ModelError.BadResponse("换令牌的返回里没有 access_token"))
+        val access = root?.str("access_token") ?: return TokenResult.Failed(ModelError.BadResponse("トークン更新の応答にaccess_tokenがありません"))
         return TokenResult.Ok(
             TokenSet(
                 accessToken = access,
@@ -176,7 +176,7 @@ class ChatGptAuth(
         )
     }
 
-    /** 验 ID 令牌:签名(JWKS,RS256)、签发方、受众、过期、nonce;都对返回身份,否则抛 [SignInException]。 */
+    /** 検証 ID トークン: 署名 (JWKS、RS256)、発行者、対象者、有効期限、ノンス。すべて ID を返します。それ以外の場合は、[SignInException] をスローします。 */
     suspend fun verifyIdToken(idToken: String, clientId: String, nonce: String): IdClaims {
         fun fail(why: String): Nothing = throw SignInException(SignInFailure.IdToken, why)
         val pieces = idToken.split('.')
@@ -235,30 +235,30 @@ class ChatGptAuth(
         const val PLAN_SCOPE = "chatgpt.tokens.use.direct"
         const val SCOPES = "openid profile email offline_access resource.invoke $PLAN_SCOPE"
         const val RESOURCE = "https://api.openai.com/v1"
-        /** 用套餐额度调用的接口根(列模型、Responses)。 */
+        /** パッケージ クォータを使用して呼び出されるインターフェイス ルート (列モデル、応答)。 */
         const val API_BASE = "https://api.openai.com/v1"
-        /** 用户在 ChatGPT 里查看、管理用量的页面。 */
+        /** ChatGPT での使用状況を表示および管理するためのユーザーのページ。 */
         const val USAGE_URL = "https://chatgpt.com/settings/usage"
         private const val PROFILE_CLAIM = "https://api.openai.com/profile"
         private const val DEFAULT_EXPIRES_SEC = 3600L
         private const val CLOCK_SKEW_MS = 120_000L
 
-        /** 刷新令牌已不能再用:清掉令牌,用原来的 client_id 重新登录。 */
+        /** リフレッシュ トークンは使用できなくなりました。トークンをクリアし、元の client_id で再度ログインしてください。 */
         val TERMINAL_REFRESH_ERRORS = setOf(
             "invalid_grant", "invalid_refresh_token", "token_expired", "refresh_token_expired",
             "refresh_token_invalidated", "refresh_token_reused",
         )
 
-        /** 用户没同意、没登录完一类的错误代码。 */
+        /** ユーザーが同意しないか、ログインが完了していないことを示すエラー コード。 */
         private val DENIED_ERRORS = setOf("access_denied", "consent_required", "login_required", "interaction_required")
-        /** 说的是套餐或权限的错误代码。 */
+        /** は、パッケージまたは権限のエラー コードを指します。 */
         private val PLAN_ERRORS = setOf("invalid_scope", "insufficient_scope", "subscription_sharing_user_not_eligible")
         private val REGION = Regex("""unsupported_country|region|territor""", RegexOption.IGNORE_CASE)
         private val PLAN = Regex("""(?<![a-z])(plan|subscription|scope)s?(?![a-z])""", RegexOption.IGNORE_CASE)
 
         /**
-         * 被拒的原因归到哪一类,界面照它说人话:被防护拦下(403、429 且返回的不是 JSON)、地区不支持、
-         * 授权码过期或用过(`invalid_grant`)、用户没同意、套餐或权限(代码或说明里提到),其余是 [SignInFailure.Exchange]。
+         * 拒否理由はどのカテゴリに分類されますか?インターフェースは人間の言葉でそれを表現しています: 保護によってブロックされており (403、429、戻り値は JSON ではありません)、その地域ではサポートされていません。
+         * 認証コードは期限切れまたは使用されており (`invalid_grant`)、ユーザーはパッケージまたは権限 (コードまたは説明に記載されている) に同意せず、残りは [SignInFailure.Exchange] です。
          */
         fun failureOf(code: String, detail: String?, nonJson: Boolean = false): SignInFailure {
             val text = "$code ${detail.orEmpty()}"
@@ -272,7 +272,7 @@ class ChatGptAuth(
             }
         }
 
-        /** 换令牌被拒时抛的异常:原因按 [failureOf] 归类,带上错误代码和说明。 */
+        /** トークン交換が拒否されたときにスローされる例外: 理由は [failureOf] に従って分類され、エラー コードと説明が示されます。 */
         fun rejected(r: TokenResult.Rejected): SignInException = SignInException(
             failureOf(r.code, r.detail, r.nonJson), listOfNotNull(r.code, r.detail).joinToString(" — "), code = r.code,
         )
@@ -280,7 +280,7 @@ class ChatGptAuth(
         fun b64url(b: ByteArray): String = Base64.getUrlEncoder().withoutPadding().encodeToString(b)
         fun b64urlDecode(s: String): ByteArray = Base64.getUrlDecoder().decode(s.trimEnd('='))
 
-        /** 本机标识:UUIDv4 的 URN,每台设备生成一次后一直用。 */
+        /** ネイティブ識別: UUIDv4 URN、デバイスごとに 1 回生成され、継続的に使用されます。 */
         fun newHostId(): String = "urn:uuid:${java.util.UUID.randomUUID()}"
     }
 }

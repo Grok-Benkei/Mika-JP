@@ -11,32 +11,32 @@ import java.net.URI
 
 const val READ_SCRIPT_DEFAULT_TIMEOUT_MS = 10_000
 const val READ_SCRIPT_MAX_TIMEOUT_MS = 30_000
-/** 一次 sleep 最多等多久。 */
+/** スリープを待機する最大時間。 */
 const val READ_SLEEP_MAX_MS = 5_000
 
 /**
- * 读脚本(web_evaluate_js、站点命令)的做法:在当前标签主框架的一个隔离世界里跑,看得到真实的 DOM,但碰不到原件。
- * - 模型代码按 web_script 的办法编译:这个世界全局对象上的名字都当参数遮住,只留纯 ECMAScript 内置和下面给的几个名字
+ * スクリプトの読み方 (web_evaluate_js、サイトコマンド): 現在のタグのメインフレーム内の隔離された世界で実行されます。本物の DOM を見ることはできますが、オリジナルに触ることはできません。
+ * - モデル コードは web_script メソッドに従ってコンパイルされます。この世界のグローバル オブジェクトの名前はすべてパラメーターとしてカバーされ、純粋な ECMAScript 組み込みと以下に示すいくつかの名前のみが残ります。
  *   (document、window、location、fetch、state、args、sleep、getComputedStyle、URL、URLSearchParams)。
- * - 给的页面对象都是包装:读属性照读(读到的对象再包一层),写、删、定义属性、改原型一律报 read_only;
- *   函数只有登记过的只读方法(查找、读属性、量位置、迭代)能调,别的(点、聚焦、提交、改 DOM、开窗、跳转)都报 read_only。
- *   原生函数只拿到原件,模型拿到的永远是包装;模型能碰到的内置对象先冻住、全局名设成只读,改不了它们来截原件或换掉检查要用的函数。
- * - 密码、隐藏字段、验证码、银行卡一类输入框的值读出来是 `***`,输入框自己接口上只有 [SECRET_FIELD_PROPS] 能照读;
- *   同源 iframe、shadow root、template 里的也一样(认节点用原生 getter,不用 instanceof)。innerHTML 一类在不属于任何窗口的副本上打码,不跑页面代码;
- *   外层元素里有带字的秘密 textarea 时,textContent 一类也在副本上取。秘密 textarea 的子文本节点、秘密输入框的 value 属性节点读出来是 `***`,
- *   拿到以后脱离了页面也是。
- *   按 value 属性选元素不行(能逐位猜出值),选择器先照 CSS 的规矩还原再判断([SelectorPolicy])。
- *   选择器、属性名参数先变成字符串、只变一次:检查的就是交给浏览器的那一个。
- * - 读脚本不碰网络:fetch 调用就报 blocked_network([NETWORK_MESSAGE]);XMLHttpRequest、sendBeacon、WebSocket、EventSource、
- *   new Image() 一类经包装调用、构造也报 blocked_network;建元素、改 src/href 本来就是改页面(read_only)。只能读页面已经有的东西。
- * - state 是这个标签的读取世界里一直留着的对象:同一页面上前后几次读脚本共用;页面换了文档就没了。
- * 兜底(在 DevTools 事件上):脚本发出了任何网络请求、跑着时主框架要跳转,都让这次读脚本以错误结束。
+ * - 指定されたページ オブジェクトはすべてパッケージ化されています。属性の読み取りは通常どおり読み取られ (読み取りオブジェクトは別のレイヤーにラップされます)、書き込み、削除、属性の定義、プロトタイプの変更はすべて読み取り専用でレポートされます。
+ *   関数は、登録された読み取り専用メソッド (検索、属性の読み取り、ボリューム位置、反復)、およびその他のメソッド (ポイント、フォーカス、送信、DOM の変更、ウィンドウを開く、ジャンプ) によってのみ調整でき、すべて読み取り専用でレポートされます。
+ *   ネイティブ関数はオリジナルのみを取得し、モデルは常にパッケージを取得します。モデルが触れることができる組み込みオブジェクトが最初にフリーズされ、グローバル名が読み取り専用に設定されます。これらを変更して、元の関数をインターセプトしたり、チェックに使用される関数を置き換えたりすることはできません。
+ * - パスワード、隠しフィールド、確認コード、銀行カードなどの入力ボックスの値は、`***` として読み取られます。入力ボックス自体のインターフェイス上の [SECRET_FIELD_PROPS] のみを読み取ることができます。 同じことが、
+ *   の相同 iframe、シャドウ ルート、およびテンプレートにも当てはまります (ノードを識別するには、instanceof ではなくネイティブ ゲッターを使用します)。 innerHTML は、どのウィンドウにも属さないコピーをコーディングするタイプであり、ページ コードは実行されません。
+ *   外側の要素に単語を含む秘密のテキストエリアがある場合、textContent クラスもコピーからフェッチされます。シークレットテキストエリアの子テキストノードとシークレット入力ボックスの値属性ノードは`***`として読み取られます。
+ *   も、取得後にページを離れました。
+ *   value 属性に従って要素を選択することはできません (値は少しずつ推測できます)。セレクターは、まず CSS ルールに従って復元し、次に ([SelectorPolicy]) を判断する必要があります。
+ *   セレクターと属性名のパラメーターは最初に文字列に変更され、変更されるのは 1 回だけです。チェックされるパラメーターはブラウザーに渡されます。
+ * - ネットワークに接続せずにスクリプトを読み取る: fetch が呼び出されるときに、blocked_network([NETWORK_MESSAGE]) が報告されます。 XMLHttpRequest、sendBeacon、WebSocket、EventSource、
+ *   new Image() は、パッケージ化された呼び出しと構造体の一種であり、blocked_network も報告します。要素を作成して src/href を変更するということは、本来はページ (read_only) を変更することを意味します。すでにページ上にあるもののみを読み取ることができます。
+ * - 状態は、このタグの読み取りワールドに残るオブジェクトです。同じページ上の複数の読み取りスクリプトによって共有されます。ページが変わったり文書が変更されると消えます。
+ * 結論 (DevTools イベントについて): スクリプトはネットワーク リクエストを作成し、実行中にメイン フレームがジャンプするため、スクリプトの読み取りはエラーで終了します。
  */
 object ReadScriptProtocol {
-    /** 读脚本想用网络时的说明。 */
+    /** スクリプトを読むときに、ネットワークの使用方法を読んでください。 */
     const val NETWORK_MESSAGE = "network access is not allowed in read scripts; use web_capture to read what the page loaded"
 
-    /** 能发请求的页面函数和构造器的名字:经包装调用、构造时报 blocked_network(而不只是 read_only),说清楚为什么。 */
+    /** リクエストを送信できるページ関数とコンストラクターの名前: パッケージ化を通じて呼び出された場合、コンストラクターは (単なる read_only ではなく)blocked_network を報告し、その理由を明確に説明します。 純粋な ECMAScript 組み込み以外の */
     val NETWORK_NAMES = listOf(
         "fetch", "sendBeacon", "XMLHttpRequest", "WebSocket", "EventSource", "Image", "Audio", "Request",
         "Worker", "SharedWorker", "RTCPeerConnection", "importScripts",
@@ -47,12 +47,12 @@ object ReadScriptProtocol {
     const val PRELUDE_URL = "mika-read-prelude.js"
     const val MASK = PageScriptProtocol.SECRET_MASK
 
-    /** 模型代码里除了纯 ECMAScript 内置之外能用的名字,也是传参的顺序。 */
+    /** モデル コードで使用できる名前も、パラメーターが渡される順序です。 */
     val PROVIDED = listOf("document", "window", "location", "fetch", "state", "args", "sleep", "getComputedStyle", "URL", "URLSearchParams")
 
     /**
-     * 能经包装调用的只读方法,按接口。原型上找不到的跳过(不同系统版本的 WebView 不一样)。
-     * 带 Symbol.iterator 的接口另外放行它的迭代器。
+     * インターフェイスに従って、パッケージ化を通じて呼び出すことができる読み取り専用メソッド。プロトタイプでは見つからないスキップ (WebView はシステム バージョンによって異なります)。
+     * Symbol.iterator とのインターフェイスもその反復子を解放します。
      */
     val READ_METHODS: Map<String, List<String>> = linkedMapOf(
         "Node" to listOf("contains", "hasChildNodes", "getRootNode", "compareDocumentPosition", "isEqualNode", "isSameNode", "lookupPrefix", "lookupNamespaceURI", "isDefaultNamespace"),
@@ -82,16 +82,16 @@ object ReadScriptProtocol {
         "MediaQueryList" to listOf(),
     )
 
-    /** 全局对象自己身上的只读方法。 */
+    /** グローバル オブジェクト自体の読み取り専用メソッド。 */
     val GLOBAL_READ_METHODS = listOf("getComputedStyle", "matchMedia")
 
-    /** 读不得的属性:Cookie、本地存储一类(登录凭据常在里面)。 */
+    /** 読み取り不可能な属性: Cookie、ローカル ストレージ (ログイン資格情報は常にその中にあります)。 */
     val DENIED_PROPS = listOf("cookie", "localStorage", "sessionStorage", "indexedDB", "caches", "cookieStore", "credentials", "serviceWorker", "clipboard", "openDatabase")
 
     /**
-     * 秘密输入框(密码框、隐藏字段、验证码一类)自己接口(HTMLInputElement、HTMLTextAreaElement)上能照读的属性:页面定好的设定,不随填的内容变。
-     * 接口上别的属性读出来都是 `***`:valueAsNumber、valueAsDate、selectionStart / selectionEnd、textLength、validity、validationMessage,
-     * 以及浏览器以后新加的;方法照旧经包装,能不能调由 [READ_METHODS] 管。value、textContent 一类另按有没有值给 `***` 或空。
+     * シークレット入力ボックス (パスワード ボックス、隠しフィールド、確認コードなど) の独自のインターフェイス (HTMLInputElement、HTMLTextAreaElement) で読み取ることができる属性: ページに設定された設定は、入力されたコンテンツによって変更されません。
+     * インターフェイスの他の属性は、`***` として読み取られます: valueAsNumber、valueAsDate、selectionStart /selectionEnd、textLength、validity、validationMessage、
+     * とブラウザの後に新たに追加されました。メソッドはまだパッケージ化されており、調整できるかどうかは [READ_METHODS] によって制御されます。 Value と textContent は、`***` または空として分類されます。
      */
     val SECRET_FIELD_PROPS = listOf(
         "type", "name", "form", "labels", "list", "placeholder", "autocomplete", "disabled", "readOnly", "required", "willValidate",
@@ -99,17 +99,17 @@ object ReadScriptProtocol {
         "formAction", "formEnctype", "formMethod", "formNoValidate", "formTarget",
     )
 
-    /** 先冻住再交给模型的内置对象(连同原型),全局名也设成只读:模型改不了它们,也就截不到包装里传的原件、换不掉检查要用的函数。 */
+    /** は、最初に組み込みオブジェクト (プロトタイプとともに) をフリーズしてから、それらをモデルに与えます。グローバル名も読み取り専用に設定されます。モデルはグローバル名を変更できないため、パッケージで渡されたオリジナルをインターセプトしたり、チェックに使用される関数を置き換えたりすることはできません。 */
     private val FROZEN = PageScriptProtocol.ALLOWED_GLOBALS.filter { it !in setOf("undefined", "NaN", "Infinity") } + listOf("URL", "URLSearchParams")
 
-    /** 模型代码第 1 行前面,编译后的源码还有几行(`(async function anonymous(…`、`) {`、`'use strict';`、`return (` 或空行)。 */
+    /** モデル コードの最初の行の前に、コンパイルされたソース コードの数行 (`(async function anonymous(…`、`) {`、`'use strict';`、`return (` または空白行) があります。 */
     private const val LINE_OFFSET = 4
 
     private fun js(v: Collection<String>): String = v.joinToString(",", "[", "]") { JsonPrimitive(it).toString() }
 
     private fun jsMap(m: Map<String, List<String>>): String = m.entries.joinToString(",", "{", "}") { (k, v) -> JsonPrimitive(k).toString() + ":" + js(v) }
 
-    /** 装进读取世界的前置脚本:冻住内置对象、登记能调的方法、定义包装、`__mikaReadRun` 与 `__mikaReadStop`。装过再装不做事。 */
+    /** には、ワールドを読み取るための事前スクリプトがロードされています: 組み込みオブジェクトのフリーズ、調整可能なメソッドの登録、パッケージ化の定義、`__mikaReadRun` および `__mikaReadStop`。何もしていないふりをしてください。 */
     val PRELUDE: String = """
 (() => {
   'use strict';
@@ -129,7 +129,7 @@ object ReadScriptProtocol {
   const NETWORK = new Set(${js(NETWORK_NAMES)});
   const offline = () => { throw fail('blocked_network', ${JsonPrimitive(NETWORK_MESSAGE)}); };
 
-  // 把字符串当代码跑的路(会在全局作用域里跑)、调用栈 API 封掉
+  // 文字列をコードとして実行する経路（グローバルスコープで動く）と、呼び出しスタックのAPIを遮断する。
   const unavailable = function () { throw fail('read_only', 'running code from strings is not available'); };
   const fnKinds = [function () {}, async function () {}, function* () {}, async function* () {}];
   for (const f of fnKinds) fixed(getProto(f), 'constructor', unavailable);
@@ -137,15 +137,15 @@ object ReadScriptProtocol {
   fixed(G, 'Function', unavailable);
   fixed(G.Error, 'prepareStackTrace', undefined);
 
-  // 冻住模型碰得到的内置对象
+  // モデルから到達できる組み込みオブジェクトを凍結する。
   const ice = (x) => { if (x && (typeof x === 'object' || typeof x === 'function')) { try { freeze(x); } catch (e) {} } };
-  // 全局名也设成只读:不然模型代码改写 String 就能让下面的检查失效,之后在这个世界里跑的读脚本也一样
+  // グローバル名も読み取り専用にする。モデルがStringを書き換えると後続の検査を無効化できるため。この実行環境で後から動く読み取りスクリプトにも適用する。
   for (const n of ${js(FROZEN)}) { const v = G[n]; ice(v); if (v && typeof v === 'function') ice(v.prototype); if (v !== undefined) fixed(G, n, v); }
   for (const f of fnKinds) ice(getProto(f));
   const arrayIter = getProto([][Symbol.iterator]());
   for (const p of [arrayIter, getProto(arrayIter), getProto(new Map().entries()), getProto(new Set().values()), getProto(''[Symbol.iterator]())]) ice(p);
 
-  // 能经包装调用的原生函数
+  // ラッパーを介して呼び出せるネイティブ関数。
   const SAFE = new WeakSet();
   const READ = ${jsMap(READ_METHODS)};
   for (const iface of keysOf(READ)) {
@@ -160,7 +160,7 @@ object ReadScriptProtocol {
   for (const k of ['toString', 'valueOf']) { const d = getDesc(loc, k); if (d && typeof d.value === 'function') SAFE.add(d.value); }
   for (const f of [Array.prototype.values, Array.prototype.keys, Array.prototype.entries, Array.prototype.forEach, arrayIter.next,
     O.prototype.toString, O.prototype.toLocaleString, O.prototype.valueOf, O.prototype.hasOwnProperty, O.prototype.propertyIsEnumerable]) SAFE.add(f);
-  // 第一个参数是选择器的;第几个参数是属性名的
+  // 第1引数がセレクターかどうかと、属性名を受け取る引数の位置。
   const SELECTORS = new WeakSet();
   for (const iface of ['Element', 'Document', 'DocumentFragment']) {
     const p = G[iface] && G[iface].prototype;
@@ -170,15 +170,15 @@ object ReadScriptProtocol {
   for (const [k, i] of [['getAttribute', 0], ['getAttributeNS', 1]]) { const d = Elem && getDesc(Elem.prototype, k); if (d && typeof d.value === 'function') ATTRS.set(d.value, i); }
 ${SelectorPolicy.JS}  const DENIED = new Set(${js(DENIED_PROPS)});
 
-  // 不读值的输入框:密码框、隐藏字段,autocomplete 标着密码、银行卡、一次性验证码的
+  // 値を読み取らない入力欄。パスワード、非表示フィールド、autocompleteでパスワード・カード番号・ワンタイムコードと指定されたもの。
   const SECRET_AC = new Set(${js(PageScriptProtocol.SECRET_AUTOCOMPLETE)});
   const SECRET_TYPES = new Set(${js(PageScriptProtocol.SECRET_INPUT_TYPES)});
-  // 节点是哪种用原生 getter 读,不用 instanceof:同源 iframe 里的节点属于那个框架自己的一套接口,instanceof 认不出,原生 getter 照样认
+  // ノードの種類はinstanceofではなくネイティブのgetterで調べる。同一オリジンのiframe内のノードは、そのフレーム独自のインターフェースに属する。instanceofでは判別できなくても、ネイティブのgetterなら判別できる。
   const getterOf = (C, k) => { const d = C && getDesc(C.prototype, k); return d && d.get; };
   const nodeTypeOf = getterOf(G.Node, 'nodeType'), localNameOf = getterOf(Elem, 'localName'), shadowHostOf = getterOf(G.ShadowRoot, 'host');
   const native = (g, x) => { if (!g || x === null || typeof x !== 'object') return undefined; try { return apply(g, x, []); } catch (e) { return undefined; } };
-  // 节点类型按对象记下来(同一个对象的类型不会变):读属性前多半要先认一次类型,不是节点的对象(集合、矩形、样式一类)上
-  // nodeType 的原生 getter 每次都抛错,同一个对象只认一次
+  // ノードの種類をオブジェクトごとに記録する。同じオブジェクトの種類は変わらない。属性を読む前には通常この判定が必要で、コレクション・矩形・スタイルなどの非ノードに対しては、
+  // nodeTypeのネイティブgetterが毎回例外を投げる。同じオブジェクトの種類は1回だけ判定する。
   const kinds = new WeakMap();
   const typeOf = (x) => {
     if (x === null || typeof x !== 'object') return undefined;
@@ -195,7 +195,7 @@ ${SelectorPolicy.JS}  const DENIED = new Set(${js(DENIED_PROPS)});
     const ac = el.getAttribute('autocomplete');
     return !!ac && ac.toLowerCase().split(/\s+/).some((t) => SECRET_AC.has(t));
   };
-  // 曾经是秘密输入框的(如「显示密码」把 type 改成 text)也一直按秘密算:从读取世界建起时起盯着
+  // 一度機密入力欄になったものは、表示切り替えでtypeがtextになっても機密として扱い続ける。読み取り用の実行環境を作成した時点から監視する。
   const wasSecret = new WeakSet();
   const markIn = (root) => { try { if (secretNow(root)) wasSecret.add(root); for (const x of root.querySelectorAll('input, textarea')) if (secretNow(x)) wasSecret.add(x); } catch (e) {} };
   try {
@@ -208,12 +208,12 @@ ${SelectorPolicy.JS}  const DENIED = new Set(${js(DENIED_PROPS)});
   markIn(doc);
   const secret = (el) => secretNow(el) || (!!el && typeof el === 'object' && wasSecret.has(el));
   const SECRET_TEXT = new Set(['value', 'defaultValue', 'textContent', 'innerText', 'outerText', 'innerHTML', 'nodeValue']);
-  // 秘密输入框自己接口上的属性:只有页面定好、不随内容变的照读,别的(含浏览器以后新加的读值接口)都是 ***
+  // 機密入力欄固有のインターフェースの属性。ページ側で決まり、入力内容で変わらないものだけを読む。それ以外は、将来追加される値の取得APIも含めて***に置き換える。
   const FIELD_SAFE = new Set(${js(SECRET_FIELD_PROPS)});
   const fieldApi = (el, k) => { const tag = tagOf(el); return !!((tag === 'input' && Input && getDesc(Input.prototype, k)) || (tag === 'textarea' && Area && getDesc(Area.prototype, k))); };
-  // innerHTML / outerHTML 会写出的输入框:template 的内容也会写出来,但 querySelectorAll 找不进去,另外进去找。
-  // 原件和副本按同一个次序列出来。不递归(template 能套很多层);只有 HTML 的 template 有内容(SVG 里同名的元素没有);
-  // 查找用原生方法(表单里有叫 querySelectorAll 的控件也照样找)
+  // innerHTMLとouterHTMLが出力する入力欄。templateの内容も出力されるが、querySelectorAllでは内部を探せないため、別途調べる。
+  // 元の要素と複製を同じ順序で列挙する。templateは深く入れ子にできるため再帰しない。内容を持つのはHTMLのtemplateだけで、SVGの同名要素にはない。
+  // 検索にはネイティブのメソッドを使う。フォーム内にquerySelectorAllという名前のコントロールがあっても検索できる。
   const contentOf = getterOf(G.HTMLTemplateElement, 'content');
   const QSA = { 1: Elem && Elem.prototype.querySelectorAll, 9: G.Document && G.Document.prototype.querySelectorAll, 11: G.DocumentFragment && G.DocumentFragment.prototype.querySelectorAll };
   const fields = (node, out) => {
@@ -226,11 +226,11 @@ ${SelectorPolicy.JS}  const DENIED = new Set(${js(DENIED_PROPS)});
     }
     return out;
   };
-  // HTML 里带着秘密输入框的 value 时,改在副本上打码再取。哪个框打码看原件(副本没有「曾经是秘密输入框」的记录),副本里同一位置的框打码。
-  // 副本放在一份不属于任何窗口的空文档里(建一次,以后接着用):自定义元素不构造,页面代码不跑,资源不加载。ShadowRoot 不能复制,把它的子节点放进一个 div。
-  // 这样写出来的格式和页面自己的有两处不同,不影响打码:noscript 里的内容会转义;XHTML 页面写成 HTML 的格式
+  // HTMLに機密入力欄のvalueが含まれる場合、複製をマスクしてから取得する。対象の判定は元の要素で行い、複製の同じ位置をマスクする。複製には、過去に機密入力欄だったかどうかの記録がない。
+  // 複製は、どのウィンドウにも属さない空の文書に置く。文書は1回作成して再利用する。カスタム要素を構築せず、ページのコードも実行せず、リソースも読み込まない。ShadowRootは複製できないため、子ノードをdivに入れる。
+  // 出力形式はページ自身のものと2点異なるが、マスクには影響しない。noscriptの内容がエスケープされ、XHTMLのページがHTML形式になる。
   let inert = null;
-  // 打好码的副本;v 里没有秘密输入框时为 null,副本和原件对不上时为 MASK
+  // マスク済みの複製。vに機密入力欄がなければnull、元の要素と複製が対応しなければMASK。
   const masked = (v) => {
     const root = typeOf(v) !== 1;
     const orig = fields(v, root ? [] : [v]);
@@ -251,14 +251,14 @@ ${SelectorPolicy.JS}  const DENIED = new Set(${js(DENIED_PROPS)});
     return c;
   };
   const html = (v, k) => { const c = masked(v); return c === null ? rget(v, k, v) : c === MASK ? MASK : rget(c, k, c); };
-  // 秘密 textarea 里的字就是它的初始值(页面把打进去的字写回初始值时也在这里)。外层元素、shadow root 的 textContent 带得出来;
-  // 没渲染出来的外层元素的 innerText 也是(这时 innerText 就是 textContent);textarea 在 option 里时,渲染出来的 innerText 也带
-  // (option 按它的 text 写出来);a、option 的 text,option 的 label、value,output 的 value、defaultValue 也按子孙的文字算。
-  // 这几样改在副本上打码再取。渲染出来的别的元素的 innerText 不含 textarea 里的字,照原样给
+  // 機密textarea内の文字は初期値そのものである。ページが入力内容を初期値へ書き戻した場合もここに入る。外側の要素やshadow rootのtextContentから取り出せる。
+  // 未描画の外側の要素のinnerTextも同様で、この場合innerTextはtextContentに等しい。textareaがoption内にある場合は、描画済みのinnerTextにも含まれる。
+  // optionは自身のtextを使って表示される。aとoptionのtext、optionのlabelとvalue、outputのvalueとdefaultValueも子孫の文字として扱う。
+  // これらは複製上でマスクしてから取得する。描画済みのその他の要素のinnerTextにはtextareaの内容が含まれないため、そのまま渡す。
   const textOf = getterOf(G.Node, 'textContent'), parentOf = getterOf(G.Node, 'parentNode'), closest = Elem && Elem.prototype.closest;
-  // 用 Map:属性名可以是 constructor、__proto__ 一类
+  // 属性名にconstructorや__proto__が含まれることがあるため、Mapを使う。
   const DESC = new Map([['text', new Set(['a', 'option'])], ['label', new Set(['option'])], ['value', new Set(['option', 'output'])], ['defaultValue', new Set(['output'])]]);
-  // v 里带字的秘密 textarea:没有为 0,有为 1,有在 option 里的为 2
+  // v内に文字を持つ機密textareaがあるか。なければ0、あれば1、option内にあれば2。
   const areasIn = (v) => {
     const find = QSA[typeOf(v)];
     let hit = 0;
@@ -273,10 +273,10 @@ ${SelectorPolicy.JS}  const DENIED = new Set(${js(DENIED_PROPS)});
     const c = masked(v);
     return c === null ? x : c === MASK ? MASK : DESC.has(k) ? rget(c, k, c) : native(textOf, c);
   };
-  // 拿到过的秘密文字节点记下来,之后一直按秘密算:秘密 textarea 的子文本节点(XML 页面里也可能是 CDATA 段,它也是文本节点,也算在值里)、
-  // 秘密输入框的 value 属性节点。页面换掉 textarea 的字(把打进去的字写回初始值)、删掉 value 属性时,旧节点脱离文档,字还在上面。
-  // 节点在哪个框里也记下:交给模型时框还不是秘密的,后来变成秘密、字写进同一个节点、节点已不在那个框里(脱离了文档或被挪到
-  // 别的元素里)时,按那个框算
+  // 一度取得した機密のテキストノードは記録し、以後も機密として扱う。機密textareaの子テキストノードを含み、XMLページのCDATAセクションもテキストノードとして値に含める。
+  // 機密入力欄のvalue属性ノードも対象。ページがtextareaの文字を置き換えたり、入力内容を初期値へ書き戻したり、value属性を削除した場合、古いノードは文書から外れても文字を保持している。
+  // ノードが属する入力欄も記録する。モデルへ渡した時点では通常の入力欄でも、後から機密になり、同じノードへ文字が書き込まれ、そのノードが文書から外れたり、
+  // 別の要素へ移動したりした場合は、元の入力欄に基づいて判定する。
   const held = new WeakSet(), ownerOf = new WeakMap();
   const HELD_TEXT = new Set(['data', 'nodeValue', 'textContent', 'wholeText', 'length', 'value']);
   const substringData = G.CharacterData && G.CharacterData.prototype.substringData;
@@ -303,7 +303,7 @@ ${SelectorPolicy.JS}  const DENIED = new Set(${js(DENIED_PROPS)});
       const tags = DESC.get(k);
       if (tags !== undefined) {
         const tag = tagOf(v);
-        // select 的 value 是页面上选中的那个 option 的 value(副本里选中的不一定是它)
+        // selectのvalueは、実際のページで選択中のoptionのvalueである。複製で選ばれているoptionとは限らない。
         if (tag === 'select' && k === 'value' && areasIn(v)) { const i = rget(v, 'selectedIndex', v); return i < 0 ? '' : readProp(rget(v, 'options', v)[i], k); }
         if (tags.has(tag)) return text(v, k);
       }
@@ -311,7 +311,7 @@ ${SelectorPolicy.JS}  const DENIED = new Set(${js(DENIED_PROPS)});
     return rget(v, k, v);
   };
 
-  // 包装:模型手里只有包装,原件只交给原生函数
+  // ラップ処理。モデルにはラッパーだけを渡し、元のオブジェクトはネイティブ関数だけに渡す。
   const toProxy = new WeakMap(), toReal = new WeakMap();
   const wrap = (v, depth) => {
     if (v === null || (typeof v !== 'object' && typeof v !== 'function')) return v;
@@ -333,9 +333,9 @@ ${SelectorPolicy.JS}  const DENIED = new Set(${js(DENIED_PROPS)});
   const toNative = (a) => {
     if (a === null || (typeof a !== 'object' && typeof a !== 'function')) return a;
     const r = toReal.get(a);
-    // 包装过的函数原样交出去:谁调它都还要过检查
+    // ラップ済みの関数はそのまま渡す。誰が呼び出しても検査を通す。
     if (r !== undefined) return typeof r === 'function' ? a : r;
-    // 模型自己的回调:原生函数传给它的东西先包装
+    // モデル自身が渡すコールバック。ネイティブ関数から渡される値を先にラップする。
     if (typeof a === 'function') return function () { const xs = []; for (let i = 0; i < arguments.length; i++) xs.push(wrap(arguments[i])); return toNative(apply(a, undefined, xs)); };
     return a;
   };
@@ -346,7 +346,7 @@ ${SelectorPolicy.JS}  const DENIED = new Set(${js(DENIED_PROPS)});
     if (f === substringData && holds(t)) return MASK;
     const args = [];
     for (const x of xs) args.push(toNative(x));
-    // 选择器、属性名先变成字符串、只变一次:对象的 toString 每次可以给不一样的,检查的必须就是交给浏览器的那一个
+    // セレクターと属性名は、最初に1回だけ文字列へ変換する。オブジェクトのtoStringは呼ぶたびに異なる値を返せるため、検査した値をそのままブラウザへ渡す。
     if (SELECTORS.has(f) && args.length) {
       args[0] = String(args[0]);
       if (selectsByValue(args[0])) throw fail('invalid_selector', 'selecting by the value attribute is not allowed; read the value property instead');
@@ -357,7 +357,7 @@ ${SelectorPolicy.JS}  const DENIED = new Set(${js(DENIED_PROPS)});
     return wrap(apply(f, t, args));
   };
   const changing = () => deny('changing the page');
-  // 函数的包装用一个绑定过的普通函数当底子:能被 new(才走得到 construct,报清楚为什么不行),又没有自己的 prototype(不碍代理的约束)
+  // 関数のラッパーの土台には、bind済みの通常関数を使う。newで呼べるのでconstructへ到達し、禁止理由を明示できる。独自のprototypeを持たず、Proxyの制約にも抵触しない。
   const makeProxy = (v) => new Proxy(typeof v === 'function' ? apply(fnBind, function () {}, [undefined]) : {}, {
     get: (_, k) => wrap(readProp(v, k)),
     set: changing, defineProperty: changing, deleteProperty: changing, setPrototypeOf: changing, preventExtensions: changing,
@@ -373,7 +373,7 @@ ${SelectorPolicy.JS}  const DENIED = new Set(${js(DENIED_PROPS)});
     construct: () => { if (typeof v === 'function' && NETWORK.has(nameOf(v))) offline(); deny('creating page objects'); },
   });
 
-  // 模型代码能用的名字:纯 ECMAScript 内置 + PROVIDED,其余全局名都遮住
+  // モデルが使える名前は、純粋なECMAScript組み込みとPROVIDEDだけ。それ以外のグローバル名はすべて隠す。
   const PROVIDED = ${js(PROVIDED)};
   const ALLOWED = new Set(${js(PageScriptProtocol.ALLOWED_GLOBALS)}.concat(PROVIDED));
   const RESERVED = new Set(${js(PageScriptProtocol.RESERVED)});
@@ -400,7 +400,7 @@ ${SelectorPolicy.JS}  const DENIED = new Set(${js(DENIED_PROPS)});
   fixed(G, '__mikaReadRun', (code, args, lim) => {
     const gen = ++generation;
     const live = () => { if (gen !== generation) throw fail('script_ended', 'the script was stopped'); };
-    // 不碰网络:要页面背后的数据,读页面自己收到的响应(web_capture)
+    // ネットワークには接続しない。ページの背後のデータが必要なら、ページ自身が受信した応答をweb_captureで読む。
     const pageFetch = () => { live(); offline(); };
     const sleep = (ms) => { live(); return new Promise((done) => timer(done, Math.max(0, Math.min(Number(ms) || 0, lim.sleepMs)))); };
     let fn;
@@ -433,18 +433,18 @@ ${SelectorPolicy.JS}  const DENIED = new Set(${js(DENIED_PROPS)});
 //# sourceURL=$PRELUDE_URL
 """.trimStart()
 
-    /** 跑一次读脚本的表达式(在读取世界里求值,等 Promise,按值返回)。[args] 是站点命令的参数。 */
+    /** 読み取りスクリプトの式を 1 回実行します (読み取りワールドで評価し、Promise を待機し、値で返します)。 [args] は site コマンドのパラメータです。 */
     fun run(code: String, args: JsonObject?, resultChars: Int): String =
         "globalThis.__mikaReadRun(${JsonPrimitive(code)}, ${args ?: "null"}, " +
             "{resultChars: $resultChars, sleepMs: $READ_SLEEP_MAX_MS})"
 
-    /** 到时限后让还在跑的脚本之后的 sleep 都失败。 */
+    /** 制限時間に達すると、まだ実行中のスクリプトの後のスリープは失敗します。 */
     const val STOP = "globalThis.__mikaReadStop && globalThis.__mikaReadStop()"
 
-    /** 读取世界装好了时返回页面的源(location.origin),没装为 null。 */
+    /** ワールドがロードされるときに、ページのソース (location.origin) を返します。そうでない場合は null です。 */
     const val PROBE = "typeof globalThis.__mikaReadRun === 'function' ? String(location.origin) : null"
 
-    /** 发起调用栈(含异步的 parent 链)里有读脚本或它的前置脚本。 */
+    /** 開始コール スタック (非同期親チェーンを含む) に読み取りスクリプトまたはそのプレスクリプトがあります。 */
     fun fromScript(params: JsonObject): Boolean {
         var stack = (params["initiator"] as? JsonObject)?.get("stack") as? JsonObject
         var depth = 0
@@ -459,8 +459,8 @@ ${SelectorPolicy.JS}  const DENIED = new Set(${js(DENIED_PROPS)});
     private val SCRIPT_URLS = setOf(SOURCE_URL, PRELUDE_URL)
 
     /**
-     * 兜底:`Network.requestWillBeSent` 是读脚本(或它的前置脚本)发出的请求时返回说明:读脚本不碰网络,哪种请求都不行。
-     * 不是读脚本发的为 null。
+     * 結論: `Network.requestWillBeSent` は読み取りスクリプト (またはそのプレスクリプト) によって送信されるリクエストであり、説明を返します。 スクリプトの読み取りはネットワークに触れず、どのリクエストも機能しません。
+     * はスクリプト読み取りによって送信されず、null です。
      */
     fun requestViolation(params: JsonObject): String? {
         if (!fromScript(params)) return null
@@ -470,7 +470,7 @@ ${SelectorPolicy.JS}  const DENIED = new Set(${js(DENIED_PROPS)});
         return "the script sent a $method request (${url.take(200)}); $NETWORK_MESSAGE"
     }
 
-    /** `scheme://host[:port]`,默认端口不写;读不懂为 null。 */
+    /** `scheme://host[:port]`、デフォルトのポートは書き込まれません。読み取られない場合は null です。 */
     fun originOf(url: String): String? {
         val u = runCatching { URI(url) }.getOrNull() ?: return null
         val scheme = u.scheme?.lowercase() ?: return null
@@ -480,8 +480,8 @@ ${SelectorPolicy.JS}  const DENIED = new Set(${js(DENIED_PROPS)});
     }
 
     /**
-     * `__mikaReadRun` 按值返回的对象 → 结果。结果先按网页数据的规则脱敏(凭据名字的字段、JWT、又长又杂的串、Key),再截到 [EVAL_RESULT_MAX_CHARS]。
-     * [fresh]:这次新建了读取世界(之前 state 里存的都没了)。
+     * `__mikaReadRun` 値→結果によって返されるオブジェクト。その結果、Web データのルール (名前フィールド、JWT、長く複雑な文字列、キー) に従ってまず感度が解除され、その後 [EVAL_RESULT_MAX_CHARS] にカットされます。
+     * [fresh]: 今回は、新しい読み取りワールドが作成されます (状態に保存されていた以前の読み取りワールドは失われます)。
      */
     fun result(value: JsonObject?, fresh: Boolean): EvalJs {
         value ?: return EvalJs.Failed("script_error", "the script produced no readable result")

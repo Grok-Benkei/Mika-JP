@@ -1,6 +1,6 @@
 package com.wangzan101.mika.core.trigger
 
-/** 本机用户的计划管理；宿主负责持久化和重新布置闹钟。 */
+/** ローカル ユーザーのスケジュール管理。ホストはアラームの永続化と再配置を担当します。 */
 interface ScheduleAdmin {
     fun list(threadId: String): List<TriggerDefinition>
     fun setEnabled(threadId: String, id: String, enabled: Boolean): Boolean
@@ -10,7 +10,7 @@ interface ScheduleAdmin {
 }
 
 /**
- * 存下一个定时任务之后的情况:[onTime] 为 false 表示系统没准许准时闹钟(到点可能不准时或起不来);
- * 这时 [userNotified] 说这次有没有真的给用户发出去开启的提示。
+ * スケジュールされたタスクを保存した後の状況: [onTime] は false です。これは、システムが目覚まし時計を時間通りにすることを許可していないことを意味します (時間通りにならないか、起きられない可能性があります)。
+ * このとき、[userNotified] は、今回はユーザーが実際に電源をオンにするよう求められたかどうかを尋ねました。
  */
 data class Scheduled(val onTime: Boolean, val userNotified: Boolean = false)

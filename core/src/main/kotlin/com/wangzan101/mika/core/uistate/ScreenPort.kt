@@ -11,26 +11,26 @@ import kotlin.math.roundToInt
 
 const val DOUBLE_TAP_UNSUPPORTED = "double_tap_unsupported"
 
-/** 两次点击之间的间隔:够短才会被认成双击(安卓的双击时限是 300 毫秒)。 */
+/** 2 回のクリック間の間隔: ダブルクリックとして認識されるのに十分な短さである必要があります (Android のダブルクリック時間制限は 300 ミリ秒です)。 */
 const val DOUBLE_TAP_GAP_MS = 120L
 
-/** 滑动手势的默认时长。 */
+/** スライド ジェスチャのデフォルトの継続時間。 */
 const val DEFAULT_SWIPE_MS = 400L
 
-/** 与 tap 的换算互逆:n = round(p*999/(size-1)),夹在 0–999。 */
+/** とタップの間の変換は逆数です: n =round(p*999/(size-1))、0 ～ 999 の間に挟まれます。 */
 fun normalize(p: Int, size: Int): Int {
     if (size <= 1) return 0
     return min(999, max(0, (p * 999.0 / (size - 1)).roundToInt()))
 }
 
 /**
- * 屏幕上的一个元素。ref 形如 "@e3";center 为像素(端口内部用,交给模型前换成 0–999);bounds 为 [l,t,r,b],已归一到 0–999。
- * [hint]:输入框里显示的是提示语/预置词(name 就是它),不是已经输入的内容。
- * [focused]:有输入焦点(回车、空格作用在它上面)。
- * [secret]:密码框。
- * [placeholder]:输入框自己的提示语(打了字之后也还在,和此刻显示的 [name] 无关);没有为 null。
- * [searchField]:控件按自己的语义就是搜索框(网页的 type=search、role=searchbox、回车键标成搜索;安卓的搜索框控件)。
- * [states]:控件此刻为真的状态([UiStates] 里的名字:选中、勾上、展开、按下、不可用);判动作效果时开关一拨就看得出。
+ * 画面上の要素。 ref は「@e3」の形式です。 center はピクセルです (ポート内で内部的に使用され、モデルに渡される前に 0 ～ 999 に変更されます)。境界は [l,t,r,b] で、0 ～ 999 に正規化されています。
+ * [hint]: 入力ボックスに表示されるのは、入力された内容ではなく、プロンプト/プリセットの単語 (名前です) です。
+ * [focused]: 入力フォーカスがあります (キャリッジ リターンとスペースがそれに作用します)。
+ * [secret]: パス​​ワードボックス。
+ * [placeholder]: 入力ボックス自体のプロンプト (入力後も表示されており、現在表示されている [name] とは何の関係もありません)。そうでない場合は null です。
+ * [searchField]: コントロールは、独自のセマンティクスに従った検索ボックスです (Web ページの type=search、role=searchbox、および Enter キーは検索としてマークされます。Android の検索ボックス コントロール)。
+ * [states]: コントロールは現時点では true 状態です ([UiStates] の名前: 選択、フック、展開、押下、使用不可)。アクション効果を判断する際は、スイッチを入れることで確認できます。
  */
 data class UiElement(
     val ref: String,
@@ -45,18 +45,18 @@ data class UiElement(
     val scrollable: Boolean,
     val hint: Boolean = false,
     val focused: Boolean = false,
-    /** 网页上页面声明给这个控件的快捷键(aria-keyshortcuts、accesskey 换成 Alt+键),写法同 web_interact 的 key。 */
+    /** Web ページ上でページがこのコントロールに宣言したショートカットキー（aria-keyshortcuts、accesskey を Alt+キーに読み替える）。書き方は web_interact の key と同じ。 */
     val keyShortcuts: List<String> = emptyList(),
     val secret: Boolean = false,
     val placeholder: String? = null,
     val searchField: Boolean = false,
     val states: Set<String> = emptySet(),
 ) {
-    /** 无名字且不可交互的节点对模型没有信息量。 */
+    /** 名前がなく操作もできないノードは、モデルにとって情報量がない。 */
     val meaningful: Boolean get() = name.isNotBlank() || clickable || editable || scrollable
 }
 
-/** 控件状态的名字,手机与网页共用。 */
+/** コントロールの状態の名前で、スマホと Web で共有する。 */
 object UiStates {
     const val CHECKED = "checked"
     const val SELECTED = "selected"
@@ -67,12 +67,12 @@ object UiStates {
 }
 
 /**
- * [changedDuringRead]:读这份列表的前后界面不一致(页面自己在动),列表可能和屏幕对不上。
- * [protected]:当前页面受系统防截屏保护,画面看不到。
- * [hasWindow]:屏上有 App 窗口(根节点读不读得到都算);为 false 且没有元素时才是真正的空屏。
- * [web]:网页读屏时的页面信息;手机读屏时为空。
- * [unreadableApp]:读不到窗口内容(安全窗口、启动画面、显示在别处),但端口按焦点窗口或最上面的任务知道前台是哪个 App 时,
- * 它的包名;读得到或不知道时为 null。有它时「没有元素」不等于「没打开 App」。
+ * [changedDuringRead]: この一覧を読む前後で UI が一致していない（ページが自分で動いている）ため、一覧が画面と合っていない可能性がある。
+ * [protected]: 現在のページはシステムによってスクリーンショットから保護されているため、画面が表示されません。
+ * [hasWindow]: 画面上にアプリ ウィンドウがあります (ルート ノードが読み取り可能かどうかは関係ありません)。 false で要素がない場合、画面は本当に空です。
+ * [web]: Web ページを読み取るときのページ情報。携帯電話で画面を読むときは空です。
+ * [unreadableApp]: ウィンドウの内容 (セキュリティ ウィンドウ、起動画面、他の場所に表示される) を読み取ることはできませんが、ポートがフォーカス ウィンドウまたは最上位のタスクを押して、どのアプリがフォアグラウンドにあるかを知ると、
+ * そのパッケージ名。読み取り可能または不明の場合は null。この場合、「要素がない」ということは「アプリが開いていない」という意味ではありません。
  */
 data class ScreenSnapshot(
     val snapshotId: String,
@@ -85,27 +85,27 @@ data class ScreenSnapshot(
     val hasWindow: Boolean = true,
     val web: WebInfo? = null,
     val unreadableApp: String? = null,
-    /** 手机无障碍窗口的完整可见层级;网页和测试端口可不提供。 */
+    /** 携帯電話のアクセシビリティ ウィンドウの完全な表示レベル。 Web ページとテスト ポートは提供されない場合があります。 */
     val windows: List<UiWindowTree> = emptyList(),
-    /** 上一个动作过后才开到用户主屏上、读这一屏前刚挪回来的 App(见 [OpenedElsewhere]);没有为 null。 */
+    /** 前のアクションの後にユーザーのホーム画面が開かれ、この画面を読み取る直前に戻ったアプリ ([OpenedElsewhere] を参照)。そうでない場合は null。 */
     val opened: OpenedElsewhere? = null,
 )
 
 /**
- * 动作让一个 App 开到了 Mika 的屏以外、用户的主屏上(App 不是从自己在 Mika 屏上的页面里打开它,系统就放到了主屏)。
- * [packageName] 那个 App(系统问打开哪一个时是问的那个窗口所在的包),[app] 它的显示名。
- * [pulledBack]:已挪到 Mika 的屏、在最上面;为 false 时它留在用户的主屏上没动(用户正用着的那个 App,或系统在问用户)。
- * [inProfile]:这个 App 装了两份(分身、工作资料)时开的是哪一份,[MAIN_PROFILE] 本来那份、[OTHER_PROFILE] 另一份;只装了一份或看不出为 null。
- * [picker]:开出来的是系统问「用哪一个打开」的窗口(同一 App 装了两份、几个 App 都能打开等)。它从不挪:留给用户在自己屏上选,
- * 选之前任务停着等;[app] 是问的那个 App 的名字(认得出时)。
- * [closed]:用户把那个问题关了,什么也没打开。[byUser]:选出来的 App 要用户亲手处理,用户在自己屏上处理完、点了继续。
- * [needsUser]:冒到主屏上的是要用户亲手处理的弹窗(登录验证、账号确认、付款确认一类),留在主屏给他们点。
+ * アクションにより、アプリがミカの画面の外でユーザーのホーム画面に開かれます (アプリはミカの画面上の独自のページから開かれず、システムによってホーム画面に配置されます)。
+ * [packageName] そのアプリ (システムがどれを開くかを尋ねるとき、ウィンドウが配置されているパッケージについて尋ねます)、[app] その表示名。
+ * [pulledBack]: それはミカの画面に移動され、一番上にあります。 false の場合、ユーザーのホーム画面 (ユーザーが使用しているアプリ、またはシステムがユーザーに要求しているアプリ) に残ります。
+ * [inProfile]: このアプリの 2 つのコピー (アバター、作品情報) がインストールされている場合、どちらが開かれるか、[MAIN_PROFILE] が元のコピー、[OTHER_PROFILE] がもう 1 つのコピーです。コピーが 1 つだけインストールされている場合、または表示できない場合は、null になります。
+ * [picker]: 開くのは、システムが「どれを使用して開くか?」と尋ねるウィンドウです。 (同じアプリが 2 回インストールされている、複数のアプリを開くことができるなど)。決して動くことはありません。ユーザーが自分の画面で選択することができます。
+ * は、タスクを選択する前に待機することを意味します。 [app] は、質問したアプリの名前です (認識した場合)。
+ * [closed]: ユーザーがその質問をオフにしましたが、何もオンになりませんでした。 [byUser]: 選択したアプリでは、ユーザーが手動で処理する必要があります。自分の画面で処理した後、ユーザーはクリックして続行します。
+ * [needsUser]: ホーム画面に表示されるポップアップ ウィンドウは、ユーザーが個人的に処理する必要があります (ログイン確認、アカウント確認、支払い確認など)。クリックできるようにホーム画面に残しておきます。 現時点では、
  */
 data class OpenedElsewhere(
     val packageName: String, val app: String?, val pulledBack: Boolean, val inProfile: String? = null, val picker: Boolean = false,
     val closed: Boolean = false, val byUser: Boolean = false, val needsUser: Boolean = false,
 ) {
-    /** 此刻还在用户的主屏上(用户正用着,或系统正在问用户)。 */
+    /** はまだユーザーのホーム画面にあります (ユーザーが使用しているか、システムがユーザーに尋ねています)。 */
     val onUserScreen: Boolean get() = !pulledBack && !closed && !byUser
 
     fun toJson(): JsonObject = buildJsonObject {
@@ -126,33 +126,33 @@ data class OpenedElsewhere(
     }
 }
 
-/** 从当前任务的虚拟屏收到的界面事件；通知事件可以来自整台设备。 */
+/** 現在のタスクの仮想画面から受信したインターフェイス イベント。通知イベントはデバイス全体から発生する可能性があります。 */
 data class ScreenEvent(val type: String, val packageName: String?, val text: String?)
 
-/** 本机 OCR 从当前屏幕图像读出的文字行，边界采用与无障碍元素相同的 0–999 坐标；[confidence] 是识别给的 0–1 置信度，没有为 null。 */
+/** ネイティブ OCR は、アクセス可能な要素と同じ 0 ～ 999 の座標を使用した境界を持つテキスト行を現在の画面イメージから読み取ります。 [confidence] は、null でない場合、認識によって与えられる 0 ～ 1 の信頼度です。 */
 data class VisibleTextLine(val text: String, val bounds: List<Int>, val confidence: Float? = null)
 
-/** 内置助手以 Android shell 身份执行命令的结果。 */
+/** Android シェルとしてコマンドを実行した組み込みヘルパーの結果。 */
 data class SystemCommandResult(val exitCode: Int, val output: String)
 
-/** 输入后读回输入框的核对结果;读不回来(密码框、读不到节点)为 UNKNOWN。 */
+/** は、入力後に入力ボックスの検証結果を読み取ります。読み戻せない場合 (パスワード ボックス、ノードを読み取れない場合)、それは UNKNOWN です。 */
 enum class Verification(val wire: String) { MATCH("match"), MISMATCH("mismatch"), UNKNOWN("unknown") }
 
 sealed interface ActionResult {
     /**
-     * 动作已发出。其余字段是端口事后核实到的事实,null/false 表示没有核实或不适用:
-     * [changed] 动作前后界面是否变化;[appSwitched] 前台已不是目标 App 时的当前包名;
-     * [relocated] 编号已过期、按原元素特征在新界面里找回后执行,[relocatedTo] 是找回的元素现在的名字;
-     * [switchedByTarget] 新前台是目标 App 在自己的任务里打开的(如分享到另一个 App),不是外来打断;[verification] 输入回读结果;
-     * [hint] 端口对这次结果的补充说明(例如为什么核实不了),原样转给模型;
-     * [secret] 输入的目标是密码框(运行记录据此不记原文);
-     * [settled] 网页有 DevTools 时动作后等到了网络空闲且页面安静为 true,到上限还没静下来为 false,其余为 null;
-     * [coveredBy] 打开的 App 已在最上面,但另一个包的窗口盖在它上面(权限弹窗、账号选择器)时那个包;
-     * [chooser] 打开 App 后系统先问「打开哪一个」(同一 App 装了两份等),选好之前 App 还没到前台;
-     * [opened] 这个动作让一个 App 开到了用户的主屏上(见 [OpenedElsewhere]);
-     * [inProfile] 刚到前台的 App 装了两份时开的是哪一份(见 [OpenedElsewhere.inProfile]):系统问过打开哪一个之后,
-     * 以及目标 App 列出过另一份、或要的就是另一份时每次都报;[profileUser] 是此刻屏上那一份所属的用户编号,
-     * [requestedUser] 是打开时要的那份用户(要的是本来那份为 null)。
+     * アクションが発行されました。残りのフィールドは、後でポートによって検証された事実であり、null/false は検証されていないか、適用されないことを意味します。
+     * [changed] アクションの前後でインターフェイスが変化するかどうか。 [appSwitched] フォアグラウンドがターゲット アプリでなくなったときの現在のパッケージ名。
+     * [relocated] 番号の有効期限が切れています。元の要素の特性に従って、新しいインターフェイスで取得後に実行されます。 [relocatedTo] は、取得された要素の現在の名前です。
+     * [switchedByTarget] 新しいフロント デスクは、ターゲット アプリによって独自のタスク (別のアプリへの共有など) で開かれ、外部干渉によって中断されません。 [verification] はリードバック結果を入力します。
+     * [hint] この結果に対するポートの補足説明（検証できない理由など）をそのままモデルに引き継ぎます。
+     * [secret] 入力対象はパスワードボックスです（従って走行記録には原文は記録されません）。
+     * [settled] Web ページに DevTools がある場合、ネットワークがアイドル状態でアクション後にページが静止している場合は true、上限に達するまで停止しなかった場合は false、残りは null になります。
+     * [coveredBy] 開いたアプリがすでに一番上にあるが、別のパッケージのウィンドウがそれを覆っている場合 (権限ポップアップ ウィンドウ、アカウント セレクター)、そのパッケージ。
+     * [chooser] アプリを開いた後、システムは最初に「どれを開きますか?」と尋ねます。 （同じアプリを2回インストールしている等）、アプリがフロントに到着していない状態で選択した場合
+     * [opened] このアクションにより、ユーザーのホーム画面でアプリが開きます ([OpenedElsewhere] を参照)。
+     * [inProfile] フロント デスクに到着したばかりのアプリが 2 つあったとき、どれが開かれたか ([OpenedElsewhere.inProfile] を参照): システムがどちらを開くかを尋ねた後、
+     * とターゲット アプリは、別のコピーがリストされている場合、または別のコピーが必要な場合に毎回報告されます。 [profileUser] は、現時点で画面上のコピーに属するユーザー番号です。
+     * [requestedUser] は、開くときに要求されたユーザーのコピーです (要求された元のコピーは null)。
      */
     data class Ok(
         val changed: Boolean? = null,
@@ -172,144 +172,144 @@ sealed interface ActionResult {
         val requestedUser: Int? = null,
     ) : ActionResult
 
-    /** 引用已过期时 reason 为 "ref_expired"。[hint] 是端口的补充说明(例如盖住目标的是什么),原样附在错误说明后。 */
+    /** 理由が「ref_expired」の場合、参照の有効期限が切れています。 [hint] はポートの補足説明（ターゲットをカバーしている内容など）で、そのままエラー説明に付加されます。 */
     data class Failed(val reason: String, val hint: String? = null) : ActionResult
 }
 
-/** 打开 App 时这个 App 正被另一个任务用着(同一个 App 同时只能在一块屏上)。 */
+/** アプリを開いたとき、アプリは別のタスクによって使用されています (同じアプリは同時に 1 つの画面でのみ使用できます)。 */
 const val APP_IN_USE_BY_OTHER_TASK = "app_in_use_by_other_task"
 
-/** [ScreenPort.awaitAppFree] 的结果。 */
+/** [ScreenPort.awaitAppFree] の結果。 */
 enum class AppWait {
-    /** 放开了,可以打开了。 */
+    /** がリリースされ、開くことができます。 */
     Free,
-    /** 等到时限仍被占着。 */
+    /** は制限時間を過ぎてもまだ占有されています。 */
     TimedOut,
-    /** 占着它的任务正在等这个任务手里的 App:等下去谁也等不到,没有等。 */
+    /** それを占有しているタスクは、このタスクの手にあるアプリを待っています。あなたが待っていれば誰も待つことはできません、待つことはありません。 */
     WouldDeadlock,
-    /** 这个端口不和别的任务争 App,没什么可等。 */
+    /** このポートは他のタスクと競合しません。待つことは何もありません。 */
     Unsupported,
 }
 
-/** Agent 观察和操作手机屏幕的唯一入口,由 Android 模块实现。 */
+/** エージェントは、Android モジュールによって実装された、携帯電話の画面を観察および操作するための唯一の入り口です。 */
 interface ScreenPort {
     val appAccess: com.wangzan101.mika.core.access.AppAccessPolicy get() = com.wangzan101.mika.core.access.AppAccessPolicy.ALLOW
 
-    /** 仅核对窗口归属,不读取屏幕内容。空屏可用;有窗口但归属未知时拒绝。 */
+    /** はウィンドウの所有権をチェックするだけで、画面の内容は読み取りません。画面が空の場合に使用できます。ウィンドウはあるがその所有権が不明な場合は拒否されます。 */
     suspend fun checkAppAccess() {}
 
     suspend fun snapshot(): ScreenSnapshot
 
-    /** 读一屏但不登记编号(模型手里的 ref 不受影响);不可逆判定用。 */
+    /** は 1 つの画面を読み取りますが、番号は登録しません (モデルの手の参照には影響しません)。不可逆的な決定に使用されます。 */
     suspend fun peek(): ScreenSnapshot = snapshot()
     suspend fun screenshotPng(): ByteArray?
-    /** 可选的本机文字识别；null 表示当前画面不可读或端口没有 OCR。 */
+    /** オプションのネイティブ テキスト認識。 null は、現在の画面が判読できないか、ポートに OCR がないことを意味します。 */
     suspend fun readVisibleText(): List<VisibleTextLine>? = null
     suspend fun tapRef(ref: String, snapshotId: String): ActionResult
     suspend fun tapXY(x: Int, y: Int): ActionResult
-    /** 双击(两次点击间隔在系统认双击的时限内);不支持的端口报 double_tap_unsupported。 */
+    /** ダブルクリック (2 回のクリック間隔はシステムによるダブルクリック認識の制限時間内です)。サポートされていないポートは double_tap_unsupported を報告します。 */
     suspend fun doubleTapRef(ref: String, snapshotId: String): ActionResult = ActionResult.Failed(DOUBLE_TAP_UNSUPPORTED)
     suspend fun doubleTapXY(x: Int, y: Int): ActionResult = ActionResult.Failed(DOUBLE_TAP_UNSUPPORTED)
     suspend fun typeText(ref: String?, snapshotId: String?, text: String): ActionResult
     suspend fun clearText(ref: String?, snapshotId: String?): ActionResult
 
     /**
-     * 往这一点([x],[y] 为像素)上的输入框里打字:先点它,点出了拿着焦点的输入框就照常打,树里看不到输入框时经剪贴板粘贴、
-     * 比打字前后屏上的字核对;粘贴后前后一点没变为 point_not_typed(那一点多半不是输入框,或没拿到焦点)。
-     * 默认先点再按焦点打字,不另核对那一点。
+     * この時点で入力ボックスに入力します ([x]、[y] はピクセルです)。最初に入力ボックスをクリックしてから、フォーカスのある入力ボックスをクリックして通常どおりに入力します。入力ボックスがツリーに表示されない場合は、クリップボードから貼り付けます。
+     * 入力の前後に画面上の単語を確認します。貼り付け後、前後のポイントは point_not_typed に変化していません (そのポイントはおそらく入力ボックスではないか、フォーカスされていません)。
+     * デフォルトでは、最初にクリックしてからフォーカスを押して、その点をチェックせずに入力します。
      */
     suspend fun typeAt(x: Int, y: Int, text: String): ActionResult =
         tapXY(x, y).let { if (it is ActionResult.Ok) typeText(null, null, text) else it }
 
-    /** 清空这一点上的输入框,做法同 [typeAt]。 */
+    /** はこの時点で入力ボックスをクリアします。方法は [typeAt] と同じです。 */
     suspend fun clearAt(x: Int, y: Int): ActionResult =
         tapXY(x, y).let { if (it is ActionResult.Ok) clearText(null, null) else it }
     suspend fun scroll(ref: String?, snapshotId: String?, down: Boolean): ActionResult
     suspend fun swipe(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Long = DEFAULT_SWIPE_MS): ActionResult
 
     /**
-     * 停留时顺手轻轻滚一下([fraction] 个屏幕或视口高度,正为往下),不点任何东西。网页走和往下滚一样的原生输入、不移动指针;
-     * 手机在占了大半屏的那块可滚动内容上慢慢划一小段。这会儿不便滚(有弹框、输入法开着、输入框拿着焦点、看不到可滚的内容)时不滚,
-     * 返回 false;滚了为 true。默认不滚。
+     * 滞在中は、何もクリックせずにゆっくりとスクロールします ([fraction] 画面またはビューポートの高さ、右下)。ポインターを移動せずに、Web ページを下にスクロールするのと同じネイティブ入力。
+     * 携帯電話は、画面の半分以上を占めるスクロール可能なコンテンツ上の小さなセクションをゆっくりと描画します。スクロールするのが不都合な場合はスクロールしないでください (ポップアップ ボックスがあり、入力メソッドが開いており、入力ボックスにフォーカスがあり、スクロール可能なコンテンツが表示されていない場合)。
+     * は false を返します。 true にロールされました。デフォルトではロールしません。
      */
     suspend fun idleScroll(fraction: Double): Boolean = false
-    /** 多点手势；每条路径是按时间先后排列的像素点，所有手指同时移动。 */
+    /** マルチポイント ジェスチャ。各パスは時間内に配置された一連のピクセルであり、すべての指が同時に動きます。 */
     suspend fun gesture(paths: List<List<Pair<Int, Int>>>, durationMs: Long): ActionResult = ActionResult.Failed("unsupported")
     suspend fun back(): ActionResult
     suspend fun pressKey(keyCode: Int): ActionResult
     suspend fun openApp(packageName: String, cold: Boolean = false): ActionResult
 
     /**
-     * 打开装在另一份用户 [userId] 里的那份 [packageName](分身、工作资料,见 [appCopies]);其余同 [openApp]。
-     * 那份用户不能用、或那里没装这个 App 时失败 copy_not_found。不支持的端口返回 unsupported。
+     * は、別のユーザー [userId] にインストールされている [packageName] を開きます (クローンと作業情報については、[appCopies] を参照)。残りは[openApp]と同じです。
+     * ユーザーが使用できない場合、またはアプリがインストールされていない場合、copy_not_found は失敗しました。サポートされていないポートは、サポートされていないポートを返します。
      */
     suspend fun openAppCopy(packageName: String, userId: Int, cold: Boolean = false): ActionResult = ActionResult.Failed("unsupported")
 
     /**
-     * [packageName](另一份用户 [userId] 里的那份;null 是本来那份)正被另一个任务用着时([APP_IN_USE_BY_OTHER_TASK]),
-     * 最多等 [timeoutMs] 到它放开。只是等,不打开:等到了调用方再打开一次。占着它的任务自己正在等这个任务手里的
-     * App(互相等,谁也等不到)时不等,当场返回 [AppWait.WouldDeadlock]。不和别的任务争 App 的端口返回 [AppWait.Unsupported]。
+     * [packageName] (別のユーザー [userId] のもの。null は元のもの) が別のタスク ([APP_IN_USE_BY_OTHER_TASK]) で使用されている場合、
+     * 解放されるまで最大 [timeoutMs] 待ちます。開かずに待ってください。発信者が到着するまで待って、もう一度開きます。その使命を担い、この使命をこの手に待っている
+     * アプリ (お互いに待ちます、誰も待つことができません)、その場で [AppWait.WouldDeadlock] を返します。アプリのポートは他のタスクと競合せず、[AppWait.Unsupported] を返します。
      */
     suspend fun awaitAppFree(packageName: String, userId: Int?, timeoutMs: Long): AppWait = AppWait.Unsupported
 
     /**
-     * 在 Agent 的屏上打开一个链接或安卓设置页([action] 为 null 时按 VIEW 打开 [uri]);[packageName] 限定由哪个 App 打开。
-     * 失败原因:link_unresolved(没有 App 能打开)、invalid_link、app_in_use_by_user。不支持的端口返回 unsupported。
+     * は、エージェントの画面上にリンクまたは Android 設定ページを開きます ([action] が null の場合、VIEW を押して [uri] を開きます)。 [packageName] は、開く必要があるアプリを制限します。
+     * 失敗の理由: link_unresolved (アプリを開けません)、invalid_link、app_in_use_by_user。サポートされていないポートは、サポートされていないポートを返します。
      */
     suspend fun openLink(action: String?, uri: String?, packageName: String?): ActionResult = ActionResult.Failed("unsupported")
 
     /**
-     * 把一段文字分享给 [packageName](ACTION_SEND text/plain),在 Agent 的屏上打开它的分享页;只打开,不发出。
-     * 这个 App 没有收文字分享的页面时失败 cannot_share;其余和 [openApp] 一样(建屏、用户正在用、系统问打开哪一个)。不支持的端口返回 unsupported。
+     * は [packageName] (ACTION_SEND text/plain) とテキストを共有し、エージェントの画面でその共有ページを開きます。開封されただけで送信はされていません。
+     * テキスト共有用のページがない場合、Cannot_share に失敗しました。残りは [openApp] と同じです (画面の作成、ユーザーがそれを使用し、システムがどれを開くかを尋ねます)。サポートされていないポートは、サポートされていないポートを返します。
      */
     suspend fun shareText(packageName: String, text: String): ActionResult = ActionResult.Failed("unsupported")
 
     /**
-     * 经安卓标准接口做一个系统动作(见 [SystemAction]):先查有没有 App 接,没有报 not_supported;有就在 Agent 的屏上交给它
-     * (第一次用时建屏,用户正在主屏用那个 App 时不打开)。不支持的端口返回 unsupported。
+     * は、Android 標準インターフェイス ([SystemAction] を参照) を通じてシステム アクションを実行します。まず、アプリが接続されているかどうかを確認し、接続されていない場合は not_supported を報告します。ある場合は、エージェントの画面でそれを渡します
+     * (初めて使用するときに画面を作成し、ユーザーがホーム画面でアプリを使用しているときは開かないでください)。サポートされていないポートは、サポートされていないポートを返します。
      */
     suspend fun systemAction(action: SystemAction): SystemActionResult = SystemActionResult(ActionResult.Failed("unsupported"))
 
     /**
-     * 把编号 [ref] 那个滚轮(或滚轮里的一项)转到显示 [value]:在端口里一次做完(能输入就输入,能无障碍滚就一格格滚,
-     * 都不行就按一格多高拖),每做几下读回一次。不支持的端口报 unsupported。
+     * [ref] という番号のスクロール ホイール (またはスクロール ホイール内の項目) を回して、[value] を表示します。ポートで一度に完了します (可能であれば入力し、問題なくスクロールできる場合は 1 つのグリッドをスクロールします)。
+     * うまくいかない場合は、押してグリッドを 1 つ上にドラッグして、数回ごとに読み返してください。サポートされていないポートは、サポートされていないとして報告されます。
      */
     suspend fun setWheel(ref: String, snapshotId: String, value: String): WheelOutcome =
         WheelOutcome(false, null, null, 0, "none", error = "unsupported")
     suspend fun waitStable(timeoutMs: Long): Boolean
     /**
-     * 等这块屏的下一次界面变化,最多 [timeoutMs];等到返回 true。事件驱动的端口在有界面事件(无障碍事件、页面变动)时醒来,
-     * 不支持的端口等满时限返回 false,由调用方按间隔重读。
+     * この画面の次のインターフェース変更 ([timeoutMs] まで) を待ちます。 true が返されるまで待ちます。イベント駆動型ポートは、インターフェイス イベント (アクセシビリティ イベント、ページ変更) が発生すると起動します。
+     * サポートされていないポート待機タイムアウトは false を返し、呼び出し元によって一定間隔で再読み取りされます。
      */
     suspend fun awaitChange(timeoutMs: Long): Boolean { delay(timeoutMs.coerceAtLeast(0)); return false }
-    /** 等待事件驱动的界面条件；condition: appear/disappear/activity/stable。 */
+    /** イベント駆動型インターフェイスの状態を待ちます。状態: 出現/消滅/活動/安定。 */
     suspend fun waitFor(condition: String, value: String?, timeoutMs: Long): Boolean = false
-    /** 监听虚拟屏的界面事件，或全局通知；仅在调用期间订阅。 */
+    /** は、仮想画面インターフェイス イベントまたはグローバル通知をリッスンします。通話中にのみ購読します。 */
     suspend fun nextEvent(kind: String, packageName: String?, timeoutMs: Long): ScreenEvent? = null
-    /** 在一段时间内持续收集事件；单次订阅不会漏掉两次事件间的变化。 */
+    /** は、一定期間にわたって継続的にイベントを収集します。 1 つのサブスクリプションで 2 つのイベント間の変更を見逃すことはありません。 */
     suspend fun watchEvents(kind: String, packageName: String?, durationMs: Long, maxEvents: Int): List<ScreenEvent> =
         listOfNotNull(nextEvent(kind, packageName, durationMs))
-    /** 直接经任务持有的 shell 助手执行命令。 */
+    /** は、タスク保持シェル アシスタントを通じてコマンドを直接実行します。 */
     suspend fun systemCommand(command: String): SystemCommandResult? = null
-    suspend fun listApps(): List<Pair<String, String>> // 包名, 显示名
+    suspend fun listApps(): List<Pair<String, String>> // パッケージ名、表示名
 
-    /** 也装在这台手机另一份用户里(分身、工作资料等)的 App:包名 → 那几份用户的名字。查不到或不支持时为空。 */
+    /** この電話の別のユーザーにもインストールされているアプリ (アバター、仕事用プロファイルなど): パッケージ名 → それらのユーザーの名前。見つからない場合、またはサポートされていない場合は空です。 */
     suspend fun otherProfiles(): Map<String, List<String>> = emptyMap()
 
-    /** 能打开的另一份 App(装在分身、工作资料一类的另一份用户里,规则见 [AppCopies]);查不到或不支持时为空。 */
+    /** は、開くことができる別のアプリです (クローンや仕事用プロファイルなどの別のユーザーにインストールされます。ルールについては、[AppCopies] を参照してください)。見つからない場合、またはサポートされていない場合は空になります。 */
     suspend fun appCopies(): List<AppCopy> = emptyList()
 
     /**
-     * 任务结束时这份 App 怎么办(见 [AfterTaskMarks]):只记下,此刻什么也不动。不支持的端口(没有任务结束时的去留)为 null。
+     * ミッション終了時にこのアプリをどうするか ([AfterTaskMarks] を参照): 書き留めるだけで、現時点では何も動きません。サポートされていないポート (タスクの終了時に宛先がない) は null です。
      */
     val afterTask: AfterTaskMarks? get() = null
 
-    /** 屏幕诊断;端口不支持时为 null,由调用方按元素列表粗判。 */
+    /** 画面診断;ポートがサポートされていない場合は null、呼び出し元が要素リストに基づいて大まかに判断します。 */
     suspend fun checkScreen(): ScreenCheck? = null
 
-    /** 当前页面是否受系统防截屏保护。 */
+    /** 現在のページがシステムによってスクリーンショットから保護されているかどうか。 */
     suspend fun isProtected(): Boolean = false
 
-    /** 此刻画面缩成的亮度格子(判动作效果用,见 [FrameGrid.sample]);没有画面、端口不支持时为 null。要便宜:不编码图片。 */
+    /** 現時点で画面が縮小されている輝度グリッド (アクション効果を決定するために使用されます。[FrameGrid.sample] を参照)。画面がない場合、またはポートが画面をサポートしていない場合は null になります。安くする: 画像をエンコードしないでください。 */
     suspend fun frameGrid(): FrameGrid? = null
 }

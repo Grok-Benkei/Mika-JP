@@ -32,7 +32,7 @@ class ModelRouterTest {
         val r = ModelRouter(main, light)
         assertSame(light, r.pick(clean(2)))
         assertSame(light, r.pick(clean(3)))
-        // 读屏一类不报画面变化,不算没变
+        // 画面の読み取りでは画面の変更が報告されず、変更されていないものとしてカウントされません
         assertSame(light, r.pick(clean(4).copy(lastChanged = null)))
     }
 
@@ -40,7 +40,7 @@ class ModelRouterTest {
         val r = ModelRouter(main, light)
         assertSame(main, r.pick(clean(5).copy(lastWasRecovery = true)))
         assertSame(main, r.pick(clean(5).copy(sameAppAsLast = false)))
-        // 不看图的轻量模型收不了截图
+        // 軽量モデルは写真を見ずにスクリーンショットを撮ることができません
         assertSame(main, r.pick(clean(5).copy(hasImages = true)))
         val seeing = NamedModel("seeing", vision = true)
         assertSame(seeing, ModelRouter(main, seeing).pick(clean(5).copy(hasImages = true)))
@@ -88,7 +88,7 @@ class ModelRouterTest {
     }
 }
 
-/** 「在哪」分手机 App 与网站:换到网页、打开网址都算换了地方。 */
+/** 「場所」はモバイル アプリと Web サイトに分けられます。Web ページに切り替えるか Web サイトを開くことは、場所の変更とみなされます。 */
 class PlaceTrackingTest {
     @Test fun placeOfSeparatesAppsAndSites() {
         fun o(s: String) = kotlinx.serialization.json.Json.parseToJsonElement(s) as kotlinx.serialization.json.JsonObject

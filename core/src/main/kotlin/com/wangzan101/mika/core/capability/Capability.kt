@@ -11,31 +11,31 @@ import com.wangzan101.mika.core.tool.ToolExecution
 import com.wangzan101.mika.core.tool.Verb
 import kotlinx.serialization.json.JsonObject
 
-/** 能力此刻能不能用。 */
+/** の能力は使用できますか? */
 sealed interface CapabilityStatus {
     data object Available : CapabilityStatus
-    /** 能用,但还缺点什么(运行环境在准备、一部分功能没有)。 */
+    /** も使用可能ですが、いくつかの欠点（動作環境準備中、一部機能がご利用いただけません）がございます。 */
     data class Degraded(val reason: String) : CapabilityStatus
     data class Unavailable(val reason: String) : CapabilityStatus
 }
 
 /**
- * 拼系统提示词时各组段落看得到的:本任务发给模型的工具名与开关;
- * [screens] 是本任务发给模型的工具里有几种屏幕(手机、网页……,收着的只给了入口也算)。
+ * システム プロンプト ワードを入力するときに段落の各グループに表示される内容: このタスクでモデルに送信されるツール名とスイッチ。
+ * [screens] このタスクでモデルに送信されるツールには、いくつかの画面 (携帯電話、Web ページ...、収集されたものは入り口のみに与えられます) があります。
  */
 class PromptEnv(
     val offered: Set<String>, val inlineScreen: Boolean, val screens: Int = 1,
-    /** 展开了的能力(不收的也在内);null 是当全都展开了。收着的能力不给自己的段落。 */
+    /** 拡張された能力 (クローズされていないものを含む); null はすべてが展開されることを意味します。収集する能力は自分の段落には与えられません。 */
     val open: Set<String>? = null,
-    /** [screens] 里已展开的那几块屏。 */
+    /** [screens] の展開画面。 */
     val openScreens: Int = screens,
 ) {
-    /** 能力 [id] 已展开(或不收)。 */
+    /** 機能 [id] は拡張されました (または閉じられていません)。 */
     fun isOpen(id: String): Boolean = open == null || id in open
 
     /**
-     * 段落里只在某些工具提供时才成立的一行,行首写 `<!-- needs: 工具名, … -->`:那些工具都在本任务的工具列表里才留下(去掉标记),
-     * 否则整行不要。没有标记的行原样留着。
+     * は、特定のツールが提供されている場合にのみ有効な段落内の行です。行の最初の行は `<!-- needs: 工具名, … -->` です。これらのツールはこのタスクのツール リストに残ります (マークを削除します)。
+     * それ以外の場合、行全体は必要ありません。マークのない行はそのまま残されます。
      */
     fun gate(text: String): String = text.lines().mapNotNull { line ->
         val m = NEEDS.find(line) ?: return@mapNotNull line
@@ -48,76 +48,76 @@ class PromptEnv(
     }
 }
 
-/** 系统提示词里的一组段落;能力各给一组,核心自己也有。 */
+/** システム プロンプト ワード内の一連の段落。能力ごとに 1 つのグループとコア自体。 */
 internal fun interface PromptSections {
     fun sections(env: PromptEnv): List<String>
 }
 
 /**
- * 一种能力(手机、网页、沙箱……):自己的工具、系统提示词里的段落、屏幕与守卫。
- * 核心只经这个接口认识能力;一个任务一份实例,端口在构造时给。
+ * 一種の機能 (携帯電話、Web ページ、サンドボックスなど): 独自のツール、システム プロンプト ワードの段落、画面、ガード。
+ * コアは、このインターフェイスを介した機能のみを認識します。タスクごとに 1 つのインスタンスがあり、ポートは構築中に指定されます。
  */
 internal interface Capability : PromptSections {
     val id: String
 
     fun status(): CapabilityStatus
 
-    /** 这一组工具用到才展开(见 [com.wangzan101.mika.core.tool.ToolGroups]):开局只有入口工具;不收的一直全在。 */
+    /** このツール セットは使用後にのみ拡張されます ([com.wangzan101.mika.core.tool.ToolGroups] を参照)。最初は入口ツールのみがあります。収集されていないツールはすべて常にそこにあります。 */
     val folds: Boolean get() = false
 
-    /** 按这次的话([task])开局就展开这一组(一定用得上时);默认不展开。 */
+    /** 今回 ([task]) をクリックすると、このグループが最初に展開されます (必要な場合に使用する必要があります)。デフォルトでは展開されません。 */
     fun preload(task: String): Boolean = false
 
-    /** 用户的一句话([text])去掉和本能力有关的说明(浏览器页的页面说明这类)后,用户自己打的字;没有这类说明的原样返回。 */
+    /** ユーザーの文章 ([text]) は、この機能に関連する説明 (ブラウザ ページ上のページ説明など) を削除した後、ユーザー自身が入力したものです。記載がない場合はそのまま返却されます。 */
     fun userWords(text: String): String = text
 
-    /** 本能力可能提供的全部工具;本任务能不能用由各工具自己看上下文。 */
+    /** この機能が提供するすべてのツール。このタスクを使用できるかどうかは、各ツールのコンテキストによって異なります。 */
     fun tools(): List<AgentTool>
 
-    /** 有屏幕的能力给出它的一套屏幕工具的样子(没接端口时也给)。 */
+    /** には、一連の画面ツールを提供する画面機能があります (ポートに接続されていない場合も)。 */
     val family: ScreenFamily? get() = null
 
-    /** 接上了端口的屏幕;没有为 null。本能力那一套屏幕工具只作用在它上面。 */
+    /** 接続されているポートの画面。そうでない場合は null。この機能の画面ツールのセットは、この機能でのみ機能します。 */
     val surface: Surface? get() = null
 
-    /** 能跑技能脚本时给出。 */
+    /** はスキルスクリプトを実行できる場合に付与されます。 */
     val scripts: BundledScripts? get() = null
 
-    /** 本任务开始:把工具要用的端口与状态放进工具上下文。 */
+    /** このタスクを開始します。 ツールによって使用されるポートとステータスをツール コンテキストに入力します。 */
     fun onTaskStart(ctx: ToolContext) {}
 
-    /** 任务里用户答过话(回答了追问、交回了接管)。 */
+    /** ユーザーはタスク内の質問に回答しました (フォローアップの質問に回答し、引き継ぎを引き継ぎました)。 */
     fun onUserAnswered(ctx: ToolContext) {}
 
     /**
-     * 在本能力的屏上要做一次对外动作(发送、提交,见 [com.wangzan101.mika.core.action.OutwardPacing])了;[site] 是它所在的网站或 App。
-     * 做完后一定接着 [onOutwardEnd]([done]:做成了)。
+     * は、この機能の画面で外部アクション (送信、送信、[com.wangzan101.mika.core.action.OutwardPacing] を参照) を実行する必要があります。 [site] は、それが配置されている Web サイトまたはアプリです。
+     * が完了したら、その後に [onOutwardEnd] ([done]: 完了) を続ける必要があります。
      */
     fun onOutwardStart(ctx: ToolContext, site: String) {}
 
     fun onOutwardEnd(ctx: ToolContext, site: String, done: Boolean) {}
 
     /**
-     * 本能力的屏上要做一个改动屏幕的动作([verb])了:按本能力的节奏先停一会儿(见 [com.wangzan101.mika.core.action.ActionExecutor],
-     * 单步、一批里的每一步都经这里)。[outward]:这一步是对外动作(发送、提交)。默认不停。
+     * このアビリティの画面には、画面を切り替えるアクション（[verb]）があります：このアビリティのリズムに合わせてしばらく停止します（[com.wangzan101.mika.core.action.ActionExecutor]を参照、
+     * 単一ステップ、バッチ内のすべてのステップがここを通過します)。 [outward]: このステップは外部アクション (送信、送信) です。デフォルトはノンストップです。
      */
     suspend fun beforeWrite(ctx: ToolContext, verb: Verb?, outward: Boolean): Paced = Paced.NONE
 
-    /** 那个动作做完了([result] 是它的结果);[beforeWrite] 停下没做的不调。 */
+    /** アクションは完了しました ([result] はその結果です)。 [beforeWrite] 停止しましたが、完了していません。 */
     fun afterWrite(ctx: ToolContext, verb: Verb?, result: JsonObject) {}
 
-    /** 不动屏幕的工具的守卫,每个任务一份;没有为 null。 */
+    /** 画面を移動しないツールのガード (タスクごとに 1 つ)。そうでない場合は null です。 */
     fun guard(): OffScreenGuard? = null
 
     /**
-     * 核查前再看一眼这个能力此刻的样子(不改模型手里的任何东西);[withImage] 时连同一帧画面。没有可看的为 null。
+     * 確認する前に、現時点でこの能力がどのように見えるかを見てください (モデルの手に何も変更を加えずに)。 [withImage] と写真のフレーム。何も表示されない場合は null。
      */
     suspend fun freshLook(ctx: ToolContext, withImage: Boolean): Look? = null
 }
 
 /**
- * 改动屏幕的动作之前按能力的节奏停的结果:停了 [waitMs](算进这次调用的等待),停留里轻轻滚了 [idleScrolls] 下(只进运行记录);
- * [stop] 不为 null 时这个动作不做,它就是这次调用的结果(到了屏数上限、停留中用户插了话)。
+ * 画面動作変更前にアビリティのリズムに合わせて停止した結果：[waitMs]は停止（この呼び出し待ちにカウント）、[idleScrolls]は滞在中に軽く転がす（走行記録のみ入力）。
+ * [stop] が null でない場合、このアクションは実行されません。これは、この呼び出しの結果です (画面数の上限に達し、ユーザーが滞在中に中断しました)。
  */
 internal class Paced(val waitMs: Long = 0, val idleScrolls: Int = 0, val stop: ToolExecution? = null) {
     companion object {
@@ -125,5 +125,5 @@ internal class Paced(val waitMs: Long = 0, val idleScrolls: Int = 0, val stop: T
     }
 }
 
-/** 能力放进工具上下文的东西的键;核心不认识里面是什么。 */
+/** ツール コンテキストに入れることができる何かへのキー。コアはその中に何が入っているのか知りません。 */
 class CapabilityKey<T : Any>(val name: String)

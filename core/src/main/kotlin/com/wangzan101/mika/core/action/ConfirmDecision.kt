@@ -14,27 +14,27 @@ import kotlinx.serialization.json.contentOrNull
 import com.wangzan101.mika.core.tool.Verb
 import com.wangzan101.mika.core.run.RunProvenance
 
-/** 一次动作执行前的审批结论。 */
+/** アクションが実行される前の承認の結論。 */
 sealed interface Decision {
-    /** 不用判,或判过放行(含付款时用户的同意对上了)。 */
+    /** 判定は必要ありません、または判定が下されます（支払い時のユーザーの同意を含みます）。 */
     data object Clear : Decision
-    /** 放行,但找不到点在哪个元素上:运行记录里留痕。 */
+    /** は解放されましたが、要素が見つかりません。トレースは実行記録に残されます。 */
     data class Traced(val detail: String) : Decision
-    /** 找不到点在哪个元素上,这一来源不盲点。 */
+    /** は、ポイントがどの要素上にあるかを見つけることができません。この情報源は盲点ではありません。 */
     data object Unresolved : Decision
-    /** 这一步要花钱,要用户这一次的同意,没有可用的。 */
+    /** この手順には費用がかかり、今回はユーザーの同意が必要ですが、これは利用できません。 */
     data class Required(val hit: Irreversible) : Decision
-    /** 有同意,但和这一步对不上;那次同意已作废。 */
+    /** は同意しましたが、このステップには対応していません。その同意は無効になりました。 */
     data class Mismatch(val hit: Irreversible, val reason: String) : Decision
-    /** 要花钱,本次运行却问不到手机旁的用户,直接拒绝。 */
+    /** はお金がかかりますが、電話の隣のユーザーにこの実行を依頼することはできず、直接拒否しました。 */
     data class Denied(val hit: Irreversible) : Decision
-    /** 作用在 Mika 自己身上,不做。 */
+    /** はミカ自身に行為をし、それを行いません。 */
     data object OwnApp : Decision
 }
 
 /**
- * 不可逆判定、审批与同意核对。整个代码库里只有这里调用 [IrreversibleDetector] 的判定和 [ConfirmationGate.permits]
- * (有测试守着),各来源只在 [OriginPolicy] 里写明哪里不同;问不问由 [ApprovalPolicy.decide] 定(只有付款问)。
+ * 不可逆的な決定、承認、同意の検証。コードベース全体では、[IrreversibleDetector] と [ConfirmationGate.permits] を呼び出す判定のみがあります。
+ * (テスト済み)、各ソースでは [OriginPolicy] の違いのみが記載されています。お願いするかどうかは[ApprovalPolicy.decide]で決定します(支払いのみお願いします)。
  */
 class ConfirmDecision(
     private val tools: ToolDispatcher,
@@ -43,19 +43,19 @@ class ConfirmDecision(
     private val risks: RiskJudge = ClassifiedRisk,
     private val recorder: ActionRecorder? = null,
     private val provenance: RunProvenance = RunProvenance(),
-    /** 开工就是自主执行(没有确认关卡):付款也不问,界面目标猜测也不阻断动作;中途换成自主看 [ApprovalSettings.autonomous]。 */
+    /** が開始されると、独立して実行されます (確認レベルなし)。支払いは要求されず、インターフェイス ターゲットの推測によってアクションがブロックされません。途中で、[ApprovalSettings.autonomous] の単独表示に置き換えられます。 */
     private val autonomous: Boolean = false,
-    /** Mika 自己的包名:作用在它上面的写操作一律不做(不自己给自己点同意、改设置)。 */
+    /** ミカ自身のパッケージ名: 書き込み操作は実行されません (自分に許可を与えたり、設定を変更したりしないでください)。 */
     private val selfPackage: String? = null,
 ) {
     /**
-     * 刚判过的这一步是对外动作(发送、提交:判定命中、放行后要做的)时它所在的网站或 App(见 [OutwardPacing.siteOf]),
-     * 执行入口据此和上一次对外动作隔开;不是为 null。自主执行时也认(按模型手里那一屏判,不另读屏),节奏不因此失效。
+     * 先ほど判断したステップは、外部アクション (送信、送信: ヒットの決定、リリース) を実行するときに配置される Web サイトまたはアプリです ([OutwardPacing.siteOf] を参照)。
+     * 実行エントリは最後の外部アクションから分離されています。それはヌルではありません。単独実行時（他の画面を読み込まず、モデルの手元の画面に従って判断する場合）にも認識され、リズムが無効になることはありません。
      */
     var outwardSite: String? = null
         private set
 
-    /** 判定放在锁屏等待之后:按此刻重新读的一屏判。 */
+    /** 画面をロックして待機した後、判定が行われます。この時点で画面判定再読み込みを押します。 */
     suspend fun judge(tool: String, args: JsonObject, origin: Origin): Decision {
         outwardSite = null
         if (autonomous || approvals.autonomous()) {
@@ -68,7 +68,7 @@ class ConfirmDecision(
         }
         val policy = origin.policy
         val target = tools.gateTarget(tool)
-        // 这一步落在哪里由界面一侧给出;点看图找到的 @vN 时参数已换成它登记的坐标和找的文字
+        // このステップがどこに該当するかは、インターフェイス側で指定されます。画像をクリックして @vN を見つけると、パラメータは登録された座標と探しているテキストに置き換えられます。
         val aim = tools.interfaces.actionTarget(tools.declared(tool), args)
         val checked = aim.args
         if (ownApp(tool, args, aim.aimed)) return Decision.OwnApp
@@ -78,12 +78,12 @@ class ConfirmDecision(
         if (confirmations == null && !policy.judgeWithoutGate) return Decision.Clear
         val verb = tools.verb(tool)
         val typing = if (verb == Verb.TypeText) (args["text"] as? JsonPrimitive)?.contentOrNull else null
-        // 没有可判的不可逆字样的动作(一般改动、界面间移动)不花钱,不用问
+        // 取り消し不能な言葉のないアクション (一般的な変更、インターフェイス間の移動) には費用がかからず、問い合わせる必要もありません
         if (!IrreversibleDetector.needsCheck(target, args)) return Decision.Clear
         val snap = aim.aimed
         val fresh = aim.now()
         if (ownApp(tool, args, fresh)) return Decision.OwnApp
-        // 复看确认过的所见文字(@vN 才有):读屏里没有文字时(自绘界面)付款的同意按它核对象
+        // 確認済みテキストを再読します（@vN のみ）: 読み取り画面（自己描画インターフェイス）にテキストがない場合、支払いに同意するときにクリックしてオブジェクトを確認します
         val seen = aim.seen
         val hit = IrreversibleDetector.classify(target, checked, snap, fresh)
         val risk = risks.assess(verb, hit) { fresh ?: snap }
@@ -93,11 +93,11 @@ class ConfirmDecision(
         return if (policy.refuseUnresolved) Decision.Unresolved else Decision.Traced(unresolvedDetail(args, aim.readAgeMs, fresh != null))
     }
 
-    /** 命中的是发送、提交时这一屏的网站或 App。 */
+    /** は、送信または送信するときにこの画面の Web サイトまたはアプリにヒットします。 */
     private fun outward(hit: Irreversible?, screen: ScreenSnapshot?): String? =
         if (hit?.action == IrrevAction.send || hit?.action == IrrevAction.submit) OutwardPacing.siteOf(screen?.packageName, screen?.web != null) else null
 
-    /** 写操作作用在 Mika 自己身上:屏上是 Mika,或要打开 Mika(含它的应用详情页)。 */
+    /** 書き込み操作は、Mika 自体に影響します。Mika が画面上にあるか、Mika (アプリケーションの詳細ページを含む) を開く必要があります。 */
     private fun ownApp(tool: String, args: JsonObject, screen: ScreenSnapshot?): Boolean {
         val self = selfPackage ?: return false
         if (!tools.writesScreen(tool)) return false
@@ -105,16 +105,16 @@ class ConfirmDecision(
         return listOf("package", "uri").any { k -> (args[k] as? JsonPrimitive)?.contentOrNull?.let { self in it } == true }
     }
 
-    /** 按来源判;要花钱时核对用户的一次性同意。放行为 null。 */
+    /** 情報源による判断。お金を使うときにユーザーの一度限りの同意を確認します。動作は null のままにしておきます。 */
     private fun approve(
         tool: String, checked: JsonObject, origin: Origin, hit: Irreversible?, risk: Risk, screen: ScreenSnapshot?,
         typing: String?, seen: String?,
     ): Decision? {
         val policy = origin.policy
-        // 没命中不可逆判定的(工具自己声明的风险):按动作落在的元素记成「其他」
+        // ミスが取り返しのつかない場合 (ツール自体によって宣言されたリスク): アクションが該当する要素は「その他」として記録されます。
         val asked = hit ?: Irreversible(IrrevAction.other,
             screen?.let { ClassifiedRisk.target(tools.verb(tool), checked, it) }?.name?.trim()?.takeIf { it.isNotEmpty() } ?: tool)
-        // 对外、要花钱和没放行的都记下;界面上的改动不记
+        // 外部情報、お金が必要なもの、公開されていない情報を記録します。インターフェース上の変更は記録されません。
         fun audit(decision: String) {
             if (decision != "allowed" || risk.level.outward || risk.payment) recorder?.approval(origin, tool, asked, risk, decision)
         }
@@ -132,12 +132,12 @@ class ConfirmDecision(
         }
     }
 
-    /** 执行了一个写操作:同意按它的规则作废或保留。 */
+    /** が書き込み操作を実行しました。契約は無効になるか、ルールに従って保持されます。 */
     fun noteWrite(tool: String) {
         confirmations?.noteWrite(tools.verb(tool))
     }
 
-    /** 留痕:点的是哪个编号、那次读屏多久以前,或点的坐标。 */
+    /** 痕跡を残します: どの番号がクリックされたか、どれくらい前に画面を読み取ったか、またはポイントの座標。 */
     private fun unresolvedDetail(args: JsonObject, readAgeMs: Long?, freshRead: Boolean): String {
         fun arg(k: String) = args[k]?.let { (it as? JsonPrimitive)?.contentOrNull ?: it.toString() }
         val ref = arg("ref")
@@ -149,8 +149,8 @@ class ConfirmDecision(
 
     companion object {
         /**
-         * 不读屏的预判(大小模型分工用):按上一次读屏,这一步可能是不可逆的,或不知道点的是什么(看图得来、找不到元素);
-         * 这样的一步交主模型做。
+         * が画面を読み取らない予測 (大型モデルと小型モデル間の分業に使用): 最後の画面読み取りを押します。このステップは元に戻せない可能性があります。または、何をクリックしたかわからない可能性があります (画像からは確認できますが、要素が見つかりません)。
+         * このステップはマスター モデルによって実行されます。
          */
         fun mayBeIrreversible(tools: ToolDispatcher, tool: String, args: JsonObject): Boolean {
             val target = tools.gateTarget(tool)

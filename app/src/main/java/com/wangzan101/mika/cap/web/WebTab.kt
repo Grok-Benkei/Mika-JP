@@ -41,11 +41,11 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * 一个网页标签:一个 WebView 加它的加载状态。默认打开桌面版网页,按站点可换回手机版(见 [WebDevtools])。
- * 必须在主线程创建;[assetLoaders] 只给本地夹具这类 App 自带的网页用(每个域名一个)。
- * 系统支持多配置时用名为 mika 的独立网页配置(Cookie、存储与系统里别的 WebView 分开)。
- * 页面的权限申请(定位、相机、麦克风、MIDI、受保护媒体)一律静默拒绝;跳 App 的链接不跳;下载暂不接收。
- * 页面弹框(alert/confirm/prompt、离开页面确认)不弹系统对话框,记进 [dialogs] 等 Agent(或用户自己用的浏览器页)回话。
+ * Web ページ タグ: WebView とその読み込みステータス。 Web ページのデスクトップ バージョンがデフォルトで開きますが、サイトを押すとモバイル バージョンに戻ることができます ([WebDevtools] を参照)。
+ * はメインスレッドで作成する必要があります。 [assetLoaders] は、ローカル フィクスチャ (ドメイン名ごとに 1 つ) などのアプリが付属する Web ページにのみ使用されます。
+ * システムは、mika という名前の独立した Web ページ構成を使用して複数の構成をサポートします (Cookie とストレージはシステム内の他の WebView から分離されています)。
+ * ページ (位置決め、カメラ、マイク、MIDI、保護されたメディア) の許可申請はサイレントに拒否されます。アプリへのリンクはジャンプされません。当面の間、ダウンロードは受け付けておりません。
+ * ページ ポップアップ ボックス (アラート/確認/プロンプト、ページ終了確認) がシステム ダイアログ ボックスにポップアップ表示されない場合は、[dialogs] と入力し、他のエージェント (またはユーザー自身のブラウザ ページ) が応答します。
  */
 @SuppressLint("SetJavaScriptEnabled")
 class WebTab(
@@ -53,107 +53,107 @@ class WebTab(
     val id: String,
     ownerTaskId: String,
     private val assetLoaders: List<WebViewAssetLoader> = emptyList(),
-    /** 这个标签的 DevTools 会话入口;默认是进程里那一份。 */
+    /** このタグの DevTools セッション エントリ。デフォルトはプロセス中のものです。 */
     val devtools: WebDevtools = WebDevtools.of(context),
 ) {
-    /** 标签池接收标签上发生的事。都在主线程回调。 */
+    /** タグ プールは、タグで起こったことを受け取ります。すべてがメインスレッドでコールバックされます。 */
     interface Listener {
         fun onPageFinished(tab: WebTab) {}
         fun onCrashed(tab: WebTab) {}
         fun onExternalLink(tab: WebTab, link: ExternalLink) {}
-        /** 页面要开新窗口;返回 true 表示已接下(把新标签的 WebView 交给 [resultMsg])。 */
+        /** ページは新しいウィンドウを開く必要があります。 true を返して、それが受け入れられたことを示します (新しいラベルの WebView を [resultMsg] に渡します)。 */
         fun onCreateWindow(tab: WebTab, isUserGesture: Boolean, resultMsg: Message): Boolean = false
-        /** 弹出的新标签第一次要去别的网站:标签池关掉它。 */
+        /** ポップアップされた新しいタグは、初めて別の Web サイトに移動します。タグ プール内で閉じてください。 */
         fun onPopupRefused(tab: WebTab, url: String) {}
-        /** 页面要关掉自己这个窗口(window.close())。 */
+        /** ページは、独自のウィンドウ (window.close()) を閉じる必要があります。 */
         fun onCloseWindow(tab: WebTab) {}
-        /** 页面触发了下载(只保存,不打开、不安装)。 */
+        /** ページによってダウンロードがトリガーされました (保存のみで、開かれず、インストールもされません)。 */
         fun onDownload(tab: WebTab, url: String, userAgent: String, contentDisposition: String?, mime: String?) {}
-        /** 页面地址、标题或加载进度变了(给看得见的标签刷新地址栏和进度条)。 */
+        /** ページのアドレス、タイトル、または読み込みの進行状況が変更されました (アドレス バーと表示されているタグの進行状況バーを更新します)。 */
         fun onPageChanged(tab: WebTab) {}
-        /** 页面弹了框,记在 [dialogs] 里等回话。 */
+        /** ページにはポップアップ ボックスがあります。[dialogs] にメモし、返信をお待ちください。 */
         fun onDialog(tab: WebTab) {}
-        /** 收到了当前页面的网站图标。 */
+        /** は現在のページのファビコンを受け取りました。 */
         fun onIcon(tab: WebTab, icon: Bitmap) {}
     }
 
     /**
-     * web_upload 先放在这里的、要交给页面文件选择框的文件(工作区文件的 content:// 地址);
-     * 选择框弹出时取走一次。没有待交的文件时选择框直接取消。只在主线程读写。
+     * web_upload 最初にここに配置され、ページ ファイル選択ボックスに渡されるファイル (ワークスペース ファイルの content:// アドレス)。
+     * 選択ボックスが出てきたら一旦外します。提出書類がない場合は、そのまま選択ボックスが解除されます。メインスレッドでの読み取りと書き込みのみを行います。
      */
     var pendingUpload: List<Uri>? = null
 
-    /** 页面弹了选择框、却没有待交的文件(被取消)的次数。 */
+    /** ページ上に選択ボックスが表示されたが、提出する書類がない（キャンセルされた）回数。 */
     var choosersRefused: Int = 0
         private set
 
-    /** 这个标签属于哪个任务(用户自己的浏览器页是它自己的编号);用户关掉借给任务的页面、任务收下它时改成那个任务。 */
+    /** このラベルはどのタスクに属しますか (ユーザー自身のブラウザ ページには独自の番号があります)。ユーザーがタスクに貸し出されたページを閉じ、タスクがそれを受け入れると、そのタスクに変更されます。 */
     var ownerTaskId: String = ownerTaskId
         internal set
 
     val view: WebView = WebView(context)
 
-    /** 这个标签上等回话的页面弹框。 */
+    /** このタグは応答を待つページポップアップです。 ページから */
     val dialogs = PageDialogs()
 
     var listener: Listener? = null
 
-    /** 由页面弹出时为打开它的页面地址。弹出的标签终生只能在这个网站里导航。 */
+    /** がポップアップ表示される場合、それを開いたページのアドレスです。ポップアップ タブは、この Web サイト内でのみ移動できます。 */
     var popupOpener: String? = null
 
-    // 弹出的标签已经在同站页面上开始加载过:之后再要去别的网站只拦下那次导航,不再关标签
+    // ポップアップ タグは同じサイト ページにすでに読み込まれています。今後他の Web サイトにアクセスしたい場合は、そのナビゲーションをブロックするだけでタグを閉じないようにしてください。
     private var popupCommitted = false
-    /** 替网络代理答过几次账号密码(只在主线程上动)。 */
+    /** は、ネットワーク エージェントのアカウント パスワードに数回応答しました (メイン スレッド上でのみ移動されました)。 */
     private var proxyAuthAnswers = 0
 
-    /** 主文档是否正在加载。只在主线程读写。 */
+    /** メインドキュメントがロードされているかどうか。メインスレッドでの読み取りと書き込みのみを行います。 */
     var loading: Boolean = false
         private set
 
-    /** 主文档的加载进度(0–100)。只在主线程读写。 */
+    /** メインドキュメントの読み込み進行状況 (0 ～ 100)。メインスレッドでの読み取りと書き込みのみを行います。 */
     var progress: Int = 0
         private set
 
-    /** 最近一次 [load] 是否等到了加载完成(含出错页面);超时为 false。 */
+    /** 最新の [load] がロードが完了するまで待機したか (エラー ページを含む)。タイムアウトは false です。 */
     var lastLoadFinished: Boolean = false
         private set
 
-    /** 最近一次主文档的 HTTP 错误状态(4xx/5xx);拿不到或没出错为 null。 */
+    /** メインドキュメントの最新の HTTP エラーステータス (4xx/5xx)。取得できない場合、またはエラーがない場合は null になります。 */
     var httpErrorStatus: Int? = null
         private set
 
-    /** 最近一次主文档没打开时浏览器给的错误码(如 net::ERR_NAME_NOT_RESOLVED);打开了或没出错为 null。 */
+    /** メインドキュメントが最後に開かれなかったときにブラウザによって表示されたエラー コード (net::ERR_NAME_NOT_RESOLVED など)。開かれているか、エラーがない場合は null です。 */
     var mainFrameError: String? = null
         private set
 
-    /** 最近一次 [load] 期间页面变成了下载(主文档是个文件)。 */
+    /** 最新の [load] ページがダウンロードに変更されました (メインのドキュメントはファイルです)。 */
     var loadBecameDownload: Boolean = false
         private set
 
-    /** 最近一次被拦下的跳 App 链接;[load] 开始时清空。 */
+    /** 最新のブロックされたアプリのリンク。 [load] 序盤でクリア。 */
     var lastExternalLink: ExternalLink? = null
         private set
 
-    /** [destroy] 之后为 true。 */
+    /** [destroy] 以降は True。 */
     @Volatile var destroyed: Boolean = false
         private set
 
-    /** 渲染进程崩溃或被系统回收后为 true,该标签不能再用,由上层重新打开。 */
+    /** は、レンダリング プロセスがクラッシュするか、システムによってリサイクルされた後は true になります。タグは使用できなくなり、上位層によって再度開かれます。 */
     @Volatile var crashed: Boolean = false
         private set
 
-    /** 渲染进程不是自己崩的,是系统为腾内存收回的([crashed] 同时为 true)。 */
+    /** レンダリング プロセスはそれ自体ではクラッシュしませんでしたが、メモリを解放するためにシステムによって回復されました (同時に [crashed] が true です)。 */
     @Volatile var reclaimed: Boolean = false
         private set
 
     private var pending: CompletableDeferred<Boolean>? = null
-    // 发起新加载后,要等到它自己的 onPageStarted 才认 onPageFinished,上一次导航迟到的完成回调不算数
+    // が新しいロードを開始した後、onPageFinished を認識する前に、自身の onPageStarted まで待機する必要があります。最後のナビゲーションの遅延完了コールバックはカウントされません。
     private var armed = false
     private var mainFrameFailed = false
     private var mainUrl: String? = null
 
     init {
-        // 配置要在 WebView 做任何别的事之前设定
+        // 構成は、WebView が他の処理を行う前に設定する必要があります。
         if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
             ProfileStore.getInstance().getOrCreateProfile(PROFILE)
             WebViewCompat.setProfile(view, PROFILE)
@@ -172,12 +172,12 @@ class WebTab(
             @Suppress("DEPRECATION")
             saveFormData = false
             setGeolocationEnabled(false)
-            // 新窗口经 onCreateWindow 交给标签池;脚本不能不经用户操作就自己开窗口
+            // 新しいウィンドウは、onCreateWindow を通じてタグ プールに渡されます。スクリプトはユーザーの操作なしにウィンドウを開くことはできません。
             setSupportMultipleWindows(true)
             javaScriptCanOpenWindowsAutomatically = false
         }
         devtools.prepare(this, context)
-        // 第三方 Cookie 关闭(裁定);后续确有站点需要再单独定
+        // サードパーティ Cookie がオフになっています (決定)。別途決定する必要がある後続のサイトがある場合
         cookieManager().setAcceptThirdPartyCookies(view, false)
         view.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(v: WebView, request: WebResourceRequest): WebResourceResponse? =
@@ -186,7 +186,7 @@ class WebTab(
             override fun shouldOverrideUrlLoading(v: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url.toString()
                 if (request.isForMainFrame && refusePopup(url)) return true
-                // 跳 App 的链接(intent:、自定义协议、应用商店)不跳;只有主文档的才告诉标签池(子框架里的静默拦下)
+                // はアプリリンク (意図:、カスタムプロトコル、アプリストア) にジャンプしません。メインドキュメント内のタグのみがタグプールに通知されます（サブフレームでのサイレントブロック）
                 WebUrlPolicy.external(url)?.let { link ->
                     if (request.isForMainFrame) {
                         lastExternalLink = link
@@ -198,7 +198,7 @@ class WebTab(
             }
 
             override fun onPageStarted(v: WebView, url: String?, favicon: Bitmap?) {
-                // 弹出窗口的第一次导航不一定经过 shouldOverrideUrlLoading:这里再核对一次
+                // ポップアップ ウィンドウの最初のナビゲーションは必ずしも shouldOverrideUrlLoading を経由するわけではありません: ここでもう一度確認してください
                 if (url != null && refusePopup(url)) {
                     v.stopLoading()
                     return
@@ -217,7 +217,7 @@ class WebTab(
                 listener?.onPageChanged(this@WebTab)
             }
 
-            // 页面开始显示时再核对一次弹出窗口的网站(前两处都可能被绕过时的最后一道)
+            // ページが表示され始めたら、ポップアップ ウィンドウの Web サイトを再度確認します (最初の 2 か所がバイパスされる場合は最後のステップ)
             override fun onPageCommitVisible(v: WebView, url: String?) {
                 if (url != null && refusePopup(url)) v.stopLoading()
             }
@@ -243,8 +243,8 @@ class WebTab(
                 }
             }
 
-            // 网络代理要账号密码:只回答设置 › 网络代理 里那个 HTTP 代理,答过几次还在问(账号密码不对)就不再答;
-            // 网站自己的登录框不在这里填
+            // ネットワーク プロキシにはアカウントとパスワードが必要です。[設定] › [ネットワーク プロキシ] で HTTP プロキシに応答するだけです。何度か答えてもなお尋ねられます（アカウントとパスワードが間違っています）ので、私は二度と答えません。
+            // Web サイト独自のログイン ボックスはここに入力されません。
             override fun onReceivedHttpAuthRequest(v: WebView, handler: HttpAuthHandler, host: String?, realm: String?) {
                 val credentials = WebProxy.credentialsFor(host)
                 if (credentials == null || proxyAuthAnswers >= MAX_PROXY_AUTH_ANSWERS) {
@@ -255,7 +255,7 @@ class WebTab(
                 handler.proceed(credentials.first, credentials.second)
             }
 
-            // 证书有问题一律不继续
+            // 証明書に問題がある場合は続行されません。
             override fun onReceivedSslError(v: WebView, handler: SslErrorHandler, error: SslError) {
                 handler.cancel()
                 if (error.url == mainUrl) {
@@ -264,7 +264,7 @@ class WebTab(
                 }
             }
 
-            // 返回 true 才不会连带整个 App 被杀;标签作废,由标签池销毁
+            // は true を返すため、アプリ全体が強制終了されません。タグは無効になり、タグ プールによって破棄されます。
             override fun onRenderProcessGone(v: WebView, detail: RenderProcessGoneDetail): Boolean {
                 Log.w(TAG, "renderer gone for tab $id crashed=${detail.didCrash()}")
                 crashed = true
@@ -299,7 +299,7 @@ class WebTab(
                 if (icon != null) listener?.onIcon(this@WebTab, icon)
             }
 
-            // 页面弹框:记下就返回(返回 true 表示自己处理,系统不弹框),不占界面线程;回话前页面脚本停着
+            // ページ ポップアップ ボックス: 書き留めて戻ります (true を返すと自分で処理することを意味し、システムはボックスをポップアップしません)。インターフェイス スレッドを占有しません。ページスクリプトは応答する前に停止します
             override fun onJsAlert(v: WebView, url: String?, message: String?, result: JsResult): Boolean =
                 held(PageDialog.ALERT, message, null, result)
 
@@ -312,7 +312,7 @@ class WebTab(
             override fun onJsBeforeUnload(v: WebView, url: String?, message: String?, result: JsResult): Boolean =
                 held(PageDialog.BEFORE_UNLOAD, message, null, result)
 
-            // 用户看不见这个标签,弹框授权等于替用户点同意:一律拒绝
+            // ユーザーにはこのラベルは表示されません。承認ポップアップは、ユーザーの [同意する: すべて拒否] をクリックするのと同じです。
             override fun onPermissionRequest(request: PermissionRequest) {
                 request.deny()
             }
@@ -321,7 +321,7 @@ class WebTab(
                 callback?.invoke(origin, false, false)
             }
 
-            // 文件选择框:只交 web_upload 事先放好的工作区文件,取走即清;没有就取消,不弹系统选择器
+            // ファイル選択ボックス: web_upload によって事前に配置されたワークスペース ファイルのみを送信し、取得後すぐにクリアします。そうでない場合は、システム セレクターをポップアップ表示せずにシステム セレクターをキャンセルします。
             override fun onShowFileChooser(v: WebView, callback: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
                 val files = pendingUpload
                 pendingUpload = null
@@ -335,13 +335,13 @@ class WebTab(
                 return true
             }
         }
-        // 下载暂不接收,由下载模块接手
-        // 下载交给标签池(落到工作区);文件不打开、不安装
+        // ダウンロードは一時的に受け付けられず、ダウンロード モジュールによって引き継がれます。
+        // はタグ プールにダウンロードされます (ワークスペースにドロップされます)。ファイルは開かれていない、またはインストールされていません。
         view.setDownloadListener { url, userAgent, contentDisposition, mimetype, _ ->
             val l = listener
             if (l == null) Log.i(TAG, "download ignored on tab $id: ${url.take(80)}")
             else l.onDownload(this, url, userAgent.orEmpty(), contentDisposition, mimetype)
-            // 正在等加载的那次导航变成了下载:页面不会再加载,不用等到超时
+            // ロードを待機していたナビゲーションがダウンロードになりました。ページは再度ロードされず、タイムアウトを待つ必要はありません。
             if (pending != null) {
                 loadBecameDownload = true
                 loading = false
@@ -350,7 +350,7 @@ class WebTab(
         }
     }
 
-    /** 记下页面弹框;回话在主线程交给浏览器(JsResult 只能回一次)。 */
+    /** ページのポップアップ ボックスに注目してください。応答はメイン スレッドでブラウザに渡されます (JsResult は 1 回だけ応答できます)。 */
     private fun held(kind: String, message: String?, defaultText: String?, result: JsResult): Boolean {
         val text = message.orEmpty().take(PageDialog.MAX_MESSAGE)
         dialogs.open(PageDialog(kind, text, defaultText?.take(PageDialog.MAX_MESSAGE)), object : DialogReply {
@@ -363,14 +363,14 @@ class WebTab(
         })
         Log.i(TAG, "page dialog $kind held on tab $id")
         listener?.onDialog(this)
-        // 加载中弹框:页面停在这里了,加载等待不再等到超时
+        // ロード中の箇条書きボックス: ページはここで停止し、ロード待機はタイムアウトまで待機しなくなります。
         if (pending != null) finish(true)
         return true
     }
 
     /**
-     * 弹出的标签要导航到和打开它的页面不同的网站(about:blank 除外):拦下。还没在同站页面上加载过时交标签池关掉它,
-     * 之后只拦这次导航。
+     * ポップアップのタブが元のページと異なるサイトへ移動しようとしたら遮断する（about:blankを除く）。同じサイトをまだ読み込んでいなければ、タブプールに閉じる処理を任せる。
+     * 同じサイトを読み込み済みなら、今回の移動だけを遮断する。
      */
     private fun refusePopup(url: String): Boolean {
         val opener = popupOpener ?: return false
@@ -389,7 +389,7 @@ class WebTab(
         armed = false
     }
 
-    /** 打开网址并等主文档加载完;超时、主文档出错或 HTTP 4xx/5xx 返回 false。只接受 http/https 网址。 */
+    /** URL を開いて、メイン ドキュメントが読み込まれるまで待ちます。タイムアウト、メインドキュメントエラー、または HTTP 4xx/5xx が false を返します。 http/https URL のみが受け入れられます。 */
     suspend fun load(url: String, timeoutMs: Long = 20_000): Boolean = withContext(Dispatchers.Main) {
         if (crashed) return@withContext false
         WebUrlPolicy.checkNavigable(url)?.let {
@@ -397,7 +397,7 @@ class WebTab(
             lastLoadFinished = false
             return@withContext false
         }
-        // 第一次导航前把桌面版仿真设好(连不上时至多等一小会儿,照常打开)
+        // 初めてナビゲートする前にデスクトップ シミュレーションをセットアップします (接続が失敗した場合は、最大でも短時間待って、通常どおり開きます)
         devtools.beforeLoad(this@WebTab, url)
         if (crashed || destroyed) return@withContext false
         finish(false)
@@ -433,13 +433,13 @@ class WebTab(
 
     companion object {
         private const val TAG = "MikaWebTab"
-        /** 同一个标签页替代理答账号密码的上限:再问就是账号密码不对,不再答,免得一直转。 */
+        /** 同じタブでプロキシ認証に自動応答する回数の上限。再度要求された場合は認証情報が正しくないと判断し、認証の繰り返しを止める。 */
         private const val MAX_PROXY_AUTH_ANSWERS = 3
         private const val PROFILE = "mika"
 
         /**
-         * 网页登录数据所在的 Cookie 库:支持多配置时是 mika 配置的,否则是默认的。主线程调用。
-         * 不支持多配置时它和本 App 进程里任何别的 WebView 共用:App 里不得再有别的 WebView 处理网站登录,否则登录态会混在一起。
+         * ウェブのログイン情報を保存するCookieストア。複数プロファイルに対応していればMika専用、非対応なら既定のストアを使う。メインスレッドから呼び出す。
+         * 複数プロファイルに非対応の端末では、同じアプリの全WebViewとCookieを共有する。ログイン状態が混ざらないよう、ほかのWebViewでウェブサイトの認証を処理しない。
          */
         fun cookieManager(): CookieManager =
             if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
@@ -448,7 +448,7 @@ class WebTab(
                 CookieManager.getInstance()
             }
 
-        /** 和 [cookieManager] 同一个配置的网页存储(localStorage、IndexedDB 等)。主线程调用。 */
+        /** と [cookieManager] は、Web ストレージ (localStorage、IndexedDB など) の構成が同じです。メインスレッドによって呼び出されます。 */
         fun webStorage(): WebStorage =
             if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
                 ProfileStore.getInstance().getOrCreateProfile(PROFILE).webStorage

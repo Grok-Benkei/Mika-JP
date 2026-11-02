@@ -73,11 +73,11 @@ import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaIcons
 import com.wangzan101.mika.ui.components.floatShadow
 
-/** 小窗宽度:收起 / 展开。高度按画面(没有画面时按主屏)的长宽比算,整屏完整显示、不裁底部。 */
+/** 小さなウィンドウ幅: 折りたたみ/展開。高さは画面（画面がない場合はメイン画面）のアスペクト比に基づいて計算され、下部が切れることなく画面全体が完全に表示されます。 */
 private val CollapsedWidth = 96.dp
 private val ExpandedWidth = 220.dp
 
-/** 主屏的高宽比(按真实像素,含系统栏):虚拟屏按主屏尺寸建,还没有画面时小窗先按它定大小。 */
+/** メイン画面のアスペクト比 (システム バーを含む実ピクセルによる): 仮想画面はメイン画面のサイズに従って構築されます。画像がない場合は、まず画像に合わせて小ウィンドウのサイズを調整します。 */
 private fun mainScreenAspect(context: Context): Float {
     val m = DisplayMetrics()
     context.getSystemService(DisplayManager::class.java)?.getDisplay(Display.DEFAULT_DISPLAY)?.getRealMetrics(m)
@@ -88,15 +88,15 @@ private const val DEFAULT_ASPECT = 2.2f
 private val Ease = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f)
 
 /**
- * 悬浮画中画:盖在对话上,只显示 Agent 虚拟屏的实时画面,只看不点;上面不放文字和按钮,要你做的事都在对话卡片里。
- * 状态只靠边框光:干活中细绿边,需要你时橙色呼吸光晕(接管开始时由 [ChatViewModel] 自动展开)。
- * 平时停在右下角、输入栏上方,不挡顶栏和最新的消息。
- * 拖动 1:1 跟手;松手按速度投射落点吸到最近的角(临界阻尼弹簧,见 [PipPhysics]);
- * 点一下展开,点 × 或外面收起;需要你时点一下交给 [onAttention](收起并滚到那张卡片)。
- * 展开时左上角「关掉小画面」([onClose]):这个任务结束前只剩右下角一个小按钮([PipUi.closed]),
- * 点它再打开([onReopen]);要你处理时小按钮变橙色、呼吸,点它同样交给 [onAttention]。
- * [reduceMotion] 时(系统关了动画)不做弹簧、缩放和呼吸,直接到位。
- * [topInset]/[bottomInset] 是顶栏和输入框占的像素高度,小窗不会停在它们下面。
+ * フローティング ピクチャー イン ピクチャー: ダイアログ上でカバーされ、エージェントの仮想画面のリアルタイム画像のみが表示され、クリックのみを表示できます。テキストやボタンは配置されておらず、やりたいことはすべてダイアログ カード内にあります。
+ * ステータスはフレーム ライトにのみ依存します。動作中は薄い緑色のエッジが表示され、必要な場合はオレンジ色の呼吸ハローが表示されます (テイクオーバーが開始されると、[ChatViewModel] によって自動的に拡張されます)。
+ * は通常、トップバーと最新ニュースをブロックすることなく、右下隅の入力フィールドの上で停止します。
+ * 1:1 でドラッグして手に追従します。手を放し、速度に応じて着地点を最も近いコーナーに投影します (臨界減衰スプリング、[PipPhysics] を参照)。
+ * クリックすると展開し、×または外側をクリックすると折りたたまれます。必要な場合は、クリックして [onAttention] に渡します (折りたたんでそのカードまでスクロールします)。
+ * 展開時に左上隅にある「小さい画面をオフにする」([onClose]): このタスクが終了する前は、右下隅に小さなボタン ([PipUi.closed]) しかありません。
+ * クリックして開きます ([onReopen])。それを処理したいときは、小さなボタンがオレンジ色に変わり、息を吹き込み、クリックして[onAttention]に渡します。
+ * [reduceMotion] (システムがアニメーションをオフにする) の場合、スプリング、スケーリング、呼吸はなく、その位置に直接移動します。
+ * [topInset]/[bottomInset] は、トップバーと入力ボックスが占めるピクセルの高さであり、小さなウィンドウはそれらの下で止まりません。
  */
 @Composable
 fun AgentPip(
@@ -114,7 +114,7 @@ fun AgentPip(
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val fade = if (reduceMotion) tween<Float>(150) else tween(300)
-        // 关掉了:只留右下角的小按钮(任务做完那几秒不留)
+        // がオフになります。右下隅の小さなボタンのみが残ります (タスク完了後の数秒は残りません)。
         AnimatedVisibility(
             pip.visible && pip.closed && pip.mode != PipMode.Done, Modifier.align(Alignment.BottomEnd),
             enter = fadeIn(fade), exit = fadeOut(fade),
@@ -137,8 +137,8 @@ fun AgentPip(
 }
 
 /**
- * 小画面关掉后剩下的小按钮:平时写「显示画面」,点了再打开;要你处理时橙色呼吸、写「等你处理」,
- * 点了滚到要你处理的那张卡片(小画面关着也不漏掉要你做的事)。
+ * 小さな画面がオフになった後に残る小さなボタン。通常は「画面を表示」と書き、クリックして開きます。処理したい場合は、オレンジ色に点灯し、「処理を待っています」と表示されます。
+ * クリックして、対処するよう求められているカードまでスクロールします (小さな画面はオフになりますが、求められている内容を見逃すことはありません)。
  */
 @Composable
 private fun ClosedPip(needsYou: Boolean, reduceMotion: Boolean, modifier: Modifier, onReopen: () -> Unit, onAttention: () -> Unit) {
@@ -183,8 +183,8 @@ private fun PipWindow(
 ) {
     val density = LocalDensity.current
     val sizeSpec = if (reduceMotion) snap() else tween<androidx.compose.ui.unit.Dp>(350, easing = Ease)
-    // 大小跟着画面的长宽比走:手机游戏和桌面网页都可能横向,按固定的宽度定高度,
-    // 画面整张放得下;放不下时按比例整体缩小
+    // サイズは画面のアスペクト比に従います。モバイル ゲームとデスクトップ Web ページは水平にすることができ、高さは固定幅によって決まります。
+    // 全体像が収まります。収まらない場合は、画像全体が比例して縮小されます。
     val context = LocalContext.current
     val screenAspect = remember { mainScreenAspect(context) }
     val landscapeFrame = frame != null && frame.width > frame.height
@@ -215,12 +215,12 @@ private fun PipWindow(
     val attend by rememberUpdatedState(onAttention)
 
     var corner by rememberSaveable { mutableStateOf(Corner.BottomEnd) }
-    // 拖动或弹簧途中的位置;为空表示贴在 corner 上(展开收起时跟着大小一起贴角)
+    // ドラッグまたはスプリング時の位置。空の場合は、角に貼り付くことを意味します（展開および折りたたむと、角はサイズとともに貼り付けられます）。
     var free by remember { mutableStateOf<Offset?>(null) }
     val scope = rememberCoroutineScope()
     var settle by remember { mutableStateOf<Job?>(null) }
 
-    /** 从 [start] 以速度 (vx, vy) 弹到角 [c];关了动画时直接到位。 */
+    /** は [start] からコーナー [c] まで速度でバウンドします (vx、vy)。アニメーションがオフになると、その位置に直接配置されます。 */
     fun springTo(c: Corner, start: Offset, vx: Float, vy: Float) {
         settle?.cancel()
         corner = c
@@ -252,7 +252,7 @@ private fun PipWindow(
         springTo(PipPhysics.snapCorner(start.x, start.y, vx, vy, currentBounds), start, vx, vy)
     }
 
-    // 完成时如果停在下方两个角,先挪到同侧上方,免得盖住刚出来的结果卡片
+    // が完了時に下 2 つのコーナーで停止した場合は、出たばかりのリザルト カードを覆わないように、最初に同じ側の上側に移動します。
     LaunchedEffect(pip.mode) {
         if (pip.mode != PipMode.Done) return@LaunchedEffect
         val up = when (corner) {
@@ -274,7 +274,7 @@ private fun PipWindow(
 
     Box(Modifier.offset { IntOffset(pos.x.roundToInt(), pos.y.roundToInt()) }) {
         if (pip.mode == PipMode.NeedsYou) {
-            // 橙色光晕:比窗口大一圈,模糊后透出边缘(安卓 12 以下不模糊,只是一圈淡橙色)
+            // オレンジ色のハロー: ウィンドウよりも 1 つの円が大きく、ぼやけてエッジが表示されます (Android 12 以下ではぼかしがなく、明るいオレンジ色の円だけです)
             Box(
                 Modifier.offset((-5).dp, (-5).dp).size(w + 10.dp, h + 10.dp).alpha(breath)
                     .blur(10.dp).background(MikaTheme.colors.warnSolid.copy(alpha = 0.55f), outer),
@@ -288,8 +288,8 @@ private fun PipWindow(
                 .border(0.5.dp, MikaTheme.colors.glassEdge, outer)
                 .pointerInput(Unit) {
                     val tracker = VelocityTracker()
-                    // 自己数位移而不用 detectDragGestures:越过触摸阈值时把阈值内的那段也补上,
-                    // 窗口始终保持按下时的抓取位置,真正 1:1 跟手
+                    // detectDragGesture を使用しないデジタル変位: タッチのしきい値を超えると、しきい値内のセグメントも追加されます。
+                    // ウィンドウは、押されたときに常にグラブ位置を維持し、真の 1:1 フォローアップを実現します。
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val origin = free ?: currentBounds.position(corner).let { (x, y) -> Offset(x, y) }
@@ -325,7 +325,7 @@ private fun PipWindow(
                 }
             }
             if (pip.expanded) {
-                // 左上角:关掉这个任务的小画面(只剩右下角的小按钮);右上角 × 只是收起
+                // 左上隅: このタスクの小さな画面を閉じます (右下隅の小さなボタンだけが残ります)。右上隅 × 折りたたむだけ
                 Box(
                     Modifier.align(Alignment.TopStart).padding(6.dp).size(26.dp)
                         .floatShadow(MikaTheme.colors, CircleShape).background(MikaTheme.colors.glass, CircleShape).clip(CircleShape)
@@ -341,7 +341,7 @@ private fun PipWindow(
                 ) { Icon(MikaIcons.Close, stringResource(R.string.collapse), Modifier.size(12.dp), tint = MikaTheme.colors.ink) }
             }
         }
-        // 边框光画在玻璃框外沿
+        // ガラスフレームの外周にフレームライトを塗装
         val glow = when (pip.mode) {
             PipMode.Running -> MikaTheme.colors.ok to 2.dp
             PipMode.NeedsYou -> MikaTheme.colors.warnSolid.copy(alpha = breath) to 2.dp

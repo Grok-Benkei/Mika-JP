@@ -11,7 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TakeoverQueueTest {
-    // 主屏一次只交一个 App:第二个任务的接管排在第一个后面
+    // メイン画面では一度に 1 つのアプリのみを配信します。2 番目のタスクは最初のタスクの後に引き継がれます。
     @Test fun secondWaitsForFirst() = runTest {
         val queue = TakeoverQueue()
         val portA = TakeoverControllerTest.FakePort()
@@ -35,7 +35,7 @@ class TakeoverQueueTest {
         assertEquals(listOf("toMain:1", "unmute:a.app"), portB.log)
     }
 
-    // 排在后面的接管不计时:等前一个的用户处理多久都不会把它判成超时;排到最前后才开始计时
+    // キューの最後尾でのテイクオーバーには時間が計測されません。前のユーザーが処理している限り、タイムアウトとは判断されません。タイマーはキューの最後に到達するまで開始されません。
     @Test fun queuedTakeoverDoesNotTimeOutBehindFirst() = runTest {
         val queue = TakeoverQueue()
         val portA = TakeoverControllerTest.FakePort()

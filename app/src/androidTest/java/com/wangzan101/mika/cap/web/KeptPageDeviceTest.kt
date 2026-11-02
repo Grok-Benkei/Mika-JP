@@ -22,10 +22,10 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
- * 真机测试:任务结束后留下一页接着运行。一套不挂在任务上的网页([WebStack],和任务里一样建),打开本地的计时页,
- * 用 web_keep_open 那条路标下它,再「结束任务」([WebStack.close]):那一页不随任务关,交到进程里那一份 [PageKeeper],
- * 页面里的计时器和画面帧接着涨;没标的一页照常关;留新的一页顶掉旧的;最后经 [PageKeeper] 关掉。
- * 秒数可用 `-e keptRunSec N` 调(默认 5)。
+ * 実機テスト: タスクが完了したら、ページを離れて実行を続けます。タスクに関連付けられていない一連の Web ページ ([WebStack]、タスク内と同じように構築)、ローカル タイミング ページを開きます。
+ * web_keep_open パスを使用してダウンロードし、「タスクを終了」([WebStack.close]): そのページはタスクとともに閉じられませんが、プロセス [PageKeeper] のコピーに渡されます。
+ * ページのタイマーとピクチャ フレームは増加し続けます。マークのないページは通常どおり閉じられます。古いページを置き換えるために新しいページが残されます。そして最後に [PageKeeper] によって閉じられます。
+ * 秒は、`-e keptRunSec N` (デフォルトは 5) で調整できます。
  */
 @RunWith(AndroidJUnit4::class)
 class KeptPageDeviceTest {
@@ -64,7 +64,7 @@ class KeptPageDeviceTest {
 
     private fun open(s: WebStack) = runBlocking { s.screen.navigate(TICKER, newTab = false) }.also { assertTrue("ticker loaded", it.loaded) }
 
-    /** 页面里此刻的计数(计时器, 画面帧)。 */
+    /** ページ内の現時点でのカウント (タイマー、ピクチャ フレーム)。 */
     private fun counts(tab: WebTab): Pair<Long, Long> {
         val latch = CountDownLatch(1)
         var raw = ""
@@ -74,7 +74,7 @@ class KeptPageDeviceTest {
         return a.toLong() to b.toLong()
     }
 
-    /** 任务结束(和 TaskRun 收尾一样在主线程上关)。 */
+    /** タスクが終了します (メインスレッドでの TaskRun の終了と同じです)。 */
     private fun endTask(s: WebStack) {
         instr.runOnMainSync { s.close() }
         stacks -= s
@@ -91,7 +91,7 @@ class KeptPageDeviceTest {
         assertNull("nothing kept before", r.replaces)
         endTask(s)
 
-        // 任务的池关了,这一页没关:交到了 PageKeeper,还挂在它那块显示上
+        // タスク プールは閉じられていますが、このページは閉じられていません。ページは PageKeeper に渡され、まだ表示上にハングしています。
         assertFalse("kept tab not destroyed at task end", tab.destroyed)
         assertTrue(tab === keeper.keptTab())
         val page = keeper.page.value!!
@@ -100,16 +100,16 @@ class KeptPageDeviceTest {
         assertEquals("appassets.androidplatform.net" to null, keeper.recordFor("run-keep-1"))
         assertNotNull("still on its display", tab.view.parent)
 
-        // 页面接着跑:计时器、画面帧都在涨
+        // ページは引き続き実行されます。タイマーとピクチャ フレームは増加しています。
         val before = counts(tab)
         Thread.sleep(seconds * 1_000)
         val after = counts(tab)
         assertTrue("timer advanced ${before.first} -> ${after.first}", after.first - before.first >= seconds * 5)
         assertTrue("frames advanced ${before.second} -> ${after.second}", after.second > before.second)
-        // 画中画同一来源的画面也有
+        // 同じソースからのピクチャー・イン・ピクチャー画像も利用可能です
         assertNotNull("live frame", runBlocking { keeper.frames().let { f -> kotlinx.coroutines.withTimeoutOrNull(5_000) { f.first { it != null } } } })
 
-        // 经 PageKeeper 关掉:标签销毁,记下原因
+        // は PageKeeper によってオフにされました: ラベルが破棄されています。理由をメモしてください
         instr.runOnMainSync { assertTrue(keeper.close(KeptPageClose.User)) }
         assertTrue(tab.destroyed)
         assertNull(keeper.page.value)
@@ -147,7 +147,7 @@ class KeptPageDeviceTest {
         endTask(a)
         val b = stack("second")
         open(b)
-        // 已经留着一页:结果里说清会顶掉它
+        // がページを残しました。結果に明記されている場合は削除されます。
         assertEquals("appassets.androidplatform.net", runBlocking { b.screen.keepOpen(true, "y") }!!.replaces)
         endTask(b)
         assertTrue("old kept page closed", first.destroyed)

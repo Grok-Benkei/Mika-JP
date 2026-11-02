@@ -3,12 +3,12 @@ package com.wangzan101.mika.core.workspace
 import java.io.File
 import java.nio.file.Files
 
-/** 模型只看到沙箱里的路径;这里规范化并判断越界。 */
+/** モデルはサンドボックス内のパスのみを認識します。ここでは正規化され、範囲外と判断されます。 */
 object SandboxPaths {
     const val WORKSPACE = "/workspace"
     const val SKILLS = "/opt/mika/skills"
 
-    /** 相对路径以 [cwd] 为基;规范化后不在 [WORKSPACE] 或 [SKILLS] 下返回 null。 */
+    /** 相対パスは [cwd] を基準とする; 正規化した後に [WORKSPACE] または [SKILLS] の下になければ null を返す。 */
     fun normalize(path: String, cwd: String = WORKSPACE): String? {
         if (path.isEmpty() || '\u0000' in path) return null
         val parts = ArrayDeque<String>()
@@ -21,12 +21,12 @@ object SandboxPaths {
         return n.takeIf { under(it, WORKSPACE) || under(it, SKILLS) }
     }
 
-    /** 只有工作区可写;技能目录只读。 */
+    /** 書き込みできるのはワークスペースだけ; スキルディレクトリは読み取り専用。 */
     fun isWritable(normalized: String): Boolean = under(normalized, WORKSPACE)
 
     /**
-     * [root] 下的 [sandboxRel];逐段检查符号链接:指到 [root] 外面的、目标不存在的(写下去会落到哪里看不出来)一律 null,
-     * 最终的 canonicalFile 也必须仍在 [root] 下。
+     * [root] 配下の [sandboxRel]; シンボリックリンクを段ごとに確認する: [root] の外を指すもの、対象が存在しないもの（書き込んだらどこへ行くか分からない）は一律 null、
+     * 最終的な canonicalFile も [root] の下に残っていなければならない。
      */
     fun resolveHost(root: File, sandboxRel: String): File? {
         val base = root.canonicalFile

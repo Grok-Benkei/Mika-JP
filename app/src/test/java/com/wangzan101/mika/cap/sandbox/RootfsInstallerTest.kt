@@ -23,7 +23,7 @@ import java.nio.file.LinkOption
 import java.nio.file.attribute.PosixFilePermissions
 import java.security.MessageDigest
 
-/** 自带的运行环境换成用宿主 tar 现做、再用 xz 压的小包;不联网。 */
+/** に付属する実行環境は、ホスト tar によって作成され、xz によって圧縮された小さなパッケージに置き換えられます。インターネットに接続されていません。 */
 class RootfsInstallerTest {
     @get:Rule val texts = ChineseTexts()
 
@@ -88,7 +88,7 @@ class RootfsInstallerTest {
         expectFailure { installer(client = null).install { _, _ -> } }
         assertEquals(InstallStep.Extract, state.completedStep())
         assertTrue(state.status.value is SandboxStatus.Broken)
-        // 重新读状态(像进程重启那样)也不是就绪
+        // ステータスの再読み取り（プロセスの再起動など）も準備ができていません
         assertTrue(SandboxState(dirs, File(tmp, "files/sandbox-settings.json")) { listOf("arm64-v8a") }.status.value is SandboxStatus.Broken)
         val steps = mutableListOf<InstallStep>()
         installer().install { s, _ -> steps += s }
@@ -99,7 +99,7 @@ class RootfsInstallerTest {
 
     @Test
     fun interruptedExtractionStartsOver() = runBlocking {
-        // 像进程在解包中被杀那样:记录停在 Check,留下半个 rootfs.new
+        // 同様のプロセスが解凍中に強制終了されました: ロギングは Check で停止し、半分の rootfs.new が残ります
         installer().install { _, _ -> }
         state.markStep(InstallStep.Check)
         File(dirs.root, "rootfs.new/half").apply { parentFile?.mkdirs() }.writeText("x")
@@ -174,8 +174,8 @@ class RootfsInstallerTest {
     }
 
     /**
-     * 写 files/sandbox/ 的(技能同步、跑命令……)和重置互斥:重置等正在写的写完再删,删到一半没人往里建目录;
-     * 等许可期间被重置了的同步不再写(真机上 App 启动时的同步正撞上重置,最后的 rmdir 报 ENOTEMPTY)。
+     * files/sandbox/ の書き込み (スキルの同期、コマンドの実行など) とリセットは相互に排他的です。リセットは書き込みが完了するまで待ってから削除します。また、半分が削除されるまでは誰もディレクトリを作成しません。 ライセンス期間中にリセットされた
+     * およびその他の同期は書き込まれなくなります (実マシン上でアプリが起動されたときの同期はリセットに達し、最後の rmdir は ENOTEMPTY を報告します)。
      */
     @Test
     fun resetWaitsForWritersAndLateSyncSkips() = runBlocking {
@@ -192,7 +192,7 @@ class RootfsInstallerTest {
         }
         writing.await()
         val reset = launch(kotlinx.coroutines.Dispatchers.IO) { installer().reset() }
-        // 重置排着队时新来的写者也排在它后面
+        // リセット キューがキューに入れられると、新しいライターもその後ろにキューに入れられます
         val late = launch(kotlinx.coroutines.Dispatchers.IO) {
             SkillsSync.sync(dirs, mapOf("skills/a/scripts/manifest.json" to "[]".toByteArray())) { state.status.value is SandboxStatus.Ready }
         }
@@ -233,7 +233,7 @@ class RootfsInstallerTest {
 
     private fun sha256(b: ByteArray) = MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(it) }
 
-    /** 小根文件系统:bin/sh、etc/marker、若干文件;宿主 tar 打包后用 xz 压。 */
+    /** 小さなルート ファイル システム: bin/sh、etc/marker、複数のファイル。 tar パッケージをホストし、xz で圧縮します。 */
     private fun makeBundle(marker: String): ByteArray {
         val src = Files.createTempDirectory(tmp.toPath(), "src").toFile()
         File(src, "bin").mkdirs()

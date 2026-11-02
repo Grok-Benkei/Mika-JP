@@ -7,8 +7,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * 任务结束后留在后台接着运行的那一页,对外的样子:来自哪个对话的哪一轮([conversationId]、[runId])、那轮的原话 [goal],
- * 页面的站点、地址、标题,留下的时刻和到时自动关的时刻(墙上时钟,毫秒)。
+ * タスク終了後もバックグラウンドで動かし続けるページの外部向けの姿: どの会話のどの実行に由来するか（[conversationId]、[runId]）、その実行の元の発言 [goal]、
+ * そのページのサイト、アドレス、タイトル、残した時刻と自動で閉じる時刻（実時刻、ミリ秒）。
  */
 data class KeptPage(
     val id: Long,
@@ -22,13 +22,13 @@ data class KeptPage(
     val closesAt: Long,
 )
 
-/** 留页的那个任务是谁:对话、运行记录编号、原话。 */
+/** ページを残したタスクが誰か: 会話、実行記録の番号、元の発言。 */
 data class KeptOrigin(val conversationId: String, val runId: String?, val goal: String)
 
 /**
- * 留页的纯逻辑(不碰 WebView):全局至多一页,留新的先关旧的([KeptPageClose.Replaced]);到 [closesAt][KeptPage.closesAt] 由 [expireIfDue] 关掉;
- * 关的时候放掉手里的东西([release])并报给 [onClosed](写进来源对话那一轮)。[H] 是真正撑着页面的东西(标签和它的显示)。
- * 记着最近关掉的那一页和原因,任务那一轮还没写进对话时([recordFor])也能补上。时间由调用方给,测试里用假时钟。线程安全。
+ * ページを残す純粋ロジック（WebView には触れない）: 全体で最大1ページとし、新しく残す場合は先に古いものを閉じる（[KeptPageClose.Replaced]）; [closesAt][KeptPage.closesAt] に達したら [expireIfDue] で閉じる;
+ * 閉じるときに手に持っているもの（[release]）を置き、[onClosed]に報告します（ソースダイアログラウンドに書き込みます）。 [H] は、ページ (ラベルとその表示) を実際にサポートするものです。
+ * 最近閉じたページとその理由を覚えておいてください。タスク ラウンドがまだダイアログ ([recordFor]) に書き込まれていなくても、それを補うことができます。時刻は発信者によって与えられ、テストでは偽の時計が使用されます。スレッドセーフ。
  */
 class KeptPageSlot<H>(
     private val clock: () -> Long,
@@ -37,14 +37,14 @@ class KeptPageSlot<H>(
     private val ttlMs: Long = KEEP_OPEN_HOURS * HOUR_MS,
 ) {
     private val _page = MutableStateFlow<KeptPage?>(null)
-    /** 此刻留着的那一页;没有为 null。 */
+    /** 現在ページは終了しています。 nullではありません。 */
     val page: StateFlow<KeptPage?> = _page.asStateFlow()
 
     private var held: H? = null
     private var counter = 0L
     private var lastClosed: Pair<KeptPage, KeptPageClose>? = null
 
-    /** 留下 [handle] 撑着的页面;已经留着一页时先关掉它。返回新留下的那一页。 */
+    /** は、[handle] が保持するページを離れます。ページがすでに終了している場合は、最初にページを閉じてください。新しい左のページに戻ります。 */
     fun keep(handle: H, origin: KeptOrigin, host: String, url: String?, title: String?): KeptPage {
         close(KeptPageClose.Replaced)
         val now = clock()
@@ -55,7 +55,7 @@ class KeptPageSlot<H>(
         return p
     }
 
-    /** 关掉留着的那一页;没有留着的返回 false。 */
+    /** は残りのページを閉じます。残りのページがない場合は false を返します。 */
     fun close(reason: KeptPageClose): Boolean {
         val (p, h) = synchronized(this) {
             val p = _page.value ?: return false
@@ -70,24 +70,24 @@ class KeptPageSlot<H>(
         return true
     }
 
-    /** 只在 [id] 那一页还留着时关掉它(崩溃、回收的回调到得晚,别关错了后来留的那一页)。 */
+    /** は、[id] ページがまだ存在する場合にのみページを閉じます (クラッシュとリサイクルのコールバックは遅れて到着します。後で残った間違ったページを閉じないでください)。 */
     fun closeIf(id: Long, reason: KeptPageClose): Boolean = if (_page.value?.id == id) close(reason) else false
 
-    /** 到时间了就关掉([KeptPageClose.Expired]);关了返回 true。 */
+    /** 時間が過ぎるとオフになります ([KeptPageClose.Expired])。オフの場合は true を返します。 */
     fun expireIfDue(): Boolean {
         val p = _page.value ?: return false
         return if (clock() >= p.closesAt) closeIf(p.id, KeptPageClose.Expired) else false
     }
 
-    /** 还剩多久自动关(毫秒,不小于 0);没有留着的为 null。 */
+    /** が自動的にシャットダウンするまでの残り時間 (ミリ秒、0 以上)。残っていない場合は null になります。 */
     fun remainingMs(): Long? = _page.value?.let { (it.closesAt - clock()).coerceAtLeast(0) }
 
     @Synchronized
     fun handle(): H? = held
 
     /**
-     * 运行 [runId] 那一轮要记下的留页:(站点, 关掉的原因);还留着时原因为 null,这一轮没有留页为 null。
-     * 任务收尾时那一轮才写进对话,这期间页面可能已经关了(崩了、被新留的顶掉),这里照样给得出。
+     * が [runId] を実行する場合、そのラウンドで記録される残りのページは次のとおりです: (サイト、シャットダウンの理由)。まだ保持されている場合、理由は null です。このラウンドに残りのページがない場合、理由は null です。
+     * ダイアログはタスクの最後のラウンドでのみ書き込まれました。この期間中、ページは閉じられた (折りたたまれたり、新しいページによって押し出された) 可能性がありますが、まだここで見つけることができます。 Web ポートは、
      */
     @Synchronized
     fun recordFor(runId: String?): Pair<String, String?>? {

@@ -14,12 +14,12 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
-/** [deviceAccess]:经网关来的请求能否唤醒、解锁手机、读锁屏状态。默认关,配对或重新配对都回到关。 */
+/** [deviceAccess]: ゲートウェイからのリクエストがウェイクアップ、電話のロック解除、ロック画面ステータスの読み取りができるかどうか。デフォルトはオフで、ペアリングまたは再ペアリングするとオフに戻ります。 */
 data class RelayConfig(val enabled: Boolean = false, val gateway: String? = null, val deviceAccess: Boolean = false) {
     val paired get() = gateway != null
 }
 
-/** 网关地址和设备凭据整份加密原子保存。状态流只保留非秘密字段;读不懂即关闭。 */
+/** ゲートウェイ アドレスとデバイスの資格情報は、完全に暗号化された形式でアトミックに保存されます。ステータス ストリームは非機密フィールドのみを保持します。読み取れない場合は閉じます。 取り消し時に */
 class RelaySettings(private val dir: File, private val cipher: KeyCipher) {
     private val file = File(dir, "remote-relay.bin")
     private val mutable = MutableStateFlow(runCatching { read()?.let { config(it) } }.getOrNull() ?: RelayConfig())
@@ -49,7 +49,7 @@ class RelaySettings(private val dir: File, private val cipher: KeyCipher) {
             val p = checkNotNull(pairing()) { "Pair the gateway first" }
             write(p, config.value.enabled, on)
         } catch (e: Exception) {
-            // 撤销时存不下也先在进程内关掉,不留下还能用的旧许可。
+            // を保存できない場合は、まだ使用できる古いライセンスが残らないように、処理中に最初にシャットダウンされます。
             if (!on) mutable.value = mutable.value.copy(deviceAccess = false)
             throw e
         }

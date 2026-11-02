@@ -13,8 +13,8 @@ import com.wangzan101.mika.core.uistate.focus
 private const val SURFACE = "surface"
 
 /**
- * 说的是哪块屏的通用工具(确认、接管、报障碍):本任务有两块以上的屏时多一个 surface 参数,
- * 不给时是最近一次屏幕工具的那块。分发器在调用前按它记下在操作哪块屏,工具照常用此刻那块屏。
+ * は、どの画面 (確認、引き継ぎ、失敗のレポート) 用の一般的なツールについて話しています。このタスクに 3 つ以上の画面がある場合、追加のサーフェス パラメーターがあります。
+ * 指定がない場合は、最新の画面ツールの部分です。ディスペンサーを呼び出す前に、ディスペンサーを押して操作中の画面を記録します。ツールはその時点でもその画面を使用します。 surfaceに
  */
 internal interface SurfaceAware : AgentTool {
     override fun def(ctx: ToolContext): ToolDef {
@@ -25,7 +25,7 @@ internal interface SurfaceAware : AgentTool {
 
     override fun aimAt(o: JsonObject): String? = o.argStr(SURFACE)
 
-    /** 给了 surface 时核对它是本任务的一块屏。 */
+    /** を与えた場合、このタスクの画面であることを確認してください。 */
     fun checkSurface(a: Args, ctx: ToolContext) {
         val id = a.str(SURFACE) ?: return
         if (ctx.focus[id] == null) throw ArgError(SURFACE, "must be one of ${ctx.focus.surfaces.joinToString("|") { it.id }}")

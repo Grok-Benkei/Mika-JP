@@ -36,47 +36,47 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import com.wangzan101.mika.core.tool.ToolIndex
 
-/** 一次运行结束后,学东西要用的全部材料;由 [TaskRun] 在任务收尾时交出。 */
+/** ランニング後に何かを学ぶために必要なすべての教材。タスクの終了時に [TaskRun] によって引き渡されます。 */
 data class RunAftermath(
     val conversationId: String,
     val runId: String?,
     val goal: String,
     val end: TaskState,
-    /** 用户本次说的话;记忆关着时为空。 */
+    /** 今回ユーザーが言ったこと;メモリがオフのときは空です。 */
     val utterances: List<String>,
-    /** 任务中 memory_save 存下的。 */
+    /** タスクのmemory_saveによって保存されました。 */
     val saved: List<Change>,
     val usedMemory: List<String>,
     val toolNames: Set<String>,
-    /** 按名字查工具做的动作。 */
+    /** 名前による検索ツールによって実行されるアクション。 */
     val tools: ToolIndex,
-    /** 这次运行的事件(从运行记录读);读不到为空。 */
+    /** この実行のイベント (実行レコードから読み取られます)。読み取られていない場合は空です。 */
     val events: suspend () -> List<RunEvent>,
     val origin: RunOrigin = RunOrigin.Ui,
     val knowledge: KnowledgeStore? = null,
-    /** 交出回答后判的结局;只从办成的学([LearnGate])。没判成、没判过为 [RunOutcome.Unknown]。 */
+    /** 合否は回答提出後に判定されます。完了したもの ([LearnGate]) からのみ学習してください。判定または合格しなかったコードは [RunOutcome.Unknown] です。 */
     val outcome: RunOutcome = RunOutcome.Unknown,
 )
 
 /**
- * 任务结束后:记下用到的个人技能和试用中 App 知识的结果(可能自动停用、转正式或归档)、从用户的话里提取记忆、
- * 办成的任务起草技能;动过手的 App 从办成的、没办成的和磕磕绊绊的运行里起草知识补充的修订(见 [AppKnowledgeDrafter])。
- * 办成按交出回答后判的结局([RunAftermath.outcome])算,不按「交出了回答」,也不要求跑过最终核查([LearnGate])。
- * 全在结果通知发出之后的后台协程里做([launchAfter]);哪一步出错都不影响任务结局。
+ * タスク完了後: トライアルで使用した個人スキルとアプリの知識の結果を書き留め (自動的に無効化、公式またはアーカイブに変換される場合があります)、ユーザーの言葉から記憶を抽出します。
+ * 完了したタスクの製図スキル。実践的なアプリは、完了した操作、失敗した操作、およびつまずいた操作から知識を補足する改訂版を作成します ([AppKnowledgeDrafter] を参照)。
+ * の完了は、回答（[RunAftermath.outcome]）を提出した後の判定結果に基づいて計算されます。 「答えを渡す」必要はなく、最終検証（[LearnGate]）に合格する必要もありません。
+ * は、結果通知が送信された後 ([launchAfter])、バックグラウンド コルーチンですべて行われます。どのステップでもエラーが発生しても、タスクの結果には影響しません。
  *
- * 不起草的情形另加一条:这次走的是回放的路线([RunEvent.Replay] 有对上的步)——路线已经记住了,
- * 再起草只会把同一条路线抄一遍。只走了几步批量(do_steps)的照常起草,那是模型自己规划的。
+ * ドラフトしていないときの別の状況: 今回はリプレイ ルートを選択しました ([RunEvent.Replay] には対応する手順があります) - ルートは記憶されています。
+ * 再度ドラフトすると、同じルートが再度コピーされるだけです。いつものように、ドラフトにはいくつかのバッチ ステップ (do_steps) だけが実行され、これはモデル自体によって計画されました。 メモリマスタースイッチがオフの場合、
  */
 class RunLearning(
     private val switches: MemorySwitches,
-    /** 记忆总开关关着时为 null。 */
+    /** は null になります。 */
     private val store: MemoryStore?,
     private val skills: PersonalSkills,
     private val catalog: GuideCatalog,
     private val extractor: MemoryExtractor?,
     private val drafter: SkillDrafter?,
     private val ids: () -> String,
-    /** 评测钩子:草稿起好直接收下(训练轮)。 */
+    /** 評価フック：ドラフト開始後すぐに置きます（補助輪）。 */
     private val autoApprove: Boolean = false,
     private val yieldToForeground: suspend () -> Unit = {},
     private val appDrafter: AppKnowledgeDrafter? = null,
@@ -87,7 +87,7 @@ class RunLearning(
         val events = guarded(emptyList()) { a.events() }
         val used = events.filterIsInstance<RunEvent.SkillUsed>()
         val skillNotes = recordOutcomes(used, a.end, a.outcome).toMutableList()
-        // 试用中的 App 知识和个人技能按同一种结果算:取消的、没判成的不记
+        // トライアルでのアプリの知識と個人スキルは同じ結果に従って計算されます。キャンセルと失敗は記録されません。
         val trial = SkillOutcomes.resultOf(a.end, a.outcome)?.takeIf { it != SkillResult.unreviewed }
         val trialNames = events.filterIsInstance<RunEvent.State>().filter { it.name == "knowledge_trial_used" }.map { it.detail }.distinct()
         if (trial != null) trialNames.forEach { name -> guarded(null) { appDrafts?.recordTrial(name, trial == SkillResult.verified) } }
@@ -95,7 +95,7 @@ class RunLearning(
         val changes = a.saved.toMutableList()
         val store = store
         val extractor = extractor
-        // 没有运行编号就没处挂提示,用户看不到也撤销不了:不提取
+        // 実行中の番号がない場合、プロンプトをハングする場所はありません。ユーザーはそれを見ることができず、元に戻すこともできません。つまり、抽出は行われません。
         val learnable = a.origin == RunOrigin.Ui && a.end is TaskState.Succeeded
         val readWeb = events.filterIsInstance<RunEvent.Observed>().any { it.place?.kind in setOf(PlaceKind.Site, PlaceKind.Page) }
         if (learnable && !readWeb && a.runId != null && store != null && extractor != null && switches.autoRemember && a.utterances.isNotEmpty()) {
@@ -108,15 +108,15 @@ class RunLearning(
             }
         }
 
-        // 做法只从办成的学:回答如实说没办成、只办了一部分,或没判成的,不起草
+        // 達成されたものからのみ学ぶ: 答えが真実に達成されなかった、一部だけが達成された、または達成されたと判断されなかった場合、草案は作成されません。
         val done = learnable && LearnGate.done(a.end, a.outcome)
         if (done) draft(a, events, used.map { it.name }.distinct())?.let(skillNotes::add)
-        // App 知识也从没办成、磕磕绊绊的运行里学(值不值得由 AppKnowledgeDrafter 按经过判)
+        // アプリの知識は、未完成の操作やつまずきながらも学ぶことができます (価値があるかどうかは、AppKnowledgeDrafter が経験に基づいて判断します)
         if (a.origin == RunOrigin.Ui) skillNotes += draftApps(a, events)
         return RunNotes(a.conversationId, a.runId.orEmpty(), MemoryExtractor.notes(changes), a.usedMemory, skillNotes)
     }
 
-    /** 每份技能单独读改写(和别的任务同时记结果也不丢);一份出错不影响别的。 */
+    /** 各スキルは独立して読み取られ、書き換えられます（結果を失うことなく、他のタスクと同時に結果を記録します）。 1 つのエラーが他のものに影響を与えることはありません。 */
     private suspend fun recordOutcomes(used: List<RunEvent.SkillUsed>, end: TaskState, outcome: RunOutcome): List<SkillNote> {
         val result = SkillOutcomes.resultOf(end, outcome) ?: return emptyList()
         return used.groupBy { it.name }.mapNotNull { (name, uses) ->
@@ -136,7 +136,7 @@ class RunLearning(
         val runId = a.runId ?: return null
         if (!switches.learnSkills) return null
         if (events.any { it is RunEvent.Replay && it.matched }) return null
-        // 照着个人技能做成的只记一次结果,不再起草
+        // 個人のスキルに従って作成され、結果のみが一度記録され、それ以上の製図は不要です
         val followed = used.firstOrNull().takeIf { SkillOutcomes.resultOf(a.end, a.outcome) == SkillResult.verified }
         val done = a.end as? TaskState.Succeeded
         if (Eligibility.check(events, followed, a.tools, done = LearnGate.done(a.end, a.outcome)) != null) return null
@@ -145,7 +145,7 @@ class RunLearning(
             d.draft(DraftInput(runId, a.goal, done?.answer.orEmpty(), done?.sources.orEmpty(), events, a.toolNames, a.tools), skills, catalog)
         }
         val draft = r as? DraftResult.Draft ?: return null
-        // 是对一份待确认草稿的更新:写回那份草稿,不另起一份
+        // は確認すべきドラフトの更新です。新しいドラフトを開始せずにそのドラフトを書き戻してください。
         val id = draft.replacesPending ?: ids()
         guarded(Unit) { skills.putPending(id, draft.skill) }
         if (autoApprove) {
@@ -156,7 +156,7 @@ class RunLearning(
         return SkillNote(tr(R.string.skill_learned, description), draftId = id)
     }
 
-    /** 这次动过手、有知识条目的每个 App 各判一次;同一个 App 已有待确认的修订就不再起草。 */
+    /** 今回タッチされ、ナレッジエントリがある各アプリは 1 回ずつ審査されます。同じアプリに確認が必要なリビジョンがある場合、再度ドラフトされることはありません。 */
     private suspend fun draftApps(a: RunAftermath, events: List<RunEvent>): List<SkillNote> {
         val drafter = appDrafter ?: return emptyList()
         val drafts = appDrafts ?: return emptyList()
@@ -176,7 +176,7 @@ class RunLearning(
         }
     }
 
-    /** 学的每一步出错都不影响别的步骤;取消照常往外抛。 */
+    /** 学習中のすべてのエラーは、他のステップには影響しません。キャンセルは通常通り破棄されます。 */
     private suspend fun <T> guarded(fallback: T, block: suspend () -> T): T = try {
         block()
     } catch (e: CancellationException) {
@@ -186,7 +186,7 @@ class RunLearning(
     }
 
     companion object {
-        /** 先发结果通知,再在后台学:用户先看到结果,学东西慢一点没关系。 */
+        /** 最初に結果通知を送信し、その後バックグラウンドで学習します。ユーザーは最初に結果を確認します。学習が遅くても問題ありません。 */
         suspend fun launchAfter(scope: CoroutineScope, notify: suspend () -> Unit, learn: suspend () -> Unit): Job {
             notify()
             return scope.launch { learn() }

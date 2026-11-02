@@ -1,13 +1,13 @@
 package com.wangzan101.mika.core.userscreen
 
-/** 屏上的一行字:[x]/[y] 是它的中心,和点按同一套 0–999 坐标(左上 0,0)。 */
+/** 画面上の単語の行: [x]/[y] がその中心で、クリックと同じ 0 ～ 999 の座標セット (左上 0,0)。 */
 data class ScreenLine(val text: String, val x: Int, val y: Int)
 
 /**
- * 用户发来的「此刻的屏幕」:双击胶囊或卡片里的截屏按钮时,用户主屏上正看着的那一屏。
- * 和从相册、文件里挑的图片不是一回事:它说的是「我现在在看这个」,带着前台 App、截下的时刻和屏上的字。
- * [packageName]/[appLabel] 是前台 App(读不到为 null);[blocked] 时页面不让截图(防截屏),没有画面,[lines] 也是空的;
- * [lines] 是屏上的字(无障碍树里的,树不够用时补上认出来的字),[fromOcr] 时其中有认出来的字。
+ * ユーザーから送信された「この時点の画面」: ユーザーがホーム画面でカプセルまたはカード内のスクリーンショット ボタンをダブルクリックしたときに見ている画面。
+ * は、アルバムやファイルから選択した写真と同じものではありません。フロントエンド アプリ、キャプチャされた瞬間、画面上の文字で、「今これを見ています」と表示されます。
+ * [packageName]/[appLabel] はフロントエンド アプリです (null として読み取ることはできません)。 [blocked] の場合、ページではスクリーンショットが許可されておらず (アンチスクリーンショット)、画面がなく、[lines] も空です。
+ * [lines] は画面上の単語です (アクセシビリティ ツリーでは、ツリーが足りない場合に認識された単語が追加されます)、[fromOcr] には認識された単語が含まれます。
  */
 data class UserScreen(
     val id: String,
@@ -18,21 +18,21 @@ data class UserScreen(
     val lines: List<ScreenLine> = emptyList(),
     val fromOcr: Boolean = false,
 ) {
-    /** 怎么称呼那个 App:有名字用名字,没有用包名。 */
+    /** そのアプリの呼び出し方法: 名前がある場合はその名前を使用し、名前がない場合はパッケージ名を使用します。 */
     val app: String get() = appLabel?.takeIf(String::isNotBlank) ?: packageName ?: UNKNOWN_APP
 
     companion object {
-        const val UNKNOWN_APP = "某个 App"
+        const val UNKNOWN_APP = "不明なアプリ"
     }
 }
 
-/** 按编号取这个对话里用户发来的屏幕:说明和截图都可能已经不在(读不到返回 null)。 */
+/** 番号に従って、この会話でユーザーによって送信された画面を取得します。説明とスクリーンショットは利用できなくなる可能性があります (読み取ることができず、null を返します)。 */
 interface UserScreenSource {
     suspend fun screen(id: String): UserScreen?
 
-    /** 截下的画面(JPEG 或 PNG);不让截图的页面、读不到时为 null。 */
+    /** スクリーンショット (JPEG または PNG)。ページのスクリーンショットが許可されていない場合、読み取れない場合は null になります。 */
     suspend fun image(id: String): ByteArray?
 }
 
-/** 截下来、还没发出去的一屏:画面([jpeg],不让截图时为 null)和说明([screen],编号在存进对话时才定)。 */
+/** まだ送信されていないスクリーンショット: 画面 ([jpeg]、スクリーンショットが許可されていない場合は null) と説明 ([screen]、番号は会話で保存するときに決定されます)。 */
 class CapturedScreen(val jpeg: ByteArray?, val screen: UserScreen, val sourcePackages: Set<String> = setOfNotNull(screen.packageName))

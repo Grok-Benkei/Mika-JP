@@ -85,14 +85,14 @@ import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 
 /**
- * 配置模型:用途(主模型、看图模型、轻量模型)和服务商两块。首次上手时 [onboarding] 为真
- * (服务商在前,底部有分页点和「下一步」);设置 › 模型([ModelsScreen])也是这一页,标题和引导语不同,没有底部按钮。
- * 选用途、服务商详情、服务商的全部模型是这一页里的子页面。上手时「下一步」选好主模型才可点,点了调 [onDone]。
+ * 構成モデル: 目的 (メイン モデル、ダイアグラム モデル、軽量モデル) とサービス プロバイダーの 2 つの部分。初めて使用を開始したときは、[onboarding] が true になります。
+ * (最初にサービスプロバイダー、ページネーションポイントと一番下に「次へ」);設定 › モデル ([ModelsScreen]) もこのページにありますが、タイトルとガイドが異なり、下部ボタンはありません。
+ * 使用法、サービス プロバイダーの詳細、およびすべてのサービス プロバイダー モデルの選択は、このページのサブページです。開始したら、「次へ」をクリックしてメインモデルを選択し、[onDone] をクリックします。
  */
 @Composable
 fun ModelSetupScreen(
     store: ProviderStore, onboarding: Boolean, onBack: () -> Unit, onDone: () -> Unit,
-    /** 设置里点「语音转文字」卡片去选择页;上手流程不传,卡片就不出现。 */
+    /** 設定の「Speech to Text」カードをクリックして選択ページに移動します。起動プロセスをアップロードしないとカードは表示されません。 */
     onOpenSpeech: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
@@ -112,10 +112,10 @@ fun ModelSetupScreen(
     var picking by rememberSaveable { mutableStateOf<ModelRole?>(null) }
     var openProvider by rememberSaveable { mutableStateOf<String?>(null) }
     var allModels by rememberSaveable { mutableStateOf(false) }
-    // 账号登录的面板:在添加表单和服务商详情里都能打开,登录中关掉也不打断登录
+    // アカウント ログイン パネル: 追加フォームとサービス プロバイダーの詳細で開くことができます。ログイン中にログインを中断することなく閉じることができます。
     var signInSheet by rememberSaveable { mutableStateOf<SignInKind?>(null) }
 
-    // 用账号登录成功:收起面板,打开这一家的详情(看账号和模型、设主模型)
+    // はアカウントで正常にログインしました: パネルを閉じて、この会社の詳細を開きます (アカウントとモデルを確認し、メイン モデルを設定します)
     LaunchedEffect(ui.signedInProvider) {
         val id = ui.signedInProvider ?: return@LaunchedEffect
         signInSheet = null
@@ -124,7 +124,7 @@ fun ModelSetupScreen(
         allModels = false
         vm.signedInShown()
     }
-    // ChatGPT 登录成功照旧留在这一页(第一次会说明在用套餐额度),面板收起
+    // ChatGPT は正常にログインし、このページに残ります (パッケージ クォータが初めて使用されたとき)、パネルは閉じられます
     LaunchedEffect(ui.chatGptAccount?.signedIn, ui.chatGptSignIn) {
         if (signInSheet == SignInKind.ChatGpt && ui.chatGptAccount?.signedIn == true && ui.chatGptSignIn == ListState.Idle) signInSheet = null
     }
@@ -146,7 +146,7 @@ fun ModelSetupScreen(
                 setVision = { model, sees -> vm.setModelVision(provider.id, model, sees) },
                 showAll = { allModels = true },
                 retest = { vm.retest(provider.id) },
-                // ChatGPT 照旧直接去浏览器登录;xAI、OpenRouter 先打开说明面板
+                // ChatGPT 通常どおり、ブラウザに移動して直接ログインします。 xAI と OpenRouter の場合は、最初にヘルプ パネルを開きます
                 signIn = { if (accountKind != null) signInSheet = accountKind else vm.signInWithChatGpt() },
                 signOut = { if (accountKind != null) vm.signOutAccount(provider.id) else vm.signOutChatGpt(provider.id) },
                 manageUsage = {
@@ -173,7 +173,7 @@ fun ModelSetupScreen(
                 ui, role,
                 RolePickerActions(
                     pick = { pid, model ->
-                        // 刚存下、没有一个模型试通过的那家:先试调用,通了才选上、返回
+                        // は先ほど保存したものですが、どのモデルも合格しませんでした。最初に呼び出してみて、次に選択して、合格した場合は戻ります。
                         if (ui.probeBeforePick(role, pid)) vm.pickManual(role, pid, model) { picking = null }
                         else { vm.pick(role, pid, model); picking = null }
                     },
@@ -219,7 +219,7 @@ fun ModelSetupScreen(
                 },
                 dismiss = {
                     signInSheet = null
-                    // 失败的原因看过了;还在登录的不打断
+                    // 失敗の理由がわかりました。まだログインしている場合は、中断しないでください。
                     if (!ui.accountSignIn.running) vm.dismissAccountFailure()
                 },
             ),
@@ -227,40 +227,40 @@ fun ModelSetupScreen(
     }
 }
 
-/** 主页面上的全部动作。 */
+/** メイン ページのすべてのアクション。 */
 class ModelSetupActions(
     val selectPreset: (String) -> Unit = {},
     val setKind: (ProviderConfig.Kind) -> Unit = {},
     val setBaseUrl: (String) -> Unit = {},
     val setApiKey: (String) -> Unit = {},
     val setModel: (String) -> Unit = {},
-    /** 「手动填写模型名」的开和收。 */
+    /** 「モデル名を手動で入力」開閉。 */
     val setManual: (Boolean) -> Unit = {},
     val setName: (String) -> Unit = {},
     val testAndSave: () -> Unit = {},
-    /** 不测试,直接保存(见 [ModelSetupViewModel.saveWithoutTest])。 */
+    /** はテストされず、直接保存されません ([ModelSetupViewModel.saveWithoutTest] を参照)。 */
     val saveUntested: () -> Unit = {},
     val openForm: () -> Unit = {},
     val closeForm: () -> Unit = {},
     val openProvider: (String) -> Unit = {},
     val pickRole: (ModelRole) -> Unit = {},
-    /** 打开「语音转文字」的选择页;为 null 时不显示这张卡(上手流程)。 */
+    /** 「音声テキスト変換」選択ページを開きます。 null の場合、このカードは表示されません (開始)。 */
     val openSpeech: (() -> Unit)? = null,
     val next: () -> Unit = {},
-    /** 打开一家账号登录的说明面板。 */
+    /** は、アカウントにログインするための説明パネルを開きます。 */
     val openSignIn: (SignInKind) -> Unit = {},
     val setReasoningEffort: (ModelRole, String?) -> Unit = { _, _ -> },
     val setModelContext: (String, ModelContextSettings) -> Boolean = { _, _ -> false },
 )
 
 /**
- * 不带状态的主页面,便于测试。改动当场生效(测试通过就存下服务商,用途选完就用),
- * 所以设置里进来只有返回;上手时底部留「下一步」,键盘弹出时藏起来,把地方让给表单。
+ * ステータスのないメイン ページ。テストに便利です。変更はその場で反映されます（テストに合格したらサービスプロバイダーを保存し、目的を選択してから使用します）。
+ * したがって、設定を入力するときのみ戻ることができます。開始するときは「次へ」を一番下に残し、キーボードが表示されたときに非表示にし、フォームにスペースを与えます。
  */
 @Composable
 fun ModelSetupContent(ui: ModelSetupUi, onboarding: Boolean, actions: ModelSetupActions, onBack: () -> Unit) {
     val c = MikaTheme.colors
-    // 表单收起(测试通过存好了,或取消)后页面上没有要打字的地方,顺手收起键盘
+    // フォームを折りたたんだ後 (テストに合格した後に保存するかキャンセルした後)、ページ上に入力する場所がないため、キーボードを簡単に折りたたむことができます
     val focus = LocalFocusManager.current
     LaunchedEffect(ui.showForm) { if (!ui.showForm) focus.clearFocus() }
     val onPick: (ModelRole) -> Unit = { role -> if (ui.providers.isEmpty()) actions.openForm() else actions.pickRole(role) }
@@ -272,7 +272,7 @@ fun ModelSetupContent(ui: ModelSetupUi, onboarding: Boolean, actions: ModelSetup
                     if (onboarding) ModelSetupCopy.LEAD else ModelsCopy.LEAD, Modifier.padding(top = 4.dp, bottom = 12.dp),
                     fontSize = 14.5.sp, lineHeight = 23.sp, color = c.ink2,
                 )
-                // 上手时先连服务商再选模型;设置里先看用途
+                // の使用を開始するときは、まずサービス プロバイダーに接続し、次にモデルを選択します。まずは設定で目的を確認してください
                 if (onboarding) {
                     ProvidersSection(ui, actions)
                     RolesSection(ui, onPick, actions.setReasoningEffort, null)
@@ -283,7 +283,7 @@ fun ModelSetupContent(ui: ModelSetupUi, onboarding: Boolean, actions: ModelSetup
                 }
                 Spacer(Modifier.height(16.dp))
             }
-            // 看键盘实际占的高度;isImeVisible 在系统第一次报告前默认是 true,会把按钮误藏
+            // キーボードの実際の高さを見てください。 isImeVisible は、システムが最初に報告する前にデフォルトで true に設定されます。これにより、誤ってボタンが非表示になります。
             if (onboarding && WindowInsets.ime.getBottom(LocalDensity.current) == 0) {
                 Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp)) {
                     ProgressDots(Onboarding.DOTS, Onboarding.dot(OnboardingStep.Model), Modifier.padding(bottom = 14.dp))
@@ -294,7 +294,7 @@ fun ModelSetupContent(ui: ModelSetupUi, onboarding: Boolean, actions: ModelSetup
     }
 }
 
-/** 服务商:每家一行(写明在给哪些用途干活),加「添加服务商」;没有服务商或点了添加时,表单就摊在这里。 */
+/** サービス プロバイダー: 会社ごとに 1 行 (どの目的で機能しているかを示します)、「サービス プロバイダーの追加」を追加します。サービスプロバイダーがない場合、または「追加」をクリックすると、ここにフォームが表示されます。 */
 @Composable
 private fun ProvidersSection(ui: ModelSetupUi, actions: ModelSetupActions) {
     val c = MikaTheme.colors
@@ -303,7 +303,7 @@ private fun ProvidersSection(ui: ModelSetupUi, actions: ModelSetupActions) {
         GroupCard {
             ui.providers.forEachIndexed { i, p ->
                 val line = if (ui.signedOut(p)) ModelsCopy.CHATGPT_SIGNED_OUT else ModelsCopy.providerLine(p, ui.listing[p.id], ui.rolesOf(p))
-                // 有用着却没试通过的模型、或跳过测试存下且已经在用:这一行就提醒「没测试通过」
+                // 使用中だがテストに合格していないモデルが存在するか、テストがスキップされて保存され、すでに使用されています。この行は「テストに合格しなかったこと」を思い出させます。
                 val warning = ModelsCopy.UNVERIFIED.takeIf {
                     ui.unverified(p).isNotEmpty() || (ui.untested(p) && ui.rolesOf(p).isNotEmpty())
                 }
@@ -318,7 +318,7 @@ private fun ProvidersSection(ui: ModelSetupUi, actions: ModelSetupActions) {
         }
     }
     ui.probeNote?.let { FooterNote(it, Modifier.testTag("setup-probe-note"), color = c.warn) }
-    // 刚存下的那家一个模型都没试通过:直接去选主模型(选的时候先试调用)
+    // 保存したモデルはどれもテストに合格しませんでした。メイン モデルを直接選択してください (選択するときに最初に呼び出してみてください)
     if (ui.pickToProbe != null && ui.roles.main == null) {
         Text(
             ModelSetupCopy.PICK_MAIN,
@@ -330,7 +330,7 @@ private fun ProvidersSection(ui: ModelSetupUi, actions: ModelSetupActions) {
     FooterNote(ModelsCopy.KEY_NOTE)
 }
 
-/** 添加服务商:先是「用账号登录」一组(不用填 Key),再是填 Key 的:预设胶囊 → (自定义时)接口类型和地址 → API Key →「测试并保存」。 */
+/** サービスプロバイダーの追加: まず、「アカウントでログイン」グループを入力し (キーを入力する必要はありません)、次にキーを入力します: デフォルトのカプセル → (カスタマイズ時) インターフェースのタイプとアドレス → API キー → 「テストして保存」。 */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AddProviderForm(ui: ModelSetupUi, actions: ModelSetupActions) {
@@ -349,14 +349,16 @@ private fun AddProviderForm(ui: ModelSetupUi, actions: ModelSetupActions) {
     }
     AccountSignInGroup(ui, actions.openSignIn, actions.openProvider)
     GroupLabel(ModelsCopy.KEY_GROUP)
+    var showOtherRegions by rememberSaveable { mutableStateOf(false) }
     FlowRow(
         Modifier.fillMaxWidth().padding(bottom = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        ProviderPresets.all.forEach { p ->
-            // 「自定义」按界面语言显示;服务商的名字原样
-            SelectChip(if (p == ProviderPresets.custom) stringResource(R.string.preset_custom) else p.label, f.preset == p.label, { actions.selectPreset(p.label) }, Modifier.testTag("preset-${p.label}"))
+        (ProviderPresets.recommended + if (showOtherRegions) ProviderPresets.otherRegions else emptyList()).forEach { p ->
+            // 「カスタム」はインターフェース言語に従って表示されます。サービスプロバイダーの名前は変更されません
+            SelectChip(if (p == ProviderPresets.custom) stringResource(R.string.preset_custom) else p.displayLabel, f.preset == p.label, { actions.selectPreset(p.label) }, Modifier.testTag("preset-${p.label}"))
         }
+        SelectChip(stringResource(R.string.models_other_regions), showOtherRegions, { showOtherRegions = !showOtherRegions }, Modifier.testTag("preset-other-regions"))
     }
     GroupCard {
         if (f.isCustom) {
@@ -365,7 +367,7 @@ private fun AddProviderForm(ui: ModelSetupUi, actions: ModelSetupActions) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(ModelSetupCopy.KIND, Modifier.padding(end = 12.dp), style = MikaType.Body, color = c.ink)
-                // 四种接口一行放不下时折到下一行
+                // 4 つのインターフェイスが 1 行に収まらない場合は、次の行に折りたたんでください。
                 FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     ProviderConfig.Kind.withApiKey.forEach { k -> SelectChip(ModelsCopy.kindLabel(k), f.kind == k, { actions.setKind(k) }, small = true) }
                 }
@@ -378,7 +380,7 @@ private fun AddProviderForm(ui: ModelSetupUi, actions: ModelSetupActions) {
             )
         }
         if (f.isCustom) {
-            // 可不填:提示里直接写出不填时用的名字(地址的主机名)
+            // 空白のままでも構いません。空白のままにする場合は、プロンプトに名前 (アドレスのホスト名) を直接入力します。
             InputRow(
                 ModelSetupCopy.NAME, f.name, actions.setName,
                 if (f.urlProblem == null) f.defaultName else ModelSetupCopy.NAME_HINT,
@@ -399,7 +401,7 @@ private fun AddProviderForm(ui: ModelSetupUi, actions: ModelSetupActions) {
             )
         }
     }
-    // 列表里没有要的模型、或这家不提供列表时,随时可以自己填(没列出模型时那一栏已经在了)
+    // ご希望のモデルがリストにない場合、または会社がリストを提供していない場合は、いつでもご自身で入力していただけます（モデルがリストにない場合、その列はすでに存在しています）。
     if (!f.noList) {
         Text(
             if (f.manual) ModelSetupCopy.MANUAL_OFF else ModelSetupCopy.MANUAL_ON,
@@ -409,7 +411,7 @@ private fun AddProviderForm(ui: ModelSetupUi, actions: ModelSetupActions) {
     }
     if (f.manual && !f.noList) FooterNote(ModelSetupCopy.MANUAL_NOTE, Modifier.testTag("setup-manual-note"))
     f.urlProblem?.takeIf { f.urlEditable && f.baseUrl.isNotBlank() }?.let { FooterNote(it, color = c.bad) }
-    f.suggestedPreset?.let { preset -> PresetSuggestion(f, preset.label) { actions.selectPreset(preset.label) } }
+    f.suggestedPreset?.let { preset -> PresetSuggestion(f, preset.displayLabel) { actions.selectPreset(preset.label) } }
     if (f.noList) FooterNote(if (f.isCustom) ModelSetupCopy.NO_LIST_CUSTOM else ModelSetupCopy.NO_LIST_PRESET, Modifier.testTag("setup-no-list"))
     if (f.isSelfHosted) FooterNote(ModelSetupCopy.SELF_HOSTED_NOTE, Modifier.testTag("setup-self-hosted"))
     f.unencryptedWarning?.let { FooterNote(it, Modifier.testTag("setup-url-unencrypted"), color = c.warn) }
@@ -424,7 +426,7 @@ private fun AddProviderForm(ui: ModelSetupUi, actions: ModelSetupActions) {
             fontSize = 13.sp, lineHeight = 18.sp, color = c.bad,
         )
     }
-    // 试不成又想先存下的:做成按钮,不要藏成一行小字——它是个真实的动作,不是说明
+    // 試した後、最初に保存しておきたいこと: ボタンにして、小さな単語の行で隠さないでください。これは説明ではなく、実際のアクションです。
     MikaButton(
         ModelSetupCopy.SAVE_UNTESTED, { confirmUntested = true },
         Modifier.fillMaxWidth().padding(top = 6.dp).testTag("setup-save-untested"),
@@ -447,7 +449,7 @@ private fun AddProviderForm(ui: ModelSetupUi, actions: ModelSetupActions) {
     FooterNote(ModelSetupCopy.TEST_NOTE, Modifier.padding(top = 6.dp))
 }
 
-/** 自定义填的是某家的官方地址:建议改用那家的预设(不拦着),接口类型对不上时一并说;点一下就换过去,Key 留着。 */
+/** 特定の会社の公式アドレスをカスタマイズします。その会社のデフォルト (ブロックせずに) を使用することをお勧めします。インターフェースのタイプが一致しない場合は、それも通知します。クリックして変更し、キーを保持します。 */
 @Composable
 private fun PresetSuggestion(f: AddForm, label: String, onUse: () -> Unit) {
     val c = MikaTheme.colors
@@ -459,7 +461,7 @@ private fun PresetSuggestion(f: AddForm, label: String, onUse: () -> Unit) {
     )
 }
 
-/** 第一次用 ChatGPT 登录成功后说明一次:Mika 里的用量走你的 ChatGPT 套餐。 */
+/** ChatGPT で初めてログインに成功した後、一度説明してください。Mika での使用法が ChatGPT パッケージに使用されます。 */
 @Composable
 private fun ChatGptWelcome(onDismiss: () -> Unit) {
     AlertDialog(
@@ -471,8 +473,8 @@ private fun ChatGptWelcome(onDismiss: () -> Unit) {
 }
 
 /**
- * 登录要用的系统能力:授权页用系统浏览器打开;回调页(换完令牌之后才给出)写成功或失败的原因,再放一个回到 Mika 的链接(intent 链接,点了由浏览器打开 Mika);
- * 登录完(成功或失败)把 Mika 带回前台。安卓限制后台打开界面,带不回来时用户点回调页的链接或从最近任务回来。
+ * ログインに必要なシステム機能: 認証ページはシステム ブラウザで開きます。コールバック ページ (トークンの変更後に表示されます) は、成功または失敗の理由を書き込み、Mika にリンクを戻します (インテント リンク、クリックするとブラウザで Mega が開きます)。
+ * ログイン後（成功または失敗）、ミカをフロントデスクに戻します。 Android はバックグラウンドで開くインターフェイスを制限しており、ユーザーがコールバック ページのリンクをクリックしたとき、または最近のタスクから戻ったときにバックグラウンドで開くインターフェイスを元に戻すことはできません。
  */
 private class AndroidSignInBrowser(private val context: Context) : SignInBrowser {
     override fun open(url: String) {
@@ -500,7 +502,7 @@ private class AndroidSignInBrowser(private val context: Context) : SignInBrowser
     }
 }
 
-/** 回调后浏览器里那一页:一句话加一个回到 App 的按钮。文字转义后放进去。 */
+/** コールバック後のブラウザのページ: 一文でアプリに戻るボタンを追加します。テキストはエスケープされて挿入されます。 */
 internal object SignInPage {
     fun html(title: String, text: String, back: String, backUrl: String): String {
         fun esc(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
@@ -511,7 +513,7 @@ internal object SignInPage {
     }
 }
 
-/** 用途:主模型、看图模型、轻量模型各一张卡,点开是选择页。 */
+/** 用途：メインモデル、映像閲覧モデル、軽量モデル 各1枚。クリックすると選択ページが開きます。 */
 @Composable
 private fun RolesSection(ui: ModelSetupUi, onPick: (ModelRole) -> Unit, onReasoning: (ModelRole, String?) -> Unit,
     onSpeech: (() -> Unit)?, onContext: ((String, ModelContextSettings) -> Boolean)? = null,
@@ -525,7 +527,7 @@ private fun RolesSection(ui: ModelSetupUi, onPick: (ModelRole) -> Unit, onReason
             ReasoningControl(ui, role) { onReasoning(role, it) }
             if (onContext != null) ModelContextControl(ui, role, onContext)
         }
-        // 第四个用途:语音转文字(不是对话模型,点开是单独的选择页)
+        // 4 番目の使用法: 音声からテキストへの変換 (対話モデルではありません。クリックすると別の選択ページが開きます)
         if (onSpeech != null) {
             RoleCard(ModelsCopy.SPEECH_ICON, ModelsCopy.SPEECH_LABEL, ModelsCopy.speechLine(ui), tag = "role-speech", onClick = onSpeech)
         }
@@ -590,7 +592,7 @@ private fun ModelContextControl(ui: ModelSetupUi, role: ModelRole,
     )
 }
 
-/** 模型的能力标签;[accent] 为假时一律中性色(列表行里强调色留给「在用」的胶囊)。 */
+/** モデルの能力ラベル。 [accent] が false の場合、常に中間色になります (リスト行のアクセント カラーは「使用中」カプセル用に予約されています)。 */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun Tags(o: ModelOption, forVision: Boolean = false, accent: Boolean = true) {
@@ -601,7 +603,7 @@ internal fun Tags(o: ModelOption, forVision: Boolean = false, accent: Boolean = 
 
 internal val ModelIdStyle = MikaType.Body.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFamily = FontFamily.Monospace)
 
-/** 配置模型页(上手时)和添加服务商表单的文字(纯函数,便于测试)。用途的说法在 [ModelsCopy]。 */
+/** はモデル ページを構成し (開始時)、サービス プロバイダー フォームのテキストを追加します (純粋な機能、テストが簡単)。目的は[ModelsCopy]に記載されています。 */
 object ModelSetupCopy {
     val TITLE: String get() = tr(R.string.model_setup_title)
     val LEAD: String get() = tr(R.string.model_setup_lead)
@@ -630,7 +632,7 @@ object ModelSetupCopy {
     val SAVE_UNTESTED_BODY: String get() = tr(R.string.model_save_untested_body)
     val SAVE_UNTESTED_CONFIRM: String get() = tr(R.string.model_save_untested_confirm)
 
-    /** 手填模型名时举的例子,按接口类型(各家模型名的样子不同)。 */
+    /** インターフェイスの種類に応じて、モデル名を手動で入力する場合の例（モデル名は各社異なります）。 */
     fun modelExample(kind: ProviderConfig.Kind): String = tr(
         when (kind) {
             ProviderConfig.Kind.Gemini -> R.string.model_example_gemini
@@ -641,12 +643,12 @@ object ModelSetupCopy {
         },
     )
 
-    /** 自定义地址是某家官方地址时的建议;接口类型和那家对不上时补一句。 */
+    /** カスタムアドレスが特定の会社の正式なアドレスである場合に推奨されます。インターフェースの種類がその会社のものと一致しない場合は補足を追加してください。 */
     fun presetSuggestion(f: AddForm): String {
         val preset = f.suggestedPreset ?: return ""
-        val match = tr(R.string.model_preset_match, preset.label)
+        val match = tr(R.string.model_preset_match, preset.displayLabel)
         return if (!f.presetKindMismatch) match
-        else match + tr(R.string.sentence_sep) + tr(R.string.model_preset_kind_mismatch, preset.label, ModelsCopy.kindLabel(preset.kind), ModelsCopy.kindLabel(f.kind))
+        else match + tr(R.string.sentence_sep) + tr(R.string.model_preset_kind_mismatch, preset.displayLabel, ModelsCopy.kindLabel(preset.kind), ModelsCopy.kindLabel(f.kind))
     }
 
     fun usePreset(label: String) = tr(R.string.model_use_preset, label)
@@ -654,7 +656,7 @@ object ModelSetupCopy {
 
     fun failed(reason: String) = tr(R.string.model_failed, reason)
 
-    /** 模型的能力标签:(文字, 是否强调色)。接口没给、用户也没说、按预设推断的标「未确认」。只作参考,不拦选择。 */
+    /** モデルの機能ラベル：（テキスト、アクセントカラーの有無）。インターフェイスは提供されず、ユーザーは何も言わず、デフォルトの推論に基づいて「未確認」とマークされました。参照のみを目的としており、選択を妨げるものではありません。 */
     fun tags(o: ModelOption, forVision: Boolean = false): List<Pair<String, Boolean>> = buildList {
         val caps = o.capabilities
         val visionKnown = o.visionKnown || o.visionByUser != null

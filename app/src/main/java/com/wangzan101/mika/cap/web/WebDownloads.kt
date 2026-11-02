@@ -26,24 +26,24 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * 网页下载:文件落在本对话工作区的 downloads/ 下(沙箱里看到的是 /workspace/downloads/<名字>)。
- * 工作区只是 App 私有目录里的一个文件夹,下载不依赖沙箱。下载的文件只保存,不打开、不安装(APK 也一样)。
+ * Web ページのダウンロード: ファイルは、この会話のワークスペースの downloads/ に分類されます (サンドボックスに表示されるのは /workspace/downloads/<name> です)。
+ * ワークスペースはアプリのプライベート ディレクトリ内の単なるフォルダーであり、ダウンロードはサンドボックスに依存しません。ダウンロードされたファイルは保存されるだけで、開いたりインストールされたりしません (APK についても同様です)。
  *
- * - 名字取 Content-Disposition(优先 filename*),否则取页面在链接上给的名字(`<a download>`,由页面脚本问来),再否则取网址最后一段
- *   (blob:/data: 的网址不算);去掉路径、控制字符与双向控制符、开头的点,
- *   至多 80 字、按字节截短(保留扩展名),空名用 download,重名加「 (2)」。名字是网页给的,交给模型时标明是网页数据。
- * - 落盘经 [gate]:在 downloads/ 里新建(从不覆盖已有的名字),按句柄核实后在同一个句柄上写;失败只删这个文件本身。
- *   downloads/ 被换成链接(沙箱里的命令做得到)时拒绝,标 unsafe_path。
- * - 请求带上该网址的 Cookie(每次跳转都按跳转后的地址取)、UA 与来源页;只取 http/https。
- *   每一跳都过 [addressRefusal](与 web_navigate 同一条规则,另外不许本机与局域网),跳到不许的地址标 blocked_redirect;
- *   域名解析到内网也拒绝([dns])。
- * - 单文件上限 [maxBytes],超出中止、删掉半截文件、标 too_large;blob:/data: 的内容上限 [maxBlobBytes]。
- * - 一个任务至多 [maxFiles] 个文件、共 [maxTotalBytes](download_limit);一次下载(含所有跳转)至多 [timeoutMs](timed_out)。
+ * - 名前は Content-Disposition (優先ファイル名*) を取得します。それ以外の場合は、ページ上のリンクに指定された名前 (`<a download>`、ページ スクリプトによって要求されます) を取得します。それ以外の場合は、URL の最後の段落を取得します。
+ *   (blob:/data: の URL はカウントされません);パス、制御文字、双方向制御文字、および先頭のドットを削除します。
+ *   は最大 80 文字で、バイト単位で切り捨てられます (拡張子は保持されます)。空の名前にはダウンロードを使用し、重複する名前には「(2)」を追加します。名前は Web ページによって付けられ、モデルに渡されるときに Web ページ データとしてマークされます。
+ * - ダウンロード手順 [gate]: downloads/ に新しいファイルを作成し (既存の名前を決して上書きしないでください)、ハンドルで確認し、同じハンドルに書き込みます。失敗した場合は、ファイル自体を削除してください。
+ *   downloads/ がリンクに置き換えられると (サンドボックス内のコマンドでこれを行うことができます)、それは拒否され、unsafe_path としてマークされます。
+ * - URL (ジャンプ後のアドレスに従って各ジャンプが実行されます)、UA、およびソース ページを含む Cookie をリクエストします。 http/https のみを取得します。
+ *   は、ホップごとに [addressRefusal] を通過し (ローカル マシンと LAN が許可されない点を除き、web_navigate と同じルール)、blocked_redirect とマークされた禁止アドレスにジャンプします。
+ *   ドメイン名は、イントラネット ([dns]) に解決される場合にも拒否されます。
+ * - 単一ファイルの上限は [maxBytes] で、中止のコンテンツ制限を超え、ファイルの半分を削除し、too_large;blob:/data: [maxBlobBytes] とマークされます。
+ * - 1 つのタスクには最大 [maxFiles] ファイルを含めることができ、合計 [maxTotalBytes] (download_limit)。 1 つのダウンロード (すべてのジャンプを含む) には、最大で [timeoutMs] (timed_out) を含めることができます。
  */
 class WebDownloads(
     private val workspaceDir: File,
     private val gate: WorkspaceFileGate,
-    /** 工作区所在那棵树的锁:下载落盘在它的许可里写。 */
+    /** ワークスペースが配置されているツリーのロック: ダウンロード ディスクはその権限に書き込まれます。 */
     private val tree: SandboxTree,
     http: OkHttpClient,
     private val cookies: (String) -> String?,
@@ -53,7 +53,7 @@ class WebDownloads(
     private val maxFiles: Int = 50,
     private val maxTotalBytes: Long = 1L shl 30,
     private val timeoutMs: Long = 10 * 60_000L,
-    /** 不能取的原因(null = 能取);测试里放行本机的测试服务器。 */
+    /** が取得できない（null = 取得できる）理由;ローカル テスト サーバーはテスト中に解放されます。 */
     private val addressRefusal: (String) -> String? = DownloadAddressPolicy::refusal,
     dns: Dns = DownloadAddressPolicy.guardedDns(),
 ) {
@@ -61,24 +61,24 @@ class WebDownloads(
         @Volatile var bytes = 0L
         @Volatile var status = RUNNING
         @Volatile var error: String? = null
-        /** 写入用的句柄(已过关口核实);结束(完成或失败)时关掉。 */
+        /** 書き込み用ハンドル (チェックポイント検証に合格)。終了（完了または失敗）すると閉じられます。 */
         var gated: GatedFile? = null
-        /** 占着任务额度(一个文件 + [charged] 个已写的字节)。 */
+        /** はタスク クォータ (1 ファイル + [charged] 書き込みバイト) を占有します。 */
         var counted = false
         var charged = 0L
     }
 
     private val entries = mutableListOf<Entry>()
-    /** 额度:占着的文件数与已写字节数,都在 synchronized(entries) 里改。 */
+    /** クォータ: 占有ファイル数と書き込まれたバイト数は両方とも synchronized(entries) で変更されます。 */
     private var files = 0
     private var totalBytes = 0L
 
     private val client = http.newBuilder()
-        // 跳转自己一跳一跳走,每一跳都查地址
+        // 1 つずつジャンプし、ジャンプごとにアドレスを確認します。
         .followRedirects(false)
         .followSslRedirects(false)
         .dns(dns)
-        // 跳转后的每一次请求都按它自己的地址带 Cookie
+        // ジャンプ後の各リクエストには、独自のアドレスに従って Cookie が含まれます。
         .addNetworkInterceptor { chain ->
             val req = chain.request()
             val c = cookies(req.url.toString())
@@ -86,12 +86,12 @@ class WebDownloads(
         }
         .build()
 
-    /** 正在问页面要名字、还没登记的下载。 */
+    /** はページで名前を求めていますが、まだダウンロードに登録していません。 */
     private val naming = AtomicInteger()
 
     /**
-     * 页面给下载起的名字(`<a download>`)只在页面里,下载监听拿不到:先用 [pageName] 问页面,问到(或问不到)后交给 [then] 登记。
-     * 问名字的这一会儿也算下载已开始,[awaitNamed] 等它们登记完。[then] 在写 `files/sandbox/` 的许可里跑(见 SandboxTree)。
+     * ページのダウンロードに付けられた名前 (`<a download>`) はページ内にのみ存在し、ダウンロード監視では取得できません。まず [pageName] を使用してページに問い合わせ、問い合わせた後 (または問い合わせられなかった後)、登録のために [then] に渡します。
+     * が名前を尋ねた瞬間、ダウンロードが開始され、[awaitNamed] は登録が完了するのを待っています。 [then] は、`files/sandbox/` に書き込まれた権限で実行されます (SandboxTree を参照)。
      */
     fun withPageName(pageName: suspend () -> String?, then: (String?) -> Unit) {
         naming.incrementAndGet()
@@ -105,16 +105,16 @@ class WebDownloads(
         }
     }
 
-    /** 等正在问名字的下载都登记上,至多 [capMs]。 */
+    /** および名前を尋ねられているその他のダウンロードはすべて、少なくとも [capMs] に登録されています。 */
     suspend fun awaitNamed(capMs: Long) {
         withTimeoutOrNull(capMs) { while (naming.get() > 0) delay(NAMING_POLL_MS) }
     }
 
     /**
-     * 开始下载 [url];立即返回沙箱路径,状态先是 running。[suggested] 是页面给的名字。
-     * [viaPage]:自己因 TLS / 握手一类的错误连不上时(还没写进任何字节)改由页面用浏览器自己的网络栈去取(至多给的字节数);
-     * 取到为 (内容, 类型),取不到为 null。不给就不换。调用方只在网址和页面同源时给它(页面那边也只取同源、不跟随跳转);
-     * 换路前再过一遍地址规则。
+     * は [url] のダウンロードを開始します。すぐにサンドボックス パスに戻り、ステータスは実行中になります。 [suggested] はページによって付けられた名前です。
+     * [viaPage]: TLS/ハンドシェイク エラー (まだバイトが書き込まれていない) が原因で接続できない場合、ページはブラウザー独自のネットワーク スタックを使用してデータを取得します (指定されたバイト数まで)。
+     * は(content, type)として取得されますが、取得されていない場合はnullとなります。渡さないと交換されません。呼び出し元は、URL とページのオリジンが同じである場合にのみそれを渡します (ページはオリジンのみを取得し、ジャンプに従いません)。
+     * パスを変更する前に、アドレス ルールをもう一度確認してください。
      */
     fun start(
         url: String, ua: String, contentDisposition: String?, mime: String?, referer: String?, suggested: String? = null,
@@ -143,8 +143,8 @@ class WebDownloads(
     }
 
     /**
-     * 自己没连上([reason] 带着真实的出错类型):是 TLS / 握手一类、给了 [viaPage]、地址仍过得了规则时改由页面去取,
-     * 取到就存下;否则照原因记失败。
+     * は単独では接続されません ([reason] には実際のエラー タイプがあります)。これは TLS/ハンドシェイク タイプです。 [viaPage] が指定されていても、アドレスがルールを通過する場合、そのアドレスはページからフェッチされます。
+     * 入手したらすぐに保存してください。そうしないと、理由に従って失敗します。
      */
     private suspend fun fallBack(entry: Entry, url: String, reason: String, viaPage: (suspend (Long) -> Pair<ByteArray, String?>?)?) {
         val usable = viaPage?.takeIf { reason.startsWith(TLS_ERROR) && addressRefusal(url) == null }
@@ -156,7 +156,7 @@ class WebDownloads(
         tree.shared { write(entry, got.first) }
     }
 
-    /** 页面脚本读出来的 blob: 内容,或解出来的 data: 内容,直接存下。 */
+    /** ページ スクリプトによって読み取られた blob: コンテンツ、またはデコードされた data: コンテンツは、直接保存されます。 */
     fun save(sourceUrl: String, contentDisposition: String?, mime: String?, bytes: ByteArray, suggested: String? = null): String {
         val name = localName(sourceUrl, contentDisposition, mime, suggested)
         if (bytes.size > maxBlobBytes) return failed(name, mime, TOO_LARGE)
@@ -167,8 +167,8 @@ class WebDownloads(
     }
 
     /**
-     * blob: 下载:先登记(running),再由 [read] 让页面把内容读出来(至多 [maxBlobBytes]);读不出给原因。
-     * [read] 返回 (内容, 页面报的类型) 或失败原因。
+     * BLOB: ダウンロード: 最初に登録 (実行) し、次に [read] を使用してページにコンテンツ (最大 [maxBlobBytes]) を読み取らせます。読み取れない場合は、その理由を教えてください。
+     * [read] 戻り値 (内容、ページ レポートの種類) または失敗の理由。
      */
     fun startFrom(
         sourceUrl: String, contentDisposition: String?, mime: String?, suggested: String? = null,
@@ -195,7 +195,7 @@ class WebDownloads(
         return entry.file
     }
 
-    /** [startFrom] 的读取方报的明确原因(如 too_large)。 */
+    /** [startFrom] の読者が明確な理由 (too_large など) を報告しました。 */
     class BlobRefused(val reason: String) : Exception(reason)
 
     private fun localName(sourceUrl: String, contentDisposition: String?, mime: String?, suggested: String?) =
@@ -213,8 +213,8 @@ class WebDownloads(
     }
 
     /**
-     * data: 网址:按 base64 或百分号编码解出来存下;解不出来记失败。
-     * 解码前先按长度判断:base64 每 4 个字是 3 个字节,百分号编码每个字节至少 1 个字,超出上限的不解。
+     * データ: URL: Base64 またはパーセント記号でデコードして保存します。デコードできない場合は、失敗として記録されます。
+     * デコードする前に長さで判断します。base64 の 4 ワードごとに 3 バイト、パーセント エンコードの各バイトは少なくとも 1 ワードです。上限を超えると不可解です。
      */
     fun dataUrl(url: String, contentDisposition: String?, suggested: String? = null): String {
         val comma = url.indexOf(',')
@@ -235,14 +235,14 @@ class WebDownloads(
         entries.map { DownloadInfo(it.file, it.bytes, it.mime, it.status, it.error) }
     }
 
-    /** 这次之后新开始的下载;用来在触发下载的那次动作结果里提一句。 */
+    /** この時間以降に新たにダウンロードが開始されました。ダウンロードをトリガーしたアクションの結果に言及するために使用されます。 */
     fun count(): Int = synchronized(entries) { entries.size }
 
     fun since(count: Int): List<DownloadInfo> = list().drop(count)
 
     /**
-     * 一跳一跳地取:每一跳先查地址;整个下载(含跳转与读正文)不超过 [timeoutMs]。
-     * 连不上(还没写进任何字节)时不记失败,返回原因交给调用方换路;其余情况自己记完,返回 null。
+     * はホップごとにフェッチされます。最初に各ホップのアドレスを確認します。ダウンロード全体 (ジャンプやテキストの読み取りを含む) は [timeoutMs] を超えません。
+     * が接続に失敗した場合 (まだバイトが書き込まれていない場合)、その失敗は記録されず、戻りの理由は呼び出し元にパスを変更するよう委ねられます。それ以外の場合は、それ自体が記録され、null が返されます。
      */
     private fun fetch(url: String, ua: String, referer: String?, entry: Entry): String? {
         val deadline = System.nanoTime() + timeoutMs * 1_000_000
@@ -258,7 +258,7 @@ class WebDownloads(
                 call.execute()
             } catch (e: IOException) {
                 val reason = failureOf(e, hops, deadline)
-                // TLS / 握手一类的错误、而且还在第一跳:交给调用方决定要不要改由页面去取;地址被拒、超时、跳转后的错误照实记
+                // TLS/ハンドシェイク タイプのエラー。それらはまだ最初のホップにあります。代わりにページからフェッチするかどうかの決定は呼び出し元に任せます。アドレス拒否、タイムアウト、ジャンプ後のエラーをそのまま記録
                 if (reason.startsWith(TLS_ERROR) && hops == 0) return reason
                 return fail(entry, reason).let { null }
             }
@@ -301,8 +301,8 @@ class WebDownloads(
     }
 
     /**
-     * 网络错误带上真实的出错类型(最里层的原因),例如 tls_error (SSLHandshakeException: …)、network_error (UnknownHostException: …);
-     * 证书、握手一类(SSLException)单独叫 tls_error。
+     * ネットワーク エラーは、tls_error (SSLHandshakeException: …)、network_error (UnknownHostException: …) などの実際のエラー タイプ (最も内側の理由) をもたらします。
+     * 証明書とハンドシェイク タイプ (SSLException) は個別に tls_error と呼ばれます。
      */
     private fun networkError(e: Throwable): String {
         val chain = generateSequence(e) { it.cause }.toList()
@@ -313,12 +313,12 @@ class WebDownloads(
     }
 
     /**
-     * 占一个名字和一份额度:经关口在 downloads/ 里新建空文件(不跟随链接、不覆盖已有的),句柄留着写。
-     * 额度不够或目录不安全时返回一条已失败的记录。
+     * は名前と共有を占有します。ゲートウェイ経由で downloads/ に新しい空のファイルを作成し (リンクをたどったり、既存のファイルを上書きしたりしないでください)、書き込み用のハンドルを残します。
+     * クォータが不十分な場合、またはディレクトリが安全でない場合は、失敗したレコードを返します。
      */
     private fun reserve(name: String, mime: String?): Entry = synchronized(entries) {
         if (files >= maxFiles) return failedEntry(name, mime, DOWNLOAD_LIMIT)
-        // 关口拒绝(downloads/ 被换成链接等)或建不了:记 unsafe_path
+        // ゲートウェイが拒否されました (ダウンロード/リンクで置き換えられるなど) か、構築できません: unsafe_path を覚えておいてください
         val opened = try {
             workspaceDir.mkdirs()
             gate.createNumbered(workspaceDir, DIR, name, MAX_SAME_NAME)
@@ -335,7 +335,7 @@ class WebDownloads(
         }
     }
 
-    /** 记下 [n] 个刚写的字节;任务总量超了为 false。 */
+    /** は、書き込まれたばかりの [n] バイトを記録します。超過したタスクの合計数は false です。 */
     private fun charge(entry: Entry, n: Long): Boolean = synchronized(entries) {
         if (totalBytes + n > maxTotalBytes) return false
         totalBytes += n
@@ -355,7 +355,7 @@ class WebDownloads(
     private fun failedEntry(name: String, mime: String?, error: String): Entry =
         Entry("$SANDBOX_DIR/$name", mime).also { it.status = FAILED; it.error = error; synchronized(entries) { entries += it } }
 
-    /** 失败:删掉这个下载自己建的文件(句柄核实过的那个,名字被换成别的就不动),退回额度。 */
+    /** 失敗: ダウンロードして作成したファイルを削除します (ハンドルが確認されたファイルは、名前を変更しても移動しません)。クレジットは返金されます。 */
     private fun fail(entry: Entry, error: String) {
         synchronized(entry) {
             if (entry.status != RUNNING) return
@@ -387,7 +387,7 @@ class WebDownloads(
         const val TLS_ERROR = "tls_error"
         private const val MAX_ERROR_DETAIL = 120
         private const val MAX_REDIRECTS = 10
-        /** 名字是网页给的,交给模型前限长。 */
+        /** という名前はウェブサイトで付けられたもので、モデルに渡すまでの長さは制限されています。 */
         const val MAX_NAME_CHARS = 80
         private const val TAG = "MikaDownloads"
         private const val DIR = "downloads"
@@ -402,7 +402,7 @@ class WebDownloads(
         private val FILENAME_STAR = Regex("""filename\*\s*=\s*([^']*)'[^']*'([^;]+)""", RegexOption.IGNORE_CASE)
         private val FILENAME_QUOTED = Regex("""filename\s*=\s*"((?:[^"\\]|\\.)*)"""", RegexOption.IGNORE_CASE)
         private val FILENAME_TOKEN = Regex("""filename\s*=\s*([^;\s]+)""", RegexOption.IGNORE_CASE)
-        /** 控制字符、双向控制符与零宽字符:能把「exe」显示成「pdf」之类。 */
+        /** 制御文字、双方向制御文字、幅ゼロ文字。「exe」を「pdf」に見せるなど、表示を偽装できる。 */
         private val UNSAFE_CHARS = Regex("[\\u0000-\\u001f\\u007f-\\u009f\\u061c\\u200b-\\u200f\\u202a-\\u202e\\u2066-\\u2069\\ufeff]")
         private val MIME_EXT = mapOf(
             "application/pdf" to "pdf", "text/csv" to "csv", "text/plain" to "txt", "application/json" to "json",
@@ -412,7 +412,7 @@ class WebDownloads(
             "application/vnd.ms-excel" to "xls", "application/msword" to "doc", "text/html" to "html",
         )
 
-        /** 下载的文件名:见类说明。[suggested] 是页面给的名字(`<a download>`),排在响应头之后、网址之前。 */
+        /** ダウンロードするファイルの名前。クラスの説明を参照。[suggested] はページが指定した名前（`<a download>`）で、応答ヘッダーより後、URLより前に使う。 */
         fun fileName(contentDisposition: String?, url: String, mime: String?, suggested: String? = null): String {
             val fromHeader = contentDisposition?.let { cd ->
                 FILENAME_STAR.find(cd)?.let { m ->
@@ -429,7 +429,7 @@ class WebDownloads(
         }
 
         private fun clean(raw: String): String {
-            // 只留最后一段:正斜杠、反斜杠都算分隔符
+            // 末尾のパス要素だけを残す。スラッシュとバックスラッシュを区切りとして扱う。
             val last = raw.substringAfterLast('/').substringAfterLast('\\')
             return last.replace(UNSAFE_CHARS, "").trim().trimStart('.').trim().takeUnless { it == "." || it == ".." }.orEmpty()
         }
@@ -439,7 +439,7 @@ class WebDownloads(
             if (name.toByteArray().size <= MAX_NAME_BYTES && chars(name) <= MAX_NAME_CHARS) return name
             val ext = name.substringAfterLast('.', "").takeIf { it.isNotEmpty() && it.toByteArray().size <= MAX_EXT_BYTES }?.let { ".$it" }.orEmpty()
             var base = name.removeSuffix(ext)
-            // 按码点截,不劈开代理对
+            // コードポイント単位で切り詰め、サロゲートペアを分断しない。
             while (((base + ext).toByteArray().size > MAX_NAME_BYTES || chars(base + ext) > MAX_NAME_CHARS) && base.isNotEmpty()) {
                 base = base.substring(0, base.offsetByCodePoints(base.length, -1))
             }

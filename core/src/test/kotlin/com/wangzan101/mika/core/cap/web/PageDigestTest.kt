@@ -9,7 +9,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 页面脚本 digest 的输出(格式同 page.js)→ 收起、拼正文、判定、时间。 */
+/** ページスクリプトダイジェスト出力（形式はpage.jsと同じ）→折りたたみ、綴りテキスト、判定、時間。 */
 class PageDigestTest {
     private fun digest(json: String) = PageDigest.parse(Json.parseToJsonElement(json).jsonObject)
 
@@ -22,7 +22,7 @@ class PageDigestTest {
 
     private val prose = "This paragraph is the article body and carries the actual information the reader came for. ".repeat(6).trim()
 
-    /** 一篇文章:顶部导航、正文、推荐卡片、页脚。 */
+    /** 記事: トップナビゲーション、本文、推奨カード、フッター。 */
     private val article = """
         {"url":"https://news.example.com/a","title":"Rain expected","parts":[
           {"g":"navigation","label":"Main","lines":["Home","World","Sport","Weather","Money"],"chars":30,"linkChars":30,"repeat":5,"links":5},
@@ -55,7 +55,7 @@ class PageDigestTest {
         assertEquals(r.text.length, q.chars)
     }
 
-    /** [2] 先在收起的块里出现、正文里又链到的地址留在链接表里;只在块里的去掉。 */
+    /** [2] 折りたたまれたブロックに最初に表示され、テキスト内でリンクされているアドレスはリンク リストに残ります。ブロック内にのみ存在するものは削除されます。 */
     @Test fun aCollapsedLinkThatMainContentRepeatsStays() {
         val (r, _) = read(article)
         assertEquals(listOf("https://agency.example.org/report", "https://news.example.com/1"), r.links.map { it.second })
@@ -71,7 +71,7 @@ class PageDigestTest {
         assertEquals(4, r.links.size)
     }
 
-    /** [3] 以文字为主的侧栏、页脚(链接占得少)照读。 */
+    /** [3] テキストベースのサイドバーとフッターを読みます (リンクが少ない)。 */
     @Test fun aTextualLandmarkIsNotCollapsed() {
         val aside = "The author has covered weather for twenty years and lives on the coast."
         val (r, q) = read("""
@@ -83,7 +83,7 @@ class PageDigestTest {
         assertEquals(0, q.folded)
     }
 
-    /** [4] 目录页、搜索结果页:那串链接就是正文,不收起(按地标以外的文字量)。 */
+    /** [4] ディレクトリ ページ、検索結果ページ: リンクの文字列はテキストであり、閉じられていません (ランドマーク以外のテキストの量に応じて)。 */
     @Test fun aListThatIsThePageItselfIsNotCollapsed() {
         val items = (1..20).joinToString(",") { "\"Result $it title\"" }
         val nav = (1..30).joinToString(",") { "\"Section $it\"" }
@@ -95,12 +95,12 @@ class PageDigestTest {
             ],"links":[],"images":[],"dialogs":[],"signals":{"textChars":640,"linkChars":630,"prominent":["Results"]}}
         """)
         assertTrue(r.text.contains("Result 20 title"))
-        // 导航很长,但它是地标:照收
+        // ナビゲーションは非常に長いですが、目印です。そのままお進みください。
         assertFalse(r.text.contains("Section 30"))
         assertEquals(1, q.folded)
     }
 
-    /** [4] 收完剩下的字太少时,从最大的块起放回。 */
+    /** [4] 集めた単語が少なくなった場合は、大きいブロックから戻します。 */
     @Test fun collapsingNeverLeavesAlmostNothing() {
         val nav = (1..30).joinToString(",") { "\"Section $it\"" }
         val foot = (1..10).joinToString(",") { "\"Link $it\"" }
@@ -112,7 +112,7 @@ class PageDigestTest {
         assertEquals(setOf(1), PageDigest.foldSet(parts))
     }
 
-    /** [4] 最大的块比块外的文字还多:它就是正文,不收。 */
+    /** [4] 最大のブロックには、ブロックの外側のテキストよりも多くのテキストが含まれています。これはメイン テキストであり、含まれていません。 */
     @Test fun theLargestBlockOutweighingFreeTextStays() {
         val cards = (1..12).joinToString(",") { "\"Card $it with a short line\"" }
         val parts = PageDigest.parse(Json.parseToJsonElement("""
@@ -160,7 +160,7 @@ class PageDigestTest {
         assertEquals(ReadVerdict.NEEDS_SIGN_IN, q.verdict)
     }
 
-    /** [1] 登录字样只看登录框、标题、对话框:页面别处的「Log in」按钮不算。 */
+    /** [1] ログイン ワードはログイン ボックス、タイトル、ダイアログ ボックスのみを参照します。ページ上の他の場所にある「ログイン」ボタンはカウントされません。 */
     @Test fun signInWordsCountOnlyInTheBoxTitleOrDialogs() {
         val (_, q) = read("""
             {"url":"https://app.example.com/x","title":"Settings","parts":["Change PIN","Old","New"],"links":[],"images":[],"dialogs":[],
@@ -169,7 +169,7 @@ class PageDigestTest {
         assertEquals(ReadVerdict.THIN, q.verdict)
     }
 
-    /** [1] 文章页旁边一个小登录框:正文照读,不算要先登录。 */
+    /** [1] 記事ページの横に小さなログイン ボックスがあります。好きなようにテキストを読んでください。最初にログインする必要はありません。 */
     @Test fun aSmallSignInBoxBesideALongArticleIsFine() {
         val long = "$prose ".repeat(4).trim()
         val (_, q) = read("""
@@ -193,7 +193,7 @@ class PageDigestTest {
         assertEquals("HTTP 403", forbidden.cause)
     }
 
-    /** 文章正文里提到「captcha」不算被拒:只看醒目处。 */
+    /** 記事本文中の「キャプチャ」への言及は拒否とみなされません。目立つ部分だけを見てください。 */
     @Test fun anArticleAboutCaptchasIsNotRefused() {
         val body = "How a captcha works and why sites use one. $prose"
         val (_, q) = read("""
@@ -215,7 +215,7 @@ class PageDigestTest {
         assertEquals(ReadVerdict.THIN, short.verdict)
     }
 
-    /** [9] 小图(图标)不算;重叠的图只算一次。 */
+    /** [9] 小さな画像 (アイコン) はカウントされません。重なった写真は 1 回だけカウントされます。 */
     @Test fun pictureCoverIgnoresIconsAndCountsOverlapOnce() {
         fun share(vararg b: PageDigest.Box) = PageDigest.pictureShare(PageDigest.Signals(regionW = 1000, regionH = 1000, pictures = b.toList()))
         val icons = (0 until 100).map { PageDigest.Box((it % 10) * 100, (it / 10) * 100, 40, 40) }.toTypedArray()

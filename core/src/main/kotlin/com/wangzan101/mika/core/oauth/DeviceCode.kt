@@ -16,8 +16,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /**
- * 给用户看的设备码:用户码、验证页、有效期和轮询间隔。设备码本身不在这里,不进界面、不进日志。
- * [verificationUriComplete] 已经带上用户码,主机必须在允许名单里才会用;否则用 [verificationUri]。
+ * ユーザーに表示されるデバイス コード: ユーザー コード、検証ページ、有効期間、ポーリング間隔。デバイス コード自体はここにはなく、インターフェイスにもログにも入りません。
+ * [verificationUriComplete] はすでにユーザー コードを持ち込んでおり、それを使用するにはホストが許可リストに含まれている必要があります。それ以外の場合は、[verificationUri] を使用します。
  */
 data class DeviceChallenge(
     val userCode: String,
@@ -27,13 +27,13 @@ data class DeviceChallenge(
     val intervalSec: Long,
 )
 
-/** 一次设备码授权。设备码只留给轮询,不提供给界面。 */
+/** ワンタイムデバイスコード認証。デバイス コードはポーリング用にのみ予約されており、インターフェイスには提供されません。 */
 class DeviceGrant internal constructor(
     val challenge: DeviceChallenge,
     internal val deviceCode: String,
 )
 
-/** 轮询一次的结果。错误里只有代码,没有响应正文(正文里可能夹着令牌)。 */
+/** 1 つの投票の結果。エラーにはコードのみが含まれ、応答本文は含まれません (本文にはトークンが含まれる場合があります)。 */
 sealed interface DevicePoll {
     data object Pending : DevicePoll
     data object SlowDown : DevicePoll
@@ -43,8 +43,8 @@ sealed interface DevicePoll {
 }
 
 /**
- * RFC 8628 设备码:向 [deviceUrl] 要一组码,再向 [tokenUrl] 用设备码换令牌。
- * 两个地址的主机都必须在 [allowedHosts] 里,而且除了本机测试以外必须是 https;对不上就抛 [AccountSignInException],请求不发出去。
+ * RFC 8628 デバイス コード: [deviceUrl] にコードのセットを要求し、デバイス コードを [tokenUrl] からのトークンと交換します。 両方の
+ * アドレスのホストは [allowedHosts] 内にある必要があり、ローカル テストを除いて https である必要があります。正しくない場合は、[AccountSignInException] をスローすると、リクエストは送信されません。
  */
 class DeviceCodeClient(
     private val http: OkHttpClient,
@@ -74,7 +74,7 @@ class DeviceCodeClient(
             ?: throw AccountSignInException(AccountSignInFailure.Rejected, "no_user_code")
         val verify = root.str("verification_uri")?.takeIf { it.isNotEmpty() }
             ?: throw AccountSignInException(AccountSignInFailure.Rejected, "no_verification_uri")
-        // 验证页交给调用方按自己的主机名单核对后再打开,这里不发出去
+        // 検証ページは呼び出し元に渡され、開く前に独自のホスト リストに従って確認されます。こちらには送信されません。
         val complete = root.str("verification_uri_complete")?.takeIf { it.isNotEmpty() }
         val expires = (root["expires_in"] as? JsonPrimitive)?.longOrNull?.takeIf { it > 0 } ?: DEFAULT_EXPIRES_SEC
         val interval = (root["interval"] as? JsonPrimitive)?.longOrNull?.takeIf { it > 0 } ?: DEFAULT_INTERVAL_SEC
@@ -84,7 +84,7 @@ class DeviceCodeClient(
         )
     }
 
-    /** 问一次。设备码只放在表单里,不出现在返回的错误里。 */
+    /** が一度質問しました。デバイス コードはフォームに配置されるだけであり、返されるエラーには表示されません。 */
     suspend fun poll(deviceCode: String): DevicePoll {
         val url = OauthUrls.check(tokenUrl, allowedHosts)
         val form = FormBody.Builder()
@@ -151,9 +151,9 @@ class DeviceCodeClient(
 }
 
 /**
- * 等到用户在浏览器里点完,或超时、拒绝、取消。轮询间隔按服务端说的来;[slow_down] 再加 5 秒(RFC 8628)。
- * 用户在浏览器里时 Mika 在后台,网络可能一时不通:连着 [MAX_POLL_FAILURES] 次连不上才算失败,中间照常等下一轮。
- * [sleep] 测试里换成空等;真机用 [delay]。
+ * ユーザーがブラウザ内でクリックを終了するか、タイムアウト、拒否、またはキャンセルされるまで待ちます。ポーリング間隔はサーバーによって指定されます。 [slow_down] (RFC 8628) に 5 秒を追加します。
+ * ユーザーがブラウザーを使用しているとき、Mika はバックグラウンドにあり、ネットワークが一時的に利用できない場合があります。[MAX_POLL_FAILURES] 回接続できない場合は失敗とみなされ、通常どおり次のラウンドを待機します。
+ * [sleep] は、テストでは空の待機に置き換えられます。実機では[delay]を使用しています。
  */
 suspend fun awaitDeviceGrant(
     grant: DeviceGrant,
@@ -191,7 +191,7 @@ suspend fun awaitDeviceGrant(
     throw AccountSignInException(AccountSignInFailure.TimedOut, "expired")
 }
 
-/** 只接受 https(本机测试除外)且主机在名单里的地址。用户信息(userinfo)一律拒绝。 */
+/** は https のみを受け入れ (ローカル テストを除く)、ホストはリストに含まれます。ユーザー情報 (userinfo) は常に拒否されます。 */
 object OauthUrls {
     fun check(url: String, allowedHosts: Set<String>): HttpUrl {
         if (!allowed(url, allowedHosts)) throw AccountSignInException(AccountSignInFailure.BadIssuer, "host")
@@ -207,7 +207,7 @@ object OauthUrls {
     }
 }
 
-/** 刷新令牌已不能再用。 */
+/** リフレッシュトークンは使用できなくなりました。 */
 internal val TERMINAL_REFRESH = setOf(
     "invalid_grant", "invalid_refresh_token", "token_expired", "refresh_token_expired",
     "refresh_token_invalidated", "refresh_token_reused",
@@ -216,7 +216,7 @@ internal val TERMINAL_REFRESH = setOf(
 private const val SLOW_DOWN_MS = 5_000L
 private const val MAX_POLL_FAILURES = 3
 
-/** 真机上等这么久再问下一次。默认参数用函数引用,避免编译器处理不了 lambda 里的挂起调用。 */
+/** 実機を長く待ったので次の質問をさせていただきます。デフォルトのパラメーターは、コンパイラーがラムダでのハング呼び出しを処理できないことを避けるために、関数によって参照されます。 */
 internal suspend fun oauthSleep(ms: Long) = delay(ms)
 
 private fun JsonObject.str(k: String): String? = (this[k] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull

@@ -27,10 +27,10 @@ import kotlinx.coroutines.launch
 import com.wangzan101.mika.web.WebTakeoverActivity
 
 /**
- * 网页接管界面:主屏全屏,顶部一条「Mika 在等你:<原因>」和按钮,下面是**同一个** WebView(从后台宿主挪过来)。
- * 任务接管:「处理好了」「我自己做完了」「取消任务」;系统返回键 = 先放着(任务仍在等待接管,通知还在)。
- * 设置页登录:只有「完成」,返回键直接关掉。
- * 接管结束([WebHandover.end])时界面自己关掉,视图放回后台宿主。
+ * Web ページ引き継ぎインターフェイス: メイン画面は全画面表示で、上部に「Mika が待っています: <理由>」とボタンがあり、その下に **同じ** WebView (バックグラウンド ホストから移動) が表示されます。
+ * タスクの引き継ぎ: 「渡されました」「自分で完了しました」「タスクをキャンセルしました」;システムリターンキー = そのままにしておきます (タスクはまだ引き継がれるのを待っており、通知もまだ存在します)。
+ * 設定ページログイン：「完了」のみ、リターンキーは直接オフになります。
+ * テイクオーバーが終了すると ([WebHandover.end])、インターフェイスは自動的に閉じられ、ビューはバックグラウンド ホストに返されます。
  */
 open class WebTakeoverPage : Activity() {
     private var session: WebHandover.Session? = null
@@ -46,7 +46,7 @@ open class WebTakeoverPage : Activity() {
         }
     }
 
-    // 安卓 12 及以前套上 App 里选的语言;13 起系统自己套
+    // Android 12 以前の場合、アプリで選択した言語が適用されます。 13 以降、システムは単独で適用できます。
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLanguage.wrap(newBase))
     }
@@ -67,13 +67,13 @@ open class WebTakeoverPage : Activity() {
             addView(header(s), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(container, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         })
-        // 同一个 WebView:从后台宿主摘下,放进本界面
+        // 同じ WebView: バックグラウンド ホストから削除され、このインターフェイスに配置されました
         val view = s.tab.view
         (view.parent as? ViewGroup)?.removeView(view)
         container.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         view.requestFocus()
         ticker.post(recordPage)
-        // 接管在别处结束了(通知按钮、超时、取消):关掉本界面,视图由 WebHandover 放回
+        // テイクオーバーが別の場所で終了しました (通知ボタン、タイムアウト、キャンセル): このインターフェイスを閉じると、ビューが WebHandover によって元に戻されます
         scope.launch {
             WebHandover.session.collect { now -> if (now !== s) leave() }
         }
@@ -123,7 +123,7 @@ open class WebTakeoverPage : Activity() {
         s.onAction(action)
     }
 
-    // 用户对页面的每一下触摸(按下)和按键都记一次;点顶部按钮不算
+    // ページ上でユーザーが押したすべてのタッチ (押す) とキーが記録されます。上部のボタンをクリックしてもカウントされません。
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         val s = session
         if (s != null && ev.actionMasked == MotionEvent.ACTION_DOWN && ::container.isInitialized) {
@@ -139,7 +139,7 @@ open class WebTakeoverPage : Activity() {
         return super.dispatchKeyEvent(event)
     }
 
-    /** 系统返回键:任务接管 = 先放着;设置页登录 = 关掉。 */
+    /** システムリターンキー: タスク引き継ぎ = そのままにしておきます。設定ページのログイン = オフにします。 */
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         val s = session ?: return super.onBackPressed()
@@ -162,9 +162,9 @@ open class WebTakeoverPage : Activity() {
     override fun onDestroy() {
         ticker.removeCallbacks(recordPage)
         scope.cancel()
-        // 视图不能随本界面一起销毁:先摘下,由 WebHandover 放回后台宿主
+        // このインターフェイスと一緒にビューを破棄することはできません。最初にビューを削除し、WebHandover によってバックグラウンド ホストに戻してください。
         if (::container.isInitialized) container.removeAllViews()
-        // 界面被划掉、而接管还没结束:任务接管按「先放着」处理,设置页登录直接结束
+        // インターフェイスには取り消し線が引かれていますが、引き継ぎはまだ終了していません。タスクの引き継ぎは「最初に脇に置いておく」として処理され、設定ページのログインは直接終了します。
         session?.let { s ->
             if (WebHandover.session.value === s && isFinishing && !isChangingConfigurations) {
                 if (s.loginMode) WebHandover.end() else s.onAction(WebHandover.Action.PutAside)

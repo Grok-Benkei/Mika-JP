@@ -76,7 +76,7 @@ class RunMetricsStoreTest {
         assertEquals(2, out.size)
         val first = out[0] as JsonObject
         assertEquals(JsonPrimitive("r1"), first["runId"])
-        // 默认值也写出来,分析时字段齐全
+        // のデフォルト値も書き込まれ、分析中にフィールドが完成します。
         assertTrue(first.containsKey("firstFeedbackMs"))
         assertTrue(first.containsKey("observeMs"))
         assertTrue(first.containsKey("judged"))
@@ -85,7 +85,7 @@ class RunMetricsStoreTest {
     @Test fun byIdsReadsOnlyTheAskedRuns() {
         val s = RunMetricsStore(file)
         (1..4).forEach { s.append(m("r$it", total = it * 1_000L)) }
-        // "r1" 是 "r10" 的一部分:按行粗筛后再核对编号,不会多拿
+        // "r1" は "r10" の一部です: 行ごとに大まかに表示し、番号を確認します。それ以上は取得されません
         s.append(m("r10"))
         val got = s.byIds(setOf("r1", "r3", "gone"))
         assertEquals(setOf("r1", "r3"), got.keys)

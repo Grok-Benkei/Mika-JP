@@ -12,7 +12,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 当前界面是网页时,接管把同一个网页标签拿到眼前,不挪 App 任务。 */
+/** 現在のインターフェイスが Web ページの場合、アプリ タスクを移動せずに、同じ Web ページのラベルを前面に表示することが受け入れられます。 */
 class TakeoverWebTest {
     private class WebFake(val base: TakeoverControllerTest.FakePort = TakeoverControllerTest.FakePort()) : TakeoverPort by base {
         var web: Boolean? = true
@@ -141,7 +141,7 @@ class TakeoverWebTest {
         assertEquals(listOf("showWeb:login:1", "returnWeb:false", "cancel"), port.log)
     }
 
-    /** 并行的两个任务都要接管:同一时间只有排在最前的能把东西拿到主屏,网页的也一样。 */
+    /** 2 つの並列タスクを引き継ぐ必要があります。同時にホーム画面に表示できるのは前にあるタスクだけであり、Web ページにも同じことが当てはまります。 */
     @Test
     fun webTakeoverWaitsItsTurnInTheQueue() = runTest {
         val queue = TakeoverQueue()

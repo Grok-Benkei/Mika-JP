@@ -9,20 +9,20 @@ import com.wangzan101.mika.core.uistate.AppWait
 
 sealed interface StartResult<out R> {
     data class Started<R>(val run: R) : StartResult<R>
-    /** 超出并行上限,排在队里第 [position] 个。 */
+    /** は並列制限を超えており、キュー内で [position] にランクされています。 */
     data class Queued<R>(val run: R, val position: Int) : StartResult<R>
-    /** 这个对话已经有任务(在跑或在排队):照 M1 规则不收,由对话自己排队。 */
+    /** この会話にはすでにタスク (実行中またはキューイング) があります。M1 ルールに従って受け入れられず、会話自体がキューに入れられます。 */
     data object AlreadyRunningInConversation : StartResult<Nothing>
 }
 
 /**
- * 按对话索引的运行中任务、并行上限与跨任务的全局锁。上限为 1 时(开关关着)就是 M1 的一次一个。
- * [create] 在登记时建任务对象;R 在产品里是 [TaskRun],测试里换成普通对象。
+ * 会話インデックス、同時実行の上限、およびタスク全体のグローバル ロックによるタスクの実行。上限が1(スイッチOFF)の場合はM1ずつとなります。
+ * [create] 登録中にタスク オブジェクトを作成します。 R は製品では [TaskRun] ですが、テストでは通常のオブジェクトに置き換えられます。
  */
 class TaskCenter<R : Any>(
     private val limit: () -> ParallelLimit,
     private val conversationOf: (R) -> String,
-    /** 任务的唯一编号(通知按钮带着它);同一对话前后两个任务的编号不同。 */
+    /** タスクの一意の番号 (通知ボタンに表示されます)。同じ会話の前後で 2 つのタスクの数が異なります。 */
     private val keyOf: (R) -> String,
     val store: RunStore = MemoryRunStore(),
     val resources: ResourceScheduler = ResourceScheduler(),
@@ -31,7 +31,7 @@ class TaskCenter<R : Any>(
     private val running = mutableListOf<R>()
     private val queued = mutableListOf<R>()
     private val deferred = ArrayDeque<Pair<String, String>>()
-    /** 迁移中的调用方继续从这里拿资源，实际所有权归 [resources]。 */
+    /** 移行の呼び出し元は引き続きここからリソースを取得し、実際の所有権は [resources] に属します。 */
     val clipLock get() = resources.clipboard
     val takeoverQueue get() = resources.takeoverQueue
 
@@ -59,29 +59,29 @@ class TaskCenter<R : Any>(
     @Synchronized fun byKey(key: String): R? = runs().firstOrNull { keyOf(it) == key }
 
     /**
-     * 任务 [owner] 要在自己的屏上开 [pkg]:没人占、自己占着、或占着的任务已经不在用它([stillUsed] 为假,
-     * 比如 App 自己关掉了)时占下并返回 true;否则另一个任务正在用,返回 false。查与占在同一把锁里,两个任务同时开同一个 App 只有一个能成。
+     * タスク [owner] は独自の画面で開く必要があります [pkg]: 誰も占有していないか、単独で占有されているか、占有されているタスクがもうそれを使用していません ([stillUsed] は false、
+     * (たとえば、アプリが単独で閉じられた場合) は占有され、true を返します。それ以外の場合、別のタスクが使用中の場合は false を返します。小切手と会計は同じロック内にあります。同じアプリを同時に開くことができるのは、そのうちの 1 つだけです。
      */
     @Synchronized
     fun reserve(pkg: String, owner: String, stillUsed: () -> Boolean): Boolean {
         return resources.reserveApp(pkg, owner, { byKey(it) != null }, stillUsed)
     }
 
-    /** 任务 [owner] 此刻能不能占 [pkg](只查不占,规则同 [reserve])。 */
+    /** タスク [owner] 現時点で [pkg] を占有できますか (チェックのみで占有はできません。ルールは [reserve] と同じです)。 */
     @Synchronized
     fun appFree(pkg: String, owner: String, stillUsed: () -> Boolean): Boolean =
         resources.appFree(pkg, owner, { byKey(it) != null }, stillUsed)
 
     /**
-     * 任务 [owner] 等别的任务放开 [pkg],最多 [timeoutMs](见 [ResourceScheduler.awaitApp]:互相等的不等)。
-     * 挂起着等,不拿这里的锁;在不在跑按开始等那一刻的任务名单认。
+     * タスク [owner] と他のタスクは、[pkg] から [timeoutMs] まで解放されます (「[ResourceScheduler.awaitApp]: 互いに等しくない」を参照)。
+     * ハングして待機しますが、ここではロックを取得しません。 [実行] をクリックすると、その時点でタスク リストの待機が開始されます。
      */
     suspend fun awaitApp(pkg: String, owner: String, timeoutMs: Long, free: suspend () -> Boolean): AppWait {
         val active = synchronized(this) { runs().map(keyOf).toSet() }
         return resources.awaitApp(pkg, owner, timeoutMs, { it in active }, free)
     }
 
-    /** 还在排队就移出队伍并返回 true(调用方记为已取消);已经开跑返回 false,由任务自己取消。 */
+    /** がまだキュー内にある場合は、キューから削除され、true が返されます (呼び出し元はキャンセル済みとして記録します)。実行が開始されている場合は false が返され、タスクはキャンセルします。 */
     @Synchronized
     fun cancelIfQueued(run: R): Boolean {
         if (queued.none { it === run }) return false
@@ -89,7 +89,7 @@ class TaskCenter<R : Any>(
         return queued.removeAll { it === run }
     }
 
-    /** 任务结束(或排队时被取消);返回因此从队里放出来、该开始跑的任务。 */
+    /** タスクは終了します (またはキュー中にキャンセルされます)。キューから解放され、実行を開始する必要があるタスクを返します。 */
     @Synchronized
     fun onEnded(run: R): List<R> {
         if (queued.removeAll { it === run }) return emptyList()
@@ -124,8 +124,8 @@ class TaskCenter<R : Any>(
     }
 
     /**
-     * 收尾边界收到、已经不能注入原 Run 的用户原话:这个对话此刻没有任务就返回 true(调用方当场开始);
-     * 还有就留下返回 false,等它收尾后由 [takeReady] 交出。查与留在同一把锁里,和 [onEnded] 不会错开。
+     * 終了境界が受信され、ユーザーの元の単語を元の実行に挿入できなくなります。現時点でタスクがない場合 (呼び出し元がその場で開始する)、このダイアログは true を返します。
+     * は残されて false を返し、完了後に [takeReady] に引き渡されます。チェックして同じロックに留まると、[onEnded] はずらされなくなります。
      */
     @Synchronized fun deferOrStart(threadId: String, text: String): Boolean {
         if (byConversation(threadId) == null) return true
@@ -133,7 +133,7 @@ class TaskCenter<R : Any>(
         return false
     }
 
-    /** 留下的话里,所在对话已经没有任务的那些(按到的先后),取走。 */
+    /** 会話の中でタスクがなくなった単語を削除します (クリックした順序で)。 */
     @Synchronized fun takeReady(): List<Pair<String, String>> {
         val ready = deferred.filter { (threadId, _) -> byConversation(threadId) == null }
         deferred.removeAll { (threadId, _) -> byConversation(threadId) == null }
@@ -141,5 +141,5 @@ class TaskCenter<R : Any>(
     }
 }
 
-/** 迁移期旧名称，现有调用方和测试仍可逐步转到 TaskCenter。 */
+/** 移行中の古い名前、既存の呼び出し元およびテストは引き続き TaskCenter に段階的に移動できます。 */
 typealias TaskRegistry<R> = TaskCenter<R>

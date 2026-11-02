@@ -50,7 +50,7 @@ class ScheduleTaskTest {
         assertEquals(86_400_000L, saved?.intervalMs)
     }
 
-    // 没有准时闹钟权限:照样存下,但结果里明说,模型据此告诉用户,不等到点才悄悄失败
+    // には時間厳守の目覚まし時計の許可がありません。これは通常どおり保存されますが、結果には、モデルがそれに応じてユーザーに通知することが明確に示されており、ポイントに到達するまで静かに失敗します。
     @Test fun missingExactAlarmPermissionIsReportedAtCreation() = runBlocking {
         var saved: TriggerDefinition? = null
         val tools = toolDispatcher(FakeScreen(), conversationId = "conversation", scheduleTrigger = { saved = it; Scheduled(false, userNotified = true) })
@@ -62,7 +62,7 @@ class ScheduleTaskTest {
         assertTrue(result.content["message"].toString().contains("alarms & reminders"))
         assertTrue(saved != null)
 
-        // 这次没发出提示(提示过了或通知被关):结果照实说
+        // 今回はプロンプトは発行されませんでした (プロンプトが通過したか、通知がオフになりました)。結果は true です。
         val silent = toolDispatcher(FakeScreen(), conversationId = "conversation", scheduleTrigger = { Scheduled(false) })
             .execute(Part.ToolCall("s", "schedule_task", """{"goal":"明天查天气","at":"2026-10-26T09:00:00+08:00"}"""), ActionPass())
         assertEquals(false, silent.content["userNotified"]?.toString()?.toBoolean())

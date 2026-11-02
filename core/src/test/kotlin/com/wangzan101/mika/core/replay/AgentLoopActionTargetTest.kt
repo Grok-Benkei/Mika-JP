@@ -27,7 +27,7 @@ class AgentLoopActionTargetTest {
         val m = FakeModel(
             reply(call("phone_observe")),
             reply(call("phone_tap", """{"ref":"@e1","snapshotId":"snap1"}""")),
-            com.wangzan101.mika.core.testing.answerReply("好了"),
+            com.wangzan101.mika.core.testing.answerReply("完了しました"),
         )
         val got = mutableListOf<RunEvent>()
         val sink = object : RunSink { override fun event(e: RunEvent) { got += e }; override fun media(mediaId: Int, png: ByteArray) {} }
@@ -40,7 +40,7 @@ class AgentLoopActionTargetTest {
         assertEquals("phone_tap", t.tool); assertEquals(2, t.step); assertTrue(t.effective)
         assertEquals(Selector("button", "搜索", "a:id/s", listOf(0, 0, 999, 100), 0, uniqueAtRecord = true), t.target)
         assertEquals("com.x", t.before.packageName)
-        // 和同一调用的工具结果按调用 id 配对
+        // と同じコールのツール結果はコール ID によってペアになります。
         val all = events(SpeedFlags(replay = true), ActionResult.Ok(changed = true))
         val at = all.filterIsInstance<RunEvent.ActionTarget>().single()
         assertTrue(at.callId != null)
@@ -59,7 +59,7 @@ class AgentLoopActionTargetTest {
         val m = FakeModel(
             reply(call("phone_observe")),
             reply(Part.ToolCall("b", "do_steps", """{"steps":[{"tool":"phone_tap","args":{"ref":"@e1","snapshotId":"p1"}},{"tool":"phone_back","args":{}},{"tool":"wait","args":{"seconds":0.2}}]}""")),
-            com.wangzan101.mika.core.testing.answerReply("好了"),
+            com.wangzan101.mika.core.testing.answerReply("完了しました"),
         )
         val got = mutableListOf<RunEvent>()
         val shots = mutableListOf<Int>()
@@ -74,7 +74,7 @@ class AgentLoopActionTargetTest {
         assertEquals(listOf("b.1", "b.2"), targets.map { it.callId })
         assertEquals("搜索", targets[0].target!!.name)
         assertFalse(targets.any { it.incomplete })
-        // 界面变了的子步各存一张画面(wait 没有屏幕),工具结果里带编号
+        // 変更されたインターフェイスの各サブステップは 1 つの画面を保存し (待機には画面がありません)、ツールの結果には番号が付けられます。
         val subResults = got.filterIsInstance<RunEvent.ToolResult>().filter { it.source == "batch" }
         assertEquals(2, subResults.count { it.screenshotId != null })
         assertTrue(shots.containsAll(subResults.mapNotNull { it.screenshotId }))

@@ -6,14 +6,14 @@ import android.os.Environment
 import android.provider.MediaStore
 import com.wangzan101.mika.R
 
-/** 作者的微信二维码(随 App 打包,换码只换 res/drawable-nodpi/wechat_qr.jpg)。 */
+/** 作成者の WeChat QR コード (アプリに同梱されており、コードを変更する場合は res/drawable-nodpi/wechat_qr.jpg のみを変更します)。 */
 object QrImage {
     val RES = R.drawable.wechat_qr
     private const val FILE_NAME = "Mika-author-wechat.jpg"
 
     /**
-     * 存进相册的 Pictures/Mika。经 MediaStore 写自己新建的图片不要存储权限(安卓 10 起如此,Mika 最低支持安卓 11)。
-     * 写完前标成待定,别的 App 看不到半张图;失败时删掉那一条。
+     * 写真/ミカをアルバムに保存しました。 MediaStore を通じて独自に新しく作成した画像を書き込むには、ストレージのアクセス許可は必要ありません (これは Android 10 以降に当てはまります。Mika は少なくとも Android 11 をサポートしています)。
+     * は、書き込み前に保留中としてマークされます。他のアプリでは画像の半分を見ることができません。失敗した場合は削除してください。
      */
     fun saveToPictures(context: Context): Boolean {
         val resolver = context.contentResolver

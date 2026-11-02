@@ -1,6 +1,6 @@
 package com.wangzan101.mika.core.uistate
 
-/** 一个键在协议里的写法;[androidKeyCode] 是没有 DevTools 时走原生按键用的键码。 */
+/** は、プロトコルでのキーの記述方法です。 [androidKeyCode] は、DevTools がない場合にネイティブ キーに使用されるキー コードです。 */
 data class CdpKey(val key: String, val code: String, val keyCode: Int, val text: String?, val androidKeyCode: Int)
 
 enum class KeyModifier(val bit: Int, val key: CdpKey, val androidMeta: Int) {
@@ -10,12 +10,12 @@ enum class KeyModifier(val bit: Int, val key: CdpKey, val androidMeta: Int) {
     Shift(8, CdpKey("Shift", "ShiftLeft", 16, null, 59), 0x01 or 0x40),
 }
 
-/** 组合键,如 Control+A:修饰键按 [modifiers] 的顺序按下、倒序抬起。 */
+/** キーの組み合わせ (Ctrl+A など): 変更キーは、[modifiers] の順序で押され、逆の順序で上げられます。 */
 data class KeyCombo(val modifiers: List<KeyModifier>, val key: CdpKey) {
     val bits: Int get() = modifiers.fold(0) { acc, m -> acc or m.bit }
     val androidMeta: Int get() = modifiers.fold(0) { acc, m -> acc or m.androidMeta }
 
-    /** 这次按键实际产生的字:带 Ctrl/Alt/Meta 时不出字(是快捷键),带 Shift 时字母大写。 */
+    /** このキーを押すと生成される実際の単語: Ctrl/Alt/Meta を使用すると単語は生成されず (ショートカット キーです)、Shift を使用すると文字が大文字になります。 */
     val text: String? get() = when {
         modifiers.any { it != KeyModifier.Shift } -> null
         KeyModifier.Shift in modifiers && key.text != null && key.text.length == 1 && key.text[0].isLetter() -> key.text.uppercase()
@@ -48,10 +48,10 @@ object CdpKeys {
         "alt" to KeyModifier.Alt, "option" to KeyModifier.Alt, "meta" to KeyModifier.Meta, "cmd" to KeyModifier.Meta, "command" to KeyModifier.Meta)
     private val BY_LOWER = NAMED.mapKeys { it.key.lowercase() }
 
-    /** 小键盘回车和回车同义。 */
+    /** 小型キーボード Enter と Enter は同義です。 */
     private const val ANDROID_NUMPAD_ENTER = 160
 
-    /** 键名(不分大小写):Enter、Tab、Escape、方向键、Home/End、翻页、Space、单个字母或数字。 */
+    /** キー名 (大文字と小文字は区別されません): Enter、Tab、Escape、方向キー、Home/End、ページ送り、スペース、単一の文字または数字。 Android キー コード */
     fun named(name: String): CdpKey? {
         val n = if (name == " ") name else name.trim().takeIf { it.isNotEmpty() } ?: return null
         if (n.length == 1) {
@@ -65,12 +65,12 @@ object CdpKeys {
         return BY_LOWER[(ALIASES[n.lowercase()] ?: n).lowercase()]
     }
 
-    /** press_key 的安卓键码对应的键;没有对应(不该交给网页的键)为 null。 */
+    /** press_key に対応するキー。対応するキー(Webページに与えてはいけないキー)がない場合はnullとなります。 */
     fun forAndroid(keyCode: Int): CdpKey? =
         if (keyCode == ANDROID_NUMPAD_ENTER) NAMED.getValue("Enter").copy(code = "NumpadEnter", androidKeyCode = ANDROID_NUMPAD_ENTER)
         else NAMED.values.firstOrNull { it.androidKeyCode == keyCode }
 
-    /** 「Control+A」「Shift+Tab」「Enter」;修饰键重复、没有主键、主键不认识时为 null。 */
+    /** "Control+A" "Shift+Tab" "Enter";修飾キーが繰り返されている場合、主キーがない場合、または主キーが認識されない場合は null になります。 */
     fun parseCombo(spec: String): KeyCombo? {
         val parts = spec.trim().split('+').map(String::trim)
         if (parts.isEmpty() || parts.any { it.isEmpty() }) return null

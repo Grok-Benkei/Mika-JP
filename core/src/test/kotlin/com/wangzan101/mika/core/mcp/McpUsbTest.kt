@@ -17,7 +17,7 @@ import org.junit.Test
 import java.net.Inet4Address
 import java.net.InetAddress
 
-/** 经 USB 的电脑连接:只绑回环、回环来的才认 USB 令牌、连接信息文件和电脑上跑的脚本。 */
+/** USB 経由のコンピューター接続: ループバックのみが接続され、USB トークン、接続情報ファイル、コンピューター上で実行されているスクリプトが認識されます。 */
 class McpUsbTest {
     private fun req(token: String?, from: String) = HttpRequest(
         "POST", "/mcp", token?.let { mapOf("authorization" to "Bearer $it") }.orEmpty(), ByteArray(0), InetAddress.getByName(from),
@@ -30,7 +30,7 @@ class McpUsbTest {
         assertTrue(a.address is Inet4Address)
         assertEquals("127.0.0.1", a.address.hostAddress)
         assertEquals(8765, a.port)
-        // 局域网那种绑所有网卡
+        // すべてのネットワーク カードをバインドする LAN
         assertTrue(RemoteHost.bindAddress(allowAllInterfaces = true, port = 8765).address.isAnyLocalAddress)
     }
 
@@ -47,7 +47,7 @@ class McpUsbTest {
         assertEquals(200, status(access.check(req(NET, "192.168.1.20"))))
         assertEquals(200, status(access.check(req(NET, "127.0.0.1"))))
         assertEquals(200, status(access.check(req(USB, "127.0.0.1"))))
-        // USB 关了:令牌当场作废
+        // USB がオフになっています: トークンはその場で無効になります
         val off = RemoteAccess({ NET }, loopbackToken = { null })
         assertEquals(401, status(off.check(req(USB, "127.0.0.1"))))
     }
@@ -77,7 +77,7 @@ class McpUsbTest {
         assertEquals(USB, o["token"]!!.jsonPrimitive.content)
         assertEquals("adb forward tcp:8765 tcp:8765", o["forward"]!!.jsonPrimitive.content)
         assertEquals("17", o["boot"]!!.jsonPrimitive.content)
-        // 脚本按 "boot": "<编号>" 认这次开机写的文件
+        // スクリプトが "boot": "<number>" を押して、この起動中に書き込まれたファイルを認識します
         assertTrue(Regex("\"boot\": *\"17\"").containsMatchIn(text))
     }
 

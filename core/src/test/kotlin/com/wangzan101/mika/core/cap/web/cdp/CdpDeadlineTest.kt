@@ -12,10 +12,10 @@ import java.io.OutputStream
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-/** 阻塞读写都有上限:对端不回、不读时到点关流,调用方不会一直卡住。 */
+/** 読み取りと書き込みのブロックには上限があります。ピアが応答または読み取りをしない場合、ストリームは特定の時点でシャットダウンされ、呼び出し側が永久にスタックすることはありません。 */
 class CdpDeadlineTest {
     /**
-     * 对端:回完握手(可选)之后什么都不发;[blockWrites] 时握手之后的写一直卡住。读写都只在 close 之后才返回(抛错)。
+     * ピア: ハンドシェイクを返した後は何も送信されません (オプション)。ハンドシェイク後の書き込みが [blockWrites] でスタックします。読み取りと書き込みは、閉じた後にのみ返されます (エラーがスローされます)。
      */
     private class StalledPeer(private val answerHandshake: Boolean, private val blockWrites: Boolean = false) : CdpStream {
         val closed = CountDownLatch(1)

@@ -3,23 +3,23 @@ package com.wangzan101.mika.core.tool
 import com.wangzan101.mika.core.model.ToolSpec
 
 /**
- * 工具分两层发给模型:一直都在的(核心的通用工具、不收的能力),和按能力分的几组(收着时只有入口工具,用短说明;
- * 第一次用到时展开成整组、换回全文,本任务里一直留着)。只在有屏幕的那几组展开时才提供的通用工具(接管、报障碍、回看画面、一次多步)
- * 算作 [SCREENS] 一组,任何一块屏展开它就展开。
+ * ツールは 2 つの層でモデルに送信されます。1 つは常に存在するもの (コアの共通ツール、収集されていない能力)、もう 1 つは能力によって分割されたグループ (入り口のツールのみ、収集時に短い説明付き) です。
+ * を初めて使用するときは、それをグループ全体に展開し、フルテキストに戻します。これはこのタスクに保持されます)。画面のあるグループが拡張された場合にのみ提供される一般ツール (引き継ぎ、障害の報告、画面の確認、一度に複数のステップ)
+ * は [SCREENS] のグループとしてカウントされます。画面が展開されている場合は、それも展開されます。
  *
- * 顺序固定:一直都在的 → [SCREENS] → 各能力的组(按登记的顺序)。展开一组只改从它那一组起的部分,
- * 前面的字节不变;请求前缀因展开最多失效一次。
+ * 固定順：常に存在→[SCREENS]→各能力のグループ（登録順）。グループを展開し、そのグループから始まる部分のみを変更し、
+ * の前のバイトは変更されません。リクエストプレフィックスは拡張により最大 1 回無効になります。
  */
 internal object ToolGroups {
-    /** 有屏幕的几组共用的那一组。 */
+    /** は、複数の画面グループで共有されるグループです。 */
     const val SCREENS = "screens"
 
-    /** 冻结下来的一个工具:全文定义、收着时的入口定义(不是入口为 null)、所属的组(一直都在为 null)。 */
+    /** 凍結されたツール: フルテキスト定義、閉じたときのエントリ定義 (エントリが null ではない)、およびそれが属するグループ (常に null)。 */
     class Slot(val full: ToolSpec, val entry: ToolSpec?, val group: String?)
 
     /**
-     * 此刻发给模型的工具:[expanded] 是已展开的组(含 [SCREENS]);[extra] 是循环自己另给、属于某一组的定义
-     * (一次多步属于 [SCREENS]),排在那一组的末尾,只在那一组展开时给。
+     * は、現時点でモデルに送信されるツールです。 [expanded] は、拡張されたグループ ([SCREENS] を含む) です。 [extra] はループ自体によって与えられる定義であり、特定のグループに属します
+     * (一度に複数のステップが [SCREENS] に属します)。そのグループの最後にランクされ、そのグループが展開された場合にのみ与えられます。
      */
     fun layout(slots: List<Slot>, expanded: Set<String>, extra: Map<String, List<ToolSpec>> = emptyMap()): List<ToolSpec> =
         order(slots).flatMap { g ->
@@ -28,6 +28,6 @@ internal object ToolGroups {
             else members.mapNotNull { it.entry }
         }
 
-    /** 各组的先后:一直都在的、[SCREENS]、再按能力第一次出现的顺序。 */
+    /** 各グループの順序: 以前から存在するグループ、[SCREENS]、その後に能力が最初に出現する順序。 */
     fun order(slots: List<Slot>): List<String?> = listOf(null, SCREENS) + slots.mapNotNull { it.group }.filter { it != SCREENS }.distinct()
 }

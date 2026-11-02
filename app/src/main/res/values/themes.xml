@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 主界面的窗口底色和界面令牌的页面底色一致,启动时不闪白;深色见 values-night -->
+    <!-- メイン インターフェイスのウィンドウの背景色は、インターフェイス トークンのページの背景色と一致します。起動時に白く点滅しません。暗い色については、values-night を参照してください。 -->
     <style name="Theme.Mika" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/mika_bg</item>
     </style>

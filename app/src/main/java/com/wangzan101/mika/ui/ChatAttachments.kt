@@ -81,7 +81,7 @@ import com.wangzan101.mika.ui.theme.MikaIcons
 import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 
-/** 对话页附件的说法。 */
+/** ダイアログページの添付ファイル。 */
 object AttachCopy {
     val ADD: String get() = tr(R.string.attach_add)
     val CLOSE: String get() = tr(R.string.attach_close)
@@ -105,11 +105,11 @@ object AttachCopy {
     fun overLimit(n: Int) = tr(R.string.attach_over_limit, AttachTray.LIMIT, n)
 }
 
-// ---------- 面板 ----------
+// ---------- パネル ----------
 
 /**
- * 「＋」点开的面板里那一份活:系统相机、照片选择器、文件选择器,照片权限(第一次打开时问一次),最近的照片。
- * 选中的交给 [onPicked](内容地址)或 [onToggle](最近的照片点一下,满了返回 false)。
+ * 「+」で開かれたパネル内のタスク: システム カメラ、写真セレクター、ファイル セレクター、写真のアクセス許可 (初めて開くときに一度尋ねられます)、最近の写真。
+ * は、選択した写真を [onPicked] (コンテンツ アドレス) または [onToggle] (最新の写真をクリックし、いっぱいの場合は false を返します) に渡します。
  */
 @Composable
 internal fun AttachPanelHost(
@@ -128,7 +128,7 @@ internal fun AttachPanelHost(
         access = RecentPhotos.access(context)
         refresh++
     }
-    // 回到 App 时(可能刚在系统设置里改过照片权限、刚拍了照)重新看一眼;面板刚打开那一次上面已经在读
+    // アプリに戻ったら (システム設定で写真の許可を変更したか、写真を撮ったばかりの可能性があります)、もう一度見てください。パネルは最初に開かれたときにすでに読み取られていました。
     var resumedOnce by remember { mutableStateOf(false) }
     LifecycleResumeEffect(Unit) {
         val now = RecentPhotos.access(context)
@@ -176,7 +176,7 @@ internal fun AttachPanelHost(
             val blocked = access == PhotoAccess.None && RecentPhotos.asked(context) && activity != null &&
                 RecentPhotos.permissions().none { ActivityCompat.shouldShowRequestPermissionRationale(activity, it) }
             RecentPhotos.markAsked(context)
-            // 用户选过「不再询问」:系统不会再弹窗,只能去 App 信息里开
+            // ユーザーが「次回から質問しない」を選択しました。システムはウィンドウを再度ポップアップ表示せず、アプリ情報でのみ開くことができます。
             if (blocked) context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)))
             else permissions.launch(RecentPhotos.permissions())
         },
@@ -185,8 +185,8 @@ internal fun AttachPanelHost(
 }
 
 /**
- * 面板:上面一排相机 / 相册 / 文件,下面四列最近的照片(点一下选上,右上角是序号;再点取消)。
- * 没给照片权限时下面是一句说明和「允许访问照片」;只给了部分照片时列出给了的那些,旁边能改范围。[recent] 为 null 时还在读。
+ * パネル: 上の行にはカメラ/アルバム/ファイルが表示され、下の 4 列には最近の写真が表示されます (クリックして選択します。右上隅はシリアル番号です。もう一度クリックしてキャンセルします)。
+ * 写真の許可が与えられていない場合、以下の説明と「写真へのアクセスを許可する」が表示されます。一部の写真のみが指定されている場合は、指定された写真がリストされ、その横で範囲を変更できます。 [recent] が null の場合でも読み取り中です。
  */
 @Composable
 internal fun AttachPanel(
@@ -266,7 +266,7 @@ private fun PanelLink(text: String, onClick: () -> Unit) {
     )
 }
 
-/** 最近的一张照片:方块缩略图;选中时蓝框、淡蓝罩、右上角蓝底序号,没选时右上角一个空心圈。 */
+/** の最新の写真: ボックスのサムネイル。選択すると右上隅に青色のフレーム、水色のカバー、青色の背景のシリアル番号が表示され、選択しない場合は右上隅に空の円が表示されます。 */
 @Composable
 private fun RecentCell(photo: PendingAttachment, order: Int?, onClick: () -> Unit) {
     val c = MikaTheme.colors
@@ -289,9 +289,9 @@ private fun RecentCell(photo: PendingAttachment, order: Int?, onClick: () -> Uni
     }
 }
 
-// ---------- 待发 ----------
+// ---------- 発送準備完了 ----------
 
-/** 输入框上方一排待发的附件:照片是方块缩略图,文件是小卡片(类型、名字、大小),右上角 × 去掉。 */
+/** 入力ボックスの上には、送信を待っている添付ファイルが並んでいます。写真はブロック サムネイル、ファイルは小さなカード (種類、名前、サイズ) で、右上隅の × が削除されています。 */
 @Composable
 internal fun PendingTray(items: List<PendingAttachment>, onRemove: (String) -> Unit, modifier: Modifier = Modifier) {
     val c = MikaTheme.colors
@@ -333,11 +333,11 @@ internal fun PendingTray(items: List<PendingAttachment>, onRemove: (String) -> U
     }
 }
 
-// ---------- 发出去的 ----------
+// ---------- 送信済み ----------
 
 /**
- * 用户消息里带的附件:照片排成格子(见 [PhotoGrid];1 张保持比例,2 张并排,3 张起三列),文件是卡片(类型、名字、大小);
- * 点照片或卡片交给 [onOpen](在 App 里的查看页打开)。最宽 [maxWidth]。
+ * ユーザー メッセージの添付ファイル: 写真はグリッドに配置されます ([PhotoGrid] を参照。1 枚の写真は比率を維持し、2 枚の写真は横に並べられ、3 枚の写真は 3 列に配置されます)、ファイルはカード (タイプ、名前、サイズ) です。
+ * は写真またはカードをクリックし、それを [onOpen] に渡します (アプリ内の閲覧ページで開きます)。最も広いのは [maxWidth] です。
  */
 @Composable
 internal fun SentAttachments(parsed: AttachmentMessage.Parsed, conversationId: String?, maxWidth: Dp, onOpen: (AttachmentMessage.Item) -> Unit) {
@@ -401,7 +401,7 @@ private fun SentFileCard(f: AttachmentMessage.Item, maxWidth: Dp, onClick: () ->
     }
 }
 
-/** 文件类型角标:按扩展名配色,上面写扩展名。 */
+/** ファイル タイプのコーナー マーク: 拡張子に応じた色、上に拡張子を書き込みます。 */
 @Composable
 private fun TypeBadge(name: String, modifier: Modifier, small: Boolean) {
     val shape = RoundedCornerShape(if (small) 5.dp else 7.dp)
@@ -418,7 +418,7 @@ private fun badgeColor(kind: FileBadge.Kind, c: MikaColors): Color = when (kind)
     FileBadge.Kind.Archive, FileBadge.Kind.Other -> NeutralBadge
 }
 
-/** 缩略图解到这么大(像素):面板格子、待发的小方块、单张大图。 */
+/** のサムネイルは、パネル グリッド、送信準備の整った小さな正方形、および 1 つの大きな画像と同じ大きさ (ピクセル) です。 */
 private const val RECENT_PX = 256
 private const val TRAY_PX = 180
 private const val SINGLE_PX = 640

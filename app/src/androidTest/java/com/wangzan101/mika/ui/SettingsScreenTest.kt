@@ -66,7 +66,7 @@ class SettingsScreenTest {
         }
     }
 
-    /** 页面是一整列滚动内容:先把这一行滚进视口再断言或点击。 */
+    /** ページはスクロール コンテンツの列全体です。最初にこの行をビューポートにスクロールしてから、アサートまたはクリックします。 */
     private fun scrollTo(text: String) {
         compose.awaitOne(text).performScrollTo()
         compose.waitForIdle()
@@ -77,8 +77,8 @@ class SettingsScreenTest {
         home()
         compose.onNodeWithText("一切就绪").assertIsDisplayed()
         compose.onNodeWithText("基本").assertIsDisplayed()
-        // 首页一屏放不下(多了「语言」一行后更长):每个值先滚进视口再看。
-        // 依次是模型、手机操作、通知、网站登录、操作路线、计算环境、关于
+        // ホームページは 1 つの画面に収まりません (「言語」行を追加すると長くなります): 表示する前に、各値をビューポートにスクロールする必要があります。
+        // の後には機種、携帯電話の操作、通知、Webサイトへのログイン、操作ルート、コンピューティング環境などが続きます。
         for (v in listOf("DeepSeek", "可用", "正常", "3 个", "8 条", "已就绪", "0.1.0")) {
             scrollTo(v)
             compose.onNodeWithText(v).assertIsDisplayed()
@@ -96,7 +96,7 @@ class SettingsScreenTest {
         assertEquals(listOf("models", "usage", "phone", "work", "capsule", "notifications", "memory", "web", "sandbox", "routes", "recovery", "dev", "about"), opened)
     }
 
-    /** 「Token 用量」写近 7 天的合计;一点没有时写「还没有」,还没统计出来时不显示这一行。 */
+    /** 「トークン使用量」には過去 7 日間の合計を書き込みます。何もない場合は、「まだ」と書きます。統計がまだ計算されていない場合、この行は表示されません。 */
     @Test
     fun usageRowShowsWeekTotal() {
         var tokens by mutableStateOf<Long?>(123_000)
@@ -114,14 +114,14 @@ class SettingsScreenTest {
         compose.onAllNodesWithText("Token 用量").assertCountEquals(0)
     }
 
-    /** 发布版不显示开发者选项。 */
+    /** リリース バージョンには開発者向けオプションが表示されません。 */
     @Test
     fun developerRowHiddenInRelease() {
         home(showDeveloper = false)
         compose.onAllNodesWithText("开发者选项").assertCountEquals(0)
     }
 
-    /** 有问题时状态卡变成提示,按钮把问题交给 onProblem。 */
+    /** 問題がある場合は、ステータス カードがプロンプトに変わり、ボタンによって問題が [問題] に渡されます。 */
     @Test
     fun statusCardTurnsIntoFixPrompt() {
         val clicked = mutableListOf<Problem>()
@@ -142,7 +142,7 @@ class SettingsScreenTest {
         compose.onNodeWithText("手机操作不可用").assertIsDisplayed()
         compose.onNodeWithText("未设置").assertIsDisplayed()
         compose.onNodeWithText("不支持").assertIsDisplayed()
-        // 安卓 12 以下手机操作不可用:不给恢复与修复
+        // Android 12 以下の携帯電話の操作は利用できません：リカバリおよび修理は提供されません
         compose.onAllNodesWithText("恢复与修复").assertCountEquals(0)
     }
 
@@ -166,7 +166,7 @@ class SettingsScreenTest {
         assertEquals(1, repaired)
     }
 
-    /** 手机操作页的「通知」一行显示总体状态,点它进通知页。 */
+    /** 携帯電話の操作ページの「通知」行には、全体的なステータスが表示されます。クリックすると通知ページに入ります。 */
     @Test
     fun phoneOpsNotificationRowOpensNotifications() {
         var opened = 0
@@ -181,7 +181,7 @@ class SettingsScreenTest {
         assertEquals(1, opened)
     }
 
-    /** 通知页:总开关允许、一个频道被调低、进度被关时,各行显示状态,点各行交给 onFix。 */
+    /** 通知ページ: マスター スイッチが有効になっている場合、チャンネルがオフになっている場合、または進行状況がオフになっている場合、各行にステータスが表示されます。各行をクリックして onFix に送信します。 */
     @Test
     fun notificationsPageShowsChannelsAndOpensThem() {
         val fixes = mutableListOf<Fix>()
@@ -202,7 +202,7 @@ class SettingsScreenTest {
         assertEquals(listOf(Fix.OpenAttentionChannel, Fix.OpenResultChannel, Fix.OpenProgressChannel), fixes)
     }
 
-    /** 总开关关着:给「去打开」,三个频道都显示已关闭。 */
+    /** メイン スイッチがオフになっています: 「オンにします」。3 つのチャンネルすべてが閉じているように表示されます。 */
     @Test
     fun notificationsPageWhenAppOff() {
         val fixes = mutableListOf<Fix>()
@@ -222,7 +222,7 @@ class SettingsScreenTest {
         assertEquals(1, unpaired)
     }
 
-    /** 并行开关打开、但设备不支持时:这一行灰掉,写明原因,不给加减。 */
+    /** 並列スイッチがオンになっているが、デバイスがそれをサポートしていない場合: この行はグレー表示され、理由が示され、加算または減算は行われません。 */
     @Test
     fun parallelDisabledShowsReason() {
         compose.setContent {
@@ -267,7 +267,7 @@ class SettingsScreenTest {
         compose.onAllNodesWithText("同时进行的任务").assertCountEquals(0)
     }
 
-    /** 「干活时」两项默认开着,用户可以关:点了开关回调新值。 */
+    /** 「作業中」の 2 つの項目はデフォルトでオンになっていますが、ユーザーはそれらをオフにすることができます。スイッチをクリックして新しい値をコールバックします。 */
     @Test
     fun duringWorkTogglesCanBeTurnedOff() {
         val changes = mutableListOf<String>()
@@ -283,7 +283,7 @@ class SettingsScreenTest {
         assertEquals(listOf("screen:false", "mute:false"), changes)
     }
 
-    /** 干活时 › 操作节奏:快、标准(默认)、像人三选一,点了回调新值。 */
+    /** 作業時 › 操作リズム: 速い、標準 (デフォルト)、人間らしい 3 つのうちの 1 つを選択し、クリックすると新しい値が呼び出されます。 */
     @Test
     fun operatingPaceIsOneChoiceOfThree() {
         val picked = mutableListOf<OperatingPace>()
@@ -298,7 +298,7 @@ class SettingsScreenTest {
         assertEquals(listOf(OperatingPace.HUMAN, OperatingPace.FAST), picked)
     }
 
-    /** 首页「悬浮胶囊」一行写着当前的选择。 */
+    /** 現在の選択内容はホームページの「サスペンションカプセル」の欄に記載されております。 */
     @Test
     fun capsuleRowShowsCurrentChoice() {
         compose.setContent {
@@ -307,7 +307,7 @@ class SettingsScreenTest {
         compose.awaitOne("一直显示").assertIsDisplayed()
     }
 
-    /** 悬浮胶囊子页三选一,选了回调新值;页脚说明用的是无障碍服务。 */
+    /** 3 つのフローティング カプセル サブページの 1 つを選択し、コールバックの新しい値を選択します。フッターは、アクセシビリティ サービスが使用されていることを示します。 */
     @Test
     fun capsulePageOffersThreeChoices() {
         var mode by mutableStateOf(CapsuleMode.DuringTasks)
@@ -315,14 +315,14 @@ class SettingsScreenTest {
         compose.setContent { CapsuleScreen(mode, onMode = { picked += it; mode = it }, onBack = {}) }
         compose.awaitOne("有任务时显示").assertIsDisplayed()
         compose.onNodeWithText("关闭").performScrollTo().assertIsDisplayed()
-        // 脚注在三个选项下面,矮屏或大字号时要滚一下才看得到
+        // 脚注は 3 つのオプションの下にあります。画面が短い場合、またはフォント サイズが大きい場合は、スクロールして表示する必要があります。
         compose.onNodeWithText("无障碍服务", substring = true).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("一直显示").performScrollTo().performClick()
         compose.onNodeWithText("关闭").performScrollTo().performClick()
         assertEquals(listOf(CapsuleMode.Always, CapsuleMode.Off), picked)
     }
 
-    /** 「全部清除」先问一句;确认后清空,条数变成 0、按钮消失;取消则不动。 */
+    /** 最初に「すべてクリア」してください。確認するとクリアされ、項目数が0になり、ボタンが消えます。キャンセルすると動きません。 */
     @Test
     fun clearRoutesAsksThenEmpties() {
         var routes by mutableStateOf(3)
@@ -341,7 +341,7 @@ class SettingsScreenTest {
         compose.onNodeWithText("全部清除").assertDoesNotExist()
     }
 
-    /** 开发者选项:八个开关分速度、实验两组,点一下打开对应那一项。 */
+    /** 開発者向けオプション: 8 つのスイッチは、速度と実験の 2 つのグループに分けられます。クリックすると対応する項目が開きます。 */
     @Test
     fun developerOptionsHasTwoGroupsAndToggles() {
         val changed = mutableListOf<SpeedFlags>()
@@ -362,7 +362,7 @@ class SettingsScreenTest {
         compose.onNodeWithText("长任务的摘要分条写").assertIsDisplayed()
     }
 
-    /** 「自主模式」在开发者选项最前面,默认关;点开关或整行都切换。 */
+    /** 「自律モード」は開発者向けオプションの先頭にあり、デフォルトではオフになっています。スイッチをクリックするか、行全体を切り替えます。 */
     @Test
     fun autonomousSwitchComesFirstAndToggles() {
         val toggled = mutableListOf<Boolean>()
@@ -377,7 +377,7 @@ class SettingsScreenTest {
         assertEquals(listOf(true, false), toggled)
     }
 
-    /** 「看图定位已验证」挪到开发者选项:有看图模型才出现,点了切换。 */
+    /** 「ビュー画像の位置が確認されました」が開発者向けオプションに移動されました。画像ビュー モデルが利用可能な場合にのみ表示されます。クリックして切り替えます。 */
     @Test
     fun groundingSwitchShowsOnlyWithVisionModel() {
         val toggled = mutableListOf<Boolean>()
@@ -449,7 +449,7 @@ class SettingsScreenTest {
         assertTrue(c.network == listOf(true))
     }
 
-    /** 已用空间:每个对话的工作区一行;有任务在跑的写明不能清、点不动;清理先确认,确认后才回调。 */
+    /** 使用スペース: 各会話のワークスペースに 1 行。実行中のタスクがある場合は、それらをクリアできない、またはクリックできないことを示してください。最初にクリアを確認し、確認後にコールバックする必要があります。 */
     @Test
     fun usageClearsAWorkspaceOnlyAfterConfirming() {
         val usage = com.wangzan101.mika.cap.sandbox.SandboxUsage(

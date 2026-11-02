@@ -1,1 +1,1 @@
-Search the skills: how-tos for kinds of tasks, built in or written for this user. You get up to 10 matches as {name, display, kind, description}; read one with skill_read.
+スキルを検索する。作業の種類ごとの進め方で、内蔵のものやこのユーザー用に書かれたもの。最大10件の {name, display, kind, description} が返る。skill_read で1件を読む。

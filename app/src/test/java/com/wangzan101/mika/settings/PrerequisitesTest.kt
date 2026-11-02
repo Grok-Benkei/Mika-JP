@@ -114,7 +114,7 @@ class PrerequisitesTest {
         )
     }
 
-    // 修复 1 M4:「需要你」提醒被用户或系统调低时提示,但不挡任务
+    // 修復 1 M4: ユーザーまたはシステムによって拒否された場合、「必要です」リマインダーが表示されますが、タスクはブロックされません。
     @Test
     fun attentionLoweredIsAWarning() {
         val c = Prerequisites.check(ready.copy(attentionLowered = true), hasMainModel = true)
@@ -122,7 +122,7 @@ class PrerequisitesTest {
         assertTrue(c.canStartTask)
     }
 
-    // 「需要你处理」和「任务结果」两个频道各种组合:一处判断,带上是哪个被调低
+    // 「Need Your Handling」と「Task Result」の 2 つのチャンネルをさまざまに組み合わせて 1 か所で判断し、どちらが断られたかを提示
     @Test
     fun loweredChannelCombinations() {
         fun problems(attention: Boolean, result: Boolean) =
@@ -134,7 +134,7 @@ class PrerequisitesTest {
         assertTrue(Prerequisites.check(ready.copy(resultLowered = true), hasMainModel = true).canStartTask)
     }
 
-    // 总开关关着时只报「通知未允许」,不重复提示频道
+    // メイン スイッチがオフの場合、「通知は許可されていません」と報告されるだけで、チャネルに繰り返しプロンプトが表示されません。
     @Test
     fun masterSwitchOffHidesChannelProblems() {
         val c = Prerequisites.check(
@@ -143,7 +143,7 @@ class PrerequisitesTest {
         assertEquals(listOf<Problem>(Problem.NotificationsOff), c.problems)
     }
 
-    // 网页、沙箱任务不需要内置助手:照样能开始,用到手机时才报 phone_unavailable;问题照样列出来提示
+    // Web ページとサンドボックス タスクには組み込みアシスタントは必要ありません。これらは引き続き開始でき、携帯電話を使用している場合にのみ、phone_unavailable を報告します。問題は引き続きリストされ、プロンプトが表示されます。
     @Test
     fun phoneHelperOnlyNeededForPhoneApps() {
         listOf(
@@ -155,7 +155,7 @@ class PrerequisitesTest {
             assertFalse(c.phoneReady)
             assertEquals(listOf<Problem>(Problem.PhoneHelper(s)), c.problems)
         }
-        // 安卓 12 以下只报系统太旧
+        // Android 12 以下では、システムが古すぎるとのみ報告されます
         assertEquals(
             listOf<Problem>(Problem.SystemTooOld),
             Prerequisites.check(ready.copy(sdkInt = 30, builtinShell = BuiltinShellStatus.NotPaired), hasMainModel = true).problems,

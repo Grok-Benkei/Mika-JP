@@ -3,80 +3,80 @@ package com.wangzan101.mika.core.shell
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * 内置助手(经本机「无线调试」以 shell 身份拉起的特权进程)此刻的状态。
- * 界面、设置页和任务入口都只看它;配对、连接、看门狗的实现各自把结果写成这几种之一。
+ * 組み込みアシスタント (ローカルの「ワイヤレス デバッグ」を通じてシェルとして起動される特権プロセス) の現在のステータス。
+ * インターフェイス、設定ページ、タスク エントリはそれのみを参照します。ペアリング、接続、およびウォッチドッグの実装はそれぞれ、これらのタイプのいずれかとして結果を書き込みます。
  */
 sealed interface BuiltinShellStatus {
-    /** 还没配对过(或解除了配对):要走一遍引导。 */
+    /** はペアリングされていません (またはペアリングが解除されています)。ブート プロセスを実行する必要があります。 */
     data object NotPaired : BuiltinShellStatus
 
-    /** 配对过,但无线调试关着:打开后会自动连上。 */
+    /** はペアリングされていますが、ワイヤレス デバッグがオフになっています。オンにすると自動的に接続されます。 */
     data object WirelessDebuggingOff : BuiltinShellStatus
 
-    /** 正在配对、连接或启动助手。 */
+    /** はアシスタントをペアリング、接続、または起動しています。 */
     data object Connecting : BuiltinShellStatus
 
     data object Running : BuiltinShellStatus
 
-    /** 出错了:[reason] 说明是哪一类,[fix] 是一键修复走哪条路。 */
+    /** エラー: [reason] それがどのカテゴリであるかを説明します。[fix] はワンクリック修復で、どのパスを使用する必要があります。 */
     data class Failed(val reason: BuiltinShellFailure, val fix: BuiltinShellFix = reason.defaultFix) : BuiltinShellStatus
 }
 
-/** 失败的类别。文案在界面层;这里只区分「用户该做什么」不同的情况。 */
+/** 失敗したカテゴリ。コピーライティングはインターフェースレベルで行われます。ここでは、「ユーザーが行うべきこと」のさまざまな状況のみが区別されます。 */
 enum class BuiltinShellFailure(val defaultFix: BuiltinShellFix, val duringPairing: Boolean) {
-    /** 配对码不对或已过期。 */
+    /** ペアリング コードが間違っているか、有効期限が切れています。 */
     WrongCode(BuiltinShellFix.RePair, duringPairing = true),
-    /** 配对窗口在填码前关掉了(找不到配对端口)。 */
+    /** コードを入力する前にペアリング ウィンドウが閉じられました (ペアリング ポートが見つかりませんでした)。 */
     PairingWindowClosed(BuiltinShellFix.RePair, duringPairing = true),
-    /** 没连 Wi-Fi:无线调试打不开或连不上。 */
+    /** は Wi-Fi に接続されていません: ワイヤレス デバッグをオンにできないか、接続できません。 */
     NoWifi(BuiltinShellFix.OpenWifi, duringPairing = false),
-    /** Mika 替用户打开无线调试,系统马上又关掉了:这个 Wi-Fi 还没被允许无线调试,要用户亲手打开一次并允许。 */
+    /** ミカはユーザーのワイヤレス デバッグをオンにしましたが、システムはすぐに再びオフにしました。この Wi-Fi はまだワイヤレス デバッグに許可されていないため、ユーザーはオンにして許可する必要があります。 */
     WifiNotAllowed(BuiltinShellFix.OpenWirelessDebugging, duringPairing = false),
-    /** 连不上本机的无线调试。 */
+    /** は本機の無線デバッグに接続できません。 */
     ConnectFailed(BuiltinShellFix.Retry, duringPairing = false),
-    /** 已配对的授权不认了(太久没用被系统撤销,或用户在系统里删了)。 */
+    /** ペアの承認が認識されません (長期間使用されなかった場合、またはユーザーがシステムで削除した場合にシステムによって取り消されました)。 */
     AuthorizationRevoked(BuiltinShellFix.RePair, duringPairing = false),
-    /** 配对用的钥匙存着却读不出来了:设备只认那一把,不能悄悄换,要重新配对(配对时才换新钥匙)。 */
+    /** ペアリングに使用されたキーは保存されていますが、読み取ることができません。デバイスはそのキーのみを認識し、静かに変更することはできません。再度ペアリングする必要があります（ペアリング時には新しいキーが必要です）。 */
     KeyUnreadable(BuiltinShellFix.RePair, duringPairing = false),
-    /** 连上了,助手却没能启动或交接。 */
+    /** は接続されていますが、アシスタントの起動またはハンドオーバーに失敗します。 */
     HelperStartFailed(BuiltinShellFix.Retry, duringPairing = false),
     /**
-     * 经 USB 启动命令起的助手停了(多半是手机重启过),又没配对过无线调试,Mika 自己起不来:
-     * 再运行一次启动命令。不往无线调试引:有的手机根本没有能用的无线调试。
+     * USB 起動コマンドによって起動されたアシスタントが停止しました (主に電話機が再起動されたため)、ワイヤレス デバッグ用にペアリングされていませんでした。ミカは自力で起き上がることができませんでした。
+     * 起動コマンドを再度実行します。ワイヤレス デバッグについては言及しない: 一部の携帯電話では、ワイヤレス デバッグがまったく利用できません。
      */
     UsbHelperStopped(BuiltinShellFix.RunUsbCommand, duringPairing = false),
     Unknown(BuiltinShellFix.Retry, duringPairing = false),
 }
 
 enum class BuiltinShellFix {
-    /** 用已配对的钥匙再连一次。 */
+    /** ペアリングしたキーで再度接続します。 */
     Retry,
-    /** 重新走配对那一步。 */
+    /** ペアリング手順を再度実行します。 */
     RePair,
-    /** 去系统的 Wi-Fi 设置。 */
+    /** システムの Wi-Fi 設定に移動します。 */
     OpenWifi,
-    /** 去开发者选项里亲手打开无线调试。 */
+    /** 開発者向けオプションに移動し、自分でワイヤレス デバッグをオンにします。 */
     OpenWirelessDebugging,
-    /** 再运行一次 USB 启动命令(界面给出命令和复制按钮)。 */
+    /** USB ブート コマンドを再度実行します (インターフェイスにコマンドとコピー ボタンが表示されます)。 */
     RunUsbCommand,
 }
 
 /**
- * 助手停了以后靠什么再起来,取决于它上次是怎么起的。停了时往哪儿引用户、成功页和设置页怎么说,都看它。
+ * アシスタントが停止後に再起動するために何を依存するかは、前回の起動方法によって異なります。すべては、停止時にユーザーをどこにリダイレクトするか、成功ページと設定ページについて何を言うかによって異なります。
  */
 enum class HelperRestart {
-    /** 还没设置过。 */
+    /** はまだ設定されていません。 */
     None,
-    /** 配对过无线调试:Mika 自己经它再起;手机重启后打开无线调试就行(能替用户打开时连这一步也不用)。 */
+    /** はワイヤレス デバッグとペアになっています。ミカは自分でもう一度試してみました。電話機の再起動後にワイヤレス デバッグをオンにするだけです (ユーザーに対してワイヤレス デバッグをオンにできる場合は、この手順も必要ありません)。 */
     Wireless,
     /**
-     * 只用 USB 启动命令起过、没配对过无线调试:Mika 自己起不来,停了(比如手机重启后)要再运行一次命令。
-     * 有的手机没有能用的无线调试,只能走这条路,所以这时不提示去打开无线调试。
+     * は USB 起動コマンドでのみ起動されており、ワイヤレス デバッグ用にペアリングされていません。Mika は単独で起動できず、停止した場合 (たとえば、電話機の再起動後)、コマンドを再度実行する必要があります。
+     * 一部の携帯電話ではワイヤレス デバッグが利用できず、このルートしか使用できないため、現時点ではワイヤレス デバッグを有効にするプロンプトは表示されません。
      */
     UsbCommand,
 }
 
-/** 找「使用配对码配对设备」窗口公布的配对端口(本机 mDNS)的结果。 */
+/** [ペアリング コードを使用してデバイスをペアリング] ウィンドウで公開されたペアリング ポート (ローカル mDNS) の結果を見つけます。 */
 sealed interface PairingDiscovery {
     data object Idle : PairingDiscovery
     data object Searching : PairingDiscovery
@@ -84,42 +84,42 @@ sealed interface PairingDiscovery {
 }
 
 /**
- * 内置助手对界面的接口。实现负责配对(mDNS 找端口、6 位码)、连接本机 adbd、拉起并看住助手;
- * 所有结果都通过 [status] 反映出来,动作本身不抛异常。
+ * インターフェイスへの組み込みアシスタント インターフェイス。ペアリング (mDNS ポート検索、6 桁のコード)、ローカル adbd への接続、アシスタントの起動と監視を担当します。
+ * のすべての結果は [status] を通じて反映され、アクション自体は例外をスローしません。
  */
 interface BuiltinShellControl {
     val status: StateFlow<BuiltinShellStatus>
     val pairingDiscovery: StateFlow<PairingDiscovery>
 
-    /** 配对过无线调试(Mika 能自己经它起助手、跑命令)。助手也可能是电脑经 USB 起的,所以在运行不等于配对过。 */
+    /** はワイヤレス デバッグとペアになっています (Mika はアシスタントを起動し、アシスタントを通じてコマンドを実行できます)。アシスタントは USB 経由でコンピュータに接続されている場合もあるため、アシスタントを実行してもペアリングされたわけではありません。 */
     val paired: Boolean get() = status.value != BuiltinShellStatus.NotPaired
 
-    /** 助手停了以后靠什么再起来(见 [HelperRestart])。 */
+    /** アシスタントが停止した後に再び起動するにはどうすればよいですか ([HelperRestart] を参照)。 */
     val restart: HelperRestart get() = when {
         status.value == BuiltinShellStatus.Failed(BuiltinShellFailure.UsbHelperStopped) -> HelperRestart.UsbCommand
         paired -> HelperRestart.Wireless
         else -> HelperRestart.None
     }
 
-    /** 开始找配对端口(用户正在去打开配对窗口)。重复调用无害:还在找就从这时起重新计时。 */
+    /** はペアリング ポートの検索を開始します (ユーザーはペアリング ウィンドウを開きます)。繰り返し呼び出しても問題はありません。まだ探している場合は、この時点からタイマーを再起動してください。 */
     fun startDiscovery()
     fun stopDiscovery()
 
-    /** 用 6 位配对码配对,成功后接着连接并启动助手。[port] 为空时用找到的配对端口。 */
+    /** は 6 桁のペアリング コードでペアリングされます。成功したら、接続してアシスタントを起動します。 [port] が空の場合、見つかったペアのポートが使用されます。 */
     suspend fun startPairing(code: String, port: Int? = null)
 
-    /** 用已配对的钥匙重新连接并启动助手。 */
+    /** ペアリングされたキーで再接続し、アシスタントを起動します。 */
     suspend fun retry()
 
-    /** 删除配对钥匙、停掉助手、撤销助手给 Mika 的授权;之后状态是 [BuiltinShellStatus.NotPaired]。 */
+    /** はペアリング キーを削除し、アシスタントを停止し、ミカに対するアシスタントの承認を取り消します。その後のステータスは [BuiltinShellStatus.NotPaired] です。 */
     suspend fun unpair()
 }
 
-/** 配对码:6 位数字。用户可能带空格、横线或全角数字,一并规范掉;不是 6 位数字就返回 null。 */
+/** ペアリングコード: 6 桁。ユーザーはスペース、ダッシュ、または全角の数字を含めることができますが、これらは正規化されます。数値が 6 桁でない場合は、null が返されます。 */
 object PairingCode {
     const val LENGTH = 6
 
-    /** 输入法可能打出的各种横线:半角、全角、连字号、短横、长横。 */
+    /** の入力方法では、半角、全角、ハイフン、短い横線、長い横線など、さまざまな横線を入力できます。 */
     private const val DASHES = "-－‐‑–—"
 
     fun normalize(input: String): String? {
@@ -129,6 +129,6 @@ object PairingCode {
         return digits.takeIf { it.length == LENGTH && it.all { c -> c in '0'..'9' } }
     }
 
-    /** 手动输入的端口:1–65535。 */
+    /** 手動で入力したポート: 1 ～ 65535。 */
     fun port(input: String): Int? = input.trim().toIntOrNull()?.takeIf { it in 1..65535 }
 }

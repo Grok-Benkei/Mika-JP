@@ -21,23 +21,23 @@ class EvalReportMetricsTest {
 
     @Test fun summaryHasARunMetricsSectionWithPerTaskRows() {
         val md = EvalReport.markdown("r1", "m", listOf(pair("t-a", a), pair("t-b", b), pair("t-none", null)), emptyList(), null)
-        assertTrue(md, "## 运行小结" in md)
-        assertTrue(md, "按运行记录算(2 题)" in md)
-        assertTrue(md, "| 用时中位数(秒) | 20 |" in md)
-        assertTrue(md, "| 第一次反馈中位数(秒) | 3 |" in md)
-        assertTrue(md, "| 平均和模型来回 | 6 |" in md)
-        // 40 秒里模型 20 秒、读 8 秒、操作 4 秒,其余 8 秒
-        assertTrue(md, "| 模型思考占比 | 50.0% |" in md)
-        assertTrue(md, "| 读屏占比 | 20.0% |" in md)
-        assertTrue(md, "| 操作占比 | 10.0% |" in md)
-        assertTrue(md, "| 其他(等待、重试)占比 | 20.0% |" in md)
+        assertTrue(md, "## 実行の要約" in md)
+        assertTrue(md, "実行記録から集計しました（2件）" in md)
+        assertTrue(md, "| 所要時間の中央値（秒） | 20 |" in md)
+        assertTrue(md, "| 最初の応答までの中央値（秒） | 3 |" in md)
+        assertTrue(md, "| モデルとの平均往復回数 | 6 |" in md)
+        // 40秒: モデルに20秒、読み取りに8秒、操作に4秒、残りの8秒
+        assertTrue(md, "| モデル処理時間の割合 | 50.0% |" in md)
+        assertTrue(md, "| 画面読み取り時間の割合 | 20.0% |" in md)
+        assertTrue(md, "| 操作時間の割合 | 10.0% |" in md)
+        assertTrue(md, "| その他（待機・再試行）の割合 | 20.0% |" in md)
         assertTrue(md, "| t-a | 10 | 2 | 4 | — | 5 | 2 | 1 | 2 | 3 / 2 | 1000 |" in md)
-        assertFalse(md, "| t-none |" in md.substringAfter("## 运行小结").substringBefore("## 按类计数"))
+        assertFalse(md, "| t-none |" in md.substringAfter("## 実行の要約").substringBefore("## 種類別の件数"))
     }
 
     @Test fun noRecordsNoSection() {
         val md = EvalReport.markdown("r1", "m", listOf(pair("t", null)), emptyList(), null)
-        assertFalse(md, "## 运行小结" in md)
+        assertFalse(md, "## 実行の要約" in md)
     }
 
     @Test fun metricsJsonListsEachTaskWithItsMetrics() {

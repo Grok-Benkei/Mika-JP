@@ -3,32 +3,32 @@ package com.wangzan101.mika.core.agent
 import com.wangzan101.mika.core.model.ChatModel
 import com.wangzan101.mika.core.tool.Verb
 
-/** 决定下一步用哪个模型时看的上一步情况。 */
+/** 次に使用するモデルを決定するときは、前のステップを参照してください。 */
 data class StepContext(
     val step: Int,
     val lastOk: Boolean,
     val lastHadGuard: Boolean,
-    /** 上一步之后画面变没变;读屏一类不报时为 null。 */
+    /** 前のステップの後、画面は変化しません。画面読み取りで時間が報告されない場合は、null になります。 */
     val lastChanged: Boolean?,
-    /** 回放交还、批量停止、核查退回、接管或追问恢复。 */
+    /** 再生復帰、一括停止、検証復帰、引き継ぎまたは質問回復。 */
     val lastWasRecovery: Boolean,
     val sameAppAsLast: Boolean,
-    /** 要发出的上下文里有截图;不看图的轻量模型不能接。 */
+    /** 送信されるコンテキスト内にスクリーンショットがあります。写真のない軽量モデルはお受けできません。 */
     val hasImages: Boolean = false,
 )
 
 /**
- * 实验开关 lightSteps 的分工:简单步给轻量模型,其余给主模型。
- * 轻量模型没配、不支持工具调用时恒用主模型。一步出了错误、守卫提示或画面没变,接下来 [TROUBLE_STEPS] 步强制主模型。
+ * 実験用スイッチ ライトステップ分業: 簡単なステップは軽量モデルに与えられ、残りはメイン モデルに与えられます。
+ * 軽量モデルが設定されておらず、ツール呼び出しをサポートしていない場合は、常にメイン モデルが使用されます。 1 つのステップでエラーが発生した場合、ガード プロンプトが表示されるか、画面が変化しない場合、次のステップ [TROUBLE_STEPS] はマスター モデルを強制します。
  */
 class ModelRouter(private val main: ChatModel, private val light: ChatModel?) {
     private var forcedMain = 0
     private var disabled = false
 
-    /** 轻量模型能不能接手机步;不能时 lightSteps 不生效。 */
+    /** 軽量モデルが携帯電話のステップを受信できるかどうか。そうしないと、lightSteps は有効になりません。 */
     val active: Boolean get() = !disabled && light != null && light.capabilities.toolCalls
 
-    /** 轻量模型出了重试也没用的错(Key、额度、模型名、请求不对):余下都用主模型。一个 router 只服务一次任务。 */
+    /** 軽量モデルにエラーがあり、再試行しても役に立ちません (キー、クォータ、モデル名、リクエストが間違っています)。残りはメイン モデルが使用されます。ルーターは 1 つのタスクのみを実行します。 */
     fun disable() { disabled = true }
 
     fun pick(ctx: StepContext): ChatModel {
@@ -42,29 +42,29 @@ class ModelRouter(private val main: ChatModel, private val light: ChatModel?) {
         return if (simple) l else main
     }
 
-    /** 出了状况(含轻量模型调用失败、回复被改派给主模型):之后 [TROUBLE_STEPS] 步用主模型。 */
+    /** で問題が発生しました (軽量モデルの呼び出しが失敗し、応答がメイン モデルにリダイレクトされたことを含む): その場合、[TROUBLE_STEPS] はメイン モデルを使用します。 */
     fun noteTrouble() { forcedMain = TROUBLE_STEPS }
 
     fun isLight(m: ChatModel): Boolean = light != null && m === light
 
     companion object {
         const val TROUBLE_STEPS = 2
-        /** 轻量模型给出这些调用(还有 do_steps)时不执行,这一步改问主模型:放弃、确认、接管、追问、沙箱命令都由主模型决定。 */
+        /** これらの呼び出し (および do_steps) は、軽量モデルが指定されている場合には実行されません。このステップはメイン モデルに変更されます。放棄、確認、引き継ぎ、チャレンジ、およびサンドボックス コマンドはすべてメイン モデルによって決定されます。 */
         private val MAIN_ONLY_VERBS = setOf(Verb.EndNotDone, Verb.RequestConfirmation, Verb.HandToUser, Verb.AskUser, Verb.HandleObstacle,
             Verb.PhoneRun, Verb.Collect, Verb.PhoneFind, Verb.PhoneDialog, Verb.PhoneGesture, Verb.PhoneCommand) +
-            // 沙箱里跑的是模型写的命令:只让主模型写
+            // サンドボックスはモデルによって書かれたコマンドを実行します: メイン モデルのみが書き込みを許可されます
             setOf(Verb.RunCommand, Verb.RunBundledScript, Verb.ReadFile, Verb.WriteFile, Verb.SearchFiles, Verb.ShareFile)
-        /** 只能由主模型给出的调用([name] 是工具名,[verb] 是它做的动作)。 */
+        /** はメイン モデルによってのみ呼び出すことができます ([name] はツール名、[verb] はツールが実行するアクションです)。 */
         fun mainOnly(name: String, verb: Verb?): Boolean = name == DO_STEPS_TOOL || verb in MAIN_ONLY_VERBS
 
-        /** 这些动作之后的一步算恢复(等过用户)。 */
+        /** これらのアクションの後の 1 ステップは、回復 (ユーザーの待機) とみなされます。 */
         internal val RECOVERY_VERBS = setOf(Verb.HandToUser, Verb.AskUser, Verb.RequestConfirmation)
-        /** 这些动作会换前台 App 或网页(打开网址、换标签);之后的一步不算同一个地方。 */
+        /** これらのアクションにより、フロントエンド アプリまたは Web ページが変更されます (URL を開いてタブを変更します)。後続のステップは同じ場所とはみなされません。 */
         internal val APP_SWITCH_VERBS = setOf(Verb.LaunchApp, Verb.OpenLink, Verb.ShareText, Verb.ShowAlarms, Verb.AddCalendarEvent, Verb.Navigate, Verb.Tabs)
     }
 }
 
-/** AgentLoop 用:记下每一步的情况,拼出下一步的 [StepContext]。 */
+/** AgentLoop の使用: 各ステップの状況を書き留め、次のステップ [StepContext] を詳しく説明します。 */
 internal class StepTrack {
     private var ok = true
     private var guard = false
@@ -77,8 +77,8 @@ internal class StepTrack {
     fun context(step: Int, hasImages: Boolean) =
         StepContext(step, ok, guard, changed, recovery, !switched && app != null && app == appBefore, hasImages)
 
-    /** [app] 为 null 表示这一步的结果没报前台 App,沿用之前的。 */
-    /** 刚从回放交还、批量停止这类状况里恢复:下一步按恢复步算。在 [after] 之后调用。 */
+    /** [app] は null です。これは、このステップの結果がフロントエンド アプリに報告されず、前の結果が使用されることを意味します。 */
+    /** は、再生復帰とバッチ停止の状況から回復しました。次のステップは、回復手順に従うことです。 [after] の後に呼び出されます。 */
     fun markRecovery() { recovery = true }
 
     fun after(verb: Verb?, ok: Boolean, guard: Boolean, changed: Boolean?, recovery: Boolean, app: String?) {

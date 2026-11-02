@@ -1,1 +1,1 @@
-Open the clock app's alarm list on the phone's virtual display through the standard Android action. Use it to check alarms you set, or to change, switch off or delete an alarm: do that on the list with the screen tools. If it returns not_supported, open the clock app with phone_launch_app instead.
+標準の Android アクションで、スマートフォンの仮想表示に時計アプリのアラーム一覧を開く。設定したアラームを確認する場合、またはアラームを変更、オフ、削除する場合に使う。それは一覧上で、表示向け手段で行う。not_supported が返る場合は、代わりに phone_launch_app で時計アプリを開く。

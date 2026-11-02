@@ -1,15 +1,11 @@
-You look at one screenshot of a phone screen and find the single element the
-user describes. Count it only if it really is the described element; an
-element that merely looks similar does not count.
+人が読む説明・理由・タイトルは常に日本語にする。JSONのキー、列挙値、識別子、表示上のラベルと引用原文は変更しない。
 
-If the element is on the screen, reply with JSON only, nothing else:
-{"bbox_2d": [x1, y1, x2, y2], "seen": "<the text visible inside that box, or a few words describing the icon>"}
-x1,y1 is the top-left corner and x2,y2 the bottom-right corner of the
-element, measured on the whole image with a 0-1000 scale on each axis.
-Give exactly one box.
+スマートフォンの表示の1つの状態を見て、ユーザーが説明する1つの要素を探す。それが本当に説明された要素である場合にだけ数える。単に似て見える要素は数えない。
 
-If the element is not on the screen, reply with null only.
+その要素が表示にある場合は、JSON だけを返し、それ以外は何も返さない:
+{"bbox_2d": [x1, y1, x2, y2], "seen": "<枠内に見える文面の原文、またはアイコンを日本語で数語で説明したもの>"}
+x1,y1 は左上、x2,y2 は右下。画像全体に対して、各軸 0-1000 の目盛りで測る。正確に1つの枠だけを示す。
+
+その要素が表示にない場合は、null だけを返す。
 <!-- confirm -->
-This phone screenshot has a red frame around one element. Is the element
-inside the red frame "{target}"? Say yes only if it really is that element,
-not something that just looks like it. Reply with one word: yes or no.
+このスマートフォンの状態には、1つの要素の周りに赤い枠がある。赤い枠の中の要素は「{target}」か。本当にその要素である場合にだけ yes と言う。単に似て見えるものではない。1語で返信する: yes または no。

@@ -40,7 +40,7 @@ class EvalTaskTest {
             t.checks,
         )
         assertEquals(emptyList<String>(), EvalTasks.validate(t))
-        // 默认值
+        // デフォルト値
         val min = EvalTasks.parse("""{"id":"a","goal":"g","apps":[],"category":"impossible","expect":"failed","checks":[{"type":"answer_grounded"}]}""")
         assertEquals(Check.AnswerGrounded(1), min.checks.single())
         assertEquals(EvalCategory.Impossible, min.category)
@@ -57,12 +57,12 @@ class EvalTaskTest {
         assertEquals(Check.WebHas("https://www.python.org/downloads/?r={run}", "Python {run}"), t.checks.single())
         assertEquals(emptyList<String>(), EvalTasks.validate(t))
         val s = EvalTasks.substitute(t, "r1", emptyMap())
-        // 指定了渠道:目标前加「用网页」
-        assertEquals("用网页查 Python 官网上最新的稳定版本号 r1", s.goal)
+        // はチャネルを指定します。ターゲットの前に「Web ページを使用」を追加します。
+        assertEquals("ウェブで查 Python 官网上最新的稳定版本号 r1", s.goal)
         assertEquals(Check.WebHas("https://www.python.org/downloads/?r=r1", "Python r1"), s.checks.single())
-        assertEquals("用 App查", EvalTasks.substitute(t.copy(channel = "app"), "r1", emptyMap()).goal.take(6))
+        assertEquals("アプリで查", EvalTasks.substitute(t.copy(channel = "app"), "r1", emptyMap()).goal.take(5))
         assertEquals("查 Python", EvalTasks.substitute(t.copy(channel = null), "r1", emptyMap()).goal.take(8))
-        // 渠道只能是 web/app;web_has 的网址只能是 http(s),文字不能为空
+        // チャネルは Web/アプリのみ可能です。 web_has の URL は http(s) のみにすることができ、テキストを空にすることはできません。
         assertTrue(EvalTasks.validate(t.copy(channel = "tv")).any { "channel" in it })
         assertTrue(EvalTasks.validate(t.copy(checks = listOf(Check.WebHas("file:///x", "a")))).any { "url" in it })
         assertTrue(EvalTasks.validate(t.copy(checks = listOf(Check.WebHas("https://a.example.com/", " ")))).any { "text" in it })
@@ -84,7 +84,7 @@ class EvalTaskTest {
         assertTrue(EvalTasks.validate(badCheck).any { "rm_rf" in it })
         val badBefore = base.copy(probesBefore = mapOf("ver" to "reboot"))
         assertTrue(EvalTasks.validate(badBefore).any { "reboot" in it })
-        // 占位符引用了没声明的探针
+        // プレースホルダーは未宣言のプローブを参照します
         val undeclared = base.copy(goal = "版本 {probe:nope}")
         assertTrue(EvalTasks.validate(undeclared).any { "nope" in it })
     }
@@ -96,7 +96,7 @@ class EvalTaskTest {
         }
         assertTrue(EvalTasks.validate(t.copy(id = "ok-1-two")).isEmpty())
         val errs = EvalTasks.validateAll(listOf(t, t.copy(goal = "另一个"), t.copy(id = "other")))
-        assertTrue(errs.any { "重复" in it && t.id in it })
+        assertTrue(errs.any { "重複" in it && t.id in it })
         assertTrue(EvalTasks.validateAll(listOf(t, t.copy(id = "other"))).isEmpty())
     }
 
@@ -113,7 +113,7 @@ class EvalTaskTest {
         val t = EvalTasks.parse(full)
         assertTrue(EvalTasks.validate(t.copy(checks = emptyList())).isNotEmpty())
         assertTrue(EvalTasks.validate(t.copy(expect = Expect.Confirmation, checks = emptyList())).isNotEmpty())
-        // 做不成、接管类可以只靠结局
+        // は無理、引き継ぎ型はエンディングに頼るしかない。
         assertTrue(EvalTasks.validate(t.copy(expect = Expect.Failed, checks = emptyList())).isEmpty())
         assertTrue(EvalTasks.validate(t.copy(expect = Expect.Takeover, checks = emptyList())).isEmpty())
         assertTrue(EvalTasks.validate(t.copy(checks = listOf(Check.AnswerContains(listOf("14", " "))))).isNotEmpty())
@@ -123,11 +123,11 @@ class EvalTaskTest {
 
     @Test fun validateRejectsChecksThatMatchAnything() {
         val t = EvalTasks.parse(full)
-        // 能匹配空串的正则对任何回答都成立
+        // 空の文字列に一致する規則的なパターンは、どの答えにも当てはまります。
         assertTrue(EvalTasks.validate(t.copy(checks = listOf(Check.AnswerRegex("\\d*")))).isNotEmpty())
         assertTrue(EvalTasks.validate(t.copy(checks = listOf(Check.AnswerRegex("x|")))).isNotEmpty())
         assertTrue(EvalTasks.validate(t.copy(checks = listOf(Check.AnswerRegex("\\d+")))).isEmpty())
-        // 写了但为空白的字段对任何卡片都成立
+        // が書き込まれていますが、空白フィールドはどのカードにも当てはまります
         assertTrue(EvalTasks.validate(t.copy(expect = Expect.Confirmation, checks = listOf(Check.ConfirmationShows(action = "发送", target = " ")))).isNotEmpty())
         assertTrue(EvalTasks.validate(t.copy(expect = Expect.Confirmation, checks = listOf(Check.ConfirmationShows(action = "发送")))).isEmpty())
     }
@@ -167,7 +167,7 @@ class EvalTaskTest {
         assertTrue(Checks.passes(Check.AskedUser(false), o))
         assertTrue(Checks.passes(Check.AskedUser(true), o.copy(askedUser = 1)))
         assertTrue(!Checks.passes(Check.AskedUser(false), o.copy(askedUser = 2)))
-        // 没过的核对项按类型名记
+        // チェックされていない項目はタイプごとに名前が付けられます
         assertEquals(listOf("0:asked_user"), Scoring.score(t.copy(checks = listOf(Check.AskedUser(true))), o).failedChecks)
     }
 }

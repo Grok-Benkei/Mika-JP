@@ -25,7 +25,7 @@
     <string name="web_takeover_login">Mika のブラウザでログインしてから、「完了」をタップしてください</string>
     <string name="web_takeover_waiting">Mika があなたを待っています: %1$s</string>
     <string name="web_reason_security">セキュリティ確認</string>
-    <!-- 任务结束后留在后台运行的那一页 -->
+    <!-- タスクが完了した後もページがバックグラウンドで実行されたままになります -->
     <string name="kept_notif_title">バックグラウンドで動作中のウェブページ</string>
     <string name="kept_row_detail">%1$s · あと %2$s で閉じます</string>
     <string name="kept_close">ページを閉じる</string>

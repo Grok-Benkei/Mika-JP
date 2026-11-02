@@ -32,8 +32,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * 浏览器页上「问 Mika」那一块的几种样子:平时的输入条 → 干活中的半屏面板(光边、步骤、停止)→ 你在页面上动手后收成小卡片、
- * 顶上一条「继续」;Mika 问你时面板自己打开。不跑任务,直接给状态。
+ * ブラウザ ページの「ミカに聞く」セクションは次のようになります: 通常の入力バー → 作業中の半画面パネル (ライト エッジ、ステップ、ストップ) → ページでの作業後に小さなカードを受け取ります。
+ * 一番上のメッセージは「続行」です。ミカが尋ねるとパネルが勝手に開きます。タスクを実行せず、ステータスを直接与えるだけです。
  */
 @RunWith(AndroidJUnit4::class)
 class PageAskTest {
@@ -67,7 +67,7 @@ class PageAskTest {
         compose.onNodeWithTag("page-ask-bar").assertIsDisplayed()
         compose.onNodeWithText(PageAskCopy.HINT).assertIsDisplayed()
 
-        // 用户问了:面板打开,Mika 在干活,四周亮光边,输入框右边是停止键
+        // ユーザーからの質問: パネルは開いており、ミカは作業中です。周囲に光があり、停止ボタンは入力ボックスの右側にあります。
         compose.runOnIdle {
             chat.show("conv-1", card(TaskState.Running(2, "", reason = "正在点「加入购物车」")), thread)
             chat.open = true
@@ -79,7 +79,7 @@ class PageAskTest {
         compose.onNodeWithText("好的，我先看一下这一页。").assertIsDisplayed()
         compose.onNodeWithTag("capsule-stop").assertIsDisplayed()
 
-        // 你在页面上动手:收成小卡片,顶上一条「继续」,不再亮光边
+        // ページ上で行います。小さなカードを集め、上部に「続行」を置き、エッジを点灯させなくなります。
         compose.runOnIdle { chat.show("conv-1", card(TaskState.Held(TaskGate.paused(TaskGate.USER_ON_PAGE))), thread) }
         compose.onNodeWithTag("page-card").assertIsDisplayed()
         compose.onNodeWithTag("page-paused-banner").assertIsDisplayed()
@@ -88,7 +88,7 @@ class PageAskTest {
         compose.onNodeWithTag("page-panel").assertDoesNotExist()
         compose.runOnIdle { assertEquals(PageAskMode.Card, chat.mode) }
 
-        // 点卡片展开回面板
+        // カードをクリックしてパネルに戻ります
         compose.onNodeWithTag("page-card").performClick()
         compose.onNodeWithTag("page-panel").assertIsDisplayed()
         compose.onNodeWithTag("page-panel-collapse").performClick()
@@ -103,7 +103,7 @@ class PageAskTest {
         compose.runOnIdle { chat.show("conv-1", card(TaskState.WaitingInput("要哪个颜色？", listOf("午夜黑", "云白"))), thread) }
         compose.onNodeWithTag("page-panel").assertIsDisplayed()
         compose.onNodeWithText("午夜黑").assertIsDisplayed()
-        // 结束了、收起来:回到输入条
+        // 終了、片付けます: 入力バーに戻ります
         compose.runOnIdle {
             chat.show("conv-1", card(TaskState.Succeeded("加好了")), thread)
             chat.open = false
@@ -111,7 +111,7 @@ class PageAskTest {
         compose.onNodeWithTag("page-ask-bar").assertIsDisplayed()
     }
 
-    /** 侧栏里从一页开始的对话:标题后面「网页」小标签,下面一行是网站;别的对话没有。 */
+    /** サイドバーの 1 ページから始まる会話: タイトルの後ろに小さなラベル「Web ページ」があり、下の行が Web サイトです。他に会話はありません。 */
     @Test
     fun drawerRowShowsTheWebTagAndSite() {
         compose.setContent {

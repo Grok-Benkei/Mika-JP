@@ -27,7 +27,7 @@ class SpeedFlagsTest {
     }
 
     @Test fun retiredKeyIgnored() {
-        // 阶梯式裁剪已转正,存着的旧设置照样读得出其余开关
+        // のステップカットが修正され、残りの古い設定でも他のスイッチを読み取ることができます
         assertEquals(SpeedFlags(replay = true), SpeedFlags.parse("cacheFriendlyPrune,replay"))
     }
 }

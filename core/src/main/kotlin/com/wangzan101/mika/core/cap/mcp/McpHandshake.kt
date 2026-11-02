@@ -20,7 +20,7 @@ internal class McpHandshakeInfo(
 
 /**
  * initialize → notifications/initialized → tools/list → resources/list、prompts/list。
- * 只给用 JSON-RPC 长连接的传输(旧版 SSE、stdio)共用;resources/prompts 是可选能力,自称支持却报错时降级为空。
+ * は、JSON-RPC ロング接続 (SSE および stdio の古いバージョン) を使用する送信でのみ共有されます。 resource/prompts はオプションの機能であり、サポートしていると主張しているにもかかわらず、エラーが報告されると空にダウングレードされます。
  */
 internal suspend fun mcpHandshake(
     requestedProtocol: String,
@@ -54,7 +54,7 @@ internal suspend fun mcpHandshake(
     return McpHandshakeInfo(negotiated, serverName, instructions, tools, resources, prompts)
 }
 
-/** tools/list 是必选能力,分页错误直接让连接失败。 */
+/** ツール/リストは必須の機能であり、ページング エラーは接続失敗の直接の原因となります。 */
 private suspend fun <T> mcPages(
     request: suspend (String, JsonObject) -> JsonObject,
     method: String,
@@ -76,7 +76,7 @@ private suspend fun <T> mcPages(
     return out
 }
 
-/** resources/prompts 可选:服务端自称支持却报错时返回空表,不影响工具连接。 */
+/** リソース/プロンプト オプション: サーバーがサポートしていると主張しながらエラーを報告すると、空のテーブルが返されます。これはツールの接続には影響しません。 */
 private suspend fun <T> optionalPages(
     request: suspend (String, JsonObject) -> JsonObject,
     method: String,

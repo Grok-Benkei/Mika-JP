@@ -17,85 +17,85 @@ import com.wangzan101.mika.core.trigger.ScheduleAdmin
 import com.wangzan101.mika.core.child.ChildRunHost
 import com.wangzan101.mika.core.run.RunSpec
 
-/** 本任务的配置(模型、技能、记忆、开关);能力各自的端口与开关在能力里。 */
+/** このタスクの構成 (モデル、スキル、メモリ、スイッチ)。アビリティのそれぞれのポートとスイッチはアビリティにあります。 */
 internal class ToolConfig(
     val visionEnabled: Boolean,
     val skills: GuideCatalog?,
     val recordFrames: Boolean,
     val vision: VisionService?,
     val inlineScreen: Boolean,
-    /** 元素优先:可读页面不把截图送给主模型,读不到时自动补图。 */
+    /** 要素の優先順位: 読み取り可能なページはスクリーンショットをメイン モデルに送信せず、読み取りできない場合は画像を自動的に追加します。 */
     val adaptiveVision: Boolean,
     val memory: MemoryStore?,
     val profile: ProfileStore?,
     val utterances: UserUtterances?,
     val conversationId: String?,
     val imageOps: ImageOps?,
-    /** 存下一个定时任务,并说明能不能准时(见 [Scheduled])。 */
+    /** は、スケジュールされたタスクを保存し、それが時間通りに実行できるかどうかを示します ([Scheduled] を参照)。 */
     val scheduleTrigger: ((TriggerDefinition) -> Scheduled)? = null,
     val scheduleAdmin: ScheduleAdmin? = null,
     val runSpec: RunSpec? = null,
     val childHost: ChildRunHost? = null,
-    /** 这个对话里用户发来的屏幕;没有时不提供 view_user_screen。 */
+    /** この会話でユーザーによって送信された画面。 view_user_screen がない場合、view_user_screen は提供されません。 */
     val userScreens: com.wangzan101.mika.core.userscreen.UserScreenSource? = null,
-    /** 用户的个人技能;给了(且有技能目录、用户本次说的话)才提供 skill_save。 */
+    /** ユーザーの個人的なスキル。 skill_save は、それが与えられた後にのみ提供されます (スキル カタログと今回ユーザーが言ったことも存在します)。 */
     val personalSkills: com.wangzan101.mika.core.skills.PersonalSkills? = null,
-    /** 改 Mika 自己设置的白名单入口;为空(用户没允许)时不提供 settings_list、settings_set。 */
+    /** は、Mika によって設定されたホワイトリスト エントリを変更します。空の場合 (ユーザーが許可していない場合)、settings_list と settings_set は提供されません。 */
     val selfConfig: com.wangzan101.mika.core.settings.SelfConfig? = null,
-    /** 存下的运行记录;给了、而这个对话之前有记过运行的轮次时提供 history_read。 */
+    /** 保存されたランニング記録。 History_read は、この会話が以前に実行中のラウンドを記録した場合に提供されます。 */
     val runRecords: com.wangzan101.mika.core.record.RunRecords? = null,
 )
 
 /**
- * 工具执行时共用的东西:配置、核查材料、能力放进来的东西([get]),以及跨工具的少量状态(被拒的付款申报、允许打开的链接……)。
- * 工具本身无状态,都从这里取。有界面的能力的读屏状态也是放进来的一份,由界面状态一侧取用。
+ * ツールの実行時に共有されるもの: 構成、検証マテリアル、機能によって入力されるもの ([get])、およびツール間の少量のステータス (拒否された支払い申告、許可されたリンクなど)。
+ * ツール自体には状態がなく、すべてがここから取得されます。インターフェース機能による画面読み取りステータスも入れてインターフェースステータス側からアクセスします。
  */
 internal class ToolContext(
     val config: ToolConfig,
     val evidence: EvidenceLog,
-    /** 本任务可能提供的全部工具的声明(页面脚本按动作找工具)。 */
+    /** このタスクによって提供されるすべてのツールのステートメント (ページ スクリプトはアクションによってツールを検索します)。 */
     val tools: ToolIndex,
-    /** 能跑技能脚本的能力;没有为 null。 */
+    /** スキル スクリプトを実行する機能。そうでない場合は null。 */
     val scripts: BundledScripts?,
     val shots: Shots,
 ) {
     private val parts = HashMap<CapabilityKey<*>, Any>()
 
-    /** 能力在任务开始时放进来的东西;没放为 null。 */
+    /** ミッションの開始時に機能が投入されるもの。入れない場合はnull。 */
     @Suppress("UNCHECKED_CAST")
     operator fun <T : Any> get(key: CapabilityKey<T>): T? = parts[key] as T?
 
     operator fun <T : Any> set(key: CapabilityKey<T>, value: T) { parts[key] = value }
 
-    /** 最近一次被拒的付款申报;接管付款时补上模型没写的商品和金额。 */
+    /** 拒否された最新の支払い申告。代金引き継ぎの際は、モデルに記載されていない商品と金額を補填してください。 */
     var refusedPay: ConfirmationRequest? = null
-    /** 本次任务有没有成功打开过 App;没有时核查器知道没有屏幕可对照。 */
+    /** このタスクでアプリは正常に開かれましたか?そうでない場合、チェッカーは比較する画面が存在しないことを認識します。 */
     var appOpened = false
-    /** 本次调用的编号;页面脚本里的动作按它编号。 */
+    /** この通話の番号。ページ スクリプト内のアクションには、この番号に従って番号が付けられます。 */
     var callId = ""
-    /** 自己不动界面的工具(页面脚本)里的动作经它回到执行入口;只读调用、测试里不给时里面的动作一律不做。 */
+    /** インターフェイスを移動しないツール (ページ スクリプト) 内のアクションは、インターフェイスを介して実行入口に返されます。読み取り専用の呼び出しまたはテストで指定されていない場合、その中のアクションは実行されません。 */
     var sub: SubActions? = null
-    /** 本次调用所在的轮次(循环的「第 N 步」)。 */
+    /** このコールが存在するラウンド (サイクルの「N 番目のステップ」)。 モデルへのリンクは、 */
     var currentStep: Int
         get() = shots.step
         set(v) { shots.step = v }
 
-    /** 参考资料里给过模型的链接;不带 action 的 open_link 只能开这些(uri 与包名都要一致)。 */
+    /** 参考資料に記載されています。アクションを行わない open_link はこれらのみを開くことができます (uri とパッケージ名は一貫している必要があります)。 */
     val allowedLinks = mutableSetOf<Pair<String, String?>>()
 
     private val saved = mutableListOf<Change>()
     val savedChanges: List<Change> get() = synchronized(saved) { saved.toList() }
     fun noteSaved(c: Change) = synchronized(saved) { saved += c }
 
-    /** 这次调用的工具会由分发器报实际效果(effect):「没变化」由效果来说,这里不另提示。 */
+    /** 今回というツールは販売元から実際の効果（効果）を「変化なし」と報告します。効果に関しては、これ以上のプロンプトはありません。 */
     var reportsEffect = false
 
-    /** 这次调用里能力为节奏有意停下的时间(见 [ToolExecution.waitMs]);能力在停下时往上加,分发器每次调用清零后交进结果。 */
+    /** この呼び出しの能力は、リズムが意図的に停止される時間です ([ToolExecution.waitMs] を参照)。停止すると能力が増加し、コールごとにディストリビュータがクリアされた後に結果が渡されます。 */
     var pacedWaitMs = 0L
 
-    /** 这次调用里停留时轻轻滚了几下页面(见 [com.wangzan101.mika.core.uistate.IdleScroll]);和 [pacedWaitMs] 一样每次调用清零,只进运行记录。 */
+    /** は、この通話中に数回ページをわずかにスクロールしました ([com.wangzan101.mika.core.uistate.IdleScroll] を参照)。 [pacedWaitMs] のように、呼び出すたびにクリアされ、走行記録のみが入力されます。 */
     var idleScrolls = 0
 }
 
-/** 模型写的申报字段截短到界面原样显示得下。 */
+/** モデルに記述された宣言フィールドは、インターフェイス上でそのまま表示できるように切り詰められています。 */
 internal fun capField(s: String): String = s.trim().let { if (it.length <= CONFIRM_FIELD_MAX) it else it.take(CONFIRM_FIELD_MAX - 1) + "…" }

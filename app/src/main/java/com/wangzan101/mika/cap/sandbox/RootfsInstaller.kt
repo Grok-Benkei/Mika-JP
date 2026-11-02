@@ -24,11 +24,11 @@ import java.nio.file.attribute.PosixFilePermissions
 import java.security.DigestInputStream
 import java.security.MessageDigest
 
-/** 随安装包自带的运行环境:assets 里的 tar.xz,版本与 SHA-256 由 tools/sandbox/build-runtime.py 生成。 */
+/** インストール パッケージに付属する実行環境: アセット内の tar.xz、バージョンおよび SHA-256 は tools/sandbox/build-runtime.py によって生成されます。 */
 class RuntimeBundle(
     val version: String,
     val sha256: String,
-    /** 解出的普通文件总字节数与条目数上限(防止坏包把空间灌满)。 */
+    /** デコードされた通常のファイルの総バイト数とエントリ数の上限 (不正なパケットがスペースを埋めるのを防ぐため)。 */
     val maxBytes: Long,
     val maxEntries: Int,
     val open: () -> InputStream,
@@ -41,7 +41,7 @@ class RuntimeBundle(
     }
 }
 
-/** 通知与设置页上显示的步骤名。 */
+/** [通知と設定] ページに表示されるステップ名。 */
 internal val InstallStep.label: String get() = when (this) {
     InstallStep.Check -> tr(R.string.install_check)
     InstallStep.Extract -> tr(R.string.install_extract)
@@ -51,11 +51,11 @@ internal val InstallStep.label: String get() = when (this) {
 }
 
 /**
- * 准备运行环境:检查 → 解出自带的根文件系统 → 配置 → 同步技能 → 完成。不联网。
- * 每步完成记进 [SandboxState],下次从记录那一步的下一步开始;失败时状态为 Broken(原因)并抛出。
- * 自带的版本变了(Mika 升级)就重新解包:解到新目录,校验通过后换上,工作区不动。
+ * 実行環境を準備します: チェック → 組み込みルート ファイル システムの抽出 → 構成 → 同期スキル → 完了。インターネットに接続されていません。
+ * 各ステップは [SandboxState] として記録され、次回はそのステップの記録の次のステップから開始されます。失敗すると、ステータスは Broken (理由) となりスローされます。
+ * 同梱物の版が変わったら（Mika のアップグレード）再展開する: 新しいディレクトリへ展開し、検証に通ったら差し替え、ワークスペースには触れない。
  *
- * 参数除 [dirs]、[state]、[bundle] 外是测试用的接缝,默认值即真机行为。
+ * [dirs]、[state]、[bundle] 以外のパラメータはテスト用の差し替え口で、既定値が実機の振る舞いそのもの。
  */
 class RootfsInstaller(
     private val dirs: SandboxDirs,
@@ -63,12 +63,12 @@ class RootfsInstaller(
     private val bundle: RuntimeBundle,
     private val abis: () -> List<String> = { Build.SUPPORTED_ABIS.toList() },
     private val freeBytes: () -> Long = { dirs.root.parentFile?.usableSpace ?: 0L },
-    /** 跑 `libmikarun.so --self-test`,返回(退出码, 输出)。 */
+    /** `libmikarun.so --self-test` を実行し、（終了コード, 出力）を返す。 */
     private val selfTest: suspend () -> Pair<Int, String> = { runSelfTest(dirs) },
-    /** 宿主上这个 /proc 文件能不能读;读不到的生成替身。 */
+    /** ホスト上でこの /proc ファイルが読めるかどうか; 読めないものは代替を生成する。 */
     private val procReadable: (String) -> Boolean = ::hostCanRead,
     private val prepareDev: (File) -> Unit = { ProotDevices.prepareRootfsDev(it, dirs.gate) },
-    /** 桥客户端脚本(装到 /usr/local/bin/mika);null = 安装包里没有,安装失败。 */
+    /** ブリッジ クライアント スクリプト (/usr/local/bin/mika にインストール); null = インストール パッケージに含まれていないため、インストールは失敗しました。 */
     private val clientScript: () -> ByteArray? = { null },
     private val dnsServers: () -> List<String> = { emptyList() },
     private val syncSkills: suspend () -> Unit = {},
@@ -76,7 +76,7 @@ class RootfsInstaller(
     private val fresh get() = File(dirs.root, "rootfs.new")
     private val old get() = File(dirs.root, "rootfs.old")
 
-    /** 和重置、技能同步、跑命令等一切写 `files/sandbox/` 的操作经 [SandboxTree] 互斥。 */
+    /** とリセット、スキル同期、コマンドの実行、および `files/sandbox/` に書き込まれるその他の操作は、[SandboxTree] を介して相互に排他的です。 */
     suspend fun install(onProgress: (InstallStep, Int) -> Unit) = dirs.tree.exclusive {
         withContext(Dispatchers.IO) {
             val upToDate = state.installedVersion == bundle.version
@@ -85,7 +85,7 @@ class RootfsInstaller(
                 return@withContext
             }
             var step = state.completedStep()?.let { done -> STEPS.getOrNull(STEPS.indexOf(done) + 1) } ?: InstallStep.Check
-            // 装好的是旧版本(Mika 升级了):从解包重来,旧的在新的解好之前照常留着
+            // は古いバージョンでインストールされています (Mika がアップグレードしました)。再度開梱し、新しいバージョンが開梱されるまで古いバージョンを保管しておきます。
             if (state.completedStep() == InstallStep.Done && !upToDate) step = InstallStep.Check
             try {
                 for (s in STEPS.drop(STEPS.indexOf(step))) {
@@ -106,11 +106,11 @@ class RootfsInstaller(
         }
     }
 
-    /** 删除整个 `files/sandbox/`(只读目录先改成可写,不跟随符号链接),回到未安装。 */
+    /** `files/sandbox/` 全体を削除し (シンボリック リンクをたどらずに、最初に読み取り専用ディレクトリを書き込み可能に変更します)、アンインストールされた状態に戻ります。 */
     suspend fun reset() = dirs.exclusiveWrite {
         state.resetting()
         try {
-            // 这些目录沙箱里的命令碰得到:按句柄删,不跟进中途换成的链接
+            // これらのディレクトリのサンドボックスでは、ハンドルによる削除、および途中で変更されたリンクをたどらないコマンドが発生する可能性があります。
             deleteReachable(dirs.root)
             deleteReachable(dirs.tmp)
         } finally {
@@ -118,7 +118,7 @@ class RootfsInstaller(
         }
     }
 
-    /** 删除所有对话的工作区。 */
+    /** すべての会話のワークスペースを削除します。 */
     suspend fun clearWorkspaces() = dirs.exclusiveWrite { deleteReachable(dirs.work) }
 
     private suspend fun run(s: InstallStep) {
@@ -132,8 +132,8 @@ class RootfsInstaller(
     }
 
     /**
-     * 解到 `rootfs.new`,边解边算整个文件的 SHA-256;对得上才换上(旧的先改名再删),对不上全删。
-     * 中途被杀:下次从解包重来,残留的 `rootfs.new` 先删掉。
+     * は `rootfs.new` に解決され、ファイル全体の SHA-256 は解決中に計算されます。一致する場合は置き換えます (古いものは最初に名前が変更されてから削除されます)。一致しない場合は完全に削除します。
+     * は途中で強制終了されました。次回は解凍からやり直して、最初に残っている `rootfs.new` を削除します。
      */
     private fun extractAndSwap() {
         RootfsExtractor.deleteTree(fresh)
@@ -141,11 +141,11 @@ class RootfsInstaller(
         val digest = MessageDigest.getInstance("SHA-256")
         try {
             DigestInputStream(BufferedInputStream(bundle.open(), 1 shl 16), digest).use { raw ->
-                // 解包器读完会关流;这里还要把剩下的读完算校验,所以不让它关到 raw
+                // アンパッカーはストリームを読み取った後、ストリームをオフにします。ここでは検証を計算するために残りを読み取る必要があるため、生のままにしないでください。
                 val keepOpen = object : FilterInputStream(raw) { override fun close() = Unit }
                 RootfsExtractor.extractTar(XZInputStream(keepOpen), fresh, maxBytes = bundle.maxBytes, maxEntries = bundle.maxEntries)
                 val buf = ByteArray(1 shl 16)
-                while (raw.read(buf) >= 0) Unit // xz 尾部没读到的字节也要算进校验
+                while (raw.read(buf) >= 0) Unit // xz 最後に読み取れなかったバイトもチェック対象となります。
             }
             val actual = digest.digest().joinToString("") { "%02x".format(it) }
             if (actual != bundle.sha256) throw IOException(tr(R.string.install_checksum))
@@ -163,7 +163,7 @@ class RootfsInstaller(
     private suspend fun check() {
         if ("arm64-v8a" !in abis()) throw IOException(tr(R.string.install_unsupported))
         val free = freeBytes()
-        // 升级时新旧两份同时在盘上
+        // アップグレードすると、古いコピーと新しいコピーの両方が同時にディスク上に存在します。
         val need = 2 * bundle.maxBytes
         if (free < need) throw IOException(tr(R.string.install_no_space, need shr 20, free / (1 shl 20)))
         val (code, out) = selfTest()
@@ -171,7 +171,7 @@ class RootfsInstaller(
         if (code != 0 || lines.firstOrNull() != "mikarun ok") {
             throw IOException(tr(R.string.install_cannot_start, lines.lastOrNull { it.isNotEmpty() } ?: tr(R.string.install_exit_code, code)))
         }
-        // 断网过滤器不可用不挡安装:联网关着时命令会被拒绝,这里只记下原因给设置页
+        // ネットワーク切断フィルターは使用できないため、インストールできません。ネットワークがオフになるとコマンドは拒否されます。ここでは、設定ページの理由のみを記録します。
         state.recordIsolation(lines.firstOrNull { it.startsWith("seccomp unavailable") }?.removePrefix("seccomp unavailable:")?.trim())
     }
 
@@ -184,7 +184,7 @@ class RootfsInstaller(
         writeProcStandIns()
     }
 
-    /** 根文件系统里的文件:经关口在同一目录写好新的再整份换上;原来那一项是链接(哪怕悬空)、硬链接都只是被换掉。 */
+    /** ルート ファイル システム内のファイル: ゲートウェイ経由で同じディレクトリに新しいファイルを書き込み、完全に置き換えます。リンクである元のアイテム (空のままでも) とハード リンクは単純に置き換えられます。 */
     private fun writeInRootfs(rel: String, text: String) = writeInRootfs(rel, text.toByteArray(), executable = false)
 
     private fun writeInRootfs(rel: String, bytes: ByteArray, executable: Boolean) {
@@ -195,13 +195,13 @@ class RootfsInstaller(
         }
     }
 
-    /** 删掉 [dir] 整棵树(它的上一层是 Mika 自己的目录);经关口按句柄逐层走。 */
+    /** は、[dir] のツリー全体を削除します (その上位レベルは、Mika 自身のディレクトリです)。ハンドルに従ってチェックポイントを通過し、レイヤーごとに進みます。 */
     private fun deleteReachable(dir: File) {
         val parent = dir.parentFile ?: return
         dirs.gate.deleteTree(parent, dir.name)
     }
 
-    /** 安卓不让普通 App 读的 /proc 文件,生成格式正确的静态替身,运行时绑过去。 */
+    /** Android では、通常のアプリが /proc ファイルを読み取ることを許可せず、正しい形式で静的アバターを生成し、実行時にバインドします。 */
     private fun writeProcStandIns() {
         RootfsExtractor.deleteTree(dirs.procStandIns)
         dirs.procStandIns.mkdirs()
@@ -216,7 +216,7 @@ class RootfsInstaller(
             InstallStep.Check to 0, InstallStep.Extract to 5, InstallStep.Configure to 90, InstallStep.Skills to 95, InstallStep.Done to 100,
         )
 
-        /** 真机用的安装器:自带的运行环境、assets 里的桥客户端、当前网络的 DNS。 */
+        /** 実機のインストーラー: 組み込みのオペレーティング環境、資産内のブリッジ クライアント、および現在のネットワークの DNS。 */
         fun create(context: Context): RootfsInstaller {
             val app = context.applicationContext
             val dirs = SandboxDirs(app)

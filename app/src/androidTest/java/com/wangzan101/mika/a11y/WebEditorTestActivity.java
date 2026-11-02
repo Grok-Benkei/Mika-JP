@@ -9,9 +9,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 /**
- * 网页里的富文本编辑区(contenteditable),很多 App 的笔记、评论框是这样做的。
- * 编辑器只认浏览器的 input 事件:上方文字显示收到的 input 事件次数和当前内容,测试据此判断编辑器是否真的收到了输入。
- * 测试 APK 单独运行在自己的进程里、不带 Kotlin 标准库,所以这个页面用 Java 写。
+ * Web ページのリッチ テキスト編集領域 (コンテンツ編集可能) は、多くのアプリのメモ ボックスやコメント ボックスにあるようになります。
+ * エディターはブラウザーの入力イベントのみを認識します。上記のテキストには、受信した入力イベントの数と現在の内容が表示されます。テストではこれを使用して、編集者が本当に入力を受信したかどうかを判断します。
+ * テスト APK は、Kotlin 標準ライブラリを使用せずに独自のプロセスで実行されるため、このページは Java で書かれています。
  */
 public class WebEditorTestActivity extends Activity {
     private TextView status;

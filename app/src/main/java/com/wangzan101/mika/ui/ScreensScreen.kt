@@ -60,9 +60,9 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.withContext
 
 /**
- * 这一页列的一个任务和它的虚拟屏:[displayId] 为 -1 是还没建屏(排队中,或者纯对话、还没打开过 App)。
- * [foreground] 是那块屏最上面那个 App 的显示名;还没查到、或手机操作没连着时为 null。[web] 为 true 时在用内置浏览器。
- * 屏号只用来排序和取画面,不给用户看。
+ * タスクとその仮想画面がこのページにリストされます。 [displayId] は -1 で、画面がまだ作成されていないことを意味します (キューイング、純粋なダイアログ、またはアプリが開かれていない)。
+ * [foreground] は、画面上部のアプリの表示名です。見つからない場合、または携帯電話操作が接続されていない場合は null になります。 [web] が true の場合、組み込みブラウザが使用されます。
+ * の画面番号は、並べ替えと写真の撮影にのみ使用され、ユーザーには表示されません。
  */
 data class ScreenRow(
     val key: String,
@@ -72,20 +72,20 @@ data class ScreenRow(
     val state: TaskState,
     val foreground: String? = null,
     val web: Boolean = false,
-    /** 这个任务到此刻做过几件事;变了就重查一次最上面的 App。 */
+    /** このタスクはこれまでにいくつかのことを実行しました。変更されている場合は、一番上のアプリを再確認してください。 */
     val acted: Int = 0,
 )
 
-/** 列表的顺序:建了屏的在前(按建屏先后),还没建屏的排在后面(保持原来的先后)。 */
+/** リストの順序: 画面が構築されているものは前 (画面の作成順序に従って)、まだ構築されていないものは後ろ (元の順序を維持)。 */
 fun orderedScreens(rows: List<ScreenRow>): List<ScreenRow> =
     rows.filter { it.displayId >= 0 }.sortedBy { it.displayId } + rows.filter { it.displayId < 0 }
 
 /**
- * 侧栏「进行中」旁边进来的「后台屏」页:每个在跑的任务一张卡,写它在做什么、正在用哪个 App、状态,能展开看实时画面。
- * 只读——停任务、回对话还是在对话页和胶囊里做;点卡片回到任务所在的对话。
+ * サイドバーの「進行中」の隣にある「バックステージ画面」ページ: 実行中の各タスクのカード。何をしているのか、どのアプリを使用しているのか、そのステータスを書きます。展開するとリアルタイム画面が表示されます。
+ * 読み取り専用 - タスクを停止するか、ダイアログに戻るか、ダイアログ ページとカプセルでタスクを実行します。カードをクリックすると、タスクが存在するダイアログに戻ります。
  *
- * 数据取自各任务自己的流(状态、屏、画面、做过的事),不是服务对外的「显示中的任务」那一份:
- * 并行时没在显示的那几块屏照样是实的。最上面的 App 只在任务又做了一件事时重查,不轮询。
+ * データは、外部にサービスを提供する「表示されたタスク」ではなく、各タスク独自のストリーム (ステータス、画面、画面、および完了した内容) から取得されます。
+ * 並列表示されていない画面も実際の画面です。最上位のアプリは、タスクが別のことを行うときにポーリングせずに再チェックするだけです。
  */
 @Composable
 fun ScreensScreen(taskState: TaskCenterState, onBack: () -> Unit, onOpenConversation: (String) -> Unit) {
@@ -98,7 +98,7 @@ fun ScreensScreen(taskState: TaskCenterState, onBack: () -> Unit, onOpenConversa
             rows = emptyList()
             return@LaunchedEffect
         }
-        // 每个任务的状态、屏、浏览器、做过的事各有自己的流:合起来,哪一个变了都跟着重排
+        // 各タスクのステータス、画面、ブラウザ、および実行された内容には独自のストリームがあり、すべての変更がまとめて再配置されます。
         combine(list.map { run ->
             combine(run.state, run.displayId, run.webOpen, run.activities) { s, id, web, acts ->
                 ScreenRow(run.key, run.conversationId, run.goal, id, s, web = web, acted = acts.size)
@@ -106,7 +106,7 @@ fun ScreensScreen(taskState: TaskCenterState, onBack: () -> Unit, onOpenConversa
         }) { it.toList() }.collect { rows = it }
     }
 
-    // 有屏的任务和它们做过几件事:任何一个又做了一件事,才重问一次各块屏最上面的 App
+    // 画面タスクと、それらが実行した処理の数があります。それらのいずれかが別の処理を実行すると、各画面の一番上のアプリが再度尋ねられます。
     val probe = remember(rows) { rows.filter { it.displayId >= 0 }.map { it.displayId to it.acted } }
     var foreground by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
     LaunchedEffect(probe) { foreground = foregroundOf(context, probe.map { it.first }) }
@@ -120,8 +120,8 @@ fun ScreensScreen(taskState: TaskCenterState, onBack: () -> Unit, onOpenConversa
 }
 
 /**
- * 不带状态的那一页,便于测试:[rows] 已经排好序、已经填好最上面的 App。
- * [frames] 按任务编号给出那块屏的画面;给了才在展开时订阅。
+ * ステータスのないページはテストに便利です。[rows] が並べ替えられ、トップのアプリが入力されています。
+ * [frames] タスク番号に従ってその画面の画像を表示します。展開するとサブスクライブされます。
  */
 @Composable
 fun ScreensContent(
@@ -140,7 +140,7 @@ fun ScreensContent(
     }
 }
 
-/** 一个任务:在做什么、正在用哪个 App、状态;点这一行回到它的对话,点「看画面」展开实时画面。 */
+/** タスク: 何をしているのか、どのアプリを使用しているのか、ステータス。この行をクリックするとダイアログに戻り、「画面表示」をクリックするとリアルタイム画面が展開されます。 */
 @Composable
 private fun ScreenCard(row: ScreenRow, frames: StateFlow<Bitmap?>?, onOpenConversation: (String) -> Unit) {
     val c = MikaTheme.colors
@@ -163,8 +163,8 @@ private fun ScreenCard(row: ScreenRow, frames: StateFlow<Bitmap?>?, onOpenConver
 }
 
 /**
- * 这块屏的实时画面:每秒最多 5 张,和上一张一样就不换(见 [previewFrames])。收起时不订阅。
- * 点一下放大到整屏,可以捏合缩放、拖动——字小的界面在这一小块里看不清。
+ * この画面のリアルタイム画像: 前の画像と同じ、1 秒あたり最大 5 枚の画像 ([previewFrames] を参照)。購読せずに折りたたむ。
+ * クリックすると全画面に拡大でき、ピンチしてズームしたりドラッグしたりできます。この小さな領域では、小さなフォントを使用したインターフェイスははっきりと見えません。
  */
 @Composable
 private fun LiveFrame(source: StateFlow<Bitmap?>) {
@@ -182,7 +182,7 @@ private fun LiveFrame(source: StateFlow<Bitmap?>) {
     if (zoom) FrameZoom(bmp) { zoom = false }
 }
 
-/** 放大的那块屏:整屏、捏合缩放(1–6 倍)、拖动看边角;点外面或按返回关掉。 */
+/** 拡大された画面: 画面全体、ピンチしてズーム (1 ～ 6 回)、ドラッグして隅を見ます。外側をクリックするか、Return キーを押して閉じます。 */
 @Composable
 private fun FrameZoom(frame: Bitmap, onDismiss: () -> Unit) {
     var scale by remember { mutableFloatStateOf(1f) }
@@ -207,7 +207,7 @@ private fun FrameZoom(frame: Bitmap, onDismiss: () -> Unit) {
     }
 }
 
-/** 问内置助手每块屏最上面是哪个 App,再换成显示名。助手没连着就都不查(这只影响前景那一行)。 */
+/** 内蔵アシスタントに各画面の上部にあるアプリを尋ね、それを表示名に変更します。アシスタントは、接続されていないことを確認しません (これは前景行にのみ影響します)。 */
 private suspend fun foregroundOf(context: Context, ids: List<Int>): Map<Int, String> {
     if (ids.isEmpty()) return emptyMap()
     val hub = runCatching { PhoneServices.of(context).hub }.getOrNull() ?: return emptyMap()
@@ -223,10 +223,10 @@ private suspend fun foregroundOf(context: Context, ids: List<Int>): Map<Int, Str
     }
 }
 
-/** 目标在列表里只占一行:换行和连续空白并成一个空格。 */
+/** ターゲットはリスト内の 1 行のみを占めます。改行と連続したスペースは 1 つのスペースに結合されます。 */
 private fun String.oneLine(): String = replace(Regex("\\s+"), " ").trim()
 
-/** 页面上的全部文字:不写屏号、像素、密度这些开发用的东西,只说任务在做什么、在用什么、到哪一步了。 */
+/** ページのすべてのテキスト: 開発については、画面番号、ピクセル、密度などのことは書かず、タスクが何を実行しているか、何を使用しているか、どの段階に到達したかについてのみ話してください。 */
 object ScreensCopy {
     val TITLE: String get() = tr(R.string.screens_title)
     val EMPTY: String get() = tr(R.string.screens_empty)
@@ -234,7 +234,7 @@ object ScreensCopy {
     val PREVIEW: String get() = tr(R.string.screens_preview)
     val HIDE_PREVIEW: String get() = tr(R.string.screens_hide_preview)
 
-    /** 卡片第二行:正在用哪个 App(或浏览器);还没打开 App、或暂时看不到时各有一句。 */
+    /** カードの 2 行目: どのアプリ (またはブラウザ) が使用されていますか?開いていない場合や一時的に見れない場合はアプリごとに一文あります。 */
     fun place(row: ScreenRow): String = when {
         row.web -> tr(R.string.screens_using_browser)
         row.displayId < 0 -> tr(R.string.screens_no_app)
@@ -245,7 +245,7 @@ object ScreensCopy {
     fun state(state: TaskState): String = when (state) {
         TaskState.Idle -> tr(R.string.screens_waiting)
         is TaskState.Running -> tr(R.string.task_running)
-        // 只是等条件(锁屏、助手重连)的不算要你处理;要你在手机上动一下手的才算
+        // 状況 (ロック画面、アシスタントの再接続) を待つだけでは、それに対処する必要はありません。電話機の上で手を動かす必要があります。
         is TaskState.Held -> if (state.reason.needsYou) tr(R.string.screens_needs_you) else tr(R.string.screens_waiting)
         is TaskState.WaitingTakeover, is TaskState.WaitingInput, is TaskState.WaitingConfirmation -> tr(R.string.screens_needs_you)
         is TaskState.Succeeded -> tr(R.string.task_done)

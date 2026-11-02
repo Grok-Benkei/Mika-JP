@@ -3,8 +3,8 @@ package com.wangzan101.mika.cap.phone.display
 import kotlin.math.abs
 
 /**
- * 画面粗判,只用像素读取函数,不依赖安卓类(可在 JVM 上测)。
- * [pixel] 返回 (x, y) 处的 ARGB 颜色值。
+ * の大まかな画面判定は、ピクセル読み取り機能のみを使用し、Android クラスに依存しません (JVM 上でテストできます)。
+ * [pixel] (x, y) の ARGB カラー値を返します。
  */
 object FrameMath {
     const val GRID_W = 12
@@ -16,7 +16,7 @@ object FrameMath {
     private const val BLACK_SAMPLES = 24
     private const val BLACK_LEVEL = 8
 
-    /** 把画面切成 [GRID_W]×[GRID_H] 格,每格取 4×4 个点的平均亮度。 */
+    /** 画面を [GRID_W]×[GRID_H] のグリッドに切り、各グリッドの 4×4 ポイントの平均輝度を取得します。 */
     fun lumaGrid(width: Int, height: Int, pixel: (Int, Int) -> Int): IntArray {
         val out = IntArray(GRID_W * GRID_H)
         val cw = width / GRID_W
@@ -32,19 +32,19 @@ object FrameMath {
         return out
     }
 
-    /** 有足够多的格子明显变亮或变暗才算画面变了,光标闪烁这类小变化不算。 */
+    /** 十分なグリッドが明らかに明るくなったり暗くなったりした場合にのみ、画像が変化します。カーソルの点滅などの小さな変化はカウントされません。 */
     fun differs(a: IntArray?, b: IntArray?): Boolean {
         if (a == null || b == null || a.size != b.size) return false
         return a.indices.count { abs(a[it] - b[it]) > CELL_DELTA } >= MIN_CELLS
     }
 
-    /** 至少 [PAGE_SHARE] 的格子变了:换了一整页(或整屏在动),不是头像动图、光标、进度圈这类局部变化。 */
+    /** 少なくとも [PAGE_SHARE] のグリッドが変更されました。アバター アニメーション、カーソル、プログレス サークルなどの局所的な変更ではなく、ページ全体が変更されました (または画面全体が移動します)。 */
     fun pageChanged(a: IntArray?, b: IntArray?): Boolean {
         if (a == null || b == null || a.size != b.size) return false
         return a.indices.count { abs(a[it] - b[it]) > CELL_DELTA } >= a.size * PAGE_SHARE
     }
 
-    /** 均匀取样的点里至少 99.5% 每个通道都 ≤ [BLACK_LEVEL] 才算全黑。 */
+    /** 完全に黒とみなされるには、均一にサンプリングされたポイントの各チャネルの少なくとも 99.5% が [BLACK_LEVEL] 以下です。 仮想画面は、 */
     fun isBlack(width: Int, height: Int, pixel: (Int, Int) -> Int): Boolean {
         if (width <= 1 || height <= 1) return false
         var dark = 0

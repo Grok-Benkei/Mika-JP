@@ -1,1 +1,1 @@
-Search what the user has told Mika to remember (facts, preferences, approved ways of doing things). Returns up to 8 {id, kind, content}. Try other words if the first query finds nothing.
+覚えるようユーザーが Mika に伝えた内容（事実、好み、承認された進め方）を検索する。最大8件の {id, kind, content} が返る。最初の検索で見つからない場合は、別の言葉を試す。

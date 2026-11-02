@@ -5,7 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class CapsuleDockTest {
-    // 1000×2000 的屏幕,状态栏 80,底部手势条 40;看得见的胶囊离边 30,离上下 20,阴影边 10
+    // 1000×2000 画面、ステータス バー 80、下部ジェスチャ バー 40。可視カプセル距離 30、上下 20、シャドウ エッジ 10
     private val area = DockArea.of(OverlayArea(1000, 2000, insetTop = 80, insetBottom = 40), margin = 30, gap = 20, room = 10)
 
     @Test fun areaAvoidsBarsAndKeepsMargins() {
@@ -17,7 +17,7 @@ class CapsuleDockTest {
         assertEquals(1850, CapsuleDocking.y(1f, area, 100))
         assertEquals(970, CapsuleDocking.y(0.5f, area, 100))
         assertEquals(0.5f, CapsuleDocking.fraction(970, area, 100), 0.001f)
-        // 超出范围的夹住
+        // クランプ範囲外です
         assertEquals(0f, CapsuleDocking.fraction(-500, area, 100))
         assertEquals(1f, CapsuleDocking.fraction(5000, area, 100))
         assertEquals(90, CapsuleDocking.y(-3f, area, 100))
@@ -27,18 +27,18 @@ class CapsuleDockTest {
         val landscape = DockArea.of(OverlayArea(2000, 1000, insetLeft = 80, insetTop = 40), margin = 30, gap = 20, room = 10)
         val f = CapsuleDocking.fraction(CapsuleDocking.y(0.25f, area, 100), area, 100)
         val y = CapsuleDocking.y(f, landscape, 100)
-        // 横屏:上 50、下 990,范围 840 的四分之一
+        // 横画面：上50、下990、範囲1/4の840
         assertEquals(50 + 210, y)
-        // 刘海在左边:左边停靠时让开它
+        // は左側の前髪: 左側にドッキングするときに邪魔にならないようにします
         assertEquals(100, CapsuleDocking.dockedX(DockSide.Left, landscape, 200))
         assertEquals(1780, CapsuleDocking.dockedX(DockSide.Right, landscape, 200))
     }
 
     @Test fun tallerWindowMovesUpToFit() {
-        // 卡片 600 高,从胶囊的高度往下放不下
+        // カードは高さ 600 メートルなので、カプセルの高さより下に置くことはできません。
         assertEquals(1950 - 600, CapsuleDocking.fitY(CapsuleDocking.y(1f, area, 100), area, 600))
         assertEquals(500, CapsuleDocking.fitY(500, area, 600))
-        // 比整个范围还高:贴着顶
+        // 全範囲より高い：トップに近い
         assertEquals(90, CapsuleDocking.fitY(500, area, 5000))
     }
 
@@ -54,62 +54,62 @@ class CapsuleDockTest {
         assertEquals(DockSide.Left, CapsuleDocking.release(380, 500, 200, 100, area).side)
         assertEquals(20, CapsuleDocking.dockedX(DockSide.Left, area, 200))
         assertEquals(780, CapsuleDocking.dockedX(DockSide.Right, area, 200))
-        // 刘海在左边时两侧让开的宽度不同:左边 100,右边 20
+        // 前髪左側の場合、左右の幅が異なります：左100、右20
         val lopsided = DockArea.of(OverlayArea(2000, 1000, insetLeft = 80, insetTop = 40), margin = 30, gap = 20, room = 10)
         assertEquals(100, CapsuleDocking.edgeOffset(DockSide.Left, lopsided))
         assertEquals(20, CapsuleDocking.edgeOffset(DockSide.Right, lopsided))
     }
 
     @Test fun keyboardPushesTheRangeUp() {
-        // 输入法上边在 1200:看得见的部分离它 20
+        // 入力メソッドは 1200 です: 表示部分が 20 を区切ります
         val up = area.above(1200, gap = 20, room = 10)
         assertEquals(1190, up.bottom)
         assertEquals(1190 - 600, CapsuleDocking.fitY(CapsuleDocking.y(1f, area, 100), up, 600))
         assertEquals(area, area.above(null, 20, 10))
-        // 输入法比可摆范围还高:不越过顶
+        // 入力方法がスイング範囲より高い: 上限を超えない
         assertEquals(area.top, area.above(10, 20, 10).bottom)
     }
 
-    // ---------- 卡片 ----------
+    // ---------- カード ----------
 
-    /** 最高的卡片(看得见 1160 高)连同上下阴影边的窗口高。 */
+    /** ウィンドウの高さの上下のシャドウ エッジを含む最も高いカード (表示高さ 1160)。 */
     private val full = 1160 + 20
 
     @Test fun cardCapIsAShareOfTheScreen() {
-        // 2000 高的屏幕:最高 58%,放得下就是它(对话卡片就这么高,任务卡片最多这么高)
+        // 2000 高画面: 最大 58%、収まります (会話カードはこの高さまで、タスク カードはこの高さまで)
         assertEquals(1160, CardDocking.maxHeight(2000, area, room = 10))
-        // 输入法弹出(上边 1200):收到它上面,中间那段变矮
+        // 入力方法ポップアップ (上位 1200): 受信後、中央のセクションが短くなります
         val up = area.above(1200, gap = 20, room = 10)
         assertEquals(1190 - 90 - 20, CardDocking.maxHeight(2000, up, room = 10))
-        // 横屏:按横屏的高度算
+        // 横画面：横画面の高さに応じて計算
         val landscape = DockArea.of(OverlayArea(2000, 1000, insetLeft = 80, insetTop = 40), margin = 30, gap = 20, room = 10)
         assertEquals(580, CardDocking.maxHeight(1000, landscape, room = 10))
     }
 
     @Test fun cardTopFollowsItsFraction() {
-        // 上边在 90..(1950 - 最高的卡片) 之间按比例摆:最高的卡片正中、顶、底
+        // 上部は 90..(1950 - 最も高いカード) の間に比例して配置されます: 最も高いカードは中央、上部、下部にあります
         assertEquals(90 + 340, CardDocking.y(0.5f, area, area, full, full))
         assertEquals(90, CardDocking.y(0f, area, area, full, full))
         assertEquals(1950 - full, CardDocking.y(1f, area, area, full, full))
-        // 转屏后同一个比例
+        // 画面回転後も同じ比率
         val landscape = DockArea.of(OverlayArea(2000, 1000, insetLeft = 80, insetTop = 40), margin = 30, gap = 20, room = 10)
         assertEquals(50 + 170, CardDocking.y(0.5f, landscape, landscape, 600, 600))
     }
 
     @Test fun shorterTaskCardSharesTheTopWithTheChatCard() {
-        // 任务卡片按内容只有 500 高:上边和同一比例的对话卡片一样,往下短一截
+        // タスク カードの高さは内容によれば 500 のみです。上部は同じ比率のダイアログ カードと同じで、下部は短くなります。
         for (f in listOf(0f, 0.3f, 0.5f, 1f)) {
             assertEquals(CardDocking.y(f, area, area, full, full), CardDocking.y(f, area, area, full, 500))
         }
-        // 以前按固定高卡片记的比例当作上边的比例读:对话卡片摆回原处
+        // 従来、固定高カード収録率は、会話カードを元の位置に戻す上記の比率として読み込まれていました。
         assertEquals(CapsuleDocking.y(0.7f, area, full), CardDocking.y(0.7f, area, area, full, full))
     }
 
     @Test fun switchingCardsKeepsTheTopAndShiftsUpOnlyWhenItOverflows() {
         val top = CardDocking.y(1f, area, area, full, 500)
-        // 任务卡片换成对话卡片:放得下,上边不动,往下长
+        // タスク カードはダイアログ カードに置き換えられます。下に置くことができ、上部は動かず、下に向かって成長します。
         assertEquals(top, CardDocking.y(1f, area, area, full, full))
-        // 输入法弹出(上边 1200):短的卡片放得下就不动,对话卡片(收矮到 1100 + 阴影边)往上挪到刚好放下
+        // 入力方法ポップアップ (上位 1200): 短いカードは移動せずに下に置くことができ、ダイアログ カード (1100 + シャドウ エッジに短縮) は下に置けるまで上に移動されます。
         val up = area.above(1200, gap = 20, room = 10)
         val shortTop = CardDocking.y(0f, area, up, full, 500)
         assertEquals(90, shortTop)
@@ -122,14 +122,14 @@ class CapsuleDockTest {
         assertEquals(90, CardDocking.dragY(430, -1000f, area, area, full, full))
         assertEquals(1950 - full, CardDocking.dragY(430, 2000f, area, area, full, full))
         assertEquals(530, CardDocking.dragY(430, 100f, area, area, full, full))
-        // 短的任务卡片往下拖到底:上边停在对话卡片也放得下的地方,记下的比例不出范围
+        // 短いタスク カードを下までドラッグします。ダイアログ カードも配置できる上部で停止します。記録された比率は範囲を超えません。
         assertEquals(1950 - full, CardDocking.dragY(430, 2000f, area, area, full, 500))
         assertEquals(1f, CardDocking.release(1950 - full, area, full))
         assertEquals(0.5f, CardDocking.release(430, area, full), 0.001f)
-        // 按没让输入法的范围记:输入法收起后还在原处,换成别的高度上边也一样
+        // 入力メソッドの範囲を押して注意してください。入力メソッドは折りたたまれた後も同じ場所にあり、別の高さに移動しても同じことが当てはまります。
         assertEquals(430, CardDocking.y(CardDocking.release(430, area, full), area, area, full, full))
         assertEquals(430, CardDocking.y(CardDocking.release(430, area, full), area, area, full, 500))
-        // 输入法弹出时拖:整张不出它上面
+        // 入力メソッドがポップアップ表示されたときにドラッグすると、そこからページ全体を削除できません
         val up = area.above(1200, gap = 20, room = 10)
         assertEquals(1190 - 500, CardDocking.dragY(430, 2000f, area, up, full, 500))
     }

@@ -10,7 +10,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 沙箱任务、网页任务的依据不在手机屏幕上:命令输出、用户的回答同样是证据,Grounding 照样核。 */
+/** サンドボックス タスクと Web タスクの基礎は携帯電話の画面上にありません。コマンド出力とユーザーの応答も証拠となり、接地は依然として検証されます。 */
 class VerifierSourcesTest {
     private val criteria = Criteria(listOf("回答给出文件的行数"), "read", fallback = false)
     private val pass = """{"checks": [{"criterion": "回答给出文件的行数", "status": "met", "quote": "1287 data.csv"}], "verdict": "pass", "reason": "输出里有"}"""

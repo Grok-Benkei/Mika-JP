@@ -94,13 +94,13 @@ import com.wangzan101.mika.ui.theme.MikaType
 import com.wangzan101.mika.voice.SpeechChoice
 import com.wangzan101.mika.voice.SpeechOptions
 
-/** 设置 › 模型:和上手时的配置模型是同一页([ModelSetupScreen]),不在引导流程里。 */
+/** 設定 › モデル: 開始時の構成モデル ([ModelSetupScreen]) と同じページであり、ブート プロセスにはありません。 */
 @Composable
 fun ModelsScreen(store: ProviderStore, onBack: () -> Unit, onOpenSpeech: (() -> Unit)? = null) {
     ModelSetupScreen(store, onboarding = false, onBack = onBack, onDone = onBack, onOpenSpeech = onOpenSpeech)
 }
 
-/** 子页面共用的骨架:顶栏 + 可滚动内容。 */
+/** サブページで共有されるスケルトン: トップ バー + スクロール可能なコンテンツ。 */
 @Composable
 internal fun Page(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
     PageBackground {
@@ -113,7 +113,7 @@ internal fun Page(title: String, onBack: () -> Unit, content: @Composable () -> 
     }
 }
 
-/** 用途卡:大图标块、「名字 · 做什么」、选了什么(模型名用等宽字)、说明。 */
+/** 使用方法カード: 大きなアイコン ブロック、「名前・何をするか」、選択した内容 (モデル名は等幅文字)、および説明。 */
 @Composable
 internal fun RoleCard(icon: ImageVector, label: String, line: ModelsCopy.RoleLine, first: Boolean = false, tag: String, onClick: () -> Unit) {
     val c = MikaTheme.colors
@@ -147,7 +147,7 @@ internal fun RoleCard(icon: ImageVector, label: String, line: ModelsCopy.RoleLin
 
 private val RoleTileShape = RoundedCornerShape(12.dp)
 
-/** 服务商一行:左边是名字首字的图标块;[warning] 是要提醒的一句(用提醒色另起一行)。 */
+/** サービス プロバイダーの行: 左側には、名前のイニシャルが入ったアイコン ブロックがあります。 [warning] は、リマインドする文です (リマインダーの色を使用して新しい行を開始します)。 */
 @Composable
 internal fun ProviderRow(p: Provider, line: String, first: Boolean, warning: String? = null, onClick: () -> Unit) {
     val c = MikaTheme.colors
@@ -170,19 +170,19 @@ internal fun ProviderRow(p: Provider, line: String, first: Boolean, warning: Str
     }
 }
 
-// ---------- 选某个用途用哪个模型 ----------
+// ---------- 用途に合わせて機種を選びましょう ----------
 
 class RolePickerActions(
-    /** (服务商 id, 模型名) */
+    /** (サービスプロバイダーID、モデル名) */
     val pick: (String, String) -> Unit = { _, _ -> },
-    /** 不提供列表的服务商手填的模型名(服务商 id, 模型名):先试调用,通了才选。 */
+    /** リストを提供しないサービス プロバイダーによって手動で入力されたモデル名 (サービス プロバイダー ID、モデル名)。まず呼び出しを試み、成功した場合は選択します。 */
     val pickManual: (String, String) -> Unit = { _, _ -> },
-    /** 看图、轻量的固定选项(用主模型、不用)。 */
+    /** 画像を参照してください。軽量固定オプション (メインモデルを使用し、使用しません)。 */
     val choose: (RoleChoice) -> Unit = {},
     val addProvider: () -> Unit = {},
 )
 
-/** 选择页顶上的固定选项:看图「用主模型」「不用」,轻量「用主模型」;主模型没有。 */
+/** ページ上部の固定オプションを選択します。画像には「メイン モデルを使用する」または「使用しない」、軽量には「メイン モデルを使用」。メインモデルはありません。 */
 internal fun fixedChoices(role: ModelRole): List<RoleChoice> = when (role) {
     ModelRole.Main -> emptyList()
     ModelRole.Vision -> listOf(RoleChoice.SameAsMain, RoleChoice.Off)
@@ -190,8 +190,8 @@ internal fun fixedChoices(role: ModelRole): List<RoleChoice> = when (role) {
 }
 
 /**
- * 选用途:看图、轻量顶上是固定选项;下面按服务商分组列出所有已连接服务商的全部模型(用记住的列表),
- * 标签只作参考,不按能力过滤或置灰;每家下面都能手动填模型名(列表里没有、或这家不提供列表),手填的标「手填」。点一下就生效并返回。
+ * 目的を選択してください: 写真の表示、軽量。一番上は固定オプションです。以下では、接続されているすべてのサービス プロバイダーのすべてのモデルがサービス プロバイダーごとにグループ化されています (記憶されたリストを使用します)。
+ * タグは参照専用であり、能力によってフィルタリングされたりグレー表示されたりすることはありません。各モデルの下にモデル名を手動で入力することができます (リストにない、または当社がリストを提供しません)。手動で入力されたモデル名には「Hand-Filled」とマークされます。クリックすると有効になり、戻ります。
  */
 @Composable
 fun RolePickerContent(ui: ModelSetupUi, role: ModelRole, actions: RolePickerActions, onBack: () -> Unit) {
@@ -222,7 +222,7 @@ fun RolePickerContent(ui: ModelSetupUi, role: ModelRole, actions: RolePickerActi
         var anyShown = false
         groups.forEach { (p, options) ->
             val shown = options.filter { q.isEmpty() || it.id.contains(q, ignoreCase = true) }
-            // 这家列不出模型:手填是唯一的选法
+            // この会社はモデルをリストできません: 手充填が唯一のオプションです
             val noList = p.models?.isEmpty() == true
             if (q.isNotEmpty() && shown.isEmpty()) return@forEach
             anyShown = true
@@ -240,7 +240,7 @@ fun RolePickerContent(ui: ModelSetupUi, role: ModelRole, actions: RolePickerActi
             val manualState = ui.manualPick[p.id]
             when {
                 manualState is ListState.Failed -> FooterNote(manualState.message, Modifier.testTag("manual-model-failed"), color = c.bad)
-                // 选列表里的模型也可能先试调用(见 ModelSetupUi.probeBeforePick);手填的那一行自己显示进度
+                // 選択リスト内のモデルを最初に呼び出すこともできます (ModelSetupUi.probeBeforePick を参照)。手書きの線は進行状況を単独で表示します
                 !noList && manualState == ListState.Running -> FooterNote(ModelSetupCopy.TESTING, Modifier.testTag("pick-probe-running"))
                 state == ListState.Running -> FooterNote(ModelsCopy.LISTING)
                 state is ListState.Failed -> FooterNote(ModelSetupCopy.failed(state.message), color = c.bad)
@@ -256,7 +256,7 @@ fun RolePickerContent(ui: ModelSetupUi, role: ModelRole, actions: RolePickerActi
     }
 }
 
-/** 手填模型名(列表里没有、或服务不提供列表):照服务商文档填;点「使用」先试调用一次([state] 是进度),通了才选上并记为手填。 */
+/** 手動入力のモデル名 (リストにない、またはサービスがリストを提供しない): サービス プロバイダーのドキュメントに従って入力します。 「使用」をクリックして一度呼び出してみて（[state] が進行状況です）、それを選択して手入力として記録するだけです。 */
 @Composable
 internal fun ManualModel(p: Provider, state: ListState?, first: Boolean, onUse: (String) -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
@@ -274,33 +274,33 @@ internal fun ManualModel(p: Provider, state: ListState?, first: Boolean, onUse: 
 private const val FILTER_FROM = 8
 private const val PICK_AT_MOST = 80
 
-/** 服务商详情里最多放几个模型;其余进「全部模型」页。 */
+/** サービス プロバイダーの詳細には、最大でいくつかのモデルを含めることができます。残りは「すべてのモデル」ページに移動します。 */
 internal const val MODEL_PREVIEW = 3
 
-// ---------- 一个服务商 ----------
+// ---------- サービスプロバイダー ----------
 
 class ProviderDetailActions(
     val refresh: () -> Unit = {},
     val changeKey: (String) -> Unit = {},
     val remove: () -> Unit = {},
-    /** 把这家的一个模型用作某个用途(「用作」面板里点的)。 */
+    /** 特定の目的で当社のモデルを使用します（「使用」パネルをクリックします）。 */
     val use: (ModelRole, String) -> Unit = { _, _ -> },
-    /** 用户说这家的一个模型能不能看图(「用作」面板里的开关)。 */
+    /** ユーザーは、このモデルのモデルの 1 つをパネル内のスイッチとして使用できるかどうか (パネル内のスイッチとして「使用」) と質問しました。 */
     val setVision: (String, Boolean) -> Unit = { _, _ -> },
     val showAll: () -> Unit = {},
-    /** 在用、没核实过的手填模型再试调用一次(见 [ModelSetupUi.unverified])。 */
+    /** 使用中だが再度検証されていない手入力モデルを呼び出してみます ([ModelSetupUi.unverified] を参照)。 */
     val retest: () -> Unit = {},
-    /** 用账号登录的服务商(ChatGPT、xAI、OpenRouter):再登录、退出登录、打开对方的用量或账号页。 */
+    /** アカウントでログインしているサービスプロバイダー（ChatGPT、xAI、OpenRouter）の場合：再度ログインし、ログアウトして、相手の利用状況またはアカウントページを開きます。 */
     val signIn: () -> Unit = {},
     val signOut: () -> Unit = {},
     val manageUsage: () -> Unit = {},
-    /** 把这家默认的模型设为主模型(账号登录的详情里那一行)。 */
+    /** このデフォルト モデルをメイン モデルとして設定します (アカウント ログインの詳細の行)。 */
     val useAsMain: () -> Unit = {},
 )
 
 /**
- * 一个服务商:连接(状态、接口、地址、Key 可更换)、几个模型(在用的在前,最多 [MODEL_PREVIEW] 个,其余点「查看全部」)、删除。
- * 点一个模型从底部弹出「用作」。页面长度基本固定,模型再多也不会把删除挤到很远。
+ * サービス プロバイダー: 接続 (ステータス、インターフェイス、アドレス、キーは置き換え可能)、いくつかのモデル (最初に使用中のモデル、最大 [MODEL_PREVIEW]、残りは「すべて表示」をクリック)、削除します。
+ * モデルをクリックすると、下から「使用する」が表示されます。基本的にページの長さは固定されており、モデル数が多くても削除が大幅に遅れることはありません。
  */
 @Composable
 fun ProviderDetailContent(ui: ModelSetupUi, p: Provider, actions: ProviderDetailActions, onBack: () -> Unit) {
@@ -348,7 +348,7 @@ fun ProviderDetailContent(ui: ModelSetupUi, p: Provider, actions: ProviderDetail
             }
             FooterNote(ModelsCopy.MODELS_NOTE)
         }
-        // 跳过测试直接存下的:说清它还没测过,别说成「这家不提供模型列表」——那个说法对它不成立
+        // はテストをスキップし、直接保存しました。テストされていないことを明確にし、「この会社はモデル リストを提供していない」とは言わないでください。その記述は当てはまりません。
         val untested = ui.untested(p)
         val unverified = ui.unverified(p)
         if (untested) {
@@ -356,7 +356,7 @@ fun ProviderDetailContent(ui: ModelSetupUi, p: Provider, actions: ProviderDetail
         } else if (unverified.isNotEmpty()) {
             FooterNote(ModelsCopy.unverifiedNote(unverified), Modifier.testTag("provider-unverified"), color = c.warn)
         }
-        // 有模型在用时可以就地重测一次;没有的在用的,先刷新列表或去选一个
+        // 使用中のモデルがある場合は、その場で再テストできます。使用中のモデルがない場合は、最初にリストを更新するか、モデルを選択します。
         if (unverified.isNotEmpty()) {
             val retest = ui.retest[p.id]
             MikaButton(
@@ -367,7 +367,7 @@ fun ProviderDetailContent(ui: ModelSetupUi, p: Provider, actions: ProviderDetail
             (retest as? ListState.Failed)?.let { FooterNote(it.message, Modifier.testTag("provider-retest-failed"), color = c.bad) }
         }
         when {
-            // 跳过测试存下的那次没列过模型,不能拿它当「这家不提供列表」的证据
+            // はテストをスキップし、モデルをリストせずに保存しました。これでは「この会社はリスティングを提供していない」という証拠にはなりません。
             p.models?.isEmpty() == true && !untested -> FooterNote(ModelsCopy.NO_LIST_NOTE)
             p.models == null && list.isEmpty() && state != ListState.Running -> FooterNote(ModelsCopy.NOT_LISTED)
         }
@@ -421,8 +421,8 @@ fun ProviderDetailContent(ui: ModelSetupUi, p: Provider, actions: ProviderDetail
 }
 
 /**
- * ChatGPT 的连接:账号(邮箱)、退出登录或再登录、管理用量(打开 ChatGPT 的用量页)。
- * 退出登录只清这台手机上的令牌,服务商、模型和用途都留着。
+ * ChatGPT 接続: アカウント (電子メール)、ログアウトまたは再ログイン、使用状況の管理 (ChatGPT 使用状況ページを開く)。
+ * ログアウト後、この電話のトークンのみがクリアされ、サービス プロバイダー、モデル、目的は保持されます。
  */
 @Composable
 private fun ChatGptConnection(ui: ModelSetupUi, state: ListState?, actions: ProviderDetailActions) {
@@ -455,8 +455,8 @@ private fun ChatGptConnection(ui: ModelSetupUi, state: ListState?, actions: Prov
 }
 
 /**
- * 用 xAI 或 OpenRouter 账号登录的连接:账号、状态、设为主模型、打开对方的账号页(OpenRouter 是 Keys 页面)、退出或再登录。
- * 退出只清这台手机上的登录信息(xAI 的令牌、OpenRouter 换来的 Key),服务商、模型和用途都留着。
+ * xAI または OpenRouter アカウントでログインするための接続: アカウント、ステータス、メインモデルとして設定、相手のアカウント ページ (OpenRouter は Keys ページ) を開き、ログアウトまたは再ログインします。
+ * 終了では、この電話機のログイン情報 (xAI トークン、OpenRouter 交換キー) のみがクリアされ、サービス プロバイダー、モデル、目的はすべて保持されます。
  */
 @Composable
 private fun AccountConnection(ui: ModelSetupUi, p: Provider, state: ListState?, actions: ProviderDetailActions) {
@@ -477,7 +477,7 @@ private fun AccountConnection(ui: ModelSetupUi, p: Provider, state: ListState?, 
         }
     }
     GroupCard {
-        // 主模型已经在这家就不放这一行
+        // のメインモデルはすでに存在しているため、このラインには入れません。
         val isMain = ui.configFor(ModelRole.Main)?.providerId == p.id
         if (signedIn && !isMain && ui.options(p).isNotEmpty()) {
             ListRow(null, ModelsCopy.SET_MAIN, ModelsCopy.SET_MAIN_NOTE, first = true, onClick = actions.useAsMain) { RowChevron() }
@@ -495,8 +495,8 @@ private fun AccountConnection(ui: ModelSetupUi, p: Provider, state: ListState?, 
 }
 
 /**
- * 「<服务商> · 全部模型」:搜索框固定在顶栏下面,列表只在下面滚(模型多时按需排版);右上角刷新重新列一次。
- * 点模型同样弹出「用作」。
+ * "<サービス プロバイダー> · すべてのモデル": 検索ボックスはトップ バーの下に固定されており、リストは下にスクロールするだけです (モデルが多い場合はタイプセットが必要です)。右上隅が更新されて再リストされます。
+ * ポイント モデルも「使用」をポップアップ表示します。
  */
 @Composable
 fun AllModelsContent(ui: ModelSetupUi, p: Provider, actions: ProviderDetailActions, onBack: () -> Unit) {
@@ -538,14 +538,14 @@ fun AllModelsContent(ui: ModelSetupUi, p: Provider, actions: ProviderDetailActio
     using?.let { o -> UseAsSheet(ui, p, o.id, onUse = { role -> actions.use(role, o.id) }, onVision = { actions.setVision(o.id, it) }, onDismiss = { using = null }) }
 }
 
-/** 一张卡拆成懒加载的行时,每行的圆角:首行上圆、末行下圆。 */
+/** カードが遅延ロード行に分割されると、各行の角が丸くなります。最初の行は切り上げられ、最後の行は切り捨てられます。 */
 private fun rowShape(i: Int, n: Int): RoundedCornerShape {
     val r = MikaRadius.Card
     return RoundedCornerShape(topStart = if (i == 0) r else 0.dp, topEnd = if (i == 0) r else 0.dp,
         bottomStart = if (i == n - 1) r else 0.dp, bottomEnd = if (i == n - 1) r else 0.dp)
 }
 
-/** 模型一行:模型名(等宽)和标签,右边标着它在给哪些用途干活。 */
+/** モデル ライン: モデル名 (同じ幅) とラベル。右側は、どのような目的で機能するかを示します。 */
 @Composable
 private fun ModelRow(o: ModelOption, roles: List<ModelRole>, first: Boolean, onClick: () -> Unit) {
     Column {
@@ -565,8 +565,8 @@ private fun ModelRow(o: ModelOption, roles: List<ModelRole>, first: Boolean, onC
 }
 
 /**
- * 点一个模型后从底部升起:「<服务商> · 用作」主模型 / 看图模型 / 轻量模型,点了马上生效;
- * 下面是「能看图」开关:列表没写的模型由用户说了算,列表写了的也能改。
+ * モデルをクリックして下から上がります。「<サービス プロバイダー> · メイン モデル / 画像閲覧モデル / 軽量モデルとして使用されます。クリックするとすぐに有効になります。
+ * 以下は「写真を表示できる」スイッチです。リストされていないモデルはユーザーに任されており、リストされているモデルは変更することもできます。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -596,7 +596,7 @@ private fun UseAsSheet(ui: ModelSetupUi, p: Provider, model: String, onUse: (Mod
     }
 }
 
-/** 模型页(用途、选择页、服务商详情、全部模型)的文字(纯函数,便于测试)。三个用途的说法全 App 只在这里。 */
+/** モデル ページのテキスト (目的、選択ページ、サービス プロバイダーの詳細、全モデル) (純粋な機能、テストが容易)。 3つの使い方はすべて、ここでのみアプリで利用できます。 */
 object ModelsCopy {
     val TITLE: String get() = tr(R.string.settings_model)
     val LEAD: String get() = tr(R.string.models_lead)
@@ -642,7 +642,7 @@ object ModelsCopy {
     val RETEST: String get() = tr(R.string.models_retest)
     val SEES_IMAGES: String get() = tr(R.string.models_sees_images)
 
-    /** 「能看图」开关下的说明:用户说过的、用作看图的、列表写明的、没写未确认的。 */
+    /** 「写真を表示できます」スイッチの下の説明: ユーザーが言ったこと、写真を表示するために使用されたもの、リストに記載されているもの、未確認のもの。 */
     fun seesNote(o: ModelOption, usedForVision: Boolean): String = tr(when {
         o.visionByUser != null -> R.string.models_sees_note_user
         usedForVision -> R.string.models_sees_note_vision
@@ -673,8 +673,8 @@ object ModelsCopy {
     val CHATGPT_REVOKE_UNCONFIRMED: String get() = tr(R.string.chatgpt_revoke_unconfirmed)
 
     /**
-     * 用 ChatGPT 登录没成的原因(界面和回调网页共用)。说得出具体原因的照说;只有服务端说了套餐、权限,
-     * 或授予的权限里没有套餐那一项时才提 Plus、Pro;别的被拒带上错误代码 [code](不是机密)。
+     * ChatGPT を使用したログインが失敗した理由 (インターフェイスとコールバック Web ページは共有されています)。具体的な理由を教えてください。サーバーのみがパッケージと権限について言及しました。 Plus と Pro については、
+     * の場合、または付与された権限にパッケージ オプションがない場合にのみ言及してください。そうしないと、アプリケーションが拒否された場合にエラー コード [code] (機密ではありません) が含まれます。
      */
     fun chatGptFailure(reason: SignInFailure, code: String? = null): String = when (reason) {
         SignInFailure.Denied -> tr(R.string.chatgpt_fail_denied)
@@ -690,7 +690,7 @@ object ModelsCopy {
         SignInFailure.Network -> tr(R.string.chatgpt_fail_network)
     }
 
-    // ---------- 用账号登录(xAI、OpenRouter;ChatGPT 的在上面) ----------
+    // ---------- アカウントでログインします (xAI、OpenRouter; ChatGPT は上記) ----------
 
     val SIGN_IN_GROUP: String get() = tr(R.string.signin_group)
     val KEY_GROUP: String get() = tr(R.string.signin_key_group)
@@ -698,7 +698,7 @@ object ModelsCopy {
     val SIGN_IN_USE_KEY: String get() = tr(R.string.signin_use_key)
     val SIGN_IN_BUSY: String get() = tr(R.string.signin_busy)
 
-    /** 界面上服务商的名字:授权来的 OpenRouter 加一句来历,和用户自己填 Key 的那一家分得开。 */
+    /** インターフェース上のサービスプロバイダーの名前: 認可された OpenRouter と、ユーザーがキーを入力するものとは別のソース。 */
     fun providerName(p: Provider): String =
         if (p.signIn == ProviderStore.OPENROUTER_SIGN_IN) tr(R.string.signin_openrouter_name, p.name) else p.name
     val XAI_CODE_TITLE: String get() = tr(R.string.signin_xai_code_title)
@@ -709,12 +709,12 @@ object ModelsCopy {
     val SET_MAIN: String get() = tr(R.string.signin_set_main)
     val SET_MAIN_NOTE: String get() = tr(R.string.signin_set_main_note)
     val SIGN_OUT_NOTE: String get() = tr(R.string.signin_sign_out_note)
-    /** xAI 的账号页。 */
+    /** xAIのアカウントページ。 */
     const val ACCOUNT_MANAGE_URL = "https://accounts.x.ai"
 
     fun codeValid(minutes: Int) = tr(R.string.signin_xai_code_valid, minutes)
 
-    /** 「用账号登录」一组里每家下面那一行小字。 */
+    /** 「アカウントでログイン」は、グループ内の各家の下にある小さな文字の行です。 */
     fun signInRowLine(kind: SignInKind) = when (kind) {
         SignInKind.ChatGpt -> tr(R.string.signin_row_chatgpt)
         SignInKind.Xai -> tr(R.string.signin_row_xai)
@@ -733,10 +733,10 @@ object ModelsCopy {
         SignInKind.OpenRouter -> tr(R.string.signin_openrouter_body)
     }
 
-    /** 登录前要先说清的风险(黄底);没有为 null。 */
+    /** ログイン前に説明が必要なリスク (黄色の下)。そうでない場合は null です。 */
     fun signInRisk(kind: SignInKind): String? = if (kind == SignInKind.Xai) tr(R.string.signin_xai_risk) else null
 
-    /** 登录前的补充说明(灰底);没有为 null。 */
+    /** ログイン前の補足説明 (灰色の背景)。そうでない場合は null。 */
     fun signInInfo(kind: SignInKind): String? = when (kind) {
         SignInKind.ChatGpt -> null
         SignInKind.Xai -> tr(R.string.signin_stored_note)
@@ -760,7 +760,7 @@ object ModelsCopy {
         else -> tr(R.string.account_manage_xai)
     }
 
-    /** 账号登录详情下面的说明:在用什么、退出后怎样。 */
+    /** アカウントのログイン詳細の下にある手順: 使用している内容とログアウト後の動作。 */
     fun accountNote(kind: SignInKind, signedIn: Boolean) = when (kind) {
         SignInKind.OpenRouter -> tr(if (signedIn) R.string.signin_openrouter_signed_in_note else R.string.signin_openrouter_signed_out_note)
         else -> tr(if (signedIn) R.string.account_signed_in_note_xai else R.string.account_signed_out_note)
@@ -776,10 +776,10 @@ object ModelsCopy {
         AccountSignInFailure.BadIssuer -> tr(R.string.account_fail_issuer)
     }
 
-    /** 用途卡上的一行:[title] 是模型名([isModel])、「用主模型」「不用」或「未设置」([unset]),[subtitle] 是补充说明。 */
+    /** 利用カードの一行：[title]はモデル名（[isModel]）、「メインモデルを使用」「未使用」または「未設定」（[unset]）、[subtitle]は補足説明です。 */
     data class RoleLine(
         val title: String, val subtitle: String, val isModel: Boolean = false, val unset: Boolean = false,
-        /** 副标题用「可用」的绿色(语音转文字写「可离线」)。 */
+        /** 字幕には緑色で「利用可能」が使用されています (音声からテキストへのテキストには「オフラインで利用可能」と表示されます)。 */
         val subtitleOk: Boolean = false,
     )
 
@@ -789,7 +789,7 @@ object ModelsCopy {
         ModelRole.Light -> tr(R.string.role_light)
     }
 
-    /** 这个用途做什么。 */
+    /** これは何に使用されますか? */
     fun roleWhat(role: ModelRole) = when (role) {
         ModelRole.Main -> tr(R.string.role_main_what)
         ModelRole.Vision -> tr(R.string.role_vision_what)
@@ -798,14 +798,14 @@ object ModelsCopy {
 
     fun roleLabel(role: ModelRole) = "${roleName(role)} · ${roleWhat(role)}"
 
-    /** 选择页顶上的说明。 */
+    /** ページの上部にある手順を選択します。 */
     fun roleHint(role: ModelRole) = when (role) {
         ModelRole.Main -> tr(R.string.role_main_hint)
         ModelRole.Vision -> tr(R.string.role_vision_hint)
         ModelRole.Light -> tr(R.string.role_light_hint)
     }
 
-    /** 第四个用途「语音转文字」不在 [ModelRole] 里(它不是对话模型),卡片的名字、图标、右边两行在这里。 */
+    /** 「音声テキスト変換」の 4 番目の使用法は、[ModelRole] にはありません (対話モデルではありません)。名前、アイコン、カードの右側の 2 本の線がここにあります。 */
     val SPEECH_LABEL: String get() = "${tr(R.string.role_speech)} · ${tr(R.string.role_speech_what)}"
     val SPEECH_ICON: ImageVector get() = MikaIcons.Mic
 
@@ -821,7 +821,7 @@ object ModelsCopy {
         ModelRole.Light -> MikaIcons.Leaf
     }
 
-    /** 用途卡上写什么:选了模型写模型名和服务商;「用主模型」写主模型是谁;「不用」写只靠文字读屏。 */
+    /** 目的カードに記入する内容: モデルを選択した場合は、モデル名とサービスプロバイダーを記入します。 「メインモデルを使用する」とメインモデルが誰であるかを書きます。書くことは「やめて」、テキストに頼って画面を読むだけです。 */
     fun roleLine(ui: ModelSetupUi, role: ModelRole): RoleLine {
         fun modelLine(cfg: ProviderConfig) = RoleLine(cfg.model, ui.providerOf(cfg)?.let(::providerName) ?: cfg.name, isModel = true)
         val main = ui.configFor(ModelRole.Main)
@@ -846,7 +846,7 @@ object ModelsCopy {
 
     fun deleteTitle(name: String) = tr(R.string.models_delete_title, name)
 
-    /** 删除前说清会影响哪些用途。 */
+    /** 削除する前に、どの用途に影響するかを説明してください。 */
     fun deleteBody(roles: List<ModelRole>) =
         tr(R.string.models_delete_body) + if (roles.isEmpty()) tr(R.string.models_delete_unused) else tr(R.string.models_delete_used, roleNames(roles))
 
@@ -871,14 +871,14 @@ object ModelsCopy {
 
     fun shortUrl(url: String) = url.removePrefix("https://").removePrefix("http://")
 
-    /** 记住的模型数;还没列过时为空,服务不提供列表时说明。 */
+    /** 記憶されているモデルの数。まだリストされていない場合は空になり、サービスがリストを提供しない場合は記載されます。 */
     fun modelCount(p: Provider): String? = when {
         p.models == null -> null
         p.models.isEmpty() -> tr(R.string.models_no_list)
         else -> trPlural(R.plurals.models_count, p.models.count { it.usable })
     }
 
-    /** 服务商一行的说明:已连接 · N 个模型 · 哪些用途在用;刷新失败时说明。 */
+    /** サービス プロバイダー回線の説明: 接続済み · N モデル · どの目的で使用されているか。リフレッシュに失敗した場合の説明。 */
     fun providerLine(p: Provider, state: ListState?, roles: List<ModelRole>): String =
         if (state is ListState.Failed) LIST_FAILED
         else listOfNotNull(CONNECTED, modelCount(p), roles.takeIf { it.isNotEmpty() }?.let { tr(R.string.models_used_by, roleNames(it)) }).joinToString(" · ")

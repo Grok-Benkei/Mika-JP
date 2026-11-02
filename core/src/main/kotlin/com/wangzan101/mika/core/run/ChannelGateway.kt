@@ -2,7 +2,7 @@ package com.wangzan101.mika.core.run
 
 import com.wangzan101.mika.core.action.ConfirmChoice
 
-/** 渠道入站在这里验主人、问题编号与确认权限；普通新消息始终新开任务。 */
+/** チャンネルに入るときは、ここで所有者、質問番号、確認権限を確認してください。通常の新しいメッセージでは、常に新しいタスクが開かれます。 */
 class ChannelGateway(
     private val owners: OwnerIdentity,
     private val activeAsk: (String) -> Delivery.Ask?,

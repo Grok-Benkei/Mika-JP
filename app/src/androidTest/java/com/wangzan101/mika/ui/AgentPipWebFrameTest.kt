@@ -19,7 +19,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 小窗按画面比例定大小:横向网页看得到左右两端,长屏手机的画面看得到最底下。 */
+/** 小ウィンドウは、横長の Web ページの左右端が見え、縦画面の携帯電話の画面の下端が見えるように、画面比率に応じたサイズになっています。 */
 @RunWith(AndroidJUnit4::class)
 class AgentPipWebFrameTest {
     @get:Rule val compose = createComposeRule()
@@ -54,7 +54,7 @@ class AgentPipWebFrameTest {
 
     @Test fun tallPhoneFrameShowsItsBottom() {
         compose.mainClock.autoAdvance = false
-        // 长屏手机的画面(高约为宽的 2.2 倍):最底下一截涂成绿色,小窗按画面比例定高,底部不能被裁掉
+        // ロングスクリーン携帯電話の写真 (高さは幅の約 2.2 倍): 下部が緑色に塗られ、小ウィンドウの高さは画面比率に応じて決定され、下部はトリミングできません
         val frame = Bitmap.createBitmap(360, 794, Bitmap.Config.ARGB_8888)
         Canvas(frame).apply {
             drawColor(Color.WHITE)

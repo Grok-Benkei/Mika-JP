@@ -3,12 +3,12 @@ package com.wangzan101.mika.core.skills
 import com.wangzan101.mika.core.memory.NumberText
 
 /**
- * 沉淀技能时去掉这一次的具体值:目标与回答里引号内的内容、2 位以上的数字串、金额;
- * 起草时另把核查引用的屏幕原文、这次输入的文字也当作具体值。中文人名不做识别——靠引号与用户过目。
- * 所有文字先统一写法(NFKC;中文数字、分隔开的数字并成一串阿拉伯数字),比较与替换按同一口径。
+ * スキルを降下させる際に今回は特定の値を削除します。対象と解答の引用符内の内容、2桁以上の数値列、および金額です。
+ * 入稿時には検証で引用した元の画面テキストと今回入力したテキストも具体的な値としてみなします。中国語の名前は認識されず、ユーザーの識別には引用符が使用されます。
+ * すべての文字は同じ方法で記述され (NFKC; 漢数字、アラビア数字の文字列に結合された区切られた数字)、比較と置換も同じ方法で実行される必要があります。
  */
 object SkillRedactor {
-    const val PLACEHOLDER = "<参数>"
+    const val PLACEHOLDER = "<パラメータ>"
 
     private val QUOTED = listOf("「", "」", "『", "』", "“", "”", "\"", "\"", "‘", "’", "《", "》")
         .chunked(2).map { (open, close) -> Regex(Regex.escape(open) + "([^" + Regex.escape(close) + "\\n]+)" + Regex.escape(close)) }
@@ -16,7 +16,7 @@ object SkillRedactor {
     private val DIGITS = Regex("\\d{2,}")
     private val ONLY_DIGITS = Regex("\\d+")
     private val PIECE_SPLIT = Regex("[\\s,.:;!?、。·]+")
-    /** 草稿头部的这些行是标识,不扫数字(运行编号、包名);只在头部内豁免。 */
+    /** ドラフトのヘッダーのこれらの行は識別子であり、番号 (実行番号、パッケージ名) はスキャンされません。ヘッダー内でのみ除外されます。 */
     private val KEEP_LINES = Regex("^(?:name|apps|packages|domains|learned_from|source):")
 
     fun norm(s: String): String = NumberText.collapse(s)
@@ -32,13 +32,13 @@ object SkillRedactor {
     }
 
     /**
-     * 整段文字(核查引用的屏幕原文、输入的文字)连同其中的数字、金额,以及按空白和标点切开的各段都算具体值
-     * (「王小明:明天见」里的人名单独出现也要换掉)。
+     * テキスト全体（引用された元の画面テキストと入力されたテキストを確認してください）と、空白や句読点で切り取られた数値、金額、段落が特定の値とみなされます。
+     * (「王暁明: また明日」に登場する人物の名前が単独で登場する場合は置き換える必要があります)。
      */
     fun textLiterals(texts: List<String>): Set<String> =
         keep(texts.map(::norm).flatMap { t -> listOf(t.trim()) + numbers(t) + t.split(PIECE_SPLIT) })
 
-    /** 长的先换,免得短值把长值拆开;纯数字只换整段数字(「12」不动「12306」)。 */
+    /** 長い値が短い値で分割されないように、最初に長い値を置き換えます。純粋な数値の全体を置き換えるだけです (「12」は「12306」には移動しません)。 */
     fun redact(md: String, literals: Set<String>): String {
         var out = norm(md)
         for (lit in keep(literals.map(::norm)).sortedByDescending { it.length }) {
@@ -49,8 +49,8 @@ object SkillRedactor {
     }
 
     /**
-     * 草稿全文再扫一遍:剩下的金额、2 位以上数字串一律换掉(单号、电话、价格多半是这一次的值);
-     * [keepDigits] 是 App 名字里自带的数字(内置技能的名字、别名里出现的),保留。
+     * 再度下書きの全文をスキャンします。残額と数値文字列を 2 桁以上に置き換えます (今回は注文番号、電話番号、価格がほとんどの値です)。
+     * [keepDigits] は、アプリ名に付属する番号 (組み込みスキルの名前とエイリアスに表示されます) であり、予約されています。
      */
     fun scrubNumbers(md: String, keepDigits: Set<String>): String {
         val lines = norm(md).lines()
@@ -65,7 +65,7 @@ object SkillRedactor {
 
     private fun numbers(t: String) = AMOUNT.findAll(t).map { it.value.trim() } + DIGITS.findAll(t).map { it.value }
 
-    // 一个字的值换掉会把正文搅乱(「妈」「号」);纯数字不受此限
+    // 単語の値を置き換えると、テキスト (「mother」と「number」) が混乱します。純粋な数値はこの制限の対象になりません
     private fun keep(values: Iterable<String>) =
         values.map { it.trim() }.filter { it.isNotEmpty() && (it.length >= 2 || ONLY_DIGITS.matches(it)) }.toSet()
 }

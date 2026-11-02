@@ -6,7 +6,7 @@ import com.wangzan101.mika.core.tool.FakeScreen
 import kotlinx.serialization.json.JsonObject
 import com.wangzan101.mika.core.assembly.toolDispatcher
 
-/** 测试里按工具名判:目标取工具声明的那个(和执行入口传给判定的一样)。 */
+/** テストではツール名で判定します。対象はツールで宣言されたもの（実行入口で判定に渡されたものと同じ）です。 */
 private val declarations by lazy { toolDispatcher(FakeScreen()) }
 
 internal fun gateTargetOf(tool: String): GateTarget? = declarations.gateTarget(tool)

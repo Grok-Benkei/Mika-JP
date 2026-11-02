@@ -27,8 +27,8 @@ private var seq = 0
 private fun call(name: String, args: String = "{}") = Part.ToolCall("i${++seq}", name, args)
 private fun tools(vararg calls: Part.ToolCall) = ModelReply(calls.toList(), StopReason.ToolUse, null)
 private fun text(s: String) = ModelReply(listOf(Part.Text(s)), StopReason.EndTurn, null)
-private const val DONE = "好了"
-private fun finish() = com.wangzan101.mika.core.testing.answerReply("好了")
+private const val DONE = "完了しました"
+private fun finish() = com.wangzan101.mika.core.testing.answerReply("完了しました")
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AgentLoopInputTest {
@@ -37,11 +37,11 @@ class AgentLoopInputTest {
         override fun event(e: RunEvent) { events += e }
     }
 
-    private fun ask(options: String = ""","options":["同事张伟","同学张伟"]""") = call("ask_user", """{"prompt":"发给哪个张伟?"$options}""")
+    private fun ask(options: String = ""","options":["同僚の张伟","同級生の张伟"]""") = call("ask_user", """{"prompt":"どの张伟へ送りますか？"$options}""")
     private fun loop(m: FakeModel, timeoutMs: Long = 15 * 60_000L, sink: RunSink = RunSink.NONE) =
         AgentLoop(m, toolDispatcher(FakeScreen()), "BASE", sink = sink, inputTimeoutMs = timeoutMs)
 
-    /** 第 [i] 次请求里配对 [c] 的工具结果,并断言后面没有另起的用户消息。 */
+    /** は、[i] リクエストの [c] のツール結果と一致し、後続のユーザー メッセージがないことをアサートします。 */
     private fun FakeModel.resultFor(c: Part.ToolCall, i: Int = 1): JsonObject {
         val h = requests[i].withoutRuntime()
         val at = h.indexOfFirst { m -> m.parts.any { it is Part.ToolCall && it.id == c.id } }
@@ -58,13 +58,13 @@ class AgentLoopInputTest {
         val m = FakeModel(tools(c), finish(), finish())
         val l = loop(m)
         val run = async { l.run("t") }
-        runCurrent() // advanceUntilIdle 会把虚拟时间推过追问时限
-        assertEquals(TaskState.WaitingInput("发给哪个张伟?", listOf("同事张伟", "同学张伟")), l.state.value)
+        runCurrent() // AdvanceUntilIdle は仮想時間を問い合わせ時間制限を超えます
+        assertEquals(TaskState.WaitingInput("どの张伟へ送りますか？", listOf("同僚の张伟", "同級生の张伟")), l.state.value)
         assertTrue(l.answerInput("就第一个吧"))
         com.wangzan101.mika.core.testing.assertAnswered(DONE, run.await())
-        // 用户答了、模型什么也没做就要交回答:提醒一次照做(或说明为什么不做),第二次照常收下
+        // ユーザーは、モデルが何もしない場合は、回答を送信してください。一度実行するように要求し (または実行しない理由を説明し)、2 回目は通常どおり受け入れます。
         val nudge = com.wangzan101.mika.core.agent.ContextBuilder.bodyOf(m.requests[2].last()).orEmpty()
-        assertTrue(nudge, "发给哪个张伟?" in nudge && "Carry it out" in nudge)
+        assertTrue(nudge, "どの张伟へ送りますか？" in nudge && "今すぐ実行" in nudge)
         assertEquals(3, m.requests.size)
         val r = m.resultFor(c)
         assertEquals("true", r.s("ok")); assertEquals("就第一个吧", r.s("answer"))
@@ -76,10 +76,10 @@ class AgentLoopInputTest {
         val m = FakeModel(tools(c), finish())
         val l = loop(m)
         val run = async { l.run("t") }
-        runCurrent() // advanceUntilIdle 会把虚拟时间推过追问时限
-        l.answerInput("同学张伟")
+        runCurrent() // AdvanceUntilIdle は仮想時間を問い合わせ時間制限を超えます
+        l.answerInput("同級生の张伟")
         run.await()
-        assertEquals("同学张伟", m.resultFor(c).s("answer"))
+        assertEquals("同級生の张伟", m.resultFor(c).s("answer"))
     }
 
     @Test fun timeoutIsErrorNotEmptyAnswer() = runTest {
@@ -94,10 +94,10 @@ class AgentLoopInputTest {
         com.wangzan101.mika.core.testing.assertAnswered(DONE, run.await())
         val r = m.resultFor(c)
         assertEquals("false", r.s("ok")); assertEquals("no_answer", r.s("error"))
-        assertEquals("No answer came within the time limit.", r.s("message")); assertEquals("true", r.s("recoverable"))
+        assertEquals("制限時間内に答えが来なかった。", r.s("message")); assertEquals("true", r.s("recoverable"))
         assertEquals("false", r.s("counts_as_failure"))
         assertNull(r["answer"])
-        // 超时后才到的回答不算数,界面据此告诉用户来晚了
+        // タイムアウト後に到着した回答はカウントされず、それに応じてインターフェイスはユーザーに遅れていることを通知します。
         assertFalse(l.answerInput("晚了"))
     }
 
@@ -131,7 +131,7 @@ class AgentLoopInputTest {
         val m = FakeModel(tools(ask(options = "")), finish())
         val l = loop(m, sink = sink)
         val run = async { l.run("t") }
-        runCurrent() // advanceUntilIdle 会把虚拟时间推过追问时限
+        runCurrent() // AdvanceUntilIdle は仮想時間を問い合わせ時間制限を超えます
         l.answerInput("验证码 834921")
         run.await()
         assertFalse(sink.events.toString(), "834921" in sink.events.toString())

@@ -12,15 +12,15 @@ import com.wangzan101.mika.core.device.CredentialKind
 import com.wangzan101.mika.core.device.DeviceCredential
 
 /**
- * 只由已认证的 Mika Binder 调用。主屏专用;凭据从不进命令行、剪贴板、截图或日志。
- * 凭据的每个按键都经 [injectTo] 只投给 SystemUI 拥有的焦点窗口:锁屏上方另有窗口(锁屏时显示的 App、来电、
- * 全屏通知)或已经解锁回到 App 时,系统拒绝注入,按键不会落到别处。[inject] 只用于不含秘密的亮屏键。
+ * は、認定を受けたミカ バインダーによってのみ呼び出されます。ホーム画面のみ。資格情報がコマンド ライン、クリップボード、スクリーンショット、またはログに入力されることはありません。
+ * 証明書の各キーストロークは [injectTo] を介して渡され、SystemUI が所有するフォーカス ウィンドウにのみキャストされます。ロック画面の上には他のウィンドウがあります (画面がロックされているときに表示されるアプリ、着信、
+ * 全画面通知）またはロックが解除されてアプリに戻された場合、システムは挿入を拒否し、キーが他の場所に落ちることはありません。 [inject] は、シークレットのない明るい画面キーにのみ使用されます。
  */
 internal class DeviceUnlockInput(context: Context, private val inject: (InputEvent) -> Boolean,
     private val injectTo: (InputEvent, Int) -> Boolean, private val command: (List<String>) -> Boolean) {
     private val keyguard = context.getSystemService(KeyguardManager::class.java)
     private val power = context.getSystemService(PowerManager::class.java)
-    /** 锁屏界面属于 SystemUI;查不到它的 uid 时不输入凭据。 */
+    /** ロック画面インターフェイスは SystemUI に属します。 uid が見つからない場合、認証情報は入力されません。 */
     private val systemUiUid: Int? by lazy { runCatching { context.packageManager.getPackageUid(SYSTEM_UI, 0) }.getOrNull() }
 
     fun wake(): Boolean = key(KeyEvent.KEYCODE_WAKEUP, send = inject) || command(listOf("input", "keyevent", "224"))
@@ -41,7 +41,7 @@ internal class DeviceUnlockInput(context: Context, private val inject: (InputEve
             if (!DeviceCredential.valid(type, chars)) return false
             val map = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD)
             val events = if (type == CredentialKind.Password) map.getEvents(chars) ?: return false else null
-            // 已由调用方确认 SystemUI 的凭据输入框。清掉可能残留的半截输入,只尝试一次完整凭据。
+            // SystemUI の資格情報入力ボックスが発信者によって確認されました。残りの半分のエントリをすべてクリアし、完全な認証情報を 1 回だけ試してください。
             if (type == CredentialKind.Pin) {
                 repeat(16) { if (!key(KeyEvent.KEYCODE_DEL, send = ::toKeyguard)) return false }
             } else if (!key(KeyEvent.KEYCODE_A, KeyEvent.META_CTRL_ON or KeyEvent.META_CTRL_LEFT_ON, ::toKeyguard) ||
@@ -57,12 +57,12 @@ internal class DeviceUnlockInput(context: Context, private val inject: (InputEve
                     if (SystemClock.uptimeMillis() > deadline || !keyguard.isKeyguardLocked || !power.isInteractive || !toKeyguard(event)) return false
                 }
             }
-            // 某些系统在最后一位自动提交。回车同样只投给 SystemUI:这期间已经解锁回到 App 时被系统拒绝,不会发进 App。
+            // 一部のシステムは、最後の桁で自動的にコミットします。 Enter も SystemUI にのみスローされます。この期間中はロックが解除され、アプリに返されます。システムによって拒否され、アプリには送信されません。
             SystemClock.sleep(200)
             return !keyguard.isKeyguardLocked || !keyguard.isDeviceLocked || key(KeyEvent.KEYCODE_ENTER, send = ::toKeyguard)
         } finally {
             bytes.fill(0); chars.fill('\u0000')
-            // 密码里的符号可能用到修饰键;发过按键才释放,同样只投给 SystemUI,不往前台 App 发任何事件。
+            // パスワードの記号では修飾キーを使用することができます。キーが押された後にのみ解放されます。また、これらは SystemUI にのみ送信され、フォアグラウンド アプリにはイベントを送信しません。
             if (sent && target != null) for (code in MODIFIERS) {
                 val now = SystemClock.uptimeMillis()
                 injectTo(KeyEvent(now, now, KeyEvent.ACTION_UP, code, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0, 0,

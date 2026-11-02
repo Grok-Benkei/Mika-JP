@@ -10,22 +10,22 @@ import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 /**
- * 「最近打开」的一行:搜索写成「搜索：<词>」(副标题「必应」),网页是标题(读不到时用网站名)和网站名。
- * [host] 是网页的主机名(画图标用),搜索为 null。
+ * 「最近開いた」行: 検索は「検索:<単語>」(字幕は「Bing」)、Web ページはタイトル (読み取れない場合は Web サイト名を使用) と Web サイト名です。
+ * [host] は Web ページ (アイコンの描画に使用) のホスト名で、検索は null です。
  */
 data class RecentItem(val url: String, val title: String, val subtitle: String, val host: String?, val search: Boolean, val openedAtMs: Long)
 
-/** 输入时下面的一条联想:[search] 为真是用必应搜输入的这句,否则打开 [url]。 */
+/** を入力すると、[search] の関連付けが行われます。この文が Bing 検索を使用して入力された場合は、そうでない場合は、[url] を開きます。 */
 data class Suggestion(val title: String, val subtitle: String, val url: String, val search: Boolean, val host: String?)
 
-/** 起始页上的排法:最近打开、输入联想、相对时间。都是纯函数,名字由调用方按主机名给(见 [SiteLooks.face])。 */
+/** スタート ページの配置: 最近開いたもの、入力の関連付け、相対時間。これらはすべて純粋な関数であり、名前はホスト名に従って呼び出し元によって付けられます ([SiteLooks.face] を参照)。 */
 object StartPageModel {
     val SEARCH_ENGINE: String get() = tr(R.string.browser_engine)
     val RECENT_SOURCE: String get() = tr(R.string.browser_recent_source)
-    /** 联想里最近打开的至多几条。 */
+    /** Lenovo には、最近オープンしたアイテムがせいぜい数件あります。 */
     const val MAX_RECENT_SUGGESTIONS = 5
 
-    /** 最近打开排成行:同一网址(不计 # 后面)只留最近的一条,最近的在前。 */
+    /** 最近連続して開いたもの: 同じ URL (次の # を除く) の最新のもののみが残り、最新のものが最初になります。 */
     fun recentRows(pages: List<RecentPage>, nameOf: (String) -> String): List<RecentItem> {
         val seen = HashSet<String>()
         return pages.sortedByDescending { it.openedAtMs }.filter { seen.add(it.url.trim().substringBefore('#')) }.map { p ->
@@ -41,8 +41,8 @@ object StartPageModel {
     }
 
     /**
-     * 输入时的联想:第一条是这句话本身——像网址的打开它,其余用必应搜;后面是最近打开里标题或网址包含这句话的(不分大小写)。
-     * 空输入没有联想。
+     * 入力時の関連付け: 最初の項目は文そのものです。URL のように開き、Bing を使用して残りを検索します。 2 番目の項目は、最近開いたタイトルまたはこの文を含む URL です (大文字と小文字は関係ありません)。
+     * 空の入力には関連付けがありません。
      */
     fun suggestions(input: String, recent: List<RecentItem>): List<Suggestion> {
         val q = input.trim()
@@ -57,7 +57,7 @@ object StartPageModel {
         return listOf(first) + hits
     }
 
-    /** 相对时间:「刚刚」「10 分钟前」「今天 11:20」「昨天」「10 月 21 日」,不在今年的带年份。 */
+    /** 相対時間：「今」「10分前」「今日11時20分」「昨日」「10月21日」、今年ではありません。 */
     fun relativeTime(atMs: Long, nowMs: Long, zone: ZoneId = ZoneId.systemDefault()): String {
         val diff = nowMs - atMs
         if (diff in 0 until 60_000) return tr(R.string.browser_just_now)

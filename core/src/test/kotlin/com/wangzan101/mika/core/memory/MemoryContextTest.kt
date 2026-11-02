@@ -59,7 +59,7 @@ class MemoryContextTest {
         val block = MemoryContext.build(distractors(20) + relevant + pinned, goal = "点外卖", lastUserTurn = null)
         val msg = block.message!!
         assertTrue(TokenEstimate.of(msg) <= MemoryContext.MAX_TOKENS)
-        // 置顶的最后去:四条置顶都在,相关的只剩装得下的
+        // 一番上のものが最後です: 上の 4 つがすべて存在し、インストールできる関連するものだけが残ります。
         assertTrue(pinned.all { it.id in block.usedIds })
         assertTrue(block.usedIds.size in 5..6)
     }
@@ -80,7 +80,7 @@ class MemoryContextTest {
     }
 
     @Test fun belowMinScoreDropped() {
-        // 每条都带同一个检索词:算相关,但这个词毫无区分度,分数低于阈值
+        // 各エントリには同じ検索語が含まれています。関連していると見なされますが、この語には区別がなく、スコアはしきい値より低くなります。
         val same = (1..60).map { mem("外卖第${it}单", keywords = listOf("外卖")) }
         assertTrue(MemoryIndex(same).search("外卖", 1).single().second < MemoryContext.MIN_SCORE)
         val block = MemoryContext.build(same, goal = "外卖", lastUserTurn = null)

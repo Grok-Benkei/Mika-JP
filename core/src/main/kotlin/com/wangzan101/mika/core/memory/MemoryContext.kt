@@ -2,39 +2,39 @@ package com.wangzan101.mika.core.memory
 
 import com.wangzan101.mika.core.agent.TokenEstimate
 
-/** [message] 为 null 表示这次没有记忆可带;[usedIds] 是块里实际列出的条目,顺序同列表。 */
+/** [message] は null です。これは、今回は持ち込むメモリがないことを意味します。 [usedIds] はブロック内に実際にリストされている項目であり、順序はリストと同じです。 */
 data class MemoryBlock(val message: String?, val usedIds: List<String>)
 
 /**
- * 每个任务的记忆块:作为一条用户消息放在对话上文之后、任务原文之前。
+ * 各タスクのメモリ ブロック: 上記の会話の後、元のタスク テキストの前にユーザー メッセージとして配置されます。
  *
- * 两种给法:
- * - [Mode.Relevant]:置顶的 + 过阈值的检索结果(已批准的做法单列且有上限),总长受 [MAX_TOKENS] 约束。记忆多的老做法。
- * - [Mode.Full]:一条不落全给(做法仍受 [MAX_PROCEDURES] 约束),总长受 [FULL_MAX_TOKENS] 约束。
+ * 2 つの給電方法:
+ * - [Mode.Relevant]: しきい値を超える上位 + 検索結果 (承認された慣行は別にリストされ、上限があります)、合計の長さは [MAX_TOKENS] の対象となります。たくさんの思い出が詰まった昔ながらの習慣。
+ * - [Mode.Full]: それらすべてが指定されているわけではなく (メソッドは依然として [MAX_PROCEDURES] によってバインドされています)、全長は [FULL_MAX_TOKENS] によってバインドされています。
  *
- * 产品的默认是 [Mode.Auto]:记忆加起来没超过 [FULL_MAX_TOKENS] 就全量注入(做法也全给),超了才退回检索。
- * 记忆本来就不多(几十条、几千字),而现在的模型上下文动辄几十万;全量注入不会漏,
- * 前缀还固定,命中上下文缓存后比"每次检索出来的都不一样"更便宜。
- * 但记忆涨到几万字以后全塞会把上下文吃光,所以保留检索这条退路。
+ * プロダクトのデフォルト値は [Mode.Auto] です。合計メモリが [FULL_MAX_TOKENS] を超えない場合、全額が注入され (メソッドにも全額が与えられます)、超えた場合は取得のために返されます。
+ * のメモリは小さい (数十項目、数千ワード) ものの、現在のモデル コンテキストには数十万のコストがかかることがよくあります。フル注入しても漏れません。
+ * プレフィックスはまだ固定されています。コンテキスト キャッシュにアクセスする方が、「毎回異なるものを取得する」よりもコストがかかりません。
+ * ただし、メモリが数万語に達すると、メモリがいっぱいになると文脈が食い尽くされるため、検索は退避として保持されます。
  */
 object MemoryContext {
     const val MAX_TOKENS = 800
-    /** 全量注入的总上限;超过就说明该退回检索了(见 [Mode.Auto])。 */
+    /** フル噴射の合計上限。それを超えた場合は、検索に戻る時期が来たことを意味します ([Mode.Auto] を参照)。 */
     const val FULL_MAX_TOKENS = 4_000
     const val MAX_PINNED = 5
     const val MAX_RELEVANT = 8
     const val MAX_PROCEDURES = 3
     const val MIN_SCORE = 0.5
 
-    /** [Relevant]:只带置顶与检索到的;[Full]:全量(超预算时丢最旧的);[Auto]:能全量就全量,否则退回 [Relevant]。 */
+    /** [Relevant]: 固定および取得されたもののみが含まれます。 [Full]：全量（予算を超えた場合は古いものを廃棄します）。 [Auto]: 可能であれば全量、そうでない場合は [Relevant] が返されます。 */
     enum class Mode { Relevant, Full, Auto }
 
     private const val FACTS_HEADER = "Memories about the user (things the user told you; may be out of date; when they conflict with what the user says now, follow what they say now):"
     private const val PROCEDURES_HEADER = "Ways of doing things the user approved (when they conflict with what the user says now, follow what they say now):"
 
     /**
-     * [rewrite]:做法里提到的旧工具名换成现在的(见 LegacyNames.rewrite);默认原样。
-     * [mode] 默认保持老的检索行为;产品路径(AgentLoop)显式传 [Mode.Auto]。
+     * [rewrite]: メソッド内で言及されている古いツール名を現在のものに置き換えます (LegacyNames.rewrite を参照)。デフォルトはそのままです。
+     * [mode] は、デフォルトで古い検索動作を維持します。製品パス (AgentLoop) は [Mode.Auto] を明示的に渡します。
      */
     fun build(
         items: List<MemoryItem>,
@@ -46,14 +46,14 @@ object MemoryContext {
         val active = items.filter { it.status == MemoryStatus.active }
         if (active.isEmpty()) return MemoryBlock(null, emptyList())
         if (mode == Mode.Full) full(active, rewrite)?.let { return it }
-        // Auto:装得下就一条不落全给;装不下(记忆已经很多)退回检索,不硬塞几万字进上下文
+        // Auto: 収まるなら、全力を尽くしてください。収まらない場合は (すでにたくさんの記憶があるため)、文脈に何万もの単語を詰め込まないで、検索に戻ってください。
         if (mode == Mode.Auto) fullIfFits(active, rewrite)?.let { return it }
 
         val query = listOfNotNull(goal, lastUserTurn).joinToString("\n")
         val ranked = MemoryIndex(active).search(query, limit = active.size)
         val score = ranked.associate { it.first.id to it.second }
 
-        // 做法的上限把置顶的也算在内
+        // メソッドの上限には上位のものも含まれます。
         var procedures = 0
         fun procedureFits(m: MemoryItem) = m.kind != MemoryKind.procedure || procedures < MAX_PROCEDURES
 
@@ -73,7 +73,7 @@ object MemoryContext {
             relevant += item
         }
 
-        // 保留优先级从高到低:置顶(按分数)在前,相关(按分数)在后;超长从末尾去掉
+        // 保持の優先順位は高から低の順です。(スコアに従って) 一番上が最初で、(スコアに従って) 関連性のあるものが最後です。非常に長いものは端から削除されます
         val keep = (pinned + relevant).toMutableList()
         while (keep.isNotEmpty()) {
             val (message, ids) = render(keep, rewrite)
@@ -84,8 +84,8 @@ object MemoryContext {
     }
 
     /**
-     * 全量:置顶的在前,其余按更新时间倒序;做法最多 [MAX_PROCEDURES] 条。
-     * 超 [FULL_MAX_TOKENS] 时先丢最旧的普通条目,再丢做法;全丢光了还超就返回 null(交给检索)。
+     * フルボリューム: 一番上のものが最初で、残りは更新時間の降順です。メソッドの最大数は [MAX_PROCEDURES] です。
+     * が [FULL_MAX_TOKENS] を超えると、最も古い共通エントリが最初に失われ、次にメソッドが失われます。すべて失われた場合は、null が返されます (検索に任せられます)。
      */
     private fun full(active: List<MemoryItem>, rewrite: (String) -> String): MemoryBlock? {
         val (allFacts, allProcedures) = ordered(active)
@@ -100,8 +100,8 @@ object MemoryContext {
     }
 
     /**
-     * 装得下才全量;装不下返回 null,由调用方退回检索。
-     * 做法也一条不落:按更新时间截前几条会丢掉和这次任务相关的那条(截断只在检索里按相关度做)。
+     * は、ロードできる場合にのみいっぱいになります。ロードできない場合は null が返され、呼び出し元は検索を返します。
+     * も同じアプローチに従います。更新時間に基づいて最初のいくつかのエントリを切り取ると、このタスクに関連するエントリが破棄されます (切り捨ては検索の関連性に基づいてのみ行われます)。
      */
     private fun fullIfFits(active: List<MemoryItem>, rewrite: (String) -> String): MemoryBlock? {
         val (facts, procedures) = ordered(active, maxProcedures = Int.MAX_VALUE)

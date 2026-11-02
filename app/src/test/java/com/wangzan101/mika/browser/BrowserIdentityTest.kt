@@ -12,7 +12,7 @@ class BrowserIdentityTest {
     @Test
     fun userBrowsingDefaultsToMobile() {
         assertTrue(BrowserIdentity.mobile(loginForMika = false, agentMobile = false, userDesktop = false))
-        // Agent 那边用哪一版不影响平常浏览
+        // エージェント 通常のブラウジングに影響を与えずに使用できるバージョンはどれですか?
         assertTrue(BrowserIdentity.mobile(loginForMika = false, agentMobile = true, userDesktop = false))
     }
 
@@ -42,7 +42,7 @@ class BrowserIdentityTest {
         assertTrue(m.isDesktop("m.example.com"))
         assertFalse(m.isDesktop("example.org"))
         assertTrue(UserSiteModes(tmp.root).isDesktop("shop.example.com"))
-        // 在子域名上换回手机版:连上级的记录一起去掉
+        // サブドメイン名をモバイル バージョンに戻します。上位レコードも削除します。
         m.set("m.example.com", false)
         assertFalse(m.isDesktop("example.com"))
         assertFalse(UserSiteModes(tmp.root).isDesktop("m.example.com"))

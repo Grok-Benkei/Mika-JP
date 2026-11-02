@@ -25,7 +25,7 @@ import java.net.ServerSocket
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.TimeUnit
 
-/** 真正启动 Go 网关,经 WebSocket 接到与 Android 完全相同的隧道与 MCP 入口。 */
+/** は実際に Go ゲートウェイを開始し、WebSocket 経由で Android と同じトンネルと MCP 入口を受け取ります。 */
 class RelayGatewayIntegrationTest {
     @get:Rule val tmp = TemporaryFolder()
 

@@ -62,7 +62,7 @@ class RemoteTaskRecoveryDeviceTest {
         } finally { app.deleteDatabase(db) }
     }
 
-    // 收尾的和删对话留下的占位按条数、按时间清;没收尾的不清,清掉的编号再来就当新请求
+    // 終了および削除された会話によって残されたスペースは、エントリの数と時間に応じてクリアされます。エンディングはクリアされておらず、クリアされた番号は新たなリクエストとして使用されます。
     @Test fun finishedReceiptsAndPlaceholdersArePrunedUnfinishedKept() {
         val db = "receipts-test-" + UUID.randomUUID()
         var now = 10 * RemoteTaskReceipts.KEEP_MS
@@ -75,7 +75,7 @@ class RemoteTaskRecoveryDeviceTest {
                 for (id in listOf("a", "b")) { store.insert(task(id), false); store.finish(id, TaskState.Cancelled, emptyList()) }
                 fun gone() = (runCatching { store.find("gone") }.exceptionOrNull() as? RemoteTaskError)?.code
                 assertNotNull(store.find("running")); assertEquals(RemoteTaskError.Code.GONE, gone())
-                // 第五条收件:最早的两条落在最近三条之外,收尾的占位被清,还没收尾的留着
+                // 5 番目のレシート: 最初の 2 つの項目は最後の 3 つの項目の外にあり、最後の項目は消去され、最後の項目は保持されます。
                 store.insert(task("c"), false)
                 assertNotNull(store.find("running"))
                 assertNull(gone()); assertNull(store.find("gone"))
@@ -84,7 +84,7 @@ class RemoteTaskRecoveryDeviceTest {
             }
             now += RemoteTaskReceipts.KEEP_MS + 1
             RemoteTaskReceipts(app, db, clock = { now }, keep = 3).use { store ->
-                // 重开:running 标成中断后和 a b c 一起过了保留时间,都清掉
+                // 再起動: 実行が中断としてマークされた後、a b c とともに保持時間が経過し、クリアされます。
                 assertEquals(emptyList<RemoteTask>(), store.recent(10))
                 store.insert(task("a"), false)
                 assertTrue(store.claimStart("a"))

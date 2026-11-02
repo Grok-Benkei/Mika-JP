@@ -18,16 +18,16 @@ class PageHostsTest {
         hosts.started(under)
         hosts.setContainer(under, "c-under")
         assertSame(under, hosts.target())
-        // 又打开了一个界面,也停在浏览器页:视图到看得见的这个上
+        // は別のインターフェイスを開いてブラウザ ページで停止しました: 表示されているインターフェイスを表示します
         hosts.open(top)
         hosts.started(top)
         hosts.setContainer(top, "c-top")
         assertSame(top, hosts.target())
-        // 被盖住的那个后来才重建容器,也不抢
+        // カバーされていたコンテナは後で再構築されたため、取得されませんでした。
         hosts.setContainer(under, null)
         hosts.setContainer(under, "c-under-2")
         assertSame(top, hosts.target())
-        // 回到原来那个
+        // 元に戻す
         hosts.started(under)
         assertSame(under, hosts.target())
     }
@@ -53,16 +53,16 @@ class PageHostsTest {
     fun hostsWithoutContainerOrNotOpenAreSkipped() {
         val a = host("a")
         val b = host("b")
-        // 容器先于登记建好:登记前不算
+        // コンテナーは登録前に構築されます。登録前はカウントされません。
         hosts.setContainer(a, "ca")
         assertNull(hosts.target())
         hosts.open(a)
         assertSame(a, hosts.target())
-        // 回到了前台但没有容器(起始页上):不算
+        // はフォアグラウンドに戻りましたが、(開始ページ上に) コンテナーがありません: カウントされません
         hosts.open(b)
         hosts.started(b)
         assertSame(a, hosts.target())
-        // 都没回到过前台:后进来的优先
+        // はフロントデスクに戻ってきません。最後に来た人が優先されます。
         val c = host("c")
         hosts.open(c)
         hosts.setContainer(c, "cc")

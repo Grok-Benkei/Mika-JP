@@ -18,14 +18,14 @@ class PageDialogsTest {
         val r = Reply()
         val confirm = PageDialog(PageDialog.CONFIRM, "确定删除吗?")
         d.open(confirm, r)
-        // 没人回话就一直挂着,不自动确定
+        // 誰も返信せず、自動的に確認されないとハングします。
         assertEquals(confirm, d.current)
         assertTrue(r.said.isEmpty())
         assertEquals(DialogAnswer.Answered(confirm, accepted = true, textIgnored = false), d.answer(true, null))
         assertEquals(listOf("accept:-"), r.said)
         assertNull(d.current)
         assertEquals(DialogAnswer.NoDialog, d.answer(true, null))
-        assertEquals("只回一次", 1, r.said.size)
+        assertEquals("応答は1回だけです", 1, r.said.size)
     }
 
     @Test fun promptTakesTextOrItsDefault() {

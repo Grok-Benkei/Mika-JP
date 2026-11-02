@@ -6,8 +6,8 @@ import android.graphics.Paint
 import android.graphics.Rect
 
 /**
- * 系统把逻辑画面顺时针旋转到固定的物理缓冲;反向转回来,让预览、PNG 和 OCR 都用应用的逻辑坐标。
- * 直接画到目标尺寸,不为每张预览另建一张全尺寸的中间图;源矩形不含 ImageReader 的行填充。
+ * システムは、論理画面を時計回りに回転して、固定の物理バッファーに移動します。逆に回転すると、プレビュー、PNG、OCR はすべてアプリケーションの論理座標を使用します。
+ * は、プレビューごとにフルサイズの中間イメージを作成せずに、ターゲット サイズに直接描画します。ソース四角形には、ImageReader の行パディングが含まれません。
  */
 internal fun uprightDisplayFrame(
     buffer: Bitmap,

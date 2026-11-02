@@ -23,9 +23,9 @@ class SettlePolicyTest {
 
     private fun TestScope.done(id: String) = ledger.onEvent("Network.loadingFinished", buildJsonObject { put("requestId", id) }, currentTime)
 
-    /** 页面一直在变:等满旧的上限还不安静。 */
+    /** ページは変化し続けます。古い上限に達しても、まだ静かではありません。 */
     private val restless: suspend (Long) -> Boolean = { cap -> delay(cap); false }
-    /** 页面 500 毫秒后安静。 */
+    /** ページは 500 ミリ秒後に静かになります。 */
     private val calm: suspend (Long) -> Boolean = { cap -> delay(minOf(500, cap)); cap >= 500 }
 
     private suspend fun TestScope.settle(dom: suspend (Long) -> Boolean): Boolean =
@@ -51,7 +51,7 @@ class SettlePolicyTest {
         sent("1")
         launch { delay(2_000); done("1") }
         assertTrue(settle(calm))
-        // 请求 2 秒时结束,再安静 500 毫秒,最后看一眼页面
+        // リクエストは 2 秒で終了し、その後 500 ミリ秒間静止し、ページを最後に確認します。
         val took = currentTime - start
         assertTrue("$took", took in 2_500..3_200)
     }
@@ -92,9 +92,9 @@ class SettlePolicyTest {
         assertEquals(500, currentTime - start)
     }
 
-    // ---------- 读页前等正文稳定 ----------
+    // ---------- テキストが安定するまで待ってからページを読んでください ----------
 
-    /** 正文按时间变化:[at] 毫秒以前给前一个样本。 */
+    /** 時間によるテキストの変更: 前のサンプルの場合は [at] ミリ秒前。 */
     private fun TestScope.content(vararg steps: Pair<Long, Pair<Int, Int>>): suspend () -> Pair<Int, Int>? {
         val start = currentTime
         return { steps.last { (at, _) -> currentTime - start >= at }.second }
@@ -111,7 +111,7 @@ class SettlePolicyTest {
 
     @Test fun growingTextWaitsUntilItStopsGrowing() = runTest {
         val start = currentTime
-        // 分批渲染:0 到 1 秒一直在长,之后不变
+        // バッチ レンダリング: 0 ～ 1 秒が長く、その後は変化しません
         assertTrue(stable(content(0L to (100 to 1), 400L to (300 to 2), 900L to (800 to 3))))
         assertEquals(1_500, currentTime - start)
     }

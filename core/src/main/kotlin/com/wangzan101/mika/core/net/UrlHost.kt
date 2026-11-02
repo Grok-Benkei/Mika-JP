@@ -4,30 +4,30 @@ import java.net.IDN
 import java.net.URI
 import java.net.URLDecoder
 
-/** 网址里的主机名与站点:「在哪个网站」的说法(读屏、运行状态、知识匹配、技能草稿)都按它算。 */
+/** URL のホスト名とサイト: 「どの Web サイトがあるか」 (画面の読み取り、実行ステータス、知識の一致、スキルのドラフト) はすべてそれに基づいて計算されます。 */
 object UrlHost {
-    /** 常见的两段公共后缀。 */
+    /** は、一般的な 2 セクションのパブリック サフィックスです。 */
     private val TWO_PART_SUFFIXES = setOf(
         "com.cn", "net.cn", "org.cn", "gov.cn", "edu.cn", "ac.cn",
         "com.hk", "com.tw", "com.mo", "com.sg", "com.au", "com.br",
         "co.uk", "org.uk", "ac.uk", "co.jp", "ne.jp", "or.jp", "co.kr", "co.in", "co.nz",
     )
 
-    /** 托管平台:每个用户的子域名是不同的站点,平台域名本身当公共后缀。 */
+    /** ホスティング プラットフォーム: 各ユーザーのサブドメイン名は異なるサイトであり、プラットフォームのドメイン名自体がパブリック サフィックスとして使用されます。 */
     private val PRIVATE_SUFFIXES = setOf(
         "github.io", "vercel.app", "pages.dev", "netlify.app", "blogspot.com", "herokuapp.com",
         "amazonaws.com", "workers.dev", "web.app", "appspot.com", "firebaseapp.com",
     )
 
-    /** 国家顶级域名下常作第二段公共后缀的词。 */
+    /** は、国のトップレベル ドメイン名の 2 番目のパブリック サフィックスとしてよく使用される単語です。 */
     private val GENERIC_SECOND_LEVEL = setOf("co", "com", "net", "org", "gov", "edu", "ac", "or", "ne", "go")
 
-    /** 小写 ASCII 域名(国际化域名转成 xn-- 形式),去掉端口和开头的 www.;解析不出为 null。 */
+    /** 小文字の ASCII ドメイン名 (xn-- 形式に変換された国際化ドメイン名)、ポートと www を削除します。初めに。解析されない場合は null になります。 */
     fun of(url: String): String? = raw(url)?.removePrefix("www.")?.ifEmpty { null }
 
     /**
-     * 两个地址是否同一站点:主机名相同(不计 www),或同属一个能确定的可注册域名。
-     * 不看协议和端口。拿不准的后缀一律判为不同站点。
+     * 2 つのアドレスが同じサイトであるかどうか: ホスト名が同じ (www を除く)、またはそれらが判断できる同じ登録可能なドメイン名に属しているかどうか。
+     * はプロトコルとポートを調べません。接尾辞が不明な場合は別のサイトとして判断されます。
      */
     fun sameSite(a: String, b: String): Boolean {
         val ha = of(a) ?: return false
@@ -39,7 +39,7 @@ object UrlHost {
 
     internal fun raw(url: String): String? {
         val u = runCatching { URI(url.trim()) }.getOrNull() ?: return null
-        // 含非 ASCII 字符的主机名 URI 解析不出 host,从 authority 里取
+        // 非 ASCII 文字を含むホスト名 URI はホストを解決できません。それは権威から取られます。
         val h = u.host ?: u.rawAuthority?.let(::hostOfAuthority) ?: return null
         val ascii = runCatching { IDN.toASCII(h.trimEnd('.')) }.getOrNull()?.lowercase() ?: return null
         return ascii.ifEmpty { null }
@@ -51,7 +51,7 @@ object UrlHost {
         return a.substringBefore(':').ifEmpty { null }
     }
 
-    /** 可注册域名(公共后缀再加一段);后缀拿不准、或主机名就是后缀本身时为 null。 */
+    /** はドメイン名を登録できます (パブリック サフィックスに段落を追加します)。サフィックスが不確かな場合、またはホスト名がサフィックスそのものである場合は、null になります。 */
     fun registrable(host: String): String? {
         if (host.startsWith("[") || host.all { it.isDigit() || it == '.' }) return null
         val labels = host.split('.')

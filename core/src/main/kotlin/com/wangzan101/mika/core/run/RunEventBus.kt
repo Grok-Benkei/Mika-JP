@@ -5,7 +5,7 @@ import com.wangzan101.mika.core.record.RunSink
 import kotlinx.coroutines.CancellationException
 import java.util.concurrent.CopyOnWriteArrayList
 
-/** 一次 Run 的事件分发器。记录、界面与送达可各订一份,单个接收方故障不影响其他接收方。 */
+/** 実行のイベント ディスパッチャー。レコード、インターフェイス、配信の各コピーを 1 部ずつ注文でき、1 人の受信者が失敗しても他の受信者には影響しません。 */
 class RunEventBus : RunSink {
     private val listeners = CopyOnWriteArrayList<RunSink>()
 
@@ -18,7 +18,7 @@ class RunEventBus : RunSink {
         listeners.forEach { listener ->
             try { listener.event(e) }
             catch (e: CancellationException) { throw e }
-            catch (_: Throwable) { /* 运行不能被订阅者的故障打断 */ }
+            catch (_: Throwable) { /* 操作はサブスクライバー障害によって中断できません */ }
         }
     }
 

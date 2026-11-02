@@ -24,7 +24,7 @@ class SystemSpeechTest {
             SystemSpeech.Outcome.Fail(SpeechFailure.Unavailable(SpeechEngineSpec.Why.SystemNoResponse)),
             SystemSpeech.afterSilence(answered = false),
         )
-        // 回过话的服务只是这一段卡住:按已听到的收尾,不记成不响应
+        // 通話に応答したサービスは、このセクションでのみ停止しています。聞こえた内容の最後を押してください。録音されていない場合、応答しません。
         assertEquals(SystemSpeech.Outcome.Finish, SystemSpeech.afterSilence(answered = true))
     }
 
@@ -38,45 +38,26 @@ class SystemSpeechTest {
     }
 
     @Test
-    fun languageTagsFollowAppLanguage() {
-        assertEquals("zh-CN", SystemSpeech.speechTag(com.wangzan101.mika.i18n.AppLanguage.SimplifiedChinese, java.util.Locale.US))
-        assertEquals("zh-TW", SystemSpeech.speechTag(com.wangzan101.mika.i18n.AppLanguage.TraditionalChinese, java.util.Locale.US))
-        assertEquals("en-US", SystemSpeech.speechTag(com.wangzan101.mika.i18n.AppLanguage.English, java.util.Locale.CHINA))
-        assertEquals("fr-FR", SystemSpeech.speechTag(com.wangzan101.mika.i18n.AppLanguage.System, java.util.Locale.FRANCE))
-        // 选的语言和系统不同时用这种语言最常见的地区;相同时沿用系统的地区
-        assertEquals("ja-JP", SystemSpeech.speechTag(com.wangzan101.mika.i18n.AppLanguage.Japanese, java.util.Locale.US))
-        assertEquals("pt-BR", SystemSpeech.speechTag(com.wangzan101.mika.i18n.AppLanguage.Portuguese, java.util.Locale.US))
-        assertEquals("pt-PT", SystemSpeech.speechTag(com.wangzan101.mika.i18n.AppLanguage.Portuguese, java.util.Locale.forLanguageTag("pt-PT")))
-        assertEquals("es-MX", SystemSpeech.speechTag(com.wangzan101.mika.i18n.AppLanguage.Spanish, java.util.Locale.forLanguageTag("es-MX")))
-        assertEquals("id-ID", SystemSpeech.speechTag(com.wangzan101.mika.i18n.AppLanguage.Indonesian, java.util.Locale.forLanguageTag("in-ID")))
-        // 中文按选的简繁定地区,不跟系统
-        assertEquals("zh-CN", SystemSpeech.speechTag(com.wangzan101.mika.i18n.AppLanguage.SimplifiedChinese, java.util.Locale.TAIWAN))
-        assertEquals("zh", SystemSpeech.isoCode("zh-TW"))
-        assertEquals("en", SystemSpeech.isoCode("en-US"))
-    }
-
-    @Test
-    fun systemLanguageDropsScriptAndExtensions() {
-        val system = com.wangzan101.mika.i18n.AppLanguage.System
-        assertEquals("zh-CN", SystemSpeech.speechTag(system, java.util.Locale.forLanguageTag("zh-Hans-CN")))
-        assertEquals("zh-TW", SystemSpeech.speechTag(system, java.util.Locale.forLanguageTag("zh-Hant-TW")))
-        assertEquals("sr-RS", SystemSpeech.speechTag(system, java.util.Locale.forLanguageTag("sr-Latn-RS")))
-        assertEquals("de-DE", SystemSpeech.speechTag(system, java.util.Locale.forLanguageTag("de-DE-u-co-phonebk")))
-        assertEquals("ja", SystemSpeech.speechTag(system, java.util.Locale.forLanguageTag("ja")))
-        val english = com.wangzan101.mika.i18n.AppLanguage.English
-        assertEquals("en-GB", SystemSpeech.speechTag(english, java.util.Locale.forLanguageTag("en-Latn-GB")))
+    fun languageTagsAreAlwaysJapanese() {
+        // 日本語専用: 旧選択やシステム言語が何でも ja-JP
+        for (language in com.wangzan101.mika.i18n.AppLanguage.entries) {
+            assertEquals(language.toString(), "ja-JP", SystemSpeech.speechTag(language, java.util.Locale.US))
+            assertEquals(language.toString(), "ja-JP", SystemSpeech.speechTag(language, java.util.Locale.CHINA))
+            assertEquals(language.toString(), "ja-JP", SystemSpeech.speechTag(language, java.util.Locale.FRANCE))
+        }
+        assertEquals("ja", SystemSpeech.isoCode("ja-JP"))
     }
 
     private fun svc(name: String, open: Boolean = true) = RecognizerService("a.b/.$name", open, null)
 
-    /** 只有一个识别服务时它就是默认的:只试默认的,不点名再试一遍白等。 */
+    /** 識別サービスが 1 つだけの場合、それがデフォルトのサービスです。デフォルトのサービスを試し、無駄に名前を付けずに再試行してください。 */
     @Test
     fun aSingleServiceIsOnlyTriedAsTheDefault() {
         assertEquals(listOf<String?>(null), SystemSpeech.attempts(listOf(svc("One")), remembered = null))
         assertEquals(listOf<String?>(null), SystemSpeech.attempts(emptyList(), remembered = null))
     }
 
-    /** 默认的不回话时,再点名试其余的,对别的 App 开放的在前;总数有上限。 */
+    /** デフォルトで返信しない場合は、他の人を名前で試し、他のアプリで開いている人が最初に表示されます。合計数には上限があります。 */
     @Test
     fun otherServicesFollowTheDefaultOpenOnesFirst() {
         val services = listOf(svc("Closed", open = false), svc("Open"), svc("Third"))
@@ -84,7 +65,7 @@ class SystemSpeechTest {
         assertEquals(SystemSpeech.MAX_ATTEMPTS, SystemSpeech.attempts(services + svc("Fourth"), null).size)
     }
 
-    /** 之前点名试通的排最前、不重复;它已经不在手机上了就不管它。 */
+    /** は前回の点呼テストで 1 位にランクされており、繰り返されません。携帯電話にはもうないので、無視してください。 */
     @Test
     fun theServiceThatAnsweredBeforeGoesFirst() {
         val services = listOf(svc("One"), svc("Two"))

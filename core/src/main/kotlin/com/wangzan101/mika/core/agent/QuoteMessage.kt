@@ -1,39 +1,39 @@
 package com.wangzan101.mika.core.agent
 
 /**
- * 用户的话里引用了前面的一条消息时怎么写:话的最前面一行标明引的是谁的话(固定的英文,模型一看就懂;对话页认这一行),
- * 接着每行以「> 」开头的是引的内容,空一行后是用户这次说的话。例如
+ * ユーザーが前のメッセージを引用する場合の書き方: 引用の最初の行は、それが誰の引用であるかを示します (固定英語、モデルは一目で理解できます。ダイアログ ページはこの行を認識します)。
+ * すると、「>」で始まる各行が引用内容、空行以降が今回ユーザーが発言した内容になります。たとえば
  * ```
  * > [Quoting your earlier reply]
- * > 明天上午有小雨……
+ * > 明日の朝は小雨が降るでしょう...
  *
- * 那要带伞吗
+ * 傘は必要ですか?
  * ```
- * 这句话原样存进对话、交给任务(新任务、插话都一样),模型看到的就是这样;对话页据此把引的内容画成气泡上方一小块淡色。
- * 引的那一段:语言提示和回答的语言检查不算;记忆、技能的引文只在引的是用户自己说过的话时算(见 [UserWords])。旧对话里的话没有这一行,照原样显示。
+ * この文はそのままダイアログに保存され、タスクに引き継がれます（新規タスク、割り込みも同様）。これがモデルから見えるものです。ダイアログ ページでは、引用されたコンテンツがバブルの上に小さな明るい色の部分として描画されます。
+ * によって引用された段落: 言語プロンプトと回答の言語チェックはカウントされません。記憶とスキルの引用は、ユーザー自身が言ったことを引用した場合にのみカウントされます ([UserWords] を参照)。昔の会話の単語にはこのセリフがなく、そのまま表示されます。
  */
 object QuoteMessage {
-    /** 引的是谁的话:Mika 的回答,还是用户自己说过的话。 */
+    /** 誰の言葉を引用：ミカの答えはやはりユーザー自身の言葉です。 */
     enum class From(val header: String) {
         Mika("> [Quoting your earlier reply]"),
         You("> [Quoting my earlier message]"),
     }
 
-    /** 引的内容最多交给模型这么多字,多的截掉、末尾加「…」。 */
+    /** の引用内容は、せいぜい多くの単語でしかモデルに伝えることができません。それ以上ある場合は切り取られ、最後に「…」が追加されます。 */
     const val MAX_CHARS = 1000
 
     data class Quote(val from: From, val text: String)
 
-    /** 拆开的一句话:[quote] 是引的那条(没引为 null),[words] 是用户这次说的话(没引时是原话)。 */
+    /** の分割文: [quote] は引用されたもの (引用されていない場合はヌル)、[words] はユーザーが今回言ったことです (引用されていない場合は元の単語)。 */
     data class Parsed(val quote: Quote?, val words: String)
 
-    /** 引的内容:去掉首尾空白,超过 [MAX_CHARS] 截断加「…」。 */
+    /** で引用された内容: 先頭と末尾の空白を削除し、[MAX_CHARS] を超える場合は切り捨てて「...」を追加します。 */
     fun clip(text: String): String {
         val t = text.trim()
         return if (t.length <= MAX_CHARS) t else t.take(MAX_CHARS).trimEnd() + "…"
     }
 
-    /** 引用在前,话在后;没有引用或引的内容是空的时就是原话。 */
+    /** 引用が最初にあり、単語が続きます。引用がない場合、または引用内容が空の場合は原文です。 */
     fun compose(quote: Quote?, words: String): String {
         val body = quote?.let { clip(it.text) }?.takeIf { it.isNotEmpty() } ?: return words
         val block = (listOf(quote.from.header) + body.lines().map { if (it.isBlank()) ">" else "> $it" }).joinToString("\n")
@@ -52,6 +52,6 @@ object QuoteMessage {
         return Parsed(Quote(from, quoted.joinToString("\n").trim()), lines.drop(i).joinToString("\n").trim())
     }
 
-    /** 去掉引用后的话;没引用的原样返回。 */
+    /** 参照を削除した後。参照がない場合はそのまま返却されます。 */
     fun words(text: String): String = parse(text).words
 }

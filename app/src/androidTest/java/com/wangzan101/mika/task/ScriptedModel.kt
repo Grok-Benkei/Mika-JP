@@ -15,7 +15,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicInteger
 
-/** 真机测试用的脚本模型:每次 complete 先报到(第几次、收到的历史),再等测试喂下一步工具调用。 */
+/** 実機テスト用のスクリプト モデル: 完了するたびに最初にレポート (回数、受信履歴) が報告され、次にテストが次のツール呼び出しにフィードされるまで待機します。 */
 class ScriptedModel : ChatModel {
     class Call(val number: Int, val messages: List<Message>)
 
@@ -23,21 +23,21 @@ class ScriptedModel : ChatModel {
     private val calls = Channel<Call>(Channel.UNLIMITED)
     private val replies = Channel<List<Part>>(Channel.UNLIMITED)
     private val n = AtomicInteger()
-    /** 收到的完成前核查请求次数。 */
+    /** 受信した完了前検証リクエストの数。 */
     val verifierRequests = AtomicInteger()
-    /** 停止后写交代的请求次数;回 [stopSummary](默认空白,交代按记录直接拼),不占脚本也不计次。 */
+    /** 停止後のアカウント書き込みリクエストの数。 [stopSummary] を返します (デフォルトは空白、アカウントはレコードに従って直接綴られます)。これはスクリプトを考慮せず、カウントされません。 */
     val summaryRequests = AtomicInteger()
     @Volatile var stopSummary: String = ""
-    /** 核查的固定回答;默认通过。 */
+    /** 検証の回答を修正しました。デフォルトは合格しました。 */
     @Volatile var verdict: String = PASS
     /**
-     * 从界面发起的任务在提议第一个工具调用时,会另问一次模型「用户是在讨论、要读还是要操作」;没配轻量模型时问的就是这个模型。
-     * 设了它,这一问固定这样回答(ACT / READ / DISCUSS),不占脚本也不计次;为 null 时这一问和别的调用一样要测试来喂。
+     * インターフェイスから開始されたタスクが最初のツール呼び出しを提案すると、別のモデルに「ユーザーが議論しているのか、読みたいのか、操作したいのか」を尋ねます。軽量モデルが無い場合に問われるモデルです。
+     * 設定されている場合、この質問は次のように回答されるように修正されます (ACT / READ / DISCUSS)。これはスクリプトを占有せず、カウントされません。 null の場合、この質問は他の呼び出しと同様にテストする必要があります。
      */
     @Volatile var intent: String? = null
 
     override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
-        // 回答交出前的核查:固定回答,不占脚本也不计次
+        // 答えを渡す前の検証: 修正された答え、スクリプトは考慮されておらず、カウントされません
         if (system == Verifier.PROMPT) {
             verifierRequests.incrementAndGet()
             return ModelReply(listOf(Part.Text(verdict)), StopReason.EndTurn, null)
@@ -46,7 +46,7 @@ class ScriptedModel : ChatModel {
             summaryRequests.incrementAndGet()
             return ModelReply(listOf(Part.Text(stopSummary)), StopReason.EndTurn, null)
         }
-        // 给新对话起标题:固定回答,不占脚本也不计次
+        // 新しい会話のタイトル: 固定回答、スクリプトを占有せず、カウントされません
         if (system == TITLE_PROMPT) return ModelReply(listOf(Part.Text("测试对话")), StopReason.EndTurn, null)
         intent?.let { if (system == INTENT_PROMPT) return ModelReply(listOf(Part.Text(it)), StopReason.EndTurn, null) }
         calls.send(Call(n.incrementAndGet(), messages))
@@ -54,11 +54,11 @@ class ScriptedModel : ChatModel {
         return ModelReply(parts, if (parts.any { it is Part.ToolCall }) StopReason.ToolUse else StopReason.EndTurn, null)
     }
 
-    /** [say] 是模型在这一步顺带说的话(界面上显示在步骤下面)。 */
+    /** [say] は、このステップでモデルが偶然言ったことです (ステップの下のインターフェイスに表示されます)。 */
     fun feed(name: String, args: String = "{}", say: String? = null) =
         replies.trySend(listOfNotNull(say?.let { Part.Text(it) }, Part.ToolCall("c${n.get()}", name, args)))
 
-    /** 不带调用的回复:交给用户的最终回答,任务就此结束(核对没对上时会被退回一次)。 */
+    /** 電話なしで返信：最終的な回答をユーザーに渡し、タスクを終了します（チェックが一致しない場合は一度返却されます）。 */
     fun answer(text: String) = replies.trySend(listOf(Part.Text(text)))
 
     companion object {

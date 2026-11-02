@@ -20,9 +20,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * 真机:把兼容性自检完整跑一遍,和设置里点「开始自检」走的是同一个 [AndroidSelfCheck]。
- * 要内置助手在运行、Mika 的无障碍开着;报告打在 logcat(标签 MikaSelfCheck)。默认只要求跑完、每项都有结论;
- * 带 `-e selfcheck.strict true` 时还要求没有一项失败。
+ * 実機: 互換性セルフテストを完全に実行します。設定で [セルフテストの開始] をクリックしたのと同じ [AndroidSelfCheck] です。
+ * では、内蔵アシスタントが実行されており、Mika のアクセシビリティがオンになっている必要があります。レポートはlogcat (タグMikaSelfCheck)にあります。デフォルトでは、最後まで実行し、各項目に結論が必要なだけです。
+ * に `-e selfcheck.strict true` が付属する場合は、いずれの項目も故障していないことが必要です。 他の実デバイス テストと同様に、
  */
 @RunWith(AndroidJUnit4::class)
 class SelfCheckDeviceTest {
@@ -31,7 +31,7 @@ class SelfCheckDeviceTest {
 
     @Test
     fun wholeSelfCheckCompletes() = runBlocking<Unit> {
-        // 和别的真机测试一样先占住共用的助手连接、促使无障碍重绑(启动测试时系统会强停 App)
+        // は最初に共有アシスタント接続を占有し、問題のない再バインドを促します (テストの開始時にシステムはアプリを強制的に停止します)。
         DeviceSupport.shell()
         DeviceSupport.service()
         val monitor = SystemStatusMonitor(context, PhoneServices.of(context).shellControl)

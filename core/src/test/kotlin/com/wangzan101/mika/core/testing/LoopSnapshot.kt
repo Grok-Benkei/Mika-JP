@@ -10,17 +10,17 @@ import java.io.File
 import java.security.MessageDigest
 
 /**
- * 「模型看到了什么」的快照:每次请求的系统提示词(摘要)、工具列表、逐条消息(角色、上下文种类与来源、首行、全文摘要)。
- * 首行便于看差异,摘要保证任何一个字变了都会被发现。系统提示词和工具列表只在变了时记。
+ * 「モデルが見たもの」のスナップショット: 各リクエストのシステム プロンプト ワード (概要)、ツール リスト、メッセージごとのメッセージ (役割、コンテキスト タイプとソース、最初の行、全文概要)。
+ * 最初の行により違いが簡単に確認でき、要約により変更された単語が確実に検出されます。システム プロンプトの単語とツール リストは、変更された場合にのみ記憶されます。
  *
- * 金样文件在 core/src/test/resources/loop-snapshots/;重新生成:
+ * ゴールド サンプル ファイルは core/src/test/resources/loop-snapshots/ に再生成されます。
  *   ./gradlew :core:test --tests '*LoopScenarioTest' -PupdateSnapshots
  */
 object LoopSnapshot {
     private val dir = File(System.getProperty("mika.snapshotDir") ?: "src/test/resources/loop-snapshots")
     private val update = System.getProperty("mika.updateSnapshots") == "true"
 
-    /** 和金样比对;开了重新生成就直接写入。 */
+    /** をゴールドサンプルと比較してください。再生成が有効な場合は直接書き込みます。 */
     fun check(name: String, actual: String) {
         val file = File(dir, "$name.txt")
         if (update) {
@@ -28,11 +28,11 @@ object LoopSnapshot {
             file.writeText(actual)
             return
         }
-        if (!file.exists()) fail("没有金样 ${file.path};用 ./gradlew :core:test --tests '*LoopScenarioTest' -PupdateSnapshots 生成")
-        assertEquals("快照 $name 变了;确认是有意的改动后用 -PupdateSnapshots 重新生成", file.readText(), actual)
+        if (!file.exists()) fail("基準ファイルがありません: ${file.path}。./gradlew :core:test --tests '*LoopScenarioTest' -PupdateSnapshots で生成してください")
+        assertEquals("スナップショット $name が変わりました。意図した変更か確認してから -PupdateSnapshots で再生成してください", file.readText(), actual)
     }
 
-    /** 一个场景的快照:结局,然后各个模型(主模型、辅助角色)收到的请求。 */
+    /** シーンのスナップショット: エンディング、および各モデル (メイン モデル、補助キャラクター) が受け取ったリクエスト。 */
     fun render(outcome: String, models: List<Pair<String, FakeChatModel>>): String = buildString {
         appendLine("outcome: " + outcome.replace("\n", "⏎"))
         for ((role, m) in models) {
@@ -50,7 +50,7 @@ object LoopSnapshot {
                     appendLine("tools: #${hash(r.tools.joinToString("\n") { it.name + "\n" + it.description + "\n" + it.parametersJsonSchema })} ${r.toolNames}")
                     tools = r.tools
                 }
-                // 和上一次请求相同的开头只记条数:请求前缀逐步只增,变了(压缩、裁剪)就会从变的那条起全部列出
+                // 前のリクエストと同じ始まりを持つエントリの数だけが記録されます。リクエストのプレフィックスは徐々に増加します。変更（圧縮、トリミング）すると、すべてのエントリが変更されたものからリストされます。
                 val same = r.messages.zip(previous).takeWhile { (a, b) -> a == b }.size
                 if (same > 0) appendLine("… $same messages unchanged")
                 r.messages.drop(same).forEach { append(message(it)) }

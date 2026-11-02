@@ -3,6 +3,7 @@
 Drops the socket after the real phone accepts a POST, then kills and relaunches
 the app. All model replies come from RemoteTaskRecoveryDeviceTest.
 """
+import os
 import argparse
 import http.client
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -31,7 +32,7 @@ def until(read, seconds=60):
 
 def run(serial):
     adb = ["adb", "-s", serial]
-    package = "com.wangzan101.mika"
+    package = os.environ.get("MIKA_PACKAGE", "jp.studioyebisu.mika")
 
     def shell(*args, check=True):
         return subprocess.run(adb + ["shell", *args], check=check, capture_output=True, text=True, timeout=12)

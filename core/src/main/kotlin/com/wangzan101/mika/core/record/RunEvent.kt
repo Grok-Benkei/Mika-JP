@@ -11,23 +11,23 @@ import com.wangzan101.mika.core.observation.Observation
 import com.wangzan101.mika.core.observation.Place
 import com.wangzan101.mika.core.observation.Trust
 
-/** 运行记录里的一个事件;落盘为 events.jsonl 的一行,`type` 字段区分种类。 */
+/** はランニング レコード内のイベントです。ディスクは events.jsonl の行であり、`type` フィールドによってタイプが区別されます。 */
 @Serializable
 sealed interface RunEvent {
     val atMs: Long
 
-    /** [origin] 是谁发起的这次运行(`RunOrigin` 的小写名);手机上发起的不写。[stepLimit] 是这次运行的步数上限,不限制为 null。 */
+    /** [origin] この実行を開始した人 (`RunOrigin` の小文字の名前)。携帯電話で開始された場合は書き込まないでください。 [stepLimit] は、この実行のステップ数の上限であり、null に制限されません。 */
     @Serializable @SerialName("task_started")
     data class TaskStarted(
         override val atMs: Long, val goal: String, val model: String,
         val origin: String? = null, val stepLimit: Int? = null,
     ) : RunEvent
 
-    /** 本任务发给模型的系统提示词与工具定义的摘要([com.wangzan101.mika.core.prompt.PromptVersion])。 */
+    /** このタスク ([com.wangzan101.mika.core.prompt.PromptVersion]) でモデルに送信されるシステム プロンプト ワードとツール定義の概要。 */
     @Serializable @SerialName("prompt_version")
     data class PromptVersion(override val atMs: Long, val hash: String) : RunEvent
 
-    /** [fallback] 表示没能列出标准,[criteria] 只是用户原话。 */
+    /** [fallback] は標準をリストできないことを意味し、[criteria] はユーザーのオリジナルの言葉です。 */
     @Serializable @SerialName("criteria")
     data class Criteria(
         override val atMs: Long,
@@ -37,7 +37,7 @@ sealed interface RunEvent {
         val fallback: Boolean = false,
     ) : RunEvent
 
-    /** [tool]/[argsJson] 是本轮实际执行的那一个调用;参数已脱敏。 */
+    /** [tool]/[argsJson] は、このラウンドで実際に実行されたコールです。パラメータは鈍化されています。 */
     @Serializable @SerialName("model_reply")
     data class ModelReply(
         override val atMs: Long,
@@ -48,25 +48,25 @@ sealed interface RunEvent {
         val inputTokens: Int?,
         val outputTokens: Int?,
         val cachedTokens: Int?,
-        /** 最后一次发请求到收完回复;之前失败的请求和退避另记在 [retryWaitMs]。 */
+        /** が最後にリクエストを送信し、応答を受け取りました。以前に失敗したリクエストとバックオフは、[retryWaitMs] に個別に記録されます。 */
         val latencyMs: Long = 0,
-        /** 本次调用实际用的模型;null = 主模型。 */
+        /** この呼び出しで使用される実際のモデル。 null = メインモデル。 */
         val model: String? = null,
-        /** 大小模型分工起作用时:main / light / light_rejected(轻量模型的回复没执行,改问了主模型);否则 null。 */
+        /** 大規模モデルと小規模モデル間の分業が有効な場合: main / light / light_rejected (軽量モデルの応答は実行されず、代わりにメイン モデルが要求されます)。それ以外の場合は null。 */
         val role: String? = null,
-        /** 重试前花掉的时间:失败的那几次请求加退避等待。 */
+        /** 再試行までに費やした時間: 失敗したリクエストとバックオフ待機時間。 */
         val retryWaitMs: Long = 0,
         /**
-         * 回复到手的时刻:界面上这一步的说明、要做的事或回答从这时显示出来(带调用的回复执行完才记,[atMs] 比它晚)。
-         * 改派掉的轻量模型回复和旧记录里没有。
+         * 応答を受信した瞬間: インターフェイス上のこのステップの指示、何をすべきか、または応答がこの時点から表示されます (通話による応答は実行されるまで記録されません。[atMs] は後で表示されます)。
+         * 再発送した軽量モデルは返信および古い記録に含まれません。
          */
         val repliedAtMs: Long? = null,
     ) : RunEvent {
-        /** 这次回复真的驱动了这一步(改派掉的轻量模型回复不算)。 */
+        /** この返信がこのステップを実際に推進しました (再割り当てされた軽量モデルの返信はカウントされません)。 */
         val acted: Boolean get() = role != "light_rejected"
     }
 
-    /** [resultJson] 含守卫结论,整条记下;只有超过 [MAX_RESULT] 字才截短并留标记。 */
+    /** [resultJson] には保護された結論が含まれており、その全体を書き留めます。 [MAX_RESULT] を超える単語のみが切り捨てられ、マークされます。 */
     @Serializable @SerialName("tool_result")
     data class ToolResult(
         override val atMs: Long,
@@ -75,28 +75,28 @@ sealed interface RunEvent {
         val resultJson: String,
         val changed: Boolean?,
         val screenshotId: Int?,
-        /** 工具执行耗时,含端口内等界面稳定;不含等用户(确认、追问、接管)。 */
+        /** ポート内の安定したインターフェイスを含め、ツールの実行には時間がかかります。ユーザーの待機（確認、質問、引き継ぎ）を除きます。 */
         val durationMs: Long = 0,
-        /** 其中等界面稳定的部分(端口能报时才有值),以及为节奏有意停下的时间(网页一页没看够就换页时补的停留)。 */
+        /** インターフェイスの中央部分は安定しており (ポートがレポートできる場合にのみ価値があります)、リズムが意図的に停止している時間です (ページを十分に読み込まずにページを変更するときに一時停止します)。 */
         val waitMs: Long = 0,
-        /** model | batch | replay | script(web_script 里的动作) */
+        /** モデル |バッチ |リプレイ |スクリプト (web_script 内のアクション) */
         val source: String = "model",
-        /** 模型这次调用的 id;路线据此把动作和它的结果配对。 */
+        /** 今回呼び出されるモデルのID。ルートはそれに応じてアクションとその結果を組み合わせます。 */
         val callId: String? = null,
     ) : RunEvent
 
-    /** 回放路线走到第 [step]/[total] 步;[matched] 为 false 表示在此交还给模型。 */
+    /** 再生ルートはステップ [step]/[total] に到達します。 [matched] は、ここでモデルに返されることを示す false です。 */
     @Serializable @SerialName("replay")
     data class Replay(override val atMs: Long, val routeId: String, val step: Int, val total: Int, val matched: Boolean, val detail: String) : RunEvent
 
-    /** 一批动作走到第 [step]/[total] 步;[stopped] 时 [reason] 说明为何停在这里。 */
+    /** アクションのバッチがステップ [step]/[total] に到達します。 [stopped]、[reason] がここで停止する理由を説明します。 */
     @Serializable @SerialName("batch")
     data class Batch(override val atMs: Long, val step: Int, val total: Int, val stopped: Boolean, val reason: String?) : RunEvent
 
     /**
-     * 一次写操作当时的目标元素与前后锚点(工具结果截短后元素列表不全,路线靠它);[argsJson] 已脱敏。
-     * [effective]:ok 且界面变了,或输入回读一致,或启动成功。[callId] 与同一调用的 [ToolResult.callId] 相同;
-     * [protected]:动作前那一屏受系统防截屏保护。
+     * 書き込み操作時のターゲット要素と前後のアンカー ポイント (ツールの結果、切り捨て後の要素リストは不完全となり、ルートはそれに依存します)。 [argsJson] は感度が解除されています。
+     * [effective]:ok であり、インターフェイスが変更されているか、入力リードバックが一貫しているか、または起動が成功しています。 [callId] は、同じ呼び出しからの [ToolResult.callId] と同じです。
+     * [protected]: アクション前の画面は、スクリーンショットからシステムによって保護されています。
      */
     @Serializable @SerialName("action_target")
     data class ActionTarget(
@@ -112,22 +112,22 @@ sealed interface RunEvent {
         val protected: Boolean = false,
         /** model | batch */
         val source: String = "model",
-        /** 取不到这一步的目标和锚点(批里的子步);路线不能缺步,整条不记。 */
+        /** このステップ (バッチ内のサブステップ) のゴールとアンカー ポイントを取得できません。ルートに欠落ステップがあってはならず、ルート全体が記録されるわけではありません。 */
         val incomplete: Boolean = false,
     ) : RunEvent
 
     /**
-     * 存下了一帧画面(可视化用:回看、来源里的截图):第 [step] 步的第 [mediaId] 张,[place] 是那时在哪(包名或「网站 域名」)。
-     * 旧记录里是 screen_saved(读取时换成这一种)。
+     * はフレーム (視覚化の使用: レビュー、ソース内のスクリーンショット): ステップ [step] の [mediaId] を保存しました。ここで、[place] は当時 (パッケージ名または「ドメイン名」) でした。
+     * 古いレコードは screen_saved です (読み取り時にこのレコードに変更されます)。
      */
     @Serializable @SerialName("media")
     data class Media(override val atMs: Long, val mediaId: Int, val step: Int, val place: String?) : RunEvent
 
     /**
-     * 记进证据账本的一条观察(见 [com.wangzan101.mika.core.observation.Observation]):原文已脱敏、截短,和运行时账本里那一条一样,
-     * 评测据此原样重建账本。[id] 是账本里的编号(回答的来源按它指回);[kind] 是观察的种类,[source] 是给出它的能力。
-     * [inputs]、[focused] 是那时输入框里的字(分辨输入框回显用;读页面内容时为 null)。
-     * 旧记录里是 screen_text(只记读界面与整页正文,读取时换成这一种,[id] 为 0)。
+     * 証拠台帳に記録された観察 ([com.wangzan101.mika.core.observation.Observation] を参照): 元のテキストは感度が下げられ、切り詰められており、実行時台帳のものと同じです。
+     * 確認 それに応じて台帳を再構築します。 [id] は台帳内の番号です (回答のソースはそれを参照しています)。 [kind] は観察の種類、[source] は観察を行う能力です。
+     * [inputs] および [focused] は、その時点の入力ボックス内の単語です (入力ボックスのエコーを決定するために使用されます。ページのコンテンツを読み取る場合は null)。
+     * の古いレコードは screen_text です (読み取りインターフェイスとページ全体のテキストのみが記録され、読み取り時にこれに変更されます。[id] は 0)。
      */
     @Serializable @SerialName("observed")
     data class Observed(
@@ -135,18 +135,18 @@ sealed interface RunEvent {
         val source: String? = null, val place: Place? = null, val title: String? = null,
         val inputs: List<String>? = null, val focused: String? = null, val untrusted: Boolean = false,
     ) : RunEvent {
-        /** 换回一条观察。 */
+        /** 観察に戻ります。 */
         fun observation() = Observation(ObsKind.ofWire(kind) ?: ObsKind.Read, text, source, place, title,
             trust = if (untrusted) Trust.Untrusted else Trust.Trusted, inputs = inputs?.let { InputHints(it, focused) }, step = step, atMs = atMs, id = id)
 
         companion object {
-            /** 账本里记下的一条观察。 */
+            /** 台帳に記録された観察。 */
             fun of(o: Observation) = Observed(o.atMs, o.step, o.text, o.id, o.kind.wire, o.source, o.place, o.title,
                 o.inputs?.names, o.inputs?.focused, o.trust == Trust.Untrusted)
         }
     }
 
-    /** 一次实际工具调用的进度。读取类可合并展示,动作类逐条展示;[obsIds] 指向这一步读到的原文,[title] 是读到的那一页的标题。 */
+    /** 実際のツール呼び出しの進行状況。読書カテゴリをまとめて表示したり、アクション カテゴリを 1 つずつ表示したりできます。 [obsIds] はこのステップで読み取った元のテキストを指し、[title] は読み取ったページのタイトルです。 */
     @Serializable @SerialName("activity")
     data class Activity(
         override val atMs: Long,
@@ -159,9 +159,9 @@ sealed interface RunEvent {
         val source: String = "model",
         val callId: String? = null,
         val title: String? = null,
-        /** 这次调用没成功([effect] 是错误码,只给开发看)。 */
+        /** この呼び出しは失敗しました ([effect] は開発専用のエラー コードです)。 */
         val failed: Boolean = false,
-        /** 不可逆判定认出这是一次对外动作(发送、提交);停止后交代做了什么时按它数发出了几次。 */
+        /** 不可逆的な判断は、これが外部アクション (送信、送信) であることを認識します。停止した後、何が行われたかを説明するときに、それが何回送信されたかを数えます。 */
         val outward: Boolean = false,
     ) : RunEvent
 
@@ -179,8 +179,8 @@ sealed interface RunEvent {
     ) : RunEvent
 
     /**
-     * 一次对外、不可逆或要花钱的动作的审批结论(代码判的,不是模型自述)。[source] 是谁发起的(model / batch / script / replay);
-     * [payment] 为 true 时这一步要花钱(询问时只有它要用户同意);[decision] allowed / required / mismatch / denied。
+     * 外部アクション、取り消し不可能なアクション、またはコストのかかるアクションに対する承認の結論 (モデルの Readme ではなくコードによって決定されます)。 [source] (モデル / バッチ / スクリプト / リプレイ) を開始した人。
+     * [payment] が true の場合、このステップには費用がかかります (要求された場合にのみユーザーの同意が必要です)。 [decision] 許可/必須/不一致/拒否。
      */
     @Serializable @SerialName("approval")
     data class Approval(
@@ -195,47 +195,47 @@ sealed interface RunEvent {
     data class Barrier(override val atMs: Long, val kind: String) : RunEvent
 
     /**
-     * 最终回答的字面核对(第 [step] 步的回答):[claims] 是回答里可核对的事实数,[unmatched] 是在读到的材料里找不到的那几处;
-     * [outward] 表示本任务做过对外或不可逆的事(因此另请了核查模型)。
+     * 最終回答の文字通りの検証 (ステップ [step] の回答): [claims] は回答で検証できる事実の数であり、[unmatched] は読み取られた資料で見つからない少数の事実です。
+     * [outward] は、このタスクが外部または元に戻せない何かを実行したことを意味します (したがって、別の検証モデルが要求されました)。
      */
     @Serializable @SerialName("answer_check")
     data class AnswerCheck(override val atMs: Long, val step: Int, val claims: Int, val unmatched: List<String>, val outward: Boolean = false) : RunEvent
 
-    /** 交出的回答里退回一次后仍没对上、标成未确认的几处。 */
+    /** から提出された回答には、一度返送した後も不正確な点があり、未確認としてマークされていました。 */
     @Serializable @SerialName("unconfirmed")
     data class Unconfirmed(override val atMs: Long, val step: Int, val items: List<String>) : RunEvent
 
-    /** 代码从证据账本里找到的回答来源(App 或网页、第几步、那一步的截图);界面上的「来源」用它。 */
+    /** コードは、証拠台帳 (アプリまたは Web ページ、どのステップ、そのステップのスクリーンショット) から答えのソースを見つけます。インターフェース上の「ソース」として使用します。 */
     @Serializable @SerialName("sources")
     data class Sources(override val atMs: Long, val items: List<com.wangzan101.mika.core.verify.AnswerSource>) : RunEvent
 
-    /** [step]:核查的是哪一步的最终回答(旧记录里是 finish 调用;这条事件可能记在那次回复之前,也可能在之后);旧记录没有。 */
+    /** [step]: どのステップがチェックされているかの最終応答 (古いレコードでは終了呼び出しです。このイベントは応答の前後に記録される可能性があります)。古いレコードにはありません。 */
     @Serializable @SerialName("verifier")
     data class Verifier(override val atMs: Long, val verdict: String, val detailJson: String, val step: Int? = null) : RunEvent
 
-    /** 本任务记忆块里实际列出的条目(代码记录,不是模型自述)。 */
+    /** このタスクのメモリ ブロックにリストされている実際の項目 (モデルの Readme ではなくコード レコード)。 */
     @Serializable @SerialName("memory_used")
     data class MemoryUsed(override val atMs: Long, val ids: List<String>) : RunEvent
 
-    /** Agent 用 memory_save 存下了一条;[status] 为 active / pending。 */
+    /** エージェントは、memory_save を使用してメモリを保存します。 [status] はアクティブ/保留中です。 */
     @Serializable @SerialName("memory_saved")
     data class MemorySaved(override val atMs: Long, val id: String, val kind: String, val status: String) : RunEvent
 
-    /** 用到的个人技能:[how] = viewed(Agent 用 skill_read 看了它);旧记录里还有 injected(以前任务开始注入了全文),读时一样算用到。 */
+    /** が使用する個人スキル: [how] = 表示 (エージェントは skill_read で表示);古いレコードにも挿入されます (フルテキストは前のタスクから挿入されました)。これは読み取り時にも使用されます。 */
     @Serializable @SerialName("skill_used")
     data class SkillUsed(override val atMs: Long, val name: String, val how: String) : RunEvent
 
     @Serializable @SerialName("compressed")
     data class Compressed(override val atMs: Long, val foldedSteps: Int) : RunEvent
 
-    /** [outcome]:succeeded / unverified / failed / cancelled / error;[kind] 是失败的类别(FailKind 的小写名),其余为 null,旧记录没有。 */
+    /** [outcome]: 成功 / 未検証 / 失敗 / キャンセル / エラー; [kind] は失敗したカテゴリ (FailKind の小文字の名前) で、残りは null で、古いレコードはありません。 */
     @Serializable @SerialName("task_ended")
     data class TaskEnded(override val atMs: Long, val outcome: String, val answerOrReason: String, val kind: String? = null) : RunEvent
 
     /**
-     * 本次运行期间经计量的全部模型请求合计(见 [com.wangzan101.mika.core.usage.RunUsageTally]):主循环之外,意图判断、核查、
-     * 看图、压缩等旁路调用和失败重试的每一次都算;[unreported] 是服务商没报用量(或调用失败)的次数。
-     * 收尾时记一条,在 [TaskEnded] 之后;交出回答后的结局判定、记忆提取不在其中(Token 用量页都算)。旧记录没有。
+     * この実行中に測定されたすべてのモデル リクエストの合計 ([com.wangzan101.mika.core.usage.RunUsageTally] を参照): メイン ループの外側、意図判断、検証、
+     * は、画像表示や圧縮などのすべてのバイパス呼び出しと失敗した再試行をカウントします。 [unreported] は、サービス プロバイダーが使用状況を報告しなかった (または通話が失敗した) 回数です。
+     * は、[TaskEnded] の後に最後に記録されます。終了判定や解答提出後の記憶回復は含まれません（トークン使用ページはカウントされます）。古い記録にはそうではありません。
      */
     @Serializable @SerialName("model_calls")
     data class ModelCalls(
@@ -243,8 +243,8 @@ sealed interface RunEvent {
     ) : RunEvent
 
     /**
-     * 回答交给用户之后,另请模型按用户要的结果给这次运行判的结局(见 [com.wangzan101.mika.core.agent.OutcomeJudge]):
-     * [outcome] 为 done / partial / not_possible / unknown(没判成);[reason] 一句话说缺了什么。记在 [TaskEnded] 之后;旧记录没有。
+     * 答えがユーザーに渡された後、モデルはユーザーが望む結果に従ってこの実行の結果を判断するように求められます ([com.wangzan101.mika.core.agent.OutcomeJudge] を参照)。
+     * [outcome] は完了しました / 部分的 / 不可能 / 不明 (未決定); [reason] は、一文に何かが欠けていることを意味します。 [TaskEnded] の後に記録されます。古い記録にはそうではありません。
      */
     @Serializable @SerialName("outcome")
     data class OutcomeJudged(override val atMs: Long, val outcome: String, val reason: String = "", val model: String? = null) : RunEvent
@@ -252,27 +252,27 @@ sealed interface RunEvent {
     companion object {
         const val MAX_FIELD = 2000
 
-        /** 工具结果的上限:远大于一屏元素列表,只为挡住异常大的输出撑爆记录文件和内存。 */
+        /** ツールの結果の上限: 異常に大きい出力によるレコード ファイルとメモリのバーストを防ぐためだけに、1 画面の要素リストよりもはるかに大きくなります。 */
         const val MAX_RESULT = 100_000
 
         val json = Json { classDiscriminator = "type"; ignoreUnknownKeys = true }
 
         fun encode(e: RunEvent): String = json.encodeToString(serializer(), e)
 
-        /** 一行记录;改名前的事件(screen_text、screen_saved)先换成现在的写法再读。 */
+        /** 1 行のレコード。名前変更前のイベント（screen_text、screen_saved）は、読み込む前に現在の書き込み方法に変更する必要があります。 */
         fun decode(line: String): RunEvent = json.decodeFromJsonElement(serializer(), LegacyEvents.upgrade(json.parseToJsonElement(line)))
 
-        /** 运行记录里写的地方:App 是包名,站点是「网站 域名」(和以往的记录同一写法)。 */
-        fun placeLabel(p: Place?): String? = p?.let { if (it.kind == com.wangzan101.mika.core.observation.PlaceKind.Site) "网站 ${it.name}" else it.name }
+        /** 実行記録に書かれている箇所：アプリはパッケージ名、サイトは「Webサイトのドメイン名」です（以前の記録と同じ書き方）。 */
+        fun placeLabel(p: Place?): String? = p?.let { if (it.kind == com.wangzan101.mika.core.observation.PlaceKind.Site) "ウェブサイト ${it.name}" else it.name }
 
-        fun clip(s: String): String = if (s.length <= MAX_FIELD) s else s.take(MAX_FIELD) + "…(已截短)"
+        fun clip(s: String): String = if (s.length <= MAX_FIELD) s else s.take(MAX_FIELD) + "…（短縮しました）"
 
         fun clipResult(s: String): String =
-            if (s.length <= MAX_RESULT) s else s.take(MAX_RESULT) + "…(已截短,原长 ${s.length} 字)"
+            if (s.length <= MAX_RESULT) s else s.take(MAX_RESULT) + "…（短縮しました。元の長さ: ${s.length}文字）"
     }
 }
 
-/** run.json 的内容:一次运行的概要,由事件累计而来。 */
+/** run.json の内容: イベントから蓄積された実行の概要。 */
 @Serializable
 data class RunSummary(
     val id: String,
@@ -284,18 +284,18 @@ data class RunSummary(
     val answerOrReason: String? = null,
     val criteria: List<String> = emptyList(),
     val verdict: String? = null,
-    /** 交出回答后判的结局([RunEvent.OutcomeJudged.outcome]);没判过(失败、取消、旧记录)为 null。 */
+    /** 回答提出後の判定結果 ([RunEvent.OutcomeJudged.outcome])。未判定（失敗、キャンセル、旧記録）の場合はnullとなります。 */
     val judged: String? = null,
     val steps: Int = 0,
-    /** 这次运行的步数上限(见 [RunEvent.TaskStarted.stepLimit]);旧记录或不限制为 null。 */
+    /** この実行のステップ数の上限 ([RunEvent.TaskStarted.stepLimit] を参照)。古いレコードまたは制限がない場合は null です。 */
     val stepLimit: Int? = null,
     val inputTokens: Int = 0,
     val outputTokens: Int = 0,
     val cachedTokens: Int = 0,
-    /** 谁发起的(见 [RunEvent.TaskStarted.origin]);手机上发起的为空。 */
+    /** を開始した人 ([RunEvent.TaskStarted.origin] を参照)。携帯電話で開始されたものは空です。 */
     val origin: String? = null,
 ) {
-    /** 把一个事件计入概要。 */
+    /** イベントをサマリーにカウントします。 */
     fun with(e: RunEvent): RunSummary = when (e) {
         is RunEvent.TaskStarted -> copy(model = e.model, origin = e.origin, stepLimit = e.stepLimit)
         is RunEvent.Criteria -> copy(criteria = e.criteria)

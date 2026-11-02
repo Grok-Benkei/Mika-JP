@@ -8,8 +8,8 @@ import kotlinx.serialization.json.doubleOrNull
 import java.util.Base64
 
 /**
- * 页面发出的一个 XHR/fetch 请求及其响应。[id] 是协议里的 requestId(子会话的加上 `会话:` 前缀);
- * [size] 为解码后的字节数(拿不到为 null);[body] 只在取过正文后才有,[bodyNote] 说明为什么没有正文。
+ * ページによって発行された XHR/フェッチ リクエストとその応答。 [id] はプロトコルの requestId です (サブセッションには `会话:` というプレフィックスが付きます)。
+ * [size] は、デコードされたバイト数です (使用できない場合は null)。 [body] はテキストを取得した後にのみ使用できます。[bodyNote] はテキストがない理由を説明しています。
  */
 data class CapturedResponse(
     val id: String,
@@ -31,12 +31,12 @@ data class CapturedResponse(
 }
 
 /**
- * 一个标签的网络账本(纯逻辑,不碰协议连接):喂入 `Network.*` 事件,回答「还有没有在途请求」「安静了多久」,
- * 并留着最近 [maxCaptured] 个 XHR/fetch 响应。正文按需取(调用方用 `Network.getResponseBody` 取回后交给 [putBody]),
- * 只收 JSON/文本、单个不超过 [maxBodyBytes];全部正文合计超过 [maxTotalBodyBytes] 时先丢最早取的。
+ * ラベル付きのネットワーク家計簿 (純粋なロジック、プロトコル接続なし): `Network.*` イベントをフィードし、「転送中のリクエストはありますか?」と回答します。 「どれくらい静かでしたか？」
+ * および最新の [maxCaptured] XHR/フェッチ応答を保持します。テキストはオンデマンドで取得されます (呼び出し元は `Network.getResponseBody` を使用してテキストを取得し、それを [putBody] に渡します)。
+ * は JSON/テキストのみを受け入れ、個々のテキストは [maxBodyBytes] を超えません。すべてのテキストの合計が [maxTotalBodyBytes] を超える場合、最も古いテキストが最初に破棄されます。
  *
- * 在途计数不算长连接:事件流、媒体、信标、预取,以及发出超过 [staleMs] 还没回的(长轮询)。
- * 不是线程安全的,调用方自己串行。
+ * の転送中カウントには、イベント ストリーム、メディア、ビーコン、プリフェッチ、および [staleMs] を超えて送信したがまだ応答していない接続 (ロング ポーリング) などの長い接続はカウントされません。
+ * はスレッドセーフではないため、呼び出し元が自分でシリアル化します。
  */
 class NetworkLedger(
     val quietMs: Long = 500,
@@ -73,11 +73,11 @@ class NetworkLedger(
 
     private val flights = HashMap<String, Flight>()
     private val captured = LinkedHashMap<String, Entry>()
-    // 取到正文的先后,用来按最早的先丢
+    // はテキストの順序を取得します。これは、最も古いものを最初に破棄するために使用されます。
     private val bodyOrder = ArrayDeque<String>()
     private var bodyTotal = 0
     private var lastBusyMs = Long.MIN_VALUE / 2
-    // 只算本次动作以来发出的请求
+    // は、このアクション以降に発行されたリクエストのみをカウントします
     private var lastActionBusyMs = Long.MIN_VALUE / 2
     private var actionSeq = 0
 
@@ -102,7 +102,7 @@ class NetworkLedger(
                 }
                 val e = captured[key]
                 if (e != null) {
-                    // 重定向:同一个 requestId 带着上一跳的响应再发一次
+                    // リダイレクト: 前のホップからの応答とともに同じ requestId が再度送信されます。
                     e.url = url
                     e.method = m
                 } else if (type in CAPTURED_TYPES) {
@@ -140,16 +140,16 @@ class NetworkLedger(
         }
     }
 
-    /** 现在还在途、且会拖住「网络空闲」的请求数。 */
+    /** はまだ転送中であり、「ネットワーク アイドル」リクエストの数を抑制します。 */
     fun inFlight(now: Long): Int = flights.values.count { counts(it, now) }
 
-    /** 没有在途请求,且最近一次请求开始或结束已过 [quietMs]。 */
+    /** には送信中のリクエストがなく、最新のリクエストの開始または終了は [quietMs] を超えています。 */
     fun isIdle(now: Long): Boolean = inFlight(now) == 0 && now - lastBusyMs >= quietMs
 
-    /** 动作开始时调:之后发出的请求算「上次动作以来」的。 */
+    /** アクションの開始時に調整: それ以降に送信されたリクエストは「最後のアクション以降」にカウントされます。 */
     /**
-     * 本次动作([markAction] 以来)发出的请求还在途,或最后一个结束还不到 [quietMs]:动作后的等待据此延长。
-     * 动作之前就在途的、长连接、长轮询都不算,页面本身一直在变也不算。
+     * このアクションによって発行されたリクエスト ([markAction] 以降) はまだ進行中か、最後のリクエストはまだ完了していません。 [quietMs]: アクション後の待機時間がそれに応じて延長されます。
+     * 以前に進行中のアクション、長時間の接続、長時間のポーリングはカウントされません。また、ページ自体が常に変更されるわけでもありません。
      */
     fun actionBusy(now: Long): Boolean =
         flights.values.any { it.actionSeq == actionSeq && counts(it, now) } || now - lastActionBusyMs < quietMs
@@ -168,7 +168,7 @@ class NetworkLedger(
 
     fun get(id: String): CapturedResponse? = captured[id]?.let { view(it) }
 
-    /** 该去取正文时给出协议参数;已取过、不该取(非文本、太大、没完成)时为 null,原因见 [CapturedResponse.bodyNote]。 */
+    /** は、テキストをフェッチする必要がある場合のプロトコル パラメーターを指定します。フェッチされた場合、またはフェッチすべきではない場合 (テキストではない、大きすぎる、完了していない) 場合は null です。理由については、[CapturedResponse.bodyNote] を参照してください。 */
     fun bodyToFetch(id: String): BodyFetch? {
         val e = captured[id] ?: return null
         if (e.body != null || noBodyReason(e) != null) return null
@@ -242,9 +242,9 @@ class NetworkLedger(
     )
 
     companion object {
-        /** 只收页面脚本发的请求。 */
+        /** はページ スクリプトからのリクエストのみを受け入れます。 当然のことながら、 */
         private val CAPTURED_TYPES = setOf("XHR", "Fetch")
-        /** 天生长时间不结束、或页面不等它的请求:不拖住「网络空闲」。 */
+        /** は長時間終了しないか、ページがそのリクエストを待機しません。つまり、「ネットワーク アイドル」が保持されません。 */
         private val LONG_LIVED_TYPES = setOf("EventSource", "WebSocket", "Media", "Ping", "Prefetch", "CSPViolationReport")
         private const val EVENT_STREAM = "text/event-stream"
         private const val MAX_FLIGHTS = 512

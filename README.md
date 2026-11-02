@@ -1,187 +1,78 @@
-<div align="center">
+# Mika JP
 
-<img src="docs/media/logo.png" alt="Mika" width="88" />
+日本語で使うために調整した、Android向けのスマホ操作アシスタントです。[Wang Zan氏のMika](https://github.com/wangzan101/Mika)から派生したフォークです。
 
-# Mika
+会話、ウェブ閲覧、ファイル処理、アプリの操作に使えます。AIの接続先はユーザーが選びます。画面やファイルの内容を扱うため、最初は読み取りだけの依頼で動作を確認してください。
 
-**An AI assistant on your phone: say what you need, and it works your apps and the web until it's done.**
+## 日本向けの変更
 
-It works on a hidden background screen, so you can keep using your phone.
+- 画面、案内、エラーの表示言語と既定リソースを日本語に固定。
+- 日本語と英数字のOCRモデルをAPKに同梱。画面読み取りのための初回モデルダウンロードは不要です。
+- 日本語の依頼例、メモリ、学習スキル、検証理由、操作停止・エラー案内。
+- LINE、X、楽天市場、メルカリ、Googleマップなどの日本語の知識と別名。
+- グローバル向けのAIサービスを先に表示。中国本土向けの接続先は「他のリージョン」から選びます。
+- 日本語の送信・購入・決済ボタン、ログイン・認証画面の判定。
+- 日本語以外のAI回答を見つけた場合の書き直しと、日本語での停止案内。
+- 日本語のコメント・開発資料、問い合わせ先、フォーク専用の更新元。
 
-<a href="https://github.com/wangzan101/Mika/releases/latest"><img src="https://img.shields.io/badge/Download%20APK-Android%2011%2B-2ea043?style=for-the-badge&logo=android&logoColor=white" alt="Download APK" /></a>
+日付と予定には端末の実際のタイムゾーンを使います。日本語だからといって、現在地や住所を東京に決めつけません。買い物では税込・税別、送料、ポイント還元、実際の支払額を区別します。
 
-<a href="https://github.com/wangzan101/Mika/stargazers"><img src="https://img.shields.io/github/stars/wangzan101/Mika?style=flat&logo=github&label=Star&color=1f6feb" alt="stars" /></a>
-<a href="https://github.com/wangzan101/Mika/releases"><img src="https://img.shields.io/github/downloads/wangzan101/Mika/total?label=downloads&color=2ea043" alt="downloads" /></a>
-<a href="https://github.com/wangzan101/Mika/releases/latest"><img src="https://img.shields.io/github/v/release/wangzan101/Mika?include_prereleases&label=version" alt="version" /></a>
-<a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-lightgrey" alt="license" /></a>
+## Galaxyで試す
 
-English · [简体中文](docs/readme/README.zh-CN.md) · [繁體中文](docs/readme/README.zh-Hant.md) · [日本語](docs/readme/README.ja.md) · [한국어](docs/readme/README.ko.md) · [Español](docs/readme/README.es.md)
+[日本語の導入ガイド](docs/setup-guide.ja.md)を参照してください。Android 11以降にインストールでき、アプリ操作はAndroid 12以降、背景画面の独立した入力にはAndroid 14以降を推奨します。Linux実行環境はarm64向けです。
 
-<br/>
+開発版のアプリ名は **Mika JP**、アプリIDは **jp.studioyebisu.mika** です。公式Mikaと別にインストールでき、公式版の会話や設定を消しません。公式版から認証情報や会話を自動でコピーする機能はありません。
 
-<img src="docs/media/wechat-send-side.gif" alt="From one sentence, Mika opens WeChat on its background screen, finds the contact and sends the message" width="640" />
+このフォークのリリースAPKがまだ公開されていない場合は、以下のビルド手順を使います。上流MikaのAPKは日本語調整版ではありません。
 
-<sub>"Send a message to File Transfer": Mika's chat on the left, each step on its background screen on the right (4× speed; chat list blurred)</sub>
+## ビルド
 
-</div>
+JDK 17、Android SDK Platform 36を使用します。SDKの場所をlocal.propertiesのsdk.dir、またはANDROID_HOMEで指定してください。
 
-## Get things done with one sentence
+Windows:
+~~~powershell
+.\gradlew.bat :app:assemblePerf
+~~~
 
-<table>
-<tr>
-<td align="center" width="33%"><img src="docs/media/wechat-group.gif" width="230" alt="Reads through a WeChat group and summarizes today's chat" /><br/><b>"What did the group talk about today?"</b><br/><sub>Scrolls through the chat in the background, then sums it up</sub></td>
-<td align="center" width="33%"><img src="docs/media/amazon-cart.gif" width="230" alt="Picks a charger on a shopping site and adds it to the cart" /><br/><b>"A charger under $30, rated 4.5 stars or more"</b><br/><sub>Adds the pick to the cart and stops before checkout</sub></td>
-<td align="center" width="33%"><img src="docs/media/xhs-summary.gif" width="230" alt="Summarizes a creator's recent posts" /><br/><b>"What has this creator posted lately?"</b><br/><sub>Opens the app, reads post by post, then sums it up</sub></td>
-</tr>
-</table>
+macOS / Linux:
+~~~sh
+./gradlew :app:assemblePerf
+~~~
 
-<details>
-<summary>More demos</summary>
+成果物はapp/build/outputs/apk/perf/に作成されます。perfは操作感を確認するための、ローカルの開発用署名を使うビルドです。配布用の正式リリースや正式な署名管理とは区別してください。秘密鍵、APIキー、local.properties、生成APKをGitへ追加しないでください。
 
-<table>
-<tr>
-<td align="center" width="33%"><img src="docs/media/boss-greet.gif" width="230" alt="Greets recruiters for 3 jobs on a job site" /><br/>Greets recruiters for 3 jobs on a job site</td>
-<td align="center" width="33%"><img src="docs/media/google-flights.gif" width="230" alt="Finds the cheapest nonstop flight" /><br/>Finds the cheapest nonstop from San Francisco to New York</td>
-<td align="center" width="33%"><img src="docs/media/hacker-news.gif" width="230" alt="Reads out the top 5 stories and their points" /><br/>Reads out the top 5 stories on a news site</td>
-</tr>
-<tr>
-<td align="center"><img src="docs/media/job-greet.jpg" width="230" alt="Finds jobs and greets recruiters" /><br/>Finds jobs and greets recruiters</td>
-<td align="center"><img src="docs/media/music-vip.jpg" width="230" alt="Watches ads to unlock music perks" /><br/>Watches ads to unlock music perks</td>
-<td align="center"><img src="docs/media/food-order.jpg" width="230" alt="Orders takeout with stacked discounts and asks you before paying" /><br/>Orders takeout with stacked discounts, asks before paying</td>
-</tr>
-</table>
+## 内蔵知識
 
-</details>
-
-<sub>Several demos use apps popular in China: WeChat is the main messaging app there, and Xiaohongshu (RED) is a lifestyle and social platform. Mika isn't tied to them; it works with any app or website on your phone.</sub>
-
-## Why Mika
-
-| | |
-|---|---|
-| 📱 **Leaves your screen alone** | Opens apps, taps, types and scrolls on a separate background screen while you use your phone as usual; tap the small live view whenever you want to watch |
-| 🧩 **Works with any app** | Looks at the screen and finds buttons the way a person does: no app APIs, no per-app integration |
-| 🌐 **Call it from any web page** | In the built-in browser, say what you want on the page you're reading and it works right there; touch the page and it stops |
-| 🧠 **Gets better with use** | Remembers the preferences you tell it, and turns tasks it finishes into skills so next time is faster and steadier |
-| 🔒 **Your data stays on your phone** | There is no Mika server; use your own model API key, or sign in with a ChatGPT, xAI or OpenRouter account |
-| 🆓 **Open source and free** | Apache-2.0, all code public |
-
-## Get started in three steps
-
-1. **Install**: download the APK from [Releases](https://github.com/wangzan101/Mika/releases/latest).
-2. **Connect a model**: in Settings › Model, pick a provider and enter an API key, or just sign in with an account ([models and sign-in](docs/models.en.md)).
-3. **To operate phone apps**: follow the "Set up phone control" wizard in Settings and pair wireless debugging on the phone once ([setup guide](docs/setup-guide.en.md)). Skip this if you only want chat, web and files.
-
-Then try saying: "Set alarms for 9:40 and 10:00 tomorrow morning" or "Check the weather at 8 every morning and tell me only if it will rain".
-
-> 💡 Have a computer handy? Send this to the AI agent on it and it will set everything up for you:<br/>
-> `Follow https://github.com/wangzan101/Mika/blob/main/docs/install-with-agent.en.md to install Mika on the Android phone connected over USB.`
-
-## What it can do
-
-| | |
-|---|---|
-| **Operate apps** | Reads long lists and chat histories, taps and types, shares text into apps; hands logins, verification codes and payments to you |
-| **Browse the web** | A built-in desktop-class browser that keeps you signed in, reads pages, downloads and uploads; paces itself and hands block pages to you |
-| **Your current screen** | Double-tap the floating capsule to send the screen you're looking at: "how should I reply?", "note this down" |
-| **Schedules and conditions** | "Remind me at 9 tomorrow", "do this every Friday"; runs on time in the original conversation |
-| **Jump in or stop anytime** | Keep talking while a task runs to add or correct things (long-press to withdraw or edit one Mika hasn't picked up yet); after a stop it reports where it got to, and "continue" picks up from there |
-| **Hold to talk** | Hold the chat input to speak and edit the words before sending; long-press the floating capsule to speak and release to send. Uses the phone’s built-in speech recognition, or a provider’s speech model if it has none |
-| **Files and computing** | A Linux sandbox per conversation runs Python, Node and shell on the files you send (arm64) |
-| **From your computer** | AI tools on your computer can hand Mika tasks through CLI + Skill or MCP ([use Mika from a computer](docs/computer.en.md)) |
-
-By default Mika runs in **Ask mode**: it checks with you only before spending money (placing orders, paying) and just does everything else. You can switch to **Autonomous mode** instead. See [Ask and Autonomous](docs/modes.en.md).
-
-For how each of these works and the finer details, see [features in detail](docs/features.en.md).
-
-<details>
-<summary>Apps and websites with built-in usage knowledge (anything not listed still works)</summary>
-
-The names are shown as they appear in the knowledge files.
+画面固有の動作は、その時点の実画面で確認します。内蔵の案内があることは、各社アプリの全機能を実機検証したという意味ではありません。指定のない日本向けタスクで、中国本土向けのサービスを標準の入口として選びません。
 
 <!-- generated:knowledge:start -->
-<!-- Generated by ./gradlew updateReadme; do not edit by hand -->
-| Category | Built in |
+<!-- ./gradlew updateReadme で生成します。手作業で編集しないでください -->
+| 種類 | 内蔵 |
 |---|---|
-| **Apps** | Android 设置, 百家号, 哔哩哔哩, BOSS直聘, Chrome, 得到, 抖音, 飞书, Gmail, 即刻, 快手, 领英, QQ邮箱, Telegram, 今日头条, Uber, Uber Eats, 微信, 微博, WhatsApp, 闲鱼, 小红书, 知乎 |
-| **Websites** | Amazon, 哔哩哔哩, Google Calendar, 豆瓣, 抖音, Instagram, Gmail, Google Maps, Telegram, 百度贴吧, 微博, 搜狗微信, WhatsApp, 小红书, 小宇宙, YouTube, 知乎, BOSS直聘 |
-| **How-to skills** | 改 Mika 自己的设置, 把内容整理成文字, 处理 PDF 文档, 查清一件事, 消息与邮件, 写技能 |
+| アプリ | Androidの設定、百家号、Bilibili、BOSS直聘、Chrome、Dedao、Douyin、Feishu、Gmail、Googleマップ、Jike、Kuaishou、LINE、LinkedIn、メルカリ、QQ Mail、楽天市場、Telegram、Toutiao、Uber、Uber Eats、WeChat、Weibo、WhatsApp、X、Xianyu、小紅書（RED）、Zhihu |
+| ウェブサイト | Amazon.co.jp、Bilibili、Googleカレンダー、Douban、Douyin、Instagram、メルカリ、Gmail、Googleマップ、楽天市場、食べログ、Telegram、tenki.jp、Baidu Tieba、Yahoo!路線情報、Yahoo!天気、Weibo、Sogou WeChat検索、WhatsApp、X、小紅書（RED）、Xiaoyuzhou、Yahoo! JAPAN、YouTube、Zhihu、BOSS直聘 |
+| スキル | Mikaの設定を変更する、動画や記事を日本語で整理する、PDFを読む・整理する、調査して出典を確かめる、メッセージとメール、スキルを作成・更新する |
 <!-- generated:knowledge:end -->
 
-</details>
+## AIサービス
 
-<details>
-<summary>Supported model providers</summary>
+APIキーはサービスやリージョンごとに異なります。国際向けのキーと中国本土向けのキーを取り違えないでください。既存の接続先やキーを自動で別のサービスへ移すことはありません。モデルの接続試験・実行には、選んだサービスの料金や利用枠が適用されます。
 
 <!-- generated:providers:start -->
-<!-- Generated by ./gradlew updateReadme; do not edit by hand -->
-Presets for DeepSeek, 通义千问, Kimi, 智谱, 智谱 Coding Plan, 硅基流动, 火山方舟, MiniMax, 阶跃星辰, 腾讯混元, 百度千帆, OpenRouter, OpenCode Go, Anthropic, Gemini, OpenAI, xAI, Mistral, Groq, Ollama, LM Studio and more; for any other provider pick Custom (自定义), which takes any OpenAI-compatible, Anthropic, Gemini or OpenAI Responses endpoint.
+<!-- ./gradlew updateReadme で生成します。手作業で編集しないでください -->
+OpenAI、Anthropic、Gemini、OpenRouter、OpenCode Go、xAI、Mistral、Groq、DeepSeek、Qwen（シンガポール）、Kimi、MiniMax、StepFun、Ollama、LM Studio、Qwen（中国・北京）、Kimi（中国本土）、GLM（中国本土）、GLM Coding Plan（中国本土）、SiliconFlow（中国本土）、Volcengine Ark（中国本土）、MiniMax（中国本土）、Tencent Hunyuan（中国本土）、Baidu Qianfan（中国本土）を内蔵しています。その他は「カスタム」で接続できます。中国本土向けは「他のリージョン」に表示します。
 <!-- generated:providers:end -->
 
-You can also skip the key and sign in with a ChatGPT (Plus / Pro), xAI / Grok or OpenRouter account. Steps for adding a model, and what to know about each sign-in, are in [models and sign-in](docs/models.en.md).
+## 検証と保守
 
-</details>
+調整した範囲、互換性、確認方法は[日本向け調整の記録](docs/JAPAN_TUNING.md)にまとめています。確認できた段階と未確認の機能を区別して記録します。
 
-## Which phones
+上流の[元のREADME](README.upstream.md)と多言語ドキュメントは記録として残しています。このフォークの導入手順は[日本語ガイド](docs/setup-guide.ja.md)が正本です。元のパッケージ名を使う上流用の導入コマンドと取り違えないでください。
 
-| | Requirement |
-|---|---|
-| Chat, web, files | Android 11 or later |
-| Operating phone apps | Android 12 or later; **Android 14+ recommended** (the background screen has its own focus, so it doesn't get in the way of your typing on the main screen) |
-| Linux sandbox | arm64 devices |
+## ライセンスと原作
 
-Not sure your phone is up to it? Run Settings › Recovery & repair › **Compatibility self-check**: 12 checks in about a minute, and you can [send us the results](https://github.com/wangzan101/Mika/issues/new?template=device-report.yml) in one tap.
+原作: [Mika / Wang Zan](https://github.com/wangzan101/Mika)。日本向け調整: Studio Yebisu。
 
-## Privacy & safety
+[Apache-2.0](LICENSE)、[NOTICE](NOTICE)、[第三者コンポーネント](licenses/THIRD_PARTY_NOTICES.md)を引き継いでいます。原作の著作権表示や第三者の権利は変更しません。
 
-- **There is no Mika server**: what you say and what's on your screen go only to the model provider you set up.
-- API keys and memories are stored encrypted on the phone; conversations and run records stay on the device; update checks only contact GitHub.
-- Operating third-party apps and websites automatically may break their terms of service, so use your own judgment. For anything important, use Ask mode and check the results. See the [disclaimer](docs/disclaimer.en.md).
-
-<details>
-<summary><b>FAQ</b></summary>
-
-**Wireless debugging turned itself off?** Android turns it off when you change Wi-Fi or restart. With your permission, Mika turns it back on by itself; if it still can't connect, go back to "Set up phone control" and pair again.
-
-**Can't find wireless debugging on my phone?** Some phone systems leave it out. You can start the phone helper from a computer over USB instead; see the [setup guide](docs/setup-guide.en.md).
-
-**Some screens can't be read or captured?** Pages like payments and password entry block screenshots, so Mika asks you to take over there.
-
-**Can I use a model running on my own computer?** Yes: pick "Custom" as the provider and enter its address on your local network.
-
-**Is the app in English?** Yes. The app UI comes in English, Simplified Chinese, Traditional Chinese, Japanese, Korean, Spanish, Portuguese, Russian and Indonesian, follows your system language, and can be switched in Settings › Language. The built-in app and website knowledge is written in Chinese, but that doesn't limit you: the model reads it fine, and you can talk to Mika in English.
-
-**Where do updates come from?** Only from this repository's [Releases](https://github.com/wangzan101/Mika/releases); you can also upgrade in the app from About › Check for updates.
-
-More answers are in the [FAQ](docs/faq.en.md).
-
-</details>
-
-## Community & contributing
-
-- **Docs**: all docs and a suggested reading order are in the [docs index](docs/README.en.md)
-- **Community**: join the [X group chat](https://x.com/i/chat/group_join/g2116926829198246025/48B52j5svL); to reach the author on WeChat, scan the QR code in the app under About › Contact the author (mention Mika in your request)
-- **Follow the author**: X [@wangzan101](https://x.com/wangzan101)
-- **Report a problem**: [open an issue](https://github.com/wangzan101/Mika/issues/new/choose); About › Send feedback in the app can attach diagnostics
-- **Contribute**: add usage knowledge for an app or website (plain text, no code needed), or contribute code; see the [contributing guide](.github/CONTRIBUTING.md)
-
-## Star History
-
-<a href="https://star-history.com/#wangzan101/Mika&Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=wangzan101/Mika&type=Date&theme=dark&v=20261101-1623" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=wangzan101/Mika&type=Date&v=20261101-1623" width="600" />
-  </picture>
-</a>
-
-## Contributors
-
-Thanks to everyone who has helped build Mika:
-
-<a href="https://github.com/wangzan101/Mika/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=wangzan101/Mika&max=100&columns=12" alt="Contributors" />
-</a>
-
-## License
-
-[Apache-2.0](LICENSE) · [NOTICE](NOTICE) · [Third-party components](licenses/THIRD_PARTY_NOTICES.md)
+[不具合・提案](https://github.com/yebisu0529-ship-it/Mika-JP/issues) · [Studio Yebisu](https://x.com/studio_yebisu)

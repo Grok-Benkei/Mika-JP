@@ -22,13 +22,13 @@ import com.wangzan101.mika.core.workspace.WorkspacePathCheck
 import com.wangzan101.mika.core.uistate.action
 import com.wangzan101.mika.core.uistate.session
 
-/** 页面脚本给文件选择控件(input type=file)的角色。 */
+/** ページ スクリプトは、ファイル選択コントロールの役割を与えます (入力タイプ = ファイル)。 */
 private const val FILE_ROLE = "file"
 
-/** 把工作区里的文件交给页面上的文件控件;要点文件控件,和点击一样判不可逆。 */
+/** ワークスペース内のファイルをページ上のファイル コントロールに渡します。ファイル コントロールをクリックすると、クリックした場合と同様に元に戻すことはできません。 */
 internal object Upload : WebTool {
     override val verb = Verb.Upload
-    override val label = "上传文件"
+    override val label = "ファイルをアップロード"
     override val risk = Risk.External
     override val gateTarget = GateTarget.FileControl
     override val logged = true
@@ -51,7 +51,7 @@ internal object Upload : WebTool {
         if (target != null && target.role != FILE_ROLE) {
             throw ArgError("ref", "${ref.first} is a ${target.role}, not a file control; pass the ref of the file input (role $FILE_ROLE)")
         }
-        // 没接工作区检查时一律当越界:宁可传不了,不能把工作区外的文件交给页面
+        // ワークスペースをチェックすると、常に範囲外とみなされます。むしろ転送できないようにしたいので、ワークスペースの外にあるファイルをページに渡すことはできません。
         val pathCheck = ctx.workspacePath ?: { WorkspacePathCheck.Outside }
         for (p in paths) {
             val check = if (!workspaceShaped(p)) WorkspacePathCheck.Outside else pathCheck(p)
@@ -65,7 +65,7 @@ internal object Upload : WebTool {
         return ctx.action(ctx.web!!.upload(ref.first, ref.second, paths))
     }
 
-    /** /workspace/ 下、没有 . 和 .. 段、没有连续斜杠的路径;其余交给 app 侧规范化后再判。 */
+    /** /workspace/、いいえ。および .. セグメント。連続したスラッシュを含むパスはありません。残りは、判定前の正規化のためにアプリ側に委ねられます。 */
     private fun workspaceShaped(p: String): Boolean {
         if (!p.startsWith(WORKSPACE_PREFIX) || "//" in p) return false
         return p.removePrefix(WORKSPACE_PREFIX).split('/').none { it == "." || it == ".." || it.isEmpty() }

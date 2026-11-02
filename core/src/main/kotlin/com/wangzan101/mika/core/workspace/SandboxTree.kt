@@ -14,28 +14,28 @@ import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 
 /**
- * `files/sandbox/` 这棵树的主人:谁要往树里写,都先在这里拿到许可。进程里一份,由 App 给出,经构造参数交给要写的地方。
+ * `files/sandbox/` このツリーの所有者: ツリーに書き込みたい人は、まずここで許可を得る必要があります。プロセス内のコピーはアプリによって与えられ、構築パラメーターを介して書き込まれる場所に渡されます。
  *
- * - [exclusive]:改树的结构、或删整片的(安装/解包/换根文件系统、重置、清空或删掉工作区;App 里经 `SandboxDirs.exclusiveWrite`)。拿到时没有别人在写。
- * - [shared]:往已有的树里添东西的(技能同步、跑命令、网页下载、附件导入)。可以同时有很多个,
- *   但和 [exclusive] 互斥:重置删到一半时,不会有人又在里面建出目录(那样最后的 rmdir 会 ENOTEMPTY)。
+ * - [exclusive]: ツリーの構造を変更するか、部分全体を削除します (ルート ファイル システムのインストール/解凍/変更、ワークスペースのリセット、クリアまたは削除、アプリ `SandboxDirs.exclusiveWrite`)。私がそれを受け取ったとき、他に書いている人はいませんでした。
+ * - [shared]: 既存のツリーに項目を追加します (スキルの同期、コマンドの実行、Web ページのダウンロード、添付ファイルのインポート)。同時にたくさんあることもありますが、
+ *   は [exclusive] と相互排他的です。リセットが途中で完了すると、誰もディレクトリを再度作成しなくなります (この場合、最終的な rmdir は ENOTEMPTY になります)。
  *
- * 有人在等 [exclusive] 时,新来的 [shared] 也排在它后面,重置不会被源源不断的命令饿死。
- * 同一条协程链里已经拿着(任一种)时再拿直接放行,嵌套调用不会自己锁死自己。
+ * 誰かが [exclusive] を待っているとき、新しい [shared] もその後ろにキューに入れられ、リセットがコマンドの安定した流れによって枯渇することはありません。
+ * 同じコルーチン チェーンが既に保持されている場合 (いずれかのタイプ)、直接解放されます。ネストされた呼び出し自体はロックされません。
  *
- * - [lease]:长驻进程(沙箱里的 stdio MCP server)用的 shared,活多久拿多久,但可以被收回:
- *   [exclusive] 一拿到入口就收回所有租约(通知持有者停掉进程,许可当场放掉),不会被一个长驻进程挡上几十分钟;
- *   漏关的租约也挡不住重置。换根文件系统、清工作区之后进程本来也跑不下去,停掉比让它在删掉的目录上接着跑干净。
+ * - [lease]: 常駐プロセス (サンドボックス内の stdio MCP サーバー) は共有を使用します。生きている限り奪うことはできますが、取り戻すこともできます。
+ *   [exclusive] は、入口を取得するとすぐにすべてのリースを取り消します (所有者にプロセスを停止し、その場でライセンスを解放するように通知します)。常駐プロセスによって数十分間ブロックされることはありません。
+ *   リースが欠落しているため、リセットを防ぐことができません。ルート ファイル システムを変更してワークスペースをクリアすると、プロセスは実行できなくなります。削除されたディレクトリで実行し続けるよりも、停止する方が良いでしょう。
  */
 class SandboxTree {
-    /** 拿到它才能开始:[shared] 只短暂持有,[exclusive] 全程持有,所以写者排队时新读者也等着。 */
+    /** は取得後にのみ開始できます。[shared] は短期間だけ保持され、[exclusive] はずっと保持されるため、ライターがキューに並ぶと、新しいリーダーも待機することになります。 */
     private val entry = Mutex()
-    /** 有 [shared] 在用时锁着。 */
+    /** は、使用時に [shared] をロックします。 */
     private val noShared = Mutex()
     private val count = Mutex()
     private var holders = 0
 
-    /** 这条协程链此刻拿着哪几棵树的许可。 */
+    /** このコルーチン チェーンは現時点でどのツリーに対する権限を保持していますか? */
     private class Held(val trees: Set<SandboxTree>) : AbstractCoroutineContextElement(Key) {
         companion object Key : CoroutineContext.Key<Held>
     }
@@ -51,19 +51,19 @@ class SandboxTree {
         }
     }
 
-    /** 登记着的租约(含还在排队的);[exclusive] 拿着 [entry] 时逐个收回。 */
+    /** 登録済みリース (まだキューにあるものを含む)。 [exclusive]は[entry]を押しながら1つずつ取り返します。 */
     private val leases = LinkedHashSet<Lease>()
 
     /**
-     * 长期持有的 shared 许可,[Lease.close] 时放掉。[exclusive] 要用时先调 [onRevoke](在 IO 线程上,可以阻塞着等进程退出)
-     * 再放掉许可;之后持有者照常 close 不出错。排队期间被收回的,排到那次 [exclusive] 之后重新拿,交回的租约拿到时没被收回过。
-     * 持有者在拿到租约之后启动的东西要自己核一次 [Lease.revoked]:收回可能正好落在拿到和启动之间。
+     * が長期間保持していた共有ライセンスは、[Lease.close] が使用されると解放されます。 [exclusive] を使用する場合は、最初に [onRevoke] を調整します (IO スレッドでは、ブロックしてプロセスが終了するのを待つことができます) その後、
+     * はライセンスを解放します。その後、ホルダーはエラーなく通常どおり閉じることができます。キュー期間中に取り戻された場合は、[exclusive] 以降に再度取得できます。引き渡されたリースは、受け取った時点ではまだ返却されていません。
+     * 所有者は、リースを取得した後に開始することを確認する必要があります。 [Lease.revoked]: 引き出しは、引き出しを取得してから開始するまでの間に行われる可能性があります。
      */
     suspend fun lease(onRevoke: () -> Unit): Lease {
         check(this !in heldTrees()) { "lease() must not be called while holding the tree" }
         while (true) {
             val lease = Lease(onRevoke)
-            // 先登记再排队:排在入口上的租约也收得到,不会出现拿到了许可却没登记、挡住重置的空档
+            // 最初に登録してから列に並びます。入り口で列に並んでいるリースも収集でき、許可を取得しても登録しない間にギャップがなくなり、リセットがブロックされます。
             synchronized(leases) { leases += lease }
             val acquired = CompletableDeferred<Boolean>()
             val holder = CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
@@ -94,16 +94,16 @@ class SandboxTree {
         withContext(Dispatchers.IO + NonCancellable) { for (l in all) l.revoke() }
     }
 
-    /** 见 [lease]。 */
+    /** [lease] を参照。 */
     class Lease internal constructor(private val onRevoke: () -> Unit) : java.io.Closeable {
         internal val released = CompletableDeferred<Unit>()
         private var held = false
 
-        /** 被 [exclusive] 收回过;收回后许可已经放掉,持有者不该再往树里写。 */
+        /** は [exclusive] によって撤回されました。撤回後は許可が解除され、所有者はツリーに書き込みを行うことができなくなります。 */
         @Volatile var revoked = false
             private set
 
-        /** 拿到许可时调:这之前已被收回的返回 false。 */
+        /** ライセンスを取得するときに呼び出されます。以前に取り消されている場合は false を返します。 */
         internal fun markHeld(): Boolean = synchronized(this) { if (revoked) { released.complete(Unit); false } else { held = true; true } }
 
         internal fun revoke() {
@@ -112,7 +112,7 @@ class SandboxTree {
                 revoked = true
                 held
             }
-            // 还在排队的不用停什么:它会排到这次之后重新拿
+            // まだキューに残っている場合は、停止する必要はありません。この時間が経過すると再びキューに入れられ、ピックアップされます。
             if (wasHeld) runCatching { onRevoke() }
             released.complete(Unit)
         }

@@ -51,31 +51,31 @@ import com.wangzan101.mika.task.testTasks
 import com.wangzan101.mika.core.cap.phone.OperatingPace
 
 /**
- * 真机评测:经 [TaskService] 的真实路径一题一题地跑任务集,打分并写汇总。只在显式传参时运行。
+ * 実機評価: [TaskService] の実パスを通じてタスクセットを 1 つずつ実行し、スコアを付けて概要を書き込みます。パラメータが明示的に渡された場合にのみ実行されます。
  *
- * `-e evalRun <名字> [-e evalSet <assets 目录或 id 前缀>] [-e evalPriceIn <每百万输入 token 单价> -e evalPriceOut <输出单价>
- *  [-e evalPriceCached <缓存单价>]] [-e evalOnTakeover cancel|wait] [-e evalAllowIrreversible true] [-e evalFlags none|<键=on,…>]
+ * `-e evalRun <名前> [-e evalSet <assets 目录或 id 前缀>] [-e evalPriceIn <100万あたりの入力トークン単価> -e evalPriceOut <出力単価>
+ *  [-e evalPriceCached <キャッシュされた単価>]] [-e evalOnTakeover cancel|wait] [-e evalAllowIrreversible true] [-e evalFlags none|<key=on,…>]
  *  [-e evalChannel web|app] [-e evalSplit tune|holdout]`
  *
- * 题目来自测试包 assets 的类别目录(仓库 eval/tasks/<类别>/)、网页题目录 web 与冒烟题目录 eval-smoke;不传 evalSet 时跑除冒烟题以外的全部。
- * evalSplit 给了只跑这一池的题(按题目的 partition;不传跑全部)。holdout 池的结果只用于发版决定,不拿来调提示词和知识。
- * evalChannel 给了就把每道题的渠道强制成网页或 App(目标前加「用网页」/「用 App」),对比两条路线。
- * 主模型用设置里已配好的(先用 LiveRunTest#configureProvider 配)。
- * 结果写到 App 外部文件目录 eval/<evalRun>/:summary.md、scores.jsonl、<题 id>/run/(该题完整运行记录)。
+ * の質問は、テスト パッケージ アセットのカテゴリ ディレクトリ (warehouse eval/tasks/<category>/)、Web ページの質問ディレクトリ web、および喫煙質問ディレクトリ eval-smoke から取得されます。 evalSet が渡されない場合、スモークの質問を除くすべての質問が実行されます。
+ * evalSplit では、この質問プールのみを実行できます (質問のパーティションに従って、すべてを渡して実行しないでください)。ホールドアウト プールの結果は、リリースの決定にのみ使用され、プロンプトの言葉や知識を調整するためには使用されません。
+ * evalChannel が与えられ、各質問のチャネルが Web ページまたはアプリになるように強制され (ターゲットの前に「Web ページを使用する」/「アプリを使用する」を追加します)、2 つのルートを比較します。
+ * メイン モデルは設定で構成されています (最初に LiveRunTest#configureProvider を使用します)。
+ * の結果は、アプリの外部ファイル ディレクトリ eval/<evalRun>/:summary.md、scores.jsonl、<質問 ID>/run/ (質問の完全な実行記録) に書き込まれます。
  *
- * evalFlags(缺省 none)经 [FeatureFlags.setSpeed] 生效,跑完恢复原值;开关组合写进汇总。
- * evalPace(fast / standard / human,缺省 fast)是这次评测在 App 里操作的节奏,不改设置里的;缺省时评测照旧跑得快。
+ * evalFlags (デフォルトはなし) は [FeatureFlags.setSpeed] 経由で有効になり、実行後に元の値に復元されます。スイッチの組み合わせが概要に書き込まれます。
+ * evalPace (高速/標準/人間、デフォルトは高速) は、この評価におけるアプリの操作のペースです。設定を変更しないでください。評価はデフォルトでも高速に実行されます。
  *
- * `-e evalVariants on`(回放评测,串行):只跑带变体的题;每题先跑原题(办成了就记下路线),再依次跑它的各个变体。
- * 汇总的指标只算变体,原题单列一节;变体的运行记录在 <原题 id>_v<n>/ 下。
+ * `-e evalVariants on` (プレイバック評価、シリアル): バリエーションのある質問のみを実行します。各質問に対して最初に元の質問を実行し (完了後のルートに注意してください)、次にそのバリエーションを順番に実行します。
+ * によって要約されたインジケーターはバリアントのみをカウントしており、元の質問は別のセクションにリストされています。バリアントの実行記録は、<元の質問 ID>_v<n>/ に記録されます。
  *
- * `-e evalParallel <n>`(n ≥ 2,要同时打开 parallelTasks):按「用到的 App 不相交」贪心分组([EvalPairing]),同组的题同时跑,
- * 汇总加「总墙钟时间」。同组题共用一份自动回答(按提问里的关键字找各题的 answers)和步数上限(取组内最大)。
- * 题因同组另一题占着 App 而没办成时,失败原因记为 [Scoring.INTERFERENCE_PREFIX](单列一类,不算评测器问题)。
+ * `-e evalParallel <n>` (n ≥ 2、ParallelTask​​s を同時に開く必要があります): 「使用されるアプリは互いに素である」 ([EvalPairing]) による貪欲なグループ化、同じグループ内の質問は同時に実行されます。
+ * の概要と「合計実時間」。同じグループ内の質問は、自動回答 (質問内のキーワードに従って各質問に対する回答を検索します) とステップ数の上限 (グループ内で最大) を共有します。 同じグループ内の別の質問がアプリを占有しているために質問
+ * が完了していない場合、失敗の理由は [Scoring.INTERFERENCE_PREFIX] として記録されます (評価者の問題はカウントされず、別のカテゴリにリストされます)。
  *
- * 评测的每道题用新对话,在询问模式下(开发者选项里自主模式关着)确认关卡生效,要确认时由 [testTasks.evalHooks.autoDecideConfirmation] 自动回答
- * (没接上时等到超时按不同意)。写类、不可逆类题只在接上自动拒绝、并且 requires 都满足时才跑;不可逆类题还要显式传
- * `-e evalAllowIrreversible true`,默认不跑。
+ * レビューの質問ごとに新しいダイアログを使用します。質問モード (開発者向けオプションで自律モードがオフになっています) で、レベルが有効であることを確認します。確認したい場合は、[testTasks.evalHooks.autoDecideConfirmation]が自動で応答します。
+ * (接続されていない場合は、タイムアウトになるまで待って、同意しないを押してください)。書き込み質問と取り消し可能な質問は、自動的に拒否され、すべての要件が満たされた場合にのみ実行されます。取り消しできない質問は明示的に渡す必要があります
+ * `-e evalAllowIrreversible true`、デフォルトでは実行されません。
  */
 @RunWith(AndroidJUnit4::class)
 class EvalRunTest {
@@ -98,9 +98,9 @@ class EvalRunTest {
         val onTakeover = args.getString("evalOnTakeover") ?: "cancel"
         require(onTakeover == "cancel" || onTakeover == "wait") { "evalOnTakeover must be cancel or wait" }
         testTasks.evalHooks.onTakeover = onTakeover
-        // 评测绝不真的发送、删除、下单:关卡处一律拒绝
+        // レビューは送信、削除、または配置されることはなく、すべてのレベルで拒否されます。
         testTasks.evalHooks.autoDecideConfirmation = { false }
-        // 评测默认不学技能、不自动记忆:跑出来的分数不受上一轮学到的东西影响;要测时显式打开
+        // の評価は、デフォルトではスキルを学習したり、自動的に記憶したりしません。取得されたスコアは、前のラウンドで学習した内容の影響を受けません。テストを受けるときに明示的にオンにする必要があります。
         testTasks.evalHooks.learnSkills = args.getString("learnSkills") == "on"
         testTasks.evalHooks.rememberMemory = args.getString("memory") == "on"
         testTasks.evalHooks.autoApproveSkillDrafts = args.getString("autoApproveSkills") == "true"
@@ -112,15 +112,15 @@ class EvalRunTest {
         savedFlags = featureFlags.speedFlags()
         featureFlags.setSpeed(flags)
 
-        // 学技能、记忆的状态:默认清空,第③轮(带着②学到的技能跑)传 keepState=true 保留
+        // 習得スキルと記憶のステータス：デフォルトでクリア、ラウンド3で合格（②で習得したスキルで実行） keepState=true 予約済み
         if (args.getString("keepState") != "true") MemoryRuntime.of(context).wipeAll()
         val split = args.getString("split")
         require(split == null || split == "train" || split == "test") { "split must be train or test" }
         val evalSplit = args.getString("evalSplit")?.takeIf { it.isNotBlank() }
         require(evalSplit == null || evalSplit in EvalTasks.PARTITIONS) { "evalSplit must be tune or holdout" }
-        // evalChannel web|app:同一批题强制走网页或 App(两条路线对比)
+        // evalChannel web|app: 同じバッチの質問が Web またはアプリに強制的に送信されます (2 つのルートの比較)
         val channel = args.getString("evalChannel")?.takeIf { it.isNotBlank() }
-        // 同一 session 的题在同一个对话里按 id 顺序跑,所以按 (session, id) 排好
+        // 同じセッション内の質問は、同じ会話内の ID の順に実行されるため、(セッション、ID) に従って配置されます。
         val tasks = loadTasks(args.getString("evalSet")).filter { split == null || it.split == split }
             .filter { evalSplit == null || it.partition == evalSplit }
             .map { t -> if (channel != null) t.copy(channel = channel) else t }
@@ -140,14 +140,14 @@ class EvalRunTest {
         val parallel = args.getString("evalParallel")?.toInt() ?: 1
         require(parallel == 1 || flags.parallelTasks) { "evalParallel needs evalFlags parallelTasks=on" }
         val variants = args.getString("evalVariants") == "on"
-        // 变体要用原题刚记下的路线,只能一题接一题跑
+        // バリアントの場合は、元の質問で記憶したばかりのルートを使用する必要があり、質問を次々と実行することしかできません。
         require(!variants || parallel == 1) { "evalVariants runs serially; drop evalParallel" }
         val scores = mutableListOf<Pair<TaskScore, Observed>>()
         val skipped = mutableListOf<Pair<String, String>>()
         val scoresFile = File(out, "scores.jsonl")
         val runnable = mutableListOf<EvalTask>()
         for (t in tasks) {
-            // 会改动设备或碰到不可逆操作的题:关卡没接上自动拒绝就不跑;不可逆类还要显式放行
+            // は機器を変更するか、元に戻せない操作で問題が発生します。レベルは自動的に拒否され、接続されていない場合は実行されません。不可逆型は明示的に解放する必要がある
             if (t.category in GATED && testTasks.evalHooks.autoDecideConfirmation == null) {
                 skipped += t.id to "评测器不跑 ${t.category.wire()} 类题(确认关卡自动拒绝没有接上)"
                 continue
@@ -197,12 +197,12 @@ class EvalRunTest {
         val total = if (parallel > 1) System.currentTimeMillis() - t0 else null
         File(out, "summary.md").writeText(EvalReport.markdown(run, model, scores, skipped, prices, flags.describe(), total, parallel))
         File(out, "metrics.json").writeText(EvalReport.metricsJson(scores))
-        // 学到的技能各被用了几次(对比报告用)
+        // 習得したスキルの使用回数（比較レポート用）
         val skillUse = scores.flatMap { it.second.skillsUsed }.groupingBy { it }.eachCount()
         File(out, "skill-use.json").writeText(JsonObject(skillUse.mapValues { JsonPrimitive(it.value) }).toString())
     }
 
-    /** 同时跑一组题(并行评测);每题各开一个对话,按各自的任务对象盯到结束。 */
+    /** は一連の質問を同時に実行します (並列評価)。質問ごとにダイアログを開き、最後までそれぞれのタスク オブジェクトに従ってください。 */
     private fun runGroup(group: List<EvalTask>, run: String, probes: EvalProbes, runs: RunStore, out: File): List<Pair<EvalTask, Observed>> {
         DeviceSupport.sh("input keyevent KEYCODE_HOME")
         val prepared = group.map { t ->
@@ -241,7 +241,7 @@ class EvalRunTest {
                 val elapsed = System.currentTimeMillis() - l.t0
                 if (!l.timedOut && elapsed > timeoutMs) { l.timedOut = true; r.cancel() }
                 if (l.timedOut && elapsed > timeoutMs + BUSY_WAIT_MS) l.failed = "超时取消后任务一直没有收尾"
-                // 收尾做完(运行记录关上)才从登记处撤下
+                // は、最後の仕上げが完了した後 (走行記録がオフになった後) にのみ登録オフィスから削除されました。
                 if (DeviceTaskState.run(l.conversation) == null) {
                     l.end = r.state.value
                     l.wallMs = System.currentTimeMillis() - l.t0
@@ -257,20 +257,20 @@ class EvalRunTest {
             record?.let { runs.copyTo(it.id, File(File(out, l.task.id), "run")) }
             val task = resolveApps(l.task, events, probes)
             val observed = observe(task, l.end!!, events, record != null, l.timedOut, l.tookOver, l.wallMs, probes, record?.id.orEmpty())
-            // 没办成、且路上撞到另一题占着 App:单列成互相干扰
+            // が失敗し、途中でアプリを占有している別の質問に遭遇しました: 単一の列が互いに干渉しています
             val interfered = observed.outcome != "succeeded" && events.any { it is RunEvent.ToolResult && "app_in_use_by_other_task" in it.resultJson }
             results += task to if (interfered) observed.copy(failReason = Scoring.INTERFERENCE_PREFIX + "同组另一题占着要用的 App") else observed
         }
         return results
     }
 
-    /** 同一 session 的题共用一个对话(记忆题:第二题在第一题的对话里接着说)。 */
+    /** 同じセッション内の質問はダイアログを共有します (記憶質問: 2 番目の質問は最初の質問のダイアログで継続されます)。 */
     private val sessions = mutableMapOf<String, String>()
     private fun sessionConversation(t: EvalTask): String? = t.session?.let { sessions.getOrPut(it) { UUID.randomUUID().toString() } }
 
     /**
-     * 两轮评测的对比与门槛:`-e evalCompareBase <基线运行名> -e evalCompareTreated <带技能运行名>`,
-     * 读两次运行的 scores.jsonl 和带技能那次的 skill-use.json,写 compare.md 到带技能那次的目录。
+     * 2回の評価の比較としきい値: `-e evalCompareBase <基準実行名> -e evalCompareTreated <スキル使用時の実行名>`、
+     * 2回の実行のscores.jsonlとスキル付き時のskill-use.jsonを読み込み、スキル付き時のディレクトリにcompare.mdを書き込みます。
      */
     @Test
     fun compareRuns() {
@@ -294,7 +294,7 @@ class EvalRunTest {
         )
     }
 
-    /** 跑一题,返回替换过占位符的题目和观察到的事实。[conversation] 不为空时在这个对话里接着跑。 */
+    /** 質問を実行し、プレースホルダーを置き換えて観察された事実を含む質問を返します。 [conversation] が空でない場合は、この会話の実行を続行します。 */
     private fun runOne(t: EvalTask, run: String, probes: EvalProbes, runs: RunStore, dir: File, conversation: String? = null): Pair<EvalTask, Observed> {
         DeviceSupport.sh("input keyevent KEYCODE_HOME")
         val before = mutableMapOf<String, String>()
@@ -311,14 +311,14 @@ class EvalRunTest {
         val prevConversation = DeviceTaskState.conversationId.value
         val t0 = System.currentTimeMillis()
         TaskService.start(context, task.goal, conversation)
-        // 新开对话时编号变了说明这次请求已被接下;接着同一个对话跑时看服务忙起来
+        // 新しい会話が開かれると、番号が変わり、リクエストが受け入れられたことを示します。次に同じ会話が実行されると、サービスはビジー状態になります。
         val started = if (conversation == null) waitFor(START_WAIT_MS) { DeviceTaskState.conversationId.value != prevConversation }
             else waitFor(START_WAIT_MS) { DeviceTaskState.busy.value && DeviceTaskState.conversationId.value == conversation }
         if (!started) return task to harness("任务没有开始")
         val timeoutMs = (task.timeoutSec ?: DEFAULT_TIMEOUT_SEC) * 1000L
         var tookOver = false
         var timedOut = false
-        // busy 在状态变成结局、运行记录也关上之后才变回 false
+        // ビジーは、ステータスが終了に変化し、実行記録がオフになった後、false に戻ります。
         while (DeviceTaskState.busy.value) {
             val s = DeviceTaskState.state.value
             if (s is TaskState.WaitingTakeover && !tookOver) {
@@ -337,7 +337,7 @@ class EvalRunTest {
         val wallMs = System.currentTimeMillis() - t0
         val end = DeviceTaskState.state.value
 
-        // 交出回答后另判结局(后台):等它记进运行记录再取,判不成也有一条 unknown;等不到按没判过算
+        // 解答提出後、エンディング（バックエンド）で再度判定が行われます。走行記録に記録されるまで待ってから解答してください。それが失敗すれば、未知の部分が残ります。待てない場合は審査されません。
         if (end is TaskState.Succeeded) waitFor(JUDGE_WAIT_MS) {
             runs.list().firstOrNull { it.startedAtMs >= t0 }?.judged != null
         }
@@ -348,7 +348,7 @@ class EvalRunTest {
         return resolved to observe(resolved, end, events, record != null, timedOut, tookOver, wallMs, probes, record?.id.orEmpty())
     }
 
-    /** 跑完后把 `{app:<能力>}` 换成这台手机上的包名:Agent 打开过的候选优先(见 [AppCapabilities.choose])。 */
+    /** を実行した後、`{app:<能力>}` をこの電話機のパッケージ名に置き換えます。エージェントによって開かれた候補が優先されます ([AppCapabilities.choose] を参照)。 */
     private fun resolveApps(task: EvalTask, events: List<RunEvent>, probes: EvalProbes): EvalTask {
         val launched = RunFacts.appsLaunched(events, recordedTools())
         val written = RunFacts.appsWrittenIn(events, recordedTools())
@@ -358,18 +358,18 @@ class EvalRunTest {
         return EvalTasks.resolveApps(task, chosen)
     }
 
-    /** 一题结束后:按结局、运行记录和结束后的探针整理出观察到的事实。 */
+    /** 質問後: エンディング、走行記録、終了後の調査に従って観察された事実を整理します。 */
     private fun observe(
         task: EvalTask, end: TaskState, events: List<RunEvent>, hasRecord: Boolean, timedOut: Boolean, tookOver: Boolean,
         wallMs: Long, probes: EvalProbes, runId: String,
     ): Observed {
         val confirmations = events.filterIsInstance<RunEvent.Confirmation>()
-        // 停在关卡:最后一次申报被(评测里自动)拒绝,之后 Agent 汇报结束
+        // はレベルで停止しました: 最後の宣言が拒否され (レビューで自動的に)、その後エージェント レポートが終了しました
         val stoppedAtGate = RunFacts.stoppedAtGate(events)
         val outcome = when {
             timedOut -> "timeout"
             stoppedAtGate -> "confirmation"
-            // 不带调用的回复就是回答:没核对过的照样算 succeeded(核对项另看回答和账本);核对过却没能核实的算 unverified
+            // 電話なしの返信が答えです。検証されていない場合でも成功としてカウントされます (検証項目については答えと帳簿を参照してください)。検証済みでも検証できない場合は未検証としてカウントされます
             end is TaskState.Succeeded -> if (end.doubtful) "unverified" else "succeeded"
             end is TaskState.Failed -> "failed"
             end == TaskState.Cancelled -> if (tookOver) "takeover" else "cancelled"
@@ -395,10 +395,10 @@ class EvalRunTest {
         return Observed(
             outcome = outcome,
             answer = answer,
-            // 和运行时核查器同一份证据账本、同一个挑法
+            // とランタイム検証者は同じ証拠台帳と同じチャレンジメソッドを持っています
             evidence = sources,
             today = java.time.LocalDate.now(),
-            // 核对的是卡片上显示的字:动作用卡片标题里的中文说法
+            // はカードに表示される単語をチェックしています: アクションはカードのタイトルに中国語の表現を使用しています
             confirmation = confirmations.lastOrNull { it.decision != "mismatch" && it.decision != "required" }?.let { c ->
                 val action = IrrevAction.entries.firstOrNull { it.name == c.action }?.let(ConfirmationCopy::actionLabel) ?: c.action
                 listOfNotNull("action" to action, c.target?.let { "target" to it }, c.content?.let { "content" to it }, c.amount?.let { "amount" to it }).toMap()
@@ -411,7 +411,7 @@ class EvalRunTest {
             inputTokens = events.filterIsInstance<RunEvent.ModelReply>().sumOf { (it.inputTokens ?: 0).toLong() },
             outputTokens = events.filterIsInstance<RunEvent.ModelReply>().sumOf { (it.outputTokens ?: 0).toLong() },
             cachedTokens = events.filterIsInstance<RunEvent.ModelReply>().sumOf { (it.cachedTokens ?: 0).toLong() },
-            // 失败原因按失败来源生成,不用 Agent 的原话
+            // 失敗理由は失敗原因に基づいて生成され、エージェントのオリジナルの言葉は使用されません。
             leftScope = if (task.apps.isEmpty()) emptyList() else RunFacts.appsSeen(events, recordedTools()) - task.apps.toSet(),
             goal = task.goal,
             verdict = events.filterIsInstance<RunEvent.Verifier>().lastOrNull()?.verdict,
@@ -419,7 +419,7 @@ class EvalRunTest {
             modelMs = events.filterIsInstance<RunEvent.ModelReply>().sumOf { it.latencyMs },
             toolMs = events.filterIsInstance<RunEvent.ToolResult>().sumOf { it.durationMs },
             waitMs = events.filterIsInstance<RunEvent.ToolResult>().sumOf { it.waitMs },
-            // 一条路线最后一步匹配上算走完;任一步没匹配上算交还
+            // ルートの最後のステップが一致する場合、そのステップは完了したものとしてカウントされます。一致しないステップがある場合は、返されたものとしてカウントされます。
             replayHits = events.filterIsInstance<RunEvent.Replay>().count { it.matched && it.step == it.total },
             replayHandBacks = events.filterIsInstance<RunEvent.Replay>().count { !it.matched },
             memoryUsed = events.filterIsInstance<RunEvent.MemoryUsed>().sumOf { it.ids.size },
@@ -447,7 +447,7 @@ class EvalRunTest {
         return Prices(inP, outP, args.getString("evalPriceCached")?.toDouble() ?: inP)
     }
 
-    /** 测试包 assets 下所有 .json 题目;[set] 是目录(如 eval-smoke、read)或 id 前缀。 */
+    /** テスト パッケージ アセットのすべての .json 質問。 [set] は、ディレクトリ (eval-smoke、read など) または ID プレフィックスです。 */
     private fun loadTasks(set: String?): List<EvalTask> {
         val assets = InstrumentationRegistry.getInstrumentation().context.assets
         fun walk(path: String): List<String> {
@@ -455,7 +455,7 @@ class EvalRunTest {
             if (children.isEmpty()) return if (path.endsWith(".json")) listOf(path) else emptyList()
             return children.sorted().flatMap { walk("$path/$it") }
         }
-        // 题目只放在类别目录(eval/tasks/<类别>/)、专项题集、网页题目录和冒烟题目录里;assets 根下还有依赖库带进来的别的 json
+        // の質問は、カテゴリ ディレクトリ (eval/tasks/<category>/)、特別な質問コレクション、Web ページの質問ディレクトリ、および喫煙に関する質問ディレクトリにのみ配置されます。アセットルートの下には、依存ライブラリによって取り込まれた他の JSON があります。
         val dirs = EvalCategory.entries.map { it.wire() } + SUITE_DIRS + WEB_DIR + SMOKE_DIR
         return dirs.flatMap(::walk)
             .filter { path -> set != null || (SUITE_DIRS + SMOKE_DIR).none { path.startsWith("$it/") } }
@@ -468,7 +468,7 @@ class EvalRunTest {
             .map { it.second }
     }
 
-    /** 任务文件和目录里用的类别名。 */
+    /** タスク ファイルおよびディレクトリで使用されるカテゴリ名。 */
     private fun EvalCategory.wire(): String = when (this) {
         EvalCategory.Read -> "read"
         EvalCategory.Write -> "write"
@@ -514,15 +514,15 @@ class EvalRunTest {
     companion object {
         private val RUN_NAME = Regex("^[A-Za-z0-9_-]+$")
         private const val SMOKE_DIR = "eval-smoke"
-        /** 专项题集:配对题(三轮跑)、记忆题。不传 evalSet 时不跑,要显式选。 */
+        /** 特別問題セット: 合わせ問題 (3 ラウンド実行)、記憶問題。 evalSet が渡されない場合、実行されません。明示的に選択する必要があります。 */
         private val SUITE_DIRS = listOf("skills", "memory")
-        /** 网页题目录(eval/tasks/web/),类别各异。 */
+        /** Web ページのタイトル ディレクトリ (eval/tasks/web/)、さまざまなカテゴリ。 */
         private const val WEB_DIR = "web"
         private const val DEFAULT_TIMEOUT_SEC = 600
         private const val POLL_MS = 250L
         private const val START_WAIT_MS = 15_000L
         private const val BUSY_WAIT_MS = 60_000L
-        /** 判结局的模型调用自己有 30 秒上限,两个候选模型各一次。 */
+        /** 結果を決定するモデルが自分自身を呼び出すまでの上限は、2 つの候補モデルごとに 1 回につき 30 秒です。 */
         private const val JUDGE_WAIT_MS = 65_000L
         private val GATED = setOf(EvalCategory.Write, EvalCategory.Irreversible)
     }

@@ -1,1 +1,1 @@
-Write a text file under /workspace (parent directories are created). Only /workspace is writable.
+/workspace の下に文面ファイルを書く（親ディレクトリは作成される）。書き込みできるのは /workspace だけ。

@@ -9,26 +9,26 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 
 /**
- * 助手进程把 Binder 交给 Mika 时双方共用的约定:provider 的方法名和 Bundle 键、助手的进程名、启动命令,
- * 以及 Mika 一侧收下之前要过的检查。
+ * アシスタントプロセスがバインダーをミカに渡すときに双方が共有する合意: プロバイダーのメソッド名とバンドルキー、アシスタントのプロセス名、および起動コマンド。
+ * とミカ側は受け入れ前に検査する必要があります。
  */
 object HelperHandoff {
     const val SHELL_UID = 2000
     const val METHOD_ATTACH = "attach"
     const val HELPER_CLASS = "com.wangzan101.mika.shell.HelperMain"
 
-    // 助手 → Mika
+    // アシスタント→ミカ
     const val KEY_NONCE = "nonce"
     const val KEY_BINDER = "binder"
     const val KEY_UID = "uid"
     const val KEY_PID = "pid"
     const val KEY_APK = "apk"
-    /** 助手把 Mika 拉起来的记录(见 [HelperRestoreReport]);没拉过时不带。 */
+    /** アシスタントがミカを引き上げた記録 ([HelperRestoreReport] を参照)。引き上げないと取得されません。 */
     const val KEY_RESTORED_AT = "restoredAt"
     const val KEY_RESTORES = "restores"
     const val KEY_GAVE_UP_AT = "restoreGaveUpAt"
 
-    // Mika → 助手
+    // ミカ → アシスタント
     const val KEY_ACCEPTED = "accepted"
     const val KEY_NEXT = "next"
     const val KEY_TOKEN = "token"
@@ -36,17 +36,17 @@ object HelperHandoff {
 
     fun authority(packageName: String) = "$packageName.helper"
 
-    /** 助手的进程名(app_process 的 --nice-name);同时用来认出旧的助手实例。 */
+    /** アシスタントのプロセス名 (app_process の --nice-name)。古いアシスタント インスタンスを識別するためにも使用されます。 */
     fun processName(packageName: String) = "$packageName:helper"
 
     /**
-     * 经 adbd 的 exec: 服务执行的命令(adbd 用 `sh -c` 跑它)。流一关,adbd 就把 sh 那一组进程都杀掉,
-     * 所以助手用 setsid 另起会话;sh 再 `read` 等着,直到 App 收到交接后关流,
-     * 免得 setsid 还没生效 sh 就退出、助手被连带杀掉。
+     * は、adbd の exec: サービスによって実行されるコマンドです (adbd は `sh -c` を使用して実行します)。ストリームがオフになると、adbd はすべての sh グループのプロセスを強制終了します。
+     * したがって、アシスタントは setid を使用して新しいセッションを開始し、その後 `read` はアプリがハンドオーバーを受信して​​フローを閉じるまで待機します。
+     * は、setsid が有効になる前に sh が終了し、アシスタントが同時に強制終了されるのを防ぎます。
      *
-     * 口令不进命令行(同为 shell 的进程能读 /proc/<pid>/cmdline):App 开流后写一行 [stdinLine],
-     * sh 读进变量,再用内建 echo 经管道交给助手;助手的标准输入是这条管道,不是 adb 的流。
-     * [certPin] 是 Mika 签名证书的指纹,不是秘密,放在参数里。
+     * パスワードはコマンド ラインに入力されません (同じシェル プロセスは /proc/<pid>/cmdline を読み取ることができます): アプリがストリームを開いた後、[stdinLine] という行を書き込みます。
+     * sh は変数を読み取り、組み込みのエコーを使用してパイプ経由でアシスタントに変数を渡します。アシスタントの標準入力は、adb ストリームではなく、このパイプです。
+     * [certPin] は、ミカの署名証明書の指紋です。これは秘密ではなく、パラメータに設定されます。
      */
     fun command(apkPath: String, packageName: String, appUid: Int, certPin: String): String =
         "read n; (echo \"\$n\" | CLASSPATH=${quote(apkPath)} setsid app_process /system/bin " +
@@ -55,59 +55,59 @@ object HelperHandoff {
 
     fun stdinLine(nonce: String): ByteArray = "$nonce\n".toByteArray(Charsets.UTF_8)
 
-    /** 「用电脑启动」的脚本文件名,放在 App 的外部文件目录里(电脑经 USB 调试以 shell 身份读它)。 */
+    /** 「コンピューターで起動」というスクリプト ファイル名がアプリの外部ファイル ディレクトリに配置されます (コンピューターは USB デバッグを通じてシェルとしてそれを読み取ります)。 */
     const val USB_SCRIPT = "usb-start.sh"
 
-    /** 主用户的外部存储在 shell 里也叫 /sdcard;给用户看的命令用这个短写法。别的用户照实际路径写。 */
+    /** メイン ユーザーの外部ストレージは、シェルでは /sdcard とも呼ばれます。ユーザーに表示されるコマンドでは、この省略表現が使用されます。他のユーザーは実際のパスに従って書き込みます。 */
     private const val PRIMARY_STORAGE = "/storage/emulated/0/"
 
-    /** 电脑上要跑的那条命令。[scriptPath] 是脚本在手机上的实际路径。 */
+    /** コンピューター上で実行されるコマンド。 [scriptPath] は、電話機上のスクリプトの実際のパスです。 USB デバッグを通じて */
     fun usbCommand(scriptPath: String): String =
         "adb shell sh " + (if (scriptPath.startsWith(PRIMARY_STORAGE)) "/sdcard/" + scriptPath.removePrefix(PRIMARY_STORAGE) else scriptPath)
 
     /**
-     * 电脑经 USB 调试跑的启动脚本:起的是和 [command] 同一个助手、同样的参数,口令换成 [nonce](写在脚本里,见 [HandoffNonces.usbNonce])。
-     * adb shell 的会话一结束(命令跑完、拔线),adbd 就把它那一组进程杀掉:助手用 nohup 忽略挂断信号,再用 setsid 另起会话,放到后台的子 shell 里起
-     * (子 shell 退出后它归 init 管),标准输出和错误丢掉,不再连着 adb 的流;脚本再等一会儿让 setsid 生效,
-     * 看助手进程还在就说一句「正在启动」,不在(多半是口令过期或 Mika 不认)就请用户打开 Mika 再跑一次。
-     * 只用安卓原版 sh 和 toybox 里有的命令。不是 shell 身份(没经 adb 跑)时不起:Mika 只收 shell 交来的助手。
+     * コンピューターによって実行される起動スクリプト: [command] と同じアシスタントと同じパラメーターで起動され、パスワードが [nonce] に変更されます (スクリプトに記述されています。[HandoffNonces.usbNonce] を参照)。
+     * adb シェル セッションが終了すると (コマンドが実行され、接続が切断されると)、adbd はそのプロセスのセットを強制終了します。アシスタントは nohup を使用してハングアップ信号を無視し、setsid を使用して新しいセッションを開始し、バックグラウンドのサブシェルに入れます。
+     * (サブシェルの終了後、init によって管理されます)、標準出力とエラーは失われ、adb ストリームに接続されなくなります。スクリプトは、setsid が有効になるまでしばらく待機します。
+     * アシスタント プロセスがまだある場合は、「開始中」と言ってください。そこにない場合は (パスワードの有効期限が切れているか、Mika がパスワードを認識しないことが主な理由です)、Mika を開いて再度実行するようにユーザーに依頼します。
+     * Android 標準の sh と toybox にあるコマンドだけを使う。shell の身分でなければ（adb 経由で実行されていなければ）起動しない: Mika は shell から引き渡されたヘルパーだけを受け取る。
      */
     fun usbScript(apkPath: String, packageName: String, appUid: Int, certPin: String, nonce: String, scriptPath: String): String {
         val name = quote(processName(packageName))
         val again = usbCommand(scriptPath)
         return """
             |#!/system/bin/sh
-            |# Written by Mika. Starts Mika's phone helper from a computer: $again
+            |# Mikaが生成しました。PCからスマートフォン操作アシスタントを起動します: $again
             |if [ "${'$'}(id -u)" != "$SHELL_UID" ]; then
-            |  echo "Run this from a computer over USB: $again"
+            |  echo "PCからUSB接続で実行してください: $again"
             |  exit 1
             |fi
             |if [ ! -f ${quote(apkPath)} ]; then
-            |  echo "Mika was updated or reinstalled. Open Mika once, then run this command again."
+            |  echo "Mikaが更新または再インストールされました。Mikaを一度開いてから、このコマンドを再実行してください。"
             |  exit 1
             |fi
             |n=${quote(nonce)}
             |(echo "${'$'}n" | CLASSPATH=${quote(apkPath)} nohup setsid app_process /system/bin --nice-name=$name $HELPER_CLASS ${quote(packageName)} $appUid ${quote(certPin)} >/dev/null 2>&1 &)
             |sleep 2
             |if pidof $name >/dev/null 2>&1; then
-            |  echo "Mika helper starting... Open Mika to confirm phone control is ready."
-            |  echo "It keeps running after you unplug the cable. After a phone restart, run this command again."
+            |  echo "Mikaの操作アシスタントを起動しています。Mikaを開き、スマートフォン操作が利用できるか確認してください。"
+            |  echo "ケーブルを抜いても動作を続けます。端末を再起動した場合は、このコマンドを再実行してください。"
             |else
-            |  echo "Mika helper did not start. Open Mika once, then run this command again."
+            |  echo "Mikaの操作アシスタントを起動できませんでした。Mikaを一度開いてから、このコマンドを再実行してください。"
             |  exit 1
             |fi
             |""".trimMargin()
     }
 
     /**
-     * 什么时候重写「用电脑启动」脚本:助手来了或走了,以及口令被整体作废([HandoffNonces.resets],如解除配对)时;
-     * 发出的值是此刻助手在不在。后一种助手可能一直不在,不跟着它重写的话脚本里留的就是作废的口令。
+     * 「パソコンで起動」スクリプトをいつ書き直すか: ヘルパーが来たときと去ったとき、およびパスコードがまとめて失効したとき（[HandoffNonces.resets]、ペアリング解除など）;
+     * 出される値は、その時点でヘルパーがいるかどうか。後者の場合ヘルパーはずっと不在かもしれず、それに合わせて書き直さなければ、スクリプトには失効したパスコードが残ってしまう。
      */
     fun usbScriptWrites(helper: Flow<Any?>, resets: Flow<Int>): Flow<Boolean> = combine(helper, resets) { h, _ -> h != null }
 
     /**
-     * 此刻该写的脚本:助手连着([connected])就写不带口令的 [usbStub],也不去要口令;否则写带新口令的 [usbScript]。
-     * [certPin]、[nonce] 只在要写带口令的脚本时才取。
+     * この時点で書くべきスクリプト: ヘルパーが接続していれば（[connected]）パスコードなしの [usbStub] を書き、パスコードも要求しない; そうでなければ新しいパスコード付きの [usbScript] を書く。
+     * [certPin] および [nonce] は、パスワードを使用してスクリプトを作成する場合にのみ使用されます。
      */
     fun usbFile(
         connected: Boolean, apkPath: String, packageName: String, appUid: Int, certPin: () -> String, nonce: () -> String, scriptPath: String,
@@ -115,22 +115,22 @@ object HelperHandoff {
         if (connected) usbStub(packageName, scriptPath)
         else usbScript(apkPath, packageName, appUid, certPin(), nonce(), scriptPath)
 
-    /** 助手已连着时换上的脚本:不带口令,只说一句。进程不在了(比如手机重启过、Mika 还没打开)就请用户先打开 Mika。 */
+    /** アシスタントの接続時に置き換えられるスクリプト: パスワードなし、一言言うだけです。プロセスが存在しない場合 (たとえば、電話が再起動され、ミカがまだ開かれていない場合)、最初にミカを開くようにユーザーに依頼してください。 */
     fun usbStub(packageName: String, scriptPath: String): String {
         val name = quote(processName(packageName))
         return """
             |#!/system/bin/sh
-            |# Written by Mika. The phone helper is connected, so this file holds no start code.
+            |# Mikaが生成しました。操作アシスタントは接続済みのため、このファイルに起動処理は含まれていません。
             |if pidof $name >/dev/null 2>&1; then
-            |  echo "Mika helper is already running. Nothing to do."
+            |  echo "Mikaの操作アシスタントは起動済みです。追加の操作は不要です。"
             |else
-            |  echo "Mika helper is not running. Open Mika once, then run this command again: ${usbCommand(scriptPath)}"
+            |  echo "Mikaの操作アシスタントは停止しています。Mikaを一度開いてから、このコマンドを再実行してください: ${usbCommand(scriptPath)}"
             |  exit 1
             |fi
             |""".trimMargin()
     }
 
-    /** 签名证书(DER)的 SHA-256 指纹;多个签名者时排序后用逗号连起来。没有证书返回 null。 */
+    /** 署名証明書 (DER) の SHA-256 フィンガープリント。署名者が複数いる場合は、署名者を並べ替えてカンマで接続します。証明書がない場合は null を返します。 */
     fun certPin(certs: List<ByteArray>?): String? {
         if (certs.isNullOrEmpty()) return null
         return certs.map { c -> MessageDigest.getInstance("SHA-256").digest(c).joinToString("") { "%02x".format(it) } }
@@ -140,19 +140,19 @@ object HelperHandoff {
     private fun quote(s: String) = "'" + s.replace("'", "'\\''") + "'"
 
     enum class Reject {
-        /** 调用方不是 shell(uid 2000)。 */
+        /** 呼び出し元はシェル (uid 2000) ではありません。 */
         NotShell,
-        /** 助手自报的 uid/pid 和 Binder 看到的调用方对不上。 */
+        /** アシスタントによって報告された uid/pid が、Binder によって認識された呼び出し元と一致しません。 */
         IdMismatch,
-        /** 助手跑的不是当前安装的这份 APK(Mika 更新过):让它退出,重新起一个。 */
+        /** アシスタントは、現在インストールされている APK (Mika によって更新) を実行していません。アシスタントを終了して、新しい APK を開始してください。 */
         StaleApk,
         NoBinder,
         BadNonce,
-        /** Binder 所在的进程不是来交接的那个。 */
+        /** バインダーが配置されているプロセスは、ハンドオーバーのためにここにあるプロセスではありません。 */
         BinderElsewhere,
     }
 
-    /** 不碰 Binder 就能做的检查;通过返回 null。口令另由 [HandoffNonces] 核对。 */
+    /** バインダーに触れずにできるチェック; null を返すことによって。パスワードは[HandoffNonces]によってチェックされます。 */
     fun check(
         callingUid: Int, callingPid: Int, reportedUid: Int, reportedPid: Int,
         helperApk: String?, appApk: String, hasBinder: Boolean,
@@ -166,9 +166,9 @@ object HelperHandoff {
 }
 
 /**
- * 持久化的几枚口令:[resume] 给正在跑的助手下次交接用,[launch] 给刚从 adbd 起的新助手用,
- * [launchAt] 是 [launch] 的签发时间(开机以来的毫秒数);[usb] 写在「用电脑启动」的脚本里,
- * [usbAt] 是它的签发时间(墙上时钟的毫秒数:脚本要跨过重启还能用)。
+ * いくつかの永続的なパスワード: [resume] は次のハンドオーバーに使用する実行中のアシスタント用、[launch] は adbd から開始したばかりの新しいアシスタント用、
+ * [launchAt] は、[launch] の発行時間 (起動してからのミリ秒数) です。 「コンピュータで始める」のスクリプトには[usb]と書かれており、
+ * [usbAt] は、その発行時間 (壁時計のミリ秒数: スクリプトは再起動後も動作します) です。
  */
 data class NonceSlots(
     val resume: String? = null, val launch: String? = null, val launchAt: Long = 0,
@@ -181,9 +181,9 @@ interface NonceStore {
 }
 
 /**
- * Mika 生成、一次有效的交接口令。任何一枚被用掉,几枚都作废,并换发一枚新的 [NonceSlots.resume] 给收下的助手;
- * 存下来是为了 Mika 进程被杀后,还活着的助手拿它重新交接时新进程认得。
- * [clock] 量启动口令的时效(开机以来),[wallClock] 量「用电脑启动」口令的时效。
+ * ミカは有効なワンタイム通信コマンドを生成します。いずれかのコインが使用されると、いくつかのコインが無効になり、それを受け入れたアシスタントに新しい [NonceSlots.resume] が発行されます。
+ * は、Mika プロセスが強制終了された後、再度渡されたときにリビング アシスタントがそれを認識できるように保存されます。
+ * [clock] は起動パスワード (起動以降) の経過時間を測定し、[wallClock] は「コンピューターで起動」パスワードの経過時間を測定します。
  */
 class HandoffNonces(
     private val store: NonceStore,
@@ -195,8 +195,8 @@ class HandoffNonces(
     fun issueLaunch(): String = random().also { store.save(store.load().copy(launch = it, launchAt = clock())) }
 
     /**
-     * 写进「用电脑启动」脚本的口令。手上那枚还新(剩下的时效超过一半)就接着用,免得电脑正在跑脚本时被换掉;
-     * 否则换发一枚。和别的口令一样用掉一次就作废(见 [accept])。
+     * 「Start with Computer」スクリプトに書き込まれるパスワード。コンピュータがスクリプトを実行している間は交換しないように、まだ新しいうち (有効期限が半分以上残っている状態) は使い続けてください。
+     * それ以外の場合は、新しいものと交換してください。他のパスワードと同様、一度使用すると無効になります ([accept] を参照)。
      */
     @Synchronized
     fun usbNonce(): String {
@@ -211,14 +211,14 @@ class HandoffNonces(
         if (nonce == null) return false
         val s = store.load()
         val age = clock() - s.launchAt
-        // 启动口令只在交接等待期内有效;没用上的过期作废
+        // 起動パスワードはハンドオーバー待機期間中にのみ有効です。未使用のものは有効期限が切れると無効になります。
         val launch = s.launch?.takeIf { age in 0..LAUNCH_TTL_MS }
-        // 脚本里的口令等的是用户插线跑命令,给得长一些;过期或时钟倒退都不认
+        // スクリプト内のパスワードは、ユーザーがプラグインしてコマンドを実行するのを待機しています。パスワードは長くする必要があります。有効期限が切れたり、時計が戻ったりすると認識されなくなります。
         val usb = s.usb?.takeIf { wallClock() - s.usbAt in 0..USB_TTL_MS }
         return same(nonce, s.resume) or same(nonce, launch) or same(nonce, usb)
     }
 
-    /** 口令对就用掉它并返回换发的新口令,不对返回 null。 */
+    /** パスワードが正しい場合は、それを使用し、新しいパスワードを返します。そうでない場合は、null を返します。 */
     @Synchronized
     fun accept(nonce: String?): String? {
         if (!matches(nonce)) return null
@@ -226,7 +226,7 @@ class HandoffNonces(
     }
 
     private val _resets = MutableStateFlow(0)
-    /** 口令被整体作废([clear])的次数:变了就说明写出去的口令(如脚本里那枚)都不能用了。 */
+    /** パスワード全体が無効になった回数([clear]): 変化した場合は、書き込まれたパスワード(スクリプト内など)が使用できないことを意味します。 */
     val resets: StateFlow<Int> = _resets.asStateFlow()
 
     @Synchronized
@@ -239,11 +239,11 @@ class HandoffNonces(
         b != null && MessageDigest.isEqual(a.toByteArray(Charsets.UTF_8), b.toByteArray(Charsets.UTF_8))
 
     companion object {
-        /** 覆盖 App 开着流等交接、引擎再等一轮交接的总时长。 */
+        /** は、アプリが開いていて、ストリームがハンドオーバーを待機し、エンジンが別のラウンドのハンドオーバーを待機する合計時間をカバーします。 */
         const val LAUNCH_TTL_MS = 30_000L
         /**
-         * 「用电脑启动」口令的时效:脚本写好后,用户可能过一阵才插线跑命令(或重启后再跑一次)。
-         * Mika 每次打开、看不到助手、打开引导页时都会重写脚本,用了一半就换新的。
+         * 「コンピューターで開始」パスワードのエージング: スクリプトの作成後、ユーザーがコマンドをプラグインして実行する (または再起動後に再度実行する) までに時間がかかる場合があります。
+         * ミカは、スクリプトを開くたびにスクリプトを書き直し、アシスタントが表示されなくなったり、ブート ページを開くたびにスクリプトを書き換え、半分使用した後は新しいものに置き換えます。
          */
         const val USB_TTL_MS = 24 * 60 * 60_000L
         private val rng = SecureRandom()

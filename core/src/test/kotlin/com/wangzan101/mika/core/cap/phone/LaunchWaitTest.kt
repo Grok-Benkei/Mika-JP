@@ -14,9 +14,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** phone_launch_app 的 wait:另一个任务用着这个 App 时,模型可以要求等它放开再开。 */
+/** Phone_launch_app の待機: 別のタスクがこのアプリを使用する場合、モデルは、アプリを起動する前にアプリが解放されるまで待機するように要求できます。 */
 class LaunchWaitTest {
-    /** 第一次打开报被占用,之后照 [busyTimes] 次数一直被占;[wait] 是等的结果。 */
+    /** は、最初に開かれたときに占有されており、その後 [busyTimes] 回占有されていると報告します。 [wait] は待機の結果です。 */
     private class BusyScreen(private val wait: AppWait, private var busyTimes: Int = 1) : ScreenPort by FakeScreen() {
         val calls = mutableListOf<String>()
         override suspend fun openApp(packageName: String, cold: Boolean): ActionResult {
@@ -39,7 +39,7 @@ class LaunchWaitTest {
         val r = launch(screen, """{"package":"com.example.chat"}""")
         assertEquals(APP_IN_USE_BY_OTHER_TASK, error(r))
         assertEquals(listOf("open com.example.chat"), screen.calls)
-        // 说明里告诉模型可以要求等
+        // は、説明内のモデルに待機を要求できることを伝えます。
         assertTrue(r.content["message"]!!.jsonPrimitive.content.contains("wait"))
     }
 
@@ -62,7 +62,7 @@ class LaunchWaitTest {
         assertEquals(LaunchApp.WAIT_TIMED_OUT, error(launch(screen, """{"package":"com.example.chat","wait":5}""")))
     }
 
-    /** 没被占着时 wait 不起作用;超过上限的等待是参数错,不打开。 */
+    /** 待機は、占有されていない場合には機能しません。上限を超えて待機している場合は、パラメータが間違っているため、オープンされません。 */
     @Test fun waitIsBoundedAndOnlyUsedWhenBusy() = runTest {
         val free = BusyScreen(AppWait.Free, busyTimes = 0)
         assertEquals("true", launch(free, """{"package":"com.example.chat","wait":10}""").content["ok"]!!.jsonPrimitive.content)

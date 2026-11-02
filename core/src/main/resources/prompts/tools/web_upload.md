@@ -1,1 +1,1 @@
-Give workspace files to a file input on the page: pass the file control's ref+snapshotId and 1-{{max_files}} paths under {{workspace}}. Files outside the workspace cannot be uploaded; ask the user to send them as chat attachments first.
+ページのファイル入力に作業領域のファイルを与える。ファイル操作要素の ref+snapshotId と、{{workspace}} の下にある 1-{{max_files}} 件のパスを渡す。作業領域の外にあるファイルはアップロードできない。まずチャットの添付として送ってもらうようユーザーに求める。

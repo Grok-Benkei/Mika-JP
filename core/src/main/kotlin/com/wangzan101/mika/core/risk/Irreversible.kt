@@ -1,11 +1,11 @@
 package com.wangzan101.mika.core.risk
 
-/** 不可逆操作的种类(确认卡片、判定结果、申报共用)。 */
+/** 不可逆操作の種類（確認カード、判定結果、申告共通）。 */
 @Suppress("EnumEntryName")
 enum class IrrevAction { send, pay, delete, order, submit, other }
 
 /**
- * 工具声明的「按什么判不可逆」:Tap 点击的元素或坐标;FileControl 点的文件控件(和点击一样判,但不会是看图得来的点);
- * Enter 打字后的回车;Key 按键;Swipe 横滑(滑动删除);Interact 网页上的组合键、拖动、下拉选择。
+ * ツールは、「不可逆かどうかを決定するもの」を宣言します。タップ要素または座標をクリックします。 FileControl ポイント ファイル コントロール (クリックと同じですが、画像を見ることで取得されるポイントではありません)。
+ * Enter: 入力後に入力します。キーボタン;スワイプ (スライドして削除); Web ページ上でキーの組み合わせ、ドラッグ、ドロップダウン選択を操作します。
  */
 enum class GateTarget { Tap, FileControl, Enter, Key, Swipe, Interact }

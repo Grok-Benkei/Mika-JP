@@ -17,12 +17,12 @@ import java.io.FileOutputStream
 import java.nio.channels.FileChannel
 
 /**
- * [FdSys] 的安卓实现:每一步都 open(O_NOFOLLOW),下一段经 `/proc/self/fd/<目录句柄>/<名字>` 相对已打开的目录走,
- * 不再从路径开头重新解析;实际位置读 `/proc/self/fd/N` 的链接,类型与硬链接数看 fstat。
- * 目录也用 O_RDONLY|O_NONBLOCK 打开再按 fstat 判类型(OsConstants 没有 O_DIRECTORY,各架构的值也不同)。
+ * [FdSys] の Android 実装: 各ステップはオープン (O_NOFOLLOW) であり、次のセクションはオープンされたディレクトリを基準にして `/proc/self/fd/<目录句柄>/<名字>` を通過します。
+ * はパスの先頭から再解析されなくなりました。実際の場所は `/proc/self/fd/N` のリンクを読み取り、ハード リンクのタイプと数は fstat で確認できます。
+ * ディレクトリも O_RDONLY|O_NONBLOCK で開き、fstat を押してタイプを決定します (OsConstants には O_DIRECTORY がなく、各アーキテクチャの値も異なります)。
  */
 object AndroidFdSys : FdSys {
-    /** 手机上唯一的那道关口。 */
+    /** は携帯電話上の唯一のゲートウェイです。 */
     val gate: WorkspaceFileGate by lazy { WorkspaceFileGate(this) }
 
     private class Fd(val pfd: ParcelFileDescriptor, private val writable: Boolean) : OpenFd {
@@ -32,7 +32,7 @@ object AndroidFdSys : FdSys {
         override fun realPath(): String = errno { Os.readlink(proc) }
         override fun stat(): FdStat = errno { Os.fstat(pfd.fileDescriptor) }.toFdStat()
 
-        // 从 FileDescriptor 建的流不拥有它,关流不关句柄;句柄由 pfd 关
+        // FileDescriptor から作成されたストリームはそれを所有していないため、ストリームを閉じてもハンドルは閉じられません。ハンドルは pfd によって閉じられています
         override fun channel(): FileChannel = ch ?: (if (writable) FileOutputStream(pfd.fileDescriptor).channel else FileInputStream(pfd.fileDescriptor).channel).also { ch = it }
 
         override fun truncate(size: Long) = errno { Os.ftruncate(pfd.fileDescriptor, size) }
@@ -51,7 +51,7 @@ object AndroidFdSys : FdSys {
 
     private fun open(path: String, flags: Int, mode: Int, writable: Boolean): Fd {
         val raw = errno { Os.open(path, flags, mode) }
-        // 要 int 句柄号拼 /proc 路径:dup 成 ParcelFileDescriptor,原句柄随即关掉
+        // では、ParcelFileDescriptor に /proc path: dup を記述するために int ハンドル番号が必要で、元のハンドルはすぐに閉じられます。
         return try { Fd(ParcelFileDescriptor.dup(raw), writable) } finally { runCatching { Os.close(raw) } }
     }
 
@@ -73,7 +73,7 @@ object AndroidFdSys : FdSys {
 
     override fun openFile(dir: OpenFd, name: String, how: OpenHow): OpenFd {
         val p = at(dir, name)
-        // O_NONBLOCK:被换成 FIFO 时打开不会一直等对端;之后按 fstat 拒掉
+        // O_NONBLOCK: FIFO に変更されると、オープニングはピアを待機しません。次に fstat を押して拒否します。
         return when (how) {
             OpenHow.READ -> open(p, OsConstants.O_RDONLY or OsConstants.O_NONBLOCK or NOFOLLOW_CLOEXEC, 0, writable = false)
             OpenHow.CREATE_NEW -> open(p, OsConstants.O_WRONLY or OsConstants.O_CREAT or OsConstants.O_EXCL or NOFOLLOW_CLOEXEC, 384 /* 0600 */, writable = true)
@@ -92,7 +92,7 @@ object AndroidFdSys : FdSys {
 
     override fun list(dir: OpenFd): List<String> = File(fd(dir).proc).list()?.toList().orEmpty()
 
-    // bionic 的 remove():unlink,是目录时 rmdir;都不跟随最后一段的链接
+    // バイオニックのremove():unlink、ディレクトリの場合はrmdir;最後のリンクをたどらない
     override fun remove(dir: OpenFd, name: String) = errno { Os.remove(at(dir, name)) }
 
     override fun rename(dir: OpenFd, from: String, to: String) = errno { Os.rename(at(dir, from), at(dir, to)) }

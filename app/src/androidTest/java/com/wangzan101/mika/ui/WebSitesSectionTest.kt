@@ -13,7 +13,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 设置页「网站登录」:列表、单站退出(带「可能仍在」提示)、全部退出要二次确认。 */
+/** 設定ページ「Web サイト ログイン」: リスト、単一サイト終了 (「まだ存在する可能性があります」プロンプト付き)、すべての終了には 2 回目の確認が必要です。 */
 @RunWith(AndroidJUnit4::class)
 class WebSitesSectionTest {
     @get:Rule(order = Int.MIN_VALUE) val chinese = ChineseUi()

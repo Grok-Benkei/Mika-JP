@@ -73,7 +73,7 @@ class AnthropicModelTest {
         assertEquals("adaptive", j["thinking"]!!.jsonObject.str("type"))
         assertEquals("summarized", j["thinking"]!!.jsonObject.str("display"))
         assertEquals("high", j["output_config"]!!.jsonObject.str("effort"))
-        // 开思考时思考也占输出上限,默认上限放大
+        // 思考をオンにすると、出力上限にも思考が反映され、デフォルトの上限が拡大されます。
         assertEquals("16000", j.str("max_tokens"))
 
         server.enqueue(ok("""{"content":[],"stop_reason":"end_turn"}"""))
@@ -89,7 +89,7 @@ class AnthropicModelTest {
         assertFalse(off.containsKey("output_config"))
     }
 
-    // 列表写明了思考方式的:不接受自适应思考的模型不发档位,不接受关掉思考的不发 disabled(什么都不发,按服务端默认)
+    // リストは考え方を指定します。適応的思考を受け入れないモデルは発行されず、思考をオフにすることを受け入れないモデルは無効化されません (サーバーのデフォルトに従って、何も発行されません)。
     @Test fun sendsOnlyTheThinkingTypesTheModelAccepts() = runTest {
         repeat(4) { server.enqueue(ok("""{"content":[],"stop_reason":"end_turn"}""")) }
         model(reasoningEffort = "high", thinkingTypes = listOf("enabled", "disabled")).complete("s", user, emptyList())
@@ -111,7 +111,7 @@ class AnthropicModelTest {
         Message(Role.User, listOf(Part.Text("go")), Author.Mika),
         Message(Role.Assistant, listOf(
             Part.Thinking("想", SignedThinking.signed(endpoint, "sig-1")), Part.Thinking("", SignedThinking.redacted(endpoint, "xyz")),
-            // 别的服务商留下的思考不能被当成本家的签名发出去
+            // 他のサービスプロバイダーが残した感想を署名として送信することはできません。
             Part.Thinking("旧", """{"endpoint":"https://other.test","via":"reasoning"}"""),
             Part.Text("a"), Part.ToolCall("t1", "phone_tap", "{}"),
         ), Author.Mika),
@@ -120,7 +120,7 @@ class AnthropicModelTest {
 
     private fun sentAssistantBlocks() = sentBody().arr("messages")[1].jsonObject.arr("content").map { it.jsonObject }
 
-    // 带工具调用的回合要把签名思考块原样带回:选了档位和没选(服务端默认可能也在思考)都带;明确关掉思考时不带
+    // ツール呼び出しのあるラウンドでは、ギアが選択されているかどうかに関係なく、シグネチャ思考ブロックをそのまま戻す必要があります (サーバーもデフォルトで思考している可能性があります)。思考が明示的にオフになっている場合には、それはもたらされません。
     @Test fun replaysSignedThinkingBlocksUnlessThinkingIsTurnedOff() = runTest {
         val history = signedHistory(endpoint)
         repeat(3) { server.enqueue(ok("""{"content":[],"stop_reason":"end_turn"}""")) }
@@ -138,14 +138,14 @@ class AnthropicModelTest {
         assertEquals(listOf("text", "tool_use"), sentAssistantBlocks().map { it.str("type") })
     }
 
-    // 签名只有发它的服务认:另一个地址收到的思考块(换了 Anthropic 兼容服务)不回传
+    // 署名は、それを送信したサービスによってのみ認識されます。別のアドレス (Anthropic 互換サービスに変更) によって受信された思考ブロックは返されません
     @Test fun doesNotReplaySignaturesToAnotherEndpoint() = runTest {
         server.enqueue(ok("""{"content":[],"stop_reason":"end_turn"}"""))
         model(reasoningEffort = "high").complete("s", signedHistory("https://other-gateway.test/v1/messages"), emptyList())
         assertEquals(listOf("text", "tool_use"), sentAssistantBlocks().map { it.str("type") })
     }
 
-    // 工具调用前的进度说明是单独的思考块,排在文字后面:回传时照收到的顺序,不挪到最前面
+    // ツールが呼び出される前の進行状況の説明は、別の思考ブロックであり、テキストの後ろに配置されます。受信した順序で送り返され、前に移動されません。
     @Test fun replaysBlocksInTheOrderReceived() = runTest {
         server.enqueue(ok("""{"content":[],"stop_reason":"end_turn"}"""))
         val history = listOf(
@@ -166,7 +166,7 @@ class AnthropicModelTest {
         """{"type":"error","error":{"type":"invalid_request_error","message":"messages.1.content.0: Invalid `signature` in `thinking` block. The block is bound to a different conversation. Remove the block, or set `thinking.block_binding.prefix_mismatch_behavior` to \"drop_block\"."}}""",
     )
 
-    // 展开一组工具、压缩历史以后,签名绑着之前请求前缀的思考块被拒:这次带的都去掉重发一次,之后也不再带;重发后收到的照常回传
+    // 一連のツールを拡張して履歴を圧縮した後、署名が以前の要求プレフィックスに関連付けられていた思考ブロックが拒否されました。今回含まれていたものはすべて削除されて再送信され、再度含まれることはありません。再送後に受信したものは通常どおり返送されます。
     @Test fun dropsRejectedThinkingAndSendsAgainOnce() = runTest {
         val m = model(reasoningEffort = "high")
         server.enqueue(staleThinking())
@@ -208,7 +208,7 @@ class AnthropicModelTest {
         server.enqueue(staleThinking())
         server.enqueue(MockResponse().setHeader("Content-Type", "text/event-stream").setBody(sse))
         val shown = mutableListOf<String>()
-        // 没选思考强度(服务端默认可能也在思考)时同样回传、同样去掉重发
+        // 思考強度が選択されていない場合 (サーバーもデフォルトで思考している可能性があります)、同じものが送り返され、再送信も削除されます。
         val r = model().completeStreaming("s", signedHistory(endpoint), emptyList()) { shown += it }
         assertEquals(listOf(Part.Text("好")), r.parts)
         assertEquals(listOf("好"), shown)
@@ -216,7 +216,7 @@ class AnthropicModelTest {
         assertEquals(listOf("text", "tool_use"), sentAssistantBlocks().map { it.str("type") })
     }
 
-    // 别的 400 照常报错;签名本身坏了(只有前半句)不重发;这次没带思考块(关掉了思考)时不重发;去掉以后还被拒的不再发第三次
+    // 他の 400 エラーは通常どおり報告されます。署名自体が壊れている（文の前半のみ）場合は再送信されません。今回は思考ブロックがない (思考がオフになっている) ため、再送信されません。削除した後も拒否された場合、3 回目の再送信は行われません。
     @Test fun otherRejectionsAreNotSentAgain() = runTest {
         suspend fun rejected(m: AnthropicModel) =
             try { m.complete("s", signedHistory(endpoint), emptyList()); null } catch (e: ModelError.BadResponse) { e }
@@ -274,7 +274,7 @@ class AnthropicModelTest {
         assertEquals("object", t[0].jsonObject["input_schema"]!!.jsonObject.str("type"))
     }
 
-    // 对话只在最后一条 user 消息的最后一块上标缓存;前面的消息原样,两次请求的开头逐字相同
+    // 会話は、最後のユーザー メッセージの最後の上付き文字にのみキャッシュされます。前のメッセージは変更されておらず、2 つのリクエストの始まりは一字一句同じです。
     @Test fun marksCacheOnLastUserMessage() = runTest {
         val first = listOf(
             Message(Role.User, listOf(Part.Text("goal")), Author.User),
@@ -297,7 +297,7 @@ class AnthropicModelTest {
         assertEquals(listOf(2 to 1), marked(a))
         assertEquals(listOf(4 to 1), marked(b))
         assertEquals("ephemeral", b[4].jsonObject.arr("content")[1].jsonObject["cache_control"]!!.jsonObject.str("type"))
-        // 上一次标记的那块在下一次请求里不带标记,其余逐字相同
+        // 前回マークされたブロックは次のリクエストではマークされず、残りは単語ごとに同じになります。
         assertEquals(a[0], b[0]); assertEquals(a[1], b[1])
         assertEquals(a[2].jsonObject.arr("content")[0], b[2].jsonObject.arr("content")[0])
     }
@@ -388,7 +388,7 @@ class AnthropicModelTest {
         assertFalse(sentBody().containsKey("system"))
     }
 
-    // 插话打断后:半截回复是只有一个文字块的 assistant 消息(没有思考块);插话和运行时状态并进下一条 user 消息,角色交替
+    // 中断後の半分の返信は、テキスト ブロックが 1 つだけ (思考ブロックなし) のアシスタント メッセージになります。割り込みと実行時ステータスは次のユーザー メッセージに送られ、役割が交代します。
     @Test fun interruptedReplyIsATextOnlyAssistantTurnBeforeTheSteer() = runTest {
         server.enqueue(ok("""{"content":[],"stop_reason":"end_turn"}"""))
         model().complete("s", InterruptedHistory.messages, emptyList())

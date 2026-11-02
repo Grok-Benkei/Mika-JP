@@ -27,29 +27,29 @@ import kotlinx.serialization.json.jsonObject
 import java.io.File
 
 /**
- * 评测器自己对设备的只读查看:白名单探针、前置条件、任务结束后在虚拟屏上开 App 找字。
- * [sh] 以 shell 身份执行命令;[loggedIn] 是人工标记「已登录」的包名列表文件(一行一个包名)。
+ * 評価者自身のデバイスの読み取り専用ビュー: ホワイトリスト プローブ、前提条件、およびタスク完了後に仮想画面上でアプリを開いて単語を検索します。
+ * [sh] はコマンドをシェルとして実行します。 [loggedIn] は、手動で「ログイン」とマークされたパッケージ名リスト ファイルです (1 行に 1 つのパッケージ名)。
  */
 class EvalProbes(private val sh: (String) -> String, private val loggedIn: File) {
 
-    /** 只执行 [PROBE_ALLOWLIST] 里的命令;任务文件写不进任意命令。 */
+    /** は [PROBE_ALLOWLIST] のコマンドのみを実行します。タスク ファイルにコマンドを書き込むことはできません。 */
     fun run(name: String): String {
         val cmd = PROBE_ALLOWLIST[name] ?: error("probe not in allowlist: $name")
         return sh(cmd).trim()
     }
 
     /**
-     * 这台手机上能处理某类事的 App(见 [APP_CAPABILITIES]):按标准 Intent 查,默认处理的排在前面。
-     * 命令只由能力表拼出,任务文件写不进去。没有标准 Intent 的能力返回空。
+     * この携帯電話で特定のタイプのものを処理できるアプリ ([APP_CAPABILITIES] を参照): 標準インテントによってチェックされ、デフォルトでそれを処理するアプリが最初にランク付けされます。
+     * コマンドは機能テーブルからのみ記述されており、タスク ファイルに書き込むことはできません。標準インテントには null を返す機能はありません。
      */
     fun appCandidates(capability: String): List<String> = APP_CAPABILITIES[capability].orEmpty()
         .flatMap { i -> AppCapabilities.commands(i).flatMap { cmd -> AppCapabilities.packagesIn(runCatching { sh(cmd) }.getOrDefault("")) } }
         .distinct()
 
     /**
-     * `installed:<包名>`、`app:<能力>`、`signedIn:<包名或网站>`(旧写法 `login:<包名>`、`site:<主机名>`)。
-     * 登录态:网站只认站点登记表里「用户在 Mika 里登录过」的(在设置「网站登录」里登录过);App 只认人工标记([loggedIn]),
-     * 评测器不替用户判断 App 的登录态(没有对所有 App 都可靠的探法)。没登录的题跳过,原因写「未登录」。
+     * `installed:<パッケージ名>`、`app:<機能>`、`signedIn:<パッケージ名またはサイト>` (旧表記 `login:<パッケージ名>`、`site:<ホスト名>`)。
+     * ログイン ステータス: ウェブサイトは、サイト登録フォームの「ユーザーがミカにログインしている」ことのみを認識します (「ウェブサイト ログイン」設定でログインしています)。アプリは手動タグ ([loggedIn]) のみを認識します。
+     * エバリュエーターは、ユーザーのアプリのログイン ステータスを判断しません (すべてのアプリに対して信頼できる検出方法はありません)。ログインしていない質問はスキップされ、その理由は「ログインしていません」と表示されます。
      */
     fun requirementMet(req: String): Pair<Boolean, String> {
         val kind = req.substringBefore(':')
@@ -70,10 +70,10 @@ class EvalProbes(private val sh: (String) -> String, private val loggedIn: File)
         }
     }
 
-    /** 人工标记为已登录的 App(一行一个包名)。 */
+    /** ログイン済みとして手動でマークされたアプリ (1 行に 1 つのパッケージ名)。 */
     private fun appMarked(pkg: String) = runCatching { loggedIn.readLines().map { it.trim() } }.getOrDefault(emptyList()).contains(pkg)
 
-    /** 网站在设置「网站登录」里登录过:同一个可注册域名才算(认不出可注册域名时要主机名完全相同);写法不是网站时为 null。 */
+    /** Web サイトは、「Web サイト ログイン」設定でログインしています。同じ登録可能なドメイン名がカウントされます (登録可能なドメイン名が認識できない場合は、ホスト名がまったく同じである必要があります)。書き込みメソッドが Web サイトでない場合は、null になります。 */
     private fun siteSignedIn(site: String): Boolean? {
         val host = WebUrlPolicy.host("https://$site") ?: return null
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
@@ -81,7 +81,7 @@ class EvalProbes(private val sh: (String) -> String, private val loggedIn: File)
         return WebSites.registry(ctx).list().any { it.loggedInByUser && (WebUrlPolicy.registrable(it.host) ?: it.host) == want }
     }
 
-    /** 在一块新虚拟屏上冷启动 [pkg](或用它打开深链接),读屏直到看到 [text] 或超时。 */
+    /** 新しい仮想画面で [pkg] をコールド ブートし (またはそれを使用してディープ リンクを開き)、[text] が表示されるかタイムアウトになるまで画面を読み取ります。 */
     suspend fun screenHas(pkg: String, text: String, deepLink: String?): Boolean {
         require(PACKAGE.matches(pkg)) { "bad package: $pkg" }
         val shell = DeviceSupport.shell()
@@ -95,7 +95,7 @@ class EvalProbes(private val sh: (String) -> String, private val loggedIn: File)
             if (deepLink == null) {
                 if (screen.openApp(pkg, cold = true) !is ActionResult.Ok) return false
             } else {
-                // 链接只当数据传给 am,不能带引号拼出别的命令
+                // リンクはデータを am に送信するだけであり、引用符を使用して他のコマンドを記述することはできません。
                 require('\'' !in deepLink && '\n' !in deepLink) { "bad deep link" }
                 sh("am start --display ${display.displayId} -a android.intent.action.VIEW -d '$deepLink' -p $pkg")
             }
@@ -113,8 +113,8 @@ class EvalProbes(private val sh: (String) -> String, private val loggedIn: File)
     }
 
     /**
-     * 在一个新的后台网页标签里打开 [url],读整页文字(至多 [WEB_PAGES] 段),找 [text](忽略空白)。
-     * 用 mika 网页配置,登录状态和 Agent 用的一样。
+     * 新しいバックグラウンド Web ページ タブで [url] を開き、テキストのページ全体 ([WEB_PAGES] 段落まで) を読み、[text] を見つけます (空白は無視します)。
+     * は mika Web ページを使用して設定されており、ログイン ステータスはエージェントが使用するものと同じです。
      */
     suspend fun webHas(url: String, text: String): Boolean {
         require(WebUrlPolicy.checkNavigable(url) == null) { "bad url: $url" }

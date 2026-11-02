@@ -34,17 +34,17 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 
-/** 网页上读到的内容(整页正文、脚本结果、网络响应、下载列表):来自网站,不可信。[url] 是哪一页(不知道为 null)。 */
+/** Web ページで読み取られたコンテンツ (ページ全体のテキスト、スクリプト結果、ネットワーク応答、ダウンロード リスト): Web サイトからのものであり、信頼できません。 [url] がどのページであるか (null なので不明)。 */
 internal fun webRead(text: String, url: String?, title: String? = null) =
     Observation(ObsKind.Read, text, source = WEB, place = url?.let(Place::page), title = title, trust = Trust.Untrusted)
 
 /**
- * 读网页:整页正文(读脚本见 ReadScriptTool.kt)(开着的对话框在最前,导航、页脚、链接列表收起成一行)加质量信号(字数、正文密度、判定、声明的时间)。
- * 给了 url 时在临时后台标签里读,不动当前标签。读到的都作为观察交给核查。
+ * Web ページの読み取り: ページ全体のテキスト (スクリプトの読み取りについては ReadScriptTool.kt を参照) (開いているダイアログ ボックスが前面にあり、ナビゲーション、フッター、およびリンク リストが 1 行に折りたたまれています) プラス品質シグナル (単語数、テキスト密度、判断、および発言時間)。
+ * URL が指定されると、それは一時的なバックグラウンド タグに読み取られ、現在のタグは移動されません。読み取られたものはすべて、観察として検証のために提出されます。
  */
 internal object ReadPage : WebTool {
     override val verb = Verb.ReadPage
-    override val label = "读网页"
+    override val label = "Webページを読む"
     override val risk = Risk.Read
     override val entry = Entry.Alone
     override val def = ToolDef("web_read_page",
@@ -71,11 +71,11 @@ internal object ReadPage : WebTool {
             return fail("background_read_unavailable", Feedback["background_read_unavailable"])
         }
         p.netError?.let { return fail("page_not_loaded", Feedback.format("read_url_not_loaded", "url" to url.orEmpty(), "error" to it)) }
-        // 模型看到的链接和图片说明也是可引用的事实,和正文一起记
-        val links = p.links.take(50).joinToString("\n") { (t, u) -> "链接「$t」$u" }
-        val images = p.images.take(20).filter { it.first.isNotBlank() }.joinToString("\n") { (alt, u) -> "图片「$alt」$u" }
+        // モデルに見られるリンクと画像の説明も引用可能な事実であり、テキストと一緒に記録する必要があります。
+        val links = p.links.take(50).joinToString("\n") { (t, u) -> "リンク「$t」$u" }
+        val images = p.images.take(20).filter { it.first.isNotBlank() }.joinToString("\n") { (alt, u) -> "画像「$alt」$u" }
         val read = listOf(p.text.take(max), links, images).filter { it.isNotBlank() }.joinToString("\n")
-        val seen = if (read.isNotBlank()) webRead("网页正文(${p.url},从第 $offset 字起)\n$read", p.url, p.title) else null
+        val seen = if (read.isNotBlank()) webRead("Webページ本文（${p.url}、$offset 文字目から）\n$read", p.url, p.title) else null
         val q = p.quality
         return ok {
             put("url", p.url); put("title", p.title)
@@ -89,7 +89,7 @@ internal object ReadPage : WebTool {
                 it.updated?.let { v -> put("updated", v) }
                 if (it.dialogs > 0) put("openDialogs", it.dialogs)
                 if (it.folded > 0) put("folded", it.folded)
-                // 后台标签没挂在窗口上,有的页面在那里不渲染完:读到的少就让它在当前标签里打开看
+                // バックグラウンド タブはウィンドウにハングされておらず、一部のページはそこでレンダリングされません。読む量が少ない場合は、現在のタブで開かれるようにします。
                 if (url != null && (it.verdict == ReadVerdict.THIN || it.verdict == ReadVerdict.IMAGE_TEXT)) put("hint", Feedback["read_url_thin"])
             }
             put("text", Untrusted.wrap(p.text.take(max)))
@@ -105,7 +105,7 @@ internal object ReadPage : WebTool {
 
 internal object Downloads : WebTool {
     override val verb = Verb.Downloads
-    override val label = "查看下载"
+    override val label = "ダウンロードを表示"
     override val risk = Risk.Read
     override val concurrency = Concurrency.ParallelSafe
     override val def = ToolDef("web_downloads",
@@ -129,7 +129,7 @@ internal object Downloads : WebTool {
     override fun observations(o: JsonObject, r: ToolExecution, log: EvidenceLog): List<Observation> {
         if (r.content["ok"] != JsonPrimitive(true)) return emptyList()
         return listOfNotNull((r.content["downloads"] as? JsonArray)?.let { list ->
-            webRead(list.joinToString("\n", "下载列表(文件名来自网页):\n") { d ->
+            webRead(list.joinToString("\n", "ダウンロード一覧（ファイル名はWebページ由来）:\n") { d ->
                 val dobj = d as? JsonObject
                 listOf("file", "status", "bytes", "error").mapNotNull { k -> (dobj?.get(k) as? JsonPrimitive)?.contentOrNull?.let { "$k=$it" } }.joinToString(" ")
             }, null)
@@ -137,10 +137,10 @@ internal object Downloads : WebTool {
     }
 }
 
-/** 网络响应:列表不带正文;给 id 时取正文。网址和正文先经 [Redactor.network] 脱敏再出去(运行记录在记录处还会再脱敏一次)。 */
+/** ネットワーク応答: テキストなしのリスト。 IDが与えられたときにテキストを取得します。 URL とテキストは、解放される前に、まず [Redactor.network] によって感度が解除されます (実行中のレコードは、レコードの場所で再度感度が解除されます)。 */
 internal object Capture : WebTool {
     override val verb = Verb.Capture
-    override val label = "查看网页收到的数据"
+    override val label = "Webページが受信したデータを表示"
     override val risk = Risk.Read
     override val def = ToolDef("web_capture",
         Prompts.tool("web_capture", "list_max" to CAPTURE_LIST_MAX),
@@ -170,17 +170,17 @@ internal object Capture : WebTool {
         try {
             if (id != null) {
                 val c = w.capture(id) ?: return fail("capture_not_found", Feedback.format("capture_not_found", "id" to id))
-                // 一次脱敏,交给模型、核查证据、运行记录的都是这一份
+                // 感度を解除すると、これがモデル、検証証拠、および操作記録に引き継がれる唯一のコピーです
                 val red = Redactor.network(url = c.url, body = c.body)
                 val body = red.body
-                val seen = body?.let { webRead("网络响应(${red.url},HTTP ${c.status})\n${it.take(max)}", red.url) }
+                val seen = body?.let { webRead("ネットワーク応答（${red.url}、HTTP ${c.status}）\n${it.take(max)}", red.url) }
                 return ok {
                     fields(c)
                     if (body != null) {
                         val cut = body.length > max
                         put("body", Untrusted.wrap(if (cut) body.take(max) + "\n…[truncated: ${body.length - max} more characters]" else body))
                         put("truncated", cut || c.bodyTruncated)
-                        // 网站自己的接口在说这次访问被风控拦下了:照实告诉模型,别接着翻
+                        // Web サイト自体のインターフェイスには、この訪問はリスク管理によってブロックされたと記載されています。モデルに真実を伝え、閲覧を続行しないでください。
                         WebBarrier.apiRisk(body)?.let { put("riskControl", it); put("hint", Feedback["capture.risk_control"]) }
                     } else {
                         put("bodyNote", c.bodyNote ?: "unavailable")
@@ -208,7 +208,7 @@ internal object Capture : WebTool {
 
 internal object WebWaitFor : WebTool {
     override val verb = Verb.WaitFor
-    override val label = "等网页变化"
+    override val label = "Webページの変化を待つ"
     override val yieldsToSteer = true
     override val risk = Risk.Read
     override val def = ToolDef("web_wait_for",

@@ -9,7 +9,7 @@ class SteerJoinTest {
         SteerNote("m2", "顺便看看后天", SteerState.Received),
     )
 
-    // 一批两句插话一起交给模型:打断的那段字只挂在第一句上,第二句没有
+    // 2 文の中断のバッチが一緒にモデルに与えられます。中断された段落は最初の文にのみあり、2 番目の文にはありません。
     @Test fun interruptedReplyGoesToTheFirstSteerOfTheBatch() {
         val join = SteerJoin()
         join.interrupted("今天晴")
@@ -18,14 +18,14 @@ class SteerJoinTest {
         assertEquals(listOf("今天晴", null), after.map { it.interrupted })
     }
 
-    // 没有打断什么时只改去向
+    // 中断がない場合のみ方向を変更します
     @Test fun steerWithoutInterruptionOnlyChangesState() {
         val after = SteerJoin().joined(notes, "m2")
         assertEquals(listOf(SteerState.Received, SteerState.Joined), after.map { it.state })
         assertEquals(listOf(null, null), after.map { it.interrupted })
     }
 
-    // 用过即清:下一批插话不会再挂上上一次的那段字
+    // 一度使用するとクリア: コメントの次のバッチには最後の段落が含まれません。
     @Test fun interruptedReplyIsUsedOnce() {
         val join = SteerJoin()
         join.interrupted("今天晴")
@@ -34,7 +34,7 @@ class SteerJoinTest {
         assertEquals(listOf("今天晴", null, null), second.map { it.interrupted })
     }
 
-    // 插话之前已经说完的回复同样挂到这一批的第一句上,和被打断的分开记
+    // 中断前に終了した返信もこのバッチの最初の文にリンクされており、中断された返信とは別に記録されます。
     @Test fun finishedReplyGoesToTheFirstSteerAndIsUsedOnce() {
         val join = SteerJoin()
         join.finished("光合作用是……的过程。")
@@ -57,7 +57,7 @@ class SteerJoinTest {
             remoteSteers(joined, finished = true))
     }
 
-    // 远程插话本来撤不回;万一是撤回状态也只报没用上,不多出一种对外状态;手机上撤回的不报给电脑
+    // リモート介入は本来取り消すことができません。それが撤回された場合、それは報告されるだけで役に立たず、外部のステータスはなくなります。携帯電話での出金はコンピュータには報告されません
     @Test fun withdrawnMapsToNotAppliedAndLocalWithdrawalsStayHidden() {
         val remote = SteerNote("remote", "only today", SteerState.Withdrawn, remote = true)
         val local = SteerNote("local", "phone-only text", SteerState.Withdrawn)

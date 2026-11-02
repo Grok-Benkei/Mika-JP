@@ -41,7 +41,7 @@ import com.wangzan101.mika.ui.theme.MikaIcons
 import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 
-/** 上手第一步:说清 Mika 是什么、能做哪几类事,开始前要做的两件事和大概时间。 */
+/** はじめの一歩：Mika とは何か、どんなことができるのか、始める前にやるべき 2 つのこと、時間の目安をわかりやすく説明します。 */
 @Composable
 fun WelcomeScreen(onStart: () -> Unit) {
     val c = MikaTheme.colors
@@ -93,7 +93,7 @@ private fun Feature(icon: ImageVector, title: String, body: String, first: Boole
 
 private val LogoShape = RoundedCornerShape(22.dp)
 
-/** 欢迎页的文字。 */
+/** ようこそページのテキスト。 */
 object WelcomeCopy {
     val TITLE: String get() = tr(R.string.welcome_title)
     val LEAD: String get() = tr(R.string.welcome_lead)

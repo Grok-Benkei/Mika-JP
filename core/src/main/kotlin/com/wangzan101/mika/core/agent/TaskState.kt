@@ -3,101 +3,101 @@ package com.wangzan101.mika.core.agent
 import com.wangzan101.mika.core.gate.ConfirmationRequest
 import com.wangzan101.mika.core.verify.AnswerSource
 
-/** 不经模型、一下做好几步时的进度,任务卡片和通知据此写明在干什么。 */
+/** モデルを使用せずに複数のステップを一度に完了する進行状況。タスク カードと通知には、それに応じて何が行われているかが示されます。 */
 sealed interface RunProgress {
-    /** 照着记住的路线做,正在做第 [step]/[total] 步。 */
+    /** は記憶されたルートに従い、現在ステップ [step]/[total] を実行しています。 */
     data class Replay(val step: Int, val total: Int) : RunProgress
-    /** 一次执行模型给的 [steps] 步(do_steps)。 */
+    /** は、モデルによって指定された [steps] ステップ (do_steps) を一度に実行します。 */
     data class Batch(val steps: Int) : RunProgress
     /**
-     * 另一个任务正用着 [app](界面上的名字),这一步停下来等它放开(打开 App 时模型要了等)。
-     * 只是在等别的任务,不要用户做什么:界面上照样算在干活,不算「要你处理」。
+     * 別のタスクは [app] (インターフェイス上の名前) を使用しています。このステップで停止し、リリースされるまで待ちます (アプリを開くときにモデルが要求されます)。
+     * は他のタスクを待っているだけで、ユーザーが何もする必要はありません。インターフェイス上で動作しているとみなされ、「処理する必要がある」とはみなされません。
      */
     data class WaitingForApp(val app: String) : RunProgress
 }
 
 sealed interface TaskState {
-    /** 收尾了的几种:回答了、失败了、取消了。 */
+    /** エンディングには、回答、失敗、キャンセルのいくつかの種類があります。 */
     sealed interface Terminal : TaskState
-    /** 还没开始运行。 */
+    /** はまだ実行を開始していません。 */
     data object Idle : TaskState
     /**
-     * [note] 是模型最近一句话,没有话时是最近调用的工具名。
-     * [tool] 是这一步要调用的工具;为空表示这一步还在等模型回复(此时 [note] 仍是上一步的)。
-     * [progress] 非空时这一步不经模型连做几步(回放路线、批量执行)。
-     * [reason] 是模型给这次调用写的用意(调用参数里的 reason);没写时为 null。
-     * [narration] 是模型随这次调用写的话(进度说明,不是回答);界面上「在做什么」先用它,没有再用 [reason]。
-     * [preview] 是当前模型请求已流出的可见文字，尚未确认是最终答复还是工具进度。
+     * [note] はモデルの最新のセンテンスです。単語がない場合は、最後に呼び出されたツールの名前です。
+     * [tool] は、このステップで呼び出されるツールです。空の場合は、このステップがまだモデルの応答を待っていることを意味します (この時点では、[note] はまだ前のステップです)。
+     * [progress] 空でない場合、このステップはモデルを経由せずに複数の連続したステップ (再生ルート、バッチ実行) で実行されます。
+     * [reason] は、この呼び出しに対してモデルによって書き込まれた意図 (呼び出しパラメーター内の理由) です。書かれていない場合は null です。
+     * [narration] は、この呼び出しで作成されたモデルです (回答ではなく、進行状況の説明)。最初にインターフェイスの「何をしていますか」で使用し、次に [reason] を使用します。
+     * [preview] は、現在のモデル リクエストが流出した表示テキストです。最終的な返信なのか、ツールの進捗なのかは未確認です。
      */
     data class Running(
         val step: Int, val note: String, val tool: String? = null, val progress: RunProgress? = null, val reason: String? = null,
         val narration: String? = null,
         val preview: String? = null,
     ) : TaskState
-    /** 一个能力的前置条件此刻不满足,停在这里等(见 [GateReason]);条件满足或用户点了继续后恢复 Running。 */
+    /** 現時点では機能の前提条件が満たされていないため、ここで停止して待ちます ([GateReason] を参照)。条件が満たされるか、ユーザーが「続行」をクリックすると、実行が再開されます。 */
     data class Held(val reason: GateReason) : TaskState
-    /** 付款时 [item]/[amount]/[address] 在接管卡片上单独列出;用 [AgentLoop.resumeAfterTakeover] 交回结局。 */
+    /** は、[item]/[amount]/[address] の支払い時に引き継ぎカードに個別に記載されます。 [AgentLoop.resumeAfterTakeover] でエンディングを返します。 */
     data class WaitingTakeover(
         val reason: String, val message: String,
         val item: String? = null, val amount: String? = null, val address: String? = null,
     ) : TaskState
     data class WaitingInput(val prompt: String, val options: List<String>? = null) : TaskState
     /**
-     * 等用户同意一次要花钱的操作(只能同意这一次);用 [AgentLoop.answerConfirmation] 回答,等到回答、取消或超时(超时按不同意)。
+     * お金がかかる操作にユーザーが同意するまで待ちます (今回は同意することしかできません)。 [AgentLoop.answerConfirmation] で応答し、応答、キャンセル、またはタイムアウトになるまで待ちます (タイムアウト後に [同意しない] を押します)。
      */
     data class WaitingConfirmation(val request: ConfirmationRequest) : TaskState
     /**
-     * 模型不带工具调用的回复就是 [answer](原样给用户看)。核对有三种结果:
-     * [reviewed] 为 false 是什么也没核对(聊天、回答里没有可核对的值、也没请核查模型),这时 [verified] 也是 false,界面不打标;
-     * 核对过而且都对上时 [verified] 为 true;核对过却没能核实时 [verified] 为 false,[note] 是原因。
-     * [unconfirmed] 是退回一次后仍没对上的那几处(回答照样交出,这几处标成未确认)。
-     * [sources] 是代码从证据账本里找到的、支撑回答的那几次读取(模型不写依据)。
-     * 学东西(经验路线、个人技能、App 知识)看判过的结局,不看这里的核对,见 [LearnGate]。
+     * モデルのツール呼び出しなしの応答は [answer] です (そのままユーザーに表示されます)。検証結果は 3 つあります。
+     * [reviewed] は false です。これは、何もチェックされていないことを意味します (チャットと回答にはチェック可能な値がなく、モデルの検証は要求されません)。現時点では、[verified] も false であり、インターフェイスはマークされていません。
+     * が検証され、すべてが一致する場合、[verified] は true になります。検証されたが検証できなかった場合、[verified] は false であり、[note] が理由です。
+     * [unconfirmed] は、一度返しても一致しない箇所です（答えはまだ渡されており、これらの箇所は未確認とマークされています）。
+     * [sources] は、答えをサポートする証拠台帳からコードが見つかったいくつかの読み取りです (モデルは根拠を記述しません)。
+     * 物事（経験ルート、個人スキル、アプリの知識）を学び、判断された結末を見てください。ここにチェックを入れない場合は、[LearnGate] を参照してください。
      */
     data class Succeeded(
         val answer: String, val verified: Boolean = true, val note: String? = null,
         val sources: List<AnswerSource> = emptyList(), val unconfirmed: List<String> = emptyList(),
         val reviewed: Boolean = true,
     ) : Terminal {
-        /** 核对过却没能核实(界面标出、评测记成 unverified)。 */
+        /** はチェックされましたが、検証に失敗しました (インターフェイス上でマークされ、評価では未検証として記録されます)。 */
         val doubtful: Boolean get() = reviewed && !verified
     }
-    /** [kind] 由产生失败的代码自己给出,不从 [reason] 文字里猜。 */
+    /** [kind] は、障害自体を生成したコードによって与えられます。[reason] のテキストから推測しないでください。 */
     data class Failed(val reason: String, val kind: FailKind) : Terminal
     data object Cancelled : Terminal
 }
 
 /**
- * 为什么停下来等:由给出这个前置条件的能力定(核心不认识具体是什么)。[code] 是运行记录里 state 事件的名字,
- * [why] 是给用户看的说明(可为空),[resumable] 为 true 时用户可以点「继续」,否则条件满足后自动继续。
- * [needsYou] 为 true 时要用户在手机上动一下手才能接着做(界面上算「要你处理」,不只是等条件)。
+ * 停止して待機する理由: この前提条件を与える能力に依存します (コアはそれが具体的に何であるかを知りません)。 [code] は、実行レコード内の状態イベントの名前です。
+ * [why] はユーザーの説明です (空にすることもできます)。 [resumable] が true の場合、ユーザーは「続行」をクリックできます。それ以外の場合は、条件が満たされた後に自動的に続行されます。
+ * [needsYou] が true の場合、ユーザーは続行する前に電話機上で手を動かす必要があります (インターフェイスは、条件を待つだけでなく、「処理を要求する」ものとしてカウントされます)。
  */
 data class GateReason(val code: String, val why: String = "", val resumable: Boolean = false, val needsYou: Boolean = false) {
-    /** 还没开始、排在开始队列里(并行已满、同一对话已有任务):轮到时自动开始,点「继续」不能让它插队。 */
+    /** はまだ開始されておらず、開始キュー内にあります (並列プロセスがいっぱいで、同じ会話にすでにタスクがある)。順番が来ると自動的に開始されます。キューに入れられないようにするには、[続行] をクリックします。 */
     val queued: Boolean get() = code == QUEUED
 
     companion object {
         const val QUEUED = "queued"
 
-        /** 排队等开始;[why] 是给用户看的那句(比如前面还有几个任务)。 */
+        /** は開始をキューに入れます。 [why] はユーザーに対する文です (たとえば、これからいくつかのタスクがあります)。 */
         fun queued(why: String) = GateReason(QUEUED, why)
     }
 }
 
-/** 任务失败的来源。 */
+/** タスク失敗の原因。 */
 enum class FailKind {
-    /** Agent 调用 end_not_done,如实说做不成。 */
+    /** エージェントは end_not_done を呼び出しますが、正直、これは実行できません。 */
     GaveUp,
-    /** 模型调用出错、返回异常,或停止操作却没有给出结果。 */
+    /** モデルの呼び出し時にエラーが発生したか、例外が返されたか、操作が停止されましたが結果が得られませんでした。 */
     Model,
-    /** 操作保护触发,安全停止。 */
+    /** 動作保護トリガー、安全停止。 */
     Guard,
     StepLimit,
-    /** 运行环境不满足或出错(手机操作助手、无障碍、没配模型、虚拟屏断开等)。 */
+    /** 動作環境が不十分、またはエラーが発生しています（携帯電話の操作アシスタント、アクセシビリティ、モデルなし、仮想画面の切断など）。 */
     Environment,
     /**
-     * 已受理,执行它的任务服务或进程中途没了(被系统停掉、进程被杀)。
-     * 打分和运行环境出错一样不算 Agent 的错;学东西、技能试用都不当成做不成(只有 [GaveUp]、[StepLimit] 算)。
+     * は受け入れられ、それを実行したタスク サービスまたはプロセスが途中で消えました (システムによって停止され、プロセスが強制終了されました)。
+     * スコアは、実行環境のエラーと同様に、エージェントのせいではありません。学習内容やスキルのトライアルは失敗とみなされません ([GaveUp] と [StepLimit] のみがカウントされます)。
      */
     Interrupted,
 }

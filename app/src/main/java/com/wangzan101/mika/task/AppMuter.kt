@@ -3,32 +3,32 @@ package com.wangzan101.mika.task
 import com.wangzan101.mika.cap.phone.shell.AppAudioKey
 
 /**
- * 任务期间让 Mika 屏上的 App 不出声。PLAY_AUDIO 按「包 + 用户」设([AppAudioKey]),本来那份和另一份(分身、工作资料)分开静。
+ * タスク中にミカの画面上のアプリを沈黙させます。 PLAY_AUDIO 「パッケージ+ユーザー」設定([AppAudioKey])を押すと、オリジナルともう一方のコピー(アバター、作品情報)が分離されます。
  *
- * - [beforeOpen]:Mika 要启动某个 App 时,发出启动之前先静上,开头几秒就没声;这一步失败先不报,等它真开出来再试。
- * - [opened]:Mika 屏上冒出一个 App(启动的目标,或从别的 App 里点开、另一份顶上来的):没静过就静,静不了记成「可能出声」。
- * - [notOpened]:启动被拒(没装、用户正用着…),提前静上又没开出来的那个马上还原,不让它在任务期间白白没声。
- * - [release]:用户接管时把这个 App 的声音还回去;之后再 [opened] 又会静上。
+ * - [beforeOpen]: ミカがアプリを起動したいときは、起動メッセージを発行する前にアプリをサイレントにする必要があります。最初の数秒間は音が出ません。このステップが失敗した場合、実際に起動して再試行するまで報告されません。
+ * - [opened]: ミカの画面にアプリがポップアップします (開始するターゲット、または別のアプリからクリックすると、別のコピーが上部にポップアップします): サイレントでない場合は、サイレントになります。無音でない場合は「騒音が出る可能性があります」として記録されます。
+ * - [notOpened]: 起動が拒否されました (インストールされていません、ユーザーが使用しています...)。事前にサイレント化されたものの起動されなかったものは、タスク中にサイレント化するのを防ぐためにすぐに復元されます。
+ * - [release]: ユーザーが引き継ぐと、このアプリのサウンドが返されます。その後、[opened] は再び沈黙します。
  *
- * 不碰的:Mika 自己;没有桌面入口的系统包(系统界面、选择框、权限框这一类,静了会连带系统的声音);
- * 用户此刻在主屏上看得见的(静音按包作用,静了用户手上的也没声)。设置里关掉静音时一个也不静。
- * 收尾时由 [AudioMute.restoreAll] 一起还原,包括任务中途静上的。
+ * 触れないでください: ミカ自身。デスクトップ入口のないシステム パッケージ (システム インターフェイス、選択ボックス、許可ボックスなど。サイレント時にシステム サウンドが発生します)。
+ * 現時点では、ユーザーはホーム画面でそれを見ることができます (ミュート機能が押されており、ユーザーの手がミュートされているときは音は鳴りません)。設定でミュートをオフにすると、誰も沈黙しません。
+ * はミッション中に上がった分も含めて最後に[AudioMute.restoreAll]とともに復元されました。
  */
 class AppMuter(
     private val audio: AudioMute,
-    /** 设置 › 干活时的「打开的 App 静音」;每次现读,任务中途关掉也算数。 */
+    /** 設定 › 作業中は「開いているアプリをミュート」;今それを読むたびに、タスクの途中でそれを閉じることも重要です。 */
     private val enabled: () -> Boolean,
-    /** 这个包能不能静(见类说明的「不碰的」前两条)。 */
+    /** このパッケージが静的であるかどうか (クラスの説明の「Untouchable」の最初の 2 つの項目を参照)。 パッケージ */
     private val mutable: (packageName: String) -> Boolean,
-    /** 这个包([user] 那份,null 为本来那份)此刻在主屏上看得见。 */
+    /** ([user] のコピー、null はオリジナルのコピー) がホーム画面に表示されます。 */
     private val onMainScreen: (packageName: String, user: Int?) -> Boolean,
-    /** 应该静却没静成:任务进度上提示「该 App 可能会出声」。 */
+    /** は静かであるはずですが、そうではありません。タスクの進行中に「このアプリは騒音を発する可能性があります」というプロンプトが表示されます。 */
     private val failed: (packageName: String) -> Unit,
 ) {
-    /** 这次任务里已静上(还没还原)的键。 */
+    /** は、このミッションでは無効になっている (まだ復元されていない) キーです。 */
     private val muted = HashSet<String>()
 
-    /** 启动前静上、还没见它开出来的键:启动被拒时据此还原。 */
+    /** は起動前にサイレントでオンになっていますが、キーが出てくるのはまだ見ていません。起動が拒否された場合は、それに応じて復元します。 */
     private val early = HashSet<String>()
 
     @Synchronized
@@ -46,7 +46,7 @@ class AppMuter(
         val key = AppAudioKey.of(packageName, user)
         early -= key
         if (key in muted || !wanted(packageName)) return
-        // 用户在主屏上正用着它:不静,照实说它可能出声
+        // ユーザーがホーム画面で使用しています: 無音ではありません、正直に言うと音が出るかもしれません
         if (onMainScreen(packageName, user) || !audio.mute(key)) {
             failed(packageName)
             return
@@ -61,7 +61,7 @@ class AppMuter(
         if (audio.restore(key)) muted -= key
     }
 
-    /** 还原一个 App 的声音(用户接管);还原不了返回 false,留在记录里收尾时再试。 */
+    /** はアプリのサウンドを復元します (ユーザーが引き継ぎます)。復元できない場合は false を返し、記録に残して最後に再試行します。 */
     @Synchronized
     fun release(packageName: String, user: Int?): Boolean {
         val key = AppAudioKey.of(packageName, user)

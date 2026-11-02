@@ -24,10 +24,10 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 
-/** 一格的归属:哪个服务商、哪个模型、哪个用途。 */
+/** は、どのサービス プロバイダー、どのモデル、どの目的の 1 つのグリッドに属します。 */
 data class UsageKey(val providerId: String, val model: String, val purpose: UsagePurpose)
 
-/** 一格里累计的数:输入(含缓存命中)、输出、缓存命中的 token,调用次数,其中没报用量的次数。 */
+/** 1 つのグリッド内の累積数: 入力 (キャッシュ ヒットを含む)、出力、キャッシュ ヒット トークン、呼び出し数 (使用量は報告されません)。 */
 data class UsageCounts(
     val input: Long = 0,
     val output: Long = 0,
@@ -45,10 +45,10 @@ data class UsageCounts(
     }
 }
 
-/** [hour] 是 UTC 整点桶:从 1970-01-01T00:00Z 起的第几个小时。 */
+/** [hour] は UTC 時間バケット、つまり 1970-01-01T00:00Z からの時間です。 */
 data class UsageRow(val hour: Long, val key: UsageKey, val counts: UsageCounts)
 
-/** 账本此刻的全部内容;[providerNames] 是每个服务商最近一次记账时的名字(服务商删了也留着)。 */
+/** は、現時点での台帳の内容全体です。 [providerNames] は、最後にアカウンティングされたときの各サービス プロバイダーの名前です (サービス プロバイダーが削除しても保持されます)。 */
 data class UsageSnapshot(val rows: List<UsageRow>, val providerNames: Map<String, String>) {
     companion object {
         val EMPTY = UsageSnapshot(emptyList(), emptyMap())
@@ -56,11 +56,11 @@ data class UsageSnapshot(val rows: List<UsageRow>, val providerNames: Map<String
 }
 
 /**
- * 本机的 token 用量账本:按 UTC 整点 × 服务商 × 模型 × 用途累计,只存在这台手机上([file],JSON)。
+ * ローカル トークン使用量台帳: UTC 時間 × サービス プロバイダー × モデル × 目的に従って蓄積され、この携帯電話 ([file]、JSON) にのみ存在します。
  *
- * 记账([record])只在内存里加一笔,多个线程同时记也安全;改动后等 [flushDelayMs] 由一个后台线程整份写出
- * (先写临时文件再改名,写到一半断电不会坏掉原文件),进程被杀时最多丢掉最后这几秒。
- * 只留最近 [keepDays] 天,更早的在读入和写出时丢掉。文件读不出(损坏)时当作空账本重新开始。
+ * アカウンティング ([record]) は、メモリに 1 つのエントリを追加するだけであり、複数のスレッドが同時に記録しても安全です。変更後、[flushDelayMs] はバックグラウンド スレッドによって完全に書き出されます。
+ * (一時ファイルを書き込んでから名前を変更します。書き込み途中で電源を切っても元のファイルは壊れません)。プロセスが強制終了されると、最大でも最後の数秒が失われます。
+ * は、最新の [keepDays] 日のみを保持し、それ以前の日は読み取りおよび書き込み時に破棄されます。ファイルが読み取れない（破損している）場合、台帳は空のアカウントとして再起動されます。
  */
 class UsageLedger(
     private val file: File,
@@ -82,7 +82,7 @@ class UsageLedger(
     }
 
     private val _version = MutableStateFlow(0L)
-    /** 每记一笔加一;界面跟着它重新统计。 */
+    /** エントリごとに 1 つ追加します。インターフェースはそれに応じて再計算します。 */
     val version: StateFlow<Long> = _version.asStateFlow()
 
     init {
@@ -105,7 +105,7 @@ class UsageLedger(
         UsageSnapshot(cells.map { (c, n) -> UsageRow(c.hour, c.key, n) }, HashMap(names))
     }
 
-    /** 有没写出的改动就当场写出(后台线程定时调;测试和退出前也可直接调)。写失败时留着改动,下次再写。 */
+    /** 書き込まれていない変更がある場合は、その場で書き込みます (バックグラウンド スレッドが定期的に調整します。テストして終了する前に直接調整することもできます)。書き込みに失敗した場合は、変更を保存して次回再度書き込みます。 */
     fun flush() {
         synchronized(writeLock) {
             val text = synchronized(lock) {

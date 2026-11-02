@@ -36,11 +36,11 @@ import java.util.concurrent.CopyOnWriteArrayList
 import com.wangzan101.mika.core.assembly.toolDispatcher
 
 /**
- * 30 步的假任务(读屏、点、跑命令轮流),经真的 OpenAI 兼容适配器发到假服务端,按线上字节比对相邻两次请求:
- * 系统提示词与工具只在展开一组之后的那次请求变(第 1 步读屏展开手机、第 3 步跑命令展开沙箱,每组一次),
- * 变的时候工具列表里排在那一组前面的部分逐字不变,其余请求逐字相同;
- * 历史只追加:估算没越过压缩触发点时一次也不改写,只有压缩的那一次请求改写,
- * 且第一条改写的消息就是被缩短(或折进摘要)的那条。
+ * 30 ステップの偽のタスク (画面を読み取り、クリックし、コマンドを順番に実行する) が、実際の OpenAI 互換アダプターを通じて偽のサーバーに送信され、2 つの隣接するリクエストがオンライン バイトに従って比較されます。
+ * システム プロンプトの単語とツールは、グループを展開した後のリクエストでのみ変更されます (ステップ 1: 画面を読んで電話機を展開し、ステップ 3: コマンドを実行してサンドボックスを展開します (グループごとに 1 回))。
+ * が変更されると、ツール リストでグループの前にランク付けされているパーツはそのまま変更されず、残りのリクエストはそのまま同じになります。
+ * 履歴は追加されるだけです。圧縮トリガーポイントを超えていないと推定される場合は一度も書き換えられず、圧縮要求のみが書き換えられます。
+ * であり、最初に書き換えられたメッセージは短縮された (または要約に折りたたまれた) メッセージです。
  */
 class PrefixStabilityTest {
     private val servers = mutableListOf<MockWebServer>()
@@ -48,7 +48,7 @@ class PrefixStabilityTest {
 
     @After fun tearDown() = servers.forEach { it.shutdown() }
 
-    /** 假服务端:按请求末尾运行时状态里的步数决定这是第几步(折叠后助手消息会变少),照剧本回;[fail] 里的步第一次回 429。 */
+    /** フェイク サーバー: リクエスト終了時のランタイム ステータスのステップ数に基づいてどのステップであるかを判断し (アシスタント メッセージは折りたたみ後に小さくなります)、スクリプトに従って応答します。 [fail] の最初のステップは 429 を返します。 */
     private inner class Wire(val fail: Set<Int> = emptySet()) {
         val bodies = CopyOnWriteArrayList<JsonObject>()
         private val tried = mutableSetOf<Int>()
@@ -70,14 +70,14 @@ class PrefixStabilityTest {
             OpenAiCompatModel(server.url("/v1").toString().trimEnd('/'), "k", "m", Capabilities(true, vision, contextTokens, false), OkHttpClient())
     }
 
-    /** [promptTokens]:像真服务商一样按这次请求的大小报输入用量(压缩时机按真实用量算,见 [UsageMeter])。 */
+    /** [promptTokens]: 実際のサービス プロバイダーと同様に、このリクエストのサイズに従って入力使用量をレポートします (圧縮タイミングは実際の使用量に従って計算されます。[UsageMeter] を参照)。 */
     private fun reply(step: Int, msgs: List<JsonObject>, promptTokens: Int): JsonObject {
-        // 最后一步不带调用,只回文字:就是最终回答
+        // 最後のステップでは呼び出しはなく、テキスト応答のみです。これが最終的な応答です
         if (step > STEPS) return buildJsonObject {
             putJsonArray("choices") {
                 add(buildJsonObject {
                     put("finish_reason", "stop")
-                    putJsonObject("message") { put("content", "看完了") }
+                    putJsonObject("message") { put("content", "確認が終わりました") }
                 })
             }
             putJsonObject("usage") { put("prompt_tokens", promptTokens); put("completion_tokens", 10) }
@@ -106,7 +106,7 @@ class PrefixStabilityTest {
         }
     }
 
-    /** 最近一次读屏里第一个元素的编号与读屏编号(带差异屏幕时编号会重排,不能写死)。 */
+    /** 最新の画面読み取りの最初の要素の番号と画面読み取り番号 (差分画面使用時に番号が並べ替えられるため、ハードコーディングできません)。 */
     private fun lastRead(msgs: List<JsonObject>): Pair<String, String> {
         val c = msgs.filter { it.str("role") == "tool" }.map { it.str("content").orEmpty() }.last { "\"elements\":[{" in it }
         return c.substringAfter("\"ref\":\"").substringBefore('"') to c.substringAfter("\"snapshotId\":\"").substringBefore('"')
@@ -116,10 +116,10 @@ class PrefixStabilityTest {
 
     private class Setup(val vision: Boolean = false, val inline: Boolean = false, val fail: Set<Int> = emptySet(),
                         val light: Boolean = false, val contextTokens: Int = 1_000_000,
-                        /** 上一轮用过的组:开局就展开。 */
+                        /** 前回のラウンドで使用したグループ: 先頭で展開します。 */
                         val prior: List<String> = emptyList())
 
-    /** 跑一遍,返回各个服务端收到的请求(主模型在前)。 */
+    /** は 1 回実行され、各サーバーが受信したリクエストを返します (メイン モデルが最初)。 */
     private fun run(s: Setup): List<List<JsonObject>> {
         val screens = (1..40).map { n -> Screen("com.x", (1..12).map { label("@e$it", "第${n}屏第${it}项$pad", 100 + it * 50) }) }
         val scripted = ScriptedScreen(screens)
@@ -138,7 +138,7 @@ class PrefixStabilityTest {
         return listOfNotNull(main, light).map { it.bodies.toList() }
     }
 
-    /** 线上一次请求:区 0(系统提示词、工具)与逐条消息,各自是发出的原样字节;[tools] 是逐个工具的原样字节。 */
+    /** オンライン リクエスト: エリア 0 (システム プロンプト ワード、ツール) および個々のメッセージは、送信された元のバイトです。 [tools] は各ツールの元のバイトです。 */
     private class Req(val zone0: String, val msgs: List<String>, val raw: List<JsonObject>, val tools: List<String>)
 
     private fun wire(body: JsonObject): Req {
@@ -147,17 +147,17 @@ class PrefixStabilityTest {
             body["tools"]!!.jsonArray.map { it.toString() })
     }
 
-    /** 线上一个工具定义的名字。 */
+    /** はオンライン ツールによって定義された名前です。 */
     private fun nameOf(tool: String) = Json.parseToJsonElement(tool).jsonObject["function"]!!.jsonObject.str("name")
 
-    /** 收着时也给的入口工具:展开时第一个变的工具只能是它们之一(或排在最后的新工具)。 */
+    /** エントリ ツールは閉じているときにも表示されます。展開したときに変更する最初のツールは、そのうちの 1 つ (または最後の新しいツール) のみです。 */
     private val entries = setOf("phone_launch_app", "phone_list_apps", "phone_set_alarm", "phone_set_timer", "phone_add_calendar_event", "web_navigate", "web_read_page", "run_command")
 
     private val markers = listOf(HistoryPruner.OMITTED, HistoryPruner.OMITTED_READ, "(更早的画面已省略", HistoryPruner.OMITTED_IMAGE, ContextCompressor.HEADER)
 
     /**
-     * 线上字节里相邻两次请求的公共前缀:Σ 公共前缀长 ÷ Σ 请求长(按字符)。展开一组的那几次([skip],前缀按设计失效一次)不计,
-     * 另由 [check] 查它们只改了那一组起的部分。
+     * オンライン バイト単位の 2 つの隣接するリクエストの共通プレフィックス: Σ 共通プレフィックス長 ÷ Σ リクエスト長 (文字数)。グループが展開される回数（[skip]、設計上プレフィックスは1回無効）はカウントされません。
+     * と [check] は、そのグループから始まる部分のみを変更したことを確認しました。
      */
     private fun prefixShare(reqs: List<Req>, skip: List<Int> = emptyList()): Double {
         val full = reqs.map { it.zone0 + it.msgs.joinToString("") }
@@ -168,17 +168,17 @@ class PrefixStabilityTest {
 
     private class Result(val pairs: Int, val changed: List<Int>, val share: Double, val opened: List<Int>)
 
-    /** [appendOnly]:没越过触发点,一次也不该改写;压缩时由调用方给出确切的期望。 */
+    /** [appendOnly]: トリガーポイントを超えていないため、一度も書き換えるべきではありません。呼び出し元は圧縮時に正確な期待値を与えます。 */
     private fun check(bodies: List<JsonObject>, label: String, appendOnly: Boolean = true): Result {
         val reqs = bodies.map(::wire)
-        // 区 0 只在展开一组时变,至多两次(手机、沙箱);变的时候前面的工具逐字不变,第一个变的是那一组的入口
+        // エリア 0 は、グループが最大 2 回展開されるときにのみ変更されます (携帯電話、サンドボックス)。変更する場合、以前のツールはそのまま残り、最初に変更されるのはそのグループの入り口です
         val opened = (1 until reqs.size).filter { reqs[it].zone0 != reqs[it - 1].zone0 }
-        assertTrue("$label:区 0 变了 $opened 次", opened.size <= 2)
+        assertTrue("$label: ゾーン0の変更が多すぎます: $opened", opened.size <= 2)
         for (i in opened) {
             val (a, b) = reqs[i - 1].tools to reqs[i].tools
             val same = a.zip(b).takeWhile { (x, y) -> x == y }.size
-            assertTrue("$label 第 ${i + 1} 次请求:展开时改了一组前面的工具 ${a.getOrNull(same)?.let(::nameOf)}", same == a.size || nameOf(a[same]) in entries)
-            assertTrue("$label 第 ${i + 1} 次请求:展开只加不减", b.size > a.size)
+            assertTrue("$label の${i + 1}回目のリクエスト: 展開時に先行ツール群が変わっています: ${a.getOrNull(same)?.let(::nameOf)}", same == a.size || nameOf(a[same]) in entries)
+            assertTrue("$label の${i + 1}回目のリクエスト: 展開時は追加だけを行い、既存のツールを減らさないでください", b.size > a.size)
         }
         val changed = mutableListOf<Int>()
         for (i in 1 until reqs.size) {
@@ -186,23 +186,23 @@ class PrefixStabilityTest {
             val same = a.msgs.zip(b.msgs).takeWhile { (x, y) -> x == y }.size
             if (same == a.msgs.size) continue
             changed += i
-            // 第一条改写的就是被裁剪线裁掉(或折进摘要)的那条
+            // 最初に書き換えられた項目は、切り抜き線で切り取られた (または要約に折り込まれた) 項目です。
             val first = b.msgs[same]
-            assertTrue("$label 第 ${i + 1} 次请求第 $same 条改写不是压缩:$first", markers.any { it in first && it !in a.msgs[same] } || ContextCompressor.HEADER in first)
+            assertTrue("$label の${i + 1}回目のリクエストの $same 件目の書き換えが圧縮ではありません: $first", markers.any { it in first && it !in a.msgs[same] } || ContextCompressor.HEADER in first)
         }
-        if (appendOnly) assertEquals("$label:没越过触发点却改写了前缀", emptyList<Int>(), changed)
+        if (appendOnly) assertEquals("$label: 発動条件に達していないのにプレフィックスが書き換わっています", emptyList<Int>(), changed)
         return Result(reqs.size - 1, changed, prefixShare(reqs, opened), opened)
     }
 
-    // 读屏、大结果、画面都只追加:30 步里一次也不改写
+    // 画面読み取り、大きな結果、画面は追加のみです。30 ステップに 1 回書き換えはありません。
     @Test fun textOnly() {
         val r = check(run(Setup()).single(), "text")
-        // 第 1 步读屏之后的那次请求展开手机,第 3 步跑命令之后的展开沙箱
+        // ステップ 1 の画面を読んだ後の電話機の拡張リクエスト、およびステップ 3 のコマンドを実行した後のサンドボックスの拡張
         assertEquals(listOf(1, 3), r.opened)
         assertTrue("${r.share}", r.share > 0.95)
     }
 
-    // 上一轮用过手机和沙箱:开局就展开,30 步里区 0 一次也不变
+    // は最終ラウンドで携帯電話とサンドボックスを使用しました。最初から開始され、エリア 0 は 30 ステップで一度も変化しませんでした。
     @Test fun preloadedGroupsNeverChangeZoneZero() {
         val r = check(run(Setup(prior = listOf("phone", "sandbox"))).single(), "preloaded")
         assertEquals(emptyList<Int>(), r.opened)
@@ -221,14 +221,14 @@ class PrefixStabilityTest {
 
     @Test fun retriedRequestsAreIdentical() {
         val bodies = run(Setup(fail = setOf(5, 14))).single()
-        // 重试的那次和被拒的那次逐字相同
+        // 再試行時刻と拒否時刻はそのまま表示されます。
         assertEquals(33, bodies.size)
         check(bodies, "retry")
     }
 
     @Test fun lightModelRouting() {
         val (main, light) = run(Setup(light = true))
-        assertTrue("轻量模型应当接过几步", light.isNotEmpty())
+        assertTrue("軽量モデルがいくつかのステップを担当する必要があります", light.isNotEmpty())
         check(main, "main")
         check(light, "light")
     }
@@ -237,9 +237,9 @@ class PrefixStabilityTest {
         val bodies = run(Setup(contextTokens = 80_000)).single()
         val r = check(bodies, "compaction", appendOnly = false)
         assertTrue(bodies.any { ContextCompressor.HEADER in it.toString() })
-        // 越过触发点的那一次压缩一次(改写一次),之后只追加,再长一个余量越过时才再压:30 步里只改写三次
-        // (80K 窗口:提示词和展开的工具约 20K,触发点 47K,压到 30K 以下)
-        assertEquals(listOf(12, 21, 30), r.changed)
+        // トリガーポイントを超えたら一度圧縮（書き換えは1回）、その後は追加のみ、マージンを超えたら再度圧縮：30ステップで3回書き換えのみ
+        // 日本語のツール定義と80Kウィンドウで測定した圧縮点。書き換え回数とキャッシュ率も引き続き検査する。
+        assertEquals(listOf(10, 19, 28), r.changed)
         assertTrue("${r.share}", r.share > 0.85)
     }
 

@@ -1,29 +1,18 @@
 ---
 name: xiaoyuzhoufm.com
-display: 小宇宙
+display: Xiaoyuzhou
 domains: ["xiaoyuzhoufm.com"]
 aliases: ["小宇宙", "Xiaoyuzhou"]
 apps: []
 open: xiaoyuzhoufm.com
 mode: desktop
-description: 中文播客平台,单集页可取音频地址、标题和时长
+description: 中国語のポッドキャストサービス
 ---
-## 是什么
-中文播客平台。每一集有公开的单集页,页面里带音频地址和元信息。
+## 概要
+Xiaoyuzhouは、中国語のポッドキャストサービスのウェブ版です。ユーザーがこのサービスを指定した場合に使い、日本での標準の検索先として自動選択しない。
 
-## 页面与网址
-单集页 `https://www.xiaoyuzhoufm.com/episode/<id>`,`<id>` 是 20 到 32 位小写十六进制(`[0-9a-f]{20,32}`)。
+## 内容の確認
+対象の作者、正式名称、本文、日時、地域、通貨、利用条件を照合する。検索結果の抜粋、原文、転載、広告を区別する。結果は日本語でまとめ、固有名詞や操作に必要な実際のラベルは原文を保持する。
 
-## 接口
-单集页整页 HTML 约 300KB,只需抽三个字段,在沙箱里用 `wget` 取页面后 `grep -oE` 过滤:
-
-```sh
-wget -qO- 'https://www.xiaoyuzhoufm.com/episode/<id>' | grep -oE '<meta property="og:audio" content="[^"]+"|"duration":[0-9]+|<meta property="og:title" content="[^"]+"'
-```
-
-- `og:audio`:音频文件的真实地址,通常在 `https://media.xyzcdn.net/` 下。
-- `duration`:单集时长,单位秒。
-- `og:title`:单集标题。
-
-## 已知现象
-页面改版后可能缺 `og:audio`,此时页面里取不到音频地址。
+## 注意点
+ログイン、アクセス制限、CAPTCHA、有料部分に当たった場合は、取得できた範囲と止まった理由を伝える。存在しないラベルやデータを作らない。投稿、返信、応募、購入などは閲覧と区別して依頼と確認モードに従う。

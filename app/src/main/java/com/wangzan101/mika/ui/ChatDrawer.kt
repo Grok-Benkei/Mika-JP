@@ -106,7 +106,7 @@ import java.time.format.TextStyle as DateTextStyle
 import java.util.Locale
 import com.wangzan101.mika.i18n.uiLocale
 
-/** 侧栏里的一条对话。[id] 为 null 是还没存进对话列表的当前对话。 */
+/** サイドバーの会話。 [id] は null です。これは、現在の会話が会話リストに保存されていないことを意味します。 */
 data class DrawerConversation(
     val id: String?,
     val title: String,
@@ -114,30 +114,30 @@ data class DrawerConversation(
     val running: Boolean,
     val current: Boolean,
     val enabled: Boolean,
-    /** 最后改动的时间(写在标题右边);还没存进对话列表的为空。 */
+    /** 最後に変更された時刻 (タイトルの右側に記載されています)。会話リストに保存されていない場合は空になります。 */
     val time: String = "",
-    /** 置顶了:标题前一个小图钉,长按菜单里是「取消置顶」。 */
+    /** が固定されています: タイトルの前に小さな画鋲があります。メニューの長押しは「固定を解除」です。 */
     val pinned: Boolean = false,
-    /** 在浏览器页上对着一页开始的对话:那个网站(主机名),标题后面一个「网页」小标签;不是为 null。 */
+    /** 会話は、1 つのページに面したブラウザ ページで始まりました。その Web サイト (ホスト名)、タイトルの後に小さな「Web ページ」タグが付いています。それはヌルではありません。 */
     val site: String? = null,
-    /** 从另一个对话分支出来的:标题前一个小分支图标。 */
+    /** 別の会話から分岐しました: タイトルの前の小さな分岐アイコン。 */
     val branch: Boolean = false,
 )
 
-/** 侧栏里的对话分段:进行中、置顶、最近。 */
+/** サイドバーの会話セグメント: 進行中、固定済み、最近。 */
 data class DrawerSections(
     val running: List<DrawerConversation>,
     val recent: List<DrawerConversation>,
     val pinned: List<DrawerConversation> = emptyList(),
 )
 
-/** 当前对话在侧栏里的样子:有没有任务在跑、标题、副标题(在做什么)。 */
+/** 現在の会話がサイドバーにどのように表示されるか: 実行中のタスクがあるかどうか、タイトル、サブタイトル (何をしているのか)。 */
 data class CurrentConversation(val id: String?, val running: Boolean, val title: String, val subtitle: String)
 
 /**
- * 侧栏的三段:「进行中」是当前对话(有任务时)和别的有任务在跑的对话;「置顶」是其余置顶了的对话,最近置顶的在前;
- * 「最近」是剩下的对话,最近改过的在前。每个对话只出现在一段里:置顶的对话有任务在跑时列在进行中(带图钉),跑完回到置顶。
- * [canSwitch] 为假(任务进行中、没开并行)时只有当前对话可点。
+ * サイドバーには 3 つのセクションがあります。「進行中」は、現在の会話 (タスクがある場合) と、タスクが実行されている他の会話を指します。 「固定」とは、一番上に固定された他の会話を指し、最新の会話が一番上に表示されます。
+ * 「最近」は残りのダイアログで、最近変更されたものが最初に表示されます。各ダイアログは 1 つの段落にのみ表示されます。固定されたダイアログには、実行中に進行中のタスクが (押しピンで) リストされ、実行後に先頭に戻ります。
+ * [canSwitch] が false (タスクが進行中であり、並列処理が有効になっていない) の場合、現在のダイアログのみをクリックできます。
  */
 fun drawerSections(
     all: List<ConversationSummary>,
@@ -170,7 +170,7 @@ fun drawerSections(
     return DrawerSections(running, recent, pinnedRows)
 }
 
-/** 对话的时间:今天写时刻,昨天写「昨天」,一周内写星期几,今年写几月几日,更早带年份。 */
+/** 会話時間: 今日の時間を書き、昨日の「昨日」を書き、週の曜日を書き、今年の月と日を書き、前年を追加します。 */
 fun conversationTime(at: Long, now: Long, zone: ZoneId = ZoneId.systemDefault()): String {
     val t = Instant.ofEpochMilli(at).atZone(zone)
     val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
@@ -185,7 +185,7 @@ fun conversationTime(at: Long, now: Long, zone: ZoneId = ZoneId.systemDefault())
     }
 }
 
-/** 侧栏顶上 Mika 名字下面那行状态,和它是不是好的(绿点)还是要处理(橙点)。 */
+/** サイドバーの上部にあるミカの名前の下のステータス行と、それが良好であるか (緑色の点)、または処理する必要があるか (オレンジ色の点)。 */
 fun readiness(check: Prerequisites.Check): Pair<String, Boolean> = when {
     !check.canStartTask -> tr(R.string.chat_cannot_start) to false
     !check.phoneReady -> tr(R.string.drawer_phone_not_ready) to false
@@ -195,8 +195,8 @@ fun readiness(check: Prerequisites.Check): Pair<String, Boolean> = when {
 private const val MAX_RECENT = 50
 
 /**
- * 侧栏:从左边滑出、右边圆角。顶部是标志和状态;四个入口;中间是进行中(段标题右边进「后台屏」页)和最近的对话;最底下设置和关于并排。
- * 打开和关上由外面的抽屉管,这里只摆内容,点了什么交给回调。
+ * サイドバー: 左側からスライドさせて右側の角を丸くします。上部はロゴとステータスです。 4つの入り口。中央は進行中 (セクション タイトルの右側は「バックステージ スクリーン」ページに入ります) と最近の会話です。一番下は設定とほぼ横並びです。
+ * は引き出し外側チューブにより開閉します。ここにはコンテンツのみが表示され、クリックされた内容はコールバックに渡されます。
  */
 @Composable
 fun ChatDrawer(
@@ -211,9 +211,9 @@ fun ChatDrawer(
     onSettings: () -> Unit,
     onOpen: (DrawerConversation) -> Unit,
     onAbout: () -> Unit = {},
-    /** 有新版本:「关于 Mika」带小红点。 */
+    /** には新しいバージョンがあります。小さな赤い点が付いた「ミカについて」です。 */
     aboutDot: Boolean = false,
-    /** 长按一条存过的对话:在它原地弹出操作菜单(置顶、改名、删除);带上那一行在窗口里的位置和大小。 */
+    /** 保存した会話を長押しすると、その場所に操作メニューがポップアップ表示されます (上部に固定、名前変更、削除)。ウィンドウ内のその行の位置とサイズが表示されます。 */
     onActions: (DrawerConversation, Rect) -> Unit = { _, _ -> },
 ) {
     val c = MikaTheme.colors
@@ -244,7 +244,7 @@ fun ChatDrawer(
             NavEntry(MikaIcons.Heart, stringResource(R.string.memory_and_skills), onClick = onMemory)
             NavEntry(MikaIcons.Globe, stringResource(R.string.drawer_browser), onClick = onBrowser)
         }
-        // 侧栏关着时列表只剩末尾那一项;打开时对话插在它前面,列表会按原来那一项停在最底下。最上面一项变了就回到顶上
+        // サイドバーが閉じられると、リストには最後の項目だけが残ります。サイドバーが開かれると、ダイアログがその前に挿入され、リストは元の項目に応じて一番下で停止します。先頭の項目が変わった場合は先頭に戻ります
         val list = rememberLazyListState()
         val first = when {
             sections.running.isNotEmpty() -> "h-running"
@@ -255,11 +255,11 @@ fun ChatDrawer(
         LaunchedEffect(first) { list.scrollToItem(0) }
         LazyColumn(Modifier.fillMaxWidth().weight(1f).lazyListScrollbar(list), state = list) {
             if (sections.running.isNotEmpty()) {
-                // 「进行中」这一段的右边进「后台屏」页:看每个在跑的任务正在用哪个 App、实时画面
+                // [進行中] セクションの右側に移動して、[バックステージ画面] ページに入ります。実行中の各タスクにどのアプリとリアルタイム画面が使用されているかを確認します。
                 item("h-running") { RunningLabel(onScreens) }
                 items(sections.running, key = { "r-${it.id}" }) { ConversationEntry(it, onOpen, onActions) }
             }
-            // 换不了对话时的说明放在第一段存着的对话(置顶或最近)上面
+            // 会話を変更できない場合、説明は最初に保存された会話 (固定または最近) の上に配置されます。
             val busyNote: LazyListScope.() -> Unit = {
                 if (!canSwitch) {
                     item("busy") {
@@ -282,7 +282,7 @@ fun ChatDrawer(
             }
             item("end") { Box(Modifier.height(12.dp)) }
         }
-        // 设置和关于并排固定在侧栏最底下,对话再多也不被挤走:设置靠左,关于靠右,中间留空
+        // [設定] と [バージョン情報] はサイドバーの下部に並べて固定されています。会話がどれだけ多くても、それらは絞り出されることはありません。左側に設定、右側にバージョン情報があり、中央は空白のままです。
         Row(
             Modifier.fillMaxWidth().drawBehind { drawLine(c.hair, Offset(0f, 0f), Offset(size.width, 0f), 0.5.dp.toPx()) }
                 .padding(horizontal = 12.dp, vertical = 6.dp).testTag("drawer-footer"),
@@ -316,7 +316,7 @@ private fun NavEntry(
     }
 }
 
-/** 「进行中」的段标题,右边一个「后台屏 ›」进后台屏页(只有有任务在跑时才有这一段)。 */
+/** 「進行中」のセクション タイトルの右側に、バックグラウンド スクリーン ページに入る「バックグラウンド スクリーン ›」があります (このセクションはタスクが実行されている場合にのみ存在します)。 */
 @Composable
 private fun RunningLabel(onScreens: () -> Unit) {
     val c = MikaTheme.colors
@@ -344,8 +344,8 @@ private fun SectionLabel(text: String) {
 }
 
 /**
- * 一条对话:点开它;长按(带一下振动)在原地弹出它的操作菜单(置顶、改名、删除)。换不了对话时(任务进行中、没开并行)点不开,长按照样能用。
- * 还没存进对话列表的(没有编号)没东西可改,不响应长按。置顶了的标题前有个小图钉。
+ * 会話: クリックしてください。長押し（振動あり）すると操作メニュー（トップ、名前変更、削除）が表示されます。会話を変更できない場合 (タスクが進行中で並列処理が有効になっていない場合)、クリックを開くことはできませんが、押し続けるとクリックは機能します。
+ * は会話リストに保存されておらず (番号なし)、何も変更できず、長押ししても反応しません。固定されたタイトルの前に小さな画鋲があります。
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -353,7 +353,7 @@ private fun ConversationEntry(item: DrawerConversation, onOpen: (DrawerConversat
     val c = MikaTheme.colors
     val deletable = item.id != null
     val haptic = LocalHapticFeedback.current
-    // 这一行在窗口里的位置和大小(不裁掉滚出列表的部分),菜单照它摆出抬起的那一行;只在回调里读,不引起重组
+    // ウィンドウ内のこの行の位置とサイズ (リストから展開される部分は切り取られません)、メニューは盛り上がった行として配置されます。これはコールバックで読み取られるだけであり、再編成は発生しません。
     val bounds = remember { mutableStateOf(Rect.Zero) }
     Column(
         Modifier.padding(horizontal = 12.dp).fillMaxWidth()
@@ -364,7 +364,7 @@ private fun ConversationEntry(item: DrawerConversation, onOpen: (DrawerConversat
                 if (deletable) Modifier.combinedClickable(
                     onClickLabel = null,
                     onLongClickLabel = stringResource(R.string.drawer_actions),
-                    // 和系统里长按一样振一下
+                    // はシステム内で長押しのように振動します。
                     onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onActions(item, bounds.value) },
                     onClick = { if (item.enabled) onOpen(item) },
                 ) else Modifier.clickable(enabled = item.enabled, onClick = { onOpen(item) }),
@@ -377,7 +377,7 @@ private fun ConversationEntry(item: DrawerConversation, onOpen: (DrawerConversat
     }
 }
 
-/** 一条对话里面的东西:进行中的小圆点、图钉、标题、时间,有副标题时下面一行。侧栏里那一行和长按抬起的那一张都用它。 */
+/** 会話内の内容: 進行中の点、画鋲、タイトル、時刻、および字幕がある場合は下の行。サイドバーの行と長押しで上がった行の両方に使用します。 */
 @Composable
 internal fun ConversationRowContent(item: DrawerConversation) {
     val c = MikaTheme.colors
@@ -405,7 +405,7 @@ internal fun ConversationRowContent(item: DrawerConversation) {
     }
 }
 
-/** 给对话改名:输入框里是现在的标题(整段选中,直接打字就替换);空的存不了,两头空白去掉。 */
+/** 会話の名前を変更します。現在のタイトルが入力ボックスに表示されます (段落全体を選択し、直接入力して置き換えます)。空白部分は保存できず、両端の空白部分は削除されます。 */
 @Composable
 internal fun RenameConversationDialog(title: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
     var value by remember(title) { mutableStateOf(TextFieldValue(title, TextRange(0, title.length))) }
@@ -435,8 +435,8 @@ internal fun RenameConversationDialog(title: String, onSave: (String) -> Unit, o
 }
 
 /**
- * 删对话前的确认:写明删的是哪个对话;有任务在跑、绑着定时任务时也写明会停掉、一起删掉。
- * 和别处删东西的确认一样:右边红字「删除」,左边「取消」。
+ * 会話を削除する前の確認: どの会話を削除するかを示します。実行中のタスクがある場合、またはスケジュールされたタスクがバインドされている場合は、それが一緒に停止および削除されることも示します。
+ * 削除の確認は他と同じで、右側に赤い文字「削除」、左側に「キャンセル」が表示されます。
  */
 @Composable
 internal fun DeleteConversationDialog(title: String, impact: DeleteImpact, onConfirm: () -> Unit, onDismiss: () -> Unit) {
@@ -469,8 +469,8 @@ private val ConversationTime = TextStyle(fontSize = 12.5.sp, lineHeight = 17.sp)
 private val ConversationTag = TextStyle(fontSize = 10.5.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium)
 
 /**
- * 对话页和它的侧栏:左上角菜单从左边滑出侧栏,外面一层遮罩;点遮罩、往左滑、按返回都关上。
- * 侧栏打开时才去读对话列表。进了别的页面再回来,侧栏是关着的。[content] 拿到「打开侧栏」放到菜单按钮上。
+ * ダイアログ ページとそのサイドバー: 左上隅のメニューがサイドバーの左からスライドして外側にマスクのレイヤーが表示されます。マスクをクリックして左にスライドし、Return キーを押してマスクを閉じます。
+ * サイドバーが開いている場合にのみ、会話リストを読み取ります。別のページに移動して戻ってくると、サイドバーが閉じます。 [content] 「サイドバーを開く」を取得し、メニューボタンに配置します。
  */
 @Composable
 fun ChatWithDrawer(
@@ -478,9 +478,9 @@ fun ChatWithDrawer(
     check: Prerequisites.Check,
     reduceMotion: Boolean,
     conversations: () -> List<ConversationSummary>,
-    /** 存储里改过的对话(见 `ConversationStore.changes`);侧栏开着时别处存进来的对话也当场列出。 */
+    /** ストレージ内の変更されたダイアログ (`ConversationStore.changes` を参照)。サイドバーを開いたときに他の場所に保存されたダイアログもその場で一覧表示されます。 */
     conversationChanges: Flow<String> = emptyFlow(),
-    /** 对话起好的标题;当前对话还没存进列表时(任务刚开始)也能叫出名字。 */
+    /** 会話に適切なタイトルを付けます。現在の会話がリストに保存されていないとき（タスクが開始されたばかりのとき）でも、名前を呼び出すことができます。 */
     conversationTitle: (String) -> String? = { null },
     onPlans: () -> Unit,
     onMemory: () -> Unit,
@@ -488,9 +488,9 @@ fun ChatWithDrawer(
     onScreens: () -> Unit = {},
     onSettings: () -> Unit,
     onAbout: () -> Unit = {},
-    /** 有新版本:侧栏「关于 Mika」带小红点。 */
+    /** には新しいバージョンがあります。サイドバーの「ミカについて」に小さな赤い点があります。 */
     updateAvailable: Boolean = false,
-    /** 从侧栏进去的页面刚退回来:当场打开侧栏,回到进去之前的样子。 */
+    /** サイドバーから入ったページが戻ってきました。その場でサイドバーを開いて入る前の状態に戻ってください。 */
     reopen: Boolean = false,
     onReopened: () -> Unit = {},
     content: @Composable (openDrawer: () -> Unit) -> Unit,
@@ -511,14 +511,14 @@ fun ChatWithDrawer(
         }
         then()
     }
-    /** 去别的页面:先当场关上侧栏,回来时就是关着的。 */
+    /** 別のページに移動します。まずその場でサイドバーを閉じてください。戻ってくると閉じられます。 */
     fun leave(go: () -> Unit) {
         scope.launch { drawer.snapTo(DrawerValue.Closed) }
         go()
     }
     val open = drawer.targetValue == DrawerValue.Open || drawer.isOpen
-    // 对话页上返回(侧滑)先打开侧栏;侧栏开着时再返回才离开 App(退到后台,和桌面返回一样)。
-    // 对话页里面板、画中画等自己的返回在内层,先于这里处理
+    // 会話ページに戻る（スライドする）ときは、最初にサイドバーを開いてください。サイドバーが開いたら、アプリに戻り、アプリから離れます (デスクトップに戻るのと同じように、バックグラウンドに戻ります)。
+    // ダイアログページ内のパネルやピクチャインピクチャなどは内層に戻り、ここで最初に処理されます。
     val activity = LocalContext.current.findActivity()
     BackHandler {
         if (open) activity?.moveTaskToBack(true)
@@ -527,16 +527,16 @@ fun ChatWithDrawer(
     var revision by remember { mutableIntStateOf(0) }
     LaunchedEffect(conversationChanges) { conversationChanges.collect { revision++ } }
     val deleted by vm.deleted.collectAsState()
-    /** 长按了的那条和它在窗口里的位置;菜单开着(收起的动画放完才清掉)。 */
+    /** 長押しされた項目とウィンドウ内のその位置。メニューが開きます (折りたたみアニメーションは再生後にのみクリアされます)。 */
     var acting by remember { mutableStateOf<Pair<DrawerConversation, Rect>?>(null) }
-    /** 菜单出现的进度:0 是没有,1 是完全出来;关了动画时直接到位。 */
+    /** メニューの外観の進行状況: 0 は存在しないことを意味し、1 は完全に存在しないことを意味します。アニメーションがオフになると、アニメーションは直接配置されます。 */
     val lift = remember { Animatable(0f) }
     LaunchedEffect(acting) {
         if (acting != null) {
             if (reduceMotion) lift.snapTo(1f) else lift.animateTo(1f, tween(MENU_IN_MS, easing = MikaMotion.Decelerate))
         }
     }
-    /** 收起菜单:倒着放一遍出现的动画,放完再清掉;[then] 当场做(改名、删除的弹窗不用等菜单收完)。 */
+    /** メニューを閉じる: 表示されるアニメーションを逆方向に再生し、再生後にクリアします。 [then] その場で実行します (ポップアップ ウィンドウの名前変更と削除は、メニューが閉じるまで待つ必要はありません)。 */
     fun closeMenu(then: () -> Unit = {}) {
         then()
         scope.launch {
@@ -544,14 +544,14 @@ fun ChatWithDrawer(
             acting = null
         }
     }
-    /** 正在改名的那条。 */
+    /** 名前が変更されるもの。 */
     var renaming by remember { mutableStateOf<DrawerConversation?>(null) }
-    /** 要删的那条和删它会连带什么;确认弹窗开着。 */
+    /** 削除したい記事と削除するとどうなるか。確認のポップアップウィンドウが開きます。 */
     var confirming by remember { mutableStateOf<Pair<DrawerConversation, DeleteImpact>?>(null) }
     val menuOpen = acting != null
     Box(Modifier.fillMaxSize()) {
         ModalNavigationDrawer(
-            // 菜单开着时后面整屏(对话页和侧栏)模糊(安卓 12 起;更早的只变暗),无障碍也只读菜单
+            // メニューが開いているときは、その背後にある画面全体 (ダイアログ ページとサイドバー) がぼやけ (Android 12 以降。それ以前は暗くなるだけです)、メニューはアクセス可能な場合にのみ読み取れます。
             modifier = if (!menuOpen) Modifier else Modifier
                 .then(
                     if (GlassBlurSupported) Modifier.graphicsLayer {
@@ -561,7 +561,7 @@ fun ChatWithDrawer(
                 )
                 .clearAndSetSemantics {},
             drawerContent = {
-                // 只在打开时读盘;每次打开、开着时存储里有对话改过都重读一次
+                // は、ディスクが開かれている場合にのみディスクを読み取ります。開かれるたび、または開いている間にストレージ内でダイアログの変更があった場合、再読み込みされます。
                 val all = remember(open, revision) { if (open) conversations() else emptyList() }
                 val stored = remember(open, revision, ui.conversationId) { if (open) ui.conversationId?.let(conversationTitle) else null }
                 val last = ui.exchanges.lastOrNull()
@@ -572,7 +572,7 @@ fun ChatWithDrawer(
                     if (running) ChatCopy.subtitle(last, last?.let(vm::livePlace))?.first.orEmpty() else "",
                 )
                 val canSwitch = vm.canSwitch()
-                // 删掉的对话当场不列,不等后台删完
+                // 削除された会話はその場にはリストされず、バックグラウンドでの削除が完了するまで待機しません。
                 val sections = remember(all, current, others, canSwitch, deleted) {
                     drawerSections(all.filter { it.id !in deleted }, current, others.filter { it !in deleted }, vm::runningGoal, canSwitch, System.currentTimeMillis())
                 }
@@ -600,8 +600,8 @@ fun ChatWithDrawer(
                 )
             },
             drawerState = drawer,
-            // 对话页上从左往右划拉出侧栏(拖着跟手);能左右滚的内容(宽表格、代码块等)先自己滚。
-            // 从左边缘往里滑是系统的返回手势,上面的返回处理同样是打开侧栏
+            // 会話ページで、左から右にスワイプしてサイドバーを引き出します (手でドラッグします)。左右にスクロールできるコンテンツ (幅の広い表、コード ブロックなど) が最初にスクロールされます。
+            // 左端からのスライドインはシステムのリターン ジェスチャです。上記の返品プロセスにより、サイドバーも開きます。
             gesturesEnabled = true,
             scrimColor = MikaTheme.colors.floatShadow.copy(alpha = 0.28f),
         ) {

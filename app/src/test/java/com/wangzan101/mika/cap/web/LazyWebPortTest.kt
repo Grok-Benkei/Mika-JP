@@ -54,9 +54,9 @@ class LazyWebPortTest {
 
     @Test
     fun nothingIsBuiltUntilTheFirstNavigation() = runTest {
-        // 手机任务也会碰到的读法:不建
+        // モバイルタスクでも発生する発音: 構築されていません
         assertTrue(lazy.tabs().isEmpty())
-        // 下载还没接入:不论建没建都说不可用
+        // ダウンロードはまだ接続されていません。ビルドされているかどうかに関係なく、利用できないと表示されます。
         assertTrue(runCatching { lazy.downloads() }.exceptionOrNull() is UnsupportedOperationException)
         assertEquals("", lazy.readPage(100, 0, true).text)
         assertEquals("no_tab_open", (lazy.evaluate("1", 5_000) as EvalJs.Failed).error)
@@ -69,7 +69,7 @@ class LazyWebPortTest {
         lazy.navigate("https://a.example.com/", false)
         assertEquals(1, made)
         assertTrue(lazy.created)
-        // 建好之后全部转给它
+        // がビルドされたら、すべてをそれに転送します。
         assertEquals("a.example.com", lazy.snapshot().packageName)
         assertEquals(1, lazy.tabs().size)
         assertEquals(listOf("navigate https://a.example.com/", "snapshot"), fake.calls)
@@ -102,7 +102,7 @@ class LazyWebPortTest {
         assertEquals("no_tab_open", (lazy.pressCombo(combo) as ActionResult.Failed).reason)
         assertEquals(0, made)
         lazy.navigate("https://a.example.com/", false)
-        // 建好后交给端口;端口没实现的按默认报 devtools_unavailable
+        // は、構築後にポートに渡されます。ポートが実装されていない場合、デフォルトで devtools_unavailable として報告されます。
         assertEquals("devtools_unavailable", (lazy.hover(at) as ActionResult.Failed).reason)
         assertEquals("devtools_unavailable", (lazy.drag(at, at, 3) as ActionResult.Failed).reason)
         assertEquals("devtools_unavailable", (lazy.selectOption("@e1", "wt1-1", "x") as ActionResult.Failed).reason)

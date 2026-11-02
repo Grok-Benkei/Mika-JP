@@ -9,7 +9,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WirelessDebuggingAutoOnTest {
-    /** 假的系统开关:[revert] 为 true 时写了打开过一会儿又被系统拨回关着(不允许的 Wi-Fi)。 */
+    /** 偽のシステム スイッチ: [revert] が true の場合、システムによってオンになり、その後オフに戻ります (Wi-Fi は許可されません)。 */
     private inner class FakeSwitch {
         var on: Boolean? = false
         var revert = false
@@ -19,7 +19,7 @@ class WirelessDebuggingAutoOnTest {
         private var readsSinceWrite = 0
 
         fun read(): Boolean? {
-            // 原版收到设置变化后才拨回:写完先读到打开,随后读到关着
+            // 設定変更を受信した後、元のバージョンがダイヤルバックされました。書き込み後、最初に読み取られて開かれ、次に読み取られて閉じられました。
             if (revert && on == true && ++readsSinceWrite > 1) on = false
             return on
         }
@@ -50,7 +50,7 @@ class WirelessDebuggingAutoOnTest {
             WirelessDebuggingAutoOn.decide(wants, canWrite, wifi, blocked, writes, since)
 
         assertEquals(AutoOnGate.Act, d())
-        // 用户关掉了这一项:不管别的,一律不写
+        // ユーザーはこの項目をオフにしました: 他に何があっても書き込まないでください
         assertEquals(AutoOnGate.Skip(AutoOnSkip.Declined), d(wants = false, blocked = AutoOnBlock.NotAllowedHere, wifi = false))
         assertEquals(AutoOnGate.Skip(AutoOnSkip.NoPermission), d(canWrite = false))
         assertEquals(AutoOnGate.Skip(AutoOnSkip.NoWifi), d(wifi = false))
@@ -77,7 +77,7 @@ class WirelessDebuggingAutoOnTest {
         assertEquals(true, switch.on)
         assertNull(a.blocked.value)
         assertFalse(a.writing)
-        // 紧接着又要写:按退避等
+        // 次に、もう一度書き込みます: オフに戻るなどを押します。
         assertTrue(a.gate(wifi = true) is AutoOnGate.Wait)
     }
 
@@ -88,12 +88,12 @@ class WirelessDebuggingAutoOnTest {
         assertFalse(a.turnOn())
         assertEquals(AutoOnBlock.NotAllowedHere, a.blocked.value)
         assertEquals(false, switch.on)
-        // 停下后过多久都不再写(每写一次系统就弹一次框)
+        // 書き込みを停止してから停止するまでどのくらい時間がかかりますか (書き込みのたびにシステムがボックスをポップアップ表示します)
         clock += 3_600_000
         assertEquals(AutoOnGate.Skip(AutoOnSkip.Blocked), a.gate(wifi = true))
         assertEquals(1, switch.writes)
 
-        // 换了 Wi-Fi、用户亲手打开或点了重试:从头算
+        // が Wi-Fi を変更しました。ユーザーが手動で開いたか、[再試行: 最初から計算] をクリックしました。
         a.reset()
         assertNull(a.blocked.value)
         assertEquals(AutoOnGate.Act, a.gate(wifi = true))
@@ -121,13 +121,13 @@ class WirelessDebuggingAutoOnTest {
             clock += 3_600_000
             assertEquals(AutoOnGate.Act, a.gate(wifi = true))
             assertTrue(a.turnOn())
-            // 系统(或别的原因)又把它关了,助手没起来
+            // システム (またはその他の理由) で再び電源がオフになり、アシスタントが起動しませんでした。
             switch.on = false
         }
         clock += 3_600_000
         assertEquals(AutoOnGate.Skip(AutoOnSkip.Blocked), a.gate(wifi = true))
         assertEquals(AutoOnBlock.GaveUp, a.blocked.value)
-        // 助手起来了(引擎调 reset):重新计数
+        // アシスタントが起動中 (エンジン リセット): 再カウント
         a.reset()
         assertEquals(AutoOnGate.Act, a.gate(wifi = true))
     }

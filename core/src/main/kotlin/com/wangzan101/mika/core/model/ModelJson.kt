@@ -5,14 +5,14 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
 /**
- * 读模型按要求交回的 JSON(核查结论、路线匹配、记忆变更……)。不同模型交回的样子不一样:套代码块、前后带几句话、
- * 先想一段再给、一个对象后面又跟一段带花括号的说明、键名大小写或写法不同。这里统一容忍这些;
- * 实在读不出来时再问一次,明确只要 JSON([completeParsed])。
+ * は、必要に応じてモデルから返された JSON を読み取ります (検証の結論、ルートの一致、メモリの変更など)。モデルが異なれば、提出のスタイルも異なります。コード ブロック、前後のいくつかの文、
+ * 段落を与える前に考えてください。オブジェクトの後には中括弧で囲まれた説明が続きます。キー名の大文字と小文字が区別されているか、表記が異なります。ここではこれらは一律に許容されます。
+ * どうしても読めない場合は、もう一度質問してください。 JSON ([completeParsed]) のみが必要であることは明らかです。
  */
 object ModelJson {
     private val lenient = Json { isLenient = true; ignoreUnknownKeys = true }
 
-    /** 回复里第一个能读成 JSON 对象的、括号配平的片段(字符串里的括号不算);没有为 null。 */
+    /** バランスのとれた括弧を含む JSON オブジェクトとして読み取ることができる応答内の最初のフラグメント (文字列内の括弧はカウントされません)。そうでない場合は null です。 */
     fun firstObject(text: String): JsonObject? {
         var from = text.indexOf('{')
         while (from >= 0) {
@@ -26,7 +26,7 @@ object ModelJson {
         return null
     }
 
-    /** 从 [start] 的 { 起,配平的 } 的位置;配不平为 -1。 */
+    /** は、[start] の { , トリミングされた } 位置から始まります。アンバランスは-1です。 */
     private fun balancedEnd(s: String, start: Int): Int {
         var depth = 0
         var inString = false
@@ -50,10 +50,10 @@ object ModelJson {
         return -1
     }
 
-    /** 键名比对前去掉大小写、下划线、连字符和空格(verdict、Verdict、final_verdict 里的写法差异)。 */
+    /** キー名の比較の前に大文字と小文字、アンダースコア、ハイフン、スペースを削除します（verdict、Verdict、final_verdictの書き方の違い）。 */
     private fun key(k: String) = k.lowercase().filter { it.isLetterOrDigit() }
 
-    /** 按 [names] 依次找(写法不同也认);都没有为 null。 */
+    /** は、[names] に従って順番に検索されます (異なる書き込み方法が受け入れられます)。誰もいない場合は null です。 */
     fun JsonObject.field(vararg names: String): JsonElement? {
         for (n in names) {
             this[n]?.let { return it }
@@ -63,12 +63,12 @@ object ModelJson {
         return null
     }
 
-    /** 第一次读不出来时补的一句。 */
-    const val JSON_ONLY = "上一条回复读不出 JSON。请只输出一个 JSON 对象,不要代码块标记,不要任何其他文字,格式照系统提示。"
+    /** 最初の返信から読み取れなかった場合に追加する一文。 */
+    const val JSON_ONLY = "前の返信からJSONを読み取れませんでした。JSONオブジェクトだけを出力してください。コードブロック記号や他の文字は付けず、形式はシステム指示に従ってください。"
 
     /**
-     * 调一次模型并用 [parse] 读回复;读不出来就把那次回复和 [JSON_ONLY] 接在后面再问一次。两次都不行为 null。
-     * 模型出错(异常)照常抛给调用方。
+     * はモデルを 1 回調整し、[parse] を使用して応答を読み取ります。読み上げられない場合は、その返信に従って [JSON_ONLY] を入力し、もう一度質問してください。どちらの時間も null ではありません。
+     * モデル エラー (例外) が通常どおり呼び出し元にスローされます。
      */
     suspend fun <T : Any> completeParsed(model: ChatModel, system: String, messages: List<Message>, parse: (String) -> T?): T? {
         val first = model.complete(system, messages, emptyList())

@@ -10,13 +10,13 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
-/** 从真实执行结果生成活动,避免由模型的进度文字猜测做了什么。 */
+/** は、実際の実行結果からアクティビティを生成し、モデルの進行状況テキストによって何が行われたかを推測することを回避します。 */
 internal object ActivityRecord {
     private val controls = setOf(
         Verb.Wait, Verb.AskUser, Verb.RequestConfirmation, Verb.HandToUser,
         Verb.HandleObstacle, Verb.EndNotDone,
     )
-    // 元素编号(ref)只对模型有意义,不当作给人看的对象
+    // 要素番号 (ref) はモデルにとってのみ意味があり、人が見ることができるオブジェクトではありません。
     private val targetKeys = listOf("package", "url", "path", "query")
 
     fun of(

@@ -14,36 +14,36 @@ import com.wangzan101.mika.core.shell.BuiltinShellFix
 import com.wangzan101.mika.core.shell.BuiltinShellStatus
 import com.wangzan101.mika.ui.components.ValueTone
 
-/** 设置页能直接做的修复动作。 */
+/** 設定ページで直接実行できます。 */
 enum class Fix {
     OpenAccessibility, AllowNotifications, AddModel,
-    /** 直接打开「需要你处理」/「任务结果」/「任务进度」频道的设置页,打开「在屏幕上弹出」;打不开退回应用通知总页。 */
+    /** 「Need You to Handle」/「Task Result」/「Task Progress」チャンネルの設定ページを直接開き、「Pop up on the screen」をオンにします。アプリケーション通知の一般ページに戻ることができません。 */
     OpenAttentionChannel, OpenResultChannel, OpenProgressChannel,
-    /** 「配对」通知频道的设置页:配对码要填在这类通知里。 */
+    /** 「ペアリング」通知チャネル設定ページ: このタイプの通知にはペアリング コードを入力する必要があります。 */
     OpenPairingChannel,
-    /** 本 App 的「应用信息」页:系统拦着不让开无障碍时,在这里允许受限制的设置。 */
+    /** このアプリの「アプリケーション情報」ページ: システムがアクセシビリティをブロックする場合、ここでは制限された設定が許可されます。 */
     OpenAppInfo,
-    // 内置助手
+    // 内蔵アシスタント
     OpenPhoneSetup, RepairPhoneHelper, RetryPhoneHelper, UnpairPhoneHelper,
     OpenAboutPhone, OpenDeveloperOptions, OpenUsbDebugging, OpenWirelessDebugging, OpenWifi,
 }
 
-/** 顶部横幅的一行字和右侧链接。 */
+/** 上部のバナーのテキスト行と右側のリンク。 */
 data class BannerCopy(val title: String, val detail: String, val link: String)
 
-/** 点开问题时的说明:用大白话讲清楚是什么、怎么办;[fix] 为空表示没有一键修复。 */
+/** 問題をクリックするときの手順: 平易な言葉を使用して、問題が何であるか、およびその方法を明確に説明します。 [fix] は空です。これは、ワンクリック修復がないことを意味します。 */
 data class Explanation(val title: String, val body: String, val action: String?, val fix: Fix?)
 
 object StatusCopy {
-    /** 不经模型连做几步时卡片和通知上的说法。 */
+    /** モデルを経由せずにいくつかのステップを実行するときにカードと通知に表示される内容を言います。 */
     fun progress(p: RunProgress): String = when (p) {
         is RunProgress.Replay -> tr(R.string.progress_replay, p.step, p.total)
         is RunProgress.Batch -> trPlural(R.plurals.progress_batch, p.steps)
-        // 只是在等另一个任务,不要用户做什么
+        // は別のタスクを待っているだけであり、ユーザーが何もする必要はありません。
         is RunProgress.WaitingForApp -> tr(R.string.progress_waiting_app, p.app)
     }
 
-    /** 付款接管的商品、金额、地址,一行一项;都没有时为 null。卡片和通知共用。 */
+    /** 支払い受領書の商品、金額、住所。1 行に 1 項目。何もない場合は null になります。カードと通知は共有されます。 */
     fun paymentLines(item: String?, amount: String?, address: String?): String? =
         listOfNotNull(
             item?.takeIf { it.isNotBlank() }?.let { tr(R.string.payment_item, it) },
@@ -57,23 +57,23 @@ object StatusCopy {
         AccessibilityState.EnabledNotRunning -> tr(R.string.state_not_running) to ValueTone.Bad
     }
 
-    /** 不用说明、点了直接修的问题。 */
+    /** 説明する必要はありません。クリックして問題を直接修正してください。 */
     fun directFix(p: Problem): Fix? = when (p) {
         Problem.NotificationsOff -> Fix.AllowNotifications
         is Problem.AttentionLowered -> headsUpFix(p)
         Problem.NoModel -> Fix.AddModel
-        // 引导页把每一步都讲清楚了,不再弹说明
+        // ガイド ページでは各ステップを明確に説明しており、これ以上の説明はありません。
         is Problem.PhoneHelper -> when {
             PhoneSetupCopy.canReconnect(p.status) -> Fix.RetryPhoneHelper
-            // 这个 Wi-Fi 还没允许无线调试:直接去亲手打开一次(系统会问要不要允许)
+            // この Wi-Fi ではワイヤレス デバッグがまだ許可されていません。自分で開いてください (許可するかどうかを尋ねるメッセージがシステムに表示されます)
             (p.status as? BuiltinShellStatus.Failed)?.fix == BuiltinShellFix.OpenWirelessDebugging -> Fix.OpenWirelessDebugging
             else -> Fix.OpenPhoneSetup
         }
         else -> null
     }
 
-    // ---- 设置 › 通知 ----
-    /** 停止之后、交代还没写好时那一行小字(对话页和悬浮卡片一样)。 */
+    // ---- 設定 › 通知 ----
+    /** 停止後、説明の前に書かれた短い言葉の行です（会話ページはフローティングカードと同じです）。 */
     val STOP_SUMMARIZING: String get() = tr(R.string.stop_summarizing)
     val NOTIFICATIONS: String get() = tr(R.string.notifications_title)
     val PROGRESS_CHANNEL: String get() = tr(R.string.channel_progress)
@@ -101,7 +101,7 @@ object StatusCopy {
     val RESULT_CHANNEL: String get() = tr(R.string.channel_result)
     val HEADS_UP_ACTION: String get() = tr(R.string.heads_up_action)
 
-    /** 被调低的两个频道里先处理「需要你处理」。 */
+    /** 拒否された 2 つのチャンネルのうち、「Need You to Handle」が最初に処理されます。 */
     fun headsUpFix(p: Problem.AttentionLowered): Fix = if (p.attention) Fix.OpenAttentionChannel else Fix.OpenResultChannel
 
     private fun headsUpTitle(p: Problem.AttentionLowered) =
@@ -124,7 +124,7 @@ object StatusCopy {
             BuiltinShellStatus.Connecting -> BannerCopy(tr(R.string.banner_connecting), tr(R.string.banner_connecting_detail), tr(R.string.view))
             is BuiltinShellStatus.Failed ->
                 if (st.reason == BuiltinShellFailure.NoWifi) BannerCopy(tr(R.string.banner_paused), PhoneSetupCopy.NO_WIFI_LINE, tr(R.string.view))
-                // 电脑起的助手停了:标题照实说,下面一句说怎么再起
+                // コンピューター起動アシスタントが停止しました: タイトルは真実を物語っており、次の文は再起動する方法を示しています
                 else if (st.reason == BuiltinShellFailure.UsbHelperStopped) BannerCopy(
                     PhoneSetupCopy.failure(st.reason).title, PhoneSetupCopy.failure(st.reason).body, tr(R.string.view),
                 )
@@ -139,7 +139,7 @@ object StatusCopy {
         }
         is Problem.Accessibility -> when (p.state) {
             AccessibilityState.Off -> BannerCopy(tr(R.string.banner_a11y_off), tr(R.string.banner_a11y_off_detail), tr(R.string.turn_on_go))
-            // 开机后还没解锁过时服务本来就绑不上:解锁后会自己恢复,不让用户去关掉再打开
+            // 古いサービスは、起動後にロック解除されるまでバインドできません。ロック解除後に自動的に復元され、ユーザーはサービスをオフにして再度オンにすることはできません。
             AccessibilityState.EnabledNotRunning ->
                 if (p.userLocked) BannerCopy(tr(R.string.banner_a11y_locked), tr(R.string.banner_a11y_locked_detail), tr(R.string.view))
                 else BannerCopy(tr(R.string.banner_a11y_not_running), tr(R.string.banner_a11y_not_running_detail), tr(R.string.fix_it))
@@ -192,24 +192,24 @@ object StatusCopy {
     }
 
     /**
-     * 任务卡片上跑命令这一步的说明:「正在处理文件:<命令前 40 字>」,联网时注明「可联网」。
-     * 运行环境对用户不可见,字面上不说沙箱。
+     * タスク カード上のコマンドを実行するステップの説明: 「処理中のファイル: <コマンドの最初の 40 ワード>」、およびインターネットに接続されている場合は「インターネットに接続できます」。
+     * の実行環境はユーザーには見えず、文字通りのサンドボックスではありません。
      */
     fun sandboxCommand(command: String, network: Boolean): String = sandboxLine(tr(R.string.sandbox_command_prefix), command, 40, network)
 
-    /** 跑技能脚本时:「正在运行脚本」。 */
+    /** スキルスクリプト実行時：「スクリプト実行中」。 */
     fun sandboxScript(network: Boolean): String = tr(R.string.sandbox_script) + if (network) " · $SANDBOX_ONLINE" else ""
 
-    /** 命令里 `mika progress` 报的进度。 */
+    /** コマンドの `mika progress` によって報告される進行状況。 */
     fun sandboxProgress(text: String, network: Boolean): String = sandboxLine("", text, 60, network)
 
     val SANDBOX_ONLINE: String get() = tr(R.string.sandbox_online)
 
-    /** 工具在等运行环境准备好时。 */
+    /** ツールは、実行環境の準備ができるのを待っています。 */
     val RUNTIME_PREPARING: String get() = tr(R.string.runtime_preparing)
 
     private fun sandboxLine(prefix: String, text: String, max: Int, network: Boolean): String {
-        // 和 `mika progress` 一样去掉控制字符、零宽与改写方向的字符,卡片上显示的就是实际的命令
+        // は `mika progress` と同じですが、制御文字、ゼロ幅、書き換え方向文字が削除されています。カードに表示されるのは実際のコマンドです。
         val one = com.wangzan101.mika.cap.sandbox.BridgeProtocol.cleanProgress(text.replace(Regex("\\s+"), " "))
         val cut = if (one.codePointCount(0, one.length) > max) one.substring(0, one.offsetByCodePoints(0, max)) + "…" else one
         return prefix + cut + if (network) " · $SANDBOX_ONLINE" else ""

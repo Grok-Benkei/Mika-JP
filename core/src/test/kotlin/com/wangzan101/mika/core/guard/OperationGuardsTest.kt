@@ -17,7 +17,7 @@ class OperationGuardsTest {
     private fun obj(s: String) = Json.parseToJsonElement(s).jsonObject
 
     @Test fun coordinateBucketing() {
-        // 坐标按 50 取整、忽略 reason 和键顺序、滑动只记方向。
+        // 座標は 50 に丸められ、理由とキー シーケンスは無視され、スライドは方向のみを記憶します。
         assertEquals(
             actionSignature("phone_tap", obj("""{"x":101,"y":149,"reason":"one"}""")),
             actionSignature("phone_tap", obj("""{"reason":"two","y":145,"x":105}""")),
@@ -62,7 +62,7 @@ class OperationGuardsTest {
         val perAction = (1..3).map { g.noteAction(); g.effect("no_effect") + g.frame("f$it", 42L) }
         assertEquals(3, g.unchangedFrames)
         assertEquals("no_progress", perAction.last().single().code)
-        // 小的局部变化也是进展，应清零
+        // 小さなローカル変更も進行中であるため、クリアする必要があります
         g.noteAction(); g.effect("small_change"); assertEquals(0, g.unchangedFrames)
         g.noteAction(); g.effect("done"); assertEquals(0, g.unchangedFrames)
     }
@@ -135,12 +135,12 @@ class OperationGuardsTest {
     @Test fun returningToTheSameScreenWithoutAnythingNewNudgesAtThree() {
         val g = OperationGuards()
         g.frame("s0", 1L)
-        // 1 → 2 → 1 → 3 → 1:2、3 是新的一屏,回到 1 的次数从头算,不提醒
+        // 1 → 2 → 1 → 3 → 1: 2 と 3 が新しい画面です。 1に戻る回数は最初から計算されます。リマインダーはありません。
         val fresh = listOf(2L, 1L, 3L, 1L).mapIndexed { i, h -> g.noteAction(); g.frame("a$i", h) }.flatten()
         assertTrue(fresh.toString(), fresh.none { it.code == "same_state" })
-        // 之后只在见过的几屏里转:第三次回到 1 时提醒
+        // その後は、見たことのあるいくつかの画面に切り替わるだけです: 3 回目に 1 に戻るときのリマインダー
         val stuck = listOf(2L, 3L, 1L, 2L, 3L, 1L).mapIndexed { i, h -> g.noteAction(); g.frame("b$i", h) }
-        // 只在见过的几个状态里转:回到同一状态或兜圈,总有一条提醒
+        // は、これまでに確認したいくつかの状態でのみ移動します。同じ状態に戻るか、ぐるぐる回って、常にリマインダーが表示されます。
         val same = stuck.flatten().filter { it.code == "same_state" || it.code == "state_cycle" }
         assertTrue(same.isEmpty())
     }
@@ -153,7 +153,7 @@ class OperationGuardsTest {
             .withIndex().filter { (_, l) -> l.any { it.code == "no_new_state" } }.map { it.index + 1 }
         assertEquals(listOf(8, 16, 30), v)
         assertNull(g.stop)
-        // 步数上限高的任务,安全网跟着往后
+        // ステップ制限が高いタスクの場合は、セーフティ ネットが続きます。
         val big = OperationGuards(stepBudget = 100)
         big.frame("s0", 1L); big.noteAction(); big.frame("s1", 2L)
         repeat(49) { i -> big.noteAction(); big.effect("small_change"); big.frame("y$i", 2L) }
@@ -168,7 +168,7 @@ class OperationGuardsTest {
         repeat(2) { g.noteAction(); g.frame("a$it", 1L) }
         g.noteAction(); assertTrue(g.frame("b", 2L).isEmpty())
         assertEquals(0, g.unchangedFrames)
-        // 同一 id 重复上报不计。
+        // 同じ ID を持つ重複レポートはカウントされません。
         g.noteAction(); g.frame("b", 2L)
         assertEquals(0, g.unchangedFrames)
     }
@@ -205,11 +205,11 @@ class OperationGuardsTest {
         assertEquals(List(6) { Severity.Warn } + Severity.Stop, counts.map { it.single().severity })
         assertEquals("too_many_failures", counts.last().single().code)
         assertEquals(8, counts.last().single().evidence["consecutive"]!!.jsonPrimitive.int)
-        // 第 4 次起提醒里附出路
-        assertFalse(counts[0].single().nudge!!.contains("ask the user"))
-        assertTrue(counts[2].single().nudge!!.contains("ask the user"))
+        // 4 番目のリマインダーは、脱出方法から始まります。
+        assertFalse(counts[0].single().nudge!!.contains("ユーザーに尋ねる"))
+        assertTrue(counts[2].single().nudge!!.contains("ユーザーに尋ねる"))
 
-        // 成功或 counts_as_failure=false 清零。
+        // は、成功または counts_as_failure=false の場合にクリアされます。
         val g2 = OperationGuards()
         g2.result("phone_tap", fail)
         g2.result("phone_tap", obj("""{"ok":true}"""))
@@ -231,7 +231,7 @@ class OperationGuardsTest {
         assertEquals("""{"code":"repeating_action","severity":"warn","evidence":{}}""", v.toJson().toString())
     }
 
-    // 页面没变、换着工具和参数反复读:读不出新东西,5、8 次提醒,12 次停;读到新内容、画面变了都从头算
+    // ページは変更されていません。ツールやパラメータを変更しながら何度も読みましたが、新しいものは何も読み取れません。 5、8回リマインドされ、12回止められました。新しいコンテンツを読んだり、画面が変わったりしたときは、最初から読みます。
     @Test fun rereadingAnUnchangedPageWarnsThenStops() {
         val g = OperationGuards()
         assertTrue(g.firstSeen(1L))
@@ -247,9 +247,9 @@ class OperationGuardsTest {
         val g = OperationGuards()
         g.firstSeen(1L)
         repeat(4) { assertTrue(g.read("phone_observe", g.firstSeen(1L)).isEmpty()) }
-        // 读整页换了起点:新内容,不算重读
+        // ページ全体を読み、開始点を変更しました: 新しいコンテンツ (再読み込みはカウントしません)
         repeat(10) { assertTrue(g.read("web_read_page", g.firstSeen(100L + it)).isEmpty()) }
-        // 画面变了:之前读到的不再作数
+        // 画像が変更されました。以前に読み取られた内容はカウントされなくなりました。
         g.frame("f0", 5L); g.noteAction(); g.frame("f1", 6L)
         assertTrue(g.firstSeen(1L))
         repeat(4) { assertTrue(g.read("phone_observe", g.firstSeen(1L)).isEmpty()) }

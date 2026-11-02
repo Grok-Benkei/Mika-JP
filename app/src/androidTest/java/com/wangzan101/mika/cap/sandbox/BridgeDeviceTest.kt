@@ -24,8 +24,8 @@ import java.util.Collections
 import java.util.UUID
 
 /**
- * 桥的真机用例:沙箱里的 `mika` 命令经抽象套接字回调 Mika。用装好的沙箱(python3 与 mika 客户端都是安装时放的);
- * 没装好就跳过。
+ * ブリッジの実マシンの使用例: サンドボックス内の `mika` コマンドは、抽象ソケット経由でミカにコールバックします。インストールされたサンドボックスを使用します (Python3 クライアントと mika クライアントの両方がインストール中にインストールされます)。
+ * がインストールされていない場合はスキップされます。
  */
 @RunWith(AndroidJUnit4::class)
 class BridgeDeviceTest {
@@ -36,14 +36,14 @@ class BridgeDeviceTest {
     private fun sh(command: String): CommandResult =
         runBlocking { sb.run("bridge-ws", listOf("/bin/sh", "-lc", command), null, 30_000) { progress += it } }
 
-    // 用装好的沙箱(装的时候装了 python3 和 mika 客户端);没装好就跳过,测试不自己解根文件系统
+    // は、インストールされたサンドボックスを使用します (Python3 と mika クライアントはインストール中にインストールされます)。インストールされておらず、テスト自体がルート ファイル システムのブロックを解除しない場合はスキップします。
     @Before fun needsInstalledSandbox() {
         assumeTrue("sandbox not installed", SandboxState.get(context).status.value is SandboxStatus.Ready)
         assumeTrue("python3 not installed in the rootfs",
             Files.exists(File(SandboxDirs(context).rootfs, "usr/bin/python3").toPath(), LinkOption.NOFOLLOW_LINKS))
     }
 
-    // 导出到「下载/Mika」的测试文件删掉,不留在用户的下载目录里
+    // 「Download/Mika」にエクスポートされたテスト ファイルは削除され、ユーザーのダウンロード ディレクトリには残りません。
     @After fun deleteExported() {
         for (f in shared) runCatching { context.contentResolver.delete(Uri.parse(f.uri), null, null) }
         SandboxDirs(context).workspace("bridge-ws").deleteRecursively()
@@ -56,7 +56,7 @@ class BridgeDeviceTest {
     }
 
     @Test fun shareCallsExporter() {
-        // 名字带随机串,下载目录里不会撞名;工作区外的文件先被路径规则拒掉
+        // の名前にはランダムな文字列が含まれているため、ダウンロード ディレクトリ内で名前が衝突することはありません。ワークスペース外のファイルは、最初にパス規則によって拒否されます。
         val name = "mika-bridge-test-${UUID.randomUUID().toString().take(8)}.txt"
         val r = sh("echo hi > $name; mika share $name; echo rc=$?; mika share /etc/passwd; echo rc=$?")
         assertTrue(r.output, r.output.contains("\"savedAs\":\"Download/Mika/$name\""))

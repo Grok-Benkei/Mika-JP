@@ -25,7 +25,7 @@ class AppsAfterTaskTest {
         val muted = AppsAfterTask.Task(2, listOf("a.music"), standard = true, own = false, playing = null, muted = true)
         assertEquals(false to Why.PlaybackUnknown, fates(muted)[2])
         assertEquals(true to Why.Marked, fates(muted, keep = setOf("a.music"))[2])
-        // 读得到、没在出声的,静着也留下
+        // 読めれば、音が出ていなければ、黙っていても放っておいても大丈夫です。
         assertEquals(true to Why.Default, fates(muted.copy(playing = false))[2])
     }
 

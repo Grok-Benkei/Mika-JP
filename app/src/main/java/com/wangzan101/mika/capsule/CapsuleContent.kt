@@ -77,28 +77,28 @@ import com.wangzan101.mika.ui.theme.MikaShapes
 import com.wangzan101.mika.ui.theme.MikaTheme
 import kotlin.math.ceil
 
-/** 胶囊外面留给阴影的边:浮层窗口按内容大小,阴影画在窗口里面;留得越少,窗口挡住下面 App 的透明边越窄。 */
+/** カプセルの外側の影のために残されたエッジ: フローティング レイヤー ウィンドウのサイズはコンテンツに応じて変更され、影はウィンドウの内側に描画されます。残りが少ないほど、ウィンドウの左側にある透明なエッジが狭くなり、下のアプリをブロックします。 */
 internal val CapsuleShadowRoom = 8.dp
 private val CapsuleHeight = 40.dp
 private val BarHeight = 48.dp
 private val LogoSize = 30.dp
 private const val FADE_MS = 400
-/** 截到屏幕时一颗上那一闪:多亮、多久退掉。 */
+/** 画面をキャプチャすると、明るさと消えていくまでの時間が点滅します。 */
 private const val FLASH_ALPHA = 0.8f
 private const val FLASH_MS = 320
-/** 一颗展开成胶囊、缩回一颗的时长。 */
+/** カプセルが拡張および収縮するのにかかる時間。 */
 private const val MORPH_MS = 260
-/** 长按说话时放大多少、外圈多粗、变过去多久。 */
+/** 長押しして話すとどのくらいズームインしますか、外側のリングの厚さはどれくらいですか、ズームインするのにどのくらい時間がかかりますか? */
 private const val HOLD_SCALE = 0.06f
 private val HoldRing = 3.dp
 private const val HOLD_MS = 180
-/** 干活中的圈转一周的时长。 */
+/** 仕事における一周の時間の長さ。 */
 private const val SPIN_MS = 1_200
 private val CapsuleText = TextStyle(fontSize = 13.5.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium)
 private val BarDetail = TextStyle(fontSize = 11.5.sp, lineHeight = 15.sp)
 private val CountText = TextStyle(fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.SemiBold)
 
-/** 胶囊上的固定说法。 */
+/** カプセルの発言を修正しました。 */
 object CapsuleCopy {
     val STOP: String get() = tr(R.string.capsule_stop)
     val EXPAND: String get() = tr(R.string.capsule_expand)
@@ -106,7 +106,7 @@ object CapsuleCopy {
     val SWAP_SIDE: String get() = tr(R.string.capsule_swap_side)
     const val IDLE = "Mika"
 
-    /** 读屏时一颗图标的说法:在做什么、要不要你处理、结果;好几件时的件数已在 [CapsuleView.Shown.text] 里。 */
+    /** 画面を読み取るときのアイコンの説明: 何をしているのか、それを処理するかどうか、および結果。数個分の個数はすでに [CapsuleView.Shown.text] にあります。 */
     fun describe(view: CapsuleView.Shown): String = when {
         view.kind == CapsuleKind.Idle -> IDLE
         view.kind.needsYou -> tr(R.string.capsule_desc_needs, view.text)
@@ -117,17 +117,17 @@ object CapsuleCopy {
 }
 
 /**
- * 悬浮胶囊,不带状态:平时是一颗 Mika 图标,状态画在外圈和角标上(干活中蓝弧绕着转、等条件灰圈、要你处理整颗变橙、
- * 外圈一呼一吸;好几件时角上写件数;办好了绿勾,没办成、已停止灰色角标;空闲时什么都没有);
- * [CapsuleView.Shown.pill] 时展开成一行字的胶囊(要你处理、刚办完),宽度慢慢变,图标贴着停靠的那一边([side])不动;
- * App 交到你手上时是顶部那一条「你来处理 · 不做了 · 处理好了」。
- * 胶囊只一行字,最宽到屏幕的 60%,超出截断;同一个 [CapsuleView.Shown.widthEpoch] 里只变宽不变窄。
- * 点一颗或胶囊交给 [onTap](展开卡片),读屏时这一下的说法是 [tapLabel];那一条上的两个按钮交给 [onStop]、[onHandBack]。
- * [onSwapSide] 给了时读屏软件多一个「移到屏幕另一边」,代替拖动。[alpha] 只淡底和图标,外圈和角标保持实色。
- * 双击由调用方从两次 [onTap] 认出来;读屏软件的双击就是点按,所以 [onSendScreen] 给了时另有一个「把此刻的屏幕发给 Mika」。
- * [flash] 每加一,一颗上闪一下(截到了屏幕)。
- * [holding] 时是长按说话中:胶囊稍微放大、外面一圈蓝边。[onTalk] 给了时读屏软件多一个说话的操作([talkLabel]),代替长按:
- * 点一下开始、再点一下发出。
+ * サスペンションカプセル、ステータスなし：通常はミカのアイコンで、外側の円とコーナーマークにステータスが描かれます（青い円弧は作業中に回転し、灰色の円は条件を待ち、処理するとカプセル全体がオレンジ色に変わります）
+ * 外側のリングは吐き出しと吸い込みを行います。複数のピースがある場合は、隅にピースの数が書かれています。プロセスが完了した場合は緑色のチェックマークが表示され、完了していない場合は灰色のコーナーマークが停止します。アイドル状態の場合は何もありません)。
+ * [CapsuleView.Shown.pill] はカプセルの列に展開され (処理する必要があります。完了したばかりです)、幅はゆっくりと変化し、アイコンはドッキングされた側 ([side]) に対して移動しません。
+ * アプリが手渡されると、上部に「あなたが処理します。実行しないでください。完了です。」という行があります。
+ * カプセルにはテキストが 1 行しかなく、最大幅は画面の 60% に達し、切り捨てを超えています。同じ[CapsuleView.Shown.widthEpoch]は幅が広くなるだけで狭くなりません。
+ * の場合は、1 つまたはカプセルをクリックして [onTap] に渡します (カードを展開します)。画面を読むと、この点は [tapLabel] と言われます。そのバーの 2 つのボタンを [onStop] と [onHandBack] に割り当てます。
+ * [onSwapSide] は、画面読み上げソフトウェアに、ドラッグの代わりに「画面の反対側への移動」を追加します。 [alpha] には明るい背景とアイコンのみがあり、外側のリングとコーナー マーカーは単色のままです。
+ * のダブルクリックは、呼び出し側によって 2 つの [onTap] から認識されます。画面読み上げソフトのダブルクリックはクリックなので、[onSendScreen]を与えると、また「現在の画面を美香に送信」があります。
+ * [flash] 1 つ追加するたびに 1 つが点滅します (スクリーンショット)。
+ * [holding] 長押しして話すと、カプセルがわずかに拡大され、外側に青い枠が付きます。 [onTalk] は、長押しの代わりに、画面読み上げソフトウェアに追加の読み上げ操作 ([talkLabel]) を提供します。
+ * クリックして開始し、もう一度クリックして送信します。
  */
 @Composable
 fun CapsuleContent(
@@ -146,7 +146,7 @@ fun CapsuleContent(
     onTalk: (() -> Unit)? = null,
     talkLabel: String = "",
 ) {
-    // 淡下去、恢复都慢慢来;关了动画时直接换
+    // フェードと復元には時間をかけてください。アニメーションをオフにする場合は直接変更してください
     val shown = if (MikaTheme.reduceMotion) alpha else animateFloatAsState(alpha, tween(FADE_MS), label = "fade").value
     val a11y = Modifier.semantics {
         customActions = listOfNotNull(
@@ -161,15 +161,15 @@ fun CapsuleContent(
     }
 }
 
-/** 一颗或展开的胶囊:同一块玻璃底,看得见的宽度在两者之间慢慢变(只在画的时候变,见 [Morph]);[end] 时贴右边(图标在右)。 */
+/** カプセルまたは展開されたカプセル: 同じガラス底で、目に見える幅が 2 つの間でゆっくりと変化します (描画時のみ変化します。[Morph] を参照)。 [end]は右側に付いています(右側のアイコン)。 */
 @Composable
 private fun Capsule(view: CapsuleView.Shown, end: Boolean, onTap: () -> Unit, tapLabel: String, a11y: Modifier, alpha: Float, flash: Int, holding: Boolean) {
     val c = MikaTheme.colors
-    // 长按说话中:放大一点、外面一圈蓝边(画在阴影边里,窗口大小不变)
+    // 長押しして話す: 少しズームインすると、外側に青い境界線が表示されます (影の境界線に描画され、ウィンドウのサイズは変わりません)
     val press = if (MikaTheme.reduceMotion) (if (holding) 1f else 0f)
         else animateFloatAsState(if (holding) 1f else 0f, tween(HOLD_MS), label = "hold").value
     val need = view.kind.needsYou || view.needCount > 0
-    // 截到屏幕:白光从亮到无,和截图时屏幕闪一下一个意思;关了动画时不闪
+    // スクリーンショット: 白色光が明るい状態から消えます。これは、スクリーンショットを撮るときに画面が点滅することを意味します。アニメーションがオフの場合は点滅しません。
     val glow = remember { Animatable(0f) }
     val still = MikaTheme.reduceMotion
     val morph = rememberMorph(animate = !still)
@@ -204,7 +204,7 @@ private fun Capsule(view: CapsuleView.Shown, end: Boolean, onTap: () -> Unit, ta
             else Box(Modifier.size(CapsuleHeight), contentAlignment = Alignment.Center) { CapsuleLogo() }
             if (glow.value > 0f) Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Color.White.copy(alpha = glow.value)))
         }
-        // 外圈和角标不随底淡下去;缩回时贴着图标那一边,不跟着还没收完的宽度走
+        // 外輪とコーナーマークは底部とともに消えません。引っ込めると、マークの側面にくっついて、まだ完成していない幅に追従しません。
         if (!view.pill) Box(Modifier.align(if (end) Alignment.CenterEnd else Alignment.CenterStart).size(CapsuleHeight)) {
             Ring(view.kind, need, Modifier.matchParentSize())
             Badge(view, need, Modifier.align(Alignment.TopEnd).offset(3.dp, (-3).dp))
@@ -212,12 +212,12 @@ private fun Capsule(view: CapsuleView.Shown, end: Boolean, onTap: () -> Unit, ta
     }
 }
 
-/** 展开的胶囊里那一行:图标、状态标记、字;贴右边时图标在最右,和一颗时的位置一样。 */
+/** 展開されたカプセル内の行: アイコン、ステータス マーク、単語。右に貼り付けると、アイコンはカプセルのときと同じ一番右の位置になります。 */
 @Composable
 private fun PillRow(view: CapsuleView.Shown, end: Boolean, need: Boolean) {
     val c = MikaTheme.colors
     val maxWidth = (LocalConfiguration.current.screenWidthDp * 0.6f).dp
-    // 同一件事、同一个状态里换句只变宽:记下这一段里最宽的时候
+    // 同じこと、同じ状態では、他の文は幅が広くなるだけです。この段落で最も幅が広い瞬間を書き留めてください。
     var widest by remember(view.widthEpoch) { mutableIntStateOf(0) }
     val minWidth = with(LocalDensity.current) { widest.toDp() }
     Row(
@@ -238,7 +238,7 @@ private fun PillRow(view: CapsuleView.Shown, end: Boolean, need: Boolean) {
     }
 }
 
-/** 文字前面的状态标记:要你处理是呼吸点,办好了是勾,没办成是叹号,已停止是停止,后台网页运行中是绿点。 */
+/** テキストの前のステータス マーク: 処理したい場合は呼吸ポイントを意味し、処理が完了した場合はチェックマーク、処理が完了していない場合は感嘆符、停止している場合は停止し、バックグラウンド Web ページが実行されている場合は緑色の点になります。 */
 @Composable
 private fun Leading(kind: CapsuleKind) {
     val c = MikaTheme.colors
@@ -252,7 +252,7 @@ private fun Leading(kind: CapsuleKind) {
     }
 }
 
-/** 后台网页运行中:绿色圆点,外面一圈淡绿。 */
+/** 背景の Web ページが実行中です。緑色の点とその外側に薄緑色の円が表示されます。 */
 @Composable
 private fun LiveDot(c: MikaColors) {
     Box(Modifier.size(14.dp).testTag("capsule-live-dot"), contentAlignment = Alignment.Center) {
@@ -261,7 +261,7 @@ private fun LiveDot(c: MikaColors) {
     }
 }
 
-/** 需要你:橙色圆点,外面一圈淡橙一呼一吸;关了动画时不动。 */
+/** はあなたを必要としています。オレンジ色の点、外側の明るいオレンジ色の円、息を吐き、吸います。アニメーションをオフにすると動きません。 */
 @Composable
 private fun BreathingDot(c: MikaColors) {
     val halo = breathe(still = 0f)
@@ -271,13 +271,13 @@ private fun BreathingDot(c: MikaColors) {
     }
 }
 
-/** 一呼一吸(0..1 来回);关了动画时停在 [still]。 */
+/** は吐き出しと吸い込みを行います (0..1 往復)。アニメーションをオフにすると、[still] で停止します。 */
 @Composable
 private fun breathe(still: Float): Float = if (MikaTheme.reduceMotion) still else rememberInfiniteTransition(label = "breathe").animateFloat(
     0f, 1f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "breathe",
 ).value
 
-/** 一颗图标的外圈:干活中一段蓝弧绕着转(关了动画时是一整圈不动),等条件灰色一整圈,要你处理橙色一整圈一呼一吸;其余没有。 */
+/** アイコンの外側の円: 作業中は青い円弧が回転し (アニメーションがオフになっている場合は一周静止します)、その他の状況では灰色の円が表示され、オレンジ色の円は 1 回の呼吸と 1 回の呼吸で処理する必要があります。残りはそうではありません。 */
 @Composable
 private fun Ring(kind: CapsuleKind, need: Boolean, modifier: Modifier) {
     val c = MikaTheme.colors
@@ -305,7 +305,7 @@ private fun Ring(kind: CapsuleKind, need: Boolean, modifier: Modifier) {
     }
 }
 
-/** 一颗图标角上的标:好几件时写件数(要你处理橙、等条件灰、其余蓝);只一件时办好了绿勾,没办成、已停止灰色。 */
+/** アイコンの隅にあるマーク: 項目が複数ある場合は、項目の数を記入します (オレンジ色、その他の条件の場合は灰色、その他の場合は青色)。項目が 1 つだけ完了している場合は緑色のチェック マークが表示され、完了していない場合は灰色のチェック マークが表示され、停止されています。 */
 @Composable
 private fun Badge(view: CapsuleView.Shown, need: Boolean, modifier: Modifier) {
     val c = MikaTheme.colors
@@ -340,9 +340,9 @@ private fun Badge(view: CapsuleView.Shown, need: Boolean, modifier: Modifier) {
 }
 
 /**
- * 一颗和胶囊之间宽度慢慢变,只变画出来的那块玻璃,不逐帧改布局:浮层窗口跟着内容大小,布局一变窗口就要跟着重排、换画布,
- * 逐帧变就一卡一卡。[target] 是内容此刻的宽,[width] 是看得见的宽(动画),[hold] 是动画期间布局占的宽——起点和终点里宽的那个,
- * 所以变宽时窗口一下到最宽、变窄时等画完才缩,一次变形窗口至多变一次。第一次出现和关了动画时直接是内容的宽度。
+ * カプセルとカプセルの間の幅はゆっくりと変化し、ペイントされたガラス片のみが変化し、レイアウトはフレームごとに変更されません。フローティング レイヤー ウィンドウはコンテンツのサイズに従い、レイアウトが変更されると、ウィンドウを再配置してキャンバスを変更する必要があります。
+ * はフレームごとに変化します。 [target] は現時点のコンテンツの幅、[width] は表示幅 (アニメーション)、[hold] はアニメーション中にレイアウトが占める幅 (開始点と終了点の間の幅)、
+ * そのため、ウィンドウを広げると一気に最大幅に達し、狭くする場合は塗装が完了するまで縮みません。ウィンドウは変形中に最大 1 回変更されます。最初に表示されるとき、およびアニメーションがオフになっているときは、コンテンツの幅がそのまま表示されます。
  */
 private class Morph {
     val width = Animatable(0f)
@@ -366,7 +366,7 @@ private fun rememberMorph(animate: Boolean): Morph {
     return m
 }
 
-/** 布局占 [Morph.hold] 和内容里宽的那个,内容贴着停靠的那一边摆([end] 时贴右边):向里长、向边收,图标不动。 */
+/** のレイアウトは、[Morph.hold] の幅とコンテンツを占めます。コンテンツはドッキングされた側に配置されます ([end] は右側に接続されています)。コンテンツは内側に拡大し、側面に縮小します。アイコンは移動しません。 */
 private fun Modifier.morphLayout(m: Morph, end: Boolean): Modifier = layout { measurable, constraints ->
     val p = measurable.measure(constraints.copy(minWidth = 0))
     if (p.width != m.target) m.target = p.width
@@ -375,8 +375,8 @@ private fun Modifier.morphLayout(m: Morph, end: Boolean): Modifier = layout { me
 }
 
 /**
- * 玻璃底(同 [glass]),只画看得见的那一段宽、贴着停靠的那一边:阴影、裁切、底色和描边都按它,宽度变时只重画图层。
- * [alpha] 淡底和里面的图标。
+ * ガラス底部 ([glass] と同じ)、表示される幅とドッキングされている側のみを描画します。クリックすると、影、トリミング、背景色、ストロークが表示されます。幅が変更されると、レイヤーのみが再描画されます。
+ * [alpha] 明るい背景と内側のアイコン。
  */
 private fun Modifier.morphGlass(m: Morph, end: Boolean, c: MikaColors, need: Boolean, alpha: Float): Modifier =
     graphicsLayer {
@@ -397,7 +397,7 @@ private fun Modifier.morphGlass(m: Morph, end: Boolean, c: MikaColors, need: Boo
             if (need) c.warnSolid.copy(alpha = 0.5f) else c.glassEdge, style = Stroke(stroke))
     }
 
-/** 宽 [width](0 或超出时按整块)、贴着一边([end] 时右边)的胶囊形;[inset] 往里收(画描边用)。 */
+/** は、幅が [width] (0 以上、ブロック全体を押す) で片側 ([end] の場合は右側) に近いカプセル形状です。 [inset] は閉じられています (ストロークを描画するため)。 */
 private class EdgePill(private val width: Float, private val end: Boolean, private val inset: Float = 0f) : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
         val w = if (width > 0f) width.coerceAtMost(size.width) else size.width
@@ -407,7 +407,7 @@ private class EdgePill(private val width: Float, private val end: Boolean, priva
     }
 }
 
-/** App 在你手上时顶部那一条:「你来处理」和下面一行小字,右边「不做了」「处理好了」。 */
+/** アプリが手にあると、上部に「あなたが処理します」という行があり、その下に小さな単語の行があり、その右側には「もうだめです」と「完了しました」と表示されます。 */
 @Composable
 private fun TakeoverBar(view: CapsuleView.Shown, onStop: () -> Unit, onHandBack: () -> Unit) {
     val c = MikaTheme.colors
@@ -437,15 +437,15 @@ private fun TakeoverBar(view: CapsuleView.Shown, onStop: () -> Unit, onHandBack:
     }
 }
 
-/** 胶囊上的 Mika 图标(圆形)。 */
+/** カプセル上のミカのアイコン (丸)。 */
 @Composable
 private fun CapsuleLogo() {
     MikaLogo(LogoSize, corner = LogoSize / 2)
 }
 
 /**
- * 浮在别的 App 上的玻璃底:浮层窗口里拿不到下面 App 的画面做模糊,用接近不透明的卡片底、细描边和悬浮阴影;
- * 需要你时叠一层淡橙、描边变橙。
+ * 他のアプリ上に浮かぶガラスの底部: 基礎となるアプリの画面がフローティング レイヤー ウィンドウに表示されないようにぼかし、ほぼ不透明なカード底部、細いストローク、および浮遊シャドウを使用します。
+ * 必要に応じて、薄いオレンジのレイヤーを重ね、ストロークをオレンジに変更します。
  */
 internal fun Modifier.glass(c: MikaColors, shape: Shape, need: Boolean): Modifier =
     shadow(8.dp, shape, clip = false, ambientColor = c.floatShadow.copy(alpha = 0.25f), spotColor = c.floatShadow.copy(alpha = 0.3f))

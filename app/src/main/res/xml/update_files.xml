@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 走网络代理时 Mika 自己下的更新安装包:只有应用专属外部目录里的 Download/updates/ -->
+<!-- ネットワーク プロキシを使用する場合、Mika 独自のアップデート インストール パッケージ: アプリケーション固有の外部ディレクトリ内の Download/updates/ のみ -->
 <paths>
     <external-files-path name="updates" path="Download/updates/" />
 </paths>

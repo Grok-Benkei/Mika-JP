@@ -1,1 +1,1 @@
-Search file contents under /workspace or /opt/mika/skills with a regular expression. Returns up to 100 matches with file, line number and the line text.
+/workspace または /opt/mika/skills の下にあるファイルの内容を、正規表現で検索する。ファイル、行番号、その行の文面を最大100件返す。

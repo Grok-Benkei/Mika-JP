@@ -25,11 +25,11 @@ import com.wangzan101.mika.core.uistate.described
 import com.wangzan101.mika.core.uistate.locatedInfo
 import com.wangzan101.mika.core.uistate.locator
 
-/** 看图类工具:要设置里有看图模型(视觉角色)才提供,和主模型能不能看图无关。 */
+/** 画像閲覧ツール: 設定に画像閲覧モデル(ビジュアルロール)がある場合にのみ提供され、メインモデルが画像を閲覧できるかどうかとは関係ありません。 */
 internal class Describe(f: ScreenFamily) : ScreenTool(f, "describe") {
     override val verb = Verb.Describe
     override val risk = Risk.Read
-    // 只问看图模型、不动界面:用户插话时撤掉,先读那句话
+    // 画像モデルを参照するように依頼するだけです。インターフェイスを移動しないでください。ユーザーが中断したら削除し、最初に文を読んでください。
     override val yieldsToSteer = true
     override val def by lazy { ToolDef(name,
         describe(),

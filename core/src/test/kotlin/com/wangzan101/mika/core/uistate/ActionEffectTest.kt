@@ -10,7 +10,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 动作效果按前后两屏(元素表 + 画面)判:结构差异的分类、输入读回、换地方。屏幕取自真实运行里常见的几种界面。 */
+/** のアクション効果は、表裏画面（要素表＋画面）の構造差分の分類、入力の読み戻し、場所の変化によって判定されます。画面は、実際の操作におけるいくつかの一般的なインターフェイスから取得されています。 */
 class ActionEffectTest {
     private var n = 0
     private fun el(name: String, b: List<Int>, role: String = "text", editable: Boolean = false, focused: Boolean = false,
@@ -20,7 +20,7 @@ class ActionEffectTest {
 
     private fun screen(pkg: String, vararg e: UiElement, web: WebInfo? = null) = ScreenSnapshot("s${++n}", pkg, e.toList(), 1080, 2400, web = web)
 
-    /** 设置主页:一列条目。 */
+    /** ホーム ページを設定します: エントリのリスト。 */
     private fun settings(offset: Int = 0, vararg names: String = arrayOf("网络和互联网", "已连接的设备", "应用", "通知", "电池", "存储", "声音", "显示")) =
         screen("com.android.settings", *names.mapIndexed { i, s -> el(s, listOf(0, 100 + i * 100 - offset, 999, 180 + i * 100 - offset), id = "android:id/title") }.toTypedArray())
 
@@ -81,7 +81,7 @@ class ActionEffectTest {
         val e = classify(Verb.Tap, list, item)
         assertEquals(EffectKind.PlaceChanged, e.kind)
         assertEquals("https://shop.example.com/item/1", e.toJson()["web"]!!.jsonObject["url"]!!.jsonPrimitive.content)
-        // 只换了 # 之后:同一页,按结构判
+        // #: を変更しただけで同じページ、構造で判断
         val anchored = list.copy(web = list.web!!.copy(url = "https://shop.example.com/list#reviews"))
         assertEquals(EffectKind.NoEffect, classify(Verb.Tap, list, anchored).kind)
     }
@@ -95,15 +95,15 @@ class ActionEffectTest {
         assertEquals(EffectKind.Done, ok.kind)
         assertEquals(Readback("咖啡豆", secret = false, matches = true), ok.readback)
         assertEquals(1, ok.diff!!.edited)
-        // 框里变成了别的(被 App 改写、截断):读回不一致,要看一眼
+        // ボックスは別のものに変更されました (アプリによって書き換えられ、切り詰められました): リードバックに一貫性がありません。確認してください。
         val other = classify(Verb.TypeText, before, screen("com.shop", el("咖啡", f, "edit", editable = true, focused = true, id = "q")), target = field, typed = "咖啡豆")
         assertEquals(EffectKind.SmallChange, other.kind)
         assertFalse(other.readback!!.matches)
         assertEquals("咖啡", other.toJson()["readback"]!!.jsonPrimitive.content)
-        // 什么都没进去
+        // 何も入りません
         val nothing = classify(Verb.TypeText, before, before, target = field, typed = "咖啡豆")
         assertEquals(EffectKind.NoEffect, nothing.kind)
-        // 号码分组的空格不算不一致
+        // 番号グループ内のスペースは矛盾していません。
         val spaced = classify(Verb.TypeText, before, screen("com.shop", el("138 0000 0000", f, "edit", editable = true, focused = true, id = "q")), target = field, typed = "13800000000")
         assertTrue(spaced.readback!!.matches)
     }
@@ -142,11 +142,11 @@ class ActionEffectTest {
 
     @Test fun frameDecidesWhenTheTreeSaysNothing() {
         val s = settings()
-        // 画面在目标处变了一块(开关、涟漪之后的状态):小变化
+        // 対象で画面がピース変更（スイッチ後の状態と波紋）：微変化
         assertEquals(EffectKind.SmallChange, classify(Verb.Tap, s, s, frame = FrameChange(0.02, 0.4)).kind)
-        // 只有画面在动而元素表没变:最多算小变化(视频、动画不当成「做成了」)
+        // 画面のみが移動しますが、要素テーブルは変更されません。変更はせいぜい小さなものです (ビデオとアニメーションは「完了」とはみなされません)
         assertEquals(EffectKind.SmallChange, classify(Verb.Tap, s, s, frame = FrameChange(0.6, 0.6)).kind)
-        // 自绘界面(几乎没有元素):大面积变了算做成了
+        // 自己描画インターフェイス (要素はほとんどありません): 大きな領域が変更され、最終的に作成されました
         val drawn = screen("com.game")
         assertEquals(EffectKind.Done, classify(Verb.Tap, drawn, drawn, frame = FrameChange(0.6, null)).kind)
         assertEquals(EffectKind.NoEffect, classify(Verb.Tap, drawn, drawn, frame = FrameChange(0.0, 0.0)).kind)
@@ -159,7 +159,7 @@ class ActionEffectTest {
         assertNull(ActionEffect.classify(Verb.Tap, null, a, PortFacts(), null))
     }
 
-    /** 开关一拨:名字、位置都没变,只有控件状态变了。 */
+    /** スイッチ: 名前と位置は変更されていません。コントロールのステータスのみが変更されています。 */
     @Test fun toggledSwitchIsSeenFromItsState() {
         val off = screen("com.android.settings", el("WLAN", listOf(0, 100, 999, 180), "Switch", id = "android:id/switch_widget"), el("已保存的网络", listOf(0, 300, 999, 380)))
         val on = screen("com.android.settings", el("WLAN", listOf(0, 100, 999, 180), "Switch", id = "android:id/switch_widget", states = setOf(UiStates.CHECKED)), el("已保存的网络", listOf(0, 300, 999, 380)))
@@ -169,7 +169,7 @@ class ActionEffectTest {
         assertEquals(1, e.toJson()["toggled"]!!.jsonPrimitive.content.toInt())
     }
 
-    /** 拿不准时不说没效果:端口核实到变了,结构上又看不出,至少是小变化。 */
+    /** よくわからない場合は言わなくても意味がありません。ポートが変更されたことは確認されていますが、構造は確認できません。少なくとも小さな変更です。 */
     @Test fun portSaysChangedNeverReadsAsNoEffect() {
         val s = settings()
         assertEquals(EffectKind.SmallChange, classify(Verb.Tap, s, s, changed = true).kind)
@@ -182,10 +182,10 @@ class ActionEffectTest {
         assertEquals(EffectKind.SmallChange, e.kind)
         assertTrue(e.loading)
         assertEquals(true, e.toJson()["mayStillBeLoading"]!!.jsonPrimitive.content.toBoolean())
-        // 界面上有进度条
+        // インターフェイスには進行状況バーがあります
         val spinning = screen("com.shop", el("加载中", listOf(400, 400, 600, 600), "ProgressBar"))
         assertTrue(classify(Verb.Tap, spinning, spinning).loading)
-        // 读的时候界面还在动
+        // 読み取り時にインターフェイスがまだ動いています。
         assertEquals(EffectKind.SmallChange, classify(Verb.Tap, s, s.copy(changedDuringRead = true)).kind)
     }
 }

@@ -1,1 +1,1 @@
-List this task's browser tabs, switch to one or close one. The web_* tools act on the current tab.
+この作業のブラウザタブを列挙し、1つに切り替え、または1つを閉じる。web_* の手段は現在のタブに作用する。

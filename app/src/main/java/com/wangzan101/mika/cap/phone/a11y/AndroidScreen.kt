@@ -85,64 +85,64 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * [ScreenPort] 的安卓实现:读 Agent 虚拟屏的无障碍窗口,在这块屏上操作。
- * 每个动作之后等界面安静下来,用控件树指纹(辅以画面)核实有没有生效,并检查前台是否被别的 App 切走。
- * 虚拟屏用到时才建(第一次 launch_app,或系统命令、事件工具):没建之前读屏是一块空屏,其余动作失败 [NO_APP_OPEN],这些动作自己不会去建屏。
- * 屏建好不等于打开过 App:只跑系统命令的任务屏上是空的。
+ * [ScreenPort] の Android 実装: エージェント仮想画面のバリアフリー ウィンドウを読み取り、この画面上で操作します。
+ * 各アクションの後でインターフェイスが静まるのを待ち、コントロール ツリーのフィンガープリント (画面で補足) を使用してそれが有効になったかどうかを確認し、フロント デスクが他のアプリによって切り離されていないかどうかを確認します。
+ * 仮想画面は、使用されるとき (最初の launch_app、またはシステム コマンド、イベント ツール) にのみ構築されます。構築される前は、画面の読み取りは空白の画面であり、他のアクションは失敗します。 [NO_APP_OPEN]、これらのアクションは単独で画面を構築しません。
+ * 画面が作成された後は、アプリが開かれたことを意味するものではありません。システム コマンドのみを実行するタスクの画面は空です。
  */
 class AndroidScreen(
     private val a11y: ScreenAccessibility,
     private val shell: IMikaShell,
     private val display: LazyAgentDisplay,
-    /** 剪贴板暂时换成 Mika 的文字时为 true,还原后为 false;任务服务据此记下,进程意外结束后下次启动还原。 */
+    /** は、クリップボードが一時的にミカのテキストに変更された場合は true、復元後は false になります。タスク サービスはこれを記録し、プロセスが予期せず終了したときに次回復元を開始します。 */
     private val clipHeld: (Boolean) -> Unit = {},
-    /** 剪贴板是全局的:几个任务同时跑时粘贴兜底共用一把锁。 */
+    /** クリップボードはグローバルです。複数のタスクが同時に実行されている場合、ペースト ポケットは同じロックを共有します。 */
     private val clipLock: Lock = ReentrantLock(),
-    /** 并行任务时为 true:打开 App 前先查它是不是正在 Mika 的另一块屏上给别的任务用。 */
+    /** は並列タスクに当てはまります。アプリを開く前に、Mika の別の画面でアプリが他のタスクに使用されているかどうかを確認してください。 */
     private val checkOtherTasks: Boolean = false,
-    /** 并行任务时替本任务占下这个包;别的任务已占着(且还在用)时返回 false。 */
+    /** 並列タスクが発生すると、このパッケージはこのタスクのために占有されます。他のタスクがすでにそれを占有している (そしてまだ使用している) 場合、false が返されます。 */
     private val reserve: (String) -> Boolean = { true },
-    /** 同 [reserve],占的是装在另一份用户(用户编号)里的那份:和本来那份分开占,两个任务能各用一份。 */
+    /** は [reserve] と同じです。別のユーザー (ユーザー番号) にインストールされた共有を占有します。元の共有とは別に占有されます。 2 つのタスクはそれぞれ 1 つの共有を使用できます。 */
     private val reserveCopy: (String, Int) -> Boolean = { _, _ -> true },
-    /** 换剪贴板成功后交出用户原来的文字和 Mika 放进去的文字,供加密留底(进程被杀后据此还原)。 */
+    /** クリップボードの変更に成功したら、ユーザーの元のテキストと、暗号化と保持のためにミカによって入力されたテキストを渡します (プロセスが強制終了された後に、それに応じて復元します)。 */
     private val clipSaved: (original: String, ours: String) -> Unit = { _, _ -> },
-    /** App 此刻在用户手上(接管中):这时主屏上开出什么都是用户的事,不去挪。 */
+    /** アプリは現在ユーザーの手にあります (管理下にあります)。この時点でホーム画面で開かれているのはユーザーの業務であり、移動することはできません。 */
     private val handedOver: () -> Boolean = { false },
-    /** 手势的节奏:落指前的停顿、按住时长、落点偏差、滑动的弧线和快慢(见 [GesturePacing])。 */
+    /** ジェスチャーのリズム: 指を落とす前の一時停止、保持時間、着地点の偏差、スライドの弧と速度 ([GesturePacing] を参照)。 */
     private val pacing: GesturePacing = GesturePacing.human(),
-    /** 在这个包名的 App 里打字的节奏(见 [TypingPacing]);默认一次写入全文。 */
+    /** このパッケージ名のアプリでの入力リズム ([TypingPacing] を参照)。デフォルトでは、全文を一度に書き込みます。 */
     private val typing: (String?) -> TypingPacing = { TypingPacing.Instant },
-    /** 发出启动之前:要开的是 [packageName](装在 [user] 那份用户里的;null 为本来那份)。任务服务据此先静上,开头就没声。 */
+    /** が起動を発行する前に: [packageName] が開かれます ([user] のユーザー コピーにインストールされます。null は元のコピーです)。したがって、タスク サービスは静かに開始され、最初は静かです。 */
     private val beforeOpen: (packageName: String, user: Int?) -> Unit = { _, _ -> },
-    /** 启动被拒、没开出来:撤回 [beforeOpen] 提前做的。 */
+    /** は起動を拒否され、開きませんでした。事前に作成した [beforeOpen] を撤回してください。 */
     private val notOpened: (packageName: String, user: Int?) -> Unit = { _, _ -> },
     override val appAccess: com.wangzan101.mika.core.access.AppAccessPolicy = com.wangzan101.mika.core.access.AppAccessPolicy.ALLOW,
-    /** 并行任务时:按占用登记,本任务此刻能不能占这个包([user] 那份;null 为本来那份)。只查不占。 */
+    /** 並列タスク: 占有登録に従って、このタスクが現時点でこのパッケージを占有できるかどうか ([user] の共有。null は元の共有)。チェックだけで会計はしません。 */
     private val appFree: (packageName: String, user: Int?) -> Boolean = { _, _ -> true },
     /**
-     * 并行任务时:等别的任务放开这个包,最多那么久;[free] 是完整的判断(别的屏上没有它、登记里也没人占)。
-     * 任务服务据此登记「谁在等谁」、认出互相等,等的时候界面写「等另一个任务用完某 App」。
+     * 並列タスク中: 他のタスクがこのパッケージをリリースするまで、その時間まで待ちます。 [free] は完全な判定です (他の画面には存在せず、登録では誰も占有していません)。
+     * タスクサービスは「誰が誰を待っているか」を登録し、お互いを認識します。待機中、インターフェイスには「別のタスクがアプリを終了するのを待機しています」と表示されます。
      */
     private val awaitApp: suspend (packageName: String, user: Int?, timeoutMs: Long, free: suspend () -> Boolean) -> AppWait =
         { _, _, _, _ -> AppWait.Unsupported },
 ) : ScreenPort {
-    /** 屏还没建时为 -1;只在确认屏已建好之后用。 */
+    /** -1 画面が構築されていない場合。画面が構築されたことを確認してから使用してください。 */
     private val displayId get() = display.current?.displayId ?: -1
-    /** 屏已经建好(不等于打开过 App)。 */
+    /** 画面が構築されました（アプリが開いたわけではありません）。 */
     private val hasDisplay get() = display.current != null
     private val screenWidth get() = display.current?.width ?: display.width
     private val screenHeight get() = display.current?.height ?: display.height
     private val ids = NodeIds()
 
-    /** 最近一次 launch_app 成功打开的包,用于判断是否被切走。 */
+    /** 最新の launch_app によって正常に開かれたパッケージは、削除されたかどうかを判断するために使用されます。 */
     @Volatile private var targetPackage: String? = null
 
-    /** 最近一次打开 App 时系统问「打开哪一个」的那个窗口所在的包:它在前台不算被切走。 */
+    /** 最後にアプリを開いたとき、システムは「どれを開きますか?」と尋ねました。 */
     @Volatile private var chooserPackage: String? = null
 
     /**
-     * Agent 正在用的 App 及其任务编号(打开时不在最上面则为 -1);任务服务据此静音、监视是否被挪走。
-     * [userId] 是那个任务所属的用户(装了两份时分得出是哪一份);读不到为 -1。
+     * エージェントはアプリとそのタスク番号 (開いたときに先頭にない場合は -1) を使用しています。それに応じてタスク サービスがミュートされ、移動されたかどうかを監視します。
+     * [userId] は、タスクが属するユーザーです (2 つのコピーがインストールされている場合、どちらがインストールされているかがわかります)。読み取れない場合は -1 です。
      */
     data class TargetApp(val packageName: String, val taskId: Int, val userId: Int = -1)
 
@@ -151,13 +151,13 @@ class AndroidScreen(
 
     private val systemPickers: Set<String> by lazy { SystemPickers.resolve(a11y.packageManager) }
 
-    /** 系统设置所在的包(按 Settings.ACTION_SETTINGS 解析):目标 App 在自己任务里打开的设置页不算被切走。 */
+    /** システム設定が配置されているパッケージ (Settings.ACTION_SETTINGS に従って解析): ターゲット アプリによって自身のタスク内で開かれた設定ページは、切り取られたとは見なされません。 */
     private val settingsPackage: String? by lazy { SystemPickers.settingsPackage(a11y.packageManager) }
 
     private fun windows() = a11y.windowsOn(displayId)
     /**
-     * 应用访问的窗口探针:屏上各 App 窗口的归属,只读根节点的包名、不读内容。读不到根节点的那一项为 null(归属未知);
-     * 没有 App 窗口时是最上面任务的 App,也没有就是空屏(空列表)。规则和读屏结果里的窗口归属一致。
+     * アプリケーション アクセス用のウィンドウ プローブ: 画面上の各アプリ ウィンドウの所有権。ルート ノードのパッケージ名のみを読み取ることができ、コンテンツを読み取ることはできません。ルート ノードを読み取れない項目は null (所有権が不明) です。
+     * アプリウィンドウがない場合、それは最上位のタスクを持つアプリであり、アプリウィンドウがない場合、画面は空（空のリスト）です。このルールは、画面読み取り結果のウィンドウの所有権と一致します。
      */
     suspend fun accessPackages(): List<String?> = withContext(Dispatchers.IO) {
         if (!hasDisplay) return@withContext emptyList()
@@ -169,19 +169,19 @@ class AndroidScreen(
     private fun read() = ScreenReader.read(windows(), screenWidth, screenHeight)
     private fun treeHash() = ScreenReader.hash(windows())
 
-    /** 显式使用系统命令或事件工具时按需建屏;普通任务等到第一次打开 App 才建。 */
+    /** は、システム コマンドまたはイベント ツールを明示的に使用するときにオンデマンドで画面を作成できます。共通タスクは、アプリを初めて開くまで作成できません。 */
     suspend fun ensureDisplay() { display.get() }
 
-    // ---------- 读屏 ----------
+    // ---------- 画面の読み取り ----------
 
     override suspend fun snapshot(): ScreenSnapshot = capture(register = true)
 
-    // 不进编号登记表:模型手里最新的 ref 仍然有效
+    // はシリアル番号登録リストに含まれていません: モデルが所有している最新のリファレンスはまだ有効です
     override suspend fun peek(): ScreenSnapshot = capture(register = false)
 
     private suspend fun capture(register: Boolean): ScreenSnapshot = withContext(Dispatchers.IO) {
         if (!hasDisplay) return@withContext ScreenSnapshot(snapshotId(), null, emptyList(), screenWidth, screenHeight, hasWindow = false)
-        // 上一个动作过了一会儿才开到用户主屏上的:先挪回来再读(只在模型要读的这一屏上做,不在判效果的那一眼里做)
+        // 最後のアクションがユーザーのホーム画面に表示されるまでに時間がかかりました。最初に移動してから読み取ります（効果を判定する画面ではなく、モデルを読み取る画面でのみ実行してください）
         val late = if (register) lateSpill() else null
         val r = read()
         val after = treeHash()
@@ -198,14 +198,14 @@ class AndroidScreen(
             hasWindow = r.anyAppWindow,
             unreadableApp = if (r.topPackage == null) foregroundTaskPackage() else null,
             windows = r.windows,
-            // 还在等用户在主屏上选:照样说一声
+            // はまだホーム画面でユーザーが選択するのを待っています: とにかく言ってください
             opened = late?.opened ?: _userPick.value?.let { OpenedElsewhere(it.packageName, it.app, pulledBack = false, picker = true) },
         )
     }
 
     /**
-     * 窗口内容读不到时(安全窗口、启动画面、显示在别处),按 Agent 屏上最上面的任务认前台是哪个 App;
-     * 屏还没建、没有任务或问不到为 null。
+     * ウィンドウの内容を読み取れない場合 (セキュリティ ウィンドウ、起動画面、他の場所に表示されている場合)、エージェント画面の一番上のタスクを押して、どのアプリがフォアグラウンドにあるかを確認します。
+     * 画面がまだ構築されていない場合、タスクがない場合、または質問できない場合、値は null です。
      */
     private fun foregroundTaskPackage(): String? {
         if (!hasDisplay) return null
@@ -215,8 +215,8 @@ class AndroidScreen(
     }
 
     /**
-     * Mika 屏上最上面的那个 App(包名、任务、所属用户),每换一个给一次:订阅时先给一次,之后窗口一变(开了新页面、
-     * 从别的 App 里点开了另一个 App、另一份顶上来)就重读。屏还没建、没有任务时不给。在调用方的线程上问内置助手。
+     * Mito 画面上の一番上のアプリ (パッケージ名、タスク、ユーザー) は、変更するたびに 1 回表示されます。最初はサブスクリプション時に、次にウィンドウが変更されます (新しいページが開き、
+     * 別のアプリから別のアプリをクリックし、別のコピーをアップロードして) 再読み込みしました。画面が構築されておらず、タスクがない場合は付与されません。呼び出し元のスレッド上の組み込みヘルパーに問い合わせます。
      */
     fun foregroundApps(): Flow<TargetApp> = flow {
         emit(Unit)
@@ -232,8 +232,8 @@ class AndroidScreen(
     override suspend fun screenshotPng(): ByteArray? = withContext(Dispatchers.IO) { display.current?.latestFramePng() }
 
     /**
-     * 认屏上文字。自绘界面几乎没有无障碍事件,事件安静了画面可能还在过渡:先等画面停稳再认;认的过程中换了整页就按新的一页再认
-     * (规则见 [StillFrameRead])。局部在动(动图头像、光标)不影响字的位置,照用,不再整个丢掉。
+     * は画面上のテキストを認識します。自己描画インターフェイスではアクセシビリティの問題はほとんどありません。インシデントが静かな場合は、画面がまだ遷移している可能性があります。画面が停止するまで待ってから認識してください。認識プロセス中にページ全体が変更された場合は、新しいページを押して、再度認識します。
+     * (ルールについては [StillFrameRead] を参照)。部分的に動くパーツ (アニメーション化されたアバター、カーソル) は単語の位置に影響を与えないため、単語を完全に破棄することなく、そのまま使用できます。
      */
     override suspend fun readVisibleText(): List<VisibleTextLine>? = withContext(Dispatchers.IO) {
         if (!hasDisplay || frameBlack() == true) return@withContext null
@@ -255,9 +255,9 @@ class AndroidScreen(
         if (!hasDisplay) return@withContext ScreenDiagnosis.classify(
             ScreenFacts(currentApp = null, hasWindow = false, readableElements = 0, changing = false, blackFrames = emptyList(), texts = emptyList(), passwordField = false),
         )
-        // 先看界面会不会安静下来:一直有变化就是还在加载
+        // まず、インターフェイスが静かになるかどうかを確認します。変更は常にありますが、まだ読み込み中です。
         val quiet = withEventClock { clock -> clock.awaitQuiet(QUIET_MS, CHECK_CAP_MS) }
-        // 安静时取两次画面,两次都黑才可能是防截屏
+        // 静かなときに画面を2回撮ります。両方とも黒の場合は、スクリーンショット防止の可能性があります。
         val black = mutableListOf<Boolean>()
         frameBlack()?.let(black::add)
         if (quiet) {
@@ -285,7 +285,7 @@ class AndroidScreen(
         withEventClock { clock -> clock.awaitQuiet(QUIET_MS, timeoutMs) }
     }
 
-    /** 这块虚拟屏的下一条界面事件(悬停一类不算);屏还没开时等满时限。 */
+    /** この仮想画面の次のインターフェイス イベント (ホバリングはカウントされません)。制限時間が経過するまで待ってから画面を開きます。 */
     override suspend fun awaitChange(timeoutMs: Long): Boolean = withContext(Dispatchers.IO) {
         if (!hasDisplay) { delay(timeoutMs.coerceAtLeast(0)); return@withContext false }
         withTimeoutOrNull(timeoutMs.coerceAtLeast(0)) { a11y.eventsFor(displayId).first { it.eventType and IGNORED_EVENTS == 0 } } != null
@@ -374,7 +374,7 @@ class AndroidScreen(
         SystemCommandResult(result.getInt("exitCode", -1), result.getString("output").orEmpty())
     }
 
-    // ---------- 动作 ----------
+    // ---------- アクション ----------
 
     override suspend fun tapRef(ref: String, snapshotId: String): ActionResult = withContext(Dispatchers.IO) {
         if (!hasDisplay) return@withContext NO_APP_OPEN
@@ -401,7 +401,7 @@ class AndroidScreen(
         verified { doubleTapAt(pacing.near(x, y)) }
     }
 
-    // 双击只能是一次手势里的两笔:分两次下发,中间的回调延迟可能超过系统认双击的时限
+    // ダブルクリックは 1 つのジェスチャで 2 ストロークのみです。ダブルクリックは 2 回に分けて送信され、途中のコールバック遅延がシステムがダブルクリックを認識する制限時間を超える可能性があります。
     private suspend fun doubleTapAt(at: Pair<Int, Int>): Boolean {
         delay(pacing.approach())
         return a11y.taps(displayId, at.first.toFloat(), at.second.toFloat(), 2, pacing.doublePress(), pacing.doubleGap())
@@ -416,7 +416,7 @@ class AndroidScreen(
         if (!hasDisplay) return@withContext NO_APP_OPEN
         if (paths.isEmpty() || paths.size > 2 || paths.any { it.size < 2 || it.size > 32 }) return@withContext ActionResult.Failed("invalid_gesture")
         verified {
-            // 一根手指照着画好的路径走,按节奏排快慢;几根手指一起动的只让时长浮动一点
+            // 描かれたパスを指1本でたどり、リズムに合わせて速度を調整します。数本の指を一緒に動かしても、持続時間はわずかに変動するだけです。
             if (paths.size == 1) return@verified drag(paths.single(), durationMs, bow = false)
             delay(pacing.approach())
             a11y.gesture(displayId, paths.map(::pathOf), pacing.duration(durationMs))
@@ -435,7 +435,7 @@ class AndroidScreen(
         }
         val node = start?.let { ancestorOrSelf(it) { n -> n.isScrollable } }
         if (node == null) {
-            // 没有可滚动的控件时用屏幕中部的滑动代替
+            // スクロール可能なコントロールがない場合は、代わりに画面中央のスライドを使用します
             val cx = screenWidth / 2
             val (from, to) = if (down) screenHeight * 3 / 4 to screenHeight / 4 else screenHeight / 4 to screenHeight * 3 / 4
             val r = swipe(cx, from, cx, to)
@@ -446,8 +446,8 @@ class AndroidScreen(
     }
 
     /**
-     * 停留时顺手轻轻滚一下:在占了大半屏的那块可滚动内容(信息流、正文)正中慢慢划 [fraction] 个屏高,停稳再抬手、不甩。
-     * 弹着输入法、输入框拿着焦点、上面盖着别的窗口(弹框、浮层)、没有够大的可滚动内容时不滚。
+     * 滞在している場合は、ゆっくりとスクロールします。画面の半分以上を占めるスクロール可能なコンテンツ (情報フロー、テキスト) の中央で [fraction] 画面の高さをゆっくりとスワイプし、停止してから、震えずに手を上げます。
+     * は、入力メソッドの再生時にスクロールせず、入力ボックスにフォーカスが保持され、他のウィンドウ (ポップアップ ボックス、フローティング レイヤー) で覆われており、十分な大きさのスクロール可能なコンテンツがありません。
      */
     override suspend fun idleScroll(fraction: Double): Boolean = withContext(Dispatchers.IO) {
         if (!hasDisplay || imeBox() != null || focusedEditable() != null) return@withContext false
@@ -460,7 +460,7 @@ class AndroidScreen(
         if (dist < IDLE_MIN_PX) return@withContext false
         val cx = area.centerX()
         val mid = area.centerY()
-        // 往下看(fraction 为正)手指往上划
+        // 下を向いて (分数は正)、指を上にスライドさせます
         val (from, to) = if (fraction > 0) mid + dist / 2 to mid - dist / 2 else mid - dist / 2 to mid + dist / 2
         drag(listOf(cx to from, cx to to), IDLE_SCROLL_MS, bow = true)
     }
@@ -481,7 +481,7 @@ class AndroidScreen(
             is Field.Found -> f
             is Field.Missing -> return@withContext when {
                 f.reason != NO_FOCUS -> ActionResult.Failed(f.reason)
-                // 屏上什么都没拿着输入焦点、也没弹输入法:没有框接得住粘贴,不去粘(粘了界面别处一动就会被当成「可能打进去了」)
+                // 画面上には入力フォーカスを保持するものはなく、入力方法もありません。ペーストを保持するフレームがないため、ペーストされません（インターフェイスが他の場所に移動された場合は、「入力された可能性がある」とみなされます）
                 !somethingHoldsInputFocus() -> ActionResult.Failed(NO_FOCUS)
                 else -> typeUnseen(text)
             }
@@ -490,14 +490,14 @@ class AndroidScreen(
         val original = FieldShape.of(field)
         if (!field.isFocused) field.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
         val web = inWebView(field)
-        // 网页编辑区要粘贴才收得到输入;密码框不经剪贴板
+        // Web ページ編集領域では、入力を受け取るために貼り付ける必要があります。パスワードボックスはクリップボードを通過しません。
         var pasteUnavailable = web && field.isPassword
         val placeholder = ScreenReader.placeholderOf(field)
         val io = object : TextField {
             override fun read(): String? {
                 if (field.refresh()) return ScreenReader.fieldText(field, placeholder, text)
-                // 有的 App 内容一变就换掉输入控件:当前拿着输入焦点的那个和原来的类型、资源 ID、位置都对得上才改读它,
-                // 否则算读不回,也不往别的框里写
+                // 一部のアプリは、コンテンツが変更されると入力コントロールを置き換えます。現在入力フォーカスを保持しているものが元のタイプ、リソース ID、および場所と一致する場合にのみ、入力コントロールを読み取ります。
+                // そうしないと、読み戻されず、他のボックスに書き込まれません。
                 val now = focusedEditable()?.takeIf { sameField(original, it) } ?: return null
                 field = now
                 return ScreenReader.fieldText(now, placeholder, text)
@@ -511,14 +511,14 @@ class AndroidScreen(
             }
         }
         val textsBefore = read().texts.toSet()
-        // 像人一样一段一段打出来(见 TypingPacing);密码框、要粘贴才收得到的网页框照旧一次写入。
-        // 写不进、框不接受半截字时停下,下面照旧整段写入并读回核对
+        // は人間のように少しずつ入力されます (TypingPacing を参照)。受信するために貼り付ける必要があるパスワード ボックスと Web ページ ボックスは、依然として一度に書き込まれます。
+        // 書き込みに失敗し、ボックスが半文字を受け付けない場合に停止します。次に、段落全体を書き、確認のために読み返します。
         typing(field.packageName?.toString()).forField(web, field.isPassword).leadIn(io, text)
         var frozen = false
         val verification = typeAndVerify(
             io, text, TYPE_ATTEMPTS,
             settle = { withEventClock { clock -> clock.awaitQuiet(READBACK_QUIET_MS, READBACK_CAP_MS) } },
-            // 读回一直不变时,看界面上有没有冒出含所输文字的新文字(联想词等)
+            // リードバックが変わらない場合は、入力したテキスト（連想語など）を含む新しいテキストがインターフェイス上に表示されるかどうかを確認します。
             reacted = {
                 val typed = text.filterNot { it.isWhitespace() }
                 (read().texts.toSet() - textsBefore).any { typed in it.filterNot { c -> c.isWhitespace() } }.also { frozen = it }
@@ -530,7 +530,7 @@ class AndroidScreen(
             HINT_READBACK_FROZEN.takeIf { frozen },
             HINT_PASTE_UNAVAILABLE.takeIf { pasteUnavailable },
         ).joinToString(" ").ifEmpty { null }
-        // 字可能只是显示出来、App 并没收到:不能报「一致」
+        // という単語は表示されるだけで、アプリでは受信されません。「一貫性」をレポートできません。
         val reported = if (pasteUnavailable && verification != Verification.MISMATCH) Verification.UNKNOWN else verification
         ok(verification = reported, hint = hint, secret = field.isPassword, relocatedTo = found.relocatedTo)
     }
@@ -549,30 +549,30 @@ class AndroidScreen(
         verified(relocatedTo = found.relocatedTo) { if (inWebView(field)) inputText(field, "") == true else setText(field, "") }
     }
 
-    // ---------- 树里看不到的输入框 ----------
+    // ---------- 入力ボックスがツリーに表示されません ----------
 
     /**
-     * 往这一点上的输入框里打字:先点它,等界面安静;点出了树里看得到、拿着焦点的输入框就照常对着它打,
-     * 否则按 [typeUnseen] 粘贴并核对,粘贴前的屏上文字在点完之后读(点出的光标、键盘不算打进去的字)。
-     * 点了就换到别的 App(点到了链接、按钮)时不打字。
+     * この時点で入力ボックスに入力します。まずそれをクリックし、インターフェースが静まるまで待ちます。ツリー内に表示されフォーカスされている入力ボックスをクリックし、通常どおり入力ボックスに入力します。
+     * それ以外の場合は、[typeUnseen] を押して貼り付けて確認します。貼り付ける前の画面上のテキストは、クリック後に読み上げられます（クリックされたカーソルやキーボードは入力された単語としてカウントされません）。
+     * 他のアプリに切り替えるとき (リンクまたはボタンをクリックするとき)、入力する必要はありません。
      */
     override suspend fun typeAt(x: Int, y: Int, text: String): ActionResult = withContext(Dispatchers.IO) {
         if (!hasDisplay) return@withContext NO_APP_OPEN
         val tapped = verified { tapAt(x, y) }
         if (tapped !is ActionResult.Ok) return@withContext tapped
-        // 点了开出了别的 App(开到用户主屏上又挪回来的也是):不打字,照实报这一下点的结果
+        // がクリックして別のアプリを開きました (同じものがユーザーのホーム画面で開かれ、その後戻ってきました): 入力せず、このクリックの結果を正直に報告してください
         if (tapped.opened != null) return@withContext tapped
         tapped.appSwitched?.takeIf { !tapped.switchedByTarget }?.let { return@withContext UnseenField.tapSwitched(it) }
         if (focusedEditable() != null) return@withContext typeText(null, null, text)
         typeUnseen(text, atPoint = true)
     }
 
-    /** 清空这一点上的输入框,做法同 [typeAt]。 */
+    /** はこの時点で入力ボックスをクリアします。方法は [typeAt] と同じです。 */
     override suspend fun clearAt(x: Int, y: Int): ActionResult = withContext(Dispatchers.IO) {
         if (!hasDisplay) return@withContext NO_APP_OPEN
         val tapped = verified { tapAt(x, y) }
         if (tapped !is ActionResult.Ok) return@withContext tapped
-        // 点了开出了别的 App(开到用户主屏上又挪回来的也是):不清空,照实报这一下点的结果
+        // がクリックして別のアプリを開きました (同じものをユーザーのホーム画面で開いてから元に戻しました): これはクリアされず、このクリックの結果は真実に報告されます。
         if (tapped.opened != null) return@withContext tapped
         tapped.appSwitched?.takeIf { !tapped.switchedByTarget }?.let { return@withContext UnseenField.tapSwitched(it) }
         if (focusedEditable() != null) return@withContext clearText(null, null)
@@ -580,10 +580,10 @@ class AndroidScreen(
     }
 
     /**
-     * 树里没有拿着焦点的输入框:输入框可能在 App 自己画的界面里,树读不到它,焦点在它上面。
-     * 先全选(替换原有的字,和对着节点设字一样),再经剪贴板粘贴,按键只发到 Mika 的屏;之后比打字前后屏上读到的文字
-     * 核对([UnseenField.typed])。不要求弹着输入法:按键发到这块屏拿着焦点的窗口,框不经输入法也收得到;
-     * 没弹输入法而前后一点没变,就请模型先点输入框。弹着输入法时键盘上的字不算屏上的字。
+     * ツリー内にフォーカスのある入力ボックスがありません。入力ボックスはアプリ自体によって描画されたインターフェイスにある可能性があります。木はそれを読むことができず、焦点がそこにあります。
+     * まずすべてを選択し (ノードの単語を設定するのと同じように、元の単語を置き換えます)、クリップボードに貼り付けます。キーはミカの画面にのみ送信されます。次に、入力前と入力後に画面上で読み取られたテキストが比較されます。
+     * ([UnseenField.typed]) をチェックします。入力メソッドは必須ではありません。キーはこの画面上のフォーカスのあるウィンドウに送信され、入力メソッドを経由せずにフレームを受信できます。
+     * 入力方法はなく、何も変更されていません。まずモデルに入力ボックスをクリックするよう依頼してください。入力メソッドを再生するとき、キーボード上の単語は画面上の単語としてカウントされません。
      */
     private suspend fun typeUnseen(text: String, atPoint: Boolean = false): ActionResult {
         val ime = imeBox()
@@ -609,8 +609,8 @@ class AndroidScreen(
     }
 
     /**
-     * 剪贴板换成 [text]、全选、Ctrl+V,等 App 读走(画面变了)或超时再还原。返回 null:剪贴板不能安全使用(读不到用户原来的内容),
-     * 什么都没动;false:粘贴键发不出去。剪贴板的保存、还原、加密留底和 [inputText] 同一套。
+     * のクリップボードを [text] に変更し、すべてを選択し、Ctrl+V を押して、アプリが読み取る (画面が変更される) かタイムアウトするまで待ってから復元します。 null を返す: クリップボードは安全に使用できません (ユーザーの元のコンテンツを読み取ることができません)。
+     * 何も動かない。 false: ペーストキーを送信できません。クリップボードの保存、復元、暗号化は[inputText]と同様です。
      */
     private fun pasteUnseen(text: String, beforeFrame: IntArray?): Boolean? {
         clipLock.lock()
@@ -620,7 +620,7 @@ class AndroidScreen(
             runCatching { shell.savedClipText() }.getOrNull()?.let { clipSaved(it, text) }
             ctrlKey(KeyEvent.KEYCODE_A)
             if (!ctrlKey(KeyEvent.KEYCODE_V)) return false
-            // App 处理粘贴键时就读剪贴板:画面变了再还原,最多等一会儿
+            // アプリは貼り付けキーを処理するときにクリップボードを読み取ります。画面が変更されてから復元されます。最大でしばらく時間がかかります。
             val deadline = SystemClock.uptimeMillis() + PASTE_WAIT_MS
             while (SystemClock.uptimeMillis() < deadline && !FrameMath.differs(beforeFrame, frameSignature())) Thread.sleep(POLL_MS)
             return true
@@ -631,7 +631,7 @@ class AndroidScreen(
         }
     }
 
-    /** 和 [typeUnseen] 同样的前提;全选后按删除键,没弹输入法而界面一点没变时请模型先点输入框([UnseenField.cleared])。 */
+    /** と [typeUnseen] は同じ前提条件を持っています。すべて選択した後、削除キーを押してください。入力方法がポップアップせず、インターフェースがまったく変わらない場合は、まずモデル上の入力ボックス ([UnseenField.cleared]) をクリックしてください。 */
     private suspend fun clearUnseen(atPoint: Boolean = false): ActionResult {
         val keyboardUp = imeBox() != null
         val r = verified { ctrlKey(KeyEvent.KEYCODE_A) && shell.injectKey(displayId, KeyEvent.KEYCODE_DEL) }
@@ -640,10 +640,10 @@ class AndroidScreen(
 
     private fun ctrlKey(keyCode: Int): Boolean = runCatching { shell.injectCtrlKey(displayId, keyCode) }.getOrDefault(false)
 
-    /** 这块屏上弹着输入法(这时按返回,安卓先收起输入法)。 */
+    /** この画面には入力メソッドがポップアップ表示されます (この時点で return を押します。Android は最初に入力メソッドを閉じます)。 */
     fun keyboardUp(): Boolean = hasDisplay && imeBox() != null
 
-    /** 这块屏上输入法窗口的范围(0–999 的 [l,t,r,b]);没弹输入法为 null。弹着时它上面的字不算屏上的字。 */
+    /** この画面の入力方法ウィンドウの範囲 ([l,t,r,b] 0 ～ 999)。入力メソッドが存在しない場合、入力メソッドは null になります。プレイ時の文字数は画面上の文字数としてカウントされません。 */
     private fun imeBox(): List<Int>? {
         val w = windows().firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD } ?: return null
         val r = android.graphics.Rect().also(w::getBoundsInScreen)
@@ -652,21 +652,21 @@ class AndroidScreen(
     }
 
     /**
-     * 启动到虚拟屏;[cold] 时先结束进程,回到 App 的初始页面。用户正在主屏用这个 App 时不启动也不结束它,
-     * 稍等后重试,仍不行就交给 Agent 去暂停或请用户接管。虚拟屏在这里第一次用到时才建。
+     * の場合は、仮想画面を起動します。 [cold] の場合は、まずプロセスを終了し、アプリの最初のページに戻ります。ユーザーがホーム画面でアプリを使用中にアプリを起動または終了しません。
+     * 待ってから再試行してください。それでも機能しない場合は、エージェントに引き渡して一時停止するか、ユーザーに引き継いでもらうように依頼してください。仮想スクリーンは、ここで初めて使用されたときに構築されました。
      */
     override suspend fun openApp(packageName: String, cold: Boolean): ActionResult = open(packageName, null, cold)
 
     /**
-     * 打开装在另一份用户 [userId] 里的那份(调用方先按 [appCopies] 核对过):内置助手启动前再按同一规则核一次那份用户能不能用,
-     * 不能用为 copy_not_found;占用、冷启动都只看这一份。[userId] 就是 Mika 自己的用户时等于 [openApp]。
+     * は、別のユーザー [userId] にインストールされているコピーを開きます (発信者は最初に [appCopies] を押して確認しました): 組み込みアシスタントを開始する前に、同じルールに従ってユーザーが使用できるかどうかを再度確認します。
+     * は copy_not_found として使用できません。このコピーのみが占有およびコールド スタートのために表示されます。 [userId] は、Mika 自身のユーザーの場合は [openApp] と同じになります。
      */
     override suspend fun openAppCopy(packageName: String, userId: Int, cold: Boolean): ActionResult =
         open(packageName, userId.takeIf { it != myUser }, cold)
 
     /**
-     * 等别的任务放开 [packageName](模型打开它时要了等):放开指别的屏上已经没有它、占用登记里也没有别的任务占着。
-     * 只在并行任务时有意义,否则没有别的任务和它争。
+     * 他のタスクが解放されるのを待ちます [packageName] (モデルが開くまで待ちます): 解放とは、そのタスクが他の画面上に存在せず、職業登録に他のタスクが占有していないことを意味します。
+     * は並列タスクでのみ意味を持ちます。それ以外の場合、これと競合する他のタスクは存在しません。 パッケージ
      */
     override suspend fun awaitAppFree(packageName: String, userId: Int?, timeoutMs: Long): AppWait {
         if (!checkOtherTasks) return AppWait.Unsupported
@@ -676,20 +676,20 @@ class AndroidScreen(
         }
     }
 
-    /** 这个包([user] 那份)此刻开在 Mika 的另一块屏上(别的任务手里)。 */
+    /** ([user] 用のパッケージ) は現在、Mika の別の画面で (他のタスクによって) 開かれています。 */
     private fun onOtherDisplay(packageName: String, user: Int?): Boolean {
         val other = runCatching { if (user == null) shell.displayOfPackage(packageName) else shell.displayOfPackageInUser(packageName, user) }.getOrDefault(-1)
         return other >= 0 && other != display.current?.displayId
     }
 
-    /** [openApp] / [openAppCopy] 的共同部分;[user] 为空是本来那份。 */
+    /** は [openApp] / [openAppCopy] の共通部分です。 [user] が空の場合は元のパーツです。 */
     private suspend fun open(packageName: String, user: Int?, cold: Boolean): ActionResult = withContext(Dispatchers.IO) {
-        // 同一个 App 不能同时在两块屏上:系统会把整个任务挪过来,等于从另一个任务手里抢走它。装了两份的,两份各算各的
+        // 同じアプリを同時に 2 つの画面に表示することはできません。システムはタスク全体を移動します。これは、別のタスクからタスクをスナッチするのと同じです。 2 つの部分が含まれている場合、2 つの部分はそれぞれ独自のものとしてカウントされます。
         if (checkOtherTasks) {
             if (onOtherDisplay(packageName, user)) return@withContext IN_USE_BY_OTHER
             if (!(if (user == null) reserve(packageName) else reserveCopy(packageName, user))) return@withContext IN_USE_BY_OTHER
         }
-        // 打开前最上面的窗口:之后冒出来的才可能是这次打开引起的选择框(上次没选、又打开一次时还是同一个选择框)
+        // 開く前の上部ウィンドウ: 後でポップアップする選択ボックスは、今回開いたことによって生じた選択ボックスである可能性があります (前回は選択されておらず、再度開いても同じ選択ボックスです)
         val before = if (hasDisplay) topWindowPackage().takeIf { it != chooserPackage } else null
         val id = display.get().displayId
         beforeOpen(packageName, user)
@@ -717,8 +717,8 @@ class AndroidScreen(
     }
 
     /**
-     * 把文字分享给 [packageName]:和 [openApp] 一样第一次用时才建屏、用户正在主屏用它时不打开,打开后同样等它到前台、
-     * 认系统问打开哪一个。这个 App 不收文字分享为 cannot_share。只打开分享页,发不发由模型在那一页上点。
+     * [packageName] にテキストを共有: [openApp] と同様に、初めて画面が作成されます。ホーム画面で使用する場合、ユーザーは開きません。こちらも開けたらフロントに来るのを待ちます。
+     * 認識システムはどれを開くかを尋ねます。このアプリは、cannot_share としてテキスト共有を受け入れません。共有ページのみが開かれ、そのページでクリックしたモデルは掲載されません。
      */
     override suspend fun shareText(packageName: String, text: String): ActionResult = withContext(Dispatchers.IO) {
         if (checkOtherTasks) {
@@ -742,9 +742,9 @@ class AndroidScreen(
     }
 
     /**
-     * 在 Mika 的屏上打开 Mika 的兼容性自检页([intent] 指明组件;只给兼容性自检用)。那一页只对 shell 这一级的调用方开放,
-     * 交给内置助手以 shell 身份直接启动到这块屏(助手只认这一个组件);shell 启动不受后台启动页面的限制,Mika 在不在前台都一样。
-     * 之后和 [openApp] 一样等它到 Mika 屏的最上面;第一次用时建屏。
+     * ミカの画面でミカの互換性セルフテスト ページを開きます ([intent] はコンポーネントを指定します。互換性セルフテストのみ)。このページは、シェルレベルの呼び出し元に対してのみ開かれます。
+     * を使用すると、組み込みアシスタントをシェルとしてこの画面で直接起動できます (アシスタントはこのコンポーネントのみを認識します)。シェルの起動はバックグラウンドの起動ページによって制限されず、Mika がフォアグラウンドにあるかどうかは関係ありません。
+     * の後、[openApp] のように、ミカ画面の上部に到達するまで待ちます。初めて使用するときに画面を構築します。
      */
     suspend fun openOwnPage(intent: Intent): ActionResult = withContext(Dispatchers.IO) {
         val before = if (hasDisplay) topWindowPackage().takeIf { it != chooserPackage } else null
@@ -758,60 +758,60 @@ class AndroidScreen(
     }
 
     /**
-     * 启动发出之后:等 [packageName] 到 Mika 屏的最上面,或系统先问打开哪一个([before] 是启动前最上面的窗口所在的包)。
-     * [sharing]:这次是分享(App 有几个收分享的页面时系统问用哪一个,选项里不一定有 App 名):最上面换成了系统包的窗口也算在问。
+     * が開始された後: [packageName] が Mega 画面の最上部に到達するまで待機するか、システムがどちらを最初に開くかを尋ねます ([before] は、開始前に最上部のウィンドウがあったパッケージです)。
+     * [sharing]: 今回は共有についてです (アプリに複数の共有ページがある場合、システムはどれを使用するかを尋ね、アプリ名はオプションに含まれない場合があります): システム パッケージが一番上にあるウィンドウも、質問としてカウントされます。
      */
     private suspend fun awaitOpened(packageName: String, before: String?, hint: String?, sharing: Boolean = false, user: Int? = null): ActionResult {
         targetPackage = packageName
         chooserPackage = null
         requestedUser = user
-        // 打开了:Mika 屏上最上面的任务是它(问不到任务时退回看无障碍读到的最上面的窗口);指定了哪一份时还得是那份用户的任务
+        // が開きました: ミカ 画面の一番上のタスクはこれです (タスクを要求できない場合は、一番上のウィンドウに戻って読みやすいようにしてください)。どちらを指定するかはユーザーのタスクである必要があります
         fun launched(): Boolean = (foregroundTaskPackage()?.let { it == packageName } ?: (ScreenReader.topPackage(windows()) == packageName)) &&
             (user == null || userOf(runCatching { shell.topTaskId(displayId) }.getOrDefault(-1)).let { it < 0 || it == user })
         fun picker(): String? = if (sharing) systemPickerOf(packageName, before) else null
         val deadline = SystemClock.uptimeMillis() + LAUNCH_WAIT_MS
-        // 系统先问打开哪一个时 App 不会自己到前台:看到选择框就不再干等
+        // システムが最初にどれを開くかを尋ねるとき、アプリは自らフロントデスクに行くことはなく、選択ボックスが表示されると待機を停止します。
         while (!launched() && chooserOf(packageName, before) == null && picker() == null && SystemClock.uptimeMillis() < deadline) delay(POLL_MS)
         waitStable(SETTLE_CAP_MS)
         val onTop = launched()
         val task = if (onTop) shell.topTaskId(displayId) else -1
         _target.value = TargetApp(packageName, task, if (task >= 0) userOf(task) else user ?: -1)
         if (!onTop && user != null) {
-            // 要的是另一份,系统却先问打开哪一个:自己逐个点选项,认开出来的是哪一份,不交给模型猜
+            // は別のコピーを必要としていますが、システムは最初にどれを開くかを尋ねます。オプションを 1 つずつクリックして、モデルの推測に任せることなく、どのコピーが開かれているかを識別します。
             if (chooserTargets(packageName, before) != null) return resolveCopyChooser(packageName, user, before, hint)
-            // 直接开出来的是这个 App 的别的那份:照实失败,不当成要的那份
+            // 直接開かれているのは、このアプリの別のコピーです。このままでは失敗し、目的のコピーではありません。
             if (foregroundTaskPackage() == packageName) return copyNotOpened(user, userOf(runCatching { shell.topTaskId(displayId) }.getOrDefault(-1)))
         }
-        // 系统在问打开哪一个(App 装了两份等):算打开了,等模型选;选完 App 到了前台,之后的动作照常认它是目标。
-        // App 已在最上面时盖着的系统窗口(权限框)不算
+        // システムはどちらを開くかを尋ねています (アプリのコピーが 2 つインストールされているなど)。開いています。モデルが選択されるまで待ちます。アプリを選択すると、フロントデスクに来て、その後のアクションは通常どおりターゲットとして認識されます。
+        // アプリが既に最上位にあるときに覆われたシステム ウィンドウ (許可ボックス) はカウントされません。
         if (!onTop) chooserOf(packageName, before)?.let { first ->
-            // 第一次碰到时才去问装了几份,好标出哪个是另一份
+            // 初めてこれに遭遇したとき、どれがもう一方であるかをマークできるように、何枚インストールされているか尋ねました。
             if (profiles == null) otherProfiles()
             val choice = chooserOf(packageName, before) ?: first
             chooserPackage = choice.packageName
             return ok().copy(chooser = choice, appSwitched = null, switchedByTarget = false)
         }
-        // 分享时系统问用这个 App 的哪个分享页:同样算打开了,等模型选
+        // 共有するとき、システムはこのアプリのどの共有ページを使用するかを尋ねます。これも開いているとみなされます。モデルが選択されるまで待ちます。
         if (!onTop) picker()?.let { pkg ->
             chooserPackage = pkg
             return ok(hint = HINT_SHARE_PICKER).copy(appSwitched = null, switchedByTarget = false)
         }
-        // 没打开就照实说,并说清此刻最上面的是什么,不报成功
+        // まだ開いていない場合は、現時点で一番上にあるものについて真実を話してください。成功報告をしない場合は、
         if (!onTop) {
             val now = foregroundTaskPackage() ?: ScreenReader.topPackage(windows())
-            // 要的是另一份,最上面却是这个 App 的别的那份
+            // は別のコピーを必要としていますが、一番上のものがこのアプリの別のコピーです
             val copy = if (user != null && now == packageName) " (a different copy of the app)" else ""
             return ActionResult.Failed("app_not_in_front", hint = now?.let { "In the foreground now: $it$copy." } ?: "Nothing came to the foreground.")
         }
-        // 打开了,但另一个包的窗口盖在上面(权限弹窗、账号选择器):照实说是谁,仍算打开了
+        // は開いていますが、別のパッケージのウィンドウがそれを覆っています (許可ポップアップ ウィンドウ、アカウント セレクター)。正直に言って、それが誰であるかを教えてください。まだ開いています。
         val cover = ScreenReader.topPackage(windows())?.takeIf { it != packageName }
         return ok(hint = hint).let { if (cover != null) it.copy(coveredBy = cover, appSwitched = null, switchedByTarget = false) else it }
     }
 
     /**
-     * 要的是另一份用户 [user] 里的那份,系统却在 Mika 屏上问打开哪一个(选项可能名字一模一样,看不出哪个是哪份):
-     * 逐个点选项,等开出来,读最上面任务所属的用户;是要的那份就算打开。不是就按一次返回让它退到后台(那可能是用户手上那份的任务,
-     * 不结束它),再打开一次、点下一个。都试过还不是,照实失败 copy_not_opened,说开出来的是哪一份;不把错的那份当成功。
+     * は別のユーザー [user] からのコピーを必要としていますが、システムは、Mika 画面でどれを開くかを尋ねます (オプションの名前が同じである可能性があるため、どれがどれであるかを判断するのは困難です)。
+     * オプションを 1 つずつクリックし、オプションが開くまで待ち、最上位のタスクが属しているユーザーを読み取ります。欲しいものがあれば、それを開いてください。単にReturnキーを1回押してバックグラウンドに移行させるだけではないでしょうか（それがユーザーの当面のタスクである可能性があります）
+     * は終了しないでください)、再度開いて「次へ」をクリックします。すべて試しましたが、まだ機能しません。 copy_not_opened が失敗した場合は、どのコピーが開かれたかを教えてください。間違ったコピーを成功とみなさないでください。
      */
     private suspend fun resolveCopyChooser(packageName: String, user: Int, before: String?, hint: String?): ActionResult {
         fun topTask() = runCatching { shell.topTaskId(displayId) }.getOrDefault(-1)
@@ -842,7 +842,7 @@ class AndroidScreen(
             if (runCatching { shell.startAppInUser(displayId, packageName, user, false) }.getOrDefault(ShellService.START_ERROR) != ShellService.START_OK) break
             val until = SystemClock.uptimeMillis() + LAUNCH_WAIT_MS
             while (chooserTargets(packageName, before) == null && SystemClock.uptimeMillis() < until) {
-                // 这一次直接开出了要的那份
+                // 今回はご要望のあったものを直接発行させていただきました。
                 opened()?.let { return it }
                 delay(POLL_MS)
             }
@@ -850,7 +850,7 @@ class AndroidScreen(
         return copyNotOpened(user, shown)
     }
 
-    /** 要的那份 [user] 没打开;[shown] 是开出来的那份所属的用户(没开出来或读不到为 null / 负数)。 */
+    /** 要求されたコピー [user] は開かれていません。 [shown] は、開かれたコピーが属するユーザーです (開かれていない場合、または読み取れない場合は、null/負の数値になります)。 */
     private fun copyNotOpened(user: Int, shown: Int?): ActionResult.Failed {
         val what = when {
             shown == null || shown < 0 -> "Nothing from the app came to the front."
@@ -860,7 +860,7 @@ class AndroidScreen(
         return ActionResult.Failed(COPY_NOT_OPENED, "$what Requested: the copy in user $user.")
     }
 
-    /** 系统在 Mika 屏上问打开哪一个时,那几个选项的中心点(屏上像素,先后同选项);不是在问为 null。认法同 [chooserOf]。 */
+    /** システムが、Mika 画面上でどれを開くかを尋ねるとき、それらのオプションの中心点 (画面上のピクセル、同じオプションが次々に表示される)。要求されない場合は null です。認識方法は[chooserOf]と同様です。 */
     private fun chooserTargets(packageName: String, before: String?): List<Pair<Int, Int>>? {
         val w = ScreenReader.contentWindows(windows()).firstOrNull { it.root != null } ?: return null
         val pkg = w.root?.packageName?.toString() ?: return null
@@ -872,18 +872,18 @@ class AndroidScreen(
     }
 
     /**
-     * 打开链接或设置页。和 [openApp] 一样第一次用时才建屏;用户在主屏用着那个 App 时不打开。
-     * 设置页预期落在系统设置所在的包,指定了 App 的落在那个 App;落到别处(系统选择器、跳转页)照样成功,带提示。
+     * リンクまたは設定ページを開きます。 [openApp] と同様に、画面は初めて作成されます。ホーム画面でアプリを使用する場合、ユーザーはアプリを開きません。
+     * 設定ページは、システム設定が配置されているパッケージに含まれることが想定されており、指定されたアプリはそのアプリに含まれます。他の場所 (システム セレクター、ジャンプ ページ) に落ちても、プロンプトが表示され、成功します。
      */
     override suspend fun openLink(action: String?, uri: String?, packageName: String?): ActionResult = withContext(Dispatchers.IO) {
-        // 指定了 App 的由应用访问边界看过;没指定的,名单非空时在这里挑一个没被禁用的接手
+        // アプリがアプリケーション アクセス境界によって表示されることを指定します。指定されていない場合、リストが空でない場合は、引き継ぎが無効になっていないものを選択します。
         val pinned = packageName ?: allowedLinkHandler(action, uri)
         val id = display.get().displayId
         val expected = pinned ?: settingsPackage.takeIf { action != null }
         if (checkOtherTasks && expected != null && !reserve(expected)) return@withContext IN_USE_BY_OTHER
         val before = ScreenReader.topPackage(windows())
         val beforeTree = treeHash()
-        // 事先知道由谁打开的(指定了 App、设置页、只有一个 App 接的链接):启动前先静上
+        // は、誰が開いたかを事前に知っています (アプリ、設定ページ、およびアプリへのリンクが 1 つだけ指定されています): 開始する前に終了します。
         val early = expected ?: linkHandler(action, uri)
         early?.let { beforeOpen(it, null) }
         val code = shell.startView(id, action, uri, pinned)
@@ -904,10 +904,10 @@ class AndroidScreen(
         while (!landed() && SystemClock.uptimeMillis() < deadline) delay(POLL_MS)
         waitStable(SETTLE_CAP_MS)
         val top = ScreenReader.topPackage(windows())
-        // 只认真正打开链接的 App:落在系统选择器或别处时不把它当成目标
+        // リンクされたアプリのみを開きます。システム セレクターまたはその他の場所にある場合は、ターゲットとして扱いません。
         val opened = top?.takeIf { if (expected != null) it == expected else it !in systemPickers }
         if (opened != null) {
-            // 事先不知道由谁打开的链接,落地后再占;占不到也不撤回(外壳那边已查过别的屏)
+            // 誰がリンクを開いたのかが事前にわからない場合は、着陸後にそのリンクを占有することになります。占領できない場合は撤退しません（シェルの他の画面を確認しました）
             if (checkOtherTasks) reserve(opened)
             targetPackage = opened
             requestedUser = null
@@ -918,8 +918,8 @@ class AndroidScreen(
     }
 
     /**
-     * 禁用名单非空、链接没指定 App 时由谁打开:系统默认的那个没被禁用就用它,不然用第一个没被禁用的;能接的全被禁用就拒绝。
-     * 名单为空、或没有 App 能接时为 null(照常交给系统,不多查一次)。
+     * 禁止リストが空ではなく、リンクにアプリが指定されていない場合、誰がそれを開くべきか: 無効になっていないシステムのデフォルトのリストを使用し、それ以外の場合は無効になっていない最初のリストを使用します。無効になっている場合は、接続できるすべての接続を拒否します。 リストが空であるか、接続できるアプリがない場合、
+     * は null になります (通常どおりシステムに任せ、それ以上のチェックは必要ありません)。
      */
     private fun allowedLinkHandler(action: String?, uri: String?): String? {
         val access = appAccess.current()
@@ -938,7 +938,7 @@ class AndroidScreen(
         return default?.takeIf { it in allowed } ?: allowed.first()
     }
 
-    /** 没指定 App 的链接由谁打开:系统直接定下的那一个;要问用户选(落在系统选择器)或读不到为 null。 */
+    /** は、アプリ リンクを開く人を指定しません。これはシステムによって直接決定されます。ユーザーが選択を求められた場合 (システム セレクターに該当する場合)、または読み取れない場合は null になります。 */
     private fun linkHandler(action: String?, uri: String?): String? = runCatching {
         if (action != null || uri == null) return null
         val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(uri)).addCategory(Intent.CATEGORY_BROWSABLE)
@@ -949,8 +949,8 @@ class AndroidScreen(
         "The link opened, but the screen shows ${top ?: "no app yet"} instead of $expected: a system chooser or a redirect page may have taken it. Observe before acting."
 
     /**
-     * 有任务被挪回这块屏后,等它的窗口出现在无障碍窗口列表里再让 Agent 读屏;
-     * 否则紧接着的 observe 可能读到一块空屏。等不到也返回,由 Agent 自己读屏判断。
+     * タスクがこの画面に戻った後、そのウィンドウがアクセス可能なウィンドウ リストに表示されるまで待ってから、エージェントに画面を読み取らせます。
+     * そうしないと、次の観察では空白の画面が表示される可能性があります。待てない場合は戻りますが、エージェント自身が画面を読んで判断します。
      */
     suspend fun awaitContent(): Boolean = withContext(Dispatchers.IO) {
         if (!hasDisplay) return@withContext false
@@ -962,12 +962,12 @@ class AndroidScreen(
 
     override suspend fun listApps(): List<Pair<String, String>> = withContext(Dispatchers.IO) { launchableApps(a11y.packageManager, a11y.packageName) }
 
-    // ---------- 系统动作 ----------
+    // ---------- システムの処置 ----------
 
     /**
-     * 经安卓标准 intent 做系统动作(见 [SystemIntents])。先在 Mika 这边查谁接(能力检测,不用建屏):没有就 not_supported;
-     * 有几个时按 [SystemIntents.choose] 直接指定一个。再交给内置助手启动到 Mika 的屏(第一次用时建屏),动作前后照常盯着主屏。
-     * 闹钟、计时器本该悄悄设好:之后读系统的下一个闹钟核对;App 却开了界面时照实报。闹钟列表、新日程要等那个 App 到最上面。
+     * は、Android 標準インテントを介してシステム アクションを実行します ([SystemIntents] を参照)。まず、ミカに誰が答えるかを確認します (能力テスト、画面を設定する必要はありません)。そうでない場合は、サポートされていません。
+     * が複数ある場合は、[SystemIntents.choose]を押して直接指定してください。次に、内蔵アシスタントをミカの画面で起動させ (初めて使用するときに画面を作成します)、アクションの前後にいつものようにホーム画面を見つめます。
+     * 目覚まし時計とタイマーは静かに設定し、システムの次の目覚まし時計を読んで確認する必要があります。ただし、アプリはインターフェースを開いたときに真実を報告します。目覚まし時計と新しいスケジュールのリストは、そのアプリが一番上に表示されるまで待つ必要があります。
      */
     override suspend fun systemAction(action: SystemAction): SystemActionResult = withContext(Dispatchers.IO) {
         val intent = SystemIntents.toIntent(SystemIntents.spec(action))
@@ -978,7 +978,7 @@ class AndroidScreen(
             }
         }.getOrDefault(emptyList())
         val default = runCatching { pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName }.getOrNull()
-        // 由谁接只有这里知道:跳过被禁用的;能接的全被禁用就拒绝
+        // に対する答えはここだけです。無効になっているものはスキップしてください。無効になっている場合は、接続できるすべての接続を拒否します。
         val access = appAccess.current()
         val allowedHandlers = if (access.blocked.isEmpty()) handlers else handlers.filter { access.denial(it.packageName) == null }
         if (handlers.isNotEmpty() && allowedHandlers.isEmpty()) access.denial(handlers.first().packageName)?.let { throw it }
@@ -992,9 +992,9 @@ class AndroidScreen(
         val id = display.get().displayId
         val topBefore = ScreenReader.topPackage(windows())
         val w = armSpillWatch()
-        // 接手的页面要求的权限(设闹钟)shell 可能没有:备一个以 Mika 身份启动的
+        // によって引き継がれたページには、シェルに必要な権限 (目覚まし時計の設定) がない可能性があります。Mika として開始したものを準備してください。
         val asMika = PendingIntent.getActivity(a11y, SYSTEM_ACTION_REQUEST, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        // 悄悄设好的(闹钟、计时器)不开界面,不去静它:时钟到点要响
+        // インターフェイスを開いたりミュートしたりせずに、静かに設定（目覚まし時計、タイマー）します。時間の終わりに時計が鳴ります。
         if (!action.silent) beforeOpen(pkg, null)
         val code = runCatching { shell.startSystemAction(id, intent, asMika) }.getOrDefault(ShellService.START_ERROR)
         if (code != ShellService.START_OK && !action.silent) notOpened(pkg, null)
@@ -1008,7 +1008,7 @@ class AndroidScreen(
         fun top() = ScreenReader.topPackage(windows())
         var alarmAfter = alarmBefore.getOrNull()
         if (action is SystemAction.SetAlarm && alarmBefore.isSuccess) {
-            // 时钟 App 多半在后台写好再登记:等系统的下一个闹钟变了,最多等一会儿
+            // 時計アプリは主にバックグラウンドで書き込まれてから登録されます。システムの次の目覚まし時計が変わるまで待ち、長くてもしばらく待ちます。
             val deadline = SystemClock.uptimeMillis() + ALARM_WAIT_MS
             while (SystemClock.uptimeMillis() < deadline) {
                 alarmAfter = runCatching { alarms?.nextAlarmClock?.triggerTime }.getOrNull()
@@ -1021,7 +1021,7 @@ class AndroidScreen(
         }
         waitStable(SETTLE_CAP_MS)
         val landed = top() == pkg
-        // 本该悄悄设好的,屏上却多了那个 App 的界面
+        // は静かにセットアップされているはずですが、画面にはそのアプリのインターフェイスが表示されています
         val showing = action.silent && landed && topBefore != pkg
         if (landed && (!action.silent || showing)) {
             targetPackage = pkg
@@ -1039,7 +1039,7 @@ class AndroidScreen(
     private fun hintNotInFront(top: String?, expected: String) =
         "$expected took the action, but the screen shows ${top ?: "no app yet"}. Observe before acting."
 
-    // ---------- 滚轮 ----------
+    // ---------- ローラー ----------
 
     override suspend fun setWheel(ref: String, snapshotId: String, value: String): WheelOutcome = withContext(Dispatchers.IO) {
         if (!hasDisplay) return@withContext WheelOutcome(false, null, null, 0, "none", error = "no_app_open")
@@ -1047,7 +1047,7 @@ class AndroidScreen(
         val driver = WheelDriver(
             screenWidth, screenHeight,
             quiet = { q, cap -> withEventClock { it.awaitQuiet(q, cap) } },
-            // 慢拖:按节奏走时末尾减速到停、松手不甩,免得转过头;慢拖拖不动时换成快快划一下
+            // ゆっくりドラッグ: リズムに合わせて歩くときは、頭を動かさないように速度を落とし、最後に停止して手を放します。ゆっくりドラッグしても動かない場合は、クイックストロークに切り替えてください。
             drag = { points, slow -> drag(points, if (slow) WHEEL_DRAG_MS else WHEEL_SWIPE_MS, bow = false) },
             ocr = { readVisibleText() },
             imeShown = { imeBox() != null },
@@ -1056,15 +1056,15 @@ class AndroidScreen(
         driver.set(node, value)
     }
 
-    // ---------- 打开哪一个 ----------
+    // ---------- どれを開くか ----------
 
-    /** 最上面一个读得到的窗口(不论类型:系统的选择框有的是应用窗口,有的是系统窗口)所在的包。 */
+    /** 上部の読み取り可能なウィンドウ (タイプに関係なく、一部のシステム選択ボックスはアプリケーション ウィンドウであり、一部はシステム ウィンドウ) が配置されているパッケージ。 */
     private fun topWindowPackage(): String? =
         ScreenReader.contentWindows(windows()).firstNotNullOfOrNull { it.root?.packageName?.toString() }
 
     /**
-     * 打开 [packageName] 后系统在问打开哪一个:最上面换成了别的系统包的窗口([before] 是打开前最上面的),窗口里的选项提到这个 App 的名字。
-     * 不是为 null。只认系统包:别的 App 的窗口提到这个名字不算。
+     * [packageName] を開いた後、システムはどれを開くかを尋ねます。一番上のウィンドウは別のシステム パッケージのウィンドウに置き換えられ (開く前は [before] が一番上のウィンドウです)、ウィンドウ内のオプションにはこのアプリの名前が記載されています。
+     * は null ではありません。システム パッケージのみを認識します。他のアプリ ウィンドウでこの名前を言及してもカウントされません。
      */
     private fun chooserOf(packageName: String, before: String?): LaunchChoice? {
         val w = ScreenReader.contentWindows(windows()).firstOrNull { it.root != null } ?: return null
@@ -1076,7 +1076,7 @@ class AndroidScreen(
         return LaunchChoice(pkg, options)
     }
 
-    /** 最上面一个读得到的窗口换成了系统包的(不是 [packageName]、也不是启动前的 [before]):那个包;不是为 null。 */
+    /** 読み取り可能な上部ウィンドウは、システム パッケージ (起動前の [packageName] や [before] ではありません): そのパッケージによって置き換えられます。はヌルではありません。 システムに付属する */
     private fun systemPickerOf(packageName: String, before: String?): String? {
         val pkg = topWindowPackage() ?: return null
         return pkg.takeIf { it != packageName && it != before && isSystemPackage(it) }
@@ -1084,7 +1084,7 @@ class AndroidScreen(
 
     private val systemPackages = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
 
-    /** 系统自带的包;Mika 自己看不到的包(安卓 11 起的包可见性)问内置助手。 */
+    /** パッケージ。ミカは、組み込みアシスタントに表示できないパッケージを尋ねます (パッケージの表示は Android 11 以降)。 */
     private fun isSystemPackage(pkg: String): Boolean = pkg in systemPickers || systemPackages.getOrPut(pkg) {
         val flags = runCatching { a11y.packageManager.getApplicationInfo(pkg, 0).flags }.getOrNull()
         if (flags != null) flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
@@ -1096,7 +1096,7 @@ class AndroidScreen(
         pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
     }.getOrNull()?.takeIf { it.isNotBlank() }
 
-    /** 也装在别的用户里的 App(包名 → 那几份用户的名字);第一次问内置助手,之后用这份。问不到时不记,下次再问。 */
+    /** は、他のユーザーにもインストールされているアプリです (パッケージ名 → それらのユーザーの名前)。初めて組み込みアシスタントに問い合わせてから、これを使用してください。質問できなかったときは思い出さずに、次回もう一度質問してください。 */
     @Volatile private var profiles: Map<String, List<String>>? = null
 
     override suspend fun otherProfiles(): Map<String, List<String>> = withContext(Dispatchers.IO) {
@@ -1111,23 +1111,23 @@ class AndroidScreen(
         })
     }
 
-    /** 能打开的另一份 App(规则见 [AppCopies],内置助手判哪几份用户能用);每次现问,问不到为空。 */
+    /** は、開くことができる別のアプリです (ルールについては、[AppCopies] を参照してください。ユーザーがどのアプリを使用できるかは、内蔵アシスタントによって決定されます)。尋ねられるたびに、尋ねられなければ空です。 */
     override suspend fun appCopies(): List<AppCopy> = withContext(Dispatchers.IO) {
         runCatching { AppCopyReader.read(shell, listApps()) }.getOrNull().orEmpty()
             .also { copies -> copiedPackages = copiedPackages + copies.map { it.packageName } }
     }
 
-    /** 列出过另一份的包:换没换成另一份([switchedTo])只对它们问。 */
+    /** には別のパッケージがリストされています: 別のパッケージ ([switchedTo]) に変更しましたか?彼らに聞いてみてください。 */
     @Volatile private var copiedPackages: Set<String> = emptySet()
 
-    /** 任务所属的用户;任务不存在或问不到为 -1。 */
+    /** タスクが属するユーザー。タスクが存在しない場合、またはタスクを要求できない場合は -1。 */
     private fun userOf(task: Int): Int = if (task < 0) -1 else runCatching { shell.userOfTask(task) }.getOrDefault(-1)
 
-    // ---------- 核实 ----------
+    // ---------- 検証 ----------
 
     /**
-     * 执行动作,等界面安静后比对前后指纹;再看前台有没有被切走。动作前后盯着主屏:动作让 App 开到了用户主屏上就挪回来,
-     * 结果里报 opened(见 [takeSpill])。上一个动作过了一会儿才开到主屏上的,这一个动作不做,先说屏幕变了。
+     * インターフェイスが静かになった後でアクションを実行し、前面と背面の指紋を比較します。フロントデスクが切り取られているかどうかを確認してください。アクションの前後でホーム画面を見つめる: アクションにより、アプリがユーザーのホーム画面で開き、その後元の画面に戻ります。
+     * は結果で開かれたものとして報告されます ([takeSpill] を参照)。前のアクションでホーム画面が開くまでに時間がかかりました。このアクションを実行しない場合は、最初に画面の変化について説明しましょう。
      */
     private suspend fun verified(relocatedTo: String? = null, action: suspend () -> Boolean): ActionResult {
         lateSpill()?.let { return ActionResult.Failed("opened_elsewhere", hintLateSpill(it.opened)) }
@@ -1138,63 +1138,63 @@ class AndroidScreen(
             clock.mark()
             if (action()) awaitChange(clock, beforeTree, beforeFrame) else null
         } ?: return ActionResult.Failed("action_failed")
-        // 从挪回来的任务里又打开了一个的,一并算进来
+        // は、移動されたタスクから別のタスクを開き、それを一緒に組み込みました。
         val profile = adoptFromAdopted(w)
         val spill = takeSpill(w)
         return ok(changed = changed || spill?.opened?.pulledBack == true, relocatedTo = relocatedTo, spill = spill, inProfile = profile)
     }
 
-    // ---------- 开到用户主屏上的 ----------
+    // ---------- ユーザーのホーム画面を開きます ----------
 
-    /** 一次动作的盯梢:[since] 开始的时刻,[topBefore] 那时主屏最上面的任务,[agentTopBefore] 那时 Mika 屏上最上面的任务。 */
+    /** アクションの追跡: [since] 当初、その時点でメイン画面のトップタスクは [topBefore] でしたが、その時点でミカの画面では [agentTopBefore] がトップタスクでした。 */
     private class Watch(val since: Long, val topBefore: Int, val agentTopBefore: Int)
 
-    /** 挪回来的 App 和(系统问打开哪一个时)认出的选项。 */
+    /** アプリを元に戻し、オプションを認識しました (システムがどれを開くかを尋ねたとき)。 */
     private class Spill(val opened: OpenedElsewhere, val chooser: LaunchChoice?)
 
-    /** 最近一次动作的盯梢;过了 [SPILL_WINDOW_MS] 清掉。 */
+    /** 最新のアクションの追跡。 [SPILL_WINDOW_MS] の後にクリアされます。 */
     @Volatile private var watch: Watch? = null
 
-    /** 已经判过的记录到哪个时刻:同一条不判两次。 */
+    /** 判定が記録された時刻：同じ項目は二度判定されません。 */
     @Volatile private var consumed = 0L
 
-    /** 从用户主屏挪回 Mika 屏上的任务,和从它们里面打开的:它们在最上面算目标 App 打开的,不算被切走。 */
+    /** タスクをユーザーのホーム画面からミカ画面に戻し、そこからタスクを開きます。これらのタスクは、上部の対象アプリによって開かれたものとしてカウントされ、削除されません。 */
     private val adopted: MutableSet<Int> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
     /**
-     * 系统在用户主屏上问打开哪一个、等用户选的那一次:[taskId] 问的那个窗口的任务,[packageName] 它的包,[app] 问的是哪个 App,
-     * [topBefore] 它出来前主屏最上面的任务,[agentTop] 那时 Mika 屏上最上面的任务,[since] 它出来的时刻。
-     * 选择框从不挪:挪了屏它要按新屏重建,有的重建时自己关掉;Mika 也不替别的 App 重新打开它(打开的一方得是原来那个 App)。
+     * システムはユーザーのホーム画面でどれを開くかを尋ね、ユーザーがそれを選択するのを待ちます。 [taskId] はそのウィンドウのタスクについて尋ね、 [packageName] はそのパッケージについて尋ね、 [app] はどのアプリを尋ねるか、
+     * [topBefore] 出現前のホーム画面のトップタスク、[agentTop] その時のミカの画面のトップタスク、出現時の[since]。
+     * 選択ボックスは決して移動されません。画面が移動された場合は、新しい画面に従って再構築する必要があり、再構築時に閉じられる場合があります。ミカは他のアプリでそれを再度開くことはありません (開くのは元のアプリである必要があります)。
      */
     class UserPick(val taskId: Int, val packageName: String, val app: String?, val topBefore: Int, val agentTop: Int, val since: Long)
 
     private val _userPick = MutableStateFlow<UserPick?>(null)
-    /** 正等着用户在主屏上选;任务据此停住,胶囊上请用户选一下。 */
+    /** は、ユーザーがホーム画面で選択するのを待っています。それに応じてタスクが停止され、ユーザーはカプセル上でタスクを選択するように求められます。 */
     val userPick: StateFlow<UserPick?> = _userPick.asStateFlow()
 
-    /** 用户选完之后:选出来的 App 要用户亲手处理([NeedsUser],留在主屏),其余的已经办好(结果在下一次读屏或动作里报)。 */
+    /** ユーザーが選択した後: 選択したアプリはユーザーが個人的に処理する必要があり ([NeedsUser]、ホーム画面に留まる)、残りは完了します (結果は次の画面の読み取りまたはアクションで報告されます)。 */
     sealed interface PickResult {
         data object Settled : PickResult
         class NeedsUser(val taskId: Int, val packageName: String, val app: String?, val userId: Int) : PickResult
     }
 
-    /** 等用户的那些事办完之后要告诉模型的,下一次读屏或动作时报出去。 */
+    /** は、ユーザーがタスクを完了した後にモデルに通知する必要があり、次回画面が読み取られるかアクションが実行されたときに報告されます。 */
     @Volatile private var pendingReport: Spill? = null
 
-    /** 用户在主屏上点东西的时刻和包(只在动作前后那一小段里记)。 */
+    /** ユーザーがホーム画面で何かをクリックしたときの時間と情報 (アクションの前後の短い期間のみ記録されます)。 */
     private val userTaps = java.util.concurrent.ConcurrentLinkedDeque<MainScreenSpill.Tap>()
     private val spillScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     @Volatile private var tapWatch: Job? = null
     @Volatile private var tapWatchUntil = 0L
 
-    /** 不算开到主屏上的:Mika 自己、桌面 App(按 HOME 解析,不写死)。 */
+    /** には、ホーム画面で開かれたものは含まれません。Mika 自体、デスクトップ アプリ (HOME を押して分析します。ハードコードは行わないでください)。 */
     private val notSpills: Set<String> by lazy {
         val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
         runCatching { a11y.packageManager.queryIntentActivities(home, 0).map { it.activityInfo.packageName } }.getOrDefault(emptyList())
             .toSet() + a11y.packageName
     }
 
-    /** 动作之前:请内置助手盯着主屏,记下此刻两块屏最上面的任务;没有屏、接管中或助手不支持时为 null(不盯)。 */
+    /** アクションを起こす前に: 内蔵アシスタントを使用してホーム画面を見つめ、現時点で 2 つの画面の上部にあるタスクを書き留めてください。画面がない場合、画面が引き継がれている場合、またはアシスタントがサポートしていない場合は、null (見つめられていない) になります。 */
     private fun armSpillWatch(): Watch? {
         if (!hasDisplay || handedOver()) return null
         val since = SystemClock.uptimeMillis()
@@ -1204,7 +1204,7 @@ class AndroidScreen(
         return Watch(since, top, agentTop).also { watch = it }
     }
 
-    /** 盯梢期间记下用户在主屏上的点按(Mika 自己的浮层不算);到期自己停。 */
+    /** は、追跡中にホーム画面でのユーザーのクリックを記録します (Mika 自身のフローティング レイヤーはカウントされません)。期限が切れると停止します。 */
     private fun watchUserTaps(until: Long) {
         tapWatchUntil = maxOf(tapWatchUntil, until)
         if (tapWatch?.isActive == true) return
@@ -1229,8 +1229,8 @@ class AndroidScreen(
     }
 
     /**
-     * 动作之后:问内置助手这次动作开始后主屏冒出来的任务,按 [MainScreenSpill] 判;开到主屏上的挪回 Mika 的屏,
-     * 开在用户正用着的 App 里的只报不动。没有为 null。
+     * アクション後: アクションの開始後にホーム画面にポップアップ表示されるタスクについて内蔵アシスタントに質問し、[MainScreenSpill] を押して判断します。ホーム画面を開いてミカの画面に戻ります。 ユーザーが現在使用しているアプリで開かれた
+     * は何も報告しないだけです。どれもヌルではありません。
      */
     private suspend fun takeSpill(w: Watch?): Spill? {
         if (w == null || handedOver()) return null
@@ -1241,10 +1241,10 @@ class AndroidScreen(
         for (v in MainScreenSpill.decide(arrivals, w.since, SPILL_WINDOW_MS, w.topBefore, notSpills, userTaps.toList())) {
             val a = v.arrival
             val pkg = a.packageName ?: continue
-            // 开到用户主屏上的不在应用访问边界看的那块屏上:被禁用的不挪、不读
+            // アプリケーションのアクセス境界からは見えないユーザーのホーム画面の画面を開きます: 無効な項目は移動または読み取りできません
             appAccess.current().denial(pkg)?.let { throw it }
             last = when (v) {
-                // 系统问打开哪一个的先按选择框处理;要用户亲手处理的弹窗(登录验证、账号确认一类)留在主屏,不挪到 Mika 的屏上
+                // システムがどれを開くかを尋ねてきたら、最初に選択ボックスを押します。ユーザーが手動で処理する必要があるポップアップ ウィンドウ (ログイン認証やアカウント確認など) はホーム画面に残り、ミカの画面には移動されません。
                 is MainScreenSpill.PullBack -> leaveForUser(a, pkg, w) ?: leavePopup(a, pkg) ?: pullBack(a, pkg) ?: last
                 is MainScreenSpill.InUse -> Spill(OpenedElsewhere(pkg, appLabel(pkg), pulledBack = false, inProfile = inProfileOf(pkg, a.userId)), null)
             }
@@ -1254,8 +1254,8 @@ class AndroidScreen(
     }
 
     /**
-     * 上一次动作的盯梢还没过期时再问一次(那个动作过了一会儿才开出来的);过期了就清掉。
-     * 用户在主屏上选完、处理完之后要说的,先说这个。
+     * 最後のアクションの追跡が期限切れになっていない場合 (そのアクションはしばらくしてから開始された場合) を再度尋ねます。有効期限が切れたらクリアします。
+     * ホーム画面で選択・加工した後にユーザーが言いたいこと、まずはこれについて話しましょう。
      */
     private suspend fun lateSpill(): Spill? {
         pendingReport?.let { pendingReport = null; return it }
@@ -1266,15 +1266,15 @@ class AndroidScreen(
     }
 
     /**
-     * 冒到主屏上的是要用户亲手处理的弹窗(登录验证、账号确认、付款确认一类):不挪,留在用户屏上。
-     * 判据:系统账号登录服务(登记了账号认证器、没有桌面图标的包)的页面,顶层窗口不是整屏(对话框、底部弹层),窗口里有密码框,或页面本身不进最近任务(excludeFromRecents)。
-     * 这类窗口挪到 Mika 的屏上就从用户眼前消失,用户也就没法在主屏上点确认。不是为 null。
-     * noHistory 不算:很多 App 的开屏页带着它,算进来就把普通 App 当成了弹窗。
+     * ホーム画面に表示されるポップアップ ウィンドウは、ユーザーが個人的に処理する必要があります (ログイン確認、アカウント確認、支払い確認など)。ウィンドウを移動せず、ユーザー画面に留まらせてください。
+     * 基準: システム アカウント ログイン サービスのページ (アカウント認証が登録されており、デスクトップ アイコンがないパッケージ) で、上部のウィンドウが画面全体ではない (ダイアログ ボックス、下部のポップアップ レイヤー)、ウィンドウにパスワード ボックスがある、またはページ自体に最近のタスクが入力されていない (excludeFromRecents)。
+     * この種のウィンドウは、Mika の画面に移動するとユーザーの目から消え、ユーザーはホーム画面で確認をクリックできなくなります。ヌルではありません。
+     * noHistory はカウントされません。多くのアプリの最初のページに noHistory があり、通常のアプリは含まれる場合、ポップアップ ウィンドウとして扱われます。
      */
     private suspend fun leavePopup(a: MainScreenSpill.Arrival, pkg: String): Spill? =
         if (needsUserWindow(a, pkg)) popup(a, pkg) else null
 
-    /** 主屏上这个任务的顶层窗口是不是一个要用户亲手处理的弹窗(见 [leavePopup])。最多多等两次 [POPUP_SETTLE_MS]。 */
+    /** ホーム画面上のこのタスクの最上位ウィンドウは、ユーザーが手動で処理する必要があるポップアップ ウィンドウです ([leavePopup] を参照)。 [POPUP_SETTLE_MS] まであと 2 回まで待ちます。 */
     private suspend fun needsUserWindow(a: MainScreenSpill.Arrival, pkg: String): Boolean {
         if (isAuthenticatorUi(pkg)) return true
         val activity = a.topActivity?.let {
@@ -1282,7 +1282,7 @@ class AndroidScreen(
         }
         if (activity != null && activity.flags and ActivityInfo.FLAG_EXCLUDE_FROM_RECENTS != 0) return true
         val metrics = a11y.resources.displayMetrics
-        // 刚冒出来的窗口可能还在开场动画里(画得比整屏小),等它停稳再看一次,免得把普通 App 当成弹窗
+        // ポップアップしたウィンドウがまだオープニング アニメーション中である可能性があります (画面全体より小さく描画されています)。通常のアプリがポップアップ ウィンドウとして扱われないように、停止するまで待ってからもう一度確認してください。
         var window = topWindowOf(pkg)
         if (window == null) {
             delay(POPUP_SETTLE_MS)
@@ -1301,22 +1301,22 @@ class AndroidScreen(
         ScreenReader.contentWindows(a11y.windowsOn(Display.DEFAULT_DISPLAY)).firstOrNull { it.root?.packageName?.toString() == pkg }
 
     /**
-     * 这个包是不是系统的账号登录服务:登记了账号认证器(AccountManager.authenticatorTypes,平台数据),自己又没有桌面图标
-     * (没有 LAUNCHER 入口)。这种包没有自己的首页,冒到主屏上的只会是加账号、登录、验证、验证码一类页面,本身就是用户的事,
-     * 整屏、没有密码框也不能挪到 Mika 的屏上。有桌面图标的认证器包(同步联系人的聊天 App、邮箱 App 等)不算,
-     * 它们的会话、分享、写信页照常挪回。认证器表每次现读:新装的认证器也认得出,这一步只在有页面冒到主屏时才走。
+     * このパッケージはシステムのアカウント ログイン サービスですか: アカウント認証子 (AccountManager.authenticatorTypes、プラットフォーム データ) を登録しましたが、デスクトップ アイコンがありません。
+     * (LAUNCHER エントリなし)。この種のパッケージには独自のホームページがありません。ホーム画面に表示されるページは、アカウントの追加、ログイン、確認、コードの確認などのページのみです。これらはユーザーの仕事です。
+     * は画面全体を占有し、パスワード ボックスがなく、ミカの画面に移動できません。デスクトップ アイコン付きの認証パッケージ (連絡先を同期するチャット アプリ、電子メール アプリなど) はカウントされません。
+     * 彼らの会話、共有、書き込みページは通常どおりに戻されました。オーセンティケータ テーブルは毎回次のように読み取ります。新しくインストールされたオーセンティケータも認識できます。この手順は、ホーム画面にページがポップアップ表示された場合にのみ実行されます。
      */
     private fun isAuthenticatorUi(pkg: String): Boolean {
         val authenticators = runCatching { AccountManager.get(a11y).authenticatorTypes.mapNotNull { it.packageName }.toSet() }
             .getOrDefault(emptySet())
         if (pkg !in authenticators) return false
-        // 有桌面图标的包对 Mika 一定看得见(清单里查了 LAUNCHER);查不到才算没有
+        // デスクトップ アイコンを含むパッケージは、Mika に表示される必要があります (リスト内の LAUNCHER を確認してください)。見つからない場合は、そこには存在しないことを意味します。
         val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setPackage(pkg)
         val hasLauncher = runCatching { a11y.packageManager.queryIntentActivities(launcher, 0).isNotEmpty() }.getOrDefault(true)
         return MainScreenSpill.authenticatorUi(pkg, authenticators, hasLauncher)
     }
 
-    /** 窗口没有遮住整块屏:对话框、底部弹层、悬浮窗一类。 */
+    /** ウィンドウは、ダイアログ ボックス、下部のポップアップ、フローティング ウィンドウなど、画面全体をカバーしません。 */
     private fun isNarrow(window: AccessibilityWindowInfo, metrics: android.util.DisplayMetrics): Boolean {
         val bounds = Rect()
         window.getBoundsInScreen(bounds)
@@ -1327,8 +1327,8 @@ class AndroidScreen(
         Spill(OpenedElsewhere(pkg, appLabel(pkg), pulledBack = false, inProfile = inProfileOf(pkg, a.userId), needsUser = true), null)
 
     /**
-     * 开到主屏上的是系统问「用哪一个打开」的窗口(系统的选择器,或系统包的窗口里的选项对得上装了两份的 App;
-     * 各系统的选择框不一定是原版那个):不挪,留给用户在自己屏上选,记下来让任务等着。不是为 null。
+     * ホーム画面に開くのは、システムが「どれで開くか」を尋ねるウィンドウです (システム セレクターまたはシステム パッケージ ウィンドウのオプションは、インストールされている 2 つのアプリと一致します。
+     * 各システムの選択ボックスはオリジナルのものではない場合があります): 移動せず、ユーザーが自分の画面で選択するように任せ、書き留めてタスクを待ちます。ヌルではありません。
      */
     private suspend fun leaveForUser(a: MainScreenSpill.Arrival, pkg: String, w: Watch): Spill? {
         val system = isSystemPackage(pkg)
@@ -1339,14 +1339,14 @@ class AndroidScreen(
         return Spill(OpenedElsewhere(pkg, app, pulledBack = false, picker = true), choice)
     }
 
-    /** 把开到主屏上的任务挪到 Mika 的屏(只挪,不替它重新打开),等它到最上面;挪不动为 null。 */
+    /** ホーム画面で開いているタスクをミカの画面に移動し (移動するだけで、再度開かないでください)、タスクが一番上に到達するまで待ちます。移動できない場合は null になります。 */
     private suspend fun pullBack(a: MainScreenSpill.Arrival, pkg: String, byUser: Boolean = false): Spill? {
         if (!runCatching { shell.moveTask(a.taskId, displayId) }.getOrDefault(false)) {
             Log.w(TAG, "could not move task ${a.taskId} ($pkg) from the main screen")
             return null
         }
         adopted += a.taskId
-        // 事先不知道会开出哪个 App:挪回来后再占;占不到也不撤回
+        // どのアプリが開かれるか事前にわかりません。アプリを元に戻して占有します。占有できない場合は撤退しません。
         if (checkOtherTasks) reserve(pkg)
         val deadline = SystemClock.uptimeMillis() + LAUNCH_WAIT_MS
         while (runCatching { shell.topTaskId(displayId) }.getOrDefault(-1) != a.taskId && SystemClock.uptimeMillis() < deadline) delay(POLL_MS)
@@ -1356,8 +1356,8 @@ class AndroidScreen(
     }
 
     /**
-     * 主屏上这个系统包的窗口是不是在问打开哪一个:事先不知道是为哪个 App 问的,拿装了两份的 App 的名字去对窗口里的选项
-     * (同一个 App 装了两份正是会这样问的情形);只读这个系统窗口,对不上为 null。
+     * ホーム画面にシステム パッケージ ウィンドウが表示され、どれを開くかを尋ねられます。どのアプリを要求しているのか事前にわからないため、インストールされている 2 つのアプリの名前を使用してウィンドウ内のオプションを確認します。
+     * (これは、同じアプリのコピーを 2 つインストールした場合の状況です);このシステム ウィンドウのみを読み取ります。そうでない場合は null になります。
      */
     private suspend fun mainChooser(pkg: String): LaunchChoice? {
         val w = ScreenReader.contentWindows(a11y.windowsOn(Display.DEFAULT_DISPLAY)).firstOrNull { it.root?.packageName?.toString() == pkg } ?: return null
@@ -1370,9 +1370,9 @@ class AndroidScreen(
     }
 
     /**
-     * 任务在下一个改动屏幕的动作前调:等用户在主屏上选完(选之前一直盯着主屏)。选完后,开到主屏上的普通页面挪回 Mika 的屏
-     * (只挪,打开它的仍是原来那个 App);要用户亲手处理的(要输密码、窗口读不到,像付款、指纹)留在主屏,返回 [PickResult.NeedsUser];
-     * 开在了 Mika 屏上的一并算进来;用户把问题关了就照实说。没在等时为 null。
+     * 画面を変更する次のアクションの前にタスクが調整されます。ユーザーがホーム画面で選択を完了するまで待ちます (選択する前にホーム画面を見つめ続けてください)。選択後、ホーム画面の通常ページを開き、ミカの画面に戻ります。
+     * (移動のみ。開くのは元のアプリのままです);ユーザーが手動で処理する必要があるもの (パスワードが必要、支払い、指紋などウィンドウが読み取れない) はホーム画面に留まり、[PickResult.NeedsUser] に戻ります。
+     * は計算に含まれます。ユーザーは問題をオフにした後、真実を話します。待機していない場合は null です。
      */
     suspend fun awaitUserPick(): PickResult? = withContext(Dispatchers.IO) {
         val p = _userPick.value ?: return@withContext null
@@ -1396,7 +1396,7 @@ class AndroidScreen(
                     pendingReport = pullBack(opened, pkg)
                     return@withContext PickResult.Settled
                 }
-                // 选中的 App 开在了 Mika 的屏上(从那边打开的)
+                // 選択したアプリがミカの画面で開きます（そこから開きます）
                 val top = runCatching { shell.topTaskId(displayId) }.getOrDefault(-1)
                 if (top >= 0 && top != p.agentTop && top !in adopted) {
                     adopted += top
@@ -1416,7 +1416,7 @@ class AndroidScreen(
         }
     }
 
-    /** 用户处理完([PickResult.NeedsUser])点了继续:它还在主屏上就挪回 Mika 的屏接着做,已经关了就照实说。 */
+    /** ユーザーが処理 ([PickResult.NeedsUser]) を終了した後、[続行] をクリックします。まだホーム画面にある場合は、ミカの画面に戻って続行します。すでに閉店している場合は、真実を伝えてください。 */
     suspend fun afterUserStep(r: PickResult.NeedsUser) = withContext(Dispatchers.IO) {
         val still = runCatching { shell.displayOfTask(r.taskId) }.getOrDefault(-1) == Display.DEFAULT_DISPLAY
         val moved = if (still) pullBack(MainScreenSpill.Arrival(r.taskId, r.packageName, r.userId, 0, Display.DEFAULT_DISPLAY, false, true, Display.DEFAULT_DISPLAY), r.packageName, byUser = true) else null
@@ -1424,13 +1424,13 @@ class AndroidScreen(
     }
 
     /**
-     * 主屏上这个 App 的窗口要用户亲手处理:有密码框,或树里读不出东西而截主屏时系统报防截屏窗口(截到的画面不留,马上丢掉)。
-     * 只看有没有,不读里面写了什么。
+     * ホーム画面上のこのアプリのウィンドウでは、ユーザーが手動で操作する必要があります。パスワード ボックスがあるか、ツリー内で何も読み取れないためにホーム画面のスクリーンショットを撮ると、システムはスクリーンショット ウィンドウを報告します (キャプチャされた画面は保持されず、すぐに破棄されます)。
+     * は、そこに何が書かれているかではなく、そこにあるかどうかだけを調べます。
      */
     private suspend fun needsUser(pkg: String): Boolean {
-        // 读的是用户主屏上的窗口,应用访问边界看不到:被禁用的不读
+        // はユーザーのホーム画面のウィンドウを読み取りますが、アプリケーションのアクセス境界は見えません。無効になっているものは読み取られません。
         appAccess.current().denial(pkg)?.let { throw it }
-        // 刚上来的窗口要一会儿才读得到:读得到内容(或看到密码框)就下结论,到时限还读不到再看是不是防截屏
+        // 表示されたウィンドウを読むにはしばらく時間がかかります。内容が読めるようになったら (またはパスワード ボックスが表示されたら)、結論を導き出します。それでも制限時間内に読めない場合は、アンチスクリーンショットかどうかを確認してください。
         val deadline = SystemClock.uptimeMillis() + PICK_READ_MS
         while (true) {
             val mine = ScreenReader.contentWindows(a11y.windowsOn(Display.DEFAULT_DISPLAY)).filter { it.root?.packageName?.toString() == pkg }
@@ -1447,8 +1447,8 @@ class AndroidScreen(
     }
 
     /**
-     * 动作之前 Mika 屏上最上面的是挪回来的任务(或从它里面打开的),动作之后最上面换成了另一个任务:
-     * 这个也是那条路上打开的,一并算进来。装了两份的 App 报开的是哪一份。
+     * アクションの前、ミカの画面の一番上のタスクは、元に戻された (またはそこから開かれた) タスクでした。アクションの後、最上位のタスクは別のタスクに置き換えられました。
+     * これもその道路で開通しているので計算に含まれます。アプリのコピーが 2 つインストールされている場合、どちらを開く必要がありますか?
      */
     private suspend fun adoptFromAdopted(w: Watch?): String? {
         if (w == null || w.agentTopBefore !in adopted) return null
@@ -1459,7 +1459,7 @@ class AndroidScreen(
         return inProfileOf(pkg, runCatching { shell.userOfTask(top) }.getOrDefault(-1))
     }
 
-    /** 装了两份的 App 开的是哪一份:和 Mika 同一个用户的是本来那份;只装了一份或看不出为 null。 */
+    /** 2 つのコピーがインストールされている場合に開かれるアプリのバージョン。Mika と同じユーザーが使用するものが元のバージョンです。コピーが 1 つだけインストールされている場合、または表示できない場合は、null になります。 */
     private suspend fun inProfileOf(pkg: String, userId: Int): String? {
         if (userId < 0 || pkg !in otherProfiles()) return null
         return if (userId == myUser) OpenedElsewhere.MAIN_PROFILE else OpenedElsewhere.OTHER_PROFILE
@@ -1500,7 +1500,7 @@ class AndroidScreen(
         }
     }
 
-    /** 等界面稳定后比对指纹(规则见 [ChangeWait]);确认变了立即返回 true。 */
+    /** インターフェイスが安定した後にフィンガープリントを比較します (ルールについては [ChangeWait] を参照)。変更を確認したらすぐに true を返します。 */
     private suspend fun awaitChange(clock: EventClock, beforeTree: Long, beforeFrame: IntArray?): Boolean =
         ChangeWait.awaitStableChange(
             now = SystemClock::uptimeMillis,
@@ -1511,21 +1511,21 @@ class AndroidScreen(
             beforeFrame = beforeFrame,
         )
 
-    /** 前台不是目标 App、也不是它调起的系统页面或系统选择器时,返回当前前台包名及是否由目标 App 打开。 */
+    /** フォアグラウンドがターゲット アプリではなく、それが呼び出すシステム ページやシステム セレクターでもない場合、現在のフォアグラウンド パッケージ名と、それがターゲット アプリによって開かれているかどうかを返します。 */
     private fun switchedTo(): AppSwitch.Switch? {
         val target = _target.value
         return AppSwitch.switchedTo(
             targetPackage,
             ScreenReader.topPackage(windows()),
-            // 从用户主屏挪回来的(及从它们里面打开的)也是目标 App 这一路打开的
+            // ユーザーのホーム画面から戻されたもの (およびホーム画面から開かれたもの) は、この方法で開かれたターゲット アプリでもあります。
             sameTask = {
                 val top = runCatching { shell.topTaskId(displayId) }.getOrDefault(-1)
                 top >= 0 && (target != null && target.taskId == top || top in adopted)
             },
             partOfTask = chooserPackage?.let { systemPickers + it } ?: systemPickers,
             settingsPage = { it == settingsPackage },
-            // 同一个 App 装了两份:最上面换成了另一份用户里的那份(不是目标任务、也不是挪回来的)也算被切走
-            // 只在目标是另一份、或这个 App 列出过另一份时才问任务(只装一份的 App 每个动作不多问两次)
+            // 同じアプリが 2 回インストールされています。一番上のアプリは別のユーザーのアプリ (ターゲット タスクでも、元に戻されたアプリでもありません) に置き換えられ、削除されたとみなされます。
+            // ターゲットが別のコピーである場合、またはこのアプリが別のコピーをリストしている場合にのみタスクを要求します (コピーを 1 つだけインストールするアプリは、各アクションに対して 2 回以上要求することはできません)
             otherCopy = {
                 target != null && target.userId >= 0 && (target.userId != myUser || target.packageName in copiedPackages) && run {
                     val top = runCatching { shell.topTaskId(displayId) }.getOrDefault(-1)
@@ -1536,8 +1536,8 @@ class AndroidScreen(
     }
 
     /**
-     * 打开时目标 App 还没到前台(系统先问打开哪一个、启动慢),之后它到了最上面:记下它的任务编号,
-     * 任务服务才能据此静音、盯着它有没有被挪走。
+     * が開かれるとき、ターゲット アプリはまだフォアグラウンドに到達しておらず (システムは最初にどれを開くかを尋ね、起動が遅い)、その後トップに到達します。そのタスク番号を書き留めます。
+     * タスク サービスをミュートし、移動されたかどうかを確認できます。
      */
     private suspend fun adoptTargetTask(): String? {
         val t = _target.value ?: return null
@@ -1546,11 +1546,11 @@ class AndroidScreen(
         if (task < 0) return null
         val user = userOf(task)
         _target.value = TargetApp(t.packageName, task, user)
-        // 系统问过打开哪一个(装了两份):报开的是哪一份
+        // システムはどちらを開くかを尋ねました (2 つのコピーがインストールされています)。どちらが開かれたと報告されていますか?
         return inProfileOf(t.packageName, user)
     }
 
-    /** 带上「是否被切走」的动作结果;[spill] 是这个动作开到用户主屏上的 App,[inProfile] 见 [ActionResult.Ok.inProfile]。 */
+    /** は「切り取られたかどうか」というアクション結果を保持します。 [spill] は、このアクションによりユーザーのホーム画面で開かれるアプリです。[inProfile] は [ActionResult.Ok.inProfile] を参照してください。 */
     private suspend fun ok(
         changed: Boolean? = null, relocatedTo: String? = null, verification: Verification? = null,
         hint: String? = null, secret: Boolean = false, spill: Spill? = null, inProfile: String? = null,
@@ -1567,12 +1567,12 @@ class AndroidScreen(
         )
     }
 
-    /** 打开 App 时要的那份用户(另一份);要的是本来那份、或这次不是打开 App 为 null。 */
+    /** アプリを開くときに要求されたユーザーのコピー (別のコピー)。要求された元のコピー、または今回アプリが開かれていない場合は null。 */
     @Volatile private var requestedUser: Int? = null
 
     /**
-     * 目标 App 装了两份(列出过另一份、要的就是另一份,或打开的就是另一份)时,此刻 Mika 屏上是哪一份:(inProfile, 所属用户)。
-     * 只装一份、最上面不是它或读不到为 null;只装一份的 App 不多问。
+     * ターゲット アプリの 2 つのコピーがインストールされている場合 (もう 1 つのコピーがリストされている、もう 1 つのコピーが要求されている、またはもう 1 つのコピーが開かれている)、現時点ではどちらのコピーがミカ画面上にあります: (プロファイル内、ユーザーが所有)。
+     * のコピーが 1 つだけインストールされている場合、それが先頭にない場合、または読み取れない場合は、null になります。アプリのコピーが 1 つだけインストールされている場合は、それ以上の質問は行われません。
      */
     private fun shownCopy(): Pair<String, Int>? {
         val t = _target.value ?: return null
@@ -1582,11 +1582,11 @@ class AndroidScreen(
         return (if (user == myUser) OpenedElsewhere.MAIN_PROFILE else OpenedElsewhere.OTHER_PROFILE) to user
     }
 
-    // ---------- 编号解析 ----------
+    // ---------- 数値分析 ----------
 
     /**
-     * 把编号解析成可操作的节点;经过重定位时第二个值是找回的元素现在的名字,否则为 null。
-     * 最新快照里的节点还在且没变就直接用;快照过期或节点变了,按原元素特征在当前界面里找唯一对应者。
+     * は数値を解析して操作可能なノードにします。再配置後の 2 番目の値は取得された要素の現在の名前になります。それ以外の場合は null になります。
+     * 最新のスナップショット内のノードがまだ存在し、変更されていない場合は、それを直接使用します。スナップショットの有効期限が切れたり、ノードが変更された場合は、元の要素の特性に従って、現在のインターフェイス内で対応する一意のスナップショットを見つけます。
      */
     private fun resolve(ref: String, snapshotId: String): Pair<AccessibilityNodeInfo, String?>? {
         val (entry, snapshot) = when (val l = ids.lookup(ref, snapshotId)) {
@@ -1604,7 +1604,7 @@ class AndroidScreen(
         }
     }
 
-    /** 节点还在,且类型、名字、资源 ID、位置都和快照时一样(列表复用后同一个节点可能换了内容)。 */
+    /** ノードはまだ存在しており、タイプ、名前、リソース ID、および場所はスナップショットと同じです (リストの再利用後に同じノードの内容が変更されている可能性があります)。 */
     private fun unchanged(entry: NodeEntry): Boolean {
         val n = entry.node
         if (!n.refresh()) return false
@@ -1613,15 +1613,15 @@ class AndroidScreen(
     }
 
     private sealed interface Field {
-        /** [tapped]:给的元素本身不是输入框,点了它之后才出现(或聚焦了)真正的输入框。 */
+        /** [tapped]: 指定された要素自体は入力ボックスではありません。実際の入力ボックスは、クリックした後にのみ表示されます (またはフォーカスされます)。 */
         class Found(val node: AccessibilityNodeInfo, val tapped: Boolean = false, val relocatedTo: String? = null) : Field
         class Missing(val reason: String) : Field
     }
 
     /**
-     * 找要输入的框。给了编号:元素本身或它里面的输入框;都不是、而它看上去是输入入口(首页那条「假搜索框」:
-     * 可点、不是按钮、带提示语或名字像搜索)时先点它,点成功且出现了一个点之前没有的、拿着焦点的输入框,才用那个框。
-     * 没给编号:当前拿着输入焦点的框。
+     * 入力するボックスを見つけます。番号を考えると、要素自体でもその中の入力ボックスでもありませんが、入力の入り口 (ホームページ上の「偽の検索ボックス」) のように見えます。
+     * (ボタンではなく、プロンプトまたは検索などの名前でクリックできます)、最初にクリックします。クリックが成功し、以前は存在しなかったフォーカスのある入力ボックスが表示された場合は、そのボックスを使用します。
+     * 番号なし: 現在入力フォーカスを保持しているボックス。
      */
     private suspend fun findField(ref: String?, snapshotId: String?, tapToFocus: Boolean = true): Field {
         if (ref != null && snapshotId != null) {
@@ -1640,7 +1640,7 @@ class AndroidScreen(
         return focusedEditable()?.let { Field.Found(it) } ?: Field.Missing(NO_FOCUS)
     }
 
-    /** 认「同一个输入框」用的特征:类型、资源 ID、位置大小。 */
+    /** 「同じ入力ボックス」を識別するために使用される特性: タイプ、リソース ID、場所のサイズ。 */
     private data class FieldShape(val cls: String?, val rid: String?, val rect: android.graphics.Rect) {
         companion object {
             fun of(n: AccessibilityNodeInfo) =
@@ -1651,7 +1651,7 @@ class AndroidScreen(
     private fun sameField(a: FieldShape, n: AccessibilityNodeInfo): Boolean {
         val b = FieldShape.of(n)
         if (a.cls != b.cls || a.rid != b.rid) return false
-        // 大小要几乎一样;位置允许整页挪动一点(输入时页面常会上移),和编号找回用同一个上限
+        // のサイズはほぼ同じであるはずです。ページ全体が少し移動できる位置（入力時にページが上に移動することがよくあります）で、番号の検索にも同じ上限が使用されます。
         val short = min(screenWidth, screenHeight)
         val sizeTol = short * SAME_FIELD_SIZE
         val moveTol = short * RELOCATE_MAX_SHIFT
@@ -1659,7 +1659,7 @@ class AndroidScreen(
             kotlin.math.hypot((a.rect.centerX() - b.rect.centerX()).toDouble(), (a.rect.centerY() - b.rect.centerY()).toDouble()) <= moveTol
     }
 
-    /** 像输入入口:可点,不是按钮类,且带提示语或名字像搜索。 */
+    /** 画像入力入口: クリック可能、ボタンタイプではなく、プロンプトまたは名前画像検索付き。 */
     private fun looksLikeInputEntry(n: AccessibilityNodeInfo): Boolean {
         val target = ancestorOrSelf(n) { it.isClickable } ?: return false
         val cls = target.className?.toString().orEmpty()
@@ -1670,13 +1670,13 @@ class AndroidScreen(
     }
 
     /**
-     * 这块屏上有东西拿着输入焦点(哪怕不是树里的输入框,比如 App 自己画的界面整块拿着焦点),或弹着输入法。
-     * 都没有时按键没有框可去:树里看不到的输入框也只有拿着焦点才收得到粘贴。
+     * この画面上に入力フォーカスを保持しているものがあります (ツリー内の入力ボックスでなくても、フォーカスを保持しているアプリ自体によって描画されたインターフェイス全体など)、または入力メソッドが再生されています。
+     * 何もない場合は、ボタンを押す枠がありません。ツリーに表示されない入力ボックスは、フォーカスを保持したままでのみ受信して貼り付けることができます。
      */
     private fun somethingHoldsInputFocus(): Boolean =
         imeBox() != null || ScreenReader.contentWindows(windows()).any { it.root?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) != null }
 
-    /** 这块屏上拿着输入焦点的可编辑框;焦点落在容器(如网页)上时找它里面聚焦的可编辑节点。 */
+    /** この画面には、入力フォーカスの編集可能なボックスが表示されます。フォーカスがコンテナー (Web ページなど) にある場合は、そのコンテナー内でフォーカスされている編集可能なノードを見つけます。 */
     private fun focusedEditable(): AccessibilityNodeInfo? {
         for (w in ScreenReader.contentWindows(windows())) {
             val focused = w.root?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: continue
@@ -1686,9 +1686,9 @@ class AndroidScreen(
         return null
     }
 
-    // ---------- 底层操作 ----------
+    // ---------- 低レベル操作 ----------
 
-    /** 优先对节点(或最近的可点祖先)发点击;不行再在其中心做手势,最后注入触摸。 */
+    /** は、ノード (または最も近いポイント可能な祖先) をクリックすることを優先します。それが不可能な場合は、その中心でジェスチャが行われ、最後にタッチが注入されます。 */
     private suspend fun click(node: AccessibilityNodeInfo): Boolean {
         val target = ancestorOrSelf(node) { it.isClickable && it.isEnabled }
         if (target != null && target.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
@@ -1698,7 +1698,7 @@ class AndroidScreen(
 
     private suspend fun tapAt(x: Int, y: Int): Boolean = touch(pacing.near(x, y))
 
-    /** 在这一点上点一下:先停一会儿再落指,按住随机的一小会儿。无障碍手势不行时由内置助手注入触摸。 */
+    /** この時点でクリックします。指を下ろす前にしばらく停止し、ランダムな瞬間を押し続けます。アクセシビリティ ジェスチャが失敗した場合、組み込みアシスタントがタッチを挿入します。 */
     private suspend fun touch(at: Pair<Int, Int>): Boolean {
         val (x, y) = at
         delay(pacing.approach())
@@ -1709,8 +1709,8 @@ class AndroidScreen(
     }
 
     /**
-     * 一根手指沿 [points] 滑动。有节奏时按 [GesturePacing.stroke] 排好每个点的时刻,由内置助手逐点注入(App 看到先快后慢的真实速度);
-     * 助手注不了时退回无障碍手势沿同一条弧线走(系统按路径匀速走,只少了快慢)。不加节奏时和以前一样:无障碍手势按给定时长匀速走折线。
+     * [points] に沿って指をスライドさせます。リズムがある場合、[GesturePacing.stroke] を押して各ポイントの時間を調整すると、内蔵アシスタントがポイントごとにリズムを挿入します (アプリは最初は速く、次に遅いという実際の速度を確認します)。
+     * アシスタントが注意を払うことができない場合は、バリアフリー ジェスチャに戻り、同じ円弧に沿って歩きます (システムは経路に従って一定の速度で歩きますが、速度だけが欠落しています)。リズムがなければ、これまでと同じです。バリアフリーのジェスチャーは、一定時間一定の速度で動きます。
      */
     private suspend fun drag(points: List<Pair<Int, Int>>, durationMs: Long, bow: Boolean): Boolean {
         if (!pacing.paced) return a11y.gesture(displayId, pathOf(points), durationMs)
@@ -1735,14 +1735,14 @@ class AndroidScreen(
     }
 
     /**
-     * 网页里的编辑区(contenteditable)只认真实输入:SET_TEXT 只改了网页上的字,编辑器收不到 input 事件,
-     * App 会当作没输入(「完成」不亮、退出不保存)。这类输入框改用选中原内容再粘贴或按删除键。
+     * Web ページの編集領域 (contenteditable) は実際の入力のみを受け入れます。SET_TEXT は Web ページ上の単語のみを変更し、エディターは入力イベントを受け取ることができません。
+     * アプリは入力がないものとして扱います（「完了」は点灯せず、保存せずに終了します）。このタイプの入力ボックスの場合は、元のコンテンツを選択して貼り付けるか、delete キーを押します。
      */
     private fun inWebView(node: AccessibilityNodeInfo) = ancestorOrSelf(node) { it.className == WEB_VIEW } != null
 
     /**
-     * 选中原内容后粘贴(或按删除键清空)。返回 null 表示剪贴板不能安全使用(读不到用户原来的内容等),没有改动任何东西。
-     * 剪贴板只在这一次粘贴期间是 Mika 的:App 读完(字变了)或超时就还原。
+     * 元のコンテンツを選択して貼り付けます (または削除キーを押してクリアします)。 null を返すということは、クリップボードが安全に使用できず (ユーザーの元のコンテンツを読み取ることができないなど)、何も変更されていないことを意味します。
+     * クリップボードは、この貼り付け期間中のみミカに属します。アプリは、読み取り（単語が変更された）またはタイムアウト後にクリップボードを復元します。
      */
     private fun inputText(node: AccessibilityNodeInfo, text: String): Boolean? {
         node.refresh()
@@ -1766,7 +1766,7 @@ class AndroidScreen(
             runCatching { shell.savedClipText() }.getOrNull()?.let { clipSaved(it, text) }
             selectAll()
             if (!node.performAction(AccessibilityNodeInfo.ACTION_PASTE)) return false
-            // App 是异步去读剪贴板的:等字变了再还原,最多等一会儿
+            // アプリはクリップボードを非同期的に読み取ります。単語が変更されるのを待ってから復元します。最大でしばらく時間がかかる場合があります。
             val deadline = SystemClock.uptimeMillis() + PASTE_WAIT_MS
             while (SystemClock.uptimeMillis() < deadline) {
                 if (node.refresh() && node.text?.toString().orEmpty() != before) break
@@ -1809,27 +1809,27 @@ class AndroidScreen(
 
     // ---------- 画面 ----------
 
-    /** 预览帧的粗粒度亮度格子;没有画面时为 null。 */
+    /** プレビュー フレームの粗い輝度グリッド。画像がない場合はnull。 */
     private fun frameSignature(): IntArray? {
         val bmp = display.current?.frames?.value ?: return null
         return runCatching { FrameMath.lumaGrid(bmp.width, bmp.height, bmp::getPixel) }.getOrNull()
     }
 
-    /** 画面是否全黑(防截屏窗口在虚拟屏上画成黑色);没有画面时为 null。 */
+    /** 画面が完全に黒いかどうか (スクリーンショット防止ウィンドウは仮想画面上で黒く描画されます)。画面がない場合は null になります。 */
     private fun frameBlack(): Boolean? {
         val bmp = display.current?.frames?.value ?: return null
         return runCatching { FrameMath.isBlack(bmp.width, bmp.height, bmp::getPixel) }.getOrNull()
     }
 
-    // ---------- 事件时钟 ----------
+    // ---------- イベントクロック ----------
 
-    /** 记录这块屏上最近一次界面事件的时间。 */
+    /** は、この画面上の最新のインターフェイス イベントの時間を記録します。 */
     private class EventClock {
         private val last = AtomicLong(SystemClock.uptimeMillis())
         fun mark() = last.set(SystemClock.uptimeMillis())
         fun quietForMs() = SystemClock.uptimeMillis() - last.get()
 
-        /** 等到连续 [quietMs] 没有界面事件;[capMs] 内等到返回 true。 */
+        /** は、連続する [quietMs] でインターフェイス イベントがなくなるまで待機します。 [capMs] は true が返されるまで待機します。 */
         suspend fun awaitQuiet(quietMs: Long, capMs: Long): Boolean {
             val deadline = SystemClock.uptimeMillis() + capMs.coerceAtLeast(0)
             while (true) {
@@ -1842,7 +1842,7 @@ class AndroidScreen(
         }
     }
 
-    /** 在订阅该屏无障碍事件期间执行 [block];订阅先于 block 建立,不会漏掉动作引起的第一批事件。 */
+    /** は、画面アクセシビリティ イベントのサブスクリプション中に [block] を実行します。サブスクリプションはブロックの前に確立され、アクションによって発生したイベントの最初のバッチが見逃されることはありません。 */
     private suspend fun <T> withEventClock(block: suspend (EventClock) -> T): T = coroutineScope {
         val clock = EventClock()
         val job = launch(start = CoroutineStart.UNDISPATCHED) {
@@ -1857,27 +1857,27 @@ class AndroidScreen(
 
     private companion object {
         const val TAG = "MikaScreen"
-        /** 动作开始后多久之内主屏冒出来的任务算这个动作开出来的。 */
+        /** アクションの開始後、一定時間以内にホーム画面に表示されたタスクは、このアクションによって開始されたものとしてカウントされます。 */
         const val SPILL_WINDOW_MS = 6_000L
         /**
-         * 窗口的宽、高都至少有主屏的这么多才算整屏的页面;比这小的是对话框、底部弹层一类。
-         * 留得宽一些:状态栏、导航栏、挖孔会让整屏 App 的窗口也比屏小一截,横屏时导航栏还在侧边。
+         * 全画面ページとみなされるには、ウィンドウの幅と高さが少なくともメイン画面と同じくらいでなければなりません。これより小さいのはダイアログ ボックスと下部のポップアップです。
+         * の方が幅が広いです。ステータス バー、ナビゲーション バー、穴掘りにより、全画面アプリ ウィンドウが画面より小さくなります。画面が水平の場合でも、ナビゲーション バーは横に表示されます。
          */
         const val FULL_SCREEN_SHARE = 0.8f
-        /** 刚冒出来的窗口可能还在开场动画里:等这么久再看一次,确认它是不是一直不是整屏。 */
+        /** ポップアップしたウィンドウがまだオープニング アニメーションの途中である可能性があります。しばらく待ってからもう一度見て、それが画面全体ではないかどうかを確認してください。 */
         const val POPUP_SETTLE_MS = 300L
         const val MAX_USER_TAPS = 32
-        /** 用户在主屏的选择框里选了之后,等选中的 App 上来最多多久;等着用户选时多久看一次。 */
+        /** ユーザーがホーム画面の選択ボックスで選択した後、選択したアプリが表示されるまでどれくらい待つ必要がありますか?選択したアプリが表示されるまでユーザーが待つ必要がある時間。 */
         const val PICK_WAIT_MS = 3_000L
         const val PICK_POLL_MS = 300L
-        /** 选择框关掉之前多久冒出来的也算选出来的(看选择框关没关是隔一会儿看一次的)。 */
+        /** 選択ボックスが閉じるまでの時間も選択されたとみなされます (しばらくしてから選択ボックスが閉じているかどうかを確認する必要があります)。 */
         const val PICK_SLACK_MS = 1_000L
-        /** 选出来的 App 上来后,至多等这么久读它的窗口,看要不要用户亲手处理。 */
+        /** 選択したアプリがアップロードされた後、そのウィンドウを読み取り、ユーザーが個人的にそれを処理する必要があるかどうかを確認するには、少なくともこの時間待つ必要があります。 */
         const val PICK_READ_MS = 2_000L
         val NO_APP_OPEN = ActionResult.Failed("no_app_open")
         const val NO_FOCUS = "no_focus"
         const val PER_USER_RANGE = 100_000
-        /** Mika 所在的用户:本来那份 App 在这里。 */
+        /** のユーザー ミカ: オリジナルのアプリはこちらです。 */
         val myUser: Int get() = AppCopyReader.myUser
         const val COPY_NOT_FOUND = "copy_not_found"
         const val COPY_NOT_OPENED = "copy_not_opened"
@@ -1887,13 +1887,13 @@ class AndroidScreen(
 
         const val QUIET_MS = 500L
 
-        /** 停留里轻轻滚的那块可滚动内容至少占屏幕这么大。 */
+        /** Stay でゆっくりスクロールするスクロール可能なコンテンツは、少なくともこれだけの画面を占めます。 */
         const val IDLE_MIN_AREA = 0.5
 
-        /** 停留里轻轻滚一下至少这么多像素(再少看不出)。 */
+        /** 少なくともこの数のピクセルを取得するには、そのままにしてゆっくりスクロールします (表示されるピクセル数がどんなに少なくても)。 */
         const val IDLE_MIN_PX = 8
 
-        /** 停留里轻轻滚一下的时长:够慢,当慢拖,停稳再抬手。 */
+        /** 滞在中に軽く回転する時間: 十分にゆっくり、ゆっくりとドラッグし、停止してから手を上げます。 */
         const val IDLE_SCROLL_MS = 900L
         const val CHECK_CAP_MS = 1_500L
         const val SECOND_LOOK_QUIET_MS = 300L
@@ -1905,13 +1905,13 @@ class AndroidScreen(
         const val IN_USE_RETRY_MS = 3_000L
         const val IN_USE_POLL_MS = 500L
         const val POLL_MS = 100L
-        /** 设闹钟后等系统的下一个闹钟变,最多这么久、这么久看一次。 */
+        /** 目覚まし時計を設定した後、システムの次の目覚まし時計が変わるまで待ちます。この時間とこの時間の間、一度だけ見ることができます。 */
         const val ALARM_WAIT_MS = 3_000L
         const val ALARM_POLL_MS = 150L
         const val SYSTEM_ACTION_REQUEST = 0x5A
-        /** 拖滚轮的时长:不短于节奏里的慢拖时长,松手时已经停住。 */
+        /** ローラーをドラッグする時間: リズムに合わせてゆっくりドラッグする時間以上で、手を離すと停止します。 */
         const val WHEEL_DRAG_MS = 1_000L
-        /** 慢拖拖不动时快划一下的时长(像人手划滚轮)。 */
+        /** ドラッグして移動できない場合のクイック スワイプの継続時間 (人間の手でスクロール ホイールをスワイプする場合など)。 */
         const val WHEEL_SWIPE_MS = 400L
         const val TYPE_ATTEMPTS = 2
         const val WEB_VIEW = "android.webkit.WebView"
@@ -1922,7 +1922,7 @@ class AndroidScreen(
         const val HINT_TAPPED_TO_FOCUS = "The element you gave is not a text field itself, so it was tapped first and the text went into the field that got focus after the tap (often a separate search page). Check which field holds your text before submitting."
         const val FOCUS_WAIT_MS = 2_000L
         const val SAME_FIELD_SIZE = 0.03
-        val SEARCH_WORDS = listOf("搜索", "搜一搜", "查找", "search")
+        val SEARCH_WORDS = listOf("検索", "探す", "キーワード", "搜索", "搜一搜", "查找", "search")
         const val HINT_READBACK_FROZEN = "The field keeps reporting the same text, so what was typed could not be read back; " +
             "but new text containing it appeared on the screen after typing (e.g. suggestions), so the app seems to have received it. Observe to check before submitting."
         const val HINT_SHARE_PICKER = "The system is asking which of the app's share screens to use (the screen lists them). " +
@@ -1930,7 +1930,7 @@ class AndroidScreen(
         const val HINT_COLD_IGNORED = "coldIgnored: app has a task outside Mika's screen, so it was not restarted (that would wipe the user's state there). It was opened as-is; navigate back to its start screen yourself if needed."
         const val MAX_ANCESTORS = 8
 
-        // 悬停、触摸探索、手势识别、无障碍焦点这些不是界面内容的变化
+        // ホバー、タッチ探索、ジェスチャ認識、およびアクセシビリティ フォーカスは、インターフェイスのコンテンツの変更ではありません
         const val IGNORED_EVENTS = AccessibilityEvent.TYPE_VIEW_HOVER_ENTER or AccessibilityEvent.TYPE_VIEW_HOVER_EXIT or
             AccessibilityEvent.TYPE_TOUCH_EXPLORATION_GESTURE_START or AccessibilityEvent.TYPE_TOUCH_EXPLORATION_GESTURE_END or
             AccessibilityEvent.TYPE_GESTURE_DETECTION_START or AccessibilityEvent.TYPE_GESTURE_DETECTION_END or
@@ -1939,7 +1939,7 @@ class AndroidScreen(
     }
 }
 
-/** 桌面上能打开的 App(包名, 显示名),不含 Mika 自己;只用包管理器,不要内置助手和无障碍。 */
+/** デスクトップ上で開くことができるアプリ (パッケージ名、表示名) (Mika 自体を除く)。パッケージ マネージャーのみを使用し、組み込みのアシスタントやアクセシビリティは使用しません。 */
 fun launchableApps(pm: android.content.pm.PackageManager, ownPackage: String): List<Pair<String, String>> {
     val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
     return pm.queryIntentActivities(launcher, 0)

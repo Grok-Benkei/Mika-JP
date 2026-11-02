@@ -7,7 +7,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** 内置浏览器怎么用网络代理:支持才设、带账号密码的 SOCKS 用不了;只替当前的 HTTP 代理答账号密码。 */
+/** 内蔵ブラウザでネットワーク プロキシを使用する方法: アカウントとパスワードを持つ SOCKS は使用できません。現在の HTTP プロキシのアカウントとパスワードのみを提供します。 */
 class WebProxyTest {
     private val saved = NetProxy.sharedSource
 
@@ -34,7 +34,7 @@ class WebProxyTest {
         NetProxy.sharedSource = { "http://alice:pw@proxy.example.test:3128" }
         NetProxy.shared.changed()
         assertEquals("alice" to "pw", WebProxy.credentialsFor("proxy.example.test"))
-        assertNull("网站自己的登录框不答", WebProxy.credentialsFor("site.example.test"))
+        assertNull("サイト自身のログインダイアログには認証情報を返さない", WebProxy.credentialsFor("site.example.test"))
         NetProxy.sharedSource = { "socks5://alice:pw@proxy.example.test:1080" }
         assertNull(WebProxy.credentialsFor("proxy.example.test"))
         NetProxy.sharedSource = { "" }

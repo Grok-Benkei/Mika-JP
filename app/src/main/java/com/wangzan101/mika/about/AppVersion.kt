@@ -1,9 +1,9 @@
 package com.wangzan101.mika.about
 
 /**
- * 版本号比较,按「主.次.修订[-预发布][+构建]」的习惯:开头的 v 去掉,数字段逐个比(缺的当 0),
- * 数字一样时正式版比带预发布后缀的新,两个都带后缀时按点分的各段比(数字按大小,文字按字典序,数字段排在文字段前)。
- * 构建后缀(+ 之后)不参与比较。
+ * バージョン番号の比較。「major.minor.revision[-pre-release][+build]」の習慣に従って、先頭の v を削除し、数値フィールドを 1 つずつ比較します (欠落しているものは 0 として扱われます)。
+ * 番号が同じ場合、プレリリース版よりも正式版の方が新しいことを示します。両方にサフィックスがある場合、比率は点線のセグメントに基づきます (数値はサイズに応じて、テキストは辞書順に並べられ、数値フィールドはテキスト フィールドの前に並べ替えられます)。
+ * ビルド サフィックス (+ の後) は比較に参加しません。
  */
 object AppVersion {
     fun normalize(v: String): String = v.trim().removePrefix("v").removePrefix("V").trim()
@@ -23,7 +23,7 @@ object AppVersion {
         }
     }
 
-    /** [candidate] 比 [current] 新。 */
+    /** [candidate] は [current] よりも新しいです。 */
     fun isNewer(candidate: String, current: String): Boolean = compare(candidate, current) > 0
 
     private fun split(v: String): Pair<List<Int>, String?> {

@@ -51,11 +51,11 @@ import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 import androidx.compose.runtime.getValue
 
-// ---------- 开关 ----------
+// ---------- スイッチ ----------
 
 /**
- * 开关:44×26,打开时强调蓝。动画 200ms 减速,系统关了动画时直接到位。
- * [onCheckedChange] 为空时只显示(整行可点时用)。
+ * スイッチ：44×26、オンにすると青が強調されます。アニメーションは 200 ミリ秒減速され、システムがアニメーションをオフにすると、その位置に直接移動します。
+ * [onCheckedChange] は空の場合にのみ表示されます (行全体をクリックできます)。
  */
 @Composable
 fun MikaSwitch(
@@ -91,11 +91,11 @@ fun MikaSwitch(
     )
 }
 
-// ---------- 胶囊 ----------
+// ---------- カプセル ----------
 
 enum class PillTone { Ok, Warn, Neutral, Accent }
 
-/** 状态胶囊:可用、需要你、已停用;强调色的标明「在用」(例如模型在给哪个用途干活)。 */
+/** ステータス カプセル: 利用可能、必要、非アクティブ化。アクセントカラーは「使用中」を示します (たとえば、モデルがどの目的で動作しているかなど)。 */
 @Composable
 fun StatusPill(text: String, tone: PillTone = PillTone.Neutral, modifier: Modifier = Modifier) {
     val c = MikaTheme.colors
@@ -113,19 +113,19 @@ fun StatusPill(text: String, tone: PillTone = PillTone.Neutral, modifier: Modifi
 
 private val PillText = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold)
 
-// ---------- 按钮 ----------
+// ---------- ボタン ----------
 
-/** 主按钮(强调蓝实底)、浅色次按钮(白底蓝字)、浅填充按钮、文字按钮。 */
+/** メイン ボタン (青一色の背景を強調)、ライト セカンダリ ボタン (白地に青のテキスト)、ライト フィル ボタン、およびテキスト ボタン。 */
 enum class ButtonKind { Primary, Secondary, Tonal, Text }
 
-/** 大:页面底部 52;中:卡片里并排 42;小:行内 32 的胶囊。 */
+/** 大: ページの下部に 52。中: カード内に 42 個が並んでいます。小: 32 個のカプセルが並んでいます。 */
 enum class ButtonSize(val height: Dp, val shape: RoundedCornerShape, val text: TextStyle, val padding: Dp) {
     Large(MikaSize.Button, MikaShapes.Button, TextStyle(fontSize = 16.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold), 20.dp),
     Medium(42.dp, RoundedCornerShape(12.dp), TextStyle(fontSize = 14.5.sp, lineHeight = 19.sp, fontWeight = FontWeight.SemiBold), 14.dp),
     Small(32.dp, RoundedCornerShape(16.dp), TextStyle(fontSize = 13.5.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold), 14.dp),
 }
 
-/** 按钮。宽度由 [modifier] 定(铺满、按权重分或包住文字)。 */
+/** ボタン。幅は [modifier] (塗りつぶし、ウェイトで除算、またはテキストの折り返し) によって決まります。 */
 @Composable
 fun MikaButton(
     text: String,
@@ -157,9 +157,9 @@ fun MikaButton(
     }
 }
 
-// ---------- 分段控件 ----------
+// ---------- セグメント制御 ----------
 
-/** 分段控件:浅填充底,选中的一段是白色浮起。[tags] 是各段的测试标签。 */
+/** セグメント化されたコントロール: 底が浅く塗りつぶされ、選択されたセグメントは白く浮遊します。 [tags] は各セグメントのテスト ラベルです。 */
 @Composable
 fun SegmentedControl(
     options: List<String>,
@@ -194,11 +194,11 @@ private val SegmentOuter = RoundedCornerShape(10.dp)
 private val SegmentInner = RoundedCornerShape(8.dp)
 private val SegmentText = TextStyle(fontSize = 13.5.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium)
 
-// ---------- 顶栏 ----------
+// ---------- トップバー ----------
 
 /**
- * 顶栏上的圆形图标按钮,40dp。[glass] 为真时是浮在内容上的白色玻璃圆。
- * [badge] 为真时右上角一个强调色小圆点(有别的事在进行);[enabled] 为假时变淡、不可点。
+ * トップバーの丸いアイコンボタン、40dp。 [glass] が true の場合、コンテンツ上に白いガラスの円が浮かんでいます。
+ * [badge] が true の場合、右上隅に小さなアクセント カラーのドットが表示されます (何か他のことが起こっています)。 [enabled] が false の場合、色褪せてクリックできなくなります。
  */
 @Composable
 fun BarIconButton(
@@ -228,8 +228,8 @@ fun BarIconButton(
 }
 
 /**
- * 顶栏:56 高,左右各一个图标按钮位,标题居中,可带一行副标题。
- * 底色默认是页面底色,内容在它下面滚动时不透字。
+ * トップバー: 高さ 56 メートル、左右にアイコン ボタン、中央にタイトル、字幕が並びます。
+ * デフォルトの背景色はページの背景色であり、コンテンツがその下にスクロールされるとテキストは表示されません。
  */
 @Composable
 fun TopBar(
@@ -237,7 +237,7 @@ fun TopBar(
     left: ImageVector? = null,
     onLeft: () -> Unit = {},
     leftLabel: String = "",
-    /** 左边按钮上的小圆点,见 [BarIconButton]。 */
+    /** 左側のボタンの小さな点。[BarIconButton] を参照してください。 */
     leftBadge: Boolean = false,
     right: (@Composable RowScope.() -> Unit)? = null,
     subtitle: String? = null,
@@ -267,9 +267,9 @@ fun TopBar(
     }
 }
 
-// ---------- 选择胶囊 ----------
+// ---------- カプセルを選択 ----------
 
-/** 可选的胶囊(服务商、接口类型):34 高,白卡底;选中时深色实底、反色字。[small] 是行内的小号。 */
+/** オプションのカプセル (サービス プロバイダー、インターフェイス タイプ): 高さ 34、白いカード ベース。濃い色のソリッドベース、選択すると反転したテキスト。 [small] は業界では少数の数字です。 */
 @Composable
 fun SelectChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, small: Boolean = false) {
     val c = MikaTheme.colors
@@ -300,11 +300,11 @@ private val SmallChipShape = RoundedCornerShape(8.dp)
 private val ChipText = TextStyle(fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium)
 private val SmallChipText = TextStyle(fontSize = 12.5.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium)
 
-// ---------- 小标签 ----------
+// ---------- スモールレーベル ----------
 
 enum class TagTone { Neutral, Accent }
 
-/** 能力小标签(工具调用、看图、64K):11 / 600,圆角 7。 */
+/** 能力小ラベル（ツール呼び出し、画像表示、64K）：11/600、角丸7． */
 @Composable
 fun CapabilityTag(text: String, tone: TagTone = TagTone.Neutral) {
     val c = MikaTheme.colors
@@ -315,9 +315,9 @@ fun CapabilityTag(text: String, tone: TagTone = TagTone.Neutral) {
 private val TagShape = RoundedCornerShape(7.dp)
 private val TagText = TextStyle(fontSize = 11.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold)
 
-// ---------- 分页点 ----------
+// ---------- ページングポイント ----------
 
-/** 上手流程底部的分页点:当前一步是 18 宽的强调色短条,其余是 6 的灰点。 */
+/** 開始プロセスの下部にあるページング ポイント: 現在のステップは 18 幅の短いアクセント カラーのストリップで、残りは 6 つのグレーのドットです。 */
 @Composable
 fun ProgressDots(count: Int, current: Int, modifier: Modifier = Modifier) {
     val c = MikaTheme.colors

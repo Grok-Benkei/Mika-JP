@@ -23,13 +23,13 @@ import com.wangzan101.mika.cap.phone.shell.SystemIntents
 import java.lang.ref.WeakReference
 
 /**
- * 兼容性自检在 Mika 虚拟屏上操作的那一页:一个计数按钮、一个输入框、一列能滚动的行、一行一直在跳的数字和一条来回变色的横条
- * (画面一直在变,好看出虚拟屏会不会过几秒就不动了)。页面上写明这是 Mika 自己的测试页。
+ * 互換性セルフテストがミカ仮想画面上で動作するページ: カウント ボタン、入力ボックス、スクロール可能な行、飛び続ける数字の行、色が前後に変わる水平バー。
+ * (画面は変化し続けるため、数秒後に仮想画面の動きが止まるかどうかを確認できます)。このページには、これがミカ自身のテストページであると記載されています。
  *
- * 清单里导出,但要求调用方持有 INTERACT_ACROSS_USERS_FULL(shell 和系统有,普通 App 拿不到),没有 intent-filter:
- * 只由内置助手以 shell 身份按组件名打开到 Mika 的屏上(见 [intent])。
- * 万一开到了主屏(屏号是 0),马上关掉,不打扰用户。控件用普通的 View 和资源 id;
- * 文字按 App 语言取([tr]),自检那边按同样的文字认控件(读屏时有字的控件不带资源 id)。
+ * はリストからエクスポートされますが、呼び出し元は INTERACT_ACROSS_USERS_FULL (シェルとシステムでは利用可能ですが、通常のアプリでは利用できません) を保持する必要があり、インテント フィルターはありません。
+ * は、組み込みアシスタントによってコンポーネント名によるシェルとしてのみミカの画面に開かれます ([intent] を参照)。
+ * ホーム画面（画面番号が 0）が開いた場合は、ユーザーの邪魔にならないようにすぐにオフにしてください。コントロールは通常のビュー ID とリソース ID を使用します。
+ * テキストは、アプリ言語 ([tr]) に従って取得されます。セルフテスト側で同じテキストを押してコントロールを識別します (画面読み取り中の単語を含むコントロールにはリソース ID がありません)。
  */
 class SelfCheckTargetActivity : Activity() {
     private val main = Handler(Looper.getMainLooper())
@@ -58,13 +58,13 @@ class SelfCheckTargetActivity : Activity() {
         setContentView(content())
     }
 
-    // 再打开一次时从头来:计数清零、输入框清空、滚回顶上
+    // 再度開くと最初から開始します。カウントをクリアし、入力ボックスをクリアして、一番上までスクロールします。
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setContentView(content())
     }
 
-    // 看得见就一直跳(虚拟屏上的页面不一定拿到焦点,不按 onResume 算)
+    // は表示されている限りジャンプし続けます (仮想画面上のページはフォーカスされていない可能性があり、onResume が押された場合はカウントされません)
     override fun onStart() {
         super.onStart()
         main.removeCallbacks(ticker)
@@ -104,7 +104,7 @@ class SelfCheckTargetActivity : Activity() {
         column.addView(Button(this).apply {
             id = R.id.selfcheck_button
             text = tr(R.string.selfcheck_target_button)
-            // 按钮默认按主题显示成全大写,读屏读到的也就变了样:照写的样子显示
+            // ボタンはテーマに応じてデフォルトですべて大文字で表示され、画面を読むときに読む内容が変わり、書かれたとおりに表示されます。
             isAllCaps = false
             setOnClickListener {
                 taps++
@@ -138,12 +138,12 @@ class SelfCheckTargetActivity : Activity() {
 
         @Volatile private var current: WeakReference<SelfCheckTargetActivity>? = null
 
-        /** 打开这一页用的 intent:指明组件,单独一个任务,不进最近任务。 */
+        /** このページを開くために使用されるインテント: コンポーネント、単一タスクを指定し、最近のタスクを入力しません。 */
         fun intent(context: Context): Intent = Intent()
             .setClassName(context.packageName, SystemIntents.OWN_PAGE_CLASS)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
-        /** 自检结束或取消:还开着就关掉。主线程调。 */
+        /** セルフテストが完了またはキャンセルされました: まだオンになっている場合はオフにします。主ネジの調整。 */
         fun finishOpen() {
             current?.get()?.finish()
             current = null

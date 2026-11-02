@@ -5,11 +5,11 @@ import kotlinx.serialization.Serializable
 @Suppress("EnumEntryName")
 enum class MemoryKind { fact, preference, procedure }
 
-/** 只有做法会处于 pending(待用户批准)。 */
+/** メソッドのみが保留中になります (ユーザーによる承認が必要です)。 */
 @Suppress("EnumEntryName")
 enum class MemoryStatus { active, pending }
 
-/** [type]:`user_said`(带用户原话 [quote])或 `manual`(用户在设置里手写)。 */
+/** [type]: `user_said` (ユーザーのオリジナルの単語 [quote]) または `manual` (ユーザーが設定で手書き)。 */
 @Serializable
 data class MemorySource(
     val type: String,
@@ -19,7 +19,7 @@ data class MemorySource(
     val channel: String? = null,
 )
 
-/** [replaces]:被这次更新掉的旧内容,只留一版(界面「原来:…」)。 */
+/** [replaces]: 今回更新された古いコンテンツは 1 つのバージョンのみが残っています (インターフェース「Original:...」)。 */
 @Serializable
 data class MemoryItem(
     val id: String,

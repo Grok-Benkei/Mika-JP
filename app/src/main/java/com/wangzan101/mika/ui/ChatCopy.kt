@@ -6,9 +6,9 @@ import com.wangzan101.mika.R
 import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.i18n.trPlural
 
-/** 对话页上按状态算出来的文字;不碰界面,单测直接测。 */
+/** ダイアログ ページのステータスに従って計算されたテキスト。界面には触れず、単回測定で直接測定してください。 */
 object ChatCopy {
-    /** 空对话的问候,按时段。 */
+    /** 期間別の空の会話型挨拶。 */
     fun greeting(hour: Int): String = when (hour) {
         in 5..10 -> tr(R.string.chat_greeting_morning)
         in 11..12 -> tr(R.string.chat_greeting_noon)
@@ -19,7 +19,7 @@ object ChatCopy {
 
     val EMPTY_PROMPT get() = tr(R.string.chat_empty_prompt)
 
-    /** 空对话里的示例;点一下填进输入框,用户改好了再发。[kind] 决定配哪个线条图标。 */
+    /** 空のダイアログの例。クリックして入力ボックスに入力すると、ユーザーは送信する前に入力ボックスを変更します。 [kind] は、どの回線アイコンに一致するかを決定します。 */
     enum class ExampleKind { App, Web, File, Schedule, Device }
     data class Example(val kind: ExampleKind, val text: String)
 
@@ -32,23 +32,23 @@ object ChatCopy {
         Example(ExampleKind.App, tr(R.string.chat_example_creator)),
     )
 
-    /** 对话页顶栏的标题:固定是 App 名;副标题说此刻在做什么。 */
+    /** 会話ページの上部バーのタイトル: 常にアプリ名です。サブタイトルには現在何が行われているかが記載されています。 */
     const val APP_TITLE = "Mika"
 
-    /** 对话的名字:第一句话(只取第一行,附件那几行不算;只发了屏幕时是「你此刻的屏幕」);空对话为空。侧栏里用它称呼对话。 */
+    /** ダイアログの名前: 最初の文 (最初の行のみが取得され、添付ファイルの行はカウントされません。画面のみが送信される場合、それは「現在の画面」です)。空のダイアログは空です。サイドバーで会話を呼び出すために使用します。 */
     fun title(exchanges: List<Exchange>): String =
         exchanges.firstOrNull { it.goal.isNotBlank() }?.goal?.let(::plainTitle).orEmpty()
 
     /**
-     * 一句用户的话当标题怎么写:去掉网页说明([AttachedPage])、引用([QuoteMessage])、附件那几行(只发了附件时是「照片」「合同.pdf」之类)和屏幕那一行(只发了屏幕时是「你此刻的屏幕」),
-     * 只取第一行。
+     * タイトルとしてユーザーの言葉を記述する方法: Web ページの説明 ([AttachedPage])、引用 ([QuoteMessage])、添付ファイルの行 (添付ファイルのみを送信する場合は「写真」、「契約書.pdf」など)、画面の行 (画面のみを送信する場合は「現在の画面」) を削除します。
+     * は最初の行のみを取得します。
      */
     fun plainTitle(text: String): String =
         ScreenCopy.plain(AttachmentMessage.plain(QuoteMessage.words(AttachedPage.words(text)))).lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty()
 
     /**
-     * 分支的标题:源标题(或第一句话)后面加本地化后缀,总长不超过 [max] 字。
-     * 截的是源标题,后缀留着;按码点截,不会把 emoji 截成半个。
+     * ブランチのタイトル: ソース タイトル (または最初の文) の後にローカリゼーション サフィックスを追加します。合計の長さは [max] ワードを超えてはなりません。
+     * はソースのタイトルを切り取り、サフィックスを残します。コードポイントごとにカットされ、絵文字は半分にカットされません。
      */
     fun branchTitle(base: String, suffix: String, max: Int = 24): String {
         val room = (max - suffix.length).coerceAtLeast(0)
@@ -63,10 +63,10 @@ object ChatCopy {
 
     enum class Tone { Accent, Warn, Ok }
 
-    /** 顶栏副标题:这个对话留着一页在后台运行(没有任务在跑时)。 */
+    /** 一番上の列のサブタイトル: この会話では 1 ページがバックグラウンドで実行されたままになります (タスクは実行されていません)。 */
     val KEPT_PAGE: String get() = tr(R.string.kept_chat_sub)
 
-    /** 顶栏副标题:正在做什么(强调色)或等你(橙色);没有任务在跑时为 null。[place] 是正在操作的 App 或网站。 */
+    /** トップバーのサブタイトル: 何をしていますか (アクセントカラー)、または待っています (オレンジ色)。実行中のタスクがない場合は null。 [place] は、動作しているアプリまたは Web サイトです。 */
     fun subtitle(ex: Exchange?, place: String?): Pair<String, Tone>? = when (ex?.status) {
         null -> null
         ExchangeStatus.Working -> (if (place.isNullOrBlank()) tr(R.string.chat_working) else tr(R.string.chat_working_on, place)) to Tone.Accent
@@ -77,16 +77,16 @@ object ChatCopy {
         else -> null
     }
 
-    /** 进度那一行:在跑时是此刻的进展,停下来等你时是「已暂停」。 */
+    /** 進行状況ライン: 実行中は現時点での進行状況、停止して待機している場合は「一時停止」になります。 */
     fun progressLine(ex: Exchange): String =
         if (paused(ex.status)) tr(R.string.chat_paused) else liveLine(ex) ?: tr(R.string.chat_working)
 
-    /** 任务停下来等你(要你处理、回答、同意、解锁、点继续)。 */
+    /** タスクは停止して待機します (処理、回答、同意、ロック解除、[続行] をクリックする必要があります)。 */
     fun paused(status: ExchangeStatus): Boolean =
         status is ExchangeStatus.NeedsTakeover || status is ExchangeStatus.NeedsInput ||
             status is ExchangeStatus.NeedsConfirmation || status is ExchangeStatus.Paused || status == ExchangeStatus.WaitingUnlock
 
-    /** 进度行右边的用时:「0:24」「12:05」「1:02:03」。 */
+    /** 進行状況ラインの右側の時間:「0:24」「12:05」「1:02:03」。 */
     fun clock(ms: Long): String {
         val s = (ms / 1000).coerceAtLeast(0)
         val h = s / 3600
@@ -95,17 +95,17 @@ object ChatCopy {
         return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
     }
 
-    /** 在跑时步骤只列最近这几步,前面的收成一行「前面还有 n 步」,点开看全部。 */
+    /** 実行中は、最新のステップのみがリストされます。前回の収穫ラインは「n 歩先」です。クリックするとすべてが表示されます。 */
     const val VISIBLE_STEPS = 5
 
     fun earlierSteps(n: Int) = trPlural(R.plurals.chat_earlier_steps, n)
 
-    /** 在后台操作手机时步骤下面那行小字。 */
+    /** 携帯電話をバックグラウンドで操作しているときの手順の下の小さな文字の行。 */
     val BACKGROUND_NOTE get() = tr(R.string.chat_background_note)
 
     /**
-     * 一个动作的结果(记录里的 effect 代号 → 给人看的一句话)。错误码只对开发有意义,
-     * 给人看的一律说「没成功」。运行过程页用的是同一份说法。
+     * アクションの結果 (レコード内のエフェクト コード → 人々が見るための文)。エラーコードは開発においてのみ意味を持ちますが、
+     * は、人が見ると必ず「成功しません」と言います。実行中のプロセス ページでも同じステートメントが使用されます。
      */
     fun effectLabel(effect: String?): String = when (effect) {
         "changed", "done", "place_changed" -> tr(R.string.result_effective)
@@ -116,7 +116,7 @@ object ChatCopy {
         else -> tr(R.string.step_failed)
     }
 
-    /** 点开一步后每件事一行:做了什么 · 对什么 · 结果(结果为空时不写)。 */
+    /** ステップをクリックすると、それぞれの内容に 1 行が表示されます: 何が行われたか・何が行われたか・結果 (結果が空の場合は書き込まないでください)。 */
     fun actionLine(a: StepAction): String =
         listOfNotNull(a.label, a.target?.takeIf(String::isNotBlank), effectLabel(a.effect).takeIf(String::isNotBlank)).joinToString(" · ")
 
@@ -126,7 +126,7 @@ object ChatCopy {
         ComposerMode.Idle -> if (hasHistory) tr(R.string.chat_placeholder_more) else EMPTY_PROMPT
     }
 
-    /** 能按住说话时的灰字(前面配一个小话筒):告诉人能按住说、点一下打字;任务在跑时说的就是插话。 */
+    /** は、話すときに灰色の単語を押し続けることができます (前面に小さなマイクが付いています)。長押しして話すことができ、クリックして入力できることを人々に伝えます。タスクの実行中に彼らが言うことは、中断することです。 */
     fun voicePlaceholder(mode: ComposerMode): String = when (mode) {
         ComposerMode.Busy -> tr(R.string.voice_placeholder_busy)
         ComposerMode.Answer -> tr(R.string.voice_placeholder_answer)

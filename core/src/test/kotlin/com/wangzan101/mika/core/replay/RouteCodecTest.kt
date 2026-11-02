@@ -37,7 +37,7 @@ class RouteCodecTest {
     @Test fun samePathKeepsMissCountersChangedPathResets() {
         val step = RouteStep("phone_back", "{}", null, Anchors(null, emptyList()), Anchors(null, listOf("甲")))
         val old = Route("o", "t", 0, emptyList(), emptyMap(), listOf(step), successes = 2, consecutiveMisses = 2, missStep = 0, disabled = true, lastUsedMs = 1)
-        // 锚点略有不同仍是同一条路
+        // アンカーポイントは少し異なりますが、同じ道です
         val same = replacing(old.copy(id = "n", successes = 0, consecutiveMisses = 0, missStep = null, disabled = false,
             steps = listOf(step.copy(after = Anchors(null, listOf("乙"))))), listOf(old))
         assertEquals(listOf(2, 2, 0), listOf(same.successes, same.consecutiveMisses, same.missStep))

@@ -1,40 +1,56 @@
 package com.wangzan101.mika.core.selfcheck
 
 /**
- * 兼容性自检的一项。列的顺序就是跑的顺序;[needs] 里有一项没过(失败或被跳过)这一项就跳过,并写明是缺了哪一项。
- * [key] 是报告里的英文名,[timeoutMs] 是这一项最多跑多久(整次自检另有总时限,见 [SelfCheckRunner.TOTAL_BUDGET_MS])。
+ * は互換性セルフテストの項目です。列の順序は実行順序です。 [needs] に合格していない (失敗またはスキップした) 項目がある場合は、この項目をスキップし、どの項目が欠落しているかを示します。
+ * [key] はレポート内の英語名、[timeoutMs] はこの項目の最大実行時間です (セルフテスト全体には合計時間制限があります。[SelfCheckRunner.TOTAL_BUDGET_MS] を参照)。
  */
 enum class SelfCheck(val key: String, val timeoutMs: Long) {
-    /** 机型、系统版本、处理器架构、内存、屏幕、有没有无线调试、Mika 的版本。 */
+    /** モデル、システム バージョン、プロセッサ アーキテクチャ、メモリ、画面、ワイヤレス デバッグの有無、およびミカのバージョン。 */
     DEVICE("device", 5_000),
-    /** 无障碍开着且已绑定、通知允许、电池不受限制。 */
+    /** はオンで問題なくバインドされており、通知は許可されており、バッテリーは制限されていません。 */
     PERMISSIONS("permissions", 5_000),
-    /** 内置助手在运行、怎么起来的、一次简单调用来回多久。 */
+    /** 内蔵アシスタントが実行中、その開始方法、および単純な通話にかかる時間。 */
     HELPER("helper", 15_000),
-    /** 能建 Mika 的虚拟屏;安卓 14 起它有没有自己的焦点。 */
+    /** はミカの仮想画面を構築できます。 Android 14 以降では、独自のフォーカスがありません。 */
     VIRTUAL_DISPLAY("virtual display", 10_000),
-    /** 在虚拟屏上打开 Mika 自己的自检页,再打开系统设置(只看不点),确认开在 Mika 的屏上、不在主屏。 */
+    /** 仮想画面でミカ自身のセルフテスト ページを開き、システム設定 (ビュー ポイントのみ) を開き、それがメイン画面ではなくミカの画面上にあることを確認します。 */
     APP_LAUNCH("app launch", 20_000),
-    /** 自检页的控件树读得到、要的控件都在;虚拟屏的截图不是一片黑或一片空。 */
+    /** セルフテスト ページのコントロール ツリーを読み取ることができ、必要なコントロールがすべてそこにあります。仮想画面のスクリーンショットが黒または空ではありません。 */
     SCREEN_READING("screen reading", 10_000),
-    /** 在自检页上点按、打英文和中文、滚动、返回,每一样都回读核对。 */
+    /** セルフテスト ページをクリックし、英語と中国語を入力し、スクロールして戻り、読み返してすべてを確認します。 */
     ACTIONS("actions", 20_000),
-    /** 自检页一直在动的十几秒里,虚拟屏的画面一直在变、控件树一直读得到。 */
+    /** セルフテスト ページが移動している 10 秒間に、仮想画面が変化し、コントロール ツリーが読み取れるようになりました。 */
     STAYS_ALIVE("stays alive", 25_000),
-    /** 主屏最上面的任务从头到尾没变。 */
+    /** ホーム画面の上部にあるタスクは、最初から最後まで変更されません。 */
     MAIN_SCREEN("main screen", 5_000),
-    /** 内置浏览器打开一页本地网页(不联网),读出文字、点一下按钮再核对。 */
+    /** の内蔵ブラウザは、ローカル Web ページ (インターネットに接続されていない) を開き、テキストを読み、ボタンをクリックして確認します。 */
     BROWSER("browser", 15_000),
-    /** 沙箱里跑 `echo ok` 和一行 Python(只在 arm64 上;运行环境没准备好算部分可用,不现装)。 */
+    /** は、`echo ok` と 1 行の Python をサンドボックスで実行します (arm64 上のみ。実行環境は準備ができておらず、部分的に利用できるため、現在はインストールされていません)。 */
     SANDBOX("sandbox", 20_000),
-    /** 能打开里面 App 的另一份用户(分身、工作资料)有几份;只数,不列 App,私密空间不算。 */
+    /** 別のユーザー (アバター、仕事用プロファイル) のコピーは何個まで内部でアプリを開くことができますか?これは単なるカウントであり、アプリではなく、プライベート スペースはカウントされません。 */
     APP_COPIES("app copies", 10_000),
     ;
 
-    /** 报告里的编号,从 1 起。 */
+    /** レポート内の番号は 1 から始まります。 */
     val number: Int get() = ordinal + 1
 
-    /** 先要过的几项。 */
+    /** 診断レポートに表示する日本語名。[key] は既存データとの互換性を保つ。 */
+    val displayName: String get() = when (this) {
+        DEVICE -> "端末"
+        PERMISSIONS -> "権限"
+        HELPER -> "操作アシスタント"
+        VIRTUAL_DISPLAY -> "仮想画面"
+        APP_LAUNCH -> "アプリの起動"
+        SCREEN_READING -> "画面の読み取り"
+        ACTIONS -> "画面操作"
+        STAYS_ALIVE -> "継続動作"
+        MAIN_SCREEN -> "メイン画面"
+        BROWSER -> "ブラウザー"
+        SANDBOX -> "サンドボックス"
+        APP_COPIES -> "アプリの複製"
+    }
+
+    /** 最初に行うべきことがいくつかあります。 */
     val needs: List<SelfCheck>
         get() = when (this) {
             DEVICE, PERMISSIONS, BROWSER, SANDBOX -> emptyList()
@@ -52,76 +68,76 @@ enum class SelfCheck(val key: String, val timeoutMs: Long) {
 enum class CheckStatus {
     Pending, Running, Pass, Partial, Fail, Skipped;
 
-    /** 过了:能用,或部分能用。依赖它的项照跑。 */
+    /** 合格: 使用可能、または部分的に使用可能。これに依存する項目は期待どおりに実行されます。 */
     val passed: Boolean get() = this == Pass || this == Partial
 
-    /** 已经有结论(不再变)。 */
+    /** は結論に達しました (変更されなくなりました)。 */
     val final: Boolean get() = this != Pending && this != Running
 }
 
 /**
- * 给用户的一句话说的是哪种情况(界面按它取本地化的文字,报告里不写)。都是通用的说法:原因加上能做的下一步。
+ * ユーザーへの文はどのような状況を表しますか (インターフェイスはそれに応じてローカライズされたテキストを取得し、レポートには書き込みません)。これらはすべて一般的な用語であり、理由と実行可能な次のステップを意味します。
  */
 enum class Advice {
-    /** 系统版本低于安卓 12,手机操作用不了。 */
+    /** のシステムバージョンはAndroid 12より低いため、携帯電話での操作は使用できません。 */
     PhoneTooOld,
-    /** 系统里没有无线调试:改用电脑经 USB 启动。 */
+    /** システムにはワイヤレス デバッグはありません。代わりにコンピューターを使用して USB 経由で起動します。 */
     NoWirelessDebugging,
-    /** 这个环境里开发者选项和无线调试都没有,操作不了手机里的 App;聊天、网页、文件和计算照常可用。 */
+    /** この環境では、開発者向けオプションやワイヤレス デバッグはなく、携帯電話上のアプリは操作できません。チャット、Web ページ、ファイル、計算は引き続き利用できます。 */
     PhoneControlUnavailable,
-    /** 无障碍没开。 */
+    /** アクセシビリティが有効になっていません。 */
     TurnOnAccessibility,
-    /** 无障碍开着却没在运行:关掉再打开。 */
+    /** Accessible はオンになっていますが、実行されていません。オフにしてから再度オンにします。 */
     RestartAccessibility,
-    /** 通知没允许:看不到进度和「需要你」的提醒。 */
+    /** 通知は許可されていません: 進行状況と「必要な」リマインダーを表示できません。 */
     AllowNotifications,
-    /** 电池受限制:后台可能被停掉。 */
+    /** バッテリーが限られているため、バックグラウンドが停止する可能性があります。 */
     AllowBattery,
-    /** 内置助手没在运行:先完成手机操作的设置。 */
+    /** 内蔵アシスタントが実行されていません: まず、携帯電話の操作の設定を完了してください。 */
     SetUpPhoneControl,
-    /** 建不了虚拟屏。 */
+    /** では仮想画面を作成できません。 */
     DisplayFailed,
-    /** 安卓 14 以下虚拟屏没有自己的焦点,后台操作时主屏的输入焦点可能短暂丢失。 */
+    /** Android 14 以下の仮想画面には独自のフォーカスがなく、バックグラウンド操作中にメイン画面の入力フォーカスが一時的に失われる場合があります。 ミカの画面では */
     FocusShared,
-    /** 页面没开到 Mika 的屏上。 */
+    /** ページが開きません。 */
     LaunchFailed,
-    /** 系统设置开到了主屏上。 */
+    /** システム設定はホーム画面で開きます。 */
     OpenedOnMainScreen,
-    /** 系统设置正在你的主屏上用着,这一步没去打开它。 */
+    /** system settings are being used on your home screen, so you don’t have to open it at this step. */
     SettingsInUse,
-    /** 控件树读不到或缺控件。 */
+    /** The control tree cannot read or there are missing controls. */
     ReadFailed,
-    /** 截图是一片黑或一片空。 */
+    /** のスクリーンショットは黒または空です。 */
     BlankFrames,
-    /** 点按、打字、滚动或返回没生效。 */
+    /** Clicking, typing, scrolling or going back does not work. */
     ActionFailed,
-    /** 虚拟屏的画面过一会儿就不动了。 */
+    /** The virtual screen image stops moving after a while. */
     FramesStopped,
-    /** 主屏最上面的任务变了。 */
+    /** The top task on the home screen has changed. There is no WebView available in the */
     MainScreenChanged,
-    /** 系统里没有可用的 WebView。 */
+    /** system. */
     NoWebView,
-    /** 内置浏览器没读出或没点成。 */
+    /** The built-in browser is not read or clicked. The */
     WebFailed,
-    /** 沙箱只在 arm64 手机上有。 */
+    /** sandbox is only available on arm64 phones. */
     SandboxUnsupported,
-    /** 运行环境还没准备好。 */
+    /** The operating environment is not ready yet. The */
     SandboxNotPrepared,
-    /** 命令没跑出预期的结果。 */
+    /** command did not produce the expected results. */
     SandboxFailed,
-    /** 这一项超时。 */
+    /** このアイテムはタイムアウトしました。 */
     TimedOut,
-    /** 这一项出错。 */
+    /** この商品は間違っています。 */
     Error,
-    /** 整次自检的时间用完了。 */
+    /** The time for the entire self-test has run out. */
     OutOfTime,
-    /** 用户取消了。 */
+    /** ユーザーがキャンセルされました。 */
     Cancelled,
 }
 
 /**
- * 一项跑完的结论。[detail] 是写进报告的一行事实(英文,不含个人数据:不写账号、App 列表、用户的内容、序列号);
- * [advice] 让界面给一句本地化的大白话;通过时一般为空。
+ * ランニングの結論。 [detail] は、レポートに書き込まれた一連の事実です (英語、個人データは含まれません。アカウント番号、アプリ リスト、ユーザー コンテンツ、シリアル番号は含まれません)。
+ * [advice] インターフェースにローカライズされた言語を与えます。通常、渡されるときは空です。
  */
 data class CheckOutcome(val status: CheckStatus, val detail: String, val advice: Advice? = null) {
     companion object {
@@ -132,7 +148,7 @@ data class CheckOutcome(val status: CheckStatus, val detail: String, val advice:
     }
 }
 
-/** 一项此刻的状态:还没跑、在跑、或者结论;[blockedBy] 是因为它没过才跳过的那一项。 */
+/** は、現時点での項目のステータス (未実行、実行中、または終了) です。 [blockedBy] は、失敗したためスキップされた項目です。 */
 data class CheckResult(
     val check: SelfCheck,
     val status: CheckStatus = CheckStatus.Pending,
@@ -143,9 +159,9 @@ data class CheckResult(
 )
 
 /**
- * 报告抬头的设备事实,都来自系统公开的接口;不含序列号、账号这类能认出人的东西。
- * [wirelessDebugging] 系统里有没有无线调试这一项,读不准为 null;[developerOptionsPage] 系统里打不打得开开发者选项页,不知道为 null。
- * [phoneControlUnavailable] 是这个环境没有能起助手的路(和引导页同一个判断)。
+ * レポート内のデバイスの事実は、システムのパブリック インターフェイスから取得されます。シリアル番号やアカウント番号など、個人を特定できるものは含まれません。
+ * [wirelessDebugging] システムにワイヤレス デバッグがあるかどうかにかかわらず、値を null として読み取ることはできません。 [developerOptionsPage] システムで開発者向けオプション ページを開くことができるかどうか。不明な場合、値は null です。
+ * [phoneControlUnavailable] この環境ではアシスタントをアクティブにする方法はありません (ブート ページと同じ判断)。
  */
 data class DeviceFacts(
     val manufacturer: String,
@@ -162,31 +178,31 @@ data class DeviceFacts(
     val developerOptionsPage: Boolean? = null,
     val phoneControlUnavailable: Boolean = false,
 ) {
-    /** 机型:型号里已带厂商名时只写型号。 */
+    /** モデル：型番にメーカー名が含まれる場合のみ型番を記載します。 */
     val modelName: String get() = if (model.startsWith(manufacturer, ignoreCase = true)) model.trim() else "$manufacturer $model".trim()
 
     val arm64: Boolean get() = ARM64 in abis
 
     companion object {
         const val ARM64 = "arm64-v8a"
-        /** 手机操作的最低系统版本(安卓 12)。 */
+        /** 携帯電話操作のための最小システム バージョン (Android 12)。 */
         const val MIN_PHONE_SDK = 31
-        /** 安卓 14 起虚拟屏能有自己的焦点。 */
+        /** Android 14 以降、仮想画面に独自のフォーカスを設定できるようになりました。 */
         const val OWN_FOCUS_SDK = 34
     }
 }
 
 /**
- * 自检要的安卓能力。界面那边的实现在 app 里;单元测试换成假的。
- * 每一项都可能因超时或用户取消被打断,要能及时停下;出错可以直接抛,跑的那一边按失败记。
+ * セルフテストに必要な Android 機能。インターフェースの実装はアプリ内にあります。単体テストは偽のものに置き換えられます。
+ * 各項目はタイムアウトまたはユーザーのキャンセルにより中断される可能性があるため、時間内に停止できなければなりません。エラーをした場合は、直接投げて、実行の反対側で失敗を押すことができます。
  */
 interface SelfCheckPort {
-    /** 第一项「设备」的事实(只读系统接口,很快)。 */
+    /** 最初の「デバイス」ファクト (読み取り専用システム インターフェイス、非常に高速)。 */
     suspend fun facts(): DeviceFacts
 
-    /** 跑一项([SelfCheck.DEVICE] 以外;那一项由 [facts] 判)。 */
+    /** は 1 つのアイテムを実行します ([SelfCheck.DEVICE] 以外。そのアイテムは [facts] によって判断されます)。 */
     suspend fun check(check: SelfCheck): CheckOutcome
 
-    /** 放掉跑的过程中占着的一切(虚拟屏、自检页、网页标签、助手连接)。跑完、取消、出错都会调,可能调不止一次。 */
+    /** 実行プロセス中に占有されていたすべてのもの (仮想画面、セルフテスト ページ、Web ページ タグ、アシスタント接続) を手放します。実行、キャンセル、エラー後に調整されます。複数回調整する場合もあります。 */
     suspend fun release()
 }

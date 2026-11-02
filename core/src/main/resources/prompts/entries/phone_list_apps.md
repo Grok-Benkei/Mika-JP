@@ -1,1 +1,1 @@
-List the apps installed on the phone, as package + label. Use an exact returned package with phone_launch_app.
+スマートフォンにインストールされたアプリを、パッケージとラベルで列挙する。返された正確なパッケージを phone_launch_app で使う。

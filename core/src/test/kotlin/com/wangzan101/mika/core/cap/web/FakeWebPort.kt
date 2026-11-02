@@ -8,13 +8,13 @@ import com.wangzan101.mika.core.uistate.UiElement
 import com.wangzan101.mika.core.uistate.WebInfo
 import com.wangzan101.mika.core.uistate.PageDialog
 
-/** 假网页端口:记录调用,结果可按测试改。读屏编号 w<tab>-<n>,和手机的永不相同。 */
+/** 偽の Web ポート: 通話を記録します。結果はテストに従って変更できます。画面読み取り番号 w<tab>-<n> は、携帯電話の画面読み取り番号と同じになることはありません。 */
 class FakeWebPort : WebPort {
     val calls = mutableListOf<String>()
     var url = "https://shop.example.com/cart"
     var title = "购物车"
     var tabId = "t1"
-    /** 当前标签的版本(siteMode 的回答)。 */
+    /** 現在のタグのバージョン (siteMode の答え)。 */
     var mode: String? = "desktop"
     override suspend fun siteMode(): String? = mode
     var elements: List<UiElement> = listOf(
@@ -30,16 +30,16 @@ class FakeWebPort : WebPort {
     var downloadList = listOf(DownloadInfo("/workspace/downloads/a.pdf", 1234, "application/pdf", "done", null))
     var reads = 0
     var check: ScreenCheck? = null
-    /** 当前标签正交给用户:读页、执行脚本、打开网址、切换标签都报 handed_over。 */
+    /** 現在のラベルがユーザーに渡されています。ページの読み取り、スクリプトの実行、URL のオープン、およびラベルの切り替えはすべて、handed_over と報告されます。 */
     var handedOver = false
     var downloadsAvailable = true
-    /** null:不支持切换手机版/桌面版(用接口的默认实现)。 */
+    /** null: モバイル バージョン/デスクトップ バージョン間の切り替えはサポートされていません (インターフェイスのデフォルト実装を使用します)。 */
     var siteModeHost: String? = null
-    /** 有没有 DevTools:没有时网络记录与等网络空闲报不可用。 */
+    /** DevTools をお持ちですか: 利用できない場合、ネットワークの記録とネットワーク アイドル レポートの待機は利用できません。 */
     var devtools = false
     var captured: List<CapturedResponse> = emptyList()
     var waitOutcome = WaitOutcome(true, 120, url)
-    /** 页面弹出、等回话的弹框;读屏里带上。 */
+    /** ページがポップアップし、応答を待つポップアップ ボックスが画面読み取りに含まれます。 */
     var dialog: PageDialog? = null
     override suspend fun answerDialog(accept: Boolean, text: String?): ActionResult {
         if (dialog == null) return ActionResult.Failed(NO_DIALOG)
@@ -47,16 +47,16 @@ class FakeWebPort : WebPort {
         dialog = null
         return result
     }
-    /** 停留时轻轻滚一下的回答:false 表示这会儿不便滚。 */
+    /** 滞在時に軽くローリングするための答え: false は、この時点でローリングするのが不便であることを意味します。 */
     var idleOk = true
-    /** 轻轻滚一下时页面的变化(测试按需换掉元素)。 */
+    /** 少しスクロールするとページが変更されます (必要に応じて要素を置き換えるテスト)。 */
     var onIdle: () -> Unit = {}
     override suspend fun idleScroll(fraction: Double): Boolean { calls += "idle $fraction"; if (idleOk) onIdle(); return idleOk }
     override suspend fun doubleTapRef(ref: String, snapshotId: String): ActionResult { calls += "doubleTapRef $ref $snapshotId"; return result }
 
     private fun read() = ScreenSnapshot("w$tabId-${++reads}", null, elements, 1080, 2400, web = WebInfo(url, title, tabId, 200, dialog = dialog))
     override suspend fun snapshot() = read().also { calls += "snapshot" }
-    // 和真实端口一样:看一眼不登记编号,不算一次读屏
+    // は実際のポートと同じです。一目で番号を登録しないと、画面読み取りとしてカウントされません。
     override suspend fun peek() = ScreenSnapshot("w$tabId-peek", null, elements, 1080, 2400, web = WebInfo(url, title, tabId, 200, dialog = dialog))
     override suspend fun screenshotPng(): ByteArray? = null
     override suspend fun tapRef(ref: String, snapshotId: String): ActionResult { calls += "tapRef $ref $snapshotId"; return result }
@@ -83,7 +83,7 @@ class FakeWebPort : WebPort {
         if (handedOver) throw WebTabHandedOver(tabId)
         calls += "readPage $maxChars $offset" + if (scrollLazy) "" else " noscroll"; return page
     }
-    /** web_read_page 的质量信号;后台读网址时 [readUrlError] 不为空就当打不开。 */
+    /** web_read_page の品質信号。バックグラウンドで URL を読み取るときに、[readUrlError] が空でない場合は、開けないとみなされます。 */
     var quality: ReadQuality? = null
     var readUrlError: String? = null
     override suspend fun read(req: PageRead): PageText {
@@ -91,7 +91,7 @@ class FakeWebPort : WebPort {
         calls += "readUrl ${req.url}" + if (req.unfold) " unfold" else ""
         return page.copy(url = req.url, quality = quality, netError = readUrlError)
     }
-    /** 最近一次读脚本收到的参数(站点命令的 args)。 */
+    /** 最新の読み取りスクリプトによって受信されたパラメーター (サイト コマンドの引数)。 */
     var evalArgs: kotlinx.serialization.json.JsonObject? = null
     override suspend fun evaluate(script: String, timeoutMs: Long, args: kotlinx.serialization.json.JsonObject?): EvalJs {
         if (handedOver) throw WebTabHandedOver(tabId)
@@ -113,7 +113,7 @@ class FakeWebPort : WebPort {
         calls += "upload $ref ${paths.joinToString(",")}"; return result
     }
     override suspend fun historyBack(): ActionResult { calls += "historyBack"; return result }
-    /** 能留页时(有留页的那一份);[keptHost] 是此刻已经留着的另一页的站点。 */
+    /** は保存可能なページ (ページが保存されているページ) です。 [keptHost] は、現時点で保存されている別のページがあるサイトです。 */
     var keepAvailable = false
     var keptHost: String? = null
     var usersPage = false

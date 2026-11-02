@@ -24,7 +24,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 往一点上打字、清空:树里的编号照旧,坐标和看图找到的 @vN 先点再粘贴,粘贴的核对就是点没点中的凭据。 */
+/** 点を入力してクリアします。ツリー内の番号は変わりません。画像を見て見つけた座標と @vN が最初にクリックされてから貼り付けられます。貼り付けの検証は、クリックされたかどうかの証明となります。 */
 class TypeAtPointTest {
     private class PointScreen(
         private val inner: LocScreen = LocScreen(listOf(uiEl("@e1", "WLAN", listOf(0, 100, 999, 160)))),
@@ -55,7 +55,7 @@ class TypeAtPointTest {
         val s = PointScreen()
         val r = d(s).execute(call("phone_type_text", """{"text":"明天见","x":500,"y":900,"pressEnter":true}""")).content
         assertEquals(r.toString(), "true", r.s("ok"))
-        // 0–999 换成像素,只点一次、打一次;核对一致才按回车
+        // 0–999 ピクセルに変更します。クリックして入力するのは 1 回だけです。一貫性があるかどうかを確認してから Enter キーを押してください
         assertEquals(listOf("typeAt 540,2161 明天见", "key 66"), s.calls)
         assertEquals("match", r.s("verification"))
     }
@@ -84,7 +84,7 @@ class TypeAtPointTest {
         assertEquals(r.toString(), "true", r.s("ok"))
         assertEquals(listOf("typeAt 540,312 hi"), s.calls)
         assertEquals("WLAN", r.s("located"))
-        // 清空同样接受一点
+        // は少しのクリアも受け付けます
         val c = d.execute(call("phone_clear_text", """{"x":10,"y":20}""")).content
         assertEquals("true", c.s("ok"))
         assertEquals("clearAt 11,48", s.calls.last())
@@ -107,7 +107,7 @@ class TypeAtPointTest {
         assertTrue(IrreversibleDetector.needsCheck(GateTarget.Enter, args("""{"text":"hi","x":500,"y":900}""")))
         assertTrue(IrreversibleDetector.needsCheck(GateTarget.Enter, args("""{"text":"hi","ref":"@v1","snapshotId":"loc_1"}""")))
         assertFalse(IrreversibleDetector.needsCheck(GateTarget.Enter, args("""{"text":"hi","ref":"@e1","snapshotId":"s1"}""")))
-        // 那一点上是发送按钮:点它就按发送判
+        // その点は送信ボタンです。クリックして送信を押します。
         val send = com.wangzan101.mika.core.uistate.ScreenSnapshot("s1", "com.example.chat",
             listOf(uiEl("@e1", "发送", listOf(800, 880, 999, 940)).copy(clickable = true)), 1080, 2400)
         assertTrue(IrreversibleDetector.classify(GateTarget.Enter, args("""{"text":"hi","x":900,"y":910}"""), send, send) != null)

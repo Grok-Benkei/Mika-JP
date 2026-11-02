@@ -1,9 +1,9 @@
 package com.wangzan101.mika.core.tool
 
 /**
- * 一批动作里某一步做完之后,接着做下一步之前要等到的样子;几项都给了要同时成立。代码只做字面比较,不理解意思:
- * [appears] 屏上某个元素的名字含这段字;[gone] 屏上已没有元素含这段字;[place] 前台的 App 包名(手机)或页面地址、站点(网页)含这段字;
- * [stable] 界面停下不再变化。最多等 [timeoutMs]。
+ * 一連のアクションの特定のステップを完了した後、次のステップを実行するまで待つ必要があります。いくつかの項目を同時に確立する必要があります。
+ * [appears] 画面上の要素の名前にこの文字が含まれています。 [gone] この文字を含む要素は画面上にありません。 [place] フロントエンド アプリのパッケージ名 (携帯電話) またはページ アドレス、サイト (Web ページ) にこの文字が含まれています。
+ * [stable] インターフェースが停止し、変化しません。最も待機しているのは [timeoutMs] です。
  */
 data class Until(
     val appears: String? = null,
@@ -19,9 +19,9 @@ data class Until(
 }
 
 /**
- * 等的结局:[met] 条件成立;没成立时 [stopped] 说明为什么不再等——[TIMEOUT] 到了时限,或提前看出的意外:
- * [POPUP] 同一 App 多了一个窗口(弹框)或页面弹了框,[SYSTEM_DIALOG] 别的包的窗口盖了上来(权限、系统对话框),
- * [APP_SWITCHED] 前台换成了别的 App,[NEW_MESSAGE] 用户插了话。[waitedMs] 是等了多久。
+ * 待機終了：[met] 条件成立時；それが確立されていない場合、[stopped] は、もう待たない理由を説明します - [TIMEOUT] 制限時間に達したか、事故が事前に発生していることがわかります。
+ * [POPUP] 同じアプリに追加のウィンドウ (ポップアップ ボックス) またはページ ポップアップ ボックスがあります。 [SYSTEM_DIALOG] 他のパッケージのウィンドウがカバーされます (権限、システム ダイアログ ボックス)。
+ * [APP_SWITCHED] フロントデスクが別のアプリに変更され、[NEW_MESSAGE] ユーザーが中断しました。 [waitedMs] は待機時間です。
  */
 data class UntilOutcome(val met: Boolean, val stopped: String?, val waitedMs: Long) {
     companion object {

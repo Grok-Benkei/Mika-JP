@@ -65,8 +65,8 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 /**
- * 一个模型接入:属于哪个服务商([providerId])、模型名、能力。接口类型、地址和名字照抄所属服务商(建模型时用);
- * Key 存在服务商上。这是存储内部的一层:用户只选「哪个用途用哪个模型」,配置随选择建、没人用就删。
+ * モデル アクセス: どのサービス プロバイダーに属するか ([providerId])、モデル名、および機能。インターフェイスのタイプ、アドレス、名前はサービス プロバイダーからコピーされます (モデルの構築時に使用されます)。
+ * キーはサービス プロバイダーに保存されます。これはストレージ内のレイヤーです。ユーザーは「どのモデルをどの目的で使用するか」を選択するだけで、構成は選択したとおりに作成され、誰も使用しない場合は削除されます。
  */
 data class ProviderConfig(
     val id: String,
@@ -74,23 +74,23 @@ data class ProviderConfig(
     val baseUrl: String,
     val model: String,
     val capabilities: Capabilities,
-    /** 界面上显示的名字。 */
+    /** インターフェイスに表示される名前。 */
     val name: String = "",
-    /** 所属 [Provider] 的 id;为空时由 [ProviderStore.save] 按接口类型、地址和名字归到对应服务商。 */
+    /** は [Provider] の ID に属します。空の場合、[ProviderStore.save] は、インターフェイスのタイプ、アドレス、名前に従って、対応するサービス プロバイダーに割り当てられます。 */
     val providerId: String = "",
 ) {
     /**
-     * 接口类型。[OpenAiResponses] 用在模型列表给某个模型写明 Responses 协议时、预设「OpenAI」,以及添加自定义服务商时选了它;
-     * [ChatGpt] 是用 ChatGPT 账号登录、用套餐额度调用的那一家:凭据是登录(见 [ChatGptSession]),不是 API Key。
-     * [Xai] 同样是账号登录(设备码),凭据是登录不是 API Key,调用 xAI 自己的 Responses 接口。
+     * インターフェイス タイプ。 [OpenAiResponses] は、モデル リスト内のモデルの応答プロトコルを指定し、「OpenAI」を事前設定し、カスタム サービス プロバイダーを追加するときにそれを選択するときに使用されます。
+     * [ChatGpt] は、ChatGPT アカウントを使用してログインし、パッケージ クォータを使用するものです。認証情報は API キーではなく、ログイン ([ChatGptSession] を参照) です。
+     * [Xai] もアカウント ログイン (デバイス コード) であり、資格情報は API キーではなくログインであり、xAI 独自の応答インターフェイスを呼び出します。
      */
     enum class Kind {
         OpenAiCompat, Anthropic, Gemini, OpenAiResponses, ChatGpt, Xai;
 
         /**
-         * 这个接口类型发请求走哪种协议。用它筛掉接口写明了不支持的模型,见 [com.wangzan101.mika.ui.ModelSetupViewModel]
-         * 的试调用。账号登录的两家(ChatGpt、Xai)都走 Responses;这两家不走那张表单的试调用(登录时已经核对过),
-         * 所以这里只求写对,不影响筛谁。
+         * このインターフェイス タイプは、リクエストがどのプロトコルを通じて送信されるべきかを示します。これを使用して、サポートされていないモデルを示すインターフェイスを除外します。[com.wangzan101.mika.ui.ModelSetupViewModel] を参照してください。
+         * の試し通話。両方のアカウント (ChatGpt、
+         * したがって、ここでは正しく書きたいだけであり、誰が審査されるかには影響しません。
          */
         val protocol: ModelProtocol
             get() = when (this) {
@@ -101,7 +101,7 @@ data class ProviderConfig(
             }
 
         companion object {
-            /** 模型单独指定的协议用哪种接口类型的适配器。 */
+            /** モデルは、プロトコルに使用するインターフェイス タイプのアダプターを個別に指定します。 */
             fun of(protocol: ModelProtocol): Kind = when (protocol) {
                 ModelProtocol.ChatCompletions -> OpenAiCompat
                 ModelProtocol.Messages -> Anthropic
@@ -109,23 +109,23 @@ data class ProviderConfig(
                 ModelProtocol.Responses -> OpenAiResponses
             }
 
-            /** 添加自定义服务商时可选的接口类型(填地址和 API Key 的)。Responses 排最后,和 README 里的次序一致。 */
+            /** カスタム サービス プロバイダーを追加する場合のオプションのインターフェイス タイプ (アドレスと API キーを入力)。応答は、README の順序に従って最後にリストされます。 */
             val withApiKey: List<Kind> = listOf(OpenAiCompat, Anthropic, Gemini, OpenAiResponses)
         }
     }
 }
 
 /**
- * 一个已连接的服务商:名字、接口类型、地址;Key 单独加密保存。
- * [models] 是最近一次列出的模型(「测试并保存」或刷新时记下,和配置存在同一个文件里);
- * 为 null 表示还没列过,空列表表示列过但服务不提供列表(或一个也没有)。
- * [sessionHeader] 是它要求放对话会话号的请求头名(来自预设,见 [ProviderPreset.sessionHeader]);不要的为 null。
- * [verifiedModels] 是在这家试调用(见 [ProviderStore.probe])得到过回复的模型名:不提供列表的服务商,模型名是手填的,
- * 没在这里的就没核实过(旧版本存下的都没有,那时不提供列表的服务商不试调用)。
- * [typedModels] 是用户手填、试调用通过后加进来的模型名(列表里没有、或这家列不出模型):刷新列表不丢,选模型时标「手填」。
- * [savedUntested] 是用户跳过测试直接存下的一家(见 [ProviderStore.connect]):既没列过模型、也没试调用过,
- * 所以 [models] 是空列表、[verifiedModels] 是空的,但那些「这家不提供列表」的说法对它不成立。
- * 之后成功列过一次模型或试通过一次就清掉(见 [ProviderStore.rememberModels]、[ProviderStore.markVerified])。
+ * 接続されたサービス プロバイダー: 名前、インターフェイス タイプ、アドレス。キーは暗号化され、個別に保存されます。
+ * [models] は、最後にリストされたモデルです (「テストと保存」または更新で記録され、構成と同じファイルに保存されます)。
+ * が null の場合は、まだリストされていないことを意味します。空のリストは、リストには登録されているが、サービスがリストを提供していない (またはリストが存在しない) ことを意味します。
+ * [sessionHeader] は、会話セッション番号を必要とするリクエスト ヘッダー名 (デフォルト、[ProviderPreset.sessionHeader] を参照) です。そうでない場合は null です。
+ * [verifiedModels] は、このトライアル コールで応答されたモデル名です ([ProviderStore.probe] を参照)。サービス プロバイダーはリストを提供せず、モデル名は手動で入力されます。
+ * ここにない場合は検証されていません（古いバージョンは保存されておらず、当時リストを提供しなかったサービスプロバイダーはそれを呼び出そうとしませんでした）。
+ * [typedModels] は、ユーザーが手動で入力し、トライアル コールを通過した後に追加されたモデル名です (リストにない、またはモデルがここにリストされません)。モデルを選択するときにリストを更新し、「手動入力」をマークします。
+ * [savedUntested] は、ユーザーがテストをスキップして直接保存したものです ([ProviderStore.connect] を参照)。モデルはリストされておらず、呼び出しも試行されていません。
+ * つまり、[models] は空のリストであり、[verifiedModels] も空ですが、「この会社はリストを提供していない」という議論は当てはまりません。
+ * の後、モデルは 1 回リストに登録されるか、テストに 1 回合格した後にクリアされます ([ProviderStore.rememberModels]、[ProviderStore.markVerified] を参照)。
  */
 data class Provider(
     val id: String,
@@ -137,27 +137,27 @@ data class Provider(
     val verifiedModels: Set<String> = emptySet(),
     val typedModels: Set<String> = emptySet(),
     /**
-     * Key 是怎么来的:用账号授权换来的(目前只有 [ProviderStore.OPENROUTER_SIGN_IN])为那一家的标记,用户自己填的为 null。
-     * 标了的服务商详情里是账号登录的样子(退出登录、到对方页面删 Key),不是「更换 Key」。
+     * キーの取得方法: アカウント認証のために交換されます (現在は [ProviderStore.OPENROUTER_SIGN_IN] のみ)。それはその会社のマークであり、ユーザーはnullを記入します。
+     * マークされたサービスプロバイダーの詳細には、「キーの変更」ではなく、アカウントのログイン (ログアウトし、相手のページに移動してキーを削除) が表示されます。
      */
     val signIn: String? = null,
     val savedUntested: Boolean = false,
-    /** 按模型名保留，用途切换后也能找回。 */
+    /** はモデル名に従って保持され、用途を切り替えた後に取得できます。 */
     val contextSettings: Map<String, ModelContextSettings> = emptyMap(),
-    /** 用户说的某个模型能不能看图(按模型名):比列表和预设初值都算数,见 [ModelOptions.seesImages]。 */
+    /** ユーザーは、特定のモデルを写真で表示できるかどうか (モデル名で)、比率リストとプリセット初期値カウントの両方を表示できるかどうかを述べました。[ModelOptions.seesImages] を参照してください。 */
     val visionOverrides: Map<String, Boolean> = emptyMap(),
 ) {
     val key: String get() = ProviderConnection.keyOf(kind, baseUrl, name)
 
     /**
-     * [model] 在这家还没测试通过:这家没有可用的列表(不提供,或跳过测试存下时没列过),模型名是手填的,又没在
-     * [verifiedModels] 里。账号登录的那几家模型名是固定的,不算。服务商页对这样在用的模型给「重新测试」。
+     * [model] はここのテストに合格していません。この会社には利用可能なリストがありません (提供されていないか、テストをスキップして保存するとリストに表示されません)。モデル名は手動で入力されており、リストにはありません。 内部は
+     * [verifiedModels]。アカウントにログインしているモデル名は固定されており、カウントされません。サービスプロバイダーのページでは、使用中のそのようなモデルを「再テスト」します。
      */
     fun untested(model: String): Boolean =
         kind != ProviderConfig.Kind.ChatGpt && kind != ProviderConfig.Kind.Xai && models?.isEmpty() == true && model !in verifiedModels
 }
 
-/** 留空的窗口沿用所选模型配置，留空的触发点交给核心自动计算。 */
+/** 空白のままにしたウィンドウは、選択したモデル構成を継承し、空白のままにしたトリガー ポイントはコアによって自動的に計算されます。 */
 data class ModelContextSettings(val windowTokens: Int? = null, val triggerTokens: Int? = null) {
     fun limits(modelWindow: Int): ContextLimits = ContextLimits.of(windowTokens ?: modelWindow, triggerTokens)
 
@@ -165,43 +165,43 @@ data class ModelContextSettings(val windowTokens: Int? = null, val triggerTokens
         (triggerTokens == null || (triggerTokens > 0 && triggerTokens == limits(modelWindow).trigger))
 }
 
-/** 一个用途选了什么:一个具体模型、用主模型,或不用(只有看图可以不用)。 */
+/** 目的に応じて何を選ぶか：特定のモデルを使用するか、メインモデルを使用するか、または使用しない（写真を見なければ使用できません）。 */
 sealed interface RoleChoice {
-    /** 用 [configId] 这条模型配置。 */
+    /** はモデル [configId] で構成されます。 */
     data class Model(val configId: String) : RoleChoice
     data object SameAsMain : RoleChoice
     data object Off : RoleChoice
 }
 
 /**
- * 三个用途各选了什么,都是用户明说的,没有按能力推断的默认分配。
- * [main] 是主模型的配置 id,为 null 表示还没选;看图默认不用,轻量默认用主模型。
+ * 3 つの用途のそれぞれに何を選択するかはユーザーによって明確に指定され、機能に基づくデフォルトの割り当てはありません。
+ * [main] は、メイン モデルの構成 ID です。 null の場合は、選択されていないことを意味します。画像を表示する場合、デフォルトでは使用されません。軽量の場合、メイン モデルがデフォルトで使用されます。
  */
 data class RoleChoices(
     val main: String? = null,
     val vision: RoleChoice = RoleChoice.Off,
     val light: RoleChoice = RoleChoice.SameAsMain,
-    /** 按用途保存,同一个模型可在不同用途选不同档位;「用主模型」连同它的档位一起跟随。 */
+    /** は用途に応じて保存されます。同じモデルでも目的に応じて異なるギアを選択できます。 「メインモデル」はそのギアとともにフォローされます。 */
     val reasoningEfforts: Map<ModelRole, String> = emptyMap(),
 ) {
-    /** 这个用途的选择;主模型没选时为 null。 */
+    /** この目的のための選択。メインモデルが選択されていない場合は null になります。 */
     operator fun get(role: ModelRole): RoleChoice? = when (role) {
         ModelRole.Main -> main?.let(RoleChoice::Model)
         ModelRole.Vision -> vision
         ModelRole.Light -> light
     }
 
-    /** 这个用途实际用的配置 id:「用主模型」取主模型的;不用、或主模型还没选时为 null。 */
+    /** この目的で実際に使用される構成 ID: 「メイン モデルを使用」はメイン モデルを取得します。使用されていない場合、またはメイン モデルが選択されていない場合は null になります。 */
     fun resolve(role: ModelRole): String? = when (val c = get(role)) {
         is RoleChoice.Model -> c.configId
         RoleChoice.SameAsMain -> main
         RoleChoice.Off, null -> null
     }
 
-    /** 有用途在用的配置 id;其余的配置没人用,会被删掉。 */
+    /** には使用中の構成 ID があります。残りの構成は使用されていないため、削除されます。 */
     val referenced: Set<String> get() = ModelRole.entries.mapNotNull(::resolve).toSet()
 
-    /** 改一个用途;这个用途不接受的选择(主模型只能是具体模型,轻量不能不用)返回 null。 */
+    /** 目的を変更します。この目的では選択は受け入れられません (メイン モデルは特定のモデルのみにすることができ、軽量モデルは使用できません)。null が返されます。 */
     fun with(role: ModelRole, choice: RoleChoice): RoleChoices? = (when (role) {
         ModelRole.Main -> (choice as? RoleChoice.Model)?.let { copy(main = it.configId) }
         ModelRole.Vision -> copy(vision = choice)
@@ -216,7 +216,7 @@ data class RoleChoices(
         else -> null
     }
 
-    /** 指向 [valid] 之外的选择退回默认:主模型变成没选,看图不用,轻量用主模型。 */
+    /** [valid] 以外を指す選択は既定へ戻す: メインモデルは未選択になり、画像を見る用途は使わず、軽量用途はメインモデルを使う。 */
     fun keepOnly(valid: Set<String>): RoleChoices {
         fun RoleChoice.gone() = this is RoleChoice.Model && configId !in valid
         return RoleChoices(
@@ -229,9 +229,9 @@ data class RoleChoices(
 }
 
 /**
- * 建一个模型客户端时额外给的:[headers] 每个请求都带(客户端标识、会话号,见 [ClientHeaders]);
- * [maxOutputTokens] 限制回复长度(连接测试用),null 按适配器默认;[reasoningEffort] 是这个用途选的思考强度;
- * [thinkingTypes] 是模型列表写明这个模型接受的思考方式(见 [ListedModel.thinkingTypes]),没说为 null。
+ * モデルクライアントを作るときに追加で渡すもの: [headers] はすべてのリクエストに付ける（クライアント識別、セッション番号。[ClientHeaders] 参照）;
+ * [maxOutputTokens] は返信の長さを制限する（接続テスト用）、null ならアダプタの既定; [reasoningEffort] はこの用途で選んだ推論の強さ;
+ * [thinkingTypes] はモデル一覧が明記した、そのモデルが受け付ける思考方式（[ListedModel.thinkingTypes] 参照）、記載がなければ null。
  */
 data class ClientSetup(
     val headers: Map<String, String> = emptyMap(),
@@ -240,55 +240,55 @@ data class ClientSetup(
     val thinkingTypes: List<String>? = null,
 )
 
-/** 「测试并保存」试调用(见 [ProviderStore.probe])的结果。 */
+/** 「テストして保存」テスト呼び出し ([ProviderStore.probe] を参照) の結果。 */
 sealed interface ProbeResult {
-    /** 模型调用了试用的工具:接口通,也会调用工具。 */
+    /** モデルは試用版ツールを呼び出します。インターフェイスが開いている場合は、ツールも呼び出されます。 */
     data object ToolCalled : ProbeResult
-    /** 接口通,模型只回了话、没调用工具:Mika 干活靠工具,这个模型当不了主模型。 */
+    /** インターフェイスは機能しますが、モデルは応答するだけでツールを呼び出しません。Mika はツールに依存して動作するため、このモデルはメイン モデルとして使用できません。 */
     data object NoToolCall : ProbeResult
-    /** 请求失败;[error] 带着服务端的报错。 */
+    /** リクエストが失敗しました。 [error] によりサーバーからエラーが発生しました。 */
     data class Failed(val error: ModelError) : ProbeResult
 }
 
 /**
- * 服务商、模型配置的存取与用途选择。配置存成 JSON 文件,API Key 经 [KeyCipher] 加密后另存一个文件,每个服务商一份。
+ * サービスプロバイダー、モデル構成へのアクセス、および使用方法の選択。構成は JSON ファイルとして保存され、API キーは [KeyCipher] によって暗号化されてから、サービス プロバイダーごとに 1 つのコピーとして別のファイルに保存されます。
  *
- * 用户只管两层:连了哪些服务商、每个用途([RoleChoices])用哪个模型。模型配置([ProviderConfig])是内部的一层:
- * 选模型时当场建,没有用途再用它就删掉(见 [prune];Key 按服务商存,删配置不动 Key)。
- * 用途选什么就是什么,不看能力标记;选具体模型时把对应标记记为 true(见 [choose])。
+ * ユーザーには、どのサービス プロバイダーに接続するか、および各目的にどのモデルを使用するか ([RoleChoices]) という 2 つのレイヤーしかありません。モデル構成 ([ProviderConfig]) は内部の 1 つのレイヤーです。
+ * はモデルの選択時にその場で作成され、使用されなくなった場合は削除されます ([prune] を参照。キーはサービス プロバイダーに従って保存され、構成を削除してもキーは削除されません)。
+ * は能力マークに関係なく、目的が何であれ選択します。特定のモデルを選択する場合は、対応するマークを true としてマークします ([choose] を参照)。
  *
- * 旧版本的文件:只有模型配置、Key 按配置 id 存的,读入时按 [ProviderConnection.keyOf] 归成服务商,
- * Key 取那组里任一条的,原来按配置 id 存的 Key 清掉(见 [migrate]);用途只记了显式指定的,
- * 读入时把那时实际生效的分配一次写明(见 [migrateRoles])。已迁移好的不再动,重复执行没有副作用。
+ * 古いバージョンのファイル: モデル設定とキーのみが設定 ID に従って保存されます。読み込む場合、[ProviderConnection.keyOf] に従ってサービス プロバイダーとして分類されます。
+ * キーはグループ内のいずれかから取得され、構成 ID に従って保存されている元のキーはクリアされます ([migrate] を参照)。明示的に指定された用途のみが記録されます。
+ * が読み取られると、その時点で実際に有効な割り当てが 1 回書き込まれます ([migrateRoles] を参照)。移行されたデータは再び移動されず、繰り返し実行しても副作用はありません。
  *
- * 拿来调用的模型只从 [modelFor] 出去,出去前一律套上计量(见 [metered]),每次调用都记到 [usage]:
- * 谁调用、调用几次都不用各自记账。
+ * で使用されるモデルは、[modelFor] からのみエクスポートされます。エクスポートする前に、測定する必要があります ([metered] を参照)。各通話は [usage] に記録されます。
+ * 誰が呼び出しても、何度呼び出しても、個別のアカウントを保持する必要はありません。
  */
 class ProviderStore(
     dir: File,
     private val cipher: KeyCipher,
     private val usage: UsageSink = UsageSink { _, _ -> },
     private val newId: () -> String = { UUID.randomUUID().toString() },
-    /** 发给模型服务的 User-Agent;App 给 `Mika/<版本>`。 */
+    /** はモデル サービスのユーザー エージェントに送信されます。アプリは `Mika/<版本>` に送信されます。 */
     private val userAgent: String = "Mika",
-    /** 列模型:接口类型、地址、Key、每个请求都带的头。 */
+    /** 列モデル: 各リクエストによって伝送されるインターフェイス タイプ、アドレス、キー、ヘッダー。 */
     private val modelLister: suspend (ProviderConfig.Kind, String, String?, Map<String, String>) -> ModelListResult = ::listAvailable,
-    /** 「用 ChatGPT 登录」的授权服务(换令牌、刷新、注销)。 */
+    /** 「ChatGPT でログイン」認証サービス (トークン交換、更新、ログアウト)。 */
     val chatGptAuth: ChatGptAuth = defaultChatGptAuth,
-    /** xAI 订阅登录(设备码、刷新)。 */
+    /** xAI サブスクリプション ログイン (デバイス コード、更新)。 */
     val xaiAuth: XaiAuth = defaultXaiAuth,
-    /** OpenRouter 账号授权(换 Key)。 */
+    /** OpenRouter アカウントの認証 (キーの変更)。 */
     val openRouterAuth: OpenRouterAuth = defaultOpenRouterAuth,
     /**
-     * 建可调用的模型:配置、Key、服务商列表里给这个模型单独指定的接口(没有为 null,按配置的接口类型和地址)、请求头等。
-     * 为 null 时用内置的适配器(测试里换成假的)。
+     * 呼び出し可能なモデルを作成します: 構成、キー、サービス プロバイダー リストでこのモデルに個別に指定されたインターフェイス (null でない場合は、構成されたインターフェイス タイプとアドレスに従って)、要求ヘッダーなど。
+     * が null の場合、内蔵アダプターが使用されます (テストでは偽のアダプターに置き換えられます)。
      */
     modelFactory: ((ProviderConfig, String?, ModelEndpoint?, ClientSetup) -> ChatModel)? = null,
 ) {
     private val modelFactory: (ProviderConfig, String?, ModelEndpoint?, ClientSetup) -> ChatModel = modelFactory ?: ::buildModel
-    /** 每个 ChatGPT 服务商一份:同一时刻只有一个在换令牌。 */
+    /** ChatGPT サービス プロバイダーごとに 1 つのコピー: 同時にトークンを交換するのは 1 つだけです。 */
     private val chatGptTokens = mutableMapOf<String, ChatGptTokens>()
-    /** 每个订阅账号一份,和 ChatGPT 一样同一时刻只有一个在换令牌。 */
+    /** サブスクリプション アカウントごとに 1 部。 ChatGPT と同様に、同時にトークンを交換できるのは 1 つだけです。 */
     private val accountTokens = mutableMapOf<String, AccountTokens>()
     private val configFile = File(dir, CONFIG_FILE)
     private val keyFile = File(dir, KEY_FILE)
@@ -296,17 +296,17 @@ class ProviderStore(
     private val json = Json { ignoreUnknownKeys = true }
 
     private val _providers = MutableStateFlow<List<Provider>>(emptyList())
-    /** 已连接的服务商,按连接的先后。 */
+    /** 接続されたサービス プロバイダー (接続順)。 */
     val providers: StateFlow<List<Provider>> = _providers.asStateFlow()
 
     private val _configs = MutableStateFlow<List<ProviderConfig>>(emptyList())
     val configs: StateFlow<List<ProviderConfig>> = _configs.asStateFlow()
 
     private val _roles = MutableStateFlow(RoleChoices())
-    /** 三个用途各选了什么;指向的配置都在 [configs] 里。 */
+    /** は 3 つの目的ごとに何を選択しますか。指摘された構成はすべて [configs] にあります。 */
     val roles: StateFlow<RoleChoices> = _roles.asStateFlow()
 
-    /** 服务商 id → 加密后的 Key。 */
+    /** サービスプロバイダー ID → 暗号化されたキー。 */
     private var keys: Map<String, String> = emptyMap()
 
     init {
@@ -319,10 +319,10 @@ class ProviderStore(
     fun provider(id: String): Provider? = _providers.value.firstOrNull { it.id == id }
 
     /**
-     * 新增或替换同 id 的模型配置(新增的要再交给 [choose],否则下次读入时没人用会被删掉)。
-     * 配置挂到 [ProviderConfig.providerId] 指的服务商下(接口类型、地址、名字以服务商的为准);
-     * 没指或指的不存在,就按接口类型、地址和名字找对应的服务商,找不到新建一个。
-     * [apiKey] 是那个服务商的 Key:null 表示不改,空串表示清除。
+     * は、同じ ID を持つモデル構成を追加または置き換えます (新しい構成は [choose] に渡される必要があります。そうしないと、次回読み取られたときに誰も使用しなければ削除されます)。
+     * 構成は、[ProviderConfig.providerId] で示されるサービス プロバイダーにリンクされます (インターフェイスの種類、アドレス、名前はサービス プロバイダーの影響を受けます)。
+     * が指定されていないか、存在しません。インターフェイスのタイプ、アドレス、名前に基づいて、対応するサービス プロバイダーを検索するだけです。見つからない場合は、新しいものを作成します。
+     * [apiKey] はそのサービス プロバイダーのキーです。null は変更がないことを意味し、空の文字列はクリアを意味します。
      */
     @Synchronized
     fun save(cfg: ProviderConfig, apiKey: String?) {
@@ -335,28 +335,28 @@ class ProviderStore(
         writeConfig()
     }
 
-    /** 这个模型配置所属服务商的 Key。 */
+    /** このモデルは、所属するサービスプロバイダーのキーを構成します。 */
     fun apiKey(configId: String): String? =
         _configs.value.firstOrNull { it.id == configId }?.let { providerKey(it.providerId) }
 
-    /** 服务商的 Key。解不开(例如密钥库被系统清掉)时当作没有 Key。 */
+    /** サービスプロバイダーのキー。ロックを解除できない場合 (たとえば、キーストアがシステムによってクリアされた場合)、キーがないものとして扱われます。 */
     fun providerKey(providerId: String): String? {
         val enc = synchronized(this) { keys[providerId] } ?: return null
         return runCatching { String(cipher.decrypt(decode(enc))) }.getOrNull()
     }
 
-    /** 这个服务商存了 Key 没有(本地服务可以不填)。 */
+    /** このサービス プロバイダーはキーを保存したかどうか (ローカル サービスの場合は空白のままにすることができます)。 */
     fun hasKey(providerId: String): Boolean = synchronized(this) { providerId in keys }
 
     /**
-     * 「测试并保存」连上了一个服务商:存下它(名字、接口类型、地址、Key)和列出的模型。
-     * 接口类型、地址和名字都相同的服务商已经有了,就更新那一个(换 Key、换列表),不重复添加。
-     * [apiKey] 为 null 时不改已存的 Key。[verified] 是这次试调用得到回复的模型名,记进 [Provider.verifiedModels];
-     * [typed] 是其中用户手填的,记进 [Provider.typedModels]。
-     * [signIn] 是 Key 的来历(见 [Provider.signIn]):用户自己填 Key 的为 null,授权来的为那一家的标记。
-     * 两种来历各是各的服务商(地址、名字一样也不合并):授权不会顶掉用户自己填的 Key,退出登录也只删授权来的那把。
-     * [untested] 为真是用户跳过测试直接存下的(见 [Provider.savedUntested]):一个模型都没列、也没试调用。
-     * 已经有这一家、而且它列过模型或核实过时,不会因为这个参数被重新标成没测过。
+     * 「テストと保存」はサービス プロバイダーに接続します。プロバイダー (名前、インターフェイス タイプ、アドレス、キー) とリストされたモデルを保存します。
+     * 同じインターフェイス タイプ、アドレス、名前を持つサービス プロバイダーがすでに存在します。繰り返し追加せずに、それを更新するだけです (キーを変更し、リストを変更します)。
+     * [apiKey] が null の場合、既存のキーは変更されません。 [verified] は、この試用通話中に応答されたモデル名であり、[Provider.verifiedModels] に記録されます。
+     * [typed] はユーザーによって手動で入力され、[Provider.typedModels] として記録されます。
+     * [signIn] はキーの起源です ([Provider.signIn] を参照)。ユーザーが入力したキーは null であり、認可されたキーはその会社のマークです。
+     * 2 つのソースは異なるサービス プロバイダーからのものです (アドレスと名前はマージされていません)。承認はユーザーが入力したキーを置き換えず、ログアウト時に承認されたキーのみが削除されます。
+     * [untested] は、テストをスキップしたユーザーによって直接保存されました ([Provider.savedUntested] を参照)。モデルは 1 つもリストされておらず、それを呼び出す試みも行われませんでした。
+     * にはすでにこれがあり、モデルとしてリストされているか、古いものとして検証されていますが、このパラメータのために未テストとして再マークされることはありません。
      */
     @Synchronized
     fun connect(
@@ -368,12 +368,12 @@ class ProviderStore(
         untested: Boolean = false,
     ): Provider {
         val found = findOrAddProvider(name, kind, baseUrl, signIn)
-        // 跳过测试时没有列表可存:这家之前列过的留着,不要用空表把已有的列表盖掉
+        // テストをスキップするときに保存するリストがありません。以前にリストされたリストを保持してください。既存のリストを隠すために空のテーブルを使用しないでください。
         val listed = if (untested && models.isEmpty()) found.models ?: models else models
         val p = found.copy(
             models = listed, sessionHeader = sessionHeader,
             verifiedModels = found.verifiedModels + verified, typedModels = found.typedModels + typed,
-            // 这次没测、这家也没有核实过的模型、也没列过列表,才是「没测过」;别的情况一律按测过
+            // は今回はテストされていません。この会社はモデルを検証しておらず、リストも作成していないため、「テストされていません」です。それ以外の場合は、テスト済みとみなされなければなりません。
             savedUntested = untested && verified.isEmpty() && found.verifiedModels.isEmpty() && listed.isEmpty(),
         )
         _providers.value = _providers.value.map { if (it.id == p.id) p else it }
@@ -382,7 +382,7 @@ class ProviderStore(
         return p
     }
 
-    /** 记下服务商最近一次列出的模型。列出来了,就说明「没测过」不再成立(跳过测试存下的那家在这里清掉标记)。 */
+    /** サービスプロバイダーがリストした最後のモデルに注目してください。リストに記載されている場合は、「テストされていない」が当てはまらないことを意味します (テストをスキップして保存した企業がここでマークをクリアします)。 */
     @Synchronized
     fun rememberModels(providerId: String, models: List<ListedModel>) {
         if (provider(providerId) == null) return
@@ -393,9 +393,9 @@ class ProviderStore(
     }
 
     /**
-     * 记下 [model] 在这家试调用得到了回复(见 [Provider.verifiedModels])。
-     * 试通过了就说明「没测过」不再成立,跳过测试存下的那家在这里清掉标记——这个模型本来就在
-     * [Provider.verifiedModels] 里时也要清,不能直接返回。
+     * は [model] をメモし、このトライアル コールから応答を受け取りました ([Provider.verifiedModels] を参照)。
+     * がテストに合格した場合、「テストされていない」という意味ではなくなります。テストをスキップして保存した会社はここでマークをクリアします - このモデルは元々
+     * [Provider.verifiedModels] もクリアする必要があり、直接返すことはできません。
      */
     @Synchronized
     fun markVerified(providerId: String, model: String) {
@@ -407,7 +407,7 @@ class ProviderStore(
         writeConfig()
     }
 
-    /** 记下用户在这家手填的 [model](见 [Provider.typedModels])。 */
+    /** ユーザーが手動で入力した [model] を書き留めます ([Provider.typedModels] を参照)。 */
     @Synchronized
     fun markTyped(providerId: String, model: String) {
         val p = provider(providerId) ?: return
@@ -416,16 +416,16 @@ class ProviderStore(
         writeConfig()
     }
 
-    /** 换掉一个服务商的 Key(它下面的模型都用这一个)。 */
+    /** は、サービス プロバイダーのキーを置き換えます (これより下のすべてのモデルがこれを使用します)。 */
     @Synchronized
     fun updateProviderKey(providerId: String, apiKey: String) {
         if (provider(providerId) != null) setKey(providerId, apiKey)
     }
 
     /**
-     * 删掉一个服务商:它下面的模型配置和 Key 一起删。用着它的用途退回默认(主模型变成没选,看图不用,轻量用主模型);
-     * 界面上删除前已经说明哪些用途要重新选。删的是 ChatGPT 的,连注册到的 client_id 一起忘掉(本机标识留着):
-     * 下次登录重新注册,可以换一个账号。
+     * サービスプロバイダーを削除します。モデル構成とその下のキーが一緒に削除されます。その目的を使用してデフォルトに戻します (メイン モデルは選択解除され、写真の表示には使用されなくなり、メイン モデルは軽く使用されます)。
+     * インターフェイスでは、削除する前にどの使用を再選択する必要があるかについて説明しています。削除されたのは ChatGPT で、登録された client_id も忘れられました (ローカル ID は残りました)。
+     * 次回ログインして再度登録すると、アカウントを変更できます。
      */
     @Synchronized
     fun removeProvider(providerId: String) {
@@ -441,8 +441,8 @@ class ProviderStore(
     }
 
     /**
-     * 把服务商 [providerId] 下的 [model] 用作 [role]:这个模型还没有配置就按 [caps] 建一条,再交给 [choose]。
-     * 服务商不存在时返回 false。
+     * サービス プロバイダー [providerId] の下の [model] を [role] として使用します。このモデルはまだ設定されていないため、[caps] に従って作成し、それを [choose] に渡します。
+     * は、サービスプロバイダーが存在しない場合に false を返します。
      */
     @Synchronized
     fun use(role: ModelRole, providerId: String, model: String, caps: Capabilities): Boolean {
@@ -453,9 +453,9 @@ class ProviderStore(
     }
 
     /**
-     * 定一个用途:用户选什么就是什么,不看能力标记。选具体模型当主模型时把工具调用标记记为 true(运行时据此发工具定义);
-     * 看图标记不改存着的,在 [configFor] 里按当下的选择推出来,换走了就跟着回去。之后没人用的配置删掉。
-     * 配置不存在、或这个用途不接受这种选择(见 [RoleChoices.with])时返回 false。
+     * 目的を設定します。能力マークに関係なく、ユーザーが選択したものを何でも設定します。特定のモデルをメイン モデルとして選択する場合、ツール呼び出しフラグを true としてマークします (ツール定義は実行時にそれに応じて送信されます)。
+     * は保存されたピクチャーマークを変更しません。 [configFor] の現在の選択を押して押し出します。変更した場合は元に戻してください。使用されなくなった構成を削除します。
+     * 構成が存在しない場合、またはこの目的でこの選択が受け入れられない場合は false を返します ([RoleChoices.with] を参照)。
      */
     @Synchronized
     fun choose(role: ModelRole, choice: RoleChoice): Boolean {
@@ -474,7 +474,7 @@ class ProviderStore(
         return true
     }
 
-    /** 只改这个用途;不支持的协议、跟随主模型的用途或列表明确不支持的档位不接受。 */
+    /** はこの目的のみを変更します。サポートされていないプロトコル、主要なモデルに従う使用、またはリストで明らかにサポートされていないギアは受け入れられません。 */
     @Synchronized
     fun setReasoningEffort(role: ModelRole, effort: String?): Boolean {
         if (_roles.value[role] !is RoleChoice.Model) return false
@@ -505,7 +505,7 @@ class ProviderStore(
         return true
     }
 
-    /** 记下用户说的 [model] 能不能看图(见 [Provider.visionOverrides]);服务商不存在时返回 false。 */
+    /** [model] が写真を表示できるかどうかについてユーザーが言ったことを書き留めます ([Provider.visionOverrides] を参照)。サービスプロバイダーが存在しない場合は false を返します。 */
     @Synchronized
     fun setModelVision(providerId: String, model: String, sees: Boolean): Boolean {
         val p = provider(providerId) ?: return false
@@ -514,7 +514,7 @@ class ProviderStore(
         return true
     }
 
-    /** 看图模型的「看图定位已验证」(开发者选项里改);看图用主模型时改的是主模型那条配置。没有看图模型时不动。 */
+    /** 表示モデルの「表示位置が確認されました」(開発者向けオプションで変更);メインモデルを表示すると、メインモデルの構成が変更されます。モデルを表示していないときは動きません。 */
     @Synchronized
     fun setVisionGroundingVerified(verified: Boolean) {
         val id = _roles.value.resolve(ModelRole.Vision) ?: return
@@ -525,9 +525,9 @@ class ProviderStore(
     }
 
     /**
-     * 这个用途实际用的配置;没选、不用时为 null。看图标记按当下推出来,不看存着的列表数据有没有写:
-     * 看图这一路总是 true(用户选了它来看图);别的用途按 [ModelOptions.seesImages]——用户在这个模型上说过的为准,
-     * 没说过而看图也用这条配置(选了同一个模型,或「用主模型」)的,同样算能看,截图直接附给它,不必另调一次看图。
+     * この目的に使用される実際の構成。選択されていないか使用されていない場合は null。保存されたリスト データが書き込まれているかどうかに関係なく、クリックすると画像マークが表示され、押し出されます。
+     * は、画像を表示する場合は常に true (ユーザーが画像を表示するために選択します)。他の用途では、[ModelOptions.seesImages] (このモデルに関してユーザーが発言した内容) が適用されます。
+     * そこまでは言っていませんが、この構成で写真を閲覧する場合（同じモデルを選択する、または「メインモデルを使用する」）でも閲覧できます。スクリーンショットは直接添付されるため、画像を再度調整する必要はありません。
      */
     fun configFor(role: ModelRole): ProviderConfig? {
         val choices = _roles.value
@@ -537,16 +537,16 @@ class ProviderStore(
         return if (sees == cfg.capabilities.vision) cfg else cfg.copy(capabilities = cfg.capabilities.copy(vision = sees))
     }
 
-    /** 主模型在它那家还没测试通过时给出那一家(见 [Provider.untested]);任务因模型失败时据此提示去「重新测试」。 */
+    /** メイン モデルは、そのモデルがテストに合格しなかった場合にそのモデルを提供します ([Provider.untested] を参照)。モデルが原因でタスクが失敗した場合は、このプロンプトを使用して「再テスト」します。 */
     fun untestedMainProvider(): Provider? {
         val cfg = configFor(ModelRole.Main) ?: return null
         return provider(cfg.providerId)?.takeIf { it.untested(cfg.model) }
     }
 
     /**
-     * 这个用途用的模型,套好计量;没选、不用时为 null。用量记在 [role] 名下:「用主模型」的看图、轻量调用
-     * 记作看图、轻量,服务商和模型是主模型那条配置的。这是 App 里建可调用模型的唯一入口。
-     * [session] 是这次调用属于的对话(同一段对话里建的模型都给同一个);服务商声明了会话头的,每个请求都带上它。
+     * この目的に使用されるモデル、測定値を設定します。選択されていないか使用されていない場合は、null になります。使用状況は[role]という名前で記録されます：画像閲覧と光通話は「メインモデルを使用」
+     * は画像として記録され、軽量、サービスプロバイダーとモデルがメインモデル用に構成されています。これは、アプリで呼び出し可能なモデルを構築するための唯一の入り口です。
+     * [session] は、このコールが属する会話です (同じ会話で構築されたモデルはすべて同じものに与えられます)。サービスプロバイダーは会話ヘッダーを宣言し、それをすべてのリクエストに含めます。
      */
     fun modelFor(role: ModelRole, session: ModelSession = ModelSession.fresh()): ChatModel? = configFor(role)?.let { cfg ->
         val p = provider(cfg.providerId)
@@ -564,10 +564,10 @@ class ProviderStore(
     }
 
     /**
-     * 「测试并保存」的试调用:还没存下的服务商,按真实任务同一条路([modelFactory]、同样的请求头)建出 [model],
-     * 带一个无参数的工具([PROBE_TOOL])、请它调用;回复限得很短(协议允许的话,见 [buildModel])。
-     * 回了工具调用为 [ProbeResult.ToolCalled],只回了话为 [ProbeResult.NoToolCall],请求失败带着服务端的报错原样返回。
-     * 不计量:这几个 token 不属于任何用途。会话号用新的,不属于任何对话。超时由调用方管。
+     * 「テストして保存」トライアル コール: サービス プロバイダーはまだ保存しておらず、実際のタスクの同じパス ([modelFactory]、同じリクエスト ヘッダー) に従って [model] を構築しました。
+     * はパラメータなしのツール ([PROBE_TOOL]) を取得して呼び出します。応答は非常に短い時間に制限されます (プロトコルが許可する場合は、[buildModel] を参照)。
+     * はツール呼び出しを [ProbeResult.ToolCalled] として返し、メッセージのみ [ProbeResult.NoToolCall] として返しました。リクエストは失敗し、サーバーエラーがそのまま返されました。
+     * 未測定: これらのトークンはどの目的にも属しません。どの会話にも属さない新しいセッション番号を使用してください。タイムアウトは呼び出し元によって管理されます。
      */
     suspend fun probe(
         kind: ProviderConfig.Kind, baseUrl: String, apiKey: String?, sessionHeader: String?,
@@ -589,18 +589,18 @@ class ProviderStore(
 
     private fun headers(sessionHeader: String?, session: ModelSession) = ClientHeaders.of(userAgent, sessionHeader, session)
 
-    /** 不属于任何对话的请求(如语音转写)给这家带的头:客户端标识,声明了会话头的用新的会话号。 */
+    /** どの会話にも属さないリクエスト (音声転写など) は、この会社にヘッダー (クライアント ID) をもたらし、セッション ヘッダーで新しいセッション番号を宣言します。 */
     fun clientHeaders(p: Provider): Map<String, String> = headers(p.sessionHeader, ModelSession.fresh())
 
-    /** 服务商最近一次列出的这个模型(单独指定的接口、写明的思考方式等);每次建模型时现查,重新列过就用新的。 */
+    /** このモデルは、サービス プロバイダーによって最後にリストされたものです (個別に指定されたインターフェイス、記述された思考方法など)。モデルを構築するたびにそれを確認し、再リストされた場合は新しいモデルを使用してください。 */
     private fun listedOf(cfg: ProviderConfig): ListedModel? =
         provider(cfg.providerId)?.models?.firstOrNull { it.id == cfg.model }
 
-    /** 列出这个服务商的可用模型(见 [ModelCatalog]);不属于任何对话,声明了会话头的用新的会话号。 */
+    /** このサービスプロバイダーで利用可能なモデルをリストします ([ModelCatalog] を参照)。どのセッションにも属さない場合は、新しいセッション番号を使用してセッション ヘッダーを宣言します。 */
     suspend fun listModels(kind: ProviderConfig.Kind, baseUrl: String, apiKey: String?, sessionHeader: String? = null): ModelListResult =
         modelLister(kind, baseUrl, apiKey, headers(sessionHeader, ModelSession.fresh()))
 
-    /** 重新列一个已连接服务商的模型:用存着的 Key;订阅登录用访问令牌(快过期先换新的)。 */
+    /** 接続されているサービス プロバイダーのモデルを再リストします。保存されたキーを使用します。サブスクリプションのログインにはアクセス トークンを使用します (期限切れが近づいている場合は、新しいものに置き換えます)。 */
     suspend fun listModels(p: Provider): ModelListResult {
         if (p.kind != ProviderConfig.Kind.ChatGpt && p.kind != ProviderConfig.Kind.Xai) {
             return listModels(p.kind, p.baseUrl, providerKey(p.id), p.sessionHeader)
@@ -618,22 +618,22 @@ class ProviderStore(
         return listModels(p.kind, base, token, p.sessionHeader)
     }
 
-    // ---------- ChatGPT 登录 ----------
+    // ---------- ChatGPT ログイン ----------
 
-    /** ChatGPT 服务商的登录(和 API Key 存在同一处、同样加密);没有或解不开为 null。 */
+    /** ChatGPT サービス プロバイダーのログイン (API キーと同じ場所に存在し、暗号化されます)。利用できない場合、または復号化できない場合は、null になります。 */
     fun chatGptSession(providerId: String): ChatGptSession? = ChatGptSession.fromJson(providerKey(providerId))
 
-    /** 已连接的 ChatGPT 服务商(只有一家)。 */
+    /** ChatGPT サービス プロバイダー (1 つだけ) に接続しました。 */
     fun chatGptProvider(): Provider? = _providers.value.firstOrNull { it.kind == ProviderConfig.Kind.ChatGpt }
 
-    /** 登录成功:存下登录和列出的模型;已有 ChatGPT 服务商就更新那一家。 */
+    /** ログイン成功: ログインとリストされたモデルを保存します。既存の ChatGPT サービス プロバイダーがある場合は、それを更新します。 */
     @Synchronized
     fun connectChatGpt(session: ChatGptSession, models: List<ListedModel>): Provider =
         connect(CHATGPT_NAME, ProviderConfig.Kind.ChatGpt, ChatGptAuth.API_BASE, session.toJson(), models)
 
     /**
-     * 退出登录:先在服务端注销刷新令牌(确认不了也照样清),再清掉本机的令牌;注册(client_id)和账号留着,再登录时沿用。
-     * 返回服务端是否确认了注销。服务商和它的模型、用途都不动。
+     * ログアウト: まずサーバー上のリフレッシュ トークンをログアウトし (確認できない場合でもクリアします)、次にローカル トークンをクリアします。登録 (client_id) とアカウント番号を保存し、再ログインするときに使用します。
+     * は、サーバーがログアウトを確認したかどうかを返します。サービスプロバイダーとそのモデルおよび使用法は移動されません。
      */
     suspend fun signOutChatGpt(providerId: String): Boolean {
         val s = chatGptSession(providerId) ?: return true
@@ -643,8 +643,8 @@ class ProviderStore(
     }
 
     /**
-     * 这台设备在 ChatGPT 那边的本机标识和注册到的 client_id。标识第一次用时生成,之后一直不变;client_id 注册后记下,
-     * 退出登录后留着(再登录沿用,不重复注册),删掉 ChatGPT 服务商时忘掉。两者都不是密钥,明文存。
+     * ChatGPT 上のこのデバイスのローカル ID と登録された client_id。識別子は初めて使用されるときに生成され、その後は変更されません。登録後に client_id を書き留めます。
+     * は、ログアウト後も保持します (再ログイン時に使用され、重複登録は行われません)。ChatGPT サービス プロバイダーを削除すると忘れられます。どちらもキーではなく、クリア テキストで保存されます。
      */
     @Synchronized
     fun chatGptRegistration(): Pair<String, String?> {
@@ -657,7 +657,7 @@ class ProviderStore(
         return fresh to null
     }
 
-    /** 记下注册到的 client_id(换令牌前就记,换失败了下次也不用重新注册)。 */
+    /** 登録された client_id を書き留めます (トークンを変更する前にメモしてください。変更が失敗した場合、次回は再登録する必要はありません)。 */
     @Synchronized
     fun rememberChatGptClient(clientId: String) {
         val host = chatGptRegistration().first
@@ -675,15 +675,15 @@ class ProviderStore(
         }
     }
 
-    // ---------- xAI 账号登录 ----------
+    // ---------- xAI アカウント ログイン ----------
 
-    /** 订阅账号的登录(和 API Key 存在同一处、同样加密);没有或解不开为 null。 */
+    /** サブスクリプション アカウントのログイン (API キーと同じ場所に存在し、暗号化されます)。利用できない場合、またはロックを解除できない場合は、null になります。 */
     fun accountSession(providerId: String): AccountSession? = AccountSession.fromJson(providerKey(providerId))
 
     fun xaiProvider(): Provider? = _providers.value.firstOrNull { it.kind == ProviderConfig.Kind.Xai }
 
     /**
-     * 登录成功:存下登录和列出的模型。同一家账号登录只有一个服务商,再登录就更新它。
+     * ログイン成功: ログインとリストされたモデルを保存します。同じアカウントでログインした場合、サービスプロバイダーは 1 つだけとなり、再ログイン時に更新されます。
      */
     @Synchronized
     fun connectAccount(session: AccountSession, models: List<ListedModel>): Provider {
@@ -701,7 +701,7 @@ class ProviderStore(
         return p
     }
 
-    /** 退出登录:只清这台手机上的令牌。xAI 账号里的授权要到 xAI 的设置里自己断开。 */
+    /** ログアウト: この電話のトークンのみをクリアしてください。 xAIの設定でご自身でxAIアカウントの認証を解除する必要があります。 */
     @Synchronized
     fun signOutAccount(providerId: String) {
         val s = accountSession(providerId) ?: return
@@ -720,28 +720,28 @@ class ProviderStore(
         }
     }
 
-    // ---------- 用 OpenRouter 账号登录 ----------
+    // ---------- OpenRouter アカウントでログイン ---------- 1 つの
 
-    /** 用 OpenRouter 账号授权连上的那一家;没有为 null。 */
+    /** には、OpenRouter アカウントを使用して接続することが許可されています。そうでない場合は null です。 */
     fun openRouterAccount(): Provider? = _providers.value.firstOrNull { it.signIn == OPENROUTER_SIGN_IN }
 
     /**
-     * 授权换到了 Key:按 OpenRouter 预设存成一家普通的 OpenAI 兼容服务商(Key 照常加密),标上是授权来的。
-     * 已经有授权来的那一家就更新它;用户自己填 Key 的 OpenRouter 不动,两家并存。
+     * 認証がキーに変更されました: OpenRouter を押すと、デフォルトで共通の OpenAI 互換サービス プロバイダーが設定され (キーは通常どおり暗号化されます)、認証済みとしてマークされます。
+     * 承認された方が更新します。ユーザーが自分でKeyを入力するOpenRouterは動かず、両社が共存します。
      */
     @Synchronized
     fun connectOpenRouter(apiKey: String, models: List<ListedModel>): Provider =
         connect(OPENROUTER_NAME, ProviderConfig.Kind.OpenAiCompat, OpenRouterAuth.API_BASE, apiKey, models, signIn = OPENROUTER_SIGN_IN)
 
-    /** 退出 OpenRouter 登录:删掉这台手机上的 Key;服务商、模型和用途留着。OpenRouter 那边的 Key 要用户到 Keys 页面删。 */
+    /** OpenRouter を終了してログインします。この電話機のキーを削除します。サービスプロバイダー、モデル、目的を保持します。 OpenRouter のキーを使用するには、ユーザーが [キー] ページでキーを削除する必要があります。 */
     @Synchronized
     fun signOutOpenRouter(providerId: String) {
         if (provider(providerId)?.signIn == OPENROUTER_SIGN_IN && providerId in keys) setKey(providerId, "")
     }
 
     /**
-     * 刷新换到的令牌写回去,前提是这期间存着的登录没变:换令牌要等网络,用户可能已经退出或重新登录,
-     * 那样旧的刷新结果不能盖掉(否则退出了又被悄悄登录回来,或新登录被旧令牌顶掉)。
+     * この期間中に保存されたログインが変更されていない場合、トークンを更新して書き戻します。トークンの変更にはネットワークを待つ必要があり、ユーザーがログアウトまたは再ログインした可能性があります。
+     * 古い更新結果は上書きできません (そうしないと、ログアウト後に自動的に再ログインされるか、新しいログインが古いトークンで上書きされます)。
      */
     @Synchronized
     private fun saveRefreshed(providerId: String, before: AccountSession, after: AccountSession) {
@@ -766,15 +766,15 @@ class ProviderStore(
         }
     }
 
-    /** 模型单独指定了接口的,按它的协议选适配器、用它的地址;否则按配置的接口类型和地址。Key 都用服务商的。 */
+    /** モデルがインターフェースを個別に指定している場合は、そのプロトコルに従ってアダプターを選択し、そのアドレスを使用します。それ以外の場合は、設定されたインターフェイスのタイプとアドレスを使用します。キーはすべてサービス プロバイダーから提供されます。 */
     /**
-     * 请求头四种协议一样带。回复上限([ClientSetup.maxOutputTokens])只给 Messages(本来就必填)和 generateContent;
-     * Chat Completions 不给(有的模型只认 `max_tokens`、有的只认 `max_completion_tokens`,给错了整个请求被拒,
-     * 连接测试就会误报),Responses 也不给(ChatGPT 套餐那条路不收 `max_output_tokens`)。
+     * は同じ 4 つのプロトコルを要求します。返信の上限 ([ClientSetup.maxOutputTokens]) は、メッセージ (必須) とgenerateContent のみに適用されます。
+     * チャット完了は表示されません (一部のモデルは `max_tokens` のみを認識し、一部のモデルは `max_completion_tokens` のみを認識します。エラーが表示された場合、リクエスト全体が拒否されます。
+     * は接続テスト中に誤検知を返します)、応答は返されません (`max_output_tokens` は ChatGPT パッケージでは受け入れられません)。
      */
     private fun buildModel(cfg: ProviderConfig, apiKey: String?, endpoint: ModelEndpoint?, setup: ClientSetup): ChatModel {
         val (kind, adapterBase) = adapterFor(cfg, endpoint)
-        // 订阅登录用服务商当前的地址(登录时可能换过),配置里存的是添加时的
+        // サブスクリプションのログインでは、サービス プロバイダーの現在のアドレスが使用されます (ログイン時に変更されている可能性があります)。設定は追加時に保存されます。
         val baseUrl = if (cfg.kind == ProviderConfig.Kind.Xai) {
             provider(cfg.providerId)?.baseUrl?.takeIf { it.isNotBlank() } ?: adapterBase
         } else adapterBase
@@ -815,7 +815,7 @@ class ProviderStore(
         writeAtomically(keyFile, keysJson())
     }
 
-    /** 删掉没有用途在用的模型配置。Key 存在服务商上,不受影响。 */
+    /** 目的に使用されていないモデル構成を削除します。キーはサービス プロバイダーに存在し、影響を受けません。 */
     private fun prune() {
         val used = _roles.value.referenced
         _configs.value = _configs.value.filter { it.id in used }
@@ -833,7 +833,7 @@ class ProviderStore(
             keys = json.parseToJsonElement(keyFile.readText()).jsonObject.mapValues { it.value.jsonPrimitive.content }
         }
         migrate()
-        // 指向不存在的配置的选择退回默认,没人用的配置删掉;和文件里的不一样(含刚迁移的用途)才写回
+        // 存在しない構成を指す選択はデフォルトに戻り、誰も使用していない構成は削除されます。ファイル内の内容と異なる場合にのみ書き戻されます (新しい移行の目的を含む)。
         _roles.value = _roles.value.keepOnly(_configs.value.map { it.id }.toSet())
         prune()
         if (configFile.isFile) {
@@ -843,8 +843,8 @@ class ProviderStore(
     }
 
     /**
-     * 旧版本的 `roles` 只记显式指定的配置 id,没指定的按默认规则分配:主模型取第一个配置,看图在主模型能看图时由它兼任,
-     * 轻量跟随主模型。这里把那时实际生效的分配写明成 [RoleChoices],之后不再有隐含的规则。
+     * `roles` の古いバージョンは、明示的に指定された構成 ID のみを記憶し、指定されていない構成 ID はデフォルトのルールに従って割り当てられます。メイン モデルが最初の構成を取得し、メイン モデルが画像を表示できる場合は、その構成も担当します。
+     * 軽量フォローメインモデル。ここでは、その時点で実際に有効となる割り当ては [RoleChoices] と記述されており、暗黙のルールはなくなります。
      */
     private fun migrateRoles(old: JsonObject?): RoleChoices {
         val ids = _configs.value.map { it.id }.toSet()
@@ -859,9 +859,9 @@ class ProviderStore(
     }
 
     /**
-     * 把没有归属的模型配置(旧版本的文件)归到服务商下:按 [ProviderConnection.keyOf] 分组,每组一个服务商,
-     * Key 取组里任一条按配置 id 存的(密文原样搬过去)。先写含新旧两份的 Key 文件,再写配置,最后清掉不属于任何服务商的 Key;
-     * 中途断掉的话,下次读入时没归属的配置还在,会重做。都归好了就只清理残留的 Key。
+     * サービス プロバイダーの下で未所有のモデル構成 (古いバージョン ファイル) をグループ化します。[ProviderConnection.keyOf] ごとにグループ化し、グループごとに 1 つのサービス プロバイダーを指定します。
+     * Key: 構成 ID に従って保存されているグループ内のいずれかを取得します (暗号文はそのまま移行されます)。まず新しいキー ファイルと古いキー ファイルを書き込み、次に設定を書き込み、最後にどのサービス プロバイダーにも属さないキーをクリアします。
+     * が途中で切断された場合、所有されていない構成は次回の読み取り時にまだ存在しており、再実行されます。すべてが完了したら、残りのキーをクリーンアップするだけです。
      */
     private fun migrate() {
         val known = _providers.value.map { it.id }.toSet()
@@ -892,7 +892,7 @@ class ProviderStore(
         name = o.str("name"),
         kind = ProviderConfig.Kind.valueOf(o.str("kind")),
         baseUrl = o.str("baseUrl"),
-        // 旧版本存下的没有这一项:按地址对得上的预设补上(读入后写回文件时记进去)
+        // この項目は古いバージョンでは保存されていません。アドレスに一致するデフォルトのアドレスに従って入力してください（ファイルを読み取った後に書き戻すときに注意してください）
         sessionHeader = o["sessionHeader"]?.jsonPrimitive?.content ?: ProviderPresets.forBaseUrl(o.str("baseUrl"))?.sessionHeader,
         signIn = o["signIn"]?.jsonPrimitive?.content,
         verifiedModels = o["verifiedModels"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet().orEmpty(),
@@ -905,7 +905,7 @@ class ProviderStore(
             (raw as? JsonPrimitive)?.booleanOrNull?.let { model to it }
         }.toMap(),
         typedModels = o["typedModels"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet().orEmpty(),
-        // 旧版本存下的没有这一项:那时每一家都走过「测试并保存」,按测过算
+        // 旧バージョンにはそのような項目は保存されていません。当時はどの企業も「テストと保存」を経ており、テスト済みとして計算されていました。
         savedUntested = o["untested"]?.jsonPrimitive?.booleanOrNull ?: false,
         models = o["models"]?.jsonArray?.map { e ->
             val m = e.jsonObject
@@ -947,7 +947,7 @@ class ProviderStore(
         providerId = o["providerId"]?.jsonPrimitive?.content.orEmpty(),
     )
 
-    /** `uses` 里的一个用途:`{"use":"model","config":id}`、`{"use":"main"}` 或 `{"use":"none"}`;认不出的按默认。 */
+    /** `uses` の中の1用途: `{"use":"model","config":id}`、`{"use":"main"}` または `{"use":"none"}`; 認識できないものは既定として扱う。 */
     private fun choicesOf(o: JsonObject): RoleChoices {
         fun choice(role: ModelRole): RoleChoice? {
             val c = runCatching { o[role.name]?.jsonObject }.getOrNull() ?: return null
@@ -1062,7 +1062,7 @@ class ProviderStore(
     private fun encode(b: ByteArray) = Base64.getEncoder().encodeToString(b)
     private fun decode(s: String) = Base64.getDecoder().decode(s)
 
-    /** 给出进程里那一份的 Application。 */
+    /** はプロセス中のアプリケーションを示します。 */
     interface Owner {
         val providers: ProviderStore
     }
@@ -1072,18 +1072,18 @@ class ProviderStore(
         private const val KEY_FILE = "provider-keys.json"
         private const val CHATGPT_HOST_FILE = "chatgpt-host.json"
 
-        /** `uses` 里每个用途的 `use`:具体模型(另记 `config`)、用主模型、不用。旧版本的文件里只有 `roles`。 */
+        /** `uses` の各用途の `use`: 具体的なモデル（別途 `config` に記録）、メインモデルを使う、使わない。旧版のファイルには `roles` だけがある。 */
         private const val USE_MODEL = "model"
         private const val USE_MAIN = "main"
         private const val USE_NONE = "none"
 
-        // 连服务商的客户端都经 NetProxy 建:走设置 › 网络代理,本机、局域网地址(本地模型)直连
+        // プロバイダーへのクライアントはすべて NetProxy 経由で作る: 設定 › ネットワークプロキシを通り、本機と LAN アドレス（ローカルモデル）は直接接続する
         private val http by lazy { NetProxy.shared.client(OkHttpClient.Builder().readTimeout(120, TimeUnit.SECONDS)) }
 
-        /** 和对话模型共用的连接池;同一服务商的其他请求(如语音转写)也用它。 */
+        /** 会話モデルと共有するコネクションプール; 同じプロバイダーへの他のリクエスト（音声の文字起こしなど）もこれを使う。 */
         val modelHttp: OkHttpClient get() = http
 
-        /** 列模型、账号登录换令牌用的:读超时短一些,同样走网络代理。 */
+        /** 列モデル。アカウント ログインとトークン交換に使用されます。読み取りタイムアウトが短くなり、ネットワーク プロキシも使用されます。 */
         private val shortHttp by lazy { NetProxy.shared.client(OkHttpClient.Builder().readTimeout(30, TimeUnit.SECONDS)) }
 
         private val catalog by lazy { ModelCatalog(shortHttp) }
@@ -1092,19 +1092,19 @@ class ProviderStore(
         private val defaultOpenRouterAuth by lazy { OpenRouterAuth(shortHttp) }
         private val defaultXaiAuth by lazy { XaiAuth(shortHttp) }
 
-        /** ChatGPT 服务商的名字(品牌名,不随界面语言变)。 */
+        /** ChatGPT サービス プロバイダーの名前 (ブランド名、インターフェイス言語によって変わりません)。 */
         const val CHATGPT_NAME = "ChatGPT"
-        /** 用 xAI 账号登录的服务商的名字(品牌名,不随界面语言变)。和填 Key 的「xAI」预设不是同一家。 */
+        /** xAI アカウントでログインしたサービス プロバイダーの名前 (ブランド名、インターフェイス言語によって変わりません)。キーを入力した「xAI」とは別の会社です。 */
         const val XAI_NAME = "xAI / Grok"
-        /** 用 OpenRouter 账号授权的服务商:名字和预设一样,[Provider.signIn] 标成这个。 */
+        /** は、OpenRouter アカウントによって承認されたサービス プロバイダーです。名前はデフォルトと同じで、[Provider.signIn] にはこれがマークされています。 */
         const val OPENROUTER_NAME = "OpenRouter"
         const val OPENROUTER_SIGN_IN = "openrouter"
-        /** 出错说明里怎么称呼这家的登录。 */
+        /** エラーの説明にあるこのログインの名前は何ですか。 */
         private const val XAI_ACCOUNT = "xAI"
 
         /**
-         * 试调用:临时配置的 id、系统提示、那句话、试用的工具、回复上限。
-         * 上限留得够一次工具调用,连同必须先想一想的模型的思考(Messages、generateContent 把思考也算在上限里)。
+         * トライアルコール: 一時的に設定された ID、システムプロンプト、センテンス、トライアルツール、応答の上限。
+         * の上限は、最初に考慮する必要があるモデルの考え方と合わせて、1 回のツール呼び出しに十分な量を残します (メッセージ、generateContent、思考も上限に含まれます)。
          */
         private const val PROBE_ID = "probe"
         private const val PROBE_SYSTEM = "This is a connection test. Call the get_time tool now. Do not answer with text."
@@ -1113,8 +1113,8 @@ class ProviderStore(
         private const val PROBE_MAX_TOKENS = 1024
 
         /**
-         * 列模型的接口:OpenAI 兼容、Responses、ChatGPT 和 xAI 都是 `GET {base}/models`(Bearer;订阅登录的 [apiKey] 是访问令牌)。
-         * [headers] 每个请求都带(见 [ClientHeaders])。
+         * 列モデルのインターフェイス: OpenAI 互換性、応答、ChatGPT、および xAI はすべて `GET {base}/models` (ベアラー。サブスクリプション ログインの [apiKey] はアクセス トークン)。
+         * [headers] はすべてのリクエストで伝送されます ([ClientHeaders] を参照)。
          */
         suspend fun listAvailable(kind: ProviderConfig.Kind, baseUrl: String, apiKey: String?, headers: Map<String, String>): ModelListResult =
             when (kind) {
@@ -1125,18 +1125,18 @@ class ProviderStore(
             }
 
         /**
-         * 调用这个模型用哪种适配器、交给它什么 Base URL。建模型([buildModel])和给思考档位([ReasoningOptions])都按它。
-         * 订阅登录(xAI)固定走这一家的接口,不跟模型列表里写的别的协议走,免得把订阅转去另一个接口。
+         * このモデルを呼び出すために使用されるアダプターとそれに与えられるベース URL。クリックするとモデル ([buildModel]) が構築され、思考装置 ([ReasoningOptions]) が与えられます。
+         * サブスクリプション ログイン (xAI) は常にこのインターフェイスを使用し、サブスクリプションを別のインターフェイスに転送しないように、モデル リストに記述された他のプロトコルには従いません。
          */
         internal fun adapterFor(cfg: ProviderConfig, endpoint: ModelEndpoint?): Pair<ProviderConfig.Kind, String> =
             if (endpoint == null || cfg.kind == ProviderConfig.Kind.Xai) cfg.kind to cfg.baseUrl
             else ProviderConfig.Kind.of(endpoint.protocol) to endpoint.adapterBaseUrl
 
-        /** 产品里的那份(App 建):配置在 files/settings 下,Key 用 Android 密钥库加密,用量记到 [usage]。 */
+        /** 製品のコピー (アプリ構築): ファイル/設定で構成され、キーは Android キーストアで暗号化され、使用状況は [usage] に記録されます。 */
         fun create(context: Context, usage: UsageSink, userAgent: String): ProviderStore =
             ProviderStore(File(context.applicationContext.filesDir, "settings"), KeystoreKeyCipher(), usage, userAgent = userAgent)
 
-        /** App 内共用的那份(经 [Owner] 给出)。 */
+        /** アプリ内で共有される共有 ([Owner] によって与えられます)。 */
         fun get(context: Context): ProviderStore = (context.applicationContext as? Owner)?.providers
             ?: error("the Application (${context.applicationContext.javaClass.name}) must implement ProviderStore.Owner to give the model settings")
     }

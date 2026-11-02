@@ -1,1 +1,1 @@
-Draw a one-finger path or two simultaneous paths on the task's virtual display. Each path is a sequence of normalized [x,y] points (0-999); two paths can pinch or spread. Prefer accessibility refs or ordinary scroll/swipe when they can express the action.
+この作業の仮想表示に、1本指の経路または同時に2つの経路を描く。各経路は、正規化された [x,y] 座標（0-999）の列。2つの経路でピンチや拡大ができる。操作を表現できる場合は、アクセシビリティの ref や通常のスクロール／スワイプを優先する。

@@ -33,22 +33,22 @@ import java.util.Locale
 const val HISTORY_READ = "history_read"
 
 /**
- * 查这个对话之前几轮的记录:不带 turn 列出之前的轮次(新的在前:第几轮、用户说了什么、结局、时刻),
- * 带 turn 读那一轮记下的东西(完整结局、Mika 的进度说明、读到的原文),按条分页。
- * 只认本次运行开局带来的那几轮([com.wangzan101.mika.core.run.RunSpec.priorTurns],同一个对话),只读;
- * 原文取自运行记录(落盘时已脱敏、截短),不带截图。读到的原文作为观察交给核查,回答里可以引用。
- * 只在给了运行记录、而之前有记过运行的轮次时提供。
+ * この会話の前のラウンドの記録を確認します: 順番なしで前のラウンドをリストします (新しい順: どのラウンド、ユーザーが言ったこと、終わり、時間)、
+ * ターンを使用して、そのラウンドで書き留められたもの (完全なエンディング、ミカの進行状況の説明、読み上げられた原文) を読み、記事ごとにページ分割します。
+ * は、この実行の開始によってもたらされたラウンド ([com.wangzan101.mika.core.run.RunSpec.priorTurns]、同じ会話) のみを読み取り専用で認識します。
+ * 元のテキストは、スクリーンショットなしで、実行記録から取得されたものです (ダウンロード時に感度が低くされ、切り詰められています)。読まれた原文は検証のために提出され、回答に引用することができます。
+ * は、ラン記録が与えられ、ラウンド内で以前に減点ランがあった場合にのみ提供されます。
  */
 internal object HistoryRead : AgentTool {
-    /** 列表最多列几轮(新的在前)。 */
+    /** リストの最大ラウンド数 (新しいものから順)。 */
     const val LIST_MAX = 20
-    /** 一页里各条原文加起来大约多少字(至少给一条)。 */
+    /** 1 ページの元のテキストを合計するとおよそ何ワードになります (少なくとも 1 つ与えてください)。 */
     const val PAGE_CHARS = 8_000
-    /** 一条原文最多留多少字。 */
+    /** 元のテキストに残される最大単語数。 */
     const val ITEM_CHARS = 2_000
-    /** 读一轮时结局最多留多少字。 */
+    /** 1回の読み上げでエンディングに何語残せるか。 */
     const val OUTCOME_CHARS = 3_000
-    /** 列表里用户原话、结局各留多少字。 */
+    /** ユーザーの元の単語と末尾にリストに残っている単語の数。 */
     private const val GIST_CHARS = 200
 
     private val TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm", Locale.ENGLISH)
@@ -131,21 +131,21 @@ internal object HistoryRead : AgentTool {
                 if (next < items.size) put("nextOffset", next)
             }
         }
-        // 读到的原文交给核查:回答里用到之前几轮读到的东西时有据可查(出处另记为 history,不指回当时的画面)
+        // 私が読んだ原文は検証のために提出されます。回答が以前のラウンドで読んだ内容を使用している場合、それは十分に文書化されています（出典も歴史として記録され、当時の場面を参照していません）
         val observations = page.mapNotNull { item ->
             item.obsKind?.let { Observation(it, item.text, source = SOURCE, title = item.where, trust = if (item.untrusted) Trust.Untrusted else Trust.Trusted) }
         }
         return ToolExecution(content, observations = observations)
     }
 
-    /** 记录里一条可读的东西:Mika 的进度说明(note,带了调用的回复里的字),或读到的原文(观察的种类)。 */
+    /** 記録内の読み取り可能なもの: ミカの進行状況の説明 (メモ、電話の応答の言葉)、または読み取られた元のテキスト (観察の種類)。 */
     private class Item(val kind: String, val text: String, val where: String?, val untrusted: Boolean, val obsKind: ObsKind?)
 
     private fun items(events: List<RunEvent>): List<Item> {
         val seen = mutableSetOf<String>()
         return events.mapNotNull { e ->
             when (e) {
-                // 不带调用的回复就是那一轮的回答,已经在 outcome 里
+                // 電話をかけずに返信したものがそのラウンドの回答であり、すでに結果に含まれています。
                 is RunEvent.ModelReply -> e.text.trim().takeIf { e.acted && e.tool != null && it.isNotEmpty() && seen.add(it) }
                     ?.let { Item(NOTE, clip(it, ITEM_CHARS), null, false, null) }
                 is RunEvent.Observed -> e.text.trim().takeIf { it.isNotEmpty() && seen.add(it) }?.let {
@@ -161,7 +161,7 @@ internal object HistoryRead : AgentTool {
 
     private fun clip(s: String, max: Int) = if (s.length <= max) s else s.take(max - 1) + "…"
 
-    /** 读记录出错当没有:查不到不影响任务。 */
+    /** レコードの読み取り中にエラーが発生しました。存在しない場合、見つからないため、タスクには影響しません。 */
     private suspend fun <T> safe(fallback: T, read: suspend () -> T): T =
         try { read() } catch (e: CancellationException) { throw e } catch (e: Exception) { fallback }
 

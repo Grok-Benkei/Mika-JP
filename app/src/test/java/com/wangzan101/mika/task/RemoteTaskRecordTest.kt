@@ -17,26 +17,26 @@ class RemoteTaskRecordTest {
         for (s in states) assertEquals(s, RemoteTaskRecord.decode(RemoteTaskRecord.encode(s)))
     }
 
-    // 盘上的字自己定,不随枚举名;存下来的格式改了要改这里
+    // ディスク上の単語は自分で決定したものであり、列挙名に従いません。保存形式が変更された場合は、ここで変更する必要があります。
     @Test fun storedFormatIsIndependentOfDomainNames() {
         assertEquals("""{"type":"failed","reason":"x","kind":"step_limit"}""",
             RemoteTaskRecord.encode(TaskState.Failed("x", FailKind.StepLimit)))
         assertEquals("""{"type":"cancelled"}""", RemoteTaskRecord.encode(TaskState.Cancelled))
     }
 
-    // 回答的证据账本不进远程收件
+    // によって応答された証拠台帳をリモートで受信することはできません。
     @Test fun sourcesAreNotStored() {
         val s = TaskState.Succeeded("a", sources = listOf(com.wangzan101.mika.core.verify.AnswerSource(1, "screen", null, null, 1)))
         assertEquals(s.copy(sources = emptyList()), RemoteTaskRecord.decode(RemoteTaskRecord.encode(s)))
     }
 
     @Test fun legacyAndUnknownValuesDecodeSafely() {
-        // 合入前直接序列化领域类型写下的样子:类别是枚举名
+        // 記述どおりにマージする前に、フィールド タイプを直接シリアル化します。カテゴリは列挙名です。
         assertEquals(TaskState.Failed("stopped", FailKind.Interrupted),
             RemoteTaskRecord.decode("""{"type":"failed","reason":"stopped","kind":"Interrupted"}"""))
         assertEquals(TaskState.Succeeded("a", verified = false, note = "n", unconfirmed = listOf("x")),
             RemoteTaskRecord.decode("""{"type":"done","answer":"a","verified":false,"note":"n","sources":[],"unconfirmed":["x"]}"""))
-        // 更新的版本写的类别、多出来的字段
+        // 更新バージョンで記述されたカテゴリと追加フィールド
         assertEquals(TaskState.Failed("r", FailKind.Environment),
             RemoteTaskRecord.decode("""{"type":"failed","reason":"r","kind":"something_new","extra":1}"""))
         for (bad in listOf("", "not json", "[]", "{}", """{"type":"paused"}""", """{"type":"done"}""", """{"type":"done","answer":3}"""))

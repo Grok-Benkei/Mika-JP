@@ -10,27 +10,27 @@ import kotlinx.serialization.json.JsonPrimitive
 import java.net.URI
 
 /**
- * 网页上采集到的事实:[base] 同手机(可见文字、密码框、黑帧…),另加主文档 HTTP 状态、
- * 页面里框架的地址(只算跨源的)、当前页面主机名。
+ * Web ページで収集された事実: [base] は携帯電話と同じ (表示されるテキスト、パスワード ボックス、黒いフレームなど) に加えて、メイン ドキュメントの HTTP ステータス、
+ * ページ内のフレームのアドレス (クロスオリジンのみ) と現在のページのホスト名。
  */
 data class WebFacts(val base: ScreenFacts, val httpStatus: Int?, val frameUrls: List<String>, val host: String?)
 
-/** 网页障碍判定:先看网页独有的迹象,再落到和手机同一套 [ScreenDiagnosis.classify]。 */
+/** Web ページの障害物の判定: 最初に Web ページの固有の兆候を確認し、次に携帯電話 [ScreenDiagnosis.classify] と同じセットに分類されます。 */
 object WebBarrier {
     private val RISK_STATUS = setOf(403, 429, 503)
     private val RISK_WORDS = listOf("访问受限", "频繁", "异常", "blocked", "too many requests")
 
-    /** 人机验证服务的框架主机(按域名后缀认)。 */
+    /** 人間とマシンの検証サービスのフレームワーク ホスト (ドメイン名のサフィックスで識別)。 */
     private val CAPTCHA_HOSTS = listOf(
         "recaptcha.net", "hcaptcha.com", "challenges.cloudflare.com", "geetest.com", "arkoselabs.com", "funcaptcha.com",
     )
-    /** 主机名本身不专门做验证、靠路径区分的(主机, 路径前缀)。 */
+    /** ホスト名自体は特に検証されず、パス (ホスト、パス プレフィックス) によって区別されます。 */
     private val CAPTCHA_PATHS = listOf("google.com" to "/recaptcha", "gstatic.com" to "/recaptcha")
     private val CAPTCHA_HOST_WORDS = listOf("captcha")
 
     /**
-     * 风控拦截页(网站觉得这次访问不像人、环境不对)上的说法,单独出现就算(比对时去掉空白、不分大小写)。
-     * 只在页面字不多时认:正文很长的页面(讲这类问题的文章)不算。
+     * リスク コントロール インターセプト ページのステートメント (Web サイトは、この訪問は人間のようには見えず、環境が間違っていると感じています)。単独で表示される場合でも (大文字と小文字に関係なく、比較中に空白を削除します)。
+     * は、ページ上の単語が少ない場合にのみ認識されます。長いテキスト (そのような問題に関する記事) を含むページはカウントされません。
      */
     private val INTERSTITIAL_WORDS = listOf(
         "访问异常", "异常访问", "访问行为异常", "访问存在异常", "环境异常", "环境存在异常", "存在安全风险", "当前访问存在风险",
@@ -38,28 +38,28 @@ object WebBarrier {
         "unusualtraffic", "unusualactivity", "suspiciousactivity", "automatedqueries", "automatedrequests", "checkingyourbrowser",
         "accesstemporarilyrestricted", "requestwasblocked", "requesthasbeenblocked",
     )
-    /** 只是标题(「安全提示」「安全检查」)的,还要同页有异常、验证、频繁一类的字。 */
+    /** はタイトル (「安全に関するヒント」と「セキュリティ チェック」) だけで、同じページに異常、検証、頻繁などの単語もあります。 */
     private val INTERSTITIAL_TITLES = listOf("安全提示", "安全检查", "安全警告", "securitycheck", "securitynotice", "securityverification")
     private val INTERSTITIAL_CUES = listOf("异常", "验证", "频繁", "风险", "unusual", "verify", "suspicious", "robot", "automated")
-    /** 算「页面字不多」的上限:可见文字合计字数(去掉空白)、条数。 */
+    /** 「ページに含まれる単語数が少ない」の上限を計算します。つまり、表示される単語の総数 (空白を除く) と行数です。 */
     private const val INTERSTITIAL_MAX_CHARS = 800
     private const val INTERSTITIAL_MAX_TEXTS = 40
 
-    /** 接口响应里表示被风控拦下的说法:和 [INTERSTITIAL_WORDS] 同一类,另加接口常用的写法。 */
+    /** インターフェイス応答は、リスク制御によってブロックされたことを示します。[INTERSTITIAL_WORDS] と同じタイプですが、インターフェイスの一般的な書き込みメソッドが追加されています。 */
     private val API_RISK_WORDS = INTERSTITIAL_WORDS + listOf(
         "环境存在风险", "账号存在风险", "请求异常", "访问受限", "abnormal", "riskcontrol", "toomanyrequests", "ratelimit",
     )
-    /** 只看响应顶层报信息的这几个字段(小写比)。 */
+    /** は、トップレベルのレポート情報に応じて、これらのフィールド (小文字) のみを確認します。 */
     private val API_MESSAGE_KEYS = setOf("message", "msg", "errmsg", "errormsg", "error_msg", "errormessage", "error", "tip", "tips", "toast", "reason")
     private const val API_MESSAGE_MAX = 200
 
-    /** 比对时去掉空白:「请下载 App 继续」和「请下载App继续」一样认。 */
+    /** 比較する場合は空白を削除してください。「続行するにはアプリをダウンロードしてください」は「続行するにはアプリをダウンロードしてください」と同じです。 */
     private val UNSUPPORTED_WORDS = listOf(
         "请在浏览器中打开", "当前浏览器不支持", "不支持此浏览器", "请下载app继续", "browserisnotsupported", "browsernotsupported",
     )
 
     fun classify(f: WebFacts): ScreenCheck {
-        // 手机同一套规则已经判出要人处理(密码框、验证码字样、付款),以它为准
+        // 携帯電話に関する同じ一連のルール (パスワード ボックス、確認コード ワード、支払い) が個人によって処理されることが決定されており、これが優先されます。
         val base = ScreenDiagnosis.classify(f.base)
         if (base.state == ScreenState.NEEDS_HUMAN) return base
         val text = f.base.texts.joinToString("\n").lowercase()
@@ -83,7 +83,7 @@ object WebBarrier {
         return base
     }
 
-    /** 字不多的页面上风控拦截页的说法;不是为 null。 */
+    /** 単語数の少ないページ上のリスク管理傍受ページのステートメント。 nullではありません。 */
     private fun interstitial(texts: List<String>, compact: String): String? {
         if (texts.size > INTERSTITIAL_MAX_TEXTS || compact.length > INTERSTITIAL_MAX_CHARS) return null
         INTERSTITIAL_WORDS.firstOrNull { it in compact }?.let { return it }
@@ -92,8 +92,8 @@ object WebBarrier {
     }
 
     /**
-     * 页面自己收到的接口响应 [body] 是不是在说被风控拦下了:JSON 对象顶层报信息的字段(message、msg、error…)里有那类说法。
-     * 返回那段说法(截短);不是 JSON、没有这类字段或没说到为 null。
+     * ページ自体が受信したインターフェイス応答 [body] は、ページがリスク制御によってブロックされたことを示しています。JSON オブジェクトの最上位レポートのフィールド (メッセージ、メッセージ、エラーなど) にそのようなステートメントがあります。
+     * はステートメント (切り捨てられた) を返します。 JSON ではないか、そのようなフィールドがないか、言及されていない場合は null です。
      */
     fun apiRisk(body: String?): String? {
         val text = body?.trim()?.takeIf { it.startsWith("{") } ?: return null
@@ -108,7 +108,7 @@ object WebBarrier {
         return null
     }
 
-    /** 跨源(主机名和页面不同)且指向人机验证服务的框架。 */
+    /** クロスオリジン (異なるホスト名とページ) であり、マンマシン認証サービス フレームワークを指します。 */
     private fun captchaFrame(url: String, pageHost: String?): Boolean {
         val h = WebUrlPolicy.host(url) ?: return false
         if (pageHost != null && h == pageHost.lowercase().removePrefix("www.")) return false

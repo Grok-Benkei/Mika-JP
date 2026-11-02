@@ -28,16 +28,16 @@ import kotlinx.serialization.json.put
 import java.util.UUID
 
 /**
- * 等用户:回答追问、交回接管、回答确认。等待期间对外显示等待的状态,等完换回 [running](由调用方给);
- * 用户的决定(或超时、跳过)做成这次调用的工具结果。界面经 [answerInput] 一类方法把用户的回答交进来。
+ * などのユーザー: フォローアップの質問に回答し、受諾のために引き渡し、回答の確認を行います。待機期間中、待機ステータスは外部に表示され、待機後、[running] (呼び出し元によって指定) に置き換えられます。
+ * ユーザーの決定 (またはタイムアウト、スキップ) によって、この呼び出しのツールの結果が決まります。インターフェイスは、[answerInput] というメソッドを介してユーザーの回答を渡します。
  */
 internal class UserExchange(
     private val tools: ToolDispatcher,
     private val confirmations: ConfirmationGate?,
-    /** 等用户回答确认的时限,到时按不同意;为 null 时一直等。 */
+    /** ユーザーが応答を確認し、同意しないを押すまで待機する時間制限。 null の場合は、永久に待機します。 */
     private val confirmTimeoutMs: Long?,
     private val inputTimeoutMs: Long,
-    /** 用户本次说的话(memory_save 的引文校验用);不收集时为 null。 */
+    /** ユーザーが今回言ったこと (memory_save の引用検証に使用);収集されない場合は null。 */
     private val utterances: () -> UserUtterances?,
     private val setState: (TaskState) -> Unit,
     private val emit: (RunEvent) -> Unit,
@@ -51,7 +51,7 @@ internal class UserExchange(
     @Volatile private var takeoverReply: CompletableDeferred<HandBack>? = null
     @Volatile private var inputReply: CompletableDeferred<String>? = null
     @Volatile private var confirmationReply: CompletableDeferred<ConfirmChoice>? = null
-    /** 回答换成给模型的样子(带着用户屏幕时换成说明,见 [UserScreenTurns.asText]);默认原样。 */
+    /** 回答をモデルに与えられたものに変更します (ユーザー画面を使用するときの説明に変更します。[UserScreenTurns.asText] を参照)。デフォルトはそのままです。 */
     var answerText: suspend (String) -> String = { it }
 
     fun begin(thread: String, run: RunProvenance, channel: Interaction = LocalInteraction) {
@@ -79,14 +79,14 @@ internal class UserExchange(
     fun resumeAfterTakeover(result: HandBack, askId: String? = null): Boolean =
         if (matches(askId)) takeoverReply?.complete(result) ?: false else false
 
-    /** 没有在等的问题(已超时、已答过)时返回 false。 */
+    /** は、待機中の質問がない場合 (タイムアウト、回答済み)、false を返します。 */
     fun answerInput(text: String, askId: String? = null): Boolean =
         if (matches(askId)) inputReply?.complete(text) ?: false else false
 
     fun answerConfirmation(choice: ConfirmChoice, askId: String? = null): Boolean =
         if (matches(askId)) confirmationReply?.complete(choice) ?: false else false
 
-    /** 任务结束:不再等任何回答。 */
+    /** ミッションは終了しました: もう答えを待つ必要はありません。 */
     fun clear() {
         takeoverReply = null
         inputReply = null
@@ -94,7 +94,7 @@ internal class UserExchange(
         activeAsk = null
     }
 
-    /** 等用户回答追问,最多 [inputTimeoutMs];超时返回 null。用户的回答可能是验证码一类,不记。 */
+    /** ユーザーが [inputTimeoutMs] までの質問に答えるまで待ちます。タイムアウト後に null を返します。ユーザーの答えは確認コードか何かである可能性があるため、覚えないでください。 */
     suspend fun awaitAnswer(prompt: String, options: List<String>?): String? {
         if (provenance.attendance == Attendance.Unattended) return null
         val pending = CompletableDeferred<String>().also { inputReply = it }
@@ -113,7 +113,7 @@ internal class UserExchange(
 
     suspend fun input(o: Outcome.Input, running: TaskState): ToolExecution {
         val answer = awaitAnswer(o.prompt, o.options)
-        // 用户在任务里给的事实也是核查的依据
+        // タスク内でユーザーが指定した事実も検証の基礎となります。
         answer?.let { tools.noteUserAnswer(o.prompt, it) }
         setState(running)
         return ToolExecution(buildJsonObject {
@@ -122,7 +122,7 @@ internal class UserExchange(
         })
     }
 
-    /** 等用户交回;取消任务(aborted)时返回 null。没交回就不说成交回了:跳过、超时不算失败,但如实告诉模型。 */
+    /** ユーザーが返却するのを待ちます。タスクがキャンセル（中止）された場合は null を返します。返されない場合、トランザクションが完了したとは言えません。スキップやタイムアウトは失敗とみなされませんが、モデルは真実を伝えます。 */
     suspend fun takeover(o: Outcome.Takeover, running: TaskState): ToolExecution? {
         if (provenance.attendance == Attendance.Unattended || provenance.origin == RunOrigin.Child) return null
         val pending = CompletableDeferred<HandBack>().also { takeoverReply = it }
@@ -161,7 +161,7 @@ internal class UserExchange(
         })
     }
 
-    /** 申报和前台对得上就等用户回答(到时限按不同意,可取消);工具结果就是用户的决定。 */
+    /** 申請内容がフロントデスクと一致している場合は、ユーザーの回答を待ちます (キャンセル期限に達したら [同意しない] を押してください)。ツールの結果はユーザーの判断によるものです。 */
     suspend fun confirm(o: Outcome.Confirm, step: Int, running: TaskState): ToolExecution {
         val g = confirmations ?: return ToolExecution(buildJsonObject {
             put("ok", false); put("error", "unknown_tool"); put("tool", RequestConfirmation.name)
@@ -194,7 +194,7 @@ internal class UserExchange(
             emit(event("declined_unattended"))
             return error("confirmation_declined", CONFIRMATION_DECLINED, recoverable = false)
         }
-        // 付款只在手机上同意:渠道、定时、MCP 发起的任务不问
+        // 支払いは携帯電話でのみ合意されます。チャネル、タイミング、MCP によって開始されたタスクは必要ありません。
         if (provenance.origin != RunOrigin.Ui) {
             g.decide(ConfirmChoice.Deny, step)
             emit(event("declined_remote"))
@@ -205,7 +205,7 @@ internal class UserExchange(
         activeAsk = ask
         setState(TaskState.WaitingConfirmation(r))
         emit(event(null))
-        // 没人回答(不在手机旁)就按不同意,绝不自动同意
+        // 誰も応答しない場合 (電話の隣にいない場合)、[同意しない] をクリックしてください。自動的に同意されることはありません。
         val timeout = if (provenance.attendance == Attendance.Reachable) confirmTimeoutMs ?: 15 * 60_000L else confirmTimeoutMs
         val answer = try {
             if (announce(ask) == DeliveryState.Failed) null

@@ -12,7 +12,7 @@ import java.nio.file.Files
 
 class SiteCommandsTest {
     companion object {
-        /** 测试用的一条站点命令(只在测试里有)。 */
+        /** テスト用のサイト コマンド (テストでのみ使用可能)。 */
         const val FIXTURE = """/* mika-command
 name: list_items
 description: 列出结果页上的条目
@@ -50,15 +50,15 @@ return rows.filter(r => r.title.includes(args.query)).slice(0, args.limit || 20)
 
     @Test fun badHeadersAreRejected() {
         fun errs(text: String, file: String = "scripts/list_items.js") = SiteCommandFile.parse(file, text).errors
-        assertTrue(errs(FIXTURE, "scripts/other.js").any { "必须与文件名" in it })
-        assertTrue(errs(FIXTURE.replace("returns: [{title, url}]\n", "")).any { "缺少 returns" in it })
-        assertTrue(errs(FIXTURE.replace("arg: limit integer", "arg: limit int")).any { "arg 写作" in it })
-        assertTrue(errs(FIXTURE.replace("name: list_items", "name: list_items\ncolor: red")).any { "不认得的键 color" in it })
-        assertTrue(errs(FIXTURE.replace("limit integer", "query integer")).any { "重复" in it })
-        assertTrue(errs("const x = 1;").any { "头部" in it })
-        assertTrue(errs(FIXTURE.substringBefore("*/") + "*/\n").any { "正文为空" in it })
+        assertTrue(errs(FIXTURE, "scripts/other.js").any { "はファイル名" in it })
+        assertTrue(errs(FIXTURE.replace("returns: [{title, url}]\n", "")).any { "returnsがありません" in it })
+        assertTrue(errs(FIXTURE.replace("arg: limit integer", "arg: limit int")).any { "argは" in it })
+        assertTrue(errs(FIXTURE.replace("name: list_items", "name: list_items\ncolor: red")).any { "未知のキーがあります: color" in it })
+        assertTrue(errs(FIXTURE.replace("limit integer", "query integer")).any { "重複" in it })
+        assertTrue(errs("const x = 1;").any { "ヘッダー" in it })
+        assertTrue(errs(FIXTURE.substringBefore("*/") + "*/\n").any { "本文が空" in it })
         for (bad in listOf("\nawait import('x');", "\nawait import/**/('x');", "\nawait import\n('x');"))
-            assertTrue(bad, errs(FIXTURE + bad).any { "不能用 import" in it })
+            assertTrue(bad, errs(FIXTURE + bad).any { "importを使用できません" in it })
         assertTrue(errs(FIXTURE + "\n// import('x') 只是注释\nconst s = 'import';").isEmpty())
     }
 
@@ -94,7 +94,7 @@ return rows.filter(r => r.title.includes(args.query)).slice(0, args.limit || 20)
         val script = "knowledge/sites/example.test/scripts/list_items.js" to FIXTURE
         val files = arrayOf(parent, child, script)
         val catalog = testCatalog(*files)
-        // 子站点有自己的知识:命令按它认,父站点的命令不借用
+        // サブサイトには独自の知識があります。コマンドはサブサイトによって認識され、親サイトのコマンドは借用されません。
         assertEquals(emptyList<SiteCommand>(), catalog.siteCommands("shop.example.test"))
         assertEquals(listOf("list_items"), catalog.siteCommands("www.example.test").map { it.decl.name })
         val store = KnowledgeStore(KnowledgeStore.loadBundled(fixtureLoader(mapOf(*files))))
@@ -105,12 +105,12 @@ return rows.filter(r => r.title.includes(args.query)).slice(0, args.limit || 20)
     }
 
     @Test fun scriptsFolderRules() {
-        assertError("没有站点命令头部", siteMd("shop.test"), "knowledge/sites/shop.test/scripts/helper.js" to "module.exports = 1")
-        assertError("既列在", siteMd("shop.test"), "knowledge/sites/shop.test/scripts/list_items.js" to FIXTURE,
+        assertError("サイトコマンドのヘッダーもありません", siteMd("shop.test"), "knowledge/sites/shop.test/scripts/helper.js" to "module.exports = 1")
+        assertError("がscripts/manifest.jsonとサイトコマンドのヘッダーで重複", siteMd("shop.test"), "knowledge/sites/shop.test/scripts/list_items.js" to FIXTURE,
             "knowledge/sites/shop.test/scripts/manifest.json" to """[{"file":"scripts/list_items.js","runnable":true}]""")
-        assertError("只能写在站点知识里", skillMd("buy"), "skills/buy/scripts/list_items.js" to FIXTURE)
-        assertError("scripts/list_items.js: 缺少 description", siteMd("shop.test"), "knowledge/sites/shop.test/scripts/list_items.js" to FIXTURE.replace("description: 列出结果页上的条目\n", ""))
-        // 沙箱脚本照旧:列在清单里的 .js 不当站点命令
+        assertError("サイトのナレッジ内でのみ定義", skillMd("buy"), "skills/buy/scripts/list_items.js" to FIXTURE)
+        assertError("scripts/list_items.js: descriptionがありません", siteMd("shop.test"), "knowledge/sites/shop.test/scripts/list_items.js" to FIXTURE.replace("description: 列出结果页上的条目\n", ""))
+        // いつものようにサンドボックス スクリプト: 不適切なサイト コマンドのリストに .js がリストされています
         assertEquals(emptyList<String>(), errors(siteMd("shop.test"), "knowledge/sites/shop.test/scripts/tool.js" to "console.log(1)",
             "knowledge/sites/shop.test/scripts/manifest.json" to """[{"file":"scripts/tool.js","runnable":true}]"""))
     }

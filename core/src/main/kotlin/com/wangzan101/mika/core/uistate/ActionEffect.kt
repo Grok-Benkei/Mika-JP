@@ -11,15 +11,15 @@ import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-/** 动作对 App 或网页界面状态的实际效果:按动作前后的界面状态(元素表、控件状态、输入焦点、在哪)判出,画面差异只作旁证;[wire] 是结果里 effect.kind 的写法。 */
+/** アプリまたは Web ページのインターフェイス状態に対するアクションの実際の影響: アクションの前後のインターフェイス状態 (要素テーブル、コントロール状態、入力フォーカス、場所) によって判断されます。画面の違いは状況証拠にすぎません。 [wire] は、effect.kind が結果に書き込まれる方法です。 */
 enum class EffectKind(val wire: String) {
-    /** 界面明显变了,和这个动作对得上。 */
+    /** インターフェイスは、このアクションに合わせて明らかに変更されました。 */
     Done("done"),
-    /** 只有小的局部变化(焦点、开关、一两个元素),或可能还在加载:要看一眼结果。 */
+    /** には、ローカルな小さな変更 (フォーカス、スイッチ、1 つまたは 2 つの要素) しかないか、まだロード中の可能性があります。結果を見てください。 */
     SmallChange("small_change"),
-    /** 什么都没变:换个做法,别原样再来。 */
+    /** 何も変わっていません。同じ方法ではなく、別の方法で実行してください。 */
     NoEffect("no_effect"),
-    /** 换了地方:手机上前台换成了另一个 App,网页上换了一页(地址或标签变了);新地方见 [NewPlace]。 */
+    /** は場所を変更しました。携帯電話のフロントデスクは別のアプリに変更され、Web ページは別のページに変更されました (アドレスまたはラベルが変更されました)。新しい場所の [NewPlace] を参照してください。 */
     PlaceChanged("place_changed");
 
     companion object {
@@ -28,10 +28,10 @@ enum class EffectKind(val wire: String) {
 }
 
 /**
- * 动作前后界面状态(元素表)的结构差异。元素按内容对齐(角色 + 名字 + 资源 ID + 是否提示语),不看编号(各次读屏的编号不通用):
- * 同内容同位置同状态算没变,只是控件状态([UiElement.states])变了算 [toggled],同内容换了位置算 [moved](滚动、重排),
- * 同一个输入框里的字变了算 [edited],其余是 [added]/[removed]。[focusMoved]:有输入焦点的元素换了(或焦点出现、消失)。
- * 只看有信息量的元素([UiElement.meaningful])。
+ * アクションの前後でのインターフェイス状態 (要素テーブル) の構造の違い。要素は、番号を参照せずに、内容 (ロール + 名前 + リソース ID + プロンプトの有無) に従って配置されます (番号は各画面読み取りに共通ではありません)。
+ * は同じ内容、同じ位置、同じステータスですが、制御ステータス ([UiElement.states]) が変更されています。 [toggled]、同じ内容で位置が変わりました。 [moved] (スクロール、並べ替え)、
+ * 同じ入力ボックス内の文字は [edited] に変更され、残りは [added]/[removed] になります。 [focusMoved]: 入力フォーカスを持つ要素が変更されました (またはフォーカスが表示または非表示になります)。
+ * は情報要素 ([UiElement.meaningful]) のみを参照します。
  */
 data class InterfaceDiff(
     val added: Int,
@@ -45,14 +45,14 @@ data class InterfaceDiff(
     val changes: Int get() = added + removed + moved + edited + toggled
     val none: Boolean get() = changes == 0 && !focusMoved
 
-    /** 变化够多(门槛见 [EffectTuning])。 */
+    /** には十分な変更があります (しきい値については [EffectTuning] を参照)。 */
     val major: Boolean get() = changes >= max(EffectTuning.MAJOR_MIN, ceil(total * EffectTuning.MAJOR_SHARE).toInt())
 
     companion object {
         fun between(before: ScreenSnapshot, after: ScreenSnapshot): InterfaceDiff {
             val a = before.elements.filter { it.meaningful }
             val b = after.elements.filter { it.meaningful }
-            // 先配全同的,再配只差状态的(拨了开关),再配挪了位置的,再配同一个输入框里换了字的
+            // 最初に同一のものと一致し、次にステータスのみが異なるもの (スイッチが切り替わっている) と一致し、次に移動されたものと一致し、次に同じ入力ボックス内の単語が変更されたものと一致します。
             val leftA = a.toMutableList()
             val leftB = b.toMutableList()
             pairOff(leftA, leftB) { x, y -> key(x) == key(y) && x.bounds == y.bounds && x.states == y.states }
@@ -64,7 +64,7 @@ data class InterfaceDiff(
             return InterfaceDiff(leftB.size, leftA.size, moved, edited, toggled, focusA != focusB, max(a.size, b.size))
         }
 
-        /** 按 [match] 两两配对并从两边移走,返回配上的对数。 */
+        /** [match] を押して 2 つずつペアリングし、両側から削除して一致したペアに戻します。 */
         private fun pairOff(a: MutableList<UiElement>, b: MutableList<UiElement>, match: (UiElement, UiElement) -> Boolean): Int {
             var n = 0
             val it = a.iterator()
@@ -87,21 +87,21 @@ data class InterfaceDiff(
 }
 
 /**
- * 动作之后到的新地方:[name] 是通用的说法(App 包名、网站主机名,和读界面时的「在哪」一致),
- * [kind] 与 [detail] 是这一种界面自己的细节(手机 "app":{package};网页 "web":{url,title,tabId})。
+ * アクション後に到達した新しい場所: [name] は一般的な用語 (アプリのパッケージ名、Web サイトのホスト名、インターフェイスを読み取るときの「場所」と一致します)、
+ * [kind] および [detail] は、このインターフェイスの詳細です (携帯電話の「アプリ」: {パッケージ}; Web ページ「ウェブ」: {url, title, tabId})。
  */
 data class NewPlace(val name: String, val kind: String, val detail: JsonObject)
 
 /**
- * 输入后读回的输入框:[text] 是此刻框里的字(显示提示语时为空串;密码框为 null,不读出),[matches] 是否和要输的一致
- * (比较时去掉空白:有的框会给号码分组加空格)。
+ * が入力された後、入力ボックスが読み取られます。[text] は、現時点でボックス内の単語です (プロンプトが表示されるときは空の文字列です。パスワード ボックスは null なので読み取られません)。 [matches] は入力する内容と一致していますか?
+ * (比較する場合はスペースを削除してください。一部のボックスでは番号グループにスペースが追加されます)。
  */
 data class Readback(val text: String?, val secret: Boolean, val matches: Boolean)
 
 /**
- * 判效果用的、来自端口的事实:[changed] 端口在动作里核实的变没变;[switchedTo] 端口看到前台换成的 App;
- * [verified] 输入写完当场读回一致;[loading] 端口说页面还没静下来(网络、导航还在途);
- * [onUserScreen] 动作让这个 App 开到了用户的主屏上、留在那里(用户正用着它),Mika 的屏上看不出变化也不是没点上。
+ * 影響を判断するために使用されるポートからの事実: [changed] ポートは、変更が変更されていないことをアクションで検証します。 [switchedTo] ポートでは、フロント デスクでアプリが変更されたことがわかります。
+ * [verified] 入力が書き込まれた後、リードバックは一貫しています。 [loading] ポートは、ページがまだ静まっていないことを示します (ネットワークとナビゲーションがまだ進行中です)。
+ * [onUserScreen] アクションにより、アプリがユーザーのホーム画面で開き、そこに留まります (ユーザーは現在それを使用しています)。ミカの画面には何も変化はなく、クリックもされていません。
  */
 data class PortFacts(
     val changed: Boolean? = null,
@@ -112,9 +112,9 @@ data class PortFacts(
 )
 
 /**
- * 一个动作的实际效果:种类、去了哪(换地方时)、界面结构与画面的差异、输入的读回、可能还在加载。
- * [treeBlind]:没看到变化(种类仍是 [EffectKind.NoEffect]),但这一屏的树读不出点的那一处(树不能用,或缺了一块而点不在任何元素上),
- * 只改了焦点、隐藏状态的点看起来也一样,不能说没点上。
+ * アクションの実際の効果: タイプ、どこに移動したか (場所を変更するとき)、インターフェイス構造と画面の違い、入力のリードバック、およびまだロード中の可能性があります。
+ * [treeBlind]: 変化は見られません (タイプは [EffectKind.NoEffect] のまま) が、この画面上のツリーはポイントを読み取ることができません (ツリーが使用できないか、ピースが欠落しており、ポイントがどの要素にもありません)。
+ * はフォーカスを変更しただけですが、隠れた点も同じように見えます。クリックされていないとは言えません。
  */
 data class ActionEffect(
     val kind: EffectKind,
@@ -149,12 +149,12 @@ data class ActionEffect(
         const val HIDDEN = "(hidden)"
         private const val READBACK_MAX = 200
 
-        /** 看不出变化也不能说没点上的动作:点和手势(只改焦点、隐藏状态时树和画面都可能不动)。 */
+        /** 変化が見られず、クリックとジェスチャーのクリックアクションがないとは言えません（フォーカスが変更されるだけで、非表示状態ではツリーや画面が動かない可能性があります）。 */
         private val BLIND_VERBS = setOf(Verb.Tap, Verb.PhoneGesture)
 
         /**
-         * 这一屏的树读不出这个动作作用的那一处:树不能用,或缺了一块而点(画面区域 [region] 的中心)不在任何有信息量的元素上。
-         * 按树里的元素点的([target] 不为 null)只在树不能用时算。[quality] 是这一屏最近一次判的树够不够用,不知道为 null。
+         * この画面上のツリーは、このアクションが機能する場所を読み取ることができません。ツリーは使用できないか、ピースが欠落しており、点 (画面領域 [region] の中心) が情報のある要素上にありません。
+         * は、ツリーが使用できない場合にのみ、ツリー内の要素ポイントに従って計算されます ([target] は null ではありません)。 [quality] は、十分であるかどうかを判断するためにこの画面で判断される最後のツリーであり、null であるかどうかは不明です。
          */
         internal fun treeBlind(verb: Verb, quality: TreeQuality?, before: ScreenSnapshot?, target: UiElement?, region: List<Int>?): Boolean {
             if (verb !in BLIND_VERBS) return false
@@ -171,11 +171,11 @@ data class ActionEffect(
         }
 
         /**
-         * 按动作前后的界面状态判效果。[before]/[after] 读不到时只按端口的事实和画面判;都没有为 null(不报效果)。
-         * [target] 是动作的目标元素(模型读到的那份里的,用来找输入框)。
-         * 输入([Verb.TypeText])带 [typed](要输的字),[pressedEnter] 时不读回(回车之后框可能清空或已换页)。
+         * アクション前後のインターフェースの状態に応じて効果を判定します。 [before]/[after] が読み取れない場合は、ポートの事実と写真のみが判断されます。どちらも見つからない場合は、null になります (影響は報告されません)。
+         * [target] は、アクションのターゲット要素 (モデルによって読み取られ、入力ボックスを見つけるために使用される要素) です。
+         * ([Verb.TypeText]) と [typed] (入力する単語) を入力すると、[pressedEnter] は読み戻されません (ボックスがクリアされるか、Enter キーを押した後にページが変更される可能性があります)。
          *
-         * 拿不准时不说没效果:端口说变了就至少是小变化;界面在动或端口说还在加载时也只算小变化(可能还在加载)。
+         * タイミングが不明な場合は効果がありません。ポートが変更されたと示す場合、それは少なくとも小さな変更です。インターフェイスが移動している場合、またはポートがまだロード中であると表示している場合、それはわずかな変化にすぎません（まだロード中である可能性があります）。
          */
         fun classify(
             verb: Verb,
@@ -188,9 +188,9 @@ data class ActionEffect(
             pressedEnter: Boolean = false,
             secret: Boolean = false,
         ): ActionEffect? {
-            // 端口自己看到前台换了 App:以它为准(两次读可能都在切换之前或之后)
+            // ポート フロント デスクがアプリを変更したことがわかりました。それが優先されます (2 つの測定値は切り替えの前または後である可能性があります)
             port.switchedTo?.let { return ActionEffect(EffectKind.PlaceChanged, NewPlace(it, "app", buildJsonObject { put("package", it) }), frame = frame) }
-            // 开到了用户的主屏上:换了地方,只是不在 Mika 的屏上
+            // がユーザーのホーム画面で開かれました: 場所が変更されましたが、ミカの画面上ではありませんでした
             port.onUserScreen?.let {
                 return ActionEffect(EffectKind.PlaceChanged, NewPlace(it, "app", buildJsonObject { put("package", it); put("onUserScreen", true) }), frame = frame)
             }
@@ -222,7 +222,7 @@ data class ActionEffect(
             } else null
             val kind = when {
                 readback != null && !readback.secret && readback.matches -> EffectKind.Done
-                // 端口写完当场读回过、一致,而这份界面里找不到那个框(或是密码框):按端口的核对算
+                // ポートが書き込まれた後、その場で読み戻され、一貫性がありましたが、このインターフェイスでボックス (またはパスワード ボックス) が見つかりませんでした: ポートに基づいて確認してください
                 port.verified && (readback == null || readback.secret) && !pressedEnter -> EffectKind.Done
                 readback != null && !readback.secret -> if (diff.none && frame?.visible != true) EffectKind.NoEffect else EffectKind.SmallChange
                 diff.major -> EffectKind.Done
@@ -236,10 +236,10 @@ data class ActionEffect(
             return ActionEffect(kind, diff = diff, frame = frame, readback = readback)
         }
 
-        /** 界面上有进度条一类的控件(在加载)。 */
+        /** インターフェイス (読み込み中) にはプログレスバーなどのコントロールがあります。 */
         private fun showsProgress(s: ScreenSnapshot) = s.elements.any { it.role.contains("progress", ignoreCase = true) && UiStates.DISABLED !in it.states }
 
-        /** 换了 App 或换了一页:网页看地址(不算 # 之后)和标签,手机看前台包名。都没换为 null。 */
+        /** アプリの変更またはページの変更：ウェブページのアドレス（#以降はカウントしない）とタグを確認し、携帯電話のフロントデスクでパッケージ名を確認してください。どれも null に置き換えられません。 */
         private fun moved(before: ScreenSnapshot, after: ScreenSnapshot): NewPlace? {
             val wb = before.web; val wa = after.web
             if (wb != null || wa != null) {
@@ -254,8 +254,8 @@ data class ActionEffect(
         }
 
         /**
-         * 此刻输入框里的字:同一个框(同角色同资源 ID、位置相近)优先,其次有焦点的输入框;找不到为 null(不报读回)。
-         * [want] 是应有的字(清空时为空串);没给为 null 时不读回。
+         * 現時点での入力ボックス内の単語: 同じボックス (同じロール、同じリソース ID、同様の場所) が優先され、次にフォーカスのある入力ボックスが続きます。見つからない場合は null になります (リードバックは報告されません)。
+         * [want] は予期される単語です (クリアされた場合は空の文字列)。 null の場合は読み戻されません。
          */
         private fun readback(after: ScreenSnapshot, target: UiElement?, want: String?, secret: Boolean): Readback? {
             want ?: return null
@@ -273,7 +273,7 @@ data class ActionEffect(
     }
 }
 
-/** 两个元素中心的距离(0–999 里);缺范围为 0。 */
+/** 2 つの要素の中心間の距離 (0 ～ 999 マイル)。欠落している範囲は 0 です。 */
 private fun distance(a: UiElement, b: UiElement): Int {
     if (a.bounds.size != 4 || b.bounds.size != 4) return 0
     val dx = (a.bounds[0] + a.bounds[2]) / 2 - (b.bounds[0] + b.bounds[2]) / 2
@@ -281,9 +281,9 @@ private fun distance(a: UiElement, b: UiElement): Int {
     return kotlin.math.sqrt((dx * dx + dy * dy).toDouble()).toInt()
 }
 
-/** 按效果给模型的一句话(prompts/feedback/tools.md 里 effect.*);明显变了不另说。 */
+/** は、エフェクトに応じた文をモデルに与えます (prompts/フィードバック/tools.md のeffect.*)。明らかに変わっているので、これ以上は言いません。 */
 internal object EffectFeedback {
-    /** [portSwitched]:端口已报过前台被切走(结果里已有那条说明),不再重复。 */
+    /** [portSwitched]: ポートはフロント デスクに報告され、切り替えられました (その説明はすでに結果にあります)。そのため、繰り返しません。 */
     fun hint(e: ActionEffect, verb: Verb, portSwitched: Boolean): String? {
         val r = e.readback?.takeIf { !it.secret && !it.matches }
         val differs = r?.let { Feedback.format("effect.readback_differs", "readback" to JsonPrimitive(it.text.orEmpty()).toString()) }

@@ -25,7 +25,7 @@ class RunStatsTest {
         assertEquals(2, s.succeeded)
         assertEquals(2.0 / 3, s.successRate, 1e-9)
         assertEquals(20_000L, s.medianTotalMs)
-        // 没有第一次反馈的那次不参与
+        // は最初のフィードバックがない場合は参加しません
         assertEquals(3_000L, s.medianFirstFeedbackMs)
         assertEquals(6.0, s.avgModelCalls, 1e-9)
         assertEquals(2_000.0, s.avgTokens, 1e-9)

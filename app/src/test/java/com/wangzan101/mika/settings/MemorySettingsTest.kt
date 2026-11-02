@@ -16,7 +16,7 @@ class MemorySettingsTest {
 
     @Test fun olderSettingsUpgradeOnceThenUserChoiceSticks() {
         val file = File(tmp.root, "memory.json")
-        // 旧版本存下的:当时默认关
+        // : その時点ではデフォルトでオフになっています
         file.writeText("""{"useMemory":true,"autoRemember":false,"learnSkills":false}""")
         val settings = MemorySettings(file)
         assertTrue(settings.switches.value.learnSkills)

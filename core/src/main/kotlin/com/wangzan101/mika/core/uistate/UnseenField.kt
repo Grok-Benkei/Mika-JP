@@ -3,20 +3,20 @@ package com.wangzan101.mika.core.uistate
 import com.wangzan101.mika.core.prompt.Feedback
 
 /**
- * 往树里看不到的输入框里打字(App 自己画界面,树里没有输入框,但它可能拿着焦点):
- * 字经剪贴板粘贴进去,读不回框里的字,只能比打字前后屏上读到的文字(OCR)。
- * 不要求弹着输入法:全选、粘贴键发到这块屏拿着焦点的窗口,拿着焦点的框不经输入法也会粘贴。
+ * ツリーに表示されていない入力ボックスに入力します (アプリは独自のインターフェイスを描画します。ツリーには入力ボックスはありませんが、フォーカスは保持されている可能性があります)。
+ * 文字がクリップボードに貼り付けられ、ボックス内の文字を読み取ることができません。これらは、入力の前後に画面上で読み取られた文字 (OCR) とのみ比較できます。
+ * は入力メソッドを必要としません。全選択キーと貼り付けキーはこの画面上のフォーカスのあるウィンドウに送信され、フォーカスのあるフレームは入力メソッドなしで貼り付けられます。
  */
 object UnseenField {
     private const val NO_FOCUS = "no_focus"
-    /** 往一点上打字,粘贴后前后一点没变:那一点上不是能打字的框。 */
+    /** あるポイントで入力すると、貼り付ける前後のポイントは変更されません。そのポイントは入力ボックスではありません。 */
     const val POINT_NOT_TYPED = "point_not_typed"
 
     /**
-     * 粘贴之后报什么。[keyboardUp]:粘贴前这块屏上弹着输入法(焦点确实在某个框上)。
-     * 没弹输入法、前后屏上的字一点没变(MISMATCH):多半焦点不在框上,报 no_focus,请模型先点框,不再盲目重粘;
-     * 弹着输入法时照旧交出核对结果(没打进去由输入工具报)。
-     * [atPoint]:先点了模型给的一点再粘贴的;前后一点没变就是那一点没接住字(不论弹没弹输入法),报 [POINT_NOT_TYPED],请模型重新找框,不自动重试。
+     * 貼り付け後に報告される内容。 [keyboardUp]: 貼り付ける前に入力メソッドが画面上で再生されています (フォーカスは確かに特定のボックスにあります)。
+     * 入力方法がなく、前画面と後画面の文字がまったく変わっていません (MISMATCH): ほとんどのフォーカスがフレーム上にありません。no_focus が報告されます。最初にフレームをモデリングし、やみくもに再接続しないでください。
+     * インプットメソッドの再生時に検証結果が引き継がれます（インプットメソッドが入力されていない場合は、インプットツールが報告します）。
+     * [atPoint]: 最初にモデルによって指定された点をクリックしてから貼り付けました。前後のポイントは変わっていませんが、そのポイントが単語をキャッチできませんでした (再生の入力方法に関係なく)。レポートは [POINT_NOT_TYPED] です。モデル内でフレームを再度検索してください。自動的には再試行されません。
      */
     fun typed(
         text: String, before: List<VisibleTextLine>?, after: List<VisibleTextLine>?, changed: Boolean, keyboardUp: Boolean, atPoint: Boolean = false,
@@ -27,7 +27,7 @@ object UnseenField {
         return ActionResult.Ok(changed = changed, verification = v, hint = Feedback["type.unseen_pasted"])
     }
 
-    /** 全选加删除键之后报什么:没弹输入法、界面一点没变时同 [typed],请模型先点框;其余照原样交出,附上清空的做法。[atPoint] 同 [typed]。 */
+    /** すべてを選択して削除キーを押した後に報告される内容: 入力メソッドは再生されず、インターフェイスはまったく変更されません。 [typed]と同じです。まずモデルのボックスをクリックしてください。残りはそのままお渡しし、清算方法を添付します。 [atPoint] は [typed] と同じです。 */
     fun cleared(r: ActionResult, keyboardUp: Boolean, atPoint: Boolean = false): ActionResult = when {
         r !is ActionResult.Ok -> r
         r.changed == false && atPoint -> ActionResult.Failed(POINT_NOT_TYPED, Feedback["clear.point_not_cleared"])
@@ -35,16 +35,16 @@ object UnseenField {
         else -> r.copy(hint = Feedback["clear.unseen_cleared"])
     }
 
-    /** 点那一点就换到了 [pkg](点到了链接、按钮):没打字,请模型回去重新找框。 */
+    /** はそのポイントをクリックし、[pkg] に変更しました (リンクとボタンをクリックしました): 入力する必要はありません。戻ってフレームを再度見つけてください。 */
     fun tapSwitched(pkg: String): ActionResult = ActionResult.Failed(POINT_NOT_TYPED, Feedback.format("type.point_switched", "pkg" to pkg))
 
-    /** 要核对的字(去掉空白和标点后)超过这么长时,只看开头和结尾各 [PROBE] 个字:长句子 OCR 常认错中间几个字。 */
+    /** チェック対象の単語 (空白と句読点を削除した後) がこの長さを超える場合は、先頭と末尾の [PROBE] 文字のみを確認します。 長い文章 OCR は、中間の単語を誤解することがよくあります。 */
     private const val LONG = 16
     private const val PROBE = 6
 
     /**
-     * 核对结果:打字后屏上这段字比打字前多出现了一次为 [Verification.MATCH];前后都读到了字、字一样、界面和画面也没动为 MISMATCH(没打进去);
-     * 其余(哪一次没读到字、变了但找不到这段字)为 UNKNOWN,不猜。[changed]:打字前后界面或画面有变化。
+     * チェック結果: 入力後、入力前よりも 1 回多く単語が画面に表示されます ([Verification.MATCH])。単語は前後で読み取られますが、単語は同じであり、インターフェイスと画面は移動しません。これは不一致 (入力されていません) です。
+     * 残り（今回は単語を読んでいなかったか、変更されていましたが単語が見つかりませんでした）は不明です、推測はできません。 [changed]: 入力の前後でインターフェイスまたは画面に変化があります。
      */
     fun verify(typed: String, before: List<VisibleTextLine>?, after: List<VisibleTextLine>?, changed: Boolean): Verification {
         val want = key(typed)
@@ -57,7 +57,7 @@ object UnseenField {
         return Verification.UNKNOWN
     }
 
-    /** 去掉中心落在 [box](0–999 的 [l,t,r,b],如输入法窗口)里的行:键盘上的字和候选词不算框里的字。 */
+    /** は、中心が [box] (入力メソッド ウィンドウなどの 0 ～ 999 の [l,t,r,b]) に該当する行を削除します。キーボード上の単語と候補単語はボックスにカウントされません。 */
     fun outside(lines: List<VisibleTextLine>, box: List<Int>?): List<VisibleTextLine> {
         if (box == null || box.size != 4) return lines
         return lines.filterNot { l ->
@@ -65,7 +65,7 @@ object UnseenField {
         }
     }
 
-    /** 从上到下、从左到右接起来;OCR 会把一句话拆成几行,也会认错标点和空格,只比字母、数字和汉字。 */
+    /** 上から下、左から右に接続します。 OCR は文を複数の行に分割し、句読点やスペース、文字、数字、漢字のみを誤解します。 */
     private fun joined(lines: List<VisibleTextLine>): String =
         lines.sortedWith(compareBy({ it.bounds.getOrElse(1) { 0 } }, { it.bounds.getOrElse(0) { 0 } })).joinToString("") { key(it.text) }
 

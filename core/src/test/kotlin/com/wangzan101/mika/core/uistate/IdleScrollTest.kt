@@ -5,7 +5,7 @@ import org.junit.Test
 import kotlin.math.abs
 import kotlin.random.Random
 
-/** 停留时顺手滚几下的安排:够长才滚,下数、幅度、净移动都有界,时刻落在停留里。 */
+/** 滞在中に数回ローリングするための配置: 十分な長さの場合にのみロールし、ロール数、振幅、ネットの動きはすべて制限されており、常に停止状態に留まります。 */
 class IdleScrollTest {
     private val l = IdleScroll.Limits()
 
@@ -27,12 +27,12 @@ class IdleScrollTest {
             assertTrue("$seed $plan", plan.sumOf { abs(it.fraction) } <= l.maxTotal + 1e-9)
             val net = plan.sumOf { it.fraction }
             assertTrue("$seed $plan", net >= -1e-9 && net <= l.maxNet + 1e-9)
-            // 第一下总往下;往回拨不超过之前往下滚的
+            // 最初のスクロールは常に下に進みます。前のスクロールよりも前にスクロールしないでください。
             assertTrue("$seed $plan", plan.first().fraction > 0)
             var pos = 0.0
             plan.forEach { pos += it.fraction; assertTrue("$seed $plan", pos >= -1e-9) }
             plan.forEach { assertTrue("$seed $plan", abs(it.fraction) <= l.stepFraction.endInclusive + 1e-9) }
-            // 时刻在停留里,前后留出余地,两下之间隔得开
+            // 常に留まり、前後にスペースを空け、2ストローク間の距離を保つ
             plan.forEach { assertTrue("$seed $plan", it.atMs >= l.leadMs && it.atMs <= wait - l.tailMs) }
             plan.zipWithNext().forEach { (a, b) -> assertTrue("$seed $plan", b.atMs - a.atMs >= l.gapMs) }
             ups += plan.count { it.fraction < 0 }

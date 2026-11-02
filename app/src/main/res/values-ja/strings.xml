@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name" translatable="false">Mika JP</string>
     <string name="a11y_service_description">このシステム権限により、Mika は画面に表示されている内容を読み取って操作できます。Mika は、頼まれたタスクを自分の仮想画面でこなすときにだけ使い、メイン画面で操作するのは、そこでタスクを任されたときだけです。</string>
     <string name="channel_attention">あなたの対応が必要</string>
     <string name="takeover_title">あなたの対応が必要</string>

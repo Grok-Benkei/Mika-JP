@@ -11,13 +11,13 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
 /**
- * 录下来的运行里,每次核查(verifier 事件)和它核的那次最终回答配对(新记录是不带调用的回复,旧记录是 finish 调用,
- * 见 [RunFacts.isFinalAnswer]),不依赖两者的先后:平常的一步先核查、核完才记回复,最后一轮先记回复再核查。
+ * の実行では、各検証 (検証者イベント) は検証された最終応答とペアになっています (新しいレコードは呼び出しなしの応答、古いレコードは終了呼び出し、
+ * ([RunFacts.isFinalAnswer] を参照) は、この 2 つの順序には依存しません。通常の手順では、最初にチェックし、検証後に応答を記録し、最後のラウンドでは、最初に応答を記録してからチェックします。
  *
- * - 事件带 step:配同一步的回答。
- * - 旧记录没有 step:它之后的第一条模型回复是还没配过的回答,就是它(先核查后记回复);否则配它之前最近的、还没配过的回答。
+ * - ステップ付きイベント：同じステップの解答を搭載。
+ * - 古いレコードにはステップがありません。最初のモデル応答は、まだ一致していない応答です。つまり、それです (最初に確認してから応答を書き留めます)。それ以外の場合は、まだ一致していないその前にある最新の回答と一致します。
  *
- * 返回 (verifier 下标, 回答下标);配不上的核查不在里面。
+ * は (検証者の添字、回答の添字) を返します。不適格な検証は含まれません。
  */
 internal object RecordedVerifications {
     fun pairs(events: List<RunEvent>): List<Pair<Int, Int>> {
@@ -38,7 +38,7 @@ internal object RecordedVerifications {
         return out
     }
 
-    /** 核查 [v] 当时能用的材料:它之前的事件,去掉被核的那次 finish 自己的回复和结果(回答不能拿来证明自己)。 */
+    /** 検証 [v] その際に使用できる資料：検証されたものを除く過去の出来事、自分自身の回答と結果を完成させます（回答は自分自身を証明するために使用することはできません）。 */
     fun before(events: List<RunEvent>, v: Int, f: Int): List<RunEvent> {
         val step = (events[f] as RunEvent.ModelReply).step
         return events.subList(0, v).filterIndexed { i, e ->
@@ -46,7 +46,7 @@ internal object RecordedVerifications {
         }
     }
 
-    /** 核查当时能对照的文字:之前的全部读屏文字和工具结果里的全部字符串(见 [before])。 */
+    /** その時点で比較できるテキスト、つまり以前のすべての画面読み上げテキストとツール結果内のすべての文字列を確認します ([before] を参照)。 */
     fun sources(events: List<RunEvent>, v: Int, f: Int): List<String> = before(events, v, f).mapNotNull { b ->
         when (b) {
             is RunEvent.Observed -> b.text.takeIf { b.kind == "read" }
@@ -56,8 +56,8 @@ internal object RecordedVerifications {
     }.filter { it.isNotBlank() }
 
     /**
-     * 按证据账本重建运行时核查器拿到的材料:finish 后重读的一屏没有记下来,用最后一次读屏代替;
-     * 加上账本([RunFacts.ledger])按回答挑出的条目——和运行时的 [Verifier] 用同一个挑法。
+     * 証拠台帳に従って、ランタイム検証者によって取得されたマテリアルを再構築します。終了後の画面の再読み取りは記録されず、代わりに最後に読み取られた画面が使用されます。
+     * プラス元帳 ([RunFacts.ledger]) は、実行時に [Verifier] と同じ選択方法を使用して、回答によってエントリを選択します。 確認した
      */
     fun ledgerSources(events: List<RunEvent>, v: Int, f: Int, goal: String, answer: String): List<String> {
         val seen = before(events, v, f)
@@ -65,7 +65,7 @@ internal object RecordedVerifications {
         return listOfNotNull(fresh) + RunFacts.ledger(seen, RECORDED_TOOLS).forAnswer(goal, answer).map { it.text }
     }
 
-    /** 被核的那次回答:回答是任务的结局时取 task_ended 里的全文(回复里记的可能截短了)。 */
+    /** の回答: 回答がタスクの終了の場合、task_endedの全文が取得されます(回答内の回答は切り捨てられる場合があります)。 */
     fun answer(events: List<RunEvent>, f: Int): String? {
         val r = events[f] as RunEvent.ModelReply
         val last = events.indexOfLast(RunFacts::isFinalAnswer) == f

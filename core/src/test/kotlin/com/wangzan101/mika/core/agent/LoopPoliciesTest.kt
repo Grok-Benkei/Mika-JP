@@ -19,11 +19,11 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 主循环的各条策略:只看传进去的快照,返回决定。 */
+/** メイン ループの各戦略: 受信スナップショットのみを見て、決定に戻ります。 */
 class LoopPoliciesTest {
     private fun warn(code: String) = GuardVerdict(code, Severity.Warn, JsonObject(emptyMap()))
 
-    // ---- 回合 ----
+    // ---- ラウンド ----
 
     @Test fun progressChecksAtHalfAndThreeQuarters() {
         val at = (1..21).filter { TurnPolicy.beforeStep(TurnSnapshot(it, 20)) != null }
@@ -52,8 +52,8 @@ class LoopPoliciesTest {
     @Test fun languageNudgeNamesBothSidesAndTheRules() {
         val n = TurnPolicy.language(ReplyLanguage.Mismatch(ReplyLanguage.CHINESE, ReplyLanguage.Family("Latin script")))
         assertEquals(Feedback["language_source"], n.source)
-        assertTrue(n.text, "mostly in Chinese" in n.text && "is in Latin script" in n.text)
-        assertTrue(n.text, "Translate what you read" in n.text && "\"translation (original)\"" in n.text && "Do not change any value" in n.text)
+        assertTrue(n.text, "中国語" in n.text && "目標の出力言語は 日本語" in n.text)
+        assertTrue(n.text, "日本語に書き直す" in n.text && "日本語訳（原文）" in n.text && "値は一切変えない" in n.text)
     }
 
     @Test fun finalTurnOffersOnlyReportFailure() {
@@ -79,10 +79,10 @@ class LoopPoliciesTest {
 
     @Test fun modelFailureReasons() {
         assertTrue("503" in StopRules.modelFailed(ModelError.Server(503)).reason)
-        assertEquals("模型调用异常:boom", StopRules.modelFailed(IllegalStateException("boom")).reason)
+        assertEquals("モデルの呼び出しに失敗しました: boom", StopRules.modelFailed(IllegalStateException("boom")).reason)
     }
 
-    // ---- 卡住提醒 ----
+    // ---- スタックしたリマインダー ----
 
     @Test fun giveUpAdviceFromSecondStuckWarning() {
         val (s1, a1) = StuckAdvice.next(StuckState(), StuckInput(listOf(warn("no_progress")), null, "com.x"))
@@ -90,7 +90,7 @@ class LoopPoliciesTest {
         val (s2, a2) = StuckAdvice.next(s1, StuckInput(listOf(warn("read_loop")), null, "com.x"))
         assertEquals(2, s2.warnings)
         assertEquals(Feedback.format("give_up_advice", "answer_or_failure" to ANSWER_OR_FAILURE), a2)
-        // 不是卡住类的结论不算
+        // がスタックしていないという結論はカウントされません。
         assertNull(StuckAdvice.next(StuckState(), StuckInput(listOf(warn("too_many_failures")), null, null)).second)
     }
 
@@ -127,7 +127,7 @@ class LoopPoliciesTest {
         assertNull(StuckAdvice.typedText(Verb.TypeText, args, null))
     }
 
-    // ---- 结果之后的说明 ----
+    // ---- 結果後の指示 ----
 
     @Test fun imageNotes() {
         assertEquals(Feedback["recalled_note"], NoticePolicy.imageNote(Verb.ViewPastScreens, false))
@@ -141,7 +141,7 @@ class LoopPoliciesTest {
         assertEquals(listOf(KnowledgeLookup.Site("example.com")), NoticePolicy.knowledgeAfter(Verb.Observe, Place.site("WWW.Example.com"), true))
         assertEquals(listOf(KnowledgeLookup.Site("shop.example.com")), NoticePolicy.knowledgeAfter(Verb.Navigate, Place.site("shop.example.com"), true))
         assertEquals(emptyList<KnowledgeLookup>(), NoticePolicy.knowledgeAfter(Verb.Navigate, Place.site("shop.example.com"), false))
-        // 动作把任务带到了别处,只有看过那里才找资料;打开网页不算看了 App
+        // アクションによりタスクが別の場所に移動します。そこを調べた場合にのみ、情報を探すことができます。 Web ページを開いたとしても、アプリを見たことにはカウントされません。
         assertEquals(emptyList<KnowledgeLookup>(), NoticePolicy.knowledgeAfter(Verb.Tap, Place.app("com.x"), true))
         assertEquals(emptyList<KnowledgeLookup>(), NoticePolicy.knowledgeAfter(Verb.Navigate, Place.app("com.x"), true))
         assertEquals(emptyList<KnowledgeLookup>(), NoticePolicy.knowledgeAfter(Verb.Observe, null, true))
@@ -153,7 +153,7 @@ class LoopPoliciesTest {
         assertNull(placeAfter(Verb.Tap, nav))
     }
 
-    // ---- 压缩时机 ----
+    // ---- 圧縮タイミング ----
 
     @Test fun compressionReportedOnlyWhenFoldingChanges() {
         var s = CompactionState()
@@ -170,13 +170,13 @@ class LoopPoliciesTest {
         val (s, again) = CompactionPolicy.overflow(CompactionState(), retried = false) { true }
         assertTrue(again && s.aggressive)
         assertFalse(CompactionPolicy.overflow(CompactionState(), retried = false) { false }.second)
-        // 已是狠压缩的任务再次超长:历史长了、压得更小就再重发一次
+        // すでに大幅に圧縮されているタスクが再び長すぎます。履歴が長く、圧縮率が小さいため、再送信してください。
         assertTrue(CompactionPolicy.overflow(s, retried = false) { true }.second)
-        // 同一次超长已经重发过:不再算、不再发
-        assertFalse(CompactionPolicy.overflow(s, retried = true) { error("不该再算") }.second)
+        // 同じスーパー長が再送信されました。カウントされず、再送信されません。
+        assertFalse(CompactionPolicy.overflow(s, retried = true) { error("再計算してはいけません") }.second)
     }
 
-    // ---- 重试 ----
+    // ---- もう一度お試しください ----
 
     private val fixed = RetryPolicy(jitter = { 1.0 })
 

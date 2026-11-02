@@ -16,8 +16,8 @@ import org.junit.rules.TemporaryFolder
 import java.util.concurrent.TimeUnit
 
 /**
- * 在 node 里给补丁搭一个最小的手机浏览器环境(test resources 里的 identity-harness.js)跑一遍。
- * 机器上没有 node 时跳过。
+ * ノード内のパッチ用に最小限のモバイル ブラウザ環境 (テスト リソースのidentity-harness.js) をセットアップし、再度実行します。
+ * マシンにノードがない場合はスキップします。
  */
 class IdentityScriptTest {
     @get:Rule val tmp = TemporaryFolder()
@@ -63,10 +63,10 @@ class IdentityScriptTest {
 
     @Test fun patchedFunctionsBehaveLikeBuiltIns() {
         val o = run()
-        // 接收者不对时照样报 Illegal invocation;缺参数时照样报内核的错
+        // 受信側が正しくない場合でも、不正な呼び出しが報告されます。パラメーターがない場合でも、カーネル エラーが報告されます。
         for (k in listOf("getterIllegal", "outerIllegal", "mediaIllegal", "methodIllegal")) assertEquals(k, "Illegal invocation", o.str(k))
         assertEquals("1 argument required", o.str("methodNoArgs"))
-        // length 与原来的一样
+        // の長さはオリジナルと同じです
         assertEquals(listOf(1, 1, 0, 0), o.getValue("lengths").jsonArray.map { it.jsonPrimitive.int })
         assertEquals(
             listOf("function matchMedia() { [native code] }", "function get maxTouchPoints() { [native code] }", "function toString() { [native code] }"),
@@ -80,7 +80,7 @@ class IdentityScriptTest {
         assertEquals(0, o.getValue("childTouch").jsonPrimitive.int)
         assertEquals("function matchMedia() { [native code] }", o.str("crossSource"))
         assertEquals("function get platform() { [native code] }", o.str("crossSourceBack"))
-        // 再跑一遍不会补第二层
+        // 再度実行しても 2 番目のレイヤーは補充されません。
         assertTrue(o.getValue("matchMediaStillOnce").jsonPrimitive.boolean)
     }
 }

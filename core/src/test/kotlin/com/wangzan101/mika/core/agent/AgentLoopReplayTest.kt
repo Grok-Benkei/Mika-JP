@@ -26,7 +26,7 @@ class AgentLoopReplayTest {
     private var seq = 0
     private fun call(name: String, args: String = "{}") = ModelReply(listOf(Part.ToolCall("m${++seq}", name, args)), StopReason.ToolUse, null)
     private fun text(s: String) = ModelReply(listOf(Part.Text(s)), StopReason.EndTurn, null)
-    private val finish = text("写好了,屏上有新笔记")
+    private val finish = text("保存しました。画面に「新笔记」があります")
     private val pick = """{"route": 1, "slots": ["今天天气不错"]}"""
     private val pass = """{"checks": [{"criterion": "t", "status": "met", "quote": "新笔记"}], "verdict": "pass", "reason": "屏上有"}"""
     private val goal = "在备忘录里写今天天气不错"
@@ -37,7 +37,7 @@ class AgentLoopReplayTest {
         screen: PagedScreen = Notes.screen(), store: MemRoutes = MemRoutes(Notes.route()), main: FakeModel = FakeModel(finish),
         matcher: ChatModel = FakeModel(text(pick)), flags: SpeedFlags = SpeedFlags(replay = true), verifier: Verifier? = null,
         task: String = goal,
-        /** 交出回答后判的结局(产品里在结果交给用户之后才判);路线只在办成时记成功。 */
+        /** 答えを渡してから勝敗を判定します（本製品ではユーザーに答えを渡してから勝敗を判定します）。ルートは完了した場合にのみ成功として記録されます。 */
         outcome: RunOutcome = RunOutcome.Done,
     ): Run {
         val sink = Events()
@@ -50,7 +50,7 @@ class AgentLoopReplayTest {
         return Run(sink, main, store, screen)
     }
 
-    /** 交还时补进对话的全部文字:说明、以及读屏那对调用的结果。 */
+    /** ダイアログを返すときに、ダイアログのすべてのテキスト (説明、および画面を読み取るための呼び出しの結果) を追加します。 */
     private fun firstPrompt(r: Run) = r.main.requests.first().drop(1).flatMap { it.parts }.joinToString("") {
         when (it) {
             is Part.Text -> it.text
@@ -71,13 +71,13 @@ class AgentLoopReplayTest {
         s.pages["home"] = listOf(ui("@e4", "text", "请先登录", listOf(0, 0, 999, 60), clickable = false))
         val r = run(screen = s)
         val msg = firstPrompt(r)
-        assertTrue(msg, msg.contains("1 of 3 steps were run automatically, following a way that worked before"))
+        assertTrue(msg, msg.contains("3 手順のうち 1 手順が、以前に成功した進め方に従って自動で実行された"))
         assertTrue(msg, msg.contains("1. phone_launch_app com.notes"))
-        assertTrue(msg, msg.contains("Step 2 expected"))
+        assertTrue(msg, msg.contains("手順 2 は"))
         assertTrue(msg, msg.contains("请先登录"))
-        // 带着一份全量读屏(编号与 snapshotId),模型可直接接着做
+        // には全画面表示 (番号とスナップショット ID) が付属しており、モデルを直接作成できます。
         assertTrue(msg, msg.contains("\"snapshotId\"") && msg.contains("\"ref\":\"@e4\""))
-        // 读屏是一对调用与结果(助手的调用在前,结果紧跟),各家接口的配对要求都满足
+        // の画面読み取りは呼び出しと結果のペアであり (アシスタントの呼び出しが最初に行われ、すぐに結果が続きます)、各インターフェイスのペアリング要件が満たされています。
         val h = r.main.requests.first().withoutRuntime()
         val callAt = h.indexOfFirst { m -> m.role == Role.Assistant && m.parts.any { it is Part.ToolCall && it.id == "replay_handback" && it.name == "phone_list_elements" } }
         assertTrue(callAt > 0)
@@ -91,40 +91,40 @@ class AgentLoopReplayTest {
     @Test fun executedButUnchangedStepToldToModel() {
         val s = Notes.screen().apply { links.clear() }
         val msg = firstPrompt(run(screen = s))
-        assertTrue(msg, msg.contains("Step 2 was run, but the expected change did not show"))
+        assertTrue(msg, msg.contains("手順 2 は実行されたが、期待した変化が現れなかった"))
     }
 
     @Test fun unreadableHandbackScreenStillContinues() {
         val s = Notes.screen().apply { failReads = true }
         val r = run(screen = s)
         val msg = firstPrompt(r)
-        assertTrue(msg, msg.contains("The current screen could not be read"))
+        assertTrue(msg, msg.contains("現在の状態を読めなかった"))
         assertEquals("succeeded", r.sink.all.filterIsInstance<RunEvent.TaskEnded>().single().outcome)
     }
 
     @Test fun completedStillRequiresAnAnswer() {
-        // 走完了也要模型自己回答;回答核实过才算路线的一次成功:这个回答引用的「新笔记」读到过(字面核对对上了,不用另请核查)
-        val ok = run(main = FakeModel(text("写好了,在「新笔记」里")), verifier = Verifier(FakeModel(text(pass)), null))
-        assertTrue(firstPrompt(ok).contains("All steps of the earlier way of doing this were run"))
+        // モデルは、歩行を完了した後、自分自身の質問に答える必要があります。答えが検証された後にのみ、ルートは成功したと見なされます。この答えで引用されている「新しいメモ」が読まれています（文字通りの検証は正しいので、別の検証を求める必要はありません）。
+        val ok = run(main = FakeModel(text("保存しました。「新笔记」にあります")), verifier = Verifier(FakeModel(text(pass)), null))
+        assertTrue(firstPrompt(ok).contains("以前の進め方のすべての手順が実行された"))
         assertEquals(1, ok.main.requests.size)
         assertTrue(ok.sink.all.none { it is RunEvent.Verifier })
         assertEquals(1, ok.store.m["r1"]!!.successes)
 
-        val gaveUp = run(main = FakeModel(call("end_not_done", """{"message":"没写上"}""")), verifier = Verifier(FakeModel(text(pass)), null))
+        val gaveUp = run(main = FakeModel(call("end_not_done", """{"message":"保存できませんでした"}""")), verifier = Verifier(FakeModel(text(pass)), null))
         assertTrue(gaveUp.sink.all.none { it is RunEvent.Verifier })
         assertEquals(0, gaveUp.store.m["r1"]!!.successes)
 
-        // 回答里没有可核对的值、也没请核查:判下来办成就记成功(学习看结局,不看核查)
+        // 回答には検証可能な値がなく、検証は要求されません: 判定の結果として成功が記録されます (学習は検証ではなく結末に依存します)
         assertEquals(1, run().store.m["r1"]!!.successes)
-        // 核对过却没对上(退回一次后仍标成未确认):不记成功
-        val doubtful = run(main = FakeModel(text("写好了,在「旧草稿 42 号」里"), text("写好了,在「旧草稿 42 号」里")))
+        // はチェックされましたが、一致しませんでした (一度返された後も未確認としてマークされています): 成功として記録されません
+        val doubtful = run(main = FakeModel(text("保存しました。「旧草稿 42 号」にあります"), text("保存しました。「旧草稿 42 号」にあります")))
         assertEquals(0, doubtful.store.m["r1"]!!.successes)
     }
 
     @Test fun routeSuccessOnlyWhenJudgedDone() {
-        // 回答核实过,但判下来只办了一部分、没办成或没判成:都不记成功
+        // の回答は検証されましたが、その一部のみが完了したか、完了できなかった、または成功と判定されなかった場合、成功として記録されません。
         for (o in listOf(RunOutcome.Partial, RunOutcome.NotPossible, RunOutcome.Unknown)) {
-            val r = run(main = FakeModel(text("写好了,在「新笔记」里")), verifier = Verifier(FakeModel(text(pass)), null), outcome = o)
+            val r = run(main = FakeModel(text("保存しました。「新笔记」にあります")), verifier = Verifier(FakeModel(text(pass)), null), outcome = o)
             assertEquals(o.wire, 0, r.store.m["r1"]!!.successes)
         }
     }
@@ -136,7 +136,7 @@ class AgentLoopReplayTest {
         assertFalse(store.m["r1"]!!.disabled)
         run(screen = broken(), store = store)
         assertTrue(store.m["r1"]!!.disabled)
-        // 停用之后不再是候选:匹配模型不会被调用
+        // は非アクティブ化後は候補ではなくなります。一致するモデルは呼び出されません。
         val m = FakeModel()
         run(store = store, matcher = m)
         assertTrue(m.requests.isEmpty())
@@ -153,7 +153,7 @@ class AgentLoopReplayTest {
     @Test fun noModelCallsDuringReplay() {
         val s = Notes.screen()
         var typedWhenFirstAsked: List<String>? = null
-        // 主模型一被调用就记下当时端口收到的输入:回放全程不碰主模型
+        // メイン モデルが呼び出されるとすぐに、その時点でポートが受信した入力を記録します。再生プロセス全体の間、メイン モデルに触れないでください。
         val main = object : ChatModel by FakeModel() {
             override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
                 if (typedWhenFirstAsked == null) typedWhenFirstAsked = s.typed.toList()

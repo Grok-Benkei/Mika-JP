@@ -46,7 +46,6 @@ import com.wangzan101.mika.MikaApp
 import com.wangzan101.mika.about.Diagnostics
 import com.wangzan101.mika.about.DiagnosticsCollector
 import com.wangzan101.mika.about.MikaLinks
-import com.wangzan101.mika.about.QrImage
 import com.wangzan101.mika.chat.ConversationStore
 import com.wangzan101.mika.record.RunStore
 import com.wangzan101.mika.task.TaskService
@@ -68,12 +67,12 @@ class MainActivity : ComponentActivity() {
     private var requestedConversation by mutableStateOf<String?>(null)
 
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        // 用户选过「不再询问」时系统不再弹窗,只能去设置里打开
+        // ユーザーが「次回からは尋ねない」を選択すると、システムはウィンドウをポップアップ表示せず、設定でのみ開くことができます。
         if (!granted && !shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)) openNotificationSettings()
         monitor.refresh()
     }
 
-    // 安卓 12 及以前套上 App 里选的语言;13 起系统自己套
+    // Android 12 以前の場合、アプリで選択した言語が適用されます。 13 以降、システムは単独で適用できます。
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLanguage.wrap(newBase))
     }
@@ -85,11 +84,11 @@ class MainActivity : ComponentActivity() {
         monitor = SystemStatusMonitor(this, PhoneServices.of(this).shellControl)
         val store = ProviderStore.get(this)
         setContent {
-            // 外观按设置来,改了当场换;系统栏图标的深浅跟着界面
+            // の外観は設定に従って設定されます。変更する場合はその場で変更してください。システム バー アイコンの深さはインターフェイスに従います。
             val dark = appearanceDark()
             LaunchedEffect(dark) { systemBarsFor(dark) }
             MikaTheme(dark = dark, reduceMotion = animationsOff(this)) {
-                // 在输入框外面点一下或拖动就收起键盘,全 App 统一
+                // 入力ボックスの外側をクリックまたはドラッグして、アプリ全体で統一されたキーボードを非表示にします
                 KeyboardDismissArea(Modifier.fillMaxSize()) {
                     MikaRoot(store, monitor, ::perform, requestedConversation) { requestedConversation = null }
                 }
@@ -106,9 +105,9 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         monitor.start()
-        // 每次打开都悄悄查一次新版本(两分钟内连着打开的只查一次),失败不吭声
+        // は、新しいバージョンを開くたびに静かにチェックし (2 分以内に開いた場合は 1 回のみ)、失敗した場合は音を立てません。
         (application as MikaApp).updates.autoCheckInBackground()
-        // 电脑连接开着、服务却不在(被系统停过、从后台没能起来):界面在前台时补起来
+        // コンピューター接続は開いていますが、サービスが存在しません (システムによって停止され、バックグラウンドからの起動に失敗しました)。インターフェースはフォアグラウンドにあるときに復元されます。
         (application as MikaApp).mcp.ensureRunning()
     }
 
@@ -137,8 +136,8 @@ class MainActivity : ComponentActivity() {
             Fix.OpenResultChannel -> openChannelSettings(TaskService.CHANNEL_RESULT)
             Fix.OpenProgressChannel -> openChannelSettings(TaskService.CHANNEL_PROGRESS)
             Fix.OpenPairingChannel -> openChannelSettings(PairingNotifier.ensureChannel(this).id)
-            Fix.AddModel -> Unit // 设置页自己处理
-            // 换页由 MikaRoot 处理
+            Fix.AddModel -> Unit // 自分で行う設定ページ
+            // ページングは MegaRoot によって処理されます
             Fix.OpenPhoneSetup, Fix.RepairPhoneHelper -> Unit
             Fix.RetryPhoneHelper -> phone.pairing.scope.launch {
                 phone.sharedShell.reconnect()
@@ -158,7 +157,7 @@ class MainActivity : ComponentActivity() {
 
     private fun openNotificationSettings() = open(appNotificationSettings())
 
-    /** 直接打开某个通知频道的设置页;系统没有这个页面时退回应用通知总页。 */
+    /** 特定の通知チャネルの設定ページを直接開きます。システムにこのページがない場合は、アプリケーション通知の一般ページに戻ります。 */
     private fun openChannelSettings(channelId: String) {
         val channelPage = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
             .putExtra(Settings.EXTRA_APP_PACKAGE, packageName).putExtra(Settings.EXTRA_CHANNEL_ID, channelId)
@@ -168,7 +167,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** 依次试,第一个能打开的就用:各家设置页不一定都认同一个入口。 */
+    /** 順番に試して、最初に開けるものを使用してください。すべての設定ページが同じ入り口に一致するわけではありません。 */
     private fun openFirst(intents: List<Intent>) {
         val hit = intents.firstOrNull { it.resolveActivity(packageManager) != null } ?: intents.last()
         open(hit)
@@ -188,7 +187,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** 用系统浏览器打开外部链接(GitHub、X 等);没有浏览器时提示一句。 */
+/** システム ブラウザを使用して外部リンク (GitHub、X など) を開きます。ブラウザがない場合にメッセージを表示します。 */
 internal fun openInBrowser(context: Context, url: String) {
     try {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE))
@@ -197,20 +196,20 @@ internal fun openInBrowser(context: Context, url: String) {
     }
 }
 
-/** 依次试 [candidates],第一个 [start] 成功的就停;都不行返回 false。系统设置页各家不一定都有,靠这个退回通用页。 */
+/** は [candidates] を順番に試行します。最初の [start] が成功した場合は停止します。失敗した場合は false を返します。すべての企業にシステム設定ページがあるわけではないため、これを使用して一般ページに戻ることができます。 */
 internal fun <T> firstThatStarts(candidates: List<T>, start: (T) -> Boolean): Boolean = candidates.any(start)
 
 /**
- * 页面切换:对话页是根,侧栏和设置等入口把页面压进 [NavStack],返回键和页面上的返回按钮都走 [NavStack.back]。
- * 各页面只通过回调进出,不知道彼此。
+ * ページ切り替え: ダイアログ ページがルートで、サイドバーと設定、その他の入り口が [NavStack] に押され、ページ上のリターン キーと戻るボタンがすべて [NavStack.back] に移動します。
+ * 各ページはコールバックを通じてのみ出入りし、相互には認識しません。
  */
 @Composable
 private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activityFix: (Fix) -> Unit,
     requestedConversation: String?, onConversationOpened: () -> Unit) {
     val nav = rememberNavStack()
-    // 从设置页「重新配对」进来时先回到配对一步
+    // 設定ページ「再ペアリング」から入る場合はペアリング手順に戻ります
     var setupRepair by rememberSaveable { mutableStateOf(false) }
-    // 首次上手正在走哪一步;为空时不在上手流程里。配置模型页从哪儿来就回哪儿去
+    // 初めて開始するときに実行される手順。空の場合は、開始プロセス中ではありません。構成モデルのページが元のページに戻ります。
     var onboarding by rememberSaveable { mutableStateOf<OnboardingStep?>(null) }
     val onFix: (Fix) -> Unit = { fix ->
         when (fix) {
@@ -231,7 +230,7 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
     val check = Prerequisites.check(status, hasMain)
     val context = LocalContext.current
     val app = context.applicationContext as MikaApp
-    // 查到的新版本:侧栏、设置首页、关于页的红点都看它
+    // 新しいバージョンが見つかりました: サイドバー、設定ホームページ、バージョン情報ページにある赤い点を確認してください。
     val updateState by app.updates.state.collectAsState()
     LaunchedEffect(requestedConversation) {
         if (requestedConversation != null) {
@@ -241,12 +240,12 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
         }
     }
     val release = remember { Build.VERSION.RELEASE }
-    // 结果卡片上点了「看看」:打开技能分段
+    // 結果カードの「見る」をクリック: スキルセグメンテーションを開く
     val memoryRuntime = remember { MemoryRuntime.of(context) }
     val phoneSetup = remember { PhoneServices.of(context).setupPrompt }
     val openMemory by memoryRuntime.openRequest.collectAsState()
     LaunchedEffect(openMemory) { if (openMemory != null) nav.push(Route.Memory) }
-    // 第一次打开:欢迎 → 配置模型 → 手机操作;配过模型的跳过前两步,手机操作已就绪或看过引导的跳过最后一步
+    // を初めて開きます:「ようこそ」→「モデルの構成」→「モバイル操作」。モデルを構成している場合は、最初の 2 つの手順をスキップしてください。モバイル操作の準備ができている場合、またはガイドを参照した場合は、最後のステップをスキップしてください
     val onboardingState = remember { OnboardingState(context) }
     fun onboardingInputs() = Onboarding.Inputs(
         hasMainModel = store.roles.value.main != null,
@@ -257,7 +256,7 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
     fun goOnboarding(step: OnboardingStep?) {
         onboarding = step
         when (step) {
-            // 上手的每一步都直接放在对话页上面一层,做完回到对话页
+            // を開始するための各ステップは、ダイアログ ページのすぐ上に配置されます。完了したらダイアログページに戻ります。
             OnboardingStep.Welcome -> nav.show(Route.Welcome)
             OnboardingStep.Model -> nav.show(Route.ModelSetup)
             OnboardingStep.Phone -> { setupRepair = false; nav.show(Route.PhoneSetup) }
@@ -268,10 +267,10 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
         if (onboarding == null) Onboarding.start(onboardingInputs())?.let(::goOnboarding)
     }
     val phoneSetupNeeded by phoneSetup.needed.collectAsState()
-    // 页面有自己的返回处理时(设置页里的子页、侧栏)由它们先接;这里只管退回上一页
+    // ページに独自のリターン処理 (設定ページのサブページとサイドバー) がある場合、それらは最初に接続されます。ここで前のページに戻るだけです
     BackHandler(enabled = nav.canGoBack) { nav.back() }
     val back: () -> Unit = { nav.back() }
-    // 聊天页离开组合树时保留列表位置和输入内容，返回设置页等子页面后原样恢复。
+    // チャットページは、組み合わせツリーから抜けたときのリスト位置と入力内容を保持し、設定ページなどのサブページに戻ると元の状態に戻ります。
     val screenStates = rememberSaveableStateHolder()
     when (nav.current) {
         Route.PhoneSetup -> PhoneSetupScreen(status, setupRepair, onFix, onboarding = onboarding == OnboardingStep.Phone) {
@@ -293,7 +292,7 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
             )
         }
         Route.Chat -> screenStates.SaveableStateProvider(Route.Chat.name) {
-            // 对话页重新看得见(回到前台、从别的页面回来):补上别处存进来的轮次,接上别处开始的任务
+            // 会話ページが再び表示されます (フロント デスクに戻り、他のページから戻ってきます)。別の場所に保存されたラウンドを補い、別の場所で開始されたタスクを選択します。
             LifecycleStartEffect(Unit) {
                 app.chat.refresh()
                 onStopOrDispose {}
@@ -370,7 +369,6 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
             },
             onCheck = app.updates::checkInBackground,
             onOpenUrl = { openInBrowser(context, it) },
-            onSaveQr = { QrImage.saveToPictures(context) },
             onOpenLicense = { nav.push(Route.License) },
             onBack = back,
             diagnostics = {
@@ -380,7 +378,7 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
         Route.License -> LicensesScreen(onBack = back)
         Route.Browser -> BrowserScreen(remember { UserBrowser.of(context) }, onBack = back)
         Route.Memory -> {
-            // 第一次取记忆要读盘解密,放到后台线程;页面的协程跟着这一屏走
+            // メモリに初めてアクセスするときは、ディスクを読み取って復号化し、それをバックグラウンド スレッドに置きます。ページのコルーチンはこの画面に従います。
             val vmScope = rememberCoroutineScope()
             val vm by produceState<MemoryViewModel?>(null) {
                 value = withContext(Dispatchers.IO) {
@@ -395,7 +393,7 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
                 }
             }
             vm?.let { m ->
-                // 从结果卡片的「看看」进来:直接看技能分段
+                // 結果カードの「Look」から入力：スキルセグメントを直接見る
                 LaunchedEffect(m) { if (memoryRuntime.openRequest.value != null) m.select(Segment.Skills) }
                 MemoryScreen(m) { memoryRuntime.requestOpen(null); nav.back() }
             }

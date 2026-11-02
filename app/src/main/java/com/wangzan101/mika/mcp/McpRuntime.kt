@@ -28,7 +28,7 @@ import java.io.File
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
-/** 电脑连接此刻的样子:关着、在监听哪个端口、或没能开起来(端口被占等)。 */
+/** コンピューター接続の現在のステータス: 接続が閉じられているか、どのポートが監視されているか、または開くことができません (ポートが占有されているなど)。 */
 sealed interface McpServerState {
     data object Off : McpServerState
     data class Listening(val port: Int) : McpServerState
@@ -36,9 +36,9 @@ sealed interface McpServerState {
 }
 
 /**
- * 电脑连接(MCP)的开关与服务:整个进程一份。局域网([settings])和 USB([usb])的监听范围见 [McpModes],
- * 远程网关([relaySettings])使用独立出站通道。有一种开着就起 [McpService] 前台服务,
- * 由各自开关决定本地监听和出站连接;都关了就停止。三种方式的任务共用 [tasks] 和同一协议入口。
+ * コンピューター接続 (MCP) スイッチとサービス: プロセス全体の 1 つのコピー。 LAN ([settings]) および USB ([usb]) の監視範囲については、[McpModes] を参照してください。
+ * リモート ゲートウェイ ([relaySettings]) は、独立した送信チャネルを使用します。 [McpService]の電源を入れると始まるフロントサービスがあり、
+ * は、それぞれのスイッ​​チによるローカル監視とアウトバウンド接続を決定します。両方の電源をオフにすると停止します。 3 つのモードのタスクは、[tasks] と同じプロトコル エントリを共有します。
  */
 class McpRuntime(
     private val context: Context, val settings: McpSettings, val usb: McpUsbSettings, private val tasks: RemoteTasks,
@@ -51,7 +51,7 @@ class McpRuntime(
     private var hostListen = McpModes.Listen.Off
     private val endpoints = RemoteEndpoints(tasks, BuildConfig.VERSION_NAME, device = device.access)
     private val relayAccess = RemoteAccess(token = { if (relaySettings.config.value.enabled) settings.token() else null })
-    // 经网关来的请求要另开「允许经网关唤醒和解锁」才看得到屏幕能力;手机上的远程亮屏与解锁许可照样要开。
+    // ゲートウェイ経由で受信するリクエストの場合、画面の機能を確認するには、「ゲートウェイ経由のウェイクとロック解除を許可」をオンにする必要があります。携帯電話のリモート画面の明るさとロック解除の許可をオンにする必要があります。
     private val relay = RelayClient(CoroutineScope(SupervisorJob() + Dispatchers.IO), { req ->
         relayAccess.handle(req) { endpoints.handle(it, deviceAccess = relaySettings.config.value.deviceAccess) }
     })
@@ -59,10 +59,10 @@ class McpRuntime(
     val relayState get() = relay.state
     private val active get() = listen() != McpModes.Listen.Off || relaySettings.config.value.enabled
 
-    /** 最近连过的客户端和最后一次请求;没在监听时为空。 */
+    /** 最後に接続したクライアントと最後のリクエスト。聞いていないときは空です。 */
     val activity: RemoteActivity get() = if (active) endpoints.activity.value else RemoteActivity()
 
-    /** 配对只保存凭据,必须用户另行开启远程访问。 */
+    /** はペアリング用の資格情報のみを保存するため、ユーザーはリモート アクセスを個別に有効にする必要があります。 */
     suspend fun pairRelay(gateway: String, code: String) {
         check(!relaySettings.config.value.paired) { "Unpair the previous gateway first" }
         val remote = RelayGateway(RelayGateway.parse(gateway), RelayGateway.http())
@@ -90,19 +90,19 @@ class McpRuntime(
 
     fun listen(): McpModes.Listen = McpModes.listen(settings.enabled.value, usb.enabled.value)
 
-    /** 设置页上局域网那种的开关。 */
+    /** 設定ページの LAN タイプ スイッチ。 */
     fun setEnabled(on: Boolean) {
         settings.setEnabled(on)
         apply()
     }
 
-    /** 设置页上 USB 那种的开关(电脑经 adb 开关的走 [McpService] 的动作,同一套)。 */
+    /** 設定ページの USB スイッチ (コンピューターは adb スイッチを使用して、[McpService] と同じアクションを実行します)。 */
     fun setUsbEnabled(on: Boolean) {
         if (on) usb.enable() else usb.disable()
         apply()
     }
 
-    /** 开关变了:还有一种开着就让服务按新的开关重新监听,都关了就停服务。 */
+    /** スイッチが変更されました: オンのときに新しいスイッチを押すことでサービスを再監視し、オフにするとサービスを停止する方法もあります。 */
     private fun apply() {
         if (active) ensureRunning() else {
             context.stopService(Intent(context, McpService::class.java))
@@ -111,8 +111,8 @@ class McpRuntime(
     }
 
     /**
-     * 有一种开着就把服务起来(已经在跑就让它按开关重新对一遍)。从后台起前台服务可能被系统拒绝,这时记成没开起来,
-     * 等下次打开 Mika 的界面再起。
+     * サービスがオンになっているときにサービスを開始する方法があります (すでに実行されている場合は、スイッチを押して再調整するだけです)。フォアグラウンド サービスはバックグラウンドからシステムによって拒否される場合があり、その場合は開始されていないと記録されます。
+     * 次回、Mika インターフェースが開かれるまで待ちます。
      */
     fun ensureRunning() {
         if (!active) return
@@ -124,8 +124,8 @@ class McpRuntime(
     }
 
     /**
-     * 由 [McpService] 调:同步本地监听和远程通道。监听范围没变时复用服务,USB 开着时发布连接信息。
-     * 本地监听和远程通道均未启用或未能启动时返回 false。
+     * は [McpService] によって調整されます。ローカル モニタリングとリモート チャネルを同期します。リスニング範囲が変わらない場合はサービスが再利用され、USB がオンになったときに接続情報が公開されます。
+     * ローカル リスニングもリモート チャネルも有効になっていない場合、または開始に失敗した場合は false を返します。
      */
     @Synchronized internal fun sync(): Boolean {
         val want = listen()
@@ -174,7 +174,7 @@ class McpRuntime(
         if (_state.value is McpServerState.Listening) _state.value = McpServerState.Off
     }
 
-    /** 给电脑跑的「经 USB 连接」脚本:不带秘密,App 启动时写一次(外部存储不可用就跳过)。 */
+    /** コンピューター用の「USB 経由で接続」スクリプト: 秘密はありません。アプリの起動時に 1 回書き込まれます (外部ストレージが利用できない場合はスキップします)。 */
     fun writeUsbScript() {
         val dir = context.getExternalFilesDir(null) ?: return
         val f = File(dir, McpUsb.SCRIPT)
@@ -194,23 +194,23 @@ class McpRuntime(
         }
     }
 
-    /** 电脑上要跑的那条命令(设置页显示的就是它)。 */
+    /** は、コンピューター上で実行するコマンドです (設定ページに表示されるものです)。 */
     fun usbCommand(): String {
         val path = context.getExternalFilesDir(null)?.let { File(it, McpUsb.SCRIPT).absolutePath }
             ?: "/storage/emulated/0/Android/data/${context.packageName}/files/${McpUsb.SCRIPT}"
         return "adb shell sh " + shortPath(path)
     }
 
-    /** 换令牌:旧的当场失效。 */
+    /** トークンの交換: 古いトークンはその場で無効になります。 */
     fun regenerateToken(): String = settings.regenerate()
 
     companion object {
         private const val TAG = "MikaMcp"
 
-        /** 主用户的外部存储在 shell 里也叫 /sdcard;给人看的命令用短写法(和「用电脑启动」的脚本一样)。 */
+        /** メイン ユーザーの外部ストレージは、シェルでは /sdcard とも呼ばれます。人々に示されるコマンドは短縮形で書かれています (「コンピューターで開始」スクリプトと同じです)。 */
         private fun shortPath(path: String) = HelperHandoff.usbCommand(path).removePrefix("adb shell sh ")
 
-        /** 电脑能连的地址:开着的网卡上的局域网、私有组网 IPv4 地址。 */
+        /** コンピューターが接続できるアドレス: 有効なネットワーク カード上の LAN およびプライベート ネットワークの IPv4 アドレス。 */
         fun addresses(): List<String> = runCatching {
             NetworkInterface.getNetworkInterfaces()?.toList().orEmpty()
                 .filter { runCatching { it.isUp && !it.isLoopback }.getOrDefault(false) }
@@ -223,7 +223,7 @@ class McpRuntime(
 
         fun url(address: String, port: Int) = "http://$address:$port${McpRpc.PATH}"
 
-        /** 给电脑上的 MCP 客户端用的配置片段:地址加 Authorization 头。 */
+        /** コンピューター上の MCP クライアントの構成フラグメント: アドレスと認証ヘッダー。 */
         fun clientConfig(url: String, token: String): String = """
             {
               "mcpServers": {

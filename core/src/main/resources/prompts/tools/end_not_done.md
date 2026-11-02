@@ -1,1 +1,1 @@
-End the task without the requested result, when it cannot be reached or only part of it can. In message, say what was confirmed done, what exactly stopped you and what the screen shows now. Do not use it just because the user asked you to stop.
+求める結果に到達できない場合、または一部だけ到達できる場合に、求める結果なしに作業を終える。message に、確認できた完了部分、何が正確に止めたか、現在の表示が何を示しているかを伝える。ユーザーが止めるよう求めたことだけを理由に使わない。

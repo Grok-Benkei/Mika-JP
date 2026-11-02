@@ -19,7 +19,7 @@ class InputPacingTest {
     private val human = InputPacing.human(Random(42))
     private val lim = human.limits
 
-    // ---------- 生成器 ----------
+    // ---------- ジェネレーター ----------
 
     @Test fun instantAddsNothing() {
         val p = InputPacing.Instant
@@ -45,11 +45,11 @@ class InputPacingTest {
             assertTrue(pts.size in lim.moveSteps)
             val maxOff = minOf(dist * lim.bowFraction, lim.maxBowPx)
             for ((x, y) in pts) {
-                // 到起终点连线的距离不超过弧线的最大偏离
+                // から始点と終点までの距離が円弧の最大偏差を超えないこと
                 val off = abs((to.second - from.second) * x - (to.first - from.first) * y + to.first * from.second - to.second * from.first) / dist
                 assertTrue("off $off > $maxOff", off <= maxOff + 1e-6)
             }
-            // 沿连线方向单调前进(不会来回抖)
+            // は接続方向に沿って単調に移動します (前後のジッターなし)
             val proj = pts.map { (x, y) -> ((x - from.first) * (to.first - from.first) + (y - from.second) * (to.second - from.second)) / dist }
             assertTrue(proj.zipWithNext().all { (a, b) -> b >= a - 1e-6 })
         }
@@ -84,7 +84,7 @@ class InputPacingTest {
             assertTrue(n.size <= lim.maxNotches)
             assertTrue(n.all { it * d > 0 })
         }
-        // 很远时格数封顶,每格加大,总时长有界
+        // 距離が非常に遠い場合、グリッドの数に上限があり、各グリッドが増加し、合計の継続時間が制限されます。
         assertEquals(List(lim.maxNotches) { 100_000.0 / lim.maxNotches }, human.notches(100_000.0))
         assertTrue(human.notches(0.0).isEmpty())
     }
@@ -98,7 +98,7 @@ class InputPacingTest {
         assertTrue(TypingRuns.split("").isEmpty())
     }
 
-    // ---------- 事件序列 ----------
+    // ---------- イベントシーケンス ----------
 
     private fun test(block: suspend kotlinx.coroutines.CoroutineScope.() -> Unit) = runBlocking { withTimeout(30_000) { block() } }
 
@@ -126,7 +126,7 @@ class InputPacingTest {
         val press = s.sent()[moves].getValue("params").jsonObject
         assertEquals(400.0, press["x"]!!.jsonPrimitive.double, 1e-9)
         assertEquals(300.0, press["y"]!!.jsonPrimitive.double, 1e-9)
-        // 至少有停顿和按住;总时长有界
+        // には少なくとも一時停止とホールドがあります。合計期間は制限されています
         assertTrue(took >= lim.dwellMs.first + lim.pressMs.first)
         assertTrue(took < 2_000)
         assertEquals(400.0 to 300.0, session.pointer)
@@ -140,7 +140,7 @@ class InputPacingTest {
         val before = s.sent().size
         session.paced { mouseMove(500.0, 100.0) }
         val moves = s.sent().drop(before).map { it.getValue("params").jsonObject["x"]!!.jsonPrimitive.double }
-        // 从 100 往 500 走,不会从别处跳过来
+        // 100 から 500 まで歩いても、他の場所からジャンプすることはありません
         assertTrue(moves.all { it in 100.0..500.0 + 1e-6 })
         assertEquals(500.0, moves.last(), 1e-9)
         session.close()
@@ -153,10 +153,10 @@ class InputPacingTest {
         val sent = s.sent()
         val texts = sent.filter { it.method() == "Input.dispatchKeyEvent" && it.p("type") == "keyDown" }.map { it.p("text") }
         assertEquals(listOf("A", "b", "1"), texts)
-        // 大写字母按着 Shift
+        // 大文字はShiftを押してください
         assertEquals("Shift", sent.first().p("key"))
         assertEquals(listOf("@"), sent.filter { it.method() == "Input.insertText" }.map { it.p("text") })
-        // 每个按下都有抬起
+        // 押すたびに持ち上がる
         val downs = sent.count { it.p("type") == "keyDown" || it.p("type") == "rawKeyDown" }
         assertEquals(downs, sent.count { it.p("type") == "keyUp" })
         session.close()

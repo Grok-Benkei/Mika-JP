@@ -13,9 +13,9 @@ import org.junit.Test
 import java.io.File
 
 /**
- * 随 App 发布的知识、技能、提示词里提到的工具名都得是现在登记的:
- * 带屏幕前缀的(phone_…、web_…)、改名前的旧名(browser_…、launch_app 一类)、反引号里的旧名都算提到工具。
- * 也守着旧名对照表:每个旧名都对得上现在的工具。
+ * アプリとともにリリースされたプロンプトに記載されている知識、スキル、ツール名を今すぐ登録する必要があります。
+ * 画面プレフィックスが付いた名前 (phone_...、web_...)、名前変更前の古い名前 (browser_...、launch_app など)、およびバッククォート内の古い名前はすべてツールとして記載されています。
+ * は古い名前の比較表も保持しています。古い名前はそれぞれ現在のツールに適しています。
  */
 class ToolNamesInTextTest {
     private val roots = listOf("src/main/resources/knowledge", "src/main/resources/skills", "src/main/resources/prompts").map(::File)
@@ -38,9 +38,9 @@ class ToolNamesInTextTest {
     }
 
     /**
-     * 知识和技能里叫模型去跑的东西都得真有:脚本路径(`scripts/x.py`、`sites/a.b/scripts/x.py`、单写文件名 `x.py`)
-     * 要对得上清单里标为可运行的脚本;当成命令来用的标识符(反引号里的 `a_b` 前后是「用 / 运行 / 调用 / command / 脚本」这类说法,
-     * 或写成 `a_b(` 调用的样子)要是登记的工具、工具的参数或头部的键。
+     * 知識とスキルには、モデルの実行を指示するすべてが存在する必要があります: スクリプト パス (`scripts/x.py`、`sites/a.b/scripts/x.py`、単一ファイル名 `x.py`)
+     * は、リスト内で実行可能としてマークされたスクリプトと一致する必要があります。コマンドとして使用される識別子 (バックティックの `a_b` の前後に「use / run / call / command / script」が続きます) 登録されたツール、ツール パラメータ、またはヘッダー キーの場合は、
+     * 、または呼び出されたときに `a_b(` として書き込まれます。
      */
     @Test fun everyCommandMentionExists() {
         val bad = commandMentions(File("src/main/resources"))
@@ -54,7 +54,7 @@ class ToolNamesInTextTest {
         val bad = mutableListOf<String>()
         for (dir in listOf("knowledge", "skills")) for (f in File(resources, dir).walkTopDown().filter { it.isFile && it.extension == "md" }) {
             val rel = f.relativeTo(resources).invariantSeparatorsPath
-            // 条目目录,和 run_bundled_script 的 skill 参数同一写法:skills/documents、skills/documents
+            // エントリ ディレクトリ。run_bundled_script のスキル パラメータと同じ方法で記述されます: スキル/ドキュメント、スキル/ドキュメント
             val entry = rel.removePrefix("knowledge/").split('/').take(2).joinToString("/")
             val text = f.readText()
             for (m in scriptPath.findAll(text)) {
@@ -86,9 +86,9 @@ class ToolNamesInTextTest {
         assertEquals(listOf("phone_launch_app"), legacy.replacements("launch_app"))
         assertEquals(listOf("web_navigate"), legacy.replacements("browser_navigate"))
         assertEquals(listOf("web_wait_for"), legacy.replacements("browser_wait"))
-        // 名字没变的不在表里
+        // 名前は変更されていないため、テーブルにありません。
         assertTrue(legacy.replacements("finish").isEmpty() && legacy.replacements("run_command").isEmpty())
-        // 每个旧名都对得上现在的工具,同一个旧名对上的工具做同一件事;拆成知识、技能两个的除外
+        // それぞれの古い名前は現在のツールと同等であり、同じ古い名前のツールは同じことを行います。ただし、知識とスキルに分けられるものは除きます。
         val split = setOf(setOf(Verb.KnowledgeSearch, Verb.SkillSearch), setOf(Verb.KnowledgeRead, Verb.SkillRead))
         for (old in legacy.names) {
             val now = legacy.replacements(old)

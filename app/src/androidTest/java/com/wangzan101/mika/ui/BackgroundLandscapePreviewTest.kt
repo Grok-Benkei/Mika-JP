@@ -20,7 +20,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 
-/** 真实后台 Activity → ImageReader → Task 预览帧 → 应用内画中画,检查整条链路。 */
+/** 実際のバックグラウンド アクティビティ → ImageReader → タスク プレビュー フレーム → アプリケーション内ピクチャ イン ピクチャ、リンク全体を確認してください。 */
 @RunWith(AndroidJUnit4::class)
 class BackgroundLandscapePreviewTest {
     @get:Rule val compose = createComposeRule()
@@ -35,7 +35,7 @@ class BackgroundLandscapePreviewTest {
             }
             val pkg = InstrumentationRegistry.getInstrumentation().context.packageName
             DeviceSupport.sh("am start -W --display ${agent.display.displayId} -n $pkg/${RotationTestActivity::class.java.name} --ei orientation 0")
-            // 转屏时宽高会先变,像素仍可能是旧帧;等后台 Activity 的四个象限真的画好。
+            // 画面を変更すると、幅と高さが最初に変更され、ピクセルは古いフレームのままである可​​能性があります。バックグラウンド アクティビティの 4 つの象限が実際に描画されるまで待ちます。
             compose.waitUntil(10_000) { agent.display.frames.value?.let(::readyFrame) == true }
             compose.waitForIdle()
             compose.waitUntil(5_000) { compose.onAllNodesWithTag("pip-frame", useUnmergedTree = true).fetchSemanticsNodes().size == 1 }

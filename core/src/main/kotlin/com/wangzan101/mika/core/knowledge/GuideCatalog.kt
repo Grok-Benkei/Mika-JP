@@ -3,7 +3,7 @@ package com.wangzan101.mika.core.knowledge
 import com.wangzan101.mika.core.skills.PersonalSkills
 import com.wangzan101.mika.core.skills.SkillStatus
 
-/** 内置的 App 知识(kind `app`)、站点知识(`site`)、技能(`skill`),或用户的个人技能(`personal`);[files] 是可读的文件(主文件在前,其余是附件)。 */
+/** 組み込みアプリのナレッジ (種類 `app`)、サイトのナレッジ (`site`)、スキル (`skill`)、またはユーザーの個人スキル (`personal`)。 [files] は読み取り可能なファイルです (最初はメイン ファイル、残りは添付ファイルです)。 */
 data class GuideInfo(
     val kind: String,
     val name: String,
@@ -12,7 +12,7 @@ data class GuideInfo(
     val aliases: List<String>,
     val terms: List<String>,
     val files: List<String>,
-    /** 关联的 App / 站点名。 */
+    /** に関連付けられたアプリ/サイト名。 */
     val apps: List<String> = emptyList(),
     val sites: List<String> = emptyList(),
 )
@@ -26,36 +26,36 @@ sealed interface GuideView {
 }
 
 private const val SKILL_FILE = "SKILL.md"
-/** 文档可能提到本机没有的工具;在注入和 knowledge_read / skill_read 的边界处提醒。 */
+/** のドキュメントには、ネイティブでは利用できないツールが記載されている場合があります。インジェクションとknowledge_read / skill_readの境界におけるリマインダー。 */
 const val UNAVAILABLE_TOOLS_NOTE = "(Note: scripts mentioned in the text and tools this phone does not have are not available; use only the tools in your tool list.)"
-/** 设备支持沙箱时的附注:技能脚本按清单可以跑。 */
+/** デバイスがサンドボックスをサポートしている場合、リストに従ってスキル スクリプトを実行できることに注意してください。 */
 const val SANDBOX_TOOLS_NOTE = "(Note: scripts marked runnable can be run with run_bundled_script; other scripts and tools this phone does not have are not available.)"
 
-/** 注入参考资料、knowledge_read / skill_read 时的附注,按沙箱工具是否提供。 */
+/** サンドボックス ツールが提供するかどうかに応じて、参照資料とKnowledge_read/skill_readを挿入するときの注意事項。 */
 fun toolsNote(sandboxAvailable: Boolean): String = if (sandboxAvailable) SANDBOX_TOOLS_NOTE else UNAVAILABLE_TOOLS_NOTE
 const val VIEW_LIMIT = 12_000
 const val FIND_LIMIT = 10
-/** 任务开始按任务文字给 App/站点知识索引的得分门槛:名称/显示名/别名至少部分对上。 */
+/** タスクの開始時に、アプリ/サイト ナレッジ インデックスのスコアしきい値がタスク テキストに従って指定されます。名前/表示名/エイリアスが少なくとも部分的に一致します。 */
 const val RECOMMEND_MIN_SCORE = 60
 const val PERSONAL_KIND = "personal"
-/** App 与网站知识(knowledge_search / knowledge_read 管的);技能是另一组(内置技能与个人技能)。 */
+/** アプリとウェブサイトのナレッジ (knowledge_search /Knowledge_read によって制御);スキルは別のグループ (組み込みスキルと個人スキル) です。 */
 val KNOWLEDGE_KINDS = setOf(KnowledgeIndex.APP, KnowledgeIndex.SITE)
 val SKILL_KINDS = setOf(KnowledgeIndex.SKILL, PERSONAL_KIND)
 
 /**
- * 只读的目录:按名称/别名/描述查找、读取文本。内置部分来自构建时生成的 [KnowledgeIndex.RESOURCE] 与各自的目录,
- * 再合并用户的个人技能(kind = `personal`,在用的才算;同名整体覆盖内置)。
+ * 読み取り専用ディレクトリ: 名前/エイリアス/説明でテキストを検索して読み取ります。組み込みパーツは、ビルド時にそれぞれのディレクトリで生成された [KnowledgeIndex.RESOURCE] から取得されます。
+ * はユーザーの個人スキルをマージします (種類 = `personal`、使用中のスキルのみがカウントされます。同じ名前が組み込みを完全にカバーします)。
  */
 class GuideCatalog private constructor(
     private val loader: ClassLoader,
     internal val rows: List<IndexEntry>,
     private val personal: PersonalSkills? = null,
-    /** 个人技能正文载入时做的改写(改名前的工具名换成现在的);默认原样。 */
+    /** は個人スキルテキストロード時に書き換えられました(ツール名変更前から現在のツール名に)。デフォルトはそのままです。 */
     private val rewrite: (String) -> String = { it },
 ) {
     private val bundledItems: List<GuideInfo> = rows.map(::info)
 
-    /** 个人技能每次现读:收下、停用随时发生。 */
+    /** 個人スキルは毎回読み取られ、いつでも受け入れおよび無効化されます。 */
     val items: List<GuideInfo>
         get() {
             val mine = personalEntries().map { it.info }
@@ -64,7 +64,7 @@ class GuideCatalog private constructor(
         }
 
     /**
-     * [route] 为 `android`:有名为 [name] 的 App 知识;为 `browser`:有名为 [name] 的站点知识,或名为 [name] 的 App 关联了站点。
+     * [route] は `android`: [name] という名前のアプリ ナレッジがあります。 `browser` の場合: [name] という名前のサイト ナレッジがあるか、[name] という名前のアプリがサイトに関連付けられています。
      */
     fun hasRoute(name: String, route: String): Boolean = when (route) {
         "android" -> bundledItems.any { it.kind == KnowledgeIndex.APP && it.name == name }
@@ -73,8 +73,8 @@ class GuideCatalog private constructor(
     }
 
     /**
-     * 评分:名称/显示名/别名整词相同 > 包含(或整个出现在查询词里) > 检索词 > 描述;每个空白分隔的词分别计分,
-     * 至少一个词命中、且总分不低于 [minScore] 才返回。[among] 给了时只查这几种(见 [KNOWLEDGE_KINDS]、[SKILL_KINDS])。
+     * スコアリング: 名前/表示名/エイリアスは、単語全体 > を含む (またはクエリ単語全体に出現) > 検索用語 > 説明と同じです。空白で区切られた各単語は個別にスコア付けされます。
+     * は、少なくとも 1 つの単語がヒットし、合計スコアが [minScore] 以上である場合にのみ返されます。 [among] が指定されている場合は、これらのタイプのみをチェックしてください ([KNOWLEDGE_KINDS]、[SKILL_KINDS] を参照)。
      */
     fun find(query: String, kind: String? = null, limit: Int = FIND_LIMIT, minScore: Int = 0, among: Set<String>? = null): List<GuideInfo> {
         val tokens = query.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
@@ -92,7 +92,7 @@ class GuideCatalog private constructor(
         return tokens.map { t ->
             when {
                 names.any { it == t } -> 100
-                // 中文目标通常不带空格,整句是一个词:名字出现在句子里也算部分对上
+                // 中国語のターゲットには通常スペースが含まれず、文全体が 1 つの単語になります。文中に出現する名前も部分一致とみなされます。
                 names.any { it.contains(t) || (it.length >= 2 && t.contains(it)) } -> 60
                 terms.any { it == t } -> 50
                 terms.any { it.contains(t) } -> 40
@@ -102,8 +102,8 @@ class GuideCatalog private constructor(
         }.sum()
     }
 
-    /** [name] 可写 `app:meituan` / `site:jd.com` / `skill:documents` / `personal:xxx`,也可只写名字(重名时报歧义)。 */
-    /** [note] 是放在正文前的附注(见 [toolsNote])。[among] 给了时只读这几种,名字是另一组的时说清该用哪个工具读。 */
+    /** [name] は、`app:meituan` / `site:jd.com` / `skill:documents` / `personal:xxx` と書くこともできますし、名前のみを書くこともできます（名前が重複すると曖昧になります）。 */
+    /** [note] is a note placed before the text (see [toolsNote]). [among] が与えられた場合、これらのタイプのみを読み取ることができます。名前が別のグループにある場合、どのツールを使用して読むかを指定してください。 */
     fun view(name: String, file: String? = null, note: String = UNAVAILABLE_TOOLS_NOTE, among: Set<String>? = null): GuideView {
         val n = name.trim()
         val prefixed = n.substringBefore(':', "").takeIf { it in KnowledgeIndex.KINDS || it == PERSONAL_KIND }
@@ -133,7 +133,7 @@ class GuideCatalog private constructor(
         return GuideView.Found(info, path, note + "\n" + (if (cut) text.take(VIEW_LIMIT) + "\n…(truncated; use file_path to view the other files)" else text), cut, text.length)
     }
 
-    // 坏掉的个人技能明确报错,不回退到同名内置技能
+    // The broken personal skill clearly reports an error and does not fall back to the built-in skill with the same name.
     private fun viewPersonal(info: GuideInfo, path: String): GuideView {
         if (path != SKILL_FILE) return GuideView.Failed("file_not_found", "Personal skill ${info.name} has only $SKILL_FILE.")
         val body = personalEntries().find { it.info.name == info.name }?.body
@@ -143,7 +143,7 @@ class GuideCatalog private constructor(
         return GuideView.Found(info, SKILL_FILE, if (cut) body.take(VIEW_LIMIT) + "\n…(truncated)" else body, cut, body.length)
     }
 
-    /** 主文件(APP.md / SITE.md / SKILL.md)的正文,去掉头部。坏掉的个人技能为 null。 */
+    /** The main text of the main file (APP.md / SITE.md / SKILL.md), remove the header.壊れた個人スキルは無効です。 サンドボックス内の */
     fun fullText(info: GuideInfo): String? {
         if (info.kind == PERSONAL_KIND) return personalEntries().find { it.info.name == info.name }?.body
         return read(info, KnowledgeIndex.fileOf(info.kind))
@@ -152,12 +152,12 @@ class GuideCatalog private constructor(
     private fun read(info: GuideInfo, file: String): String? =
         resource("${KnowledgeIndex.dirOf(info.kind)}/${info.name}/$file")?.let { FrontMatter.parse(it.toString(Charsets.UTF_8)).second }
 
-    /** 在沙箱里的目录(`/opt/mika/skills` 之下),也是 run_bundled_script 的 source 参数,如 `skills/documents`、`skills/research`。 */
+    /** のディレクトリ (`/opt/mika/skills` の下) は、`skills/documents` や `skills/research` などの run_bundled_script のソース パラメーターでもあります。 */
     fun scriptSource(info: GuideInfo): String = "${KnowledgeIndex.dirOf(info.kind).substringAfterLast('/')}/${info.name}"
 
     /**
-     * 要同步进沙箱的脚本:每个带 `scripts/manifest.json` 的条目,清单本身加上清单里列出的文件。
-     * 键是 `/opt/mika/skills` 之下的相对路径。
+     * サンドボックスに同期するスクリプト: `scripts/manifest.json` の各エントリ、マニフェスト自体、およびマニフェストにリストされているファイル。
+     * キーは、`/opt/mika/skills` の下の相対パスです。
      */
     fun scriptFiles(): Map<String, ByteArray> {
         val out = sortedMapOf<String, ByteArray>()
@@ -171,7 +171,7 @@ class GuideCatalog private constructor(
         return out
     }
 
-    /** 清单里标为可运行(且是能跑的脚本类型)的脚本,`目录/文件`,如 `skills/documents/scripts/extract_pdf.py`。 */
+    /** は、`skills/documents/scripts/extract_pdf.py` など、`目录/文件` リストで実行可能としてマークされているスクリプト (および実行可能なスクリプト タイプ) です。 */
     fun runnableScripts(): Set<String> {
         val out = sortedSetOf<String>()
         for (info in bundledItems) {
@@ -183,12 +183,12 @@ class GuideCatalog private constructor(
         return out
     }
 
-    /** 内置站点知识里有没有声明站点命令(没有就不提供运行站点命令的工具)。 */
+    /** 組み込みサイト ナレッジで宣言されたサイト コマンドはありますか (宣言されていない場合、サイト コマンドを実行するツールは提供されません)。 */
     fun hasSiteCommands(): Boolean = rows.any { it.kind == KnowledgeIndex.SITE && it.commands.isNotEmpty() }
 
     /**
-     * 主机 [host] 所属站点声明的站点命令,带脚本正文;没有为空。站点和注入站点知识时按同一规则认([SiteMatch],最具体的域名优先),
-     * 认出的站点没有命令就是没有,不退到别的站点。
+     * ホスト [host] スクリプト テキストを含む、所属するサイトによって宣言されたサイト コマンド。そうでない場合は空です。サイトは、サイト ナレッジを挿入するときと同じルールに従って識別されます ([SiteMatch]、最も具体的なドメイン名が優先されます)。
+     * 認識したサイトにコマンドがない場合は存在しないことを意味し、他のサイトには返されません。
      */
     fun siteCommands(host: String): List<SiteCommand> {
         val site = SiteMatch.best(host, rows.filter { it.kind == KnowledgeIndex.SITE }) { it.domains }.firstOrNull()
@@ -199,22 +199,22 @@ class GuideCatalog private constructor(
         }
     }
 
-    /** 主机 [host] 所属站点知识写的 pace(认站点的规则同 [siteCommands]);没有为 null。 */
+    /** は [host] をホストし、それが属するサイトの知識によって書かれたペース (サイトを識別するためのルールは [siteCommands] と同じです)。そうでない場合は null です。 */
     fun sitePace(host: String): String? =
         SiteMatch.best(host, rows.filter { it.kind == KnowledgeIndex.SITE }) { it.domains }.firstOrNull()?.pace
 
-    /** 包名 [packageName] 所属 App 知识写的 pace(包名在它的 packages 里);没有为 null。 */
+    /** パッケージ名 [packageName] は、それが属するアプリの知識に基づいて書かれています (パッケージ名はパッケージ内にあります)。そうでない場合は null です。 */
     fun appPace(packageName: String): String? =
         rows.firstOrNull { it.kind == KnowledgeIndex.APP && packageName in it.packages }?.pace
 
     private fun resource(rel: String): ByteArray? = loader.getResourceAsStream(rel)?.use { it.readBytes() }
 
-    /** [body] 为 null:SKILL.md 头部缺失、名字对不上或正文为空。 */
+    /** [body] は null:SKILL.md ヘッダーがないか、名前が一致しないか、テキストが空です。 */
     private class PersonalEntry(val info: GuideInfo, val body: String?)
 
     private fun personalEntries(): List<PersonalEntry> =
         personal?.list().orEmpty().filter { it.status == SkillStatus.active || it.status == SkillStatus.trial }.map { s ->
-            // 改名前写下的工具名换成现在的,模型读到的都是能用的名字
+            // 現在の名前に変更される前に書かれていたツール名であり、モデル内で読み込まれた名前はすべて使用可能な名前です。
             val (meta, body) = FrontMatter.parse(s.markdown).let { (m, b) -> m to rewrite(b) }
             fun one(k: String) = meta[k] as? String
             fun many(k: String) = (meta[k] as? List<*>)?.filterIsInstance<String>() ?: listOfNotNull(one(k)?.takeIf { it.isNotEmpty() })
@@ -236,7 +236,7 @@ class GuideCatalog private constructor(
             return GuideCatalog(loader, rows.orEmpty())
         }
 
-        /** 内置目录 + 个人技能;[rewrite] 是个人技能正文载入时的改写(改名前的工具名换成现在的)。 */
+        /** 内蔵ディレクトリ + 個人スキル; [rewrite]は個人スキルテキストロード時の書き換え（リネーム前のツール名を現在のツール名に変更）です。 */
         fun withPersonal(bundled: GuideCatalog, personal: PersonalSkills, rewrite: (String) -> String = { it }): GuideCatalog =
             GuideCatalog(bundled.loader, bundled.rows, personal, rewrite)
 

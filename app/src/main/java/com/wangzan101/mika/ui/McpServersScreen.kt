@@ -39,7 +39,7 @@ import android.content.Intent
 import android.net.Uri
 import kotlinx.coroutines.launch
 
-/** 设置 › MCP 服务器:连接外部 MCP server(outbound),和「连接电脑」的 inbound 设置分开。 */
+/** 設定 › MCP サーバー: 「コンピューターに接続」の受信設定とは別に、外部 MCP サーバー (送信) に接続します。 */
 @Composable
 fun McpServersScreen(store: McpServerStore, onBack: () -> Unit) {
     val servers by store.servers.collectAsState()

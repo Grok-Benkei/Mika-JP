@@ -31,9 +31,9 @@ private const val MAX_WIDTH = 720
 private const val JPEG_QUALITY = 70
 
 /**
- * 运行记录落盘:`files/runs/<yyyyMMdd-HHmmss>-<6位>/` 下 run.json(概要)、events.jsonl(一行一个事件)、
- * screens/NNNN.jpg(读屏画面)。只保留最近 [keep] 次。写盘出错只记日志,不影响任务。
- * 每次运行的小结([RunMetrics])另存在 `files/run-metrics.jsonl`([metrics]),不随记录清理。
+ * ランニング レコードのダウンロード: run.json (概要)、events.jsonl (1 行に 1 つのイベント) の下の `files/runs/<yyyyMMdd-HHmmss>-<6位>/`、
+ * 画面/NNNN.jpg (画面読み取り画面)。最新の [keep] 時間のみが保持されます。ディスク書き込みエラーが発生した場合、ログのみが記録され、業務には影響しません。
+ * 各実行の概要 ([RunMetrics]) は、`files/run-metrics.jsonl` ([metrics]) に個別に保存され、レコードと一緒にクリアされません。
  */
 class RunStore internal constructor(
     filesDir: File,
@@ -54,7 +54,7 @@ class RunStore internal constructor(
 
     private val root = File(filesDir, "runs")
 
-    /** 每次运行的小结;运行记录关上时由写线程记一份(见 [RunHandle])。 */
+    /** 各実行の概要。実行記録がオフになると、書き込みスレッドは 1 つのコピーを記録します ([RunHandle] を参照)。 */
     val metrics = RunMetricsStore(File(filesDir, RunMetricsStore.FILE_NAME))
 
     fun open(goal: String): RunHandle {
@@ -69,17 +69,17 @@ class RunStore internal constructor(
         return handle
     }
 
-    /** 新的在前。 */
+    /** 新しい順。 */
     fun list(): List<RunSummary> = runDirs().reversed().mapNotNull { d ->
         runCatching { RunEvent.json.decodeFromString(RunSummary.serializer(), File(d, RUN_JSON).readText()) }.getOrNull()
     }
 
-    /** 一次运行的概要;记录已被清掉或读不出为 null。 */
+    /** 実行の概要。レコードはクリアされているか、読み取ることができず、null です。 */
     fun summary(runId: String): RunSummary? = dirOf(runId)?.let { d ->
         runCatching { RunEvent.json.decodeFromString(RunSummary.serializer(), File(d, RUN_JSON).readText()) }.getOrNull()
     }
 
-    /** 只读地交给核心(查这个对话之前几轮的记录,见 history_read);在 IO 线程上读。 */
+    /** は読み取り専用でコアに渡されます (この会話の前のラウンドの記録を確認してください。history_read を参照してください)。 IO スレッドで読み取ります。 */
     fun reader(): RunRecords = object : RunRecords {
         override suspend fun summary(runId: String) = withContext(Dispatchers.IO) { this@RunStore.summary(runId) }
         override suspend fun events(runId: String) = withContext(Dispatchers.IO) { this@RunStore.events(runId) }
@@ -91,7 +91,7 @@ class RunStore internal constructor(
         return f.readLines().filter { it.isNotBlank() }.mapNotNull { runCatching { RunEvent.decode(it) }.getOrNull() }
     }
 
-    /** 从已有 JSONL 按原顺序取用量字段。旧记录的空值、同一步的多次回复和没有步号的压缩事件原样保留。 */
+    /** 既存の JSONL から使用法フィールドを元の順序で取得します。古いレコードの null 値、同じステップに対する複数の応答、ステップ番号のない圧縮イベントはそのまま残されます。 */
     fun usageLog(runId: String): String {
         val dir = dirOf(runId) ?: throw FileNotFoundException("Run is unavailable")
         return File(dir, EVENTS).useLines { lines ->
@@ -103,7 +103,7 @@ class RunStore internal constructor(
                     } catch (_: SerializationException) { null }
                     val type = event?.get("type") as? JsonPrimitive
                     if (event == null || type == null) {
-                        // 进程中断可能留下一行没写完的记录。标出缺口，保留其余事件。
+                        // プロセスの中断により、未完了のレコード行が残る可能性があります。ギャップをマークし、残りのイベントを保持します。
                         appendLine("""{"type":"unreadable_event","line":${index + 1}}""")
                         continue
                     }
@@ -118,8 +118,8 @@ class RunStore internal constructor(
     }
 
     /**
-     * 运行记录关上之后补记一个事件(交出回答后判的结局):追加到 events.jsonl,并计入 run.json 的概要。
-     * 记录已被清掉或写盘失败只记日志,不影响任务。
+     * 実行レコードがオフになった後、追加のイベントが記録されます (結果は回答の提出後に判断されます)。events.jsonl に追加され、run.json の概要に含まれます。
+     * レコードがクリアされたか、ディスクへの書き込みに失敗しました。ログのみが記録され、タスクには影響しません。
      */
     @Synchronized
     fun append(runId: String, e: RunEvent) {
@@ -137,13 +137,13 @@ class RunStore internal constructor(
 
     fun screen(runId: String, id: Int): File? = dirOf(runId)?.let { File(it, screenPath(id)) }?.takeIf { it.isFile }
 
-    /** 复制到外部文件目录的 runs/ 下,便于拉到开发机(调试版和评测用);那边同样只留最近 [keep] 次。 */
+    /** は、(デバッグと評価の目的で) 開発マシンに簡単にプルできるように、外部ファイル ディレクトリの run/ にコピーされます。最新の [keep] 時間だけがそこに残ります。 */
     fun mirrorToExternal(runId: String) {
         val ext = File(externalDir() ?: return, "runs")
         if (copyTo(runId, File(ext, runId))) runCatching { dirsIn(ext).dropLast(keep).forEach { it.deleteRecursively() } }
     }
 
-    /** 把一次运行的整个目录复制到 [dest](评测把每题的记录放到自己的结果目录下)。 */
+    /** 実行のディレクトリ全体を [dest] にコピーします (評価では、各質問のレコードが独自の結果ディレクトリに配置されます)。 */
     fun copyTo(runId: String, dest: File): Boolean {
         val src = dirOf(runId) ?: return false
         return runCatching { src.copyRecursively(dest, overwrite = true) }
@@ -151,7 +151,7 @@ class RunStore internal constructor(
             .getOrDefault(false)
     }
 
-    /** 只接受本目录下真实存在的运行,防止拼出别的路径。 */
+    /** は、他のパスが指定されるのを防ぐために、このディレクトリ内で実際の操作のみを受け入れます。 */
     private fun dirOf(runId: String): File? =
         File(root, runId).takeIf { ID_RE.matches(runId) && it.isDirectory }
 
@@ -183,10 +183,10 @@ class RunStore internal constructor(
 }
 
 /**
- * 一次运行的记录;任务结束时 [close]。
- * 写盘和压图都在一个专用线程上做,[event]/[screen] 只入队、从不阻塞 Agent 循环;小结([RunMetrics])也在这个线程上边写边算,
- * 写完最后一个事件交给 [finished](跑起来过的运行才有);
- * 画面积压超过 [MAX_PENDING_FRAMES] 张时丢最旧的。[close] 会等队列写完(最多 [CLOSE_WAIT_MS])。
+ * 実行の記録。タスクの最後には [close]。
+ * は、専用スレッドでディスクに書き込み、イメージを圧縮します。 [event]/[screen] はキューに参加するだけで、エージェント ループをブロックすることはありません。概要 ([RunMetrics]) もこのスレッドに書き込まれ、計算されます。
+ * は最後のイベントを書き込み、それを [finished] に渡します (以前に実行されている場合のみ)。
+ * 画面バックログが [MAX_PENDING_FRAMES] を超えると、最も古いものが失われます。 [close] は、キューの書き込みが完了するまで待機します (最大 [CLOSE_WAIT_MS])。
  */
 class RunHandle internal constructor(
     val runId: String,
@@ -246,12 +246,12 @@ class RunHandle internal constructor(
                     done = true
                 } else {
                     batch = events.toList().also { events.clear() }
-                    // 事件优先;画面一次一张,中间回来看有没有新事件
+                    // イベントの優先順位。一度に 1 枚ずつ写真を撮り、途中で戻って新しいイベントがあるかどうかを確認します
                     frame = if (batch.isEmpty()) frames.removeFirstOrNull() else null
                 }
             }
             if (done) {
-                // 小结在锁外写:写的是另一个文件,不挡着别的线程
+                // 概要はロックの外側に書き込まれます。別のファイルに書き込まれ、他のスレッドをブロックしません。
                 metrics.build()?.let { m -> safely("metrics") { finished(m) } }
                 return
             }
@@ -261,12 +261,12 @@ class RunHandle internal constructor(
     }
 
     private fun write(e: RunEvent) {
-        // 先计入概要再追加,即使追加失败,结局也会写进 run.json
+        // は最初に概要に含まれ、その後追加されます。追記に失敗しても結末はrun.jsonに書き込まれる
         summary = summary.with(e)
         metrics.add(e)
         safely("event") { File(dir, RunStore.EVENTS).appendText(RunEvent.encode(e) + "\n") }
         sinceSummary += 1
-        // 定期刷新概要:进程被杀时 run.json 里也有大致的步数和用量
+        // 定期更新の概要: プロセスが強制終了されると、run.json におおよそのステップ数と使用量も表示されます。
         if (e is RunEvent.TaskEnded || sinceSummary >= SUMMARY_EVERY) writeSummary()
     }
 
@@ -302,7 +302,7 @@ class RunHandle internal constructor(
     }
 }
 
-/** 先只读尺寸,按 2 的幂降采样解码,再缩到宽 ≤ 720,JPEG 质量 70。 */
+/** は、まずサイズのみを読み取り、2 の累乗でダウンサンプリングしてデコードしてから、幅 ≤ 720、JPEG 品質 70 に縮小します。 */
 private fun toJpeg(png: ByteArray): ByteArray? {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeByteArray(png, 0, png.size, bounds)

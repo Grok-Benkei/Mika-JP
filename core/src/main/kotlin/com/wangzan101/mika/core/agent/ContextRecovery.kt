@@ -6,8 +6,8 @@ import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.model.Role
 
 /**
- * 压缩后的确定性兜底:用户原话(含插话)与固定知识/技能规则一条也不能消失。
- * 比对时不看运行时状态(折叠会把它去掉,同一条消息仍算在);真的不见了的放回它在完整历史里的位置,不接到末尾。
+ * 圧縮後の確実性：ユーザーのオリジナルの言葉（中断を含む）と固定された知識/スキルのルールは消えません。
+ * は、比較するときに実行時ステータスを参照しません (フォールディングすると削除されますが、同じメッセージは引き続きカウントされます)。本当に欠落している場合は、完全な履歴の中での位置に戻され、最後まで接続されなくなります。
  */
 internal object ContextRecovery {
     fun ensure(full: List<Message>, compressed: List<Message>): List<Message> {
@@ -27,7 +27,7 @@ internal object ContextRecovery {
         val out = compressed.toMutableList()
         val at = origins.toMutableList<Int?>()
         for (i in missing) {
-            // 放在第一条出自它之后的消息前面;不夹进调用与结果之间
+            // は、その後に来る最初のメッセージの前に配置されます。呼び出しと結果の間に挟まれることはありません。
             var pos = at.indexOfFirst { it != null && it > i }.let { if (it < 0) out.size else it }
             while (pos < out.size && out[pos].role == Role.Tool) pos++
             out.add(pos, ContextBuilder.withoutRuntimeState(full[i]))
@@ -36,7 +36,7 @@ internal object ContextRecovery {
         return out
     }
 
-    /** 压缩后的每条消息出自完整历史的哪一条(按调用编号或原样认;摘要等新写的为 null)。 */
+    /** 各圧縮メッセージが完全な履歴のどの部分に由来するか（請求記号またはそのままで識別されます。サマリなど新たに作成されたものは null）。 */
     private fun origins(full: List<Message>, compressed: List<Message>): List<Int?> {
         val byId = HashMap<String, Int>()
         val byKey = HashMap<Message, ArrayDeque<Int>>()

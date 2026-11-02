@@ -8,7 +8,7 @@
 <iframe id="same" src="fusion-child.html"></iframe>
 <iframe id="cross" src="https://fixtures2.androidplatform.net/assets/web-fixtures/fusion-xchild.html"></iframe>
 <script>
-// 全写在函数里:顶层 var 会撞上 window 自带的只读属性(如 window.closed),整段脚本就此中断
+// すべて関数内に書く。トップレベルの var は window の読み取り専用プロパティ（window.closed など）と衝突し、スクリプト全体がそこで中断する。
 window.__log = [];
 window.L = function (s) { window.__log.push(s); };
 (function () {

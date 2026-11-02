@@ -6,22 +6,22 @@ import com.wangzan101.mika.core.action.Risk as ApprovalRisk
 import kotlinx.serialization.json.JsonObject
 
 /**
- * 工具自己声明会对外部世界做什么。
- * Read:只读(读屏、读网页、查记忆、报失败一类),只读调用可以直接做;
- * Write:改变屏幕、页面或沙箱,只能经执行入口;
- * External:除了改变界面,还可能按目标元素发出、付款、提交(不可逆判定要看它的目标)。
+ * ツール自体が、外部の世界に対して何を行うかを宣言します。
+ * 読み取り: 読み取り専用 (画面の読み取り、Web ページの読み取り、メモリのチェック、失敗のレポート)、読み取り専用呼び出しを直接行うことができます。
+ * 書き込み: 画面、ページ、またはサンドボックスの変更は、実行エントリを通じてのみ実行できます。
+ * 外部: インターフェイスの変更に加えて、対象の要素に応じて発行、支払い、送信することも可能です (不可逆性の判断は対象によって異なります)。
  */
 enum class Risk { Read, Write, External }
 
-/** 入口工具:[Opens] 调用后展开它那一组;[Alone] 单用就够(列出 App、读一个网址的正文),调用不展开。 */
+/** 入口ツール: [Opens] は呼び出し後にグループを拡張します。 [Alone] だけで十分ですが (アプリの一覧表示、URL のテキストの読み取り)、通話は拡張されません。 */
 enum class Entry { Opens, Alone }
 
-/** 能不能和别的调用同时做;默认一次一个。 */
+/** は他の呼び出しと同時に実行できますか。デフォルトは一度に 1 つです。 */
 enum class Concurrency { Serial, ParallelSafe }
 
 /**
- * 工具做的是什么动作。按动作做判断的地方(守卫、裁剪、路线、批量、模型分工……)都看它,不看工具名;
- * 屏幕上的动作与读屏在几种界面上各有一个同动词的工具。
+ * ツールはどのようなアクションを実行しますか?アクション (ガード、クロップ、ルート、バッチ、分業モデルなど) に基づいて判断が行われる場合は、ツール名ではなくすべてのアクションに注目します。
+ * 画面上のアクションと画面の読み取りには、それぞれ複数のインターフェイスに同じ動詞を持つツールがあります。
  */
 enum class Verb {
     Observe, ListElements, Query, Collect, PhoneRun, PhoneFind, PhoneExtract, PhoneDialog, PhoneEvent, PhoneGesture, PhoneCommand, Screenshot, ViewPastScreens, ViewUserScreen, Describe, FindVisually, Diagnose,
@@ -36,25 +36,25 @@ enum class Verb {
     SpawnAgent, SettingsList, SettingsSet,
 }
 
-/** 按名字查得到的工具声明。 */
+/** ツール宣言が名前で見つかりました。 */
 interface ToolInfo {
     val name: String
     val verb: Verb
-    /** 所属能力的 id;核心自己的工具为 null。 */
+    /** それが属する機能の ID。コア独自のツールの場合は null。 */
     val capability: String?
-    /** 能放进一次多步(do_steps)。 */
+    /** は、複数のステップ (do_steps) を一度に入力できます。 */
     val batchable: Boolean
-    /** 经验路线记它、回放它。 */
+    /** 体験ルートを記憶して再生します。 */
     val routable: Boolean
-    /** 界面上的说法;没有时显示工具名。 */
+    /** はインターフェースでこう言いました。そうでない場合は、ツール名が表示されます。 サンドボックス内の */
     val label: String?
-    /** 沙箱里的 `mika phone <操作>` 能调它(手机能力、结果是文字);其余一律拒绝。 */
+    /** `mika phone <操作>` は調整できます (携帯電話の機能、結果はテキストです)。残りは拒否されます。 */
     val sandboxCallable: Boolean get() = false
 }
 
 /**
- * 按名字查工具声明;不认识的名字为 null。[former] 把改名前的名字认成现在的(读旧的运行记录时用,见 LegacyNames);
- * [names] 只有现在登记的名字。
+ * 名前による検索ツール宣言。不明な名前は null です。 [former] 名前変更前の名前を現在の名前として認識します (古い実行レコードを読み取るときに使用されます。LegacyNames を参照)。
+ * [names] 現在登録されている名前のみ。
  */
 class ToolIndex(tools: Collection<ToolInfo>, private val former: (String) -> String? = { null }) {
     private val byName: Map<String, ToolInfo> = tools.associateBy { it.name }
@@ -65,17 +65,17 @@ class ToolIndex(tools: Collection<ToolInfo>, private val former: (String) -> Str
 
     fun verb(name: String?): Verb? = get(name)?.verb
 
-    /** 做这个动作的工具名:[capability] 给了时只找那个能力的(核心的工具为 null 的那组),没给时取先登记的。 */
+    /** このアクションを実行するツールの名前: [capability]。与えられた場合、その能力を持つものだけが見つかります (コアツールが null のグループ)。指定されていない場合は、最初に登録されたものが採用されます。 */
     fun nameOf(verb: Verb, capability: String? = null): String? =
         byName.values.firstOrNull { it.verb == verb && (capability == null || it.capability == capability) }?.name
 
-    /** 屏幕能力 [from] 那一套里做同一动作的工具在 [to] 那一套里叫什么;没有为 null。 */
+    /** 画面機能 [from] [to] のセットで同じアクションを実行するツールの名前は何ですか。そうでない場合は null です。 */
     fun counterpart(name: String, to: String): String? = get(name)?.let { nameOf(it.verb, to) }
 }
 
 /**
- * 一个工具:定义(名字、说明、参数)+ 声明的风险 + 执行。新工具 = 新增一个实现并在所属能力里登记,分发器不认识具体工具。
- * 状态都在 [ToolContext] 里,工具本身无状态。
+ * ツール: 定義 (名前、説明、パラメーター) + 宣言されたリスク + 実行。新しいツール = 実装を追加し、対応する機能に登録します。配布者は具体的なツールを知りません。
+ * のステータスは [ToolContext] であり、ツール自体にはステータスがありません。
  */
 internal interface AgentTool : ToolInfo {
     val def: ToolDef
@@ -83,78 +83,78 @@ internal interface AgentTool : ToolInfo {
     override val batchable: Boolean get() = false
     override val routable: Boolean get() = false
     override val label: String? get() = null
-    /** 不动屏幕(沙箱一类):不过锁屏关卡、不进屏幕守卫,结果里的图是文件不是屏幕画面。 */
+    /** は画面を移動しません (サンドボックス タイプ): 画面レベルをロックし、スクリーン ガードに入りません。結果の画像はファイルであり、画面イメージではありません。 */
     val offScreen: Boolean get() = false
     val risk: Risk
-    /** 非界面能力可直接声明审批风险；界面工具仍按目标和当前观察判。 */
+    /** 非インターフェイス機能は承認リスクを直接宣言できます。インターフェイス ツールは依然としてターゲットと現在の観察に基づいて判断されます。 */
     val approvalRisk: ApprovalRisk? get() = null
     val concurrency: Concurrency get() = Concurrency.Serial
-    /** 不可逆判定按什么看这次调用的目标;External 的工具必须给,其余为 null(不判)。 */
+    /** 取り消しできない判断は、この呼び出しのターゲットが何であるかによって異なります。外部ツールを指定する必要があり、残りは null (判定されません)。 */
     val gateTarget: GateTarget? get() = null
-    /** 自己不动界面,里面的动作一个个经执行入口回来(页面脚本):不过锁屏关卡,也不能作为只读调用。 */
+    /** はインターフェイスを移動せず、内部のアクションは実行入り口 (ページ スクリプト) を通じて 1 つずつ返されます。ただし、ロック画面レベルを読み取り専用呼び出しとして呼び出すことはできません。 */
     val composite: Boolean get() = false
     /**
-     * 能力那一组收着时也提供的入口(见 [ToolGroups]):收着时用短说明(prompts/entries/<工具名>.md),展开后换回全文。
-     * 不是入口为 null。
+     * 能力グループは、閉じたときに入り口も提供します ([ToolGroups] を参照)。閉じたときに短い説明 (prompts/entries/<ツール名>.md) を使用し、展開して全文に戻ります。
+     * は null エントリではありません。
      */
     val entry: Entry? get() = null
-    /** 不属于哪个能力、只在有屏幕的那几组展开时才提供的通用工具(接管、报障碍、回看画面)。 */
+    /** はどの能力にも属さず、画面を持つグループが展開された場合にのみ提供される汎用ツール（乗っ取り、障害の報告、画面の確認）です。 */
     val withScreens: Boolean get() = false
     /**
-     * 撤掉也什么都不丢的调用(只是等待,或只问看图模型、不动界面):用户插话一到就撤掉,
-     * 结果报 [com.wangzan101.mika.core.run.SKIPPED_FOR_NEW_MESSAGE],模型先读这句话,还要的话再调一次。
+     * 通話をキャンセルしても、何も失われることはありません (インターフェイスを移動せずに、ただ待つか、画像モデルを見るように頼むだけです): ユーザーが中断したらすぐにキャンセルしてください。
+     * 結果は [com.wangzan101.mika.core.run.SKIPPED_FOR_NEW_MESSAGE] として報告されます。モデルは最初にこの文を読み取り、必要に応じて再度調整します。
      */
     val yieldsToSteer: Boolean get() = false
 
     override val name: String get() = def.name
-    /** 发给模型的定义;按本任务有几块屏另加参数的工具(surface)覆盖它。 */
+    /** はモデルの定義に送信されます。このタスクに従って、いくつかの画面とそれをカバーする追加のパラメーター ツール (サーフェス) があります。 */
     fun def(ctx: ToolContext): ToolDef = def
-    /** 说明出自哪个文件(prompts/tools/<file>.md);默认同名,几个工具共用一份模板时另写。 */
+    /** は、どのファイルからのものかを示します (prompts/tools/<file>.md)。デフォルトの名前は同じですが、複数のツールがテンプレートを共有する場合は別々に記述されます。 */
     val promptFile: String get() = name
     val description: String get() = def.description
-    /** 参数的 JSON schema(发给模型的那份)。 */
+    /** パラメーターの JSON スキーマ (モデルに送信されるもの)。 */
     val params: String get() = def.spec().parametersJsonSchema
 
     /**
-     * 这次调用作用在哪块屏上(屏幕能力的 id):屏幕工具是自己那块;说的是哪块屏由参数定的通用工具看参数;其余为 null(不变)。
-     * 分发器据此在调用前记下在操作哪块屏。
+     * この呼び出しがどの画面で機能するか (画面機能の ID): 画面ツールは独自のものです。これは、パラメータを参照するための一般ツールのパラメータによってどの画面が決定されるかを指します。残りは null (変更されていない) です。 したがって、
+     * 分配器は、通話前にどの画面を操作しているかを記録します。
      */
     fun aimAt(o: JsonObject): String? = capability
 
-    /** 本任务能不能调用(看配置:有没有看图模型、技能目录、网页端口……)。 */
+    /** このタスクを呼び出すことができるかどうか (構成を参照: ピクチャ モデル、スキル カタログ、Web ポートがあるかどうか...)。 現時点では、 */
     fun available(ctx: ToolContext): Boolean = true
 
-    /** 此刻放不放进发给模型的工具列表;默认同 [available]。 */
+    /** をモデルに送信されるツール リストに入れることはできません。デフォルトは [available] と同じです。 */
     fun offered(ctx: ToolContext): Boolean = available(ctx)
 
     suspend fun execute(a: Args, ctx: ToolContext): ToolExecution
 
-    /** 成功后结果里带动作之后的屏幕(动作自带屏幕开着时),能看图的主模型另附一帧画面。 */
+    /** 成功後、アクション後の画面が結果に含まれます（アクションのある画面がオンの場合）、画像を表示できるメイン モデルにはフレームが付けられます。 */
     val showsScreenAfter: Boolean get() = false
 
     /**
-     * 改变界面的动作(点、输入、清空、按键、返回、滑动……):分发器在动作前后各看一眼屏幕(元素表 + 画面),
-     * 把实际效果写进结果的 effect 字段(见界面状态一侧的 ActionEffect)。只读屏,不另做动作。
+     * インターフェイスのアクションを変更します (クリック、入力、クリア、キー、リターン、スライド...): ディストリビューターはアクションの前後の画面 (要素テーブル + 画面) を見て、
+     * 実際のエフェクトを結果のエフェクト フィールドに書き込みます (インターフェイス ステータス側の ActionEffect を参照)。画面を読み取るだけで、他のアクションは実行されません。
      */
     val reportsEffect: Boolean get() = false
 
-    /** 进动作清单(手机、网页、沙箱里会改变什么或去到哪里的动作);[wideTarget] 时对象留长一点。 */
+    /** はアクション リスト (何かを変更するアクション、または携帯電話、Web ページ、サンドボックス内の場所に移動するアクション) を入力します。 [wideTarget] はオブジェクトをより長く保持します。 */
     val logged: Boolean get() = false
     val wideTarget: Boolean get() = false
-    /** 动作清单里写的对象;要按编号写出元素的名字时从 [ctx] 取这块屏最近一次读屏。 */
+    /** はアクション リストに書かれたオブジェクトです。要素の名前を数字で書きたい場合は、この画面の最新の画面読み取りを[ctx]から取得してください。 */
     fun logTarget(o: JsonObject, r: ToolExecution, ctx: ToolContext): String? = null
-    /** 动作清单里写出的输入文字(只有确定不是密码框时)。 */
+    /** アクションリストに記載された入力文字列(パスワードボックスではないことが確認された場合のみ)。 */
     fun logTyped(o: JsonObject, r: ToolExecution): String? = null
 
     /**
-     * 结果里模型可能在最终回答里引用、执行时没有另给的观察(打开了哪个网页、命令的输出……);分发器把它们和结果里的
-     * [ToolExecution.observations] 一起记进核查材料。[log] 里是跨工具的少量状态(列出过的 App 名字、写过的文件)。
+     * 結果のモデルは最終回答で参照される可能性がありますが、実行時に他の観察は提供されません (どの Web ページが開かれているか、コマンドの出力など)。ディストリビュータはそれらを結果の結果と組み合わせます
+     * [ToolExecution.observations] も検証資料に併記されます。 [log] には、少量のクロスツール ステータス (リストされたアプリ名、書き込まれたファイル) が含まれています。
      */
     fun observations(o: JsonObject, r: ToolExecution, log: EvidenceLog): List<Observation> = emptyList()
 }
 
-/** 会改变屏幕、页面状态的工具:要过锁屏/暂停关卡。由声明的风险推出,不动屏幕的与页面脚本不在其中。 */
+/** 画面とページのステータスを変更できるツール: ロック画面/一時停止レベルを通過します。記載されているリスクに従って、画面以外のスクリプトやページ スクリプトはリスクに含まれません。 */
 internal val AgentTool.writesScreen: Boolean get() = risk != Risk.Read && !offScreen && !composite
 
-/** 只读调用能不能做:只读、动屏幕(不动屏幕的另有守卫)、不是页面脚本。 */
+/** 読み取り専用の呼び出しを行うことができます。読み取り専用、画面の移動 (画面を移動しないものにはガードがあります)、ページ スクリプトはできません。 */
 internal val AgentTool.readOnly: Boolean get() = risk == Risk.Read && !offScreen && !composite

@@ -3,16 +3,16 @@ package com.wangzan101.mika.capsule
 import com.wangzan101.mika.chat.CurrentChat
 
 /**
- * 点开空闲图标时卡片接着哪个对话(纯逻辑):用户在 App 里所在的那个([current],见 [CurrentChat]);没有记录时接着
- * 调用方读出来的最近那个([recent],进程刚起来、旧版本没有记录时才有);两个都没有就是一张新对话卡片。
+ * アイドル アイコンをクリックしたときにカードが続く会話 (純粋なロジック): ユーザーがアプリ内で参加している会話 ([current]、[CurrentChat] を参照)。記録がない場合に続く
+ * は呼び出し元によって読み取られた最新のものです ([recent]、これはプロセスが開始されたばかりで古いバージョンにレコードがない場合にのみ使用可能です)。どちらも存在しない場合、それは新しい対話カードです。
  *
- * [title] 给出对话 [CurrentChat.Open.id] 的标题(用户起的或第一句话),还没有时返回 null。
+ * [title] は、会話のタイトル [CurrentChat.Open.id] (ユーザーまたは最初の文によって指定) を与え、まだ聞いていない場合は null を返します。
  */
 object CapsuleIdle {
     fun chat(current: CurrentChat?, recent: CardView.Chat?, title: (String) -> String? = { null }): CardView.Chat = when (current) {
         null -> recent ?: CardView.Chat(null)
         CurrentChat.Fresh -> CardView.Chat(null, fresh = true)
-        // 记着它是「用户此刻在的那个」:别的对话里已结束、还挂着的结果不把卡片抢过去(见 [CapsuleCards.of])
+        // それが「ユーザーが現在いるもの」であることを忘れないでください。他の会話が終了し、まだ保留中の場合は、カードを取得しないでください ([CapsuleCards.of] を参照)
         is CurrentChat.Open -> CardView.Chat(current.id, title = title(current.id), current = true)
     }
 }

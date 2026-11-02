@@ -40,18 +40,18 @@ class ToolDispatcherActionTargetTest {
         d.execute(call("phone_tap", """{"ref":"@e2","snapshotId":"s1"}"""))
         val (target, before) = d.interfaces.lastActionTarget()!!
         assertEquals(Selector("button", "新建", "n:id/new", listOf(800, 900, 999, 999), 0, uniqueAtRecord = true), target)
-        // 时间样式的字、目标自己、列表里的条目都不当锚点
+        // 時間スタイルの単語、ターゲット自体、およびリスト内の項目は、適切なアンカー ポイントではありません。
         assertEquals(Anchors("com.notes", listOf("备忘录", "全部笔记")), before)
     }
 
     @Test fun coordinateTapCapturesElementAtPoint() = runTest {
         val s = NotesScreen(); val d = toolDispatcher(s).also { it.captureTargets = true }
         d.execute(call("phone_observe"))
-        // 落在列表(大)和「购物清单」(小)里:取最小的那个
+        // はリスト (大) と「ショッピング リスト」(小) に含まれます。最小のものを選択します。
         d.execute(call("phone_tap", """{"x":500,"y":230}"""))
         val (target, before) = d.interfaces.lastActionTarget()!!
         assertEquals(Selector("button", "购物清单", null, listOf(0, 200, 999, 260), 0, uniqueAtRecord = true), target)
-        // 有资源 ID 的排前面
+        // リソース ID を持つものが 1 位になります
         assertEquals(listOf("新建", "备忘录", "全部笔记"), before.texts)
     }
 
@@ -104,7 +104,7 @@ class ToolDispatcherActionTargetTest {
             el("@e9", "edit", "写点什么", listOf(0, 120, 999, 900), editable = true),
             el("@e10", "button", "完成", listOf(800, 0, 999, 60), clickable = true),
         )
-        // 输入框里的字是内容不是界面,不当锚点
+        // 入力ボックス内の単語はインターフェイスではなくコンテンツであり、適切なアンカー ポイントではありません。
         assertEquals(Anchors("com.notes", listOf("新笔记", "完成")), d.interfaces.actionAfter())
     }
 }

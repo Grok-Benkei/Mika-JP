@@ -1,54 +1,54 @@
 package com.wangzan101.mika.core.shell
 
-/** 引导的六步,按顺序。 */
+/** 6 つの手順で起動します。 */
 enum class SetupStep { DeveloperOptions, UsbDebugging, Accessibility, WirelessDebugging, PairingCode, Connect }
 
-/** [Skipped]:用户跳过了这一步(只有无障碍能跳过)。 */
+/** [Skipped]: ユーザーはこのステップをスキップしました (バリアがない場合にのみスキップできます)。 */
 enum class StepMark { Done, Current, Todo, Failed, Skipped }
 
 enum class SetupPhase {
-    /** 等用户做某一步。 */
+    /** は、ユーザーが特定のステップを実行するのを待ちます。 */
     Guide,
-    /** 正在配对、连接、启动:显示进度。 */
+    /** はペアリング、接続、開始中: 進行状況を表示します。 */
     Working,
     Success,
-    /** 出错:[SetupView.failure] 给原因和修复,[SetupView.suspect] 指出最可能要回去重做的一步。 */
+    /** エラー: [SetupView.failure] は理由と修正を示し、[SetupView.suspect] は戻ってやり直す可能性が最も高い手順を示します。 */
     Failed,
-    /** 这个环境里没有能起助手的路(见 [PhoneSetupFlow.unavailable]):一开始就说明,不给走不通的步骤。 */
+    /** この環境ではアシスタントを取得する方法はありません ([PhoneSetupFlow.unavailable] を参照)。最初から説明し、機能しない手順を提示しないでください。 */
     Unavailable,
 }
 
-/** 配对通知频道的样子:[Off] 被关掉,通知发不出来;[Lowered] 被用户调成不在屏幕顶部弹出,还能下拉通知栏去填。 */
+/** ペアリング通知チャネルは次のようになります: [Off] はオフになっており、通知は送信できません。 [Lowered] は、画面上部にポップアップ表示されないようにユーザーが調整し、通知バーを引き下げて通知バーを埋めることができます。 */
 enum class PairingChannelHealth { Ready, Lowered, Off }
 
-/** 配对码要填在通知里,通知这边没准备好的地方。 */
+/** 未準備地域に通知するには、通知にペアリングコードを記入する必要があります。 */
 enum class PairingNotifyIssue {
-    /** 没允许 Mika 发通知(权限或整个 App 的通知开关)。 */
+    /** ミカは通知を送信することを許可されていません（アプリ全体の許可または通知切り替え）。 */
     NotificationsOff,
-    /** 「配对」这一类通知被关掉了。 */
+    /** 「ペアリング」通知がオフになりました。 */
     ChannelOff,
-    /** 「配对」通知不会弹出:不挡,只提醒。 */
+    /** 「ペアリング」通知はポップアップしません。ブロックされず、通知されるだけです。 */
     NotHeadsUp,
 }
 
 /**
- * 引导页的输入:系统设置里读到的开关、用户自己的确认和助手的状态。
- * 读到的开关只用来自动打勾和给提示,不拦死:有的手机读不到或读不准,用户点了「我已经打开了,下一步」([confirmed])就往下走。
- * [wirelessDebugging] 为 null 表示这台手机读不到这个开关(不按原版写设置项):不拦着,当作开着往下走。
- * [confirmed] 是用户说已经做好的几步;[revisit] 是用户在清单里点了前面的某一步,要回去重做。
- * [repair] 是用户在设置页点了「重新配对」:即便已在运行,也回到配对那一步,直到新的配对开始。
- * [usbDebugging] 开着时,Wi-Fi 断开、无线调试被系统关掉后助手也不会停。
- * [accessibility] 是 Mika 的无障碍服务在运行:配对时由它读出配对码;用户可以跳过([accessibilitySkipped]),退回在通知里填。
- * [restrictedSettings] 是系统可能拦着不让打开无障碍(没从应用商店装的 App 要先在应用信息里允许受限制的设置)。
- * [notificationsAllowed]、[pairingChannel] 决定配对码能不能填在通知里。
- * 下面三项决定要不要给「改用电脑启动」(见 [SetupView.usbFallback]):
- * [wirelessMissing] 是系统里根本没有无线调试这一项(原版开机时总会写好这项设置,读不到就是系统没带这个功能);
- * [stalledMs] 是停在无线调试、配对(还没找到配对窗口)、自动连接这几处多久没有进展(见 [PhoneSetupFlow.stallPoint]);
- * [usbAsked] 是用户点了「找不到无线调试?」,或卡片已经出现过(出现后不再收回,免得一会儿有一会儿没)。
- * [restart] 是助手停了以后靠什么再起来(见 [HelperRestart]):只用 USB 启动命令起过时,无线调试和配对两步记作跳过,
- * 助手停了就停在连接一步说它停了、给命令,不退回无线调试一步。
- * [developerSettingsMissing] 是系统里打不开「开发者选项」页(跳过去的 Intent 没有页面接):和 [wirelessMissing] 一起成立时,
- * 用户既开不了 USB 调试也开不了无线调试,见 [PhoneSetupFlow.unavailable]。
+ * ブート ページの入力: スイッチはシステム設定、ユーザー自身の確認、およびアシスタントのステータスを読み取ります。
+ * によって読み取られるスイッチは、自動的にチェックを入れてプロンプトを表示するためにのみ使用され、ブロックされません。一部の携帯電話ではスイッチを読み取れないか、正確に読み取れません。ユーザーは「開いたので次のステップ」([confirmed]) をクリックしてダウンします。
+ * [wirelessDebugging] は null です。これは、携帯電話がこのスイッチを読み取ることができないことを意味します (元のバージョンに従って設定項目を書き込まないでください)。ブロックしないでください。オープンとみなされ、ダウンします。
+ * [confirmed] は、ユーザーが完了したと述べた手順を指します。 [revisit] は、リスト内の前のステップをクリックし、戻ってやり直したいユーザーを指します。
+ * [repair] ユーザーが設定ページで「再ペアリング」をクリックしました。すでに実行されている場合でも、新しいペアリングが開始されるまでペアリング手順に戻ります。
+ * [usbDebugging] がオンの場合、Wi-Fi が切断されたり、システムによってワイヤレス デバッグがオフになったりしても、アシスタントは停止しません。
+ * [accessibility] は、Mika のアクセシビリティ サービスが実行されています。ペアリング時にペアリング コードを読み取ります。ユーザーは ([accessibilitySkipped]) をスキップして、それを返して通知に記入することができます。
+ * [restrictedSettings] システムにより、アクセシビリティが開かれない可能性があります (アプリ ストアからインストールされていないアプリは、まずアプリ情報で制限された設定を許可する必要があります)。
+ * [notificationsAllowed]、[pairingChannel] は、通知にペアリング コードを入力できるかどうかを決定します。
+ * 次の 3 つの決定により、「コンピューターの起動を使用する」かどうかが決まります ([SetupView.usbFallback] を参照)。
+ * [wirelessMissing] システムにはワイヤレス デバッグはまったくありません (この設定は、オリジナル バージョンをオンにすると常に書き込まれます。読み取れない場合は、システムにこの機能がありません)。
+ * [stalledMs] は、ワイヤレス デバッグ、ペアリング (ペアリング ウィンドウがまだ見つかりません)、および自動接続で長時間進行せずにスタックしています ([PhoneSetupFlow.stallPoint] を参照)。
+ * [usbAsked] ユーザーが「ワイヤレス デバッグが見つかりませんか?」をクリックしたか、カードがすでに表示されています (しばらく消えないように、表示された後は取り戻されません)。
+ * [restart] は、アシスタントが停止した後に再び起動するために依存するものです ([HelperRestart] を参照): USB 起動コマンドのみが使用される場合、ワイヤレス デバッグとペアリングの 2 つのステップはスキップされたものとして記録されます。
+ * アシスタントが停止すると、接続ステップで停止し、停止したと表示され、コマンドが与えられ、ワイヤレス デバッグ ステップには戻りません。
+ * [developerSettingsMissing] はシステムの「開発者向けオプション」ページを開けません (スキップされたインテントにはページ接続がありません): [wirelessMissing] と一緒に確立されると、
+ * ユーザーは、USB デバッグもワイヤレス デバッグも有効にすることができません。[PhoneSetupFlow.unavailable] を参照してください。
  */
 data class SetupInputs(
     val developerOptions: Boolean,
@@ -71,57 +71,57 @@ data class SetupInputs(
     val developerSettingsMissing: Boolean = false,
 )
 
-/** 配对或连接没成功时最可能的原因:[step] 这一步读到是关着的;[unreadable] 为真是这台手机根本读不到。 */
+/** ペアリングまたは接続が失敗する場合の最も考えられる理由: [step] この読み取りステップがオフになっています。 [unreadable] はこの携帯電話では実際には読み取れません。 */
 data class SetupSuspect(val step: SetupStep, val unreadable: Boolean)
 
 data class SetupView(
     val phase: SetupPhase,
     val marks: Map<SetupStep, StepMark>,
-    /** 此刻该做的一步(Guide 和 Failed 时);Working/Success 时为 null。 */
+    /** 現時点で実行するステップ (ガイドおよび失敗時)。作業中/成功の場合は null。 */
     val current: SetupStep?,
     val failure: BuiltinShellStatus.Failed? = null,
-    /** 配对窗口已经找到:提示用户去通知里填码。 */
+    /** ペアリング ウィンドウが見つかりました: ユーザーに通知内のコードを入力するように求めます。 */
     val portFound: Boolean = false,
-    /** 停在配对一步时通知这边的问题;[needsNotifications] 为真时要先修好才能在通知里填码。 */
+    /** はペアリングの最初のステップで停止し、ここで問題を通知します。 [needsNotifications] が true の場合、通知にコードを入力する前に修復する必要があります。 */
     val notifyIssue: PairingNotifyIssue? = null,
-    /** 配对一步时无障碍开着:Mika 自己读配对码,不用去通知里填。 */
+    /** は、ペアリングの最初のステップで何の障害もなく開いています。ミカはペアリング コードを自分で読み取ります。通知にコードを記入する必要はありません。 */
     val autoRead: Boolean = false,
-    /** 无障碍一步时给出「去应用信息允许受限制的设置」的入口。 */
+    /** は、アクセシビリティの 1 ステップで「アプリケーション情報に移動して制限付き設定を許可する」への入り口を提供します。 */
     val showAppInfo: Boolean = false,
-    /** 失败时最可能要回去重做的前一步,界面给一个回去的按钮。 */
+    /** 失敗した場合は、前のステップに戻ってやり直す必要がある可能性が高くなります。インターフェイスには戻るボタンが用意されています。 */
     val suspect: SetupSuspect? = null,
-    /** 当前这一步是用户点回来重做的:界面给「回到原来的步骤」。 */
+    /** 現在のステップは、ユーザーがクリックして戻るとやり直すためのものです。インターフェイスには「元のステップに戻る」と表示されます。 */
     val revisiting: Boolean = false,
-    /** 在当前这一步给「改用电脑启动」的卡片:无线调试多半用不了,或者卡住了。正常走下去时不给。 */
+    /** 現在の手順では、「コンピューターを使用して開始する」ためのカード: ワイヤレス デバッグが利用できないか、スタックしている可能性があります。普通に歩いているときは与えられません。 */
     val usbFallback: Boolean = false,
-    /** 助手停了以后靠什么再起来(照抄 [SetupInputs.restart]):成功页的提醒、「改用电脑启动」卡片怎么说看它。 */
+    /** アシスタントが停止した後に再び立ち上がるために何を頼りにするか ([SetupInputs.restart] からコピー): 成功ページのリマインダーと、「代わりにコンピューターで開始する」カードの内容。見てください。 */
     val restart: HelperRestart = HelperRestart.None,
 ) {
-    /** 通知发不出来(没允许,或「配对」通知被关):配对码要填在通知里,先修好。 */
+    /** 通知を送信できません (許可されていないか、「ペアリング」通知がオフになっています): ペアリング コードを通知に入力し、最初に修正する必要があります。 */
     val needsNotifications: Boolean
         get() = notifyIssue == PairingNotifyIssue.NotificationsOff || notifyIssue == PairingNotifyIssue.ChannelOff
 }
 
 /**
- * 引导页的状态机:每次输入变化(系统设置开关、用户确认、助手状态、找配对窗口的进度)都重新算一遍,不存中间状态。
- * 成功只看助手:连上了就算设置好,不管前面读到什么。前面几步读到做好了就自动打勾;读到没做好、用户也没确认,就停在那一步,
- * 但用户随时可以点「我已经打开了,下一步」往下走,所以哪一步都不会卡死。
- * 读到开关被关掉、又没确认过时,不管助手之前怎样,都退回那一步。
+ * ブート ページのステート マシン: すべての入力変更 (システム設定スイッチ、ユーザー確認、アシスタント ステータス、ペアリング ウィンドウの検索の進行状況) が再計算され、中間状態は保存されません。
+ * 成功はアシスタントにのみ依存します。接続されると、以前に読み取られた内容に関係なく、セットアップされます。前の手順で完了したと判断された場合は、自動的にチェックされます。まだ完了していないことが読み取られ、ユーザーがそれを確認していない場合は、そのステップで停止します。
+ * ただし、ユーザーはいつでも「開いた、次のステップ」をクリックして下に進むことができるため、どのステップもスタックすることはありません。
+ * スイッチがオフで時間が確認されていないことを読み取ると、アシスタントが以前に何をしていても、そのステップに戻ります。
  */
 object PhoneSetupFlow {
-    /** 配对、连接时可能因为前面的开关没开而失败的几类(配对码不对说明配对窗口开着,不算)。 */
+    /** 前面スイッチがオンになっていないために失敗する可能性のあるペアリングと接続にはいくつかの種類があります (ペアリング コードが正しくなく、ペアリング ウィンドウが開いていることを示すため、カウントされません)。 */
     private val SWITCH_RELATED = setOf(BuiltinShellFailure.PairingWindowClosed, BuiltinShellFailure.ConnectFailed, BuiltinShellFailure.Unknown)
 
-    /** 用户能点回去重做的几步:自动连接那一步没有要用户做的事。 */
+    /** ユーザーが「戻る」をクリックしてやり直すことができる手順がいくつかあります。自動接続手順では、ユーザーが行うことは何もありません。 */
     val REVISITABLE: Set<SetupStep> = SetupStep.entries.toSet() - SetupStep.Connect
 
-    /** 有「我已经打开了,下一步」的几步:读的是系统开关(无障碍另有跳过)。 */
+    /** には、「電源を入れました。次のステップ」といういくつかのステップがあります。システム スイッチを読み取ります (障害物がない場合はスキップされます)。 */
     val CONFIRMABLE: Set<SetupStep> = setOf(SetupStep.DeveloperOptions, SetupStep.UsbDebugging, SetupStep.WirelessDebugging)
 
-    /** 停在 [stallPoint] 这么久没有进展,就给「改用电脑启动」。 */
+    /** は [stallPoint] で停止しました。あまりにも長い間進歩がなかったので、「代わりにコンピューターを使い始めましょう」としました。 */
     const val STALL_MS = 45_000L
 
-    /** 这几类失败说明无线调试这条路走不通,给「改用电脑启动」:找不到配对窗口、连不上、电脑起的助手停了。 */
+    /** これらの種類の障害は、ワイヤレス デバッグ パスが利用できず、問題は「代わりにコンピューターの起動を使用する」ことを示します。つまり、ペアリング ウィンドウが見つからず、接続が確立できず、コンピューター起動アシスタントが停止しています。 */
     private val USB_FAILURES = setOf(BuiltinShellFailure.PairingWindowClosed, BuiltinShellFailure.ConnectFailed, BuiltinShellFailure.UsbHelperStopped)
 
     fun view(i: SetupInputs): SetupView {
@@ -130,9 +130,9 @@ object PhoneSetupFlow {
     }
 
     /**
-     * 这个环境能不能设置手机操作:系统里打不开开发者选项页、也没有无线调试这一项,就没有能起助手的路
-     * (USB 调试和无线调试都在开发者选项里,电脑启动也要 USB 调试)。助手已经在运行、正在起来,或以前起来过,
-     * 说明有别的路,不算。
+     * この環境で携帯電話の操作をセットアップすることはできますか: システムで開発者向けオプション ページを開くことができず、ワイヤレス デバッグ項目がないため、アシスタントをアクティブにする方法がありません。
+     * (USB デバッグとワイヤレス デバッグは両方とも開発者向けオプションにあり、コンピューターの起動時に USB デバッグも必要です)。アシスタントはすでに実行中か、起動中、または以前に起動していました。
+     * は他の方法があることを意味するため、カウントされません。
      */
     fun unavailable(developerSettingsMissing: Boolean, wirelessMissing: Boolean, status: BuiltinShellStatus, restart: HelperRestart): Boolean =
         developerSettingsMissing && wirelessMissing && restart == HelperRestart.None &&
@@ -142,8 +142,8 @@ object PhoneSetupFlow {
         unavailable(i.developerSettingsMissing, i.wirelessMissing, i.status, i.restart)
 
     /**
-     * 卡住计时算在哪一处:停在无线调试一步、停在配对一步还没找到配对窗口(系统一直没有配对服务)、正在自动连接。
-     * 前面几步要用户自己去系统设置里找,花多久都正常,不算;换了地方就从头算。
+     * のスタック タイミングはどこでカウントされますか: ワイヤレス デバッグ ステップで停止、ペアリング ステップで停止したがペアリング ウィンドウが見つからず (システムにはペアリング サービスがない)、自動接続中です。
+     * 最初のいくつかの手順では、ユーザーがシステム設定に移動してそれを見つける必要があります。どれだけ時間がかかっても問題ありません。場所を変更した場合は最初から計算されます。
      */
     fun stallPoint(v: SetupView): SetupStep? = when {
         v.phase == SetupPhase.Working -> SetupStep.Connect
@@ -154,8 +154,8 @@ object PhoneSetupFlow {
     }
 
     /**
-     * 要不要给「改用电脑启动」:系统没有无线调试、用户说找不到,都只在走到无线调试这一步以后给(电脑启动也要先做完前两步);
-     * 配对、连接失败在上面几类里,或者用户说开了、助手却读到关着;在 [stallPoint] 停了 [STALL_MS] 以上。别的时候不给。
+     * 「パソコンでの起動に切り替える」を出すかどうか: システムにワイヤレスデバッグがない、ユーザーが見つけられないと言う、のいずれもワイヤレスデバッグのステップまで進んだ後でのみ出す（パソコン起動でも最初の2ステップは先に済ませる必要がある）;
+     * ペアリングや接続の失敗が上記のいずれかの類にあるか、ユーザーが開いたと言っているのにヘルパーには切れていると読める; [stallPoint] で [STALL_MS] 以上止まっている。その他のときは出さない。
      */
     private fun usbFallback(v: SetupView, i: SetupInputs): Boolean {
         if (v.phase == SetupPhase.Success) return false
@@ -170,18 +170,18 @@ object PhoneSetupFlow {
         val status = effectiveStatus(i.status, i.repair)
         if (status == BuiltinShellStatus.Running) return SetupView(SetupPhase.Success, marks(SetupStep.entries.size, i), null)
         val natural = natural(i, status)
-        // 正在连接时以进度为准;读到更前面的一步被关掉时先回那一步
+        // 接続中は進捗を基準にする; より前のステップが切られたと読めたらまずそのステップへ戻る
         val back = i.revisit?.takeIf { it in REVISITABLE && status != BuiltinShellStatus.Connecting } ?: return natural
         val earlier = natural.phase == SetupPhase.Guide && natural.current != null && natural.current < back
         if (earlier) return natural
-        // 别的步骤照旧打勾或标失败,原来停着的那一步先变回待做
+        // 他のステップは従来どおりチェックを付けるか失敗とし、元々止まっていたステップはまず未実施に戻す
         val marks = natural.marks.mapValues { (_, m) -> if (m == StepMark.Current) StepMark.Todo else m } + (back to StepMark.Current)
         return guide(back, i).copy(marks = marks, revisiting = true)
     }
 
     /**
-     * 没有回头重做时的样子。正在连接(包括助手换手、刚起来等交接)以进度为准,不因为读到无线调试关着就退回那一步:
-     * 电脑起的助手、能替用户打开无线调试时,都不用用户去开。USB 启动命令起的助手停了,同样不往无线调试引。
+     * 前に戻ってやり直すことはできません。接続 (アシスタントが交代するときや立ち上がるときなどの引き継ぎを含む) は進行状況に基づいて行われます。ワイヤレス デバッグがオフになっていると表示されたからといって、そのステップに戻らないでください。
+     * コンピューター アシスタントがユーザーに対してワイヤレス デバッグを有効にできる場合、ユーザーはそれを行う必要はありません。 USB ブート コマンドによって起動されたアシスタントが停止し、ワイヤレス デバッグも起動しませんでした。
      */
     private fun natural(i: SetupInputs, status: BuiltinShellStatus): SetupView {
         if (blocks(SetupStep.DeveloperOptions, i)) return guide(SetupStep.DeveloperOptions, i)
@@ -194,12 +194,12 @@ object PhoneSetupFlow {
                 failure = status,
             )
         }
-        // 读不到开关时以助手的说法为准;用户确认过就不拦
+        // スイッチが読み取れない場合は、アシスタントの声明が優先されます。ユーザーは確認後にブロックしません。
         val wirelessConfirmed = SetupStep.WirelessDebugging in i.confirmed
         val wirelessOff = !wirelessConfirmed &&
             (i.wirelessDebugging == false || (i.wirelessDebugging == null && status == BuiltinShellStatus.WirelessDebuggingOff))
         if (wirelessOff) return guide(SetupStep.WirelessDebugging, i)
-        // 用户说开了,助手却读到关着、不去连:不一直转圈,指出是哪一步并给回去的按钮
+        // ユーザーはオンだと言いましたが、アシスタントは「オフ」、「接続しないでください」と読み上げました。ぐるぐる回し続けないでください。どのステップであるかを指摘し、戻るボタンを押しました。
         if (status == BuiltinShellStatus.WirelessDebuggingOff && wirelessConfirmed && i.wirelessDebugging != true) {
             return SetupView(
                 SetupPhase.Failed, marks(SetupStep.Connect.ordinal, i, current = SetupStep.Connect, mark = StepMark.Failed), SetupStep.Connect,
@@ -209,7 +209,7 @@ object PhoneSetupFlow {
         return when (status) {
             BuiltinShellStatus.Running -> error("handled above")
             BuiltinShellStatus.Connecting -> error("handled above")
-            // 配对过、无线调试开着而状态还没跟上:实现马上会自动连,先显示「正在连接」
+            // はペアリングされており、ワイヤレス デバッグがオンになっていますが、ステータスが追いついていません。すぐに自動的に接続され、最初に「接続中」が表示されます。
             BuiltinShellStatus.WirelessDebuggingOff -> working(i)
             BuiltinShellStatus.NotPaired -> guide(SetupStep.PairingCode, i)
             is BuiltinShellStatus.Failed -> {
@@ -227,11 +227,11 @@ object PhoneSetupFlow {
 
     private fun working(i: SetupInputs) = SetupView(SetupPhase.Working, marks(SetupStep.Connect.ordinal, i, current = SetupStep.Connect), null)
 
-    /** 读到这一步没做好,用户也没确认(无障碍还可以跳过):停在这一步。 */
+    /** は、このステップが適切に実行されていないことを読み取りましたが、ユーザーはそれを確認しませんでした (障害がない場合はスキップできます): このステップで停止します。 */
     private fun blocks(step: SetupStep, i: SetupInputs): Boolean =
         detected(step, i) == false && step !in i.confirmed && !(step == SetupStep.Accessibility && i.accessibilitySkipped)
 
-    /** 从系统设置读到的这一步做没做好;读不到、或这一步不是开关时为 null。 */
+    /** システム設定から読み取るステップが適切に行われていません。読み取れない場合、またはこのステップがスイッチではない場合は null です。 */
     fun detected(step: SetupStep, i: SetupInputs): Boolean? = when (step) {
         SetupStep.DeveloperOptions -> i.developerOptions
         SetupStep.UsbDebugging -> i.usbDebugging
@@ -240,7 +240,7 @@ object PhoneSetupFlow {
         SetupStep.PairingCode, SetupStep.Connect -> null
     }
 
-    /** 配对、连接要靠开发者选项和无线调试:按顺序找第一个读到关着(用户确认过才走到这里)或读不到的。 */
+    /** ペアリングと接続は開発者向けオプションとワイヤレス デバッグに依存します。読み取られて閉じられた (ユーザーは確認後にのみここに来る) か、読み取れなかった最初のものを順番に見つけます。 */
     private fun suspect(i: SetupInputs): SetupSuspect? = when {
         !i.developerOptions -> SetupSuspect(SetupStep.DeveloperOptions, unreadable = false)
         i.wirelessDebugging != true -> SetupSuspect(SetupStep.WirelessDebugging, unreadable = i.wirelessDebugging == null)
@@ -263,10 +263,10 @@ object PhoneSetupFlow {
         else -> null
     }
 
-    /** 只用 USB 启动命令起过助手时没走的两步。 */
+    /** は USB ブート コマンドのみを使用してアシスタントを起動しますが、この 2 つの手順は実行されませんでした。 */
     private val WIRELESS_STEPS = setOf(SetupStep.WirelessDebugging, SetupStep.PairingCode)
 
-    /** 前 [done] 步做完(跳过的无障碍、USB 启动时没走的无线调试和配对记成跳过),[current] 这一步打 [mark],其余待做。 */
+    /** [done] より前の手順が完了しています (スキップされたアクセシビリティ、ワイヤレス デバッグ、USB 起動時に実行されないペアリングはスキップとして記録されます)。[current] この手順は [mark] としてマークされ、残りはまだ行われていません。 */
     private fun marks(done: Int, i: SetupInputs, current: SetupStep? = null, mark: StepMark = StepMark.Current): Map<SetupStep, StepMark> =
         SetupStep.entries.associateWith { s ->
             when {
@@ -278,7 +278,7 @@ object PhoneSetupFlow {
             }
         }
 
-    /** 「重新配对」时,配对开始([BuiltinShellStatus.Connecting])之前助手在不在运行都当作还没配对。 */
+    /** 「再ペアリング」の場合、ペアリング開始前（[BuiltinShellStatus.Connecting]）にアシスタントが起動していてもいなくても、まだペアリングしていないとみなされます。 */
     fun effectiveStatus(status: BuiltinShellStatus, repair: Boolean): BuiltinShellStatus =
         if (repair && status !is BuiltinShellStatus.Connecting) BuiltinShellStatus.NotPaired else status
 }

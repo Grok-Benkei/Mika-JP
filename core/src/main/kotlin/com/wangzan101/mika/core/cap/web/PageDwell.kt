@@ -10,15 +10,15 @@ import com.wangzan101.mika.core.uistate.PageLimitReached
 import com.wangzan101.mika.core.uistate.PlacePace
 
 /**
- * 一个任务里按 [PagePacing] 停留:看着页面的地址([seen])认出来了新的一页,往下滚时页面自己又拉来一批内容([loadedMore])
- * 也算一页;要换页的动作之前 [before] 补足这一页还没停够的时间,停了多久交给 [onWait](记成这次调用的等待)。
- * [pace] 按主机名给出站点知识对这个网站浏览快慢的说法。
- * 给了 [idle] 且动作不按屏幕坐标做(交了端口)时,停留里按它的安排把页面轻轻滚几下([WebPort.idleScroll]),滚了几下交给 [onIdleScroll]。
- * 同一个网站本任务里来的页到了上限,[before] 不再等,抛 [PageLimitReached]:调用方不做这个动作;
- * 上限只管浏览:正在做的对外动作(发送、提交,[outwardStart] 到 [outwardEnd] 之间)不拦,
- * 本任务在这个网站上做成过对外动作之后不再设上限。
- * 停留中用户插了话([waitOrSteer]),[before] 不再等,抛 [DwellInterrupted]:调用方同样不做这个动作;
- * 这一页没停够的部分不算停过,下次要换页之前照样补足。
+ * タスク内に留まるには [PagePacing] を押します: ページのアドレス ([seen]) を見ると、新しいページが認識され、下にスクロールすると、ページ自体がコンテンツのバッチ ([loadedMore]) を取得しました。
+ * も 1 ページとしてカウントされます。ページ変更アクションの前に、[before] はこのページが停止していない時間を補い、そのページを [onWait] に渡すために停止した時間を補います (この呼び出しの待機時間として記録されます)。
+ * [pace] この Web サイトの閲覧速度に関するサイト情報をホスト名ごとに提供します。
+ * [idle] が渡され、かつアクションが画面座標で行われない（ポートへ委ねた）場合、滞在の中でその段取りに従ってページを軽く数回スクロールし（[WebPort.idleScroll]）、スクロールした回数を [onIdleScroll] へ渡す。
+ * 同じ Web サイトへこのタスクで来たページが上限に達したら、[before] はもう待たず [PageLimitReached] を投げる: 呼び出し側はそのアクションを行わない;
+ * 上限が管轄するのは閲覧だけ: 実行中の対外アクション（送信、提出。[outwardStart] から [outwardEnd] の間）は止めない、
+ * このタスクがその Web サイトで対外アクションを成し遂げた後は上限を設けない。
+ * ユーザーが滞在中に中断 ([waitOrSteer])、[before] はそれ以上待機せず、[DwellInterrupted] をスローします。呼び出し側もこのアクションを実行しません。
+ * このページで一時停止が不十分な部分は一時停止とみなされず、次回ページを変更する前に埋められます。
  */
 internal class PageDwell(
     private val pacing: PagePacing,
@@ -27,13 +27,13 @@ internal class PageDwell(
     private val clock: () -> Long = System::currentTimeMillis,
     private val sleep: suspend (Long) -> Unit = { delay(it) },
 ) {
-    /** 停下之后调用(参数是停了多少毫秒)。 */
+    /** は停止後に呼び出されます (パラメータは停止したミリ秒数です)。 */
     var onWait: (Long) -> Unit = {}
 
-    /** 停留里轻轻滚了页面之后调用(参数是滚了几下)。 */
+    /** は、滞在中にページをゆっくりスクロールした後に呼び出されます (パラメータはスクロール数です)。 */
     var onIdleScroll: (Int) -> Unit = {}
 
-    /** 停留里轻轻滚过页面、接着要做动作之前调用(重看动作前的样子,免得把滚动算成动作的效果)。 */
+    /** は、滞在中にページを少しスクロールするとき、およびアクションを実行する前に呼び出されます (アクションの効果としてスクロールをカウントしないように、アクションの前に外観を確認してください)。 */
     var afterIdle: suspend () -> Unit = {}
 
     private var lastUrl: String? = null
@@ -42,7 +42,7 @@ internal class PageDwell(
 
     val paced: Boolean get() = pacing.paced
 
-    /** 看到了页面此刻的地址(读屏、打开网页的结果):和上次看到的不同(不计 # 后面)就是来了新的一页。 */
+    /** は、現時点でのページのアドレス (画面を読み取って Web ページを開いた結果) を確認しました。これは、前回とは異なり (次の # はカウントしません)、新しいページです。 */
     @Synchronized
     fun seen(url: String?) {
         val u = url?.substringBefore('#')?.takeIf { it.startsWith("http://") || it.startsWith("https://") } ?: return
@@ -51,30 +51,30 @@ internal class PageDwell(
         pacing.noteLoad(u, clock(), paceOf(u))
     }
 
-    /** 地址没变,页面自己又拉来了一批内容(往下滚加载更多)。 */
+    /** のアドレスは変更されておらず、ページ自体はコンテンツのバッチを取得しています (さらに読み込むには下にスクロールします)。 */
     @Synchronized
     fun loadedMore() {
         lastUrl?.let { pacing.noteLoad(it, clock(), paceOf(it)) }
     }
 
-    /** 用户答过话:各网站的页数重新算。 */
+    /** ユーザーは次のように回答しました: 各 Web サイトのページ数は再計算されます。 */
     fun userAnswered() = pacing.userAnswered()
 
-    /** 正在做的对外动作所在的网站(可注册域名);没有为 null。 */
+    /** 外部アクションが実行されている Web サイト (登録可能なドメイン名)。そうでない場合は null。 */
     @Volatile private var outwardNow: String? = null
 
-    /** 在 [site](网站主机名)上要做一次对外动作:这一次不受页数上限拦。 */
+    /** は、[site] (Web サイトのホスト名) に対して外部アクションを実行します。今回は、ページ制限による制限はありません。 */
     fun outwardStart(site: String) { outwardNow = siteKey(site) }
 
-    /** 对外动作做完;[done](做成了)时这个网站不再设页数上限。 */
+    /** 外部アクションが完了したとき。 [done] (完了) になると、この Web サイトにはページ制限がなくなります。 */
     fun outwardEnd(site: String, done: Boolean) {
         outwardNow = null
         if (done) pacing.outwardDone(site)
     }
 
     /**
-     * 要换页之前:这一页没停够就补足;[target] 是要打开的网址(打开网页时),不给按此刻这一页的网站。返回停了多久。
-     * [port] 给了(动作不按屏幕坐标做)时,停留里可以轻轻滚几下页面。[gate] 时先看页数上限,到了抛 [PageLimitReached]。
+     * ページを変更する前に: このページだけでは不十分な場合は埋められます。 [target] は開く URL (Web ページを開くとき) ですが、現時点ではこのページの Web サイトをクリックしないでください。一時停止されていた時間を返します。
+     * [port] を与えると（画面座標に従った動作は行われません）、滞在中に軽くページを数回スクロールできます。 [gate] の場合は、まずページ数の上限を見てから [PageLimitReached] を投げます。
      */
     suspend fun before(target: String? = null, port: WebPort? = null, gate: Boolean = true): Long {
         val site = target ?: synchronized(this) { lastUrl } ?: return 0
@@ -88,14 +88,14 @@ internal class PageDwell(
         return wait
     }
 
-    /** 停 [ms] 毫秒;用户插了话就不再停,抛 [DwellInterrupted]。 */
+    /** は [ms] ミリ秒間停止します。ユーザーが中断して [DwellInterrupted] をスローすると、停止が停止します。 */
     private suspend fun pause(ms: Long) {
         waitOrSteer { sleep(ms) } ?: throw DwellInterrupted()
     }
 
     /**
-     * 停 [wait] 毫秒,其间按 [plan] 的安排轻轻滚几下;端口说这会儿不便滚(弹框、输入框拿着焦点等)就不再滚,照样停够。
-     * 用户插话截断了停留时,滚过的几下照样报出去、模型手里的那一屏照样标成过时。
+     * は [wait] ミリ秒間一時停止し、その間、[plan] の配置に従って数回軽く回転します。現時点でスクロールするのが不便であるとポートが判断した場合 (ポップアップ ボックス、入力ボックスがフォーカスを保持しているなど)、スクロールは停止しますが、それでも十分に停止します。
+     * ユーザーが一時停止を中断したときも、スクロール時間は依然として報告され、モデルの手の画面には古いものとしてマークが付けられたままでした。
      */
     private suspend fun idleWait(port: WebPort, plan: IdleScroll, wait: Long) {
         val start = clock()
@@ -127,7 +127,7 @@ internal class PageDwell(
 
     private fun hostOf(site: String): String = UrlHost.of(if ("://" in site) site else "https://$site") ?: site
 
-    /** 往下滚之前记下页面已收到的响应;滚完用 [afterScroll] 比,有新的成批数据就是加载了更多。 */
+    /** 下にスクロールする前に、ページが受け取った応答を書き留めてください。スクロール後に [afterScroll] を使用すると、新しいデータのバッチがある場合、さらに多くのデータがロードされます。 */
     suspend fun scrollMark(port: WebPort): Set<String>? = if (!paced) null else try {
         port.captures(null, null, false).mapTo(HashSet()) { it.id }
     } catch (e: CancellationException) {
@@ -142,7 +142,7 @@ internal class PageDwell(
         if (fresh.any { it.id !in mark && batch(it) }) loadedMore()
     }
 
-    /** 像一批列表数据的响应:成功收完、JSON 或文本、不太小(统计、心跳一类的小响应不算)。 */
+    /** リスト データのバッチのような応答: 正常に受信された、JSON またはテキスト。小さすぎない (統計やハートビートなどの小さな応答はカウントされません)。 */
     private fun batch(c: CapturedResponse): Boolean {
         if (c.state != CapturedResponse.State.DONE || c.status !in 200..299) return false
         val mime = c.mime?.lowercase().orEmpty()
@@ -151,7 +151,7 @@ internal class PageDwell(
     }
 
     private companion object {
-        /** 算作「又来了一批内容」的响应至少这么大。 */
+        /** 「コンテンツの別のバッチが来る」としてカウントされる応答は、少なくともこれくらいの大きさです。 */
         const val MORE_MIN_BYTES = 2_048L
     }
 }

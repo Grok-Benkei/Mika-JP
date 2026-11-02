@@ -3,13 +3,13 @@ package com.wangzan101.mika.cap.web
 import android.content.Context
 import com.wangzan101.mika.cap.web.cdp.WebDevtools
 
-/** 网页在进程里的那一份 DevTools 会话入口、站点登记表、标签总数上限与留在后台的那一页:由 App 给出,设置页和各任务共用。 */
+/** DevTools セッションの入り口、サイト登録フォーム、タグの総数の上限、プロセス中に Web ページの背景に残されるページはアプリによって提供され、設定ページは各タスクで共有されます。 */
 interface WebOwner {
     val webDevtools: WebDevtools
     val webSites: SiteRegistry
-    /** 各任务的标签池共用的标签总数上限。 */
+    /** 各タスクのタグプールが共有するタグの総数の上限。 */
     val tabBudget: TabBudget
-    /** 任务结束后留在后台接着运行的那一页(全局至多一页)。 */
+    /** ページはバックグラウンドに残され、タスクの完了後も実行され続けます (グローバルに最大 1 ページ)。 */
     val pageKeeper: PageKeeper
 
     companion object {

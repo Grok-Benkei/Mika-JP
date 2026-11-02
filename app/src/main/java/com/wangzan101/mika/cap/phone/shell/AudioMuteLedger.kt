@@ -3,9 +3,9 @@ package com.wangzan101.mika.cap.phone.shell
 import java.io.File
 
 /**
- * 被 Mika 静音的 App → 静音前的 PLAY_AUDIO 模式,同时落在文件里:内置助手进程在静音中被杀、
- * 手机重启后,下次启动靠这份记录把声音还回去。静音时记、恢复成功后删;文件读写失败时退回只在内存里记。
- * 只有记录里的包会被恢复,别人设的值一概不碰。记录的键见 [AppAudioKey]:另一份用户里的那份单独一项。
+ * アプリがミカによってミュートされました → ミュート前に PLAY_AUDIO モードになり、同時にファイルに落ちました: ミュート中に組み込みアシスタント プロセスが強制終了されました。
+ * 電話機が再起動した後は、この記録を利用して次回起動時にサウンドを返すことができます。ミュートすると、録音され、正常に回復した後に削除されます。ファイルの読み書きに失敗した場合は、ファイルが返され、メモリにのみ記録されます。
+ * レコード内のパッケージのみが復元され、他の人が設定した値には影響しません。記録されたキーについては、「[AppAudioKey]: 別のユーザーの単一アイテム」を参照してください。
  */
 class AudioMuteLedger(private val file: File?) {
     private val modes = LinkedHashMap<String, String>()
@@ -28,7 +28,7 @@ class AudioMuteLedger(private val file: File?) {
         if (modes.remove(packageName) != null) save()
     }
 
-    /** 把记录里的每个包恢复成 [restoreMode];[write] 返回 true 才删记录,失败的留着下次再试。返回是否全部恢复。 */
+    /** は、レコード内の各パッケージを [restoreMode] に復元します。 [write] は、true を返した後にのみレコードを削除します。失敗した場合はそのままにして、次回もう一度試してください。すべて復元されたかどうかを返します。 */
     fun restoreAll(write: (packageName: String, mode: String) -> Boolean): Boolean {
         packages().forEach { pkg -> if (write(pkg, restoreMode(modes.getValue(pkg)))) remove(pkg) }
         return modes.isEmpty()
@@ -51,14 +51,14 @@ class AudioMuteLedger(private val file: File?) {
         private val LINE = Regex("""([A-Za-z0-9_.]+(?:@[0-9]+)?) ([a-z_]+)""")
 
         /**
-         * 恢复时写回的模式。原来明确是 allow/ignore/deny 等的照原样写回;没设置过(解析出 default)的写 allow:
-         * 安卓里音频系统只认 PLAY_AUDIO 为 allow 才放声音,显式的 default 会让 App 一直没声音,
-         * 而没设置过时系统取的默认值本来就是 allow,写 allow 后 `appops get` 也回到「没设置」。
-         * 记录里出现 default 只有两种来源:静音前没设置过,或旧版本写坏后又被记下,两种改成 allow 都不会误伤。
+         * リカバリ中のライトバック モード。明らかな場合は、allow/ignore/deny などがそのまま書き戻されることがわかります。設定されていない場合 (デフォルトで解析される)、allow と書き込みます。
+         * Android のオーディオ システムは、サウンドを再生する前に PLAY_AUDIO のみを許可として認識します。明示的なデフォルトでは、アプリはサイレントになります。
+         * は設定されておらず、古いシステムで採用されているデフォルト値が元々許可されています。書き込み許可後、`appops get`も「未設定」に戻ります。
+         * レコードに表示されるデフォルトのソースは 2 つだけです。ミュート前に設定されていないか、古いバージョンが書き込まれた後に書き込まれました。許可するように変更しても、偶発的な損傷は発生しません。
          */
         fun restoreMode(prior: String?): String = if (prior.isNullOrEmpty() || prior == "default") "allow" else prior
 
-        /** `appops get <pkg> PLAY_AUDIO` 的输出:"PLAY_AUDIO: ignore; time=..." → "ignore";"No operations." → null(没设置过)。 */
+        /** `appops get <pkg> PLAY_AUDIO` の出力: "PLAY_AUDIO:ignore; time=..." → "ignore"; 「操作はありません。」 → null (設定されていません)。 */
         fun parseSetMode(output: String): String? = Regex("""PLAY_AUDIO:\s*([a-z_]+)""").find(output)?.groupValues?.get(1)
 
         internal fun format(modes: Map<String, String>): String = modes.entries.joinToString("") { "${it.key} ${it.value}\n" }
@@ -70,16 +70,16 @@ class AudioMuteLedger(private val file: File?) {
 }
 
 /**
- * 一项静音的键。PLAY_AUDIO 按「包 + 用户」分开设:本来那份(Mika 所在用户里的)就是包名,
- * 装在另一份用户里的那份(分身、工作资料)是「包名@用户编号」,两份各记各的原值、各自恢复。
+ * ミュートキー。 PLAY_AUDIO は、「パッケージ + ユーザー」に従って個別に開かれます。元のコピー (Mika が存在するユーザー内) がパッケージ名です。
+ * 別のユーザーにインストールされたコピー（クローン、作品情報）は「パッケージ名@ユーザー番号」です。各コピーの元の値は個別に記録され、復元されます。
  */
 object AppAudioKey {
     private val KEY = Regex("""([A-Za-z0-9_.]+)(?:@([0-9]+))?""")
 
-    /** [user] 为空是本来那份。 */
+    /** [user] は空で、元の共有です。 */
     fun of(packageName: String, user: Int?): String = if (user == null) packageName else "$packageName@$user"
 
-    /** 拆回(包名, 用户);本来那份用户为空。不合格式的为 null。 */
+    /** 取得 (パッケージ名、ユーザー);元のユーザーは空です。未フォーマットは null です。 */
     fun parse(key: String): Pair<String, Int?>? =
         KEY.matchEntire(key)?.destructured?.let { (pkg, user) -> pkg to user.takeIf { it.isNotEmpty() }?.toIntOrNull() }
 }

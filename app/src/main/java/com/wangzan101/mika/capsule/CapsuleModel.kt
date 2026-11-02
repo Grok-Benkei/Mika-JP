@@ -11,7 +11,7 @@ import com.wangzan101.mika.takeover.Takeover
 import com.wangzan101.mika.task.SteerNote
 import com.wangzan101.mika.ui.Exchange
 
-/** 设置里「悬浮胶囊」的三选一;存成名字,认不出(没设过、旧版本)时是默认的「一直显示」(随时能双击发这一屏)。 */
+/** 設定で 3 つの「サスペンド カプセル」から 1 つを選択します。名前を付けて保存し、認識できない場合（未設定、古いバージョン）、デフォルトは「常に表示」になります（ダブルクリックでいつでもこの画面を送信できます）。 */
 enum class CapsuleMode {
     Off, DuringTasks, Always;
 
@@ -22,13 +22,13 @@ enum class CapsuleMode {
 }
 
 /**
- * 一个任务此刻的样子:编号([TaskRun.key])、所在对话、状态、接管走到哪一步;
- * 卡片还要它的目标 [goal] 和这一问一答此刻的样子 [exchange](步骤、要你做的事、结果,和对话页同一套推法)。
- * [queueAhead]/[queueBehind] 是它在接管队里前后各有几件(主屏一次只交一个 App);不在队里或不知道时 [queueAhead] 为 -1,
- * 这时按它开始等接管的先后算。[runId] 是它的运行记录(对话里记下的那一轮带着同一个编号;还没开起记录时为 null)。
- * [onScreen] 是它此刻在操作一块画面:有自己的虚拟屏([com.wangzan101.mika.task.TaskRun.displayId] 不是 -1),
- * 或正在用内置浏览器([com.wangzan101.mika.task.TaskRun.webOpen]);卡片据此选任务卡片还是对话卡片。
- * [steers] 是它进行中插的话和去向([com.wangzan101.mika.task.TaskRun.steers]),对话卡片的来回里接在原话后面。
+ * 現時点でのタスクの外観: 番号 ([TaskRun.key])、ダイアログの場所、ステータス、実行されたステップ。
+ * カードには、目標 [goal] と、この質問と回答が現時点でどのようなものであるか [exchange] (手順、実行するように求められていること、結果、対話ページと同じ予測セット) も必要です。
+ * [queueAhead]/[queueBehind] は、乗っ取りチームに加わる前と後で持っているアイテムの数を意味します (メイン画面では一度に 1 つのアプリのみが表示されます)。チームにいない、または不明の場合、[queueAhead]は-1、
+ * このとき、引き継ぎ待ちを開始した順に計算されます。 [runId] はその実行中のレコードです (会話に記録されたラウンドには同じ番号が付いています。レコードが開始されていない場合は null です)。
+ * [onScreen] は現在画面を操作しています。独自の仮想画面があります ([com.wangzan101.mika.task.TaskRun.displayId] は -1 ではありません)。
+ * または内蔵ブラウザ ([com.wangzan101.mika.task.TaskRun.webOpen]) を使用します。カードはそれに応じてタスク カードまたは会話カードを選択します。
+ * [steers] は、介在する単語と宛先 ([com.wangzan101.mika.task.TaskRun.steers]) です。会話カードの前後にはオリジナルの言葉が続きます。
  */
 data class CapsuleRun(
     val key: String,
@@ -45,8 +45,8 @@ data class CapsuleRun(
 )
 
 /**
- * 决定胶囊显示什么的全部输入:各任务([runs],含刚结束、状态已是终态的)、开关、Mika 自己的界面在不在前台、
- * 屏幕亮着且没锁、无障碍服务在运行且浮层画得出来、卡片是不是展开着([cardOpen])、任务结束后留在后台运行的那一页([kept])。
+ * カプセルに表示される内容を決定するすべての入力: 各タスク ([runs]、終了したばかりでステータスが最終のものを含む)、スイッチ、ミカ自身のインターフェイスがフォアグラウンドにあるかどうか、
+ * 画面がオンでロックが解除されており、アクセシビリティ サービスが実行中でオーバーレイを描画でき、カードが展開され ([cardOpen])、タスクの完了後にページがバックグラウンドで実行されたままになります ([kept])。
  */
 data class CapsuleInputs(
     val runs: List<CapsuleRun>,
@@ -58,20 +58,20 @@ data class CapsuleInputs(
     val kept: KeptPage? = null,
 )
 
-/** 胶囊的状态,按优先级从高到低排([ordinal] 小的先显示);[Idle] 是「一直显示」时没任务的图标。 */
+/** カプセルのステータス。優先度の高いものから低いものの順に並べられています ([ordinal] 小さいものが最初に表示されます)。 [Idle]は「常に表示」の場合はタスクが存在しないアイコンです。 */
 enum class CapsuleKind {
     HandedOver, NeedTakeover, NeedConfirm, NeedAnswer,
-    /** 要你在手机上动一下手(如在系统的选择框里选一个),动完自动接着做。 */
+    /** では、電話機上で手を動かす必要があり (システム選択ボックスで手を選択するなど)、移動後も自動的に続行されます。 */
     NeedStep,
     Held, Running, Done, Failed, Cancelled,
-    /** 没有任务在跑,任务结束后留下的那一页在后台运行(「后台网页运行中」,绿点)。 */
+    /** 実行中のタスクはなく、タスクの実行後にページがバックグラウンドで実行されています (「バックグラウンド Web ページが実行中」、緑色の点)。 */
     KeptPage,
     Idle;
 
-    /** 要你处理(胶囊变橙)。App 已经交到你手上([HandedOver])是顶部那一条,不算在内。 */
+    /** はあなたにそれを処理してもらいたいと考えています (カプセルがオレンジ色に変わります)。お譲りしたアプリ（[HandedOver]）は一番上のものであり、含まれておりません。 */
     val needsYou: Boolean get() = this == NeedTakeover || this == NeedConfirm || this == NeedAnswer || this == NeedStep
 
-    /** 还没结束(在跑、等你、等条件);[KeptPage]、[Idle] 不算。 */
+    /** はまだ終わっていません (実行中、待機中など)。 [KeptPage] および [Idle] はカウントされません。 */
     val active: Boolean get() = this != Done && this != Failed && this != Cancelled && this != KeptPage && this != Idle
 }
 
@@ -79,11 +79,11 @@ sealed interface CapsuleView {
     data object Hidden : CapsuleView
 
     /**
-     * 显示胶囊(或「你在处理」那一条):[text] 是那一行字(已拼好「共 N 件」),[detail] 只在 [CapsuleKind.HandedOver] 时有,
-     * 是那条下面的小字。[count] 是进行中的任务数,[needCount] 是其中要你处理的件数。
-     * [runKey]/[conversationId] 是胶囊说的那件事。平时是一颗 Mika 图标(状态画在圈和角标上),
-     * [pill] 时展开成带这一行字的胶囊(有要你处理的、刚办完时)。[widthEpoch] 不变时胶囊只变宽不变窄,
-     * 变了(换了状态或换了一件事)重新定宽。
+     * はカプセル (または「処理中」という行) を表示します。 [text] は単語の行 (「合計 N 個」が綴られています)、[detail] は [CapsuleKind.HandedOver] の場合にのみ使用可能です。
+     * はそのストリップの下にある小さな文字です。 [count] は進行中のタスクの数、[needCount] は処理する必要がある項目の数です。
+     * [runKey]/[conversationId] はカプセルに記載されている内容です。通常はミカアイコン(丸と角マークにステータスが描かれます)ですが、
+     * [pill] は、このテキスト行を含むカプセルに展開されます (完了したばかりの場合)。 [widthEpoch] が変化しない場合、カプセルは広くなるだけで狭くなりません。
+     * が変更され (ステータスが変更されたか、何かが 1 つ変更されました)、幅がリセットされました。
      */
     data class Shown(
         val kind: CapsuleKind,
@@ -99,37 +99,37 @@ sealed interface CapsuleView {
 }
 
 /**
- * 胶囊的纯逻辑:每次输入变了(或到了 [nextChangeAt])调 [update],得到此刻该显示什么。规则:
- * - 不显示:开关关着、无障碍服务不可用、Mika 自己的界面在前台、屏幕关着或锁着;
- * - 一次只显示最要紧的那件事,优先级见 [CapsuleKind];好几件事时拼上「共 N 件」,有要你处理的变橙:「1 件要你处理 · 共 2 件」;
- * - 平时是一颗图标:在跑、等条件时只在圈和角标上变,换了一步不展开;
- * - 有要你处理的、而用户还没在卡片里看过它时展开成胶囊,一直停着,直到打开卡片或那件事不再要你;
- *   打开卡片时看到的那几件(同一件事、同一个等待)记为看过,收起后回到一颗(橙色),来了新的才再展开;
- * - 办好了 / 没办成 / 已停止先展开 [PILL_MS],再缩回一颗带着结果角标,共停 [LINGER_MS] 后消失(「一直显示」时回到图标);
- *   在卡片里看过的直接是一颗;卡片展开着时这段时间停表:用户正看着的结果不会被收走,收起卡片后接着走剩下的时间;
- *   停完消失的不再回来(调用方之后还列着它也不算);对话删掉了([forget])时它已结束的任务马上消失;
- * - 没有任务、结果也停完了,而任务结束后留下的那一页还在后台运行时,展开成「后台网页运行中」一直停着(开关是「从不显示」时照样不显示,
- *   只靠通知);
- * - 同一件事、同一个状态里换句时每句至少停 [MIN_SENTENCE_MS],这期间来的只留最后一句;换了状态或换了一件事马上换。
- * 卡片按什么先后挑那一件见 [cardRuns]。
- * [reasonLabel] 把接管原因(login 等)换成给人看的名字,认不出为 null。时间由调用方给,测试里用假时钟。
+ * カプセルの純粋なロジック: 入力が変化する (または [nextChangeAt] に達する) たびに、現時点で表示されるべき内容を取得するために [update] を調整します。ルール:
+ * - 表示されません: スイッチがオフになっており、アクセシビリティ サービスが利用できません。ミカ自身のインターフェイスが前面にあり、画面がオフまたはロックされています。
+ * - 一度に最も重要なものだけが表示されます。優先順位については、[CapsuleKind] を参照してください。複数のアイテムがある場合は、「合計 N アイテム」と入力すると、対処する必要があるアイテムがオレンジ色に変わります。「対処する必要があるアイテムは 1 個 · 合計 2 個」。
+ * - 通常はアイコンです。ランニング中などは、円と角のマークのみが変化し、1 ステップ変更しても展開されません。
+ * - あなたが対処すべき何かがあり、ユーザーがそれをカード内で見ていない場合、それはカプセルに拡張し、カードが開かれるか、そのものがあなたを必要としなくなるまでそこに留まります。
+ *   カードを開いたときに表示されるいくつかの内容 (同じもの、同じ待機時間) が、表示されたとおりに記録されます。それらをしまうと、それらは 1 つ (オレンジ色) に戻り、新しいものが来ると拡張されます。
+ * - 完了/未完了/停止。最初に [PILL_MS] を展開し、次に結果コーナー マークで 1 つを縮小し、[LINGER_MS] を停止してから消えます (「常に表示」の場合はアイコンに戻ります)。
+ *   カードに表示されているものは直接 1 つです。カードが展開されると、この期間中時計は停止します。ユーザーが見ている結果は取り除かれず、カードをしまった後も残り時間は継続します。
+ *   は、消えると戻ってきません (呼び出し元の後にリストされている場合はカウントされません)。ダイアログが削除されると ([forget])、完了したタスクはすぐに消えます。
+ * - タスクが存在しないため、結果が停止されます。ただし、タスクの後に残されたページがまだバックグラウンドで実行されている場合、「バックグラウンド Web ページ実行中」に展開され、停止したままになります (スイッチが「表示しない」の場合でも表示されません)。
+ *   通知のみ);
+ * - 同じもの、同じ状態で文を変更する場合は、文ごとに少なくとも [MIN_SENTENCE_MS] を停止してください。この期間中は最後の一文だけが残されます。状態や物事が変化するとすぐに変化します。
+ * カードを選択する順序については、[cardRuns] を参照してください。
+ * [reasonLabel] 引き継ぎ理由（ログインなど）を他の人が見える名前に置き換えます。認識されない場合はnullとなります。時刻は発信者によって与えられ、テストでは偽の時計が使用されます。
  */
 class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
     private class Ended(val run: CapsuleRun, val at: Long)
 
-    /** 一件事此刻在等的那一下:同一件、同一个状态、同一个接管阶段算同一个。 */
+    /** あなたが今待っているものは 1 つです。同じもの、同じ状態、同じテイクオーバー ステージは同じものとしてカウントされます。 */
     private data class Mark(val key: String, val state: TaskState, val stage: Takeover.Stage)
 
-    /** 各任务第一次出现的时刻:同样要紧时按先后排,卡片上显示用时。 */
+    /** 各タスクが初めて出現する瞬間: 同じ順序で、時間がカードに表示されます。 */
     private val firstSeen = HashMap<String, Long>()
     private val ended = HashMap<String, Ended>()
-    /** 停完或对话删掉而拿掉的已结束任务:调用方还列着时不再记进 [ended];调用方不再列的就忘掉。 */
+    /** ダイアログの停止または削除後に削除される終了タスク: [ended] は、発信者がまだリストにある場合は記録されません。発信者がリストに表示されなくなると忘れられます。 */
     private val dropped = HashSet<String>()
-    /** 在等接管或已经接手的任务,按开始等的先后:主屏一次只交一个,排在前面的先处理。 */
+    /** 引き継がれるのを待っているタスク、または開始された順序に従ってすでに引き継がれているタスク。メイン画面は一度に 1 つだけ引き渡し、前にあるタスクが最初に処理されます。 */
     private val takeoverSince = LinkedHashMap<String, Long>()
-    /** 用户在卡片里看过的要你处理和结果:不再展开成胶囊。 */
+    /** ユーザーがカード内で見た内容を処理する必要があります。その結果、カプセルには展開されなくなります。 */
     private val seen = HashSet<Mark>()
-    /** 卡片展开起的时刻;展开着时结束的任务不往下计时。 */
+    /** カードが展開される瞬間。展開中に終了したタスクはカウントダウンされません。 */
     private var frozenSince: Long? = null
     private var lastRuns: List<CapsuleRun> = emptyList()
 
@@ -138,7 +138,7 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
     private var shownAt = 0L
     private var epoch = 0
 
-    /** 输入不变时输出下一次会变的时刻(等着换的那句话、办完后缩回一颗和消失);没有为 null。 */
+    /** 入力が変化しない場合、出力は次回変化します (文が変更されるのを待ち、1 つ縮小し、終了後に消えます)。そうでない場合は null です。 */
     var nextChangeAt: Long? = null
         private set
 
@@ -150,7 +150,7 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
         if (inputs.cardOpen) {
             if (frozenSince == null) frozenSince = now
         } else frozenSince?.let { since ->
-            // 收起卡片:展开的这段时间不算,结束的任务接着走剩下的时间
+            // カードを回収します。拡張期間はカウントされません。完了したタスクは残りの時間で継続されます。
             val paused = now - since
             ended.replaceAll { _, e -> Ended(e.run, e.at + paused) }
             frozenSince = null
@@ -162,13 +162,13 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
         val waiting = inputs.runs.filter { it.state is TaskState.WaitingTakeover && it.stage != Takeover.Stage.None }.map { it.key }
         takeoverSince.keys.retainAll(waiting.toSet())
         waiting.forEach { takeoverSince.getOrPut(it) { now } }
-        // 看过的只留还在的;卡片展开着时此刻的要你处理和结果都算看过
+        // あなたが見たものだけが残ります。カードは展開中であり、この時点でカードを処理する必要があり、結果は表示されたものとみなされます。
         val marks = needMarks(inputs.runs) + ended.values.map { it.run.mark() }
         seen.retainAll(marks)
         if (inputs.cardOpen) seen += marks
 
         if (inputs.mode == CapsuleMode.Off || !inputs.serviceAvailable || inputs.mikaInForeground || !inputs.screenInteractive) {
-            // 再出现时直接显示最新的那句,不接着上次的节流
+            // は、最新の文が再度表示されると、以前のスロットリングを継続せずに、最新の文を直接表示します。
             shownIdentity = null
             shownText = null
             return CapsuleView.Hidden
@@ -181,7 +181,7 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
         return throttle(candidate, now)
     }
 
-    /** 对话 [conversationId] 删掉了:它已结束的任务马上从胶囊和卡片上拿掉,进行中的照旧。 */
+    /** ダイアログ [conversationId] 削除: 完了したタスクはカプセルとカードから直ちに削除され、進行中のタスクは以前と同様に残ります。 */
     fun forget(conversationId: String) = drop(ended.filterValues { it.run.conversationId == conversationId }.keys)
 
     private fun drop(keys: Set<String>) {
@@ -198,7 +198,7 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
         val active = runs.filter { it.state != TaskState.Idle && !it.state.ended() }
         if (active.isEmpty()) return null
         val described = active.map { it to describe(it) }
-        // 同样要紧的几件里先说接管队里排在前面的,再说先开始的那件
+        // 同様に重要なことのうち、最初に乗っ取りチームの先頭にいるチームについて話しましょう。次に、最初にスタートしたチームについて話しましょう。
         val (top, line) = described.minWith(order)
         val count = active.size
         val needCount = described.count { it.second.kind.needsYou }
@@ -214,12 +214,12 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
             count >= 2 -> tr(R.string.capsule_of_total, line.text, count)
             else -> line.text
         }
-        // 有还没在卡片里看过的要你处理:展开成胶囊,一直停着
+        // カードでまだ見ていない場合は、カプセルを展開して駐車したままにしてください。
         val pill = line.kind.needsYou && described.any { (r, l) -> l.kind.needsYou && r.mark() !in seen }
         return CapsuleView.Shown(line.kind, text, detail, count, needCount, top.key, top.conversationId, pill = pill)
     }
 
-    /** 最近结束的那件:先展开成胶囊,再缩回一颗带着结果角标;在卡片里看过的直接是一颗;卡片展开着时停表。 */
+    /** 最近終了したもの: 最初にカプセルに展開され、次に結果のコーナー マークでカプセルに格納されます。カードに見られたものは直接カプセルでした。カードが展開されると時計が止まりました。 */
     private fun endedView(now: Long): CapsuleView.Shown? {
         val last = ended.values.maxByOrNull { it.at } ?: return null
         val age = (frozenSince ?: now) - last.at
@@ -236,8 +236,8 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
     }
 
     /**
-     * 卡片从中挑一件的几件事(上一次 [update] 的输入,见 [CapsuleCards.of]):进行中的按要紧程度排(同样要紧的先开始的在前),
-     * 后面是还没消失的已结束的(最近结束的在前)。在跑、等条件时带开始的时刻;等接管的带排在它前后的件数。
+     * カードから選択できるものがいくつかあります ([update] の最後の入力については、[CapsuleCards.of] を参照)。進行中のものは重要度の順に並べられています (同様に重要で最初に開始されるもの)。
+     * の後に、消滅していない終了したものが続きます (最後に終了したものが前にあります)。ランニングなどでベルトが動き始めるタイミング。その前後には引き取り待ちのベルトが何本か並んでいる。
      */
     fun cardRuns(): List<CardRun> {
         val active = lastRuns.filter { it.state != TaskState.Idle && !it.state.ended() }
@@ -255,8 +255,8 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
     }
 
     /**
-     * 单独一件事在卡片里的样子(不经 [update]、不排先后):别处只跟着一件事时用(浏览器页上那一页的对话面板)。
-     * 已结束的按结束的说法;等接管的排位用它自带的队列位置。
+     * カード内の 1 つのものの外観 ([update] なし、順序不順): 他の場所 (ブラウザー ページ上のそのページのダイアログ パネル) に続くものが 1 つだけある場合に使用されます。
+     * 完成したそうですが、テイクオーバーを待機しているキュー位置は、独自のキュー位置とともに使用されます。
      */
     fun cardRunOf(r: CapsuleRun): CardRun {
         if (r.state.ended()) {
@@ -267,12 +267,12 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
         return CardRun(r, line.kind, line.text, ahead = r.queueAhead.coerceAtLeast(0), behind = r.queueBehind)
     }
 
-    /** 要紧的在前;同样要紧的,接管队里排在前面的在前,再按开始的先后。 */
+    /** 最も重要なことは最初です。同様に重要なことは、引き継ぎチームの最初の人が最初であり、その後に開始順序に従います。 */
     private val order = compareBy<Pair<CapsuleRun, Line>>(
         { it.second.kind.ordinal }, { spot(it.first)?.first ?: Int.MAX_VALUE }, { firstSeen[it.first.key] ?: 0L },
     )
 
-    /** 在接管队里前后各有几件:有真实的队列位置用它,没有时按开始等接管的先后;不在等接管为 null。 */
+    /** の前後にいくつかの項目があります。実際のキュー位置がある場合はそれを使用し、ない場合は開始を押して引き継ぎシーケンスを待ちます。そうでない場合は null になります。 */
     private fun spot(r: CapsuleRun): Pair<Int, Int>? {
         if (r.queueAhead >= 0) return r.queueAhead to r.queueBehind
         val queue = takeoverSince.keys.toList()
@@ -280,7 +280,7 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
         return if (i < 0) null else i to queue.size - 1 - i
     }
 
-    /** 留在后台运行的那一页:展开成胶囊,说的是它来自的那个对话。 */
+    /** ページはバックグラウンドで実行されたままになっています。カプセルに展開され、元の会話について話しています。 */
     private fun keptView(kept: KeptPage?): CapsuleView.Shown? =
         kept?.let { CapsuleView.Shown(CapsuleKind.KeptPage, KEPT, conversationId = it.conversationId, pill = true) }
 
@@ -288,8 +288,8 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
         if (mode == CapsuleMode.Always) CapsuleView.Shown(CapsuleKind.Idle, "") else null
 
     /**
-     * 同一件事、同一个状态里换句:离上一句不到 [MIN_SENTENCE_MS] 就先留着上一句,到时候再换成那时最新的。
-     * 展开、缩回也算换了一段,胶囊重新定宽。
+     * 同じ内容および同じ状況の文を変更します。[MIN_SENTENCE_MS] は前の文より小さいため、前の文を最初に保持し、その時点での最新の文に置き換えます。
+     * 伸縮もセクション変更とみなされ、カプセル幅が再設定されます。
      */
     private fun throttle(v: CapsuleView.Shown, now: Long): CapsuleView.Shown {
         val identity = Triple(v.kind, v.runKey, v.pill)
@@ -324,7 +324,7 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
                 CapsuleKind.NeedTakeover,
                 tr(R.string.capsule_needs_you, reasonLabel(s.reason) ?: oneLine(s.message).ifEmpty { tr(R.string.capsule_handle_it) }),
             )
-            // 已交还、循环还没往下走的那一小段
+            // は差し戻された短いセクションであり、まだサイクルが下がっていません。
             Takeover.Stage.None -> Line(CapsuleKind.Running, CONTINUING)
         }
         is TaskState.WaitingConfirmation -> Line(CapsuleKind.NeedConfirm, tr(R.string.capsule_needs_ok, ConfirmationCopy.actionLabel(s.request.action)))
@@ -337,9 +337,9 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
 
     companion object {
         const val MIN_SENTENCE_MS = 1_500L
-        /** 办完后展开成胶囊多久。 */
+        /** 手術完了後、カプセルに膨らむまでどのくらいの時間がかかりますか？ */
         const val PILL_MS = 4_000L
-        /** 办完后一共停多久(展开的那段加上缩回一颗带角标的那段)。 */
+        /** 終了後、停止するまでの時間はどのくらいかかりますか（拡張部分とコーナーマークのある引っ込み部分）。 */
         const val LINGER_MS = 10_000L
         val HANDED_OVER: String get() = tr(R.string.capsule_you_handle)
         val THINKING: String get() = tr(R.string.capsule_thinking)
@@ -347,7 +347,7 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
         val CONTINUING: String get() = tr(R.string.capsule_continuing)
         val KEPT: String get() = tr(R.string.kept_capsule)
 
-        /** 此刻在做什么:回放、批量执行写进度;否则先用模型随调用写的话,再用调用里的用意,都没有用固定说法。 */
+        /** 現在何をしていますか: 再生、バッチ実行、書き込みの進行状況。それ以外の場合、最初にモデルを使用して呼び出しで記述し、次に呼び出しでインテントを使用する場合、固定されたステートメントは存在しません。 */
         fun runningText(s: TaskState.Running): String {
             s.progress?.let { return progressText(it) }
             val said = listOfNotNull(s.narration, s.reason).map(::oneLine).firstOrNull { it.isNotEmpty() }
@@ -360,7 +360,7 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
             is RunProgress.WaitingForApp -> tr(R.string.progress_waiting_app, p.app)
         }
 
-        /** 模型写的字压成一行。 */
+        /** モデルが書いた文字を1行に潰す。 */
         private fun oneLine(s: String) = s.replace(Regex("\\s+"), " ").trim()
 
         private fun TaskState.ended() = this is TaskState.Succeeded || this is TaskState.Failed || this == TaskState.Cancelled
@@ -368,14 +368,14 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
 }
 
 /**
- * 胶囊的透明度:一颗图标不碰它 [IDLE_MS] 后淡到 [BALL](圈和角标保持实色,由界面管);
- * 碰到或状态变了马上恢复(调用方从那一刻重新计时)。展开成胶囊时、要你处理时、「你来处理」那一条不淡。
+ * カプセルの透明度: アイコンに [IDLE_MS] 触れなければ [BALL] まで薄くなる（輪郭とバッジは実色のままで、UI 側が管轄する）;
+ * 触れるか状態が変わればすぐに戻る（呼び出し側はその時点から計り直す）。カプセルへ展開したとき、対応してほしいとき、「ユーザーへの引き継ぎ」の項目では薄くならない。
  */
 object CapsuleFade {
     const val IDLE_MS = 3_000L
     const val BALL = 0.4f
 
-    /** [idleFor] 是离上次碰到或状态变了过了多久。 */
+    /** [idleFor] は、最後に触れるか状態が変わってからどれだけ経ったか。 */
     fun alpha(kind: CapsuleKind, needCount: Int, pill: Boolean, idleFor: Long): Float = when {
         pill || kind.needsYou || needCount > 0 || kind == CapsuleKind.HandedOver -> 1f
         idleFor < IDLE_MS -> 1f

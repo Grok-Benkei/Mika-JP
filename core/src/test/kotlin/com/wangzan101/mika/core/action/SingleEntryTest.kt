@@ -5,15 +5,15 @@ import org.junit.Test
 import java.io.File
 
 /**
- * 执行入口的边界:[com.wangzan101.mika.core.tool.ActionPass] 的构造函数是 internal,App 模块造不出来;
- * core 里由这里守着只有 core.action 造它、只有 core.action 调不可逆判定与同意核对。
- * 包依赖只能单向:core.action 和 core.guard 不依赖调度它们的 core.agent。
+ * 実行エントリ境界: [com.wangzan101.mika.core.tool.ActionPass] のコンストラクターは内部的なものであり、アプリ モジュールによって作成できません。
+ * コアでは core.action のみが作成でき、不可逆判定と承認チェックを調整できるのは core.action のみです。
+ * パッケージの依存関係は一方向のみです。core.action と core.guard は、それらをスケジュールする core.agent に依存しません。
  */
 class SingleEntryTest {
     private val action = File("src/main/kotlin/com/wangzan101/mika/core/action").canonicalPath + File.separator
     private val roots = listOf(File("src/main/kotlin"), File("../app/src/main/java"))
 
-    /** 源码里的代码行(整行注释不算;行内的字符串、网址照常算)。 */
+    /** ソース コード内のコード行 (コメント行全体はカウントされません。行内の文字列と URL は通常どおりカウントされます)。 */
     private fun codeLines(): List<Triple<File, Int, String>> = roots.filter { it.isDirectory }.flatMap { root ->
         root.walkTopDown().filter { it.isFile && it.extension == "kt" }.flatMap { f ->
             f.readLines().mapIndexedNotNull { i, line ->
@@ -30,20 +30,20 @@ class SingleEntryTest {
         .map { (f, n, line) -> "${f.path}:$n: ${line.trim()}" }
 
     @Test fun sourcesAreFound() {
-        assertTrue("找不到源码目录(工作目录应为 core/)", roots.first().isDirectory)
+        assertTrue("ソースディレクトリが見つかりません（作業ディレクトリは core/ を使ってください）", roots.first().isDirectory)
         assertTrue(codeLines().any { (f, _, line) -> !outsideAction(f) && "ActionPass()" in line })
     }
 
     @Test fun onlyTheExecutorHoldsThePass() {
         val bad = offenders(Regex("""\bActionPass\s*\(""")).filterNot { "class ActionPass" in it }
-        assertTrue("这些地方自己造执行凭证,绕过了执行入口:\n" + bad.joinToString("\n"), bad.isEmpty())
+        assertTrue("次の箇所が実行入口を通さずに実行証跡を生成しています:\n" + bad.joinToString("\n"), bad.isEmpty())
     }
 
     @Test fun onlyTheExecutorDecides() {
         val bad = offenders(Regex(
             """IrreversibleDetector\s*\.\s*(needsCheck|classify|hasLabelAt|unresolved)\b|\.\s*permits\s*\(|\.\s*noteWrite\s*\(|\bIrreversibleDetector\s*[,)]"""
         ))
-        assertTrue("这些地方绕过执行入口直接判定:\n" + bad.joinToString("\n"), bad.isEmpty())
+        assertTrue("次の箇所が実行入口を通さずに直接判定しています:\n" + bad.joinToString("\n"), bad.isEmpty())
     }
 
     @Test fun actionAndGuardDoNotDependOnTheLoop() {
@@ -52,6 +52,6 @@ class SingleEntryTest {
                 f.readLines().filter { it.startsWith("import com.wangzan101.mika.core.agent.") }.map { "${f.path}: $it" }
             }.toList()
         }
-        assertTrue("执行入口和守卫反过来依赖了主循环:\n" + bad.joinToString("\n"), bad.isEmpty())
+        assertTrue("実行入口とガードが主ループへ逆向きに依存しています:\n" + bad.joinToString("\n"), bad.isEmpty())
     }
 }

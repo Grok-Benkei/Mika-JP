@@ -17,7 +17,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** 回看之前的读屏(哪块屏的都行):能看图的主模型拿到当时的截图,其余给当时的元素文字。 */
+/** 前の画面読み取りを振り返ってください (どの画面でも機能します)。画像が表示されるメイン モデルはその時点でスクリーンショットを取得し、残りはその時点の要素テキストになります。 */
 internal object ViewPastScreens : AgentTool {
     override val verb = Verb.ViewPastScreens
     override val risk = Risk.Read
@@ -51,7 +51,7 @@ internal object ViewPastScreens : AgentTool {
                 put("error", "screenshot_not_found")
                 put("message", Feedback.format("recall_not_found", "keep" to RECALL_KEEP))
                 put("recoverable", true)
-                // 找不到的是旧画面,不是手机操作失败
+                // 見つからないのは古い画面であり、携帯電話の動作不良ではありません。
                 put("counts_as_failure", false)
             }
         }

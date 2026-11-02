@@ -25,7 +25,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 改名前的东西读进来时按旧名对照表换成现在的名字;调用旧名只提示,不替模型执行。 */
+/** 名称変更前の物を読み込むと、旧名称対照表に従い現在の名称に置き換えられます。古い名前を呼び出すとプロンプトが表示されるだけで、モデルは実行されません。 */
 class LegacyNamesTest {
     @Test fun unknownLegacyCallNamesTheReplacementAndDoesNothing() = runTest {
         val screen = FakeScreen()
@@ -33,37 +33,39 @@ class LegacyNamesTest {
         val r = d.execute(Part.ToolCall("c", "tap", """{"x":1,"y":1}""")).content
         assertEquals("unknown_tool", r["error"]!!.jsonPrimitive.content)
         val m = r["message"]!!.jsonPrimitive.content
-        assertTrue(m, "phone_tap or web_tap" in m && "renamed" in m)
+        assertTrue(m, "phone_tap または web_tap" in m && "名前が変更された" in m && "何も行われなかった" in m)
         assertTrue(screen.calls.isEmpty())
-        // 只提供了手机时只提手机那个
+        // 携帯電話のみを提供する場合は、携帯電話のみを記載します。
         val phoneOnly = toolDispatcher(FakeScreen()).execute(Part.ToolCall("c", "browser_navigate", "{}")).content
-        assertFalse(phoneOnly["message"]!!.jsonPrimitive.content.contains("renamed"))
+        assertFalse(phoneOnly["message"]!!.jsonPrimitive.content.contains("名前が変更された"))
+        assertTrue(phoneOnly["message"]!!.jsonPrimitive.content.contains("不明な手段"))
         val launch = toolDispatcher(FakeScreen()).execute(Part.ToolCall("c", "launch_app", "{}")).content["message"]!!.jsonPrimitive.content
         assertTrue(launch, "phone_launch_app" in launch)
     }
 
-    // 去掉了的 finish:存下的技能、做法里叫它的地方换成现在的做法;模型调它时说清现在怎么结束
+    // 仕上げの削除: 保存されたスキルと練習で呼び出される場所は、現在の練習に置き換えられます。モデルが調整したら、すぐに終了する方法を説明します。
     @Test fun retiredFinishIsRewrittenAndExplained() = runTest {
         val legacy = legacyNames()
         val zh = legacy.rewrite("查完后调用 finish 交结果")
         assertFalse(zh, "finish" in zh)
-        assertTrue(zh, "reply to the user with your answer as text" in zh)
+        assertTrue(zh, "ツールを呼び出さず、回答を通常の文章でユーザーへ返してください" in zh)
         val en = legacy.rewrite("When done, call `finish` with the price. The page may finish loading slowly.")
-        assertTrue(en, "When done, reply to the user with your answer as text" in en)
-        // 不是在叫工具的 finish(英文里的动词)不动
+        assertTrue(en, "When done, ツールを呼び出さず、回答を通常の文章でユーザーへ返してください" in en)
+        // は、移動するためにツールの終了 (英語の動詞) を呼び出していません。
         assertTrue(en, "may finish loading" in en)
         val r = toolDispatcher(FakeScreen()).execute(Part.ToolCall("c", "finish", """{"answer":"x"}""")).content
         val m = r["message"]!!.jsonPrimitive.content
-        assertTrue(m, "no tool 'finish'" in m && "without calling any tool" in m)
+        assertEquals("unknown_tool", r["error"]!!.jsonPrimitive.content)
+        assertTrue(m, "手段 'finish' はもうない" in m && "ツールを呼び出さず" in m && "何も行われなかった" in m)
     }
 
-    // 去掉了的 phone_ask_app_ai:旧记录、旧技能里叫它的地方换成现在的做法,模型调它时说清已经没有
+    // Phone_ask_app_ai を削除: 古いレコードと古いスキルで呼び出された場所が現在のメソッドに置き換えられました。モデルがそれを調整したとき、それはもう存在しないと明確に述べられました。
     @Test fun retiredAskAppAiIsRewrittenAndExplained() = runTest {
         val zh = legacyNames().rewrite("先 `phone_ask_app_ai` 问一下")
         assertFalse(zh, "phone_ask_app_ai" in zh)
-        assertTrue(zh, "read the app's own screens yourself" in zh)
+        assertTrue(zh, "アプリの画面を自分で読み取ってください（アプリ内AIへの質問機能は利用できません）" in zh)
         val m = toolDispatcher(FakeScreen()).execute(Part.ToolCall("c", "phone_ask_app_ai", "{}")).content["message"]!!.jsonPrimitive.content
-        assertTrue(m, "no tool 'phone_ask_app_ai'" in m)
+        assertTrue(m, "手段 'phone_ask_app_ai' はもうない" in m && "アプリ内AIへの質問機能は利用できません" in m)
     }
 
     @Test fun storedRoutesGetTheRoutableName() {
@@ -84,7 +86,7 @@ class LegacyNamesTest {
         assertTrue(block.message.orEmpty(), "phone_launch_app" in block.message.orEmpty())
     }
 
-    // 第二次改名:整个换了名字的旧名调用时提示新名,文字里的换成新名
+    // 2 番目の名前変更: 変更された名前全体を使用して古い名前を呼び出すと、新しい名前を求めるプロンプトが表示され、テキスト内の単語が新しい名前に置き換えられます。
     @Test fun movedNamesAreHintedAndRewritten() = runTest {
         val d = toolDispatcher(FakeScreen(), web = FakeWebPort())
         fun hint(name: String) = d.legacy.replacements(name)
@@ -96,16 +98,16 @@ class LegacyNamesTest {
         assertEquals(listOf("run_bundled_script"), hint("run_script"))
         assertEquals(listOf("phone_list_elements"), hint("phone_dump_elements"))
         assertEquals(listOf("web_diagnose"), hint("web_check_screen"))
-        // 最早那代几块屏共用的名字直接对到现在的
+        // 最初の世代のいくつかの画面で共有されている名前は、現在の画面に直接関連しています。
         assertEquals(setOf("phone_find_visually", "web_find_visually"), hint("locate_on_screen").toSet())
         assertEquals(setOf("phone_describe", "web_describe"), hint("screen_description").toSet())
         val m = d.execute(Part.ToolCall("c", "report_failure", """{"message":"x"}""")).content["message"]!!.jsonPrimitive.content
-        assertTrue(m, "end_not_done" in m && "renamed" in m)
+        assertTrue(m, "end_not_done" in m && "名前が変更された" in m)
         val text = legacyNames().rewrite("先 phone_dump_elements,不行就调用 `user_takeover`,再 phone_check_screen")
         assertEquals("先 phone_list_elements,不行就调用 `hand_to_user`,再 phone_diagnose", text)
     }
 
-    // 拆成知识、技能两个的旧名:按 kind 或名字前缀挑出对应的那个,看不出来时两个都提
+    // は古い名前で、知識とスキルの 2 つの部分に分かれています。種類または名前の接頭辞で対応するものを選択し、区別できない場合は両方について言及してください。
     @Test fun splitNamesPickByKind() = runTest {
         val d = toolDispatcher(FakeScreen(), skills = GuideCatalog.loadBundled())
         suspend fun message(name: String, args: String) = d.execute(Part.ToolCall("c", name, args)).content["message"]!!.jsonPrimitive.content
@@ -114,18 +116,18 @@ class LegacyNamesTest {
         val skill = message("find_skills", """{"query":"文档","kind":"skill"}""")
         assertTrue(skill, "skill_search" in skill && "knowledge_search" !in skill)
         val either = message("find_skills", """{"query":"外卖"}""")
-        assertTrue(either, "knowledge_search or skill_search" in either)
+        assertTrue(either, "knowledge_search または skill_search" in either)
         val site = message("skill_view", """{"name":"site:jd.com"}""")
         assertTrue(site, "knowledge_read" in site && "skill_read" !in site)
         val personal = message("skill_view", """{"name":"personal:my-trip"}""")
         assertTrue(personal, "skill_read" in personal && "knowledge_read" !in personal)
         val bare = message("skill_view", """{"name":"meituan"}""")
-        assertTrue(bare, "knowledge_read or skill_read" in bare)
-        // 存下的文字里看不出是哪个,两个都写上
+        assertTrue(bare, "knowledge_read または skill_read" in bare)
+        // 保存したテキストではどちらなのか分からないので両方書いてください。
         assertEquals("用 `knowledge_read` / `skill_read` 看全文", legacyNames().rewrite("用 `skill_view` 看全文"))
     }
 
-    // 改名前记下的运行记录:旧名认成现在的工具
+    // 名前変更前に記録された実行記録: 古い名前が現在のツールとして認識されます
     @Test fun recordedOldNamesResolve() {
         val tools = com.wangzan101.mika.core.assembly.recordedTools()
         assertEquals(Verb.EndNotDone, tools.verb("report_failure"))

@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** 一次变更;[undoToken] 交给 [MemoryStore.undo] 可恢复到变更之前。 */
+/** は 1 回変更されます。 [undoToken] は [MemoryStore.undo] に引き継がれ、変更前に復元されます。 */
 sealed interface Change {
     val undoToken: String
 
@@ -13,18 +13,18 @@ sealed interface Change {
     data class Forgot(val before: MemoryItem, override val undoToken: String) : Change
 }
 
-/** 整份读写;加密落盘由 app 层实现。 */
+/** はコピー全体の読み取りと書き込みを行います。暗号化されたディスクはアプリ層によって実装されます。 */
 interface MemoryPersistence {
     fun load(): List<MemoryItem>
     fun save(items: List<MemoryItem>)
 }
 
-/** [code]:`sensitive`|`too_long`|`memory_full`|`not_found`|`unavailable`(记忆文件暂时读不出)。 */
+/** [code]:`sensitive`|`too_long`|`memory_full`|`not_found`|`unavailable` (メモリファイルは一時的に読み取れません)。 */
 class MemoryRejected(val code: String) : Exception(code)
 
 /**
- * 记忆的唯一写入口。所有写方法共用一把锁:并行任务的写入串行化。
- * 写入前过 [SensitiveFilter];每次变更整份落盘;撤销令牌只在内存里保留最近 [UNDO_KEEP] 个。
+ * はメモリの唯一の書き込みポートです。すべての書き込みメソッドは同じロックを共有します。つまり、並列タスクの書き込みシリアル化です。
+ * は [SensitiveFilter] より前に書き込まれました。ディスク全体が毎回変更されます。失効トークンは最新の [UNDO_KEEP] のみをメモリに保持します。
  */
 class MemoryStore(
     private val persistence: MemoryPersistence,
@@ -33,15 +33,15 @@ class MemoryStore(
     val limit: Int = 500,
 ) {
     private val lock = Any()
-    // 读不出(密钥库一时不可用)时先当空的用,但不许写:写了就会用空表盖掉真正的记忆文件
+    // を読み取れない (キーストアが一時的に利用できない) 場合、空として使用されますが、書き込みは許可されません。書き込まれると、実メモリ ファイルは空のテーブルで上書きされます。
     @Volatile private var loaded = false
     private val _items = MutableStateFlow(tryLoad() ?: emptyList())
     val items: StateFlow<List<MemoryItem>> = _items.asStateFlow()
 
-    /** 记忆文件这次读到了没有;false 时写入一律拒绝(`unavailable`),[reloadIfNeeded] 下次再试。 */
+    /** 今度はメモリ ファイルが読み取られました。 false の場合、書き込みは拒否されます (`unavailable`)、[reloadIfNeeded]、次回再試行します。 */
     val available: Boolean get() = loaded
 
-    /** 之前没读出来就再读一次(每个任务开始、每次写入前调用);读到返回 true。 */
+    /** 以前に読み取られていない場合は、再度読み取ります (各タスクの開始時と各書き込み前に呼び出されます)。読み取られると true を返します。 */
     fun reloadIfNeeded(): Boolean = synchronized(lock) {
         if (loaded) return true
         val got = tryLoad() ?: return false
@@ -55,7 +55,7 @@ class MemoryStore(
         null
     }
 
-    // 插入顺序即新旧顺序,超出时丢最旧的
+    // 広告掲載オーダーは古い順と新しい順です。それを超えると、最も古いものが破棄されます。
     private val undos = LinkedHashMap<String, Change>()
 
     fun add(kind: MemoryKind, content: String, keywords: List<String>, source: MemorySource): Result<Change.Added> = synchronized(lock) {
@@ -75,8 +75,8 @@ class MemoryStore(
     }
 
     /**
-     * [keywords]/[source] 为 null 时沿用原值。做法被新的非手写来源(模型提取、memory_save)改动后要重新批准;
-     * 用户在设置里改(manual)或不带来源的改动保持原状态。
+     * [keywords]/[source] が null の場合、元の値が使用されます。新しい非手書きソース (モデル抽出、memory_save) によって変更された後は、プラクティスを再承認する必要があります。
+     * ユーザーが設定 (手動) で行った変更、またはソースなしで加えられた変更は、元の状態のままになります。
      */
     fun update(id: String, content: String, keywords: List<String>?, source: MemorySource?): Result<Change.Updated> = synchronized(lock) {
         if (!reloadIfNeeded()) return Result.failure(MemoryRejected("unavailable"))
@@ -103,8 +103,8 @@ class MemoryStore(
     }
 
     /**
-     * 令牌未知、过期或已用过 → false。更新的撤销只在条目仍是这次改后的样子时才做(之后又被改过/忘掉 → false),
-     * 免得把后来的改动一并抹掉。落盘失败时抛出,令牌保留可重试。
+     * トークンが不明、期限切れ、または使用中 → false。更新の取り消しは、エントリがこの変更と同じである場合にのみ行われます (その後、変更/忘れられた場合 → false)。
+     * は、その後のすべての変更が消去されることを回避します。配置が失敗した場合にスローされ、トークンは保持され、再試行できます。
      */
     fun undo(token: String): Boolean = synchronized(lock) {
         val change = undos[token] ?: return false
@@ -112,7 +112,7 @@ class MemoryStore(
         val next = when (change) {
             is Change.Added -> cur.filter { it.id != change.item.id }
             is Change.Updated -> {
-                // 只看这次改动的字段;之后的使用计数、置顶不算「又被改过」,恢复时也保留
+                // は、今回は変更されたフィールドのみを確​​認します。その後の使用回数とピンは「再度変更された」としてカウントされず、復元時にも保持されます。
                 val now = cur.find { it.id == change.item.id }
                 if (now == null || now.content != change.item.content || now.keywords != change.item.keywords || now.source != change.item.source) return false
                 val restored = change.before.copy(useCount = now.useCount, lastUsedAt = now.lastUsedAt, pinned = now.pinned)
@@ -147,7 +147,7 @@ class MemoryStore(
         commit(_items.value.map { if (it.id in set) it.copy(useCount = it.useCount + 1, lastUsedAt = now) else it })
     }
 
-    /** 用户要全部清除:读不出的原文件也一并用空表覆盖,这正是用户的意思。 */
+    /** ユーザーはすべてをクリアしたいと考えています。読み取ることができない元のファイルも空のテーブルで上書きされます。これはまさにユーザーが望んでいることです。 */
     fun clearAll(): Unit = synchronized(lock) {
         undos.clear()
         loaded = true
@@ -161,14 +161,14 @@ class MemoryStore(
         return null
     }
 
-    // 换行、连续空白压成一个空格:记忆块按行编号,内容里不能有换行
+    // 改行、連続空白は 1 つのスペースに押し込まれます。メモリ ブロックには行に従って番号が付けられ、コンテンツ内に改行を入れることはできません。
     private fun clean(content: String) = WHITESPACE.replace(content.trim(), " ")
 
     private fun cleanKeywords(keywords: List<String>) =
         keywords.map(::clean).filter { it.isNotEmpty() }.distinct().take(MAX_KEYWORDS)
 
     private fun commit(next: List<MemoryItem>) {
-        // 兜底:任何写入都不能在没读到原文件时发生
+        // 結論: 元のファイルを読み込まずに書き込みを行うことはできません。
         check(loaded) { "memory not loaded" }
         persistence.save(next)
         _items.value = next

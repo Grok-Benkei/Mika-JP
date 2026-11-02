@@ -8,39 +8,39 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 
-/** 一个发布的版本:版本号(不带 v)、标题、更新说明(Markdown)、发布日期、发布页、APK 直链。 */
+/** リリースされたバージョン: バージョン番号 (v なし)、タイトル、アップデートの説明 (Markdown)、リリース日、リリース ページ、APK の直接リンク。 */
 data class ReleaseInfo(
     val version: String,
     val name: String,
-    /** 更新说明。 */
+    /** のアップデート手順。 */
     val notes: String,
-    /** 发布日期 yyyy-MM-dd;来源没写时为空。 */
+    /** 発売日 yyyy-MM-dd;ソースが書き込まれていない場合は空になります。 */
     val date: String?,
     val pageUrl: String,
     val apkUrl: String?,
-    /** APK 附件的字节数;接口没给时为空。 */
+    /** APK 添付ファイルのバイト数。インターフェースが提供されていない場合は空です。 */
     val apkSize: Long? = null,
-    /** APK 附件的摘要,形如 `sha256:<hex>`;较早的附件没有,这时只靠包名、版本号和签名把关。 */
+    /** APK 添付ファイルの概要は、`sha256:<hex>` の形式になっています。以前の添付ファイルにはそれが含まれていないため、パッケージ名、バージョン番号、署名のみに依存します。 */
     val apkDigest: String? = null,
 ) {
-    /** 「从 GitHub 下载」打开的地址:有 APK 直链就下 APK,没有就打开发布页。 */
+    /** によって開かれたアドレス「GitHub からダウンロード」: APK への直接リンクがある場合は、APK をダウンロードします。そうでない場合は、リリース ページを開きます。 */
     val downloadUrl: String get() = apkUrl ?: pageUrl
 }
 
 /**
- * 读 GitHub 发布页接口(releases/latest)的版本信息:tag_name、name、body、published_at、html_url,
- * 以及 assets 里适合本机的 APK 的 browser_download_url(见 [pickApk])。
+ * GitHub リリース ページ インターフェイスのバージョン情報 (リリース/最新) を読み取ります: tag_name、name、body、published_at、html_url、
+ * と、アセット内のこのマシンに適した APK の browser_download_url ([pickApk] を参照)。
  */
 object Releases {
     private val json = Json { ignoreUnknownKeys = true }
 
     /**
-     * 发布里除了全架构的 `Mika-v<版本>.apk`,还可能有只带某个架构原生库的包,名字以 `-<后缀>.apk` 结尾。
-     * 键是 Android 的 ABI 名,值是附件名后缀。
+     * リリースでは、完全なアーキテクチャ `Mika-v<版本>.apk` に加えて、名前が `-<后缀>.apk` で終わる、特定のアーキテクチャのネイティブ ライブラリのみを含むパッケージも存在する場合があります。
+     * キーは Android ABI 名で、値は添付ファイル名のサフィックスです。
      */
     private val ABI_APK_SUFFIX = mapOf("arm64-v8a" to "arm64")
 
-    /** [deviceAbis] 是本机支持的 ABI,按偏好排序(Build.SUPPORTED_ABIS);为空时只取全架构包。 */
+    /** [deviceAbis] は、このマシンでサポートされている ABI であり、優先順位 (Build.SUPPORTED_ABIS) によって並べ替えられています。空の場合、完全なアーキテクチャ パッケージのみが取得されます。 */
     fun fromGitHub(text: String, deviceAbis: List<String> = emptyList()): ReleaseInfo {
         val o = json.parseToJsonElement(text).jsonObject
         val tag = o.str("tag_name") ?: error("no tag_name")
@@ -62,8 +62,8 @@ object Releases {
     }
 
     /**
-     * 本机支持某个架构、发布里又有这个架构的专用包时取专用包(更小);否则取全架构包。
-     * 只有别的架构的专用包时不取(装不上),这时打开发布页。
+     * このマシンが特定のアーキテクチャをサポートしており、リリースにこのアーキテクチャ用の特別なパッケージがある場合は、特別なパッケージ (小さい方) を選択してください。それ以外の場合は、完全なアーキテクチャ パッケージを使用してください。
+     * には、利用できない (インストールできない) 他のアーキテクチャ用の特別なパッケージのみがあり、リリース ページが開きます。
      */
     private fun pickApk(assets: List<JsonObject>, deviceAbis: List<String>): JsonObject? {
         val apks = assets.filter { it.str("name")?.endsWith(".apk", ignoreCase = true) == true }
@@ -73,7 +73,7 @@ object Releases {
         return forDevice ?: universal
     }
 
-    /** 存盘用:记下最近一次查到的版本,下次打开 App 时红点还在。 */
+    /** 保存用: 見つかった最新バージョンを書き留めます。次回アプリを開いたときに赤い点が表示されたままになります。 */
     fun toJson(r: ReleaseInfo): JsonObject = buildJsonObject {
         put("version", r.version)
         put("name", r.name)

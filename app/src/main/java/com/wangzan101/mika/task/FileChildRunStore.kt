@@ -9,7 +9,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
-/** 子 Run 的独立账本；重启时进行中的子 Run 变成未知，绝不自动重跑或给用户单独投递。 */
+/** サブランの独立した元帳。再起動すると、進行中のサブ実行は不明になり、自動的に再実行されたり、ユーザーに個別に配信されたりすることはありません。 */
 class FileChildRunStore(private val file: File) : ChildRunStore {
     private val records = linkedMapOf<String, ChildRecord>()
 

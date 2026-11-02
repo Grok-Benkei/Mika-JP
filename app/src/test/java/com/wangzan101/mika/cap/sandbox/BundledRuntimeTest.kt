@@ -18,7 +18,7 @@ import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.security.MessageDigest
 
-/** 仓库里的自带运行环境与生成的常量、软件包清单、构建脚本彼此一致,并且真能解开。单元测试的工作目录是 app/。 */
+/** ウェアハウス内の組み込み実行環境は、生成された定数、ソフトウェア パッケージ リスト、ビルド スクリプトと一致しており、実際にロックを解除できます。単体テストの作業ディレクトリは app/ です。 JVM テストの */
 class BundledRuntimeTest {
     @get:Rule val texts = ChineseTexts()
 

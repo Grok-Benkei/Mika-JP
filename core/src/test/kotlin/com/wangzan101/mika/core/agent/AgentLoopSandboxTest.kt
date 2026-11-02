@@ -24,7 +24,7 @@ private var n = 0
 private fun call(name: String, args: JsonObject) = Part.ToolCall("s${++n}", name, args.toString())
 private fun tools(c: Part.ToolCall) = ModelReply(listOf(c), StopReason.ToolUse, null)
 private fun cmd(command: String) = tools(call("run_command", buildJsonObject { put("command", command) }))
-private fun finish() = com.wangzan101.mika.core.testing.answerReply("算好了")
+private fun finish() = com.wangzan101.mika.core.testing.answerReply("計算が終わりました")
 private fun toolResults(m: FakeModel): List<JsonObject> = m.requests.last().filter { it.role == Role.Tool }
     .flatMap { it.parts.filterIsInstance<Part.ToolResult>() }.map { Json.parseToJsonElement(it.content).jsonObject }
 
@@ -36,7 +36,7 @@ class AgentLoopSandboxTest {
     @Test fun sandboxToolsSkipGate() = runTest {
         var gated = 0
         sb.next = { CommandResult(1, false, false, 10, "err", 0, false) }
-        // 六条不同的失败命令:屏幕的失败熔断(连续 5 次失败)不算它们
+        // 6 つの異なるコマンドの失敗: 画面のヒューズの失敗 (5 回連続失敗) はカウントされません。
         val m = FakeModel(*(1..6).map { cmd("false $it") }.toTypedArray(),
             tools(call("write_file", buildJsonObject { put("path", "a.txt"); put("content", "1") })), finish())
         val r = loop(m) { gated++ }.run("算一下")
@@ -52,7 +52,7 @@ class AgentLoopSandboxTest {
         val r = loop(m).run("跑脚本")
         assertTrue(r.toString(), r is TaskState.Failed)
         r as TaskState.Failed
-        assertTrue(r.reason, r.reason.startsWith("已安全停止(sandbox_loop)"))
+        assertTrue(r.reason, r.reason.startsWith("操作を停止しました（sandbox_loop）"))
         assertEquals(FailKind.Guard, r.kind)
         assertEquals(5, sb.runs.size)
         val results = toolResults(m)
@@ -77,9 +77,9 @@ class AgentLoopSandboxTest {
         val m = FakeModel(cmd("a"), tools(call("run_command", buildJsonObject { put("command", "b"); put("timeoutSec", 600) })), cmd("c"), finish())
         loop(m).run("长任务")
         assertEquals(60_000L, sb.runs[0].timeoutMs)
-        // 用了 25 分钟,只剩 5 分钟
+        // には 25 分かかりましたが、残りは 5 分のみです
         assertEquals(300_000L, sb.runs[1].timeoutMs)
-        // 50 分钟后不再运行
+        // は 50 分後に実行されなくなります
         assertEquals(2, sb.runs.size)
     }
 }

@@ -14,7 +14,7 @@ import org.junit.Test
 class StatusCopyTest {
     @get:Rule val texts = ChineseTexts()
 
-    // 频道设置页打不开时依次退回,第一个能开的就停
+    // チャンネル設定ページが開けない場合は、最初に開けるページに戻ります。
     @Test
     fun firstThatStartsFallsBack() {
         val tried = mutableListOf<String>()
@@ -28,23 +28,23 @@ class StatusCopyTest {
 
     @Test
     fun paymentLinesOnePerField() {
-        assertEquals("商品:拿铁 大杯\n金额:¥18\n地址:公司前台", StatusCopy.paymentLines("拿铁 大杯", "¥18", "公司前台"))
-        assertEquals("金额:¥18", StatusCopy.paymentLines(null, "¥18", " "))
+        assertEquals("商品: 拿铁 大杯\n金額: ¥18\n住所: 公司前台", StatusCopy.paymentLines("拿铁 大杯", "¥18", "公司前台"))
+        assertEquals("金額: ¥18", StatusCopy.paymentLines(null, "¥18", " "))
         assertNull(StatusCopy.paymentLines(null, null, null))
     }
 
-    // 照着记住的路线做、一次做几步时,卡片上写明在干什么
+    // 記憶したルートに従い、一度にいくつかのステップを実行するときに何を行っているかを書き留めます。
     @Test
     fun replayAndBatchCopy() {
-        assertEquals("按以往的做法快速执行中(第 2/5 步)", StatusCopy.progress(RunProgress.Replay(2, 5)))
-        assertEquals("一次执行 3 步", StatusCopy.progress(RunProgress.Batch(3)))
+        assertEquals("既知の手順をたどっています(ステップ 2/5)", StatusCopy.progress(RunProgress.Replay(2, 5)))
+        assertEquals("3 ステップを一度に実行中", StatusCopy.progress(RunProgress.Batch(3)))
 
         val ex = Exchange("查电量", emptyList(), ExchangeStatus.Working, live = true)
         val replaying = ChatViewModel.reduce(ex, TaskState.Running(0, "按以往的做法操作", progress = RunProgress.Replay(2, 5)))
-        assertEquals("按以往的做法快速执行中(第 2/5 步)", liveLine(replaying))
+        assertEquals("既知の手順をたどっています(ステップ 2/5)", liveLine(replaying))
         val batching = ChatViewModel.reduce(replaying, TaskState.Running(1, "一起做", "do_steps", RunProgress.Batch(3)))
-        assertEquals("一次执行 3 步", liveLine(batching))
-        // 步骤列表只列实际做过的事
+        assertEquals("3 ステップを一度に実行中", liveLine(batching))
+        // ステップ リストには、実際に実行された内容のみがリストされます。
         assertEquals(emptyList<StepRow>(), batching.steps)
     }
 
@@ -52,25 +52,25 @@ class StatusCopyTest {
     fun headsUpCopyForEachCombination() {
         val both = Problem.AttentionLowered(attention = true, result = true)
         val b = StatusCopy.banner(both)
-        assertEquals("「需要你处理」的通知不会弹出", b.title)
+        assertEquals("「あなたの対応が必要」の通知はポップアップ表示されません", b.title)
         assertEquals(
-            "要你接手或同意时，这类通知现在只安静地进通知栏，容易错过。「任务结果」的通知也一样。点「去打开」，打开「在屏幕上弹出」。\n" +
-                "系统设置 › 应用 › Mika › 通知 › 需要你处理 › 在屏幕上弹出（有的系统叫「横幅」「悬浮通知」）",
+            "操作を引き継ぐときや許可するとき、これらの通知は今は通知シェードに静かに届くので、見逃しやすくなっています。「タスクの結果」も同様です。「オンにする」をタップして、「ポップアップ表示」をオンにしてください。\n" +
+                "設定 › アプリ › Mika › 通知 › あなたの対応が必要 › ポップアップ表示(機種によっては「バナー」や「フローティング通知」と呼ばれます)",
             b.detail,
         )
-        assertEquals("去打开", b.link)
+        assertEquals("オンにする", b.link)
         assertEquals(Fix.OpenAttentionChannel, StatusCopy.directFix(both))
         assertEquals(Fix.OpenAttentionChannel, StatusCopy.explain(both, "14").fix)
 
         val attentionOnly = StatusCopy.banner(Problem.AttentionLowered(true, false))
-        assertFalse(attentionOnly.detail.contains("也一样"))
+        assertFalse(attentionOnly.detail.contains("も同様です"))
 
         val resultOnly = Problem.AttentionLowered(attention = false, result = true)
-        assertEquals("「任务结果」的通知不会弹出", StatusCopy.banner(resultOnly).title)
-        assertTrue(StatusCopy.banner(resultOnly).detail.contains("通知 › 任务结果 › 在屏幕上弹出"))
+        assertEquals("「タスクの結果」の通知はポップアップ表示されません", StatusCopy.banner(resultOnly).title)
+        assertTrue(StatusCopy.banner(resultOnly).detail.contains("通知 › タスクの結果 › ポップアップ表示"))
         assertEquals(Fix.OpenResultChannel, StatusCopy.directFix(resultOnly))
         val e = StatusCopy.explain(resultOnly, "14")
-        assertEquals("去打开", e.action)
+        assertEquals("オンにする", e.action)
         assertEquals(Fix.OpenResultChannel, e.fix)
     }
 }

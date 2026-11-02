@@ -11,23 +11,23 @@ import kotlinx.serialization.json.contentOrNull
 import java.util.UUID
 
 /**
- * 把一次办成的运行记成路线。只看 [RunEvent.ActionTarget] 与接管、追问、确认、障碍、结局一类事件;
- * 有任何一项说明这次不该记(要用户出手、付款、密码框、防截屏、用了浏览器工具或沙箱工具),返回 null。
+ * 完了した走行をルートとして記録します。 [RunEvent.ActionTarget] と、乗っ取り、尋問、確認、障害、エンディングなどのイベントのみを見てください。
+ * いずれかの項目が今回​​は記録すべきではないことを示している場合 (ユーザー アクション、支払い、パスワード ボックス、スクリーンショット対策、ブラウザ ツールまたはサンドボックス ツールの使用が必要)、null が返されます。
  */
 object RouteRecorder {
-    /** 用过就说明这次做法离不开用户或别的通道,照着回放不安全。 */
+    /** が使用されており、この方法はユーザーや他のチャンネルから分離できず、これに従って再生するのは安全ではありません。 */
     private val NO_ROUTE_VERBS = setOf(Verb.AskUser, Verb.RequestConfirmation, Verb.HandToUser)
     private val WAITING_STATES = setOf("waiting_input", "waiting_takeover", "no_answer")
     private val PROTECTED = Regex("\"protected\"\\s*:\\s*true|\"state\"\\s*:\\s*\"protected\"")
     private val NOT_SECRET = Regex("\"secret\"\\s*:\\s*false")
 
-    /** 槽值至少这么长:太短的字在原话里容易碰巧出现。 */
+    /** スロット値は少なくともこの長さです。短すぎる単語は、元の単語に誤って出現する傾向があります。 */
     private const val MIN_SLOT = 2
 
     /**
-     * 输入的字只能是本次原话里恰好出现一次的片段(记成槽);不是的(固定词、追问来的、从别处抄来的)整条不记,
-     * 路线里永远不存用户没在原话里说过的字。目标元素的名字在原话里出现时也必须绑成槽,回放时按新原话认。
-     * 办没办成由调用方按 [com.wangzan101.mika.core.agent.LearnGate] 判过才来记,这里只看路线本身记不记得下。
+     * 入力できる単語は、元の文に 1 回だけ出現する断片のみです (スロットとして記録されます)。そうでない場合（固定語、質問、他の場所からのコピー）、文全体は記録されません。
+     * ルートには、ユーザーが元の単語で発言していない単語が含まれることはありません。ターゲット要素の名前も、元のエピソードに表示されるときにスロットに関連付けられる必要があり、再生中に新しいオリジナル エピソードとして認識されます。
+     * が完了したかどうかは、[com.wangzan101.mika.core.agent.LearnGate] を押した後に発信者によって記録されます。ここでは、ルート自体を記憶できるかどうかだけを確認します。
      */
     fun record(goal: String, events: List<RunEvent>, nowMs: Long, tools: ToolIndex): Route? {
         if (events.lastOrNull { it is RunEvent.TaskEnded }?.let { (it as RunEvent.TaskEnded).outcome } != "succeeded") return null
@@ -38,7 +38,7 @@ object RouteRecorder {
         if (acts.isEmpty() || acts.size > MAX_ROUTE_STEPS || acts.any { it.protected }) return null
         val results = events.filterIsInstance<RunEvent.ToolResult>()
 
-        // 槽值按第一次用到的先后编号
+        // スロット値は最初に使用された順に番号が付けられます
         val slots = mutableListOf<String>()
         fun bind(v: String): Boolean {
             if (v in slots) return true
@@ -53,7 +53,7 @@ object RouteRecorder {
             var cleaned = o.filterKeys { it != "ref" && it != "snapshotId" && it != "target" }
             if (tools.verb(a.tool) == Verb.TypeText) {
                 val text = (o["text"] as? JsonPrimitive)?.contentOrNull ?: return null
-                // 端口没明确说不是密码框的输入一律不记
+                // 入力がパスワード ボックスにないことをポートが明確に示していない場合、その入力は記憶されません。
                 if (text == Redactor.MASK) return null
                 val r = a.callId?.let { id -> results.lastOrNull { it.callId == id } } ?: return null
                 if (!NOT_SECRET.containsMatchIn(r.resultJson)) return null
@@ -66,13 +66,13 @@ object RouteRecorder {
                 when {
                     n.isEmpty() -> t
                     n in goal -> if (bind(n)) t.copy(name = "{${slots.indexOf(n) + 1}}") else return null
-                    // 名字里夹着本次的参数(如「发给张三」):不按名字认
+                    // には今回のパラメータ（「Zhang Sanに送信」など）が含まれています：名前では識別されません
                     slots.any { it in n } -> t.copy(name = "", uniqueAtRecord = false)
                     else -> t
                 }
             }
         }
-        // 槽在原话里的位置不能互相重叠(短的被长的吞掉就没法单独换)
+        // 原作のスロットの位置は重複できません（短いスロットが長いスロットに飲み込まれた場合、個別に置き換えることはできません）
         val ranges = slots.map { v -> goal.indexOf(v).let { it until it + v.length } }
         if (ranges.indices.any { i -> ranges.indices.any { j -> i < j && ranges[i].first <= ranges[j].last && ranges[j].first <= ranges[i].last } }) return null
         var template = goal
@@ -105,7 +105,7 @@ object RouteRecorder {
         else -> false
     }
 
-    /** 路线只记能回放的那种界面上的做法:用过别的能力(网页、沙箱)的工具,照着回放不完整。 */
+    /** ルートは、再生できるインターフェイス上のメソッドのみを記憶します。他の機能 (Web ページ、サンドボックス) を持つツールを使用したため、再生は不完全です。 */
     private fun barred(tool: String, tools: ToolIndex): Boolean {
         val t = tools[tool] ?: return false
         if (t.verb in NO_ROUTE_VERBS) return true

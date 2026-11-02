@@ -36,16 +36,16 @@ class ClassifiedRiskTest {
     }
 
     @Test fun onlySpendingMoneyIsPayment() {
-        // 付款、下单就是花钱
+        // 支払いと注文はお金を使うことを意味します。
         assertEquals(Risk(ActionRisk.Irreversible, payment = true), assess("phone_tap", Irreversible(IrrevAction.pay, "付款")))
         assertEquals(Risk(ActionRisk.Irreversible, payment = true), assess("phone_tap", Irreversible(IrrevAction.order, "提交订单")))
-        // 屏上有金额时对外、不可逆的动作按花钱算
+        // 画面上に金額がある場合、外部および不可逆的なアクションは金額としてカウントされます。
         assertEquals(Risk(ActionRisk.External, payment = true), assess("phone_tap", Irreversible(IrrevAction.submit, "提交"), on = shop))
-        // 账号、密码、安全设置、密码框、看不清的都不是花钱
+        // アカウント番号、パスワード、セキュリティ設定、パスワードボックス、はっきりと見えないものはすべてお金ではありません。
         for (tool in listOf("phone_tap", "phone_type_text")) assertEquals(false, assess(tool).payment)
         assertEquals(false, assess("phone_tap", Irreversible(IrrevAction.delete, "注销账号")).payment)
         assertEquals(false, assess("phone_tap", Irreversible(IrrevAction.send, "发送")).payment)
-        // 金额在输入框里(自己打的字)不算;没命中不可逆判定的一般改动不看金额
+        // 入力ボックス内の金額 (自分で入力した単語) はカウントされません。ミスの不可逆的な判断における一般的な変化は、金額には着目しません。
         val typed = screen.copy(elements = screen.elements + el("@e7", "EditText", "¥25", listOf(0, 600, 999, 700), editable = true))
         assertEquals(false, assess("phone_tap", Irreversible(IrrevAction.submit, "提交"), on = typed).payment)
         assertEquals(Risk(ActionRisk.Change), assess("phone_tap", on = shop))

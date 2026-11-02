@@ -21,7 +21,7 @@ class LocalPortScanTest {
         }
     }
 
-    /** 每次扫描、核对都让假时钟往前走:用完预算就停,不扫下一个地址、不核对剩下的端口。 */
+    /** は、スキャンおよびチェックするたびに偽のクロックを進めます。予算が使い果たされると停止し、次のアドレスはスキャンされず、残りのポートはチェックされません。 */
     private class SlowScanner(val clock: LongArray, val sweepMs: Long, val probeMs: Long, val open: List<Int>) : LocalPortScanner {
         val swept = mutableListOf<String>()
         val probed = mutableListOf<Int>()
@@ -48,7 +48,7 @@ class LocalPortScanTest {
         val scan = LocalPortScan(scanner, { listOf("127.0.0.1", "192.0.2.10") }, budgetMs = 10_000, now = { clock[0] })
         val r = scan.scan(emptySet())
         assertEquals(listOf("127.0.0.1"), scanner.swept)
-        // 6 s 扫描 + 3 次 1.5 s 核对就到 10.5 s,剩下的不再核对
+        // 6 秒のスキャン + 1.5 秒の検証を 3 回行って 10.5 秒に達し、残りは検証されません
         assertEquals(listOf(40001, 40002, 40003), scanner.probed)
         assertEquals(ScanResult(emptyList(), open = 5, adb = 0), r)
         assertTrue(clock[0] <= 10_500)
@@ -83,7 +83,7 @@ class LocalPortScanTest {
         assertFalse(45678 in OwnListeningPorts.snapshot())
     }
 
-    /** 真 socket:在一小段端口里扫出假 adbd 和一个不说 adb 的服务,只有 adbd 回 STLS。 */
+    /** 真のソケット: 偽の adbd と、ポートの小さなセクションで adb と表示されていないサービスをスキャンします。 adbd のみが STLS を返します。 */
     @Test
     fun nioScannerFindsOpenPortsAndOnlyAdbdAnswersStls() = runBlocking {
         FakeAdbd(emptyList()).use { adbd ->
@@ -91,7 +91,7 @@ class LocalPortScanTest {
                 val scanner = NioPortScanner()
                 val lo = minOf(adbd.port, other.localPort)
                 val hi = maxOf(adbd.port, other.localPort)
-                // 范围太大时只扫两个端口附近
+                // 範囲が広すぎる場合は、2 つのポートの付近のみをスキャンします
                 val ports = if (hi - lo > 2_000) listOf(lo..lo, hi..hi) else listOf(lo..hi)
                 val open = ports.flatMap { scanner.openPorts("127.0.0.1", it, emptySet(), 5_000) }
                 assertTrue(open.toString(), adbd.port in open && other.localPort in open)

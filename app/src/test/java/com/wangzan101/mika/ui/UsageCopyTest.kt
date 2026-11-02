@@ -43,11 +43,11 @@ class UsageCopyTest {
         assertEquals(100.0 / 201, all.first().share, 1e-9)
         val p1 = UsageCopy.modelRanking(report, "p1")
         assertEquals(listOf("a", "b"), p1.map { it.model.model })
-        assertEquals("占比按这一排算", 100.0 / 110, p1.first().share, 1e-9)
+        assertEquals("比率はこの行の合計で計算する", 100.0 / 110, p1.first().share, 1e-9)
     }
 
     @Test fun colorsFollowTheFixedOrderAndFoldBeyondThree() {
-        // 连着的按连接先后:甲 0、丙 1、丁 2,删掉的排在后面
+        // 接続されているものは A 0、C 1、D 2 の順に接続され、削除されたものはその次に表示されます。
         assertEquals(mapOf("p1" to 0, "p3" to 1, "p4" to 2, "p2" to null), report.providers.associate { it.id to UsageCopy.colorSlot(it) })
     }
 
@@ -71,14 +71,8 @@ class UsageCopyTest {
         assertEquals("123 万", UsageCopy.tokens(1_234_567))
         assertEquals("1235 万", UsageCopy.tokens(12_345_678))
         assertEquals("10 万", UsageCopy.tokens(99_999))
-        assertEquals("进位到一亿时改写成亿", "1 亿", UsageCopy.tokens(99_999_999))
-        assertEquals("1.5 亿", UsageCopy.tokens(150_000_000))
-        assertEquals("12.3 亿", UsageCopy.tokens(1_234_567_890))
-    }
-
-    @Test fun traditionalTokensUseTraditionalUnits() {
-        UiText.source = ResFileTexts.traditional
-        assertEquals("1.23 萬", UsageCopy.tokens(12_345))
+        assertEquals("1 億", UsageCopy.tokens(99_999_999))
         assertEquals("1.5 億", UsageCopy.tokens(150_000_000))
+        assertEquals("12.3 億", UsageCopy.tokens(1_234_567_890))
     }
 }

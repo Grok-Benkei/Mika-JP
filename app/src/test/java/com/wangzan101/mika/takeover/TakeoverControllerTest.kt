@@ -12,7 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TakeoverControllerTest {
-    /** 虚拟屏是 9 号屏,主屏 0 号。任务 1 是 phone_launch_app 打开的 App,任务 2 是它另开的登录页。 */
+    /** 仮想画面は画面番号 9 で、メイン画面は画面番号 0 です。タスク 1 は、phone_launch_app によって開かれたアプリであり、タスク 2 は、それによって開かれたログイン ページです。 */
     internal class FakePort : TakeoverPort {
         val log = mutableListOf<String>()
         val displays = mutableMapOf(1 to AGENT)
@@ -54,7 +54,7 @@ class TakeoverControllerTest {
     private val port = FakePort()
     private lateinit var takeover: Takeover
 
-    /** 每个用例在自己的测试调度器上建接管,计时用虚拟时间。 */
+    /** 各ユースケースは、独自のテスト スケジューラ上にテイクオーバーを構築し、タイミングに仮想時間を使用します。 */
     private fun test(body: suspend TestScope.() -> Unit) = runTest {
         takeover = Takeover(port, backgroundScope) { testScheduler.currentTime }
         body()
@@ -74,7 +74,7 @@ class TakeoverControllerTest {
 
     @Test
     fun handOverMovesTheTopTaskAndItsPackage() = test {
-        // 登录页由另一个 App 在新任务里打开,盖在上面
+        // ログイン ページは、新しいタスクの別のアプリによって開かれ、それをカバーします。
         port.displays[2] = AGENT
         port.packages[2] = "login.app"
         takeover.onState(waiting)
@@ -102,7 +102,7 @@ class TakeoverControllerTest {
         port.packages[2] = "a.app"
         takeover.onState(waiting)
         takeover.handOver()
-        // 用户在主屏把付款页办完,页面自己关掉了:任务 2 不在了
+        // ユーザーがホーム画面で支払いページを完了しましたが、ページが自動的に閉じられました: タスク 2 は利用できなくなりました
         port.displays.remove(2)
         port.log.clear()
         assertTrue(takeover.handBack())
@@ -116,7 +116,7 @@ class TakeoverControllerTest {
         port.packages[2] = "a.app"
         takeover.onState(waiting)
         takeover.handOver()
-        // 页面关掉后,用户在主屏回到了这个 App 的原任务
+        // ページを閉じると、ユーザーはホーム画面上のアプリの元のタスクに戻ります。
         port.displays.remove(2)
         port.displays[1] = 0
         port.log.clear()
@@ -136,7 +136,7 @@ class TakeoverControllerTest {
 
     @Test
     fun finishedMyselfWithoutHandOverResumesWithoutMoving() = test {
-        // 用户可能在别处(另一台设备、电脑)办完了,没点「我来处理」
+        // ユーザーが他の場所 (別のデバイス、コンピューター) でプロセスを完了し、「処理します」をクリックしなかった可能性があります。
         takeover.onState(waiting)
         assertTrue(takeover.finishedMyself())
         assertEquals(listOf("resume:complete/finished"), port.log)
@@ -232,7 +232,7 @@ class TakeoverControllerTest {
     fun republishingTheAnsweredTakeoverDoesNotReArm() = test {
         takeover.onState(waiting)
         takeover.handBack()
-        // 循环还没把状态改成 Running 时,同一个等待状态可能被再次发布
+        // ループが実行状態に遷移していない場合、再度同じ待ち状態が発行される可能性があります。
         takeover.onState(waiting)
         assertEquals(Takeover.Stage.None, takeover.stage.value)
         assertFalse(takeover.handBack())
@@ -243,7 +243,7 @@ class TakeoverControllerTest {
         takeover.onState(waiting)
         takeover.handBack()
         takeover.onState(TaskState.Running(5, "phone_observe"))
-        // 与上一次内容相同的新一次接管照常进入等待
+        // いつものように前回と同じ内容の新たなテイクオーバーが待っています。
         takeover.onState(TaskState.WaitingTakeover("captcha", "请拖动滑块"))
         assertEquals(Takeover.Stage.Waiting, takeover.stage.value)
         assertTrue(takeover.handBack())
@@ -267,7 +267,7 @@ class TakeoverControllerTest {
         val second = TaskState.WaitingTakeover("login", "请登录")
         takeover.onState(second)
         assertTrue(takeover.waitKey != first)
-        // 上一次等待遗留的点击:不动作
+        // 残りのクリックを最後に待機しています: アクションなし
         assertFalse(takeover.handOver(first))
         assertFalse(takeover.skip(first))
         assertEquals(Takeover.Stage.Waiting, takeover.stage.value)
@@ -293,7 +293,7 @@ class TakeoverControllerTest {
         takeover.handOver()
         port.log.clear()
         port.moveBackOk = false
-        // 挪不回:保持原状,用户还在主屏上
+        // 元に戻れません: そのままになります。ユーザーはまだホーム画面にいます。
         assertFalse(takeover.skip())
         assertEquals(listOf("back:1"), port.log)
         assertEquals(Takeover.Stage.HandedOver, takeover.stage.value)

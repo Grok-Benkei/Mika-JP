@@ -12,24 +12,24 @@ import java.net.SocketTimeoutException
 import java.net.URLDecoder
 
 /**
- * 登录回调用的本机小服务(用 ChatGPT、OpenRouter 登录共用):只绑 127.0.0.1(别的设备连不进来),端口由系统挑一个空闲的。浏览器登录完跳回
- * `http://127.0.0.1:<端口>/auth/callback?…`(或写成 localhost),这里读出参数,把这次登录做完(换令牌、核对)再回一页结果;做的期间浏览器那边
- * 一直等着这个连接。别的路径(如浏览器顺手要的图标)回 404。只收一次回调;用完或放弃都要 [close]。
+ * ログイン コールバックによって呼び出されるローカルの小規模サービス (ChatGPT および OpenRouter ログインと共有): 127.0.0.1 のみをバインドし (他のデバイスは接続できません)、システムはアイドル ポートを選択します。ログイン後にブラウザが戻る
+ * `http://127.0.0.1:<端口>/auth/callback?…` (または localhost として記述)、ここでパラメーターを読み取り、ログインを完了し (トークンの変更、確認)、結果のページに戻ります。プロセス中にブラウザ
+ * はこの接続を待っています。他のパス (ブラウザ アイコンなど) は 404 を返します。コールバックは 1 つだけ収集されます。それを使い切るか放棄するには、[close] の費用がかかります。
  */
 class LoopbackCallback private constructor(private val server: ServerSocket) : Closeable {
     val port: Int get() = server.localPort
 
-    // 找无线调试端口时扫本机,别扫到自己这个监听
+    // ワイヤレス デバッグ ポートを探す場合は、このマシンをスキャンします。自分のモニターをスキャンしないでください。
     init { OwnListeningPorts.add(server.localPort) }
     val redirectUri: String get() = redirectUri(HOST)
 
-    /** 回调地址写成 [host](`127.0.0.1` 或 `localhost`,都指本机):有的服务只认其中一种写法。 */
+    /** コールバック アドレスは、[host] (`127.0.0.1` または `localhost`、どちらもローカル マシンを指します) として書き込まれます。一部のサービスは、これらの書き込み方法の 1 つだけを認識します。 */
     fun redirectUri(host: String): String = "http://$host:$port$PATH"
 
     /**
-     * 等回调,最多 [timeoutMs];超时为 null。收到回调后先调 [page](可以挂起:在里面把登录做完),
-     * 它给出的网页再回给浏览器,所以网页上能写最终结果。协程取消时立即返回(连接关掉)。
-     * [accept] 不认的回调(如 state 对不上:不是这次登录发起的)回 400、接着等。
+     * およびその他のコールバック (最大 [timeoutMs])。タイムアウトはnullです。コールバックを受信したら、まず [page] を呼び出します (一時停止可能: 内部でログインを完了します)。
+     * 提供された Web ページがブラウザに返されるため、最終結果を Web ページに書き込むことができます。コルーチンがキャンセルされると (接続が閉じられると)、すぐに戻ります。
+     * [accept] コールバックが認識されない場合 (状態が一致しない、このログインによって開始されなかったなど) は、400 を返し、待機します。
      */
     suspend fun await(
         timeoutMs: Long,
@@ -45,7 +45,7 @@ class LoopbackCallback private constructor(private val server: ServerSocket) : C
                 s.soTimeout = READ_TIMEOUT_MS
                 val reader = s.getInputStream().bufferedReader(Charsets.ISO_8859_1)
                 val requestLine = try { reader.readLine() } catch (e: IOException) { null } ?: return@use
-                // 读掉请求头
+                // リクエストヘッダーを読み取ります
                 while (true) {
                     val line = try { reader.readLine() } catch (e: IOException) { null }
                     if (line.isNullOrEmpty()) break
@@ -57,7 +57,7 @@ class LoopbackCallback private constructor(private val server: ServerSocket) : C
                     respond(s.getOutputStream(), 404, "Not Found", "text/plain", "Not Found")
                     return@use
                 }
-                // 转义写坏的(如落单的 %)当作不是这次的回调
+                // 不適切に書かれた文字 (order % など) をエスケープし、このコールバックではないものとして扱います。
                 val params = runCatching { parseQuery(target.substringAfter('?', "")) }.getOrNull()
                 if (params == null || !accept(params)) {
                     respond(s.getOutputStream(), 400, "Bad Request", "text/plain", "Bad Request")
@@ -92,7 +92,7 @@ class LoopbackCallback private constructor(private val server: ServerSocket) : C
         private const val POLL_MS = 300
         private const val READ_TIMEOUT_MS = 5_000
 
-        /** 开一个监听;[port] 为 0 时由系统挑。 */
+        /** はモニターを開きます。 [port] が 0 の場合、システムによって選択されます。 */
         fun open(port: Int = 0): LoopbackCallback = LoopbackCallback(ServerSocket(port, 4, InetAddress.getByName(HOST)))
 
         fun parseQuery(query: String): Map<String, String> = query.split('&').filter { it.isNotEmpty() }.associate { kv ->

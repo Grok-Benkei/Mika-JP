@@ -23,7 +23,7 @@ import java.io.File
 import java.security.KeyStore
 import java.util.UUID
 
-/** 一次运行结束后结果卡片下的提示;按运行编号挂到那一问一答上。 */
+/** 実行完了後の結果カードの下のプロンプト。実行番号を押すと、その質問と回答にリンクします。 */
 data class RunNotes(
     val conversationId: String,
     val runId: String,
@@ -32,12 +32,12 @@ data class RunNotes(
     val skillNotes: List<SkillNote> = emptyList(),
 )
 
-/** 打开「记忆与技能」的请求(结果卡片上点「看看」):[draftId] 是要看的技能草稿。 */
+/** 「メモリとスキル」のリクエストを開きます (結果カードの「見る」をクリック): [draftId] は、表示したいスキルのドラフトです。 */
 data class MemoryOpen(val draftId: String? = null)
 
 /**
- * 记忆存储、个人技能、开关与结果卡片提示。由 App 建一份、经 [Owner] 给出:并行的几个任务共用同一个 [MemoryStore],
- * 写入由它自己的锁串行。第一次取用会读盘解密,别在主线程上调。
+ * メモリストレージ、個人スキル、スイッチ、結果カードプロンプト。アプリによって作成され、[Owner] によって提供される: 複数の並列タスクが同じ [MemoryStore] を共有します。
+ * は、独自のロックによってシリアルに書き込まれます。初めてアクセスするときにディスクが読み取られて復号化されるため、メインスレッドで調整しないでください。
  */
 class MemoryRuntime(context: Context) {
     private val app = context.applicationContext
@@ -49,11 +49,11 @@ class MemoryRuntime(context: Context) {
     private var profile: ProfileStore? = null
     private var appKnowledge: AppKnowledgeFiles? = null
 
-    /** 任务收尾后的学习在这里跑:不随服务退出而取消。 */
+    /** タスク完了後の学習はここで実行されます。サービスが終了してもキャンセルされません。 */
     val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val _notes = MutableStateFlow<Map<String, RunNotes>>(emptyMap())
-    /** 运行编号 → 提示;界面据此在结果卡片下显示。 */
+    /** 実行番号 → プロンプト;それに応じて、インターフェイスが結果カードの下に表示されます。 */
     val notes: StateFlow<Map<String, RunNotes>> = _notes.asStateFlow()
 
     private val _open = MutableStateFlow<MemoryOpen?>(null)
@@ -64,8 +64,8 @@ class MemoryRuntime(context: Context) {
     fun publish(n: RunNotes) = _notes.update { it + (n.runId to n) }
 
     /**
-     * 记忆条目,给结果卡片现取提示文字。第一次取用时在后台读盘解密,读出之前是空的;
-     * 之后跟着存储变。
+     * メモリ エントリ、結果カードのプロンプト テキストをフェッチします。初めてアクセスするとき、ディスクはバックグラウンドで読み取られて復号化されますが、読み込む前はディスクは空です。
+     * の後にストレージの変更が続きます。
      */
     fun items(): StateFlow<List<MemoryItem>> {
         val out = MutableStateFlow<List<MemoryItem>>(emptyList())
@@ -91,7 +91,7 @@ class MemoryRuntime(context: Context) {
     @Synchronized fun settings(): MemorySettings =
         settings ?: MemorySettings(File(app.filesDir, "memory_settings.json")).also { settings = it }
 
-    /** 「全部清除」:记忆、另存的坏文件、个人技能与草稿都删掉,并重建记忆密钥;对话里的记忆提示也去掉。 */
+    /** 「すべてクリア」: メモリ、保存された不良ファイル、個人スキル、下書きがすべて削除され、メモリ キーが再構築されます。会話中の記憶プロンプトも削除されます。 */
     @Synchronized fun wipeAll() {
         store().clearAll()
         file().wipe()
@@ -102,14 +102,14 @@ class MemoryRuntime(context: Context) {
         _notes.update { m -> m.mapValues { (_, n) -> n.copy(skillNotes = emptyList()) } }
     }
 
-    /** 删掉了这些记忆([ids] 为 null = 全部):结果卡片和对话文件里不再提它们。 */
+    /** はこれらの思い出を削除しました ([ids] は null = すべて)。これらは結果カードと会話ファイルで言及されなくなりました。 */
     fun stripMemory(ids: Set<String>?) {
         fun keep(id: String) = ids != null && id !in ids
         _notes.update { m -> m.mapValues { (_, n) -> n.copy(memoryNotes = n.memoryNotes.filter { keep(it.memoryId) }, usedMemory = n.usedMemory.filter(::keep)) } }
         runCatching { ConversationStore.shared(app).stripMemory(ids) }
     }
 
-    /** 给出进程里那一份的 Application。 */
+    /** はプロセス中のアプリケーションを示します。 */
     interface Owner {
         val memory: MemoryRuntime
     }

@@ -11,20 +11,20 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * 在后台准备运行环境:App 启动时、Mika 升级后、重置后、任务要用而还没准备好时。
- * 对用户不可见,只在准备期间有一条低优先级的中性通知([SandboxForeground])。不联网。
+ * は、アプリの開始時、Mika のアップグレード後、リセット後、タスクが使用されるがまだ準備ができていないときに、バックグラウンドで実行環境を準備します。
+ * はユーザーには表示されず、準備中に優先度の低い中立通知 ([SandboxForeground]) のみが表示されます。インターネットに接続されていません。
  */
 object RuntimePreparer {
     private const val TAG = "RuntimePreparer"
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile private var job: Job? = null
-    /** 这个进程里准备失败过:App 启动时不再自动重试,任务要用时([ensure] 的 retryFailed)才再试。 */
+    /** このプロセスで準備が失敗しました: アプリは起動時に自動的に再試行されなくなり、タスクが再試行されるまでに時間がかかります ([ensure] の retryFailed)。 */
     @Volatile private var failed = false
 
-    /** 正在进行的准备;没有为 null。 */
+    /** 準備中です。 nullではありません。 */
     val current: Job? get() = job?.takeIf { it.isActive }
 
-    /** 需要准备就开始,返回这次准备(已在准备就返回那一个);不需要返回 null。 */
+    /** 準備が必要な場合は、この準備を開始して返します (すでに準備されている場合は、準備を返します)。 null を返す必要はありません。 */
     @Synchronized
     fun ensure(context: Context, retryFailed: Boolean = false): Job? {
         current?.let { return it }
@@ -43,7 +43,7 @@ object RuntimePreparer {
             }
         }
         job = j
-        // 前台服务让进程在准备期间不被回收,并显示中性通知;后台时系统不让启动前台服务,就只在进程里准备
+        // フォアグラウンド サービスは、準備中にプロセスがリサイクルされるのを防ぎ、中立的な通知を表示します。バックグラウンドでは、システムはフォアグラウンド サービスの開始を許可せず、プロセス内でのみフォアグラウンド サービスの準備を行います。
         try {
             SandboxForeground.start(app)
         } catch (e: Exception) {
@@ -52,7 +52,7 @@ object RuntimePreparer {
         return j
     }
 
-    /** 要不要准备:没装、装了旧版本(Mika 升级了)、出过错(除非 [skipBroken])。不支持或正在进行的不动。 */
+    /** 準備する必要がありますか: インストールされていない、古いバージョンがインストールされている (Mika がアップグレードされている)、エラー ([skipBroken] を除く)。サポートを受けられない、または継続的に動けない状態。 */
     internal fun needsWork(status: SandboxStatus, installed: String?, bundled: String, skipBroken: Boolean): Boolean = when (status) {
         is SandboxStatus.Unsupported, is SandboxStatus.Installing -> false
         is SandboxStatus.Ready -> installed != bundled

@@ -7,14 +7,14 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 object ScreenText {
-    /** 一行一个元素:`@e3 button "搜索" (500,50)`,中心点与点按坐标同为 0–999;超预算时截断并在末尾说明剩余数量。 */
+    /** 1 行に 1 つの要素: `@e3 button "搜索" (500,50)`、中心点とクリックの座標は両方とも 0 ～ 999 です。予算を超過した場合は切り捨てられ、残りの数量が最後に記載されます。 */
     fun render(s: ScreenSnapshot, maxChars: Int = 6000): String {
         val lines = s.elements.filter { it.meaningful }.map { line(it, s) }
         val out = StringBuilder()
         var shown = 0
         for (l in lines) {
             val remaining = lines.size - shown - 1
-            // 预留页脚空间,保证整体不超预算
+            // は、全体の予算を超えないようにフッター スペースを予約します。 The element array of
             val reserve = if (remaining > 0) footer(remaining).length + 1 else 0
             if (out.length + l.length + 1 + reserve > maxChars) break
             out.append(l).append('\n')
@@ -34,7 +34,7 @@ object ScreenText {
 }
 
 object ScreenJson {
-    /** observe 的元素数组;center 换成与 tap 坐标相同的 0–999(像素只在端口内部用);返回数组与被截掉的元素数。 */
+    /** observe; center はタップ座標と同じ 0 ～ 999 に置き換えられます (ピクセルはポート内でのみ使用されます)。配列と切り捨てられた要素の数が返されます。 */
     fun elements(s: ScreenSnapshot, maxElements: Int): Pair<JsonArray, Int> {
         val all = s.elements.filter { it.meaningful }
         val arr = buildJsonArray {

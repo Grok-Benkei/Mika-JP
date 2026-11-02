@@ -30,8 +30,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * 插话撤掉正在流式输出的请求时,用户已经看到的那段字记进历史,接在插话前面;
- * 回复刚好先说完、插话随后才到时,说完的那段挂到插话上方(界面不丢)。
+ * ストリーミングを中断した場合、生の部分応答は内部のモデル履歴に保持し、ユーザーが実際に見た日本語の状況表示だけを中断イベントへ記録する。
+ * たまたま返信が先に終わって、間投詞が後から来ただけです。完成した部分は間投詞の上にぶら下がっていました（インターフェースは失われていません）。
  */
 class InterruptedReplyTest {
     private fun spec() = RunSpec(RunId("r1"), "查今天的天气", "thread-1")
@@ -44,11 +44,11 @@ class InterruptedReplyTest {
         }
     }
 
-    /** 跑一次:第一次请求流出 [chunks] 后停住,插一句话,模型随后回答。返回第二次请求看到的消息。 */
+    /** は 1 回実行されます。最初のリクエストは [chunks] から流れ出て停止し、文が挿入され、モデルが応答します。 2 番目のリクエストで表示されたメッセージを返します。 */
     private suspend fun kotlinx.coroutines.test.TestScope.steerDuring(
         chunks: List<String>, events: Events = Events(), streamReplies: Boolean = true,
     ): List<Message> {
-        val inner = fakeModel("main") { answer("明天多云。") }
+        val inner = fakeModel("main") { answer("明日は曇りです。") }
         val model = InterruptibleStream(inner, chunks)
         val inbox = RunInbox()
         val running = async {
@@ -66,16 +66,16 @@ class InterruptedReplyTest {
     private fun List<Message>.mikaTexts() =
         filter { it.role == Role.Assistant && it.author == Author.Mika }.map { m -> m.parts.filterIsInstance<Part.Text>().joinToString("") { it.text } }
 
-    @Test fun keepsTheTextTheUserSawRightBeforeTheSteer() = runTest {
+    @Test fun keepsRawPartialInternallyAndRecordsOnlyTheJapaneseStatusShown() = runTest {
         val events = Events()
-        val messages = steerDuring(listOf("好的,我先", "好的,我先查今天的天气 "), events)
+        val messages = steerDuring(listOf("まず確認します", "まず今日の天気を確認します "), events)
         val kept = messages.indexOfLast { it.role == Role.Assistant }
-        assertEquals(listOf("好的,我先查今天的天气"), messages.mikaTexts())
-        assertEquals(listOf(Part.Text("好的,我先查今天的天气")), messages[kept].parts)
+        assertEquals(listOf("まず今日の天気を確認します"), messages.mikaTexts())
+        assertEquals(listOf(Part.Text("まず今日の天気を確認します")), messages[kept].parts)
         val next = messages[kept + 1]
         assertEquals(Author.User, next.author)
         assertEquals("${AgentLoop.STEER_MARKER}\n$steerText", (next.parts.first() as Part.Text).text)
-        assertEquals(listOf("好的,我先查今天的天气"), events.interrupted)
+        assertEquals(listOf("処理を続けています。"), events.interrupted)
     }
 
     @Test fun nothingIsKeptWhenNoTextWasShown() = runTest {
@@ -94,7 +94,7 @@ class InterruptedReplyTest {
 
     @Test fun nothingIsKeptWhenRepliesAreNotStreamedToTheScreen() = runTest {
         val events = Events()
-        val messages = steerDuring(listOf("好的,我先查今天的天气"), events, streamReplies = false)
+        val messages = steerDuring(listOf("まず今日の天気を確認します"), events, streamReplies = false)
         assertTrue(messages.mikaTexts().isEmpty())
         assertTrue(events.interrupted.isEmpty())
     }
@@ -107,7 +107,7 @@ class InterruptedReplyTest {
             override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
                 requests += messages
                 if (requests.size == 1) { entered.complete(Unit); awaitCancellation() }
-                return answerReply("明天多云。")
+                return answerReply("明日は曇りです。")
             }
         }
         val inbox = RunInbox()
@@ -124,9 +124,9 @@ class InterruptedReplyTest {
         fun detail(name: String) = states.filter { it.first == name }.map { it.second }
     }
 
-    // 回复刚好先说完、插话随后才到:回复照常记进历史,说完的那段(全文,不截短)发给界面挂到插话上方,不算被打断
+    // たまたま応答が先に終了し、中断が後で発生しました。応答は通常どおり履歴に記録され、応答の後の部分 (切り捨てられていない全文) がインターフェイスに送信され、中断の上にハングされるため、中断されたものとしてカウントされません。
     @Test fun aReplyThatFinishedJustBeforeTheSteerIsKeptOnScreen() = runTest {
-        val full = "今天晴,最高 25 度,傍晚有风。"
+        val full = "今日は晴れで、最高気温は25度です。夕方は風があります。"
         val inbox = RunInbox()
         val all = AllStates()
         val sink = object : RunSink {
@@ -135,9 +135,9 @@ class InterruptedReplyTest {
                 if (e is RunEvent.ModelReply && e.step == 1) runBlocking { inbox.send(RunInput.Steer("late", steerText)) }
             }
         }
-        val model = FakeModel(answerReply(full), answerReply("明天多云。"))
+        val model = FakeModel(answerReply(full), answerReply("明日は曇りです。"))
         val end = AgentLoop(model, toolDispatcher(FakeScreen()), "BASE", streamReplies = true, sink = sink).run(spec(), inbox)
-        assertEquals("明天多云。", (end as TaskState.Succeeded).answer)
+        assertEquals("明日は曇りです。", (end as TaskState.Succeeded).answer)
         assertEquals(listOf(full), model.requests[1].mikaTexts())
         assertEquals(listOf(full), all.detail("reply_finished_before_steer"))
         assertTrue(all.detail("reply_interrupted").isEmpty())
@@ -145,7 +145,7 @@ class InterruptedReplyTest {
             all.states.map { it.first }.filter { it == "reply_finished_before_steer" || it == "steer_received" })
     }
 
-    // 没显示过字(不流式显示)时没有什么要挂的,插话照常接上
+    // 文字が表示されない（ストリーミング表示がない）場合は、電話を切る必要はありません。中断して通常どおり接続します。
     @Test fun nothingIsAttachedWhenTheFinishedReplyWasNotShown() = runTest {
         val inbox = RunInbox()
         val all = AllStates()
@@ -155,7 +155,7 @@ class InterruptedReplyTest {
                 if (e is RunEvent.ModelReply && e.step == 1) runBlocking { inbox.send(RunInput.Steer("late", steerText)) }
             }
         }
-        val model = FakeModel(answerReply("今天晴。"), answerReply("明天多云。"))
+        val model = FakeModel(answerReply("今天晴。"), answerReply("明日は曇りです。"))
         AgentLoop(model, toolDispatcher(FakeScreen()), "BASE", sink = sink).run(spec(), inbox)
         assertEquals(2, model.requests.size)
         assertTrue(all.detail("reply_finished_before_steer").isEmpty())

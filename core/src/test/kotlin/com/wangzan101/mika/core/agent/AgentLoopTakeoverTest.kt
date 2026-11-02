@@ -31,9 +31,9 @@ private var seq = 0
 private fun call(name: String, args: String = "{}") = Part.ToolCall("t${++seq}", name, args)
 private fun tools(vararg calls: Part.ToolCall) = ModelReply(calls.toList(), StopReason.ToolUse, null)
 private fun text(s: String) = ModelReply(listOf(Part.Text(s)), StopReason.EndTurn, null)
-private const val ANSWER = "付好了"
-private fun finish() = com.wangzan101.mika.core.testing.answerReply("付好了")
-private const val FAIL = """{"checks": [{"criterion": "已付款", "status": "unmet", "quote": null}], "verdict": "fail", "reason": "接管被跳过,没有付款"}"""
+private const val ANSWER = "支払いを確認しました"
+private fun finish() = com.wangzan101.mika.core.testing.answerReply("支払いを確認しました")
+private const val FAIL = """{"checks": [{"criterion": "已付款", "status": "unmet", "quote": null}], "verdict": "fail", "reason": "引き継ぎがスキップされ、支払いは完了していません"}"""
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AgentLoopTakeoverTest {
@@ -42,9 +42,9 @@ class AgentLoopTakeoverTest {
         override fun event(e: RunEvent) { events += e }
     }
 
-    private fun takeover(args: String = """{"reason":"login","message":"请登录"}""") = call("hand_to_user", args)
+    private fun takeover(args: String = """{"reason":"login","message":"ログインしてください"}""") = call("hand_to_user", args)
 
-    /** 跑到等待接管,交回 [back],返回结束状态和交回后的那次模型请求里的最后一条消息。 */
+    /** は引き継ぎを待機するために実行され、[back] を返し、ハンドオーバー後に終了ステータスとモデル リクエストの最後のメッセージを返します。 */
     private suspend fun TestScope.handBack(
         back: HandBack, main: FakeModel = FakeModel(tools(takeover()), finish()),
         verifier: Verifier? = null, sink: RunSink = RunSink.NONE,
@@ -66,11 +66,11 @@ class AgentLoopTakeoverTest {
     private fun JsonObject.s(k: String) = this[k]!!.jsonPrimitive.content
 
     @Test fun paymentFieldsCarriedToState() = runTest {
-        val main = FakeModel(tools(takeover("""{"reason":"payment","message":"请付款","item":"咖啡豆 500g ×1","amount":"¥89.00","address":"上海市某路 1 号"}""")), finish())
+        val main = FakeModel(tools(takeover("""{"reason":"payment","message":"支払いをお願いします","item":"咖啡豆 500g ×1","amount":"¥89.00","address":"上海市某路 1 号"}""")), finish())
         val l = AgentLoop(main, toolDispatcher(FakeScreen()), "BASE")
         val run = async { l.run("t") }
         advanceUntilIdle()
-        assertEquals(TaskState.WaitingTakeover("payment", "请付款", item = "咖啡豆 500g ×1", amount = "¥89.00", address = "上海市某路 1 号"), l.state.value)
+        assertEquals(TaskState.WaitingTakeover("payment", "支払いをお願いします", item = "咖啡豆 500g ×1", amount = "¥89.00", address = "上海市某路 1 号"), l.state.value)
         l.resumeAfterTakeover(HandBack(HandBackOutcome.complete))
         run.await()
     }
@@ -97,8 +97,8 @@ class AgentLoopTakeoverTest {
     }
 
     @Test fun skippedIsNotSuccess() = runTest {
-        // 跳过后模型直接回答:付款是不可逆的事,另请核查;核查器拿到的动作清单写明接管被跳过,判不通过,回答标成未确认
-        val main = FakeModel(tools(takeover("""{"reason":"payment","message":"请付款","amount":"¥89.00"}""")), finish(), finish(), finish())
+        // スキップした後、モデルは直接答えました: 支払いは取り消しできません。もう一度確認してください。検証者が取得したアクションリストには、乗っ取りがスキップされ、判定が下されず、回答が未確認としてマークされたことが記載されています。
+        val main = FakeModel(tools(takeover("""{"reason":"payment","message":"支払いをお願いします","amount":"¥89.00"}""")), finish(), finish(), finish())
         val checker = FakeModel(text(FAIL), text(FAIL), text(FAIL))
         val (end, _) = handBack(HandBack(HandBackOutcome.skipped), main, verifier = Verifier(checker, null))
         val r = main.takeoverResult()
@@ -106,7 +106,7 @@ class AgentLoopTakeoverTest {
         assertEquals("skipped", r.s("outcome")); assertEquals("takeover_skipped", r.s("reason"))
         assertEquals("false", r.s("counts_as_failure")); assertEquals(UserExchange.NO_HANDBACK_NOTE, r.s("note"))
         val verifierPrompt = checker.requests.first().joinToString("\n") { m -> m.parts.filterIsInstance<Part.Text>().joinToString { it.text } }
-        assertTrue(verifierPrompt, "hand_to_user(payment) 接管被跳过" in verifierPrompt)
+        assertTrue(verifierPrompt, "hand_to_user(payment) ユーザーによる操作がスキップされました" in verifierPrompt)
         assertTrue(end.toString(), end is TaskState.Succeeded && !end.verified && end.unconfirmed.isNotEmpty())
     }
 
@@ -138,14 +138,14 @@ class AgentLoopTakeoverTest {
         val result = history[i + 1].parts.filterIsInstance<Part.ToolResult>().single()
         assertEquals(c.id, result.callId)
         assertTrue(result.content, "\"outcome\":\"complete\"" in result.content)
-        // 交回结果就是工具结果,后面不再另起一条用户消息
+        // 返される結果はツールの結果であり、後で新しいユーザー メッセージは送信されません。
         assertEquals(i + 2, history.size)
     }
 
     @Test fun abortedCancelsTask() = runTest {
         val sink = ListSink()
         val (end, l) = handBack(HandBack(HandBackOutcome.aborted), sink = sink)
-        // 取消了也留下这次模型回复,且记在等待接管之前
+        // はキャンセルしてこのモデルの応答を残し、引き継ぎを待つ前に記録しました。
         val reply = sink.events.indexOfFirst { it is RunEvent.ModelReply && it.tool == "hand_to_user" }
         assertTrue(sink.events.toString(), reply >= 0)
         assertTrue(reply < sink.events.indexOfFirst { it is RunEvent.State && it.name == "waiting_takeover" })

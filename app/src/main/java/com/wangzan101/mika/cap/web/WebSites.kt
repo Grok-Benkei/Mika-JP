@@ -3,15 +3,15 @@ package com.wangzan101.mika.cap.web
 import android.content.Context
 import android.webkit.WebViewDatabase
 
-/** 站点登记表的设置页操作;登记表是进程里那一份(App 给出,设置页和标签池共用)。 */
+/** サイト登録フォームの設定ページ操作;登録フォームはプロセス中のものです（アプリによって提供され、設定ページとタグプールは共有されます）。 */
 object WebSites {
     fun registry(context: Context): SiteRegistry = WebOwner.of(context).webSites
 
-    /** 设置页用的退出操作:mika 网页配置的 Cookie 与网页存储。主线程调用。 */
+    /** 設定ページの終了操作: mika Web ページ構成の Cookie と Web ページの保存。メインスレッドによって呼び出されます。 */
     fun login(context: Context): WebLogin = WebLogin(WebTab.cookieManager(), WebTab.webStorage(), registry(context))
 
     /**
-     * 设置页的「全部退出并清除网页数据」:没有开着的标签也要清缓存,所以临时开一个同配置的看不见的标签来清,用完即关。主线程调用。
+     * 設定ページの「すべて終了してWebページデータをクリア」：タブを開いていない場合でもキャッシュをクリアする必要があるため、一時的に同じ設定の非表示タブを開いてクリアし、使用後は閉じてください。メインスレッドによって呼び出されます。
      */
     fun logoutAll(context: Context) {
         val tmp = WebTab(context.applicationContext, "clear", "settings")

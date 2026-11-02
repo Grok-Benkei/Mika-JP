@@ -42,7 +42,7 @@ class KeepAwakeTest {
         runCurrent()
         assertFalse(lock.held)
 
-        // 用户处理完、任务继续跑:重新常亮
+        // ユーザーが処理を終了した後も、タスクは引き続き実行されます (常に再び実行されます)。
         awake.onState(TaskState.Running(2, ""))
         assertTrue(lock.held)
     }
@@ -80,12 +80,12 @@ class KeepAwakeTest {
         awake.onState(TaskState.Running(1, ""))
         awake.close()
         assertFalse(lock.held)
-        // 任务结束后迟到的状态发布不能把锁重新拿回来
+        // タスクがロックを取り戻すことができなかった後の遅いステータスの解放。
         awake.onState(TaskState.Running(2, ""))
         assertFalse(lock.held)
     }
 
-    // 两个任务各持一份:第一个开始时拿锁,最后一个结束时才放
+    // 2 つのタスクはそれぞれコピーを保持します。最初のタスクは最初にロックを取得し、最後のタスクの終了時にロックを解放します。
     @Test
     fun refCountedAcrossRuns() = runTest {
         val lock = FakeLock()
@@ -107,7 +107,7 @@ class KeepAwakeTest {
         assertFalse(lock.held)
     }
 
-    /** 屏幕只保持开着,不锁在全亮:用户不操作时由系统照常调暗。 */
+    /** 画面は最大の明るさでロックされず、オンのままになります。ユーザーが操作していないときは、システムは通常どおり画面を暗くします。 */
     @Suppress("DEPRECATION")
     @Test
     fun screenLockLetsTheSystemDim() {

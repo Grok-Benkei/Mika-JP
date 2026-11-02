@@ -12,7 +12,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
-/** 触发器和时段账本同文件原子替换；认领时段落盘成功后才返回给派发器。 */
+/** トリガーとセッション台帳は同じファイルにアトミックに置き換えられます。クレーム セッションは、セッションが正常に割り当てられた後にのみディスパッチャに返されます。 */
 class FileTriggerStore(private val file: File) : TriggerStore {
     private val memory = MemoryTriggerStore(if (file.isFile) runCatching {
         Json.decodeFromString<TriggerSnapshot>(file.readText())

@@ -47,7 +47,7 @@ class AttachedPageTest {
         assertNull(p.page)
         assertEquals("hello\n[End of page]", p.words)
         assertFalse(AttachedPage.has("hello"))
-        // 只有开头一行、没有结束行的不算
+        // 最初の行のみ、終了行はカウントされません。
         assertNull(AttachedPage.parse(AttachedPage.HEADER + "\nURL: x").page)
     }
 

@@ -1,30 +1,30 @@
-# 沙箱原生程序:来源、许可证与源码发布
+# サンドボックス ネイティブ プログラム: ソース、ライセンス、ソース コードのリリース
 
-Mika 的沙箱带三个可执行文件,都在 `app/src/main/jniLibs/arm64-v8a/`,随 APK 安装到 `nativeLibraryDir`。
-Mika 只以子进程方式运行它们,不链接它们。
+ミカのサンドボックスには 3 つの実行可能ファイルが付属しており、すべて `app/src/main/jniLibs/arm64-v8a/` であり、APK とともに `nativeLibraryDir` にインストールされます。
+Mito は子プロセスとしてのみ実行し、リンクしません。
 
-| 文件 | 是什么 | 来源 | 版本 | 许可证 |
+|ドキュメント | |とは何ですか出典 |バージョン |ライセンス |
 |---|---|---|---|---|
-| `libproot.so` | PRoot 本体,静态链接 talloc | PRoot:`sources.lock` 里的 `proot` 源码包,加 `patches/proot-*.patch`;talloc:`sources.lock` 里的 `talloc` 源码包,只编 `talloc.c`,未修改 | PRoot 5.4.0、talloc 2.4.3 | GPL-2.0-or-later(PRoot)、LGPL-3.0-or-later(talloc) |
-| `libproot_loader.so` | PRoot 的载入器(静态、`-nostdlib`) | 同一个 PRoot 源码包 | 5.4.0 | GPL-2.0-or-later |
-| `libmikarun.so` | Mika 的沙箱启动器(超时、断网、清场) | `app/src/main/cpp/mikarun/mikarun.c` | 随 Mika | MIT |
+| `libproot.so` | PRoot本体、静的リンクtalloc | PRoot:`sources.lock` の `proot` ソース コード パッケージに、`patches/proot-*.patch` を追加します。 `talloc` ソース コード パッケージ (talloc:`sources.lock`)、`talloc.c` のみコンパイル、未修正 | PRoot 5.4.0、talloc 2.4.3 | GPL-2.0以降(PRoot)、LGPL-3.0以降(talloc) |
+| `libproot_loader.so` | PRoot ローダー (静的、`-nostdlib`) |同じ PRoot ソース パッケージ | 5.4.0 | GPL-2.0以降 |
+| `libmikarun.so` |ミカのサンドボックス ランチャー (タイムアウト、ネットワーク切断、サイトクリア) | `app/src/main/cpp/mikarun/mikarun.c` |ミカさんと |マサチューセッツ工科大学 |
 
-许可证全文和版权声明(`licenses/THIRD_PARTY_NOTICES.md`)都在仓库根目录的 `licenses/`。
+ライセンスと著作権声明 (`licenses/THIRD_PARTY_NOTICES.md`) の全文は、ウェアハウスのルート ディレクトリの `licenses/` にあります。
 
-## 自带的运行环境
+## 同梱の実行環境
 
-运行环境(Alpine 3.22 最小根文件系统 + Python、Node 等软件包)随 APK 发布,在
-`app/src/main/assets/runtime/rootfs.tar.xz`。手机首次启动 Mika 时在后台解到 `files/sandbox/rootfs`,不联网。
+実行環境（Alpine 3.22 の最小ルートファイルシステム + Python、Node などのパッケージ）は APK に同梱して配布し、保存先は
+`app/src/main/assets/runtime/rootfs.tar.xz`。端末で Mika を初めて起動すると、バックグラウンドで `files/sandbox/rootfs` に展開する。ネットワーク接続は不要。
 
-- `runtime/sources.lock`:最小根文件系统的地址与 SHA-256,以及每个软件包的仓库、版本、APKINDEX 校验值、`.apk` 的 SHA-256。
-- `build-runtime.py`:按 `sources.lock` 下载、校验后拼成 `rootfs.tar.xz`。全程不运行 apk:按 apk 的布局解开软件包,
-  并用软件包签过名的元数据写出 `/lib/apk/db/installed`,所以运行环境里的 apk 看到的数据库是一致的。
-  每个 `.apk` 都要核对:锁文件里的 SHA-256、它自己的 RSA 签名(公钥取自钉住的最小根文件系统)、控制段校验值与 APKINDEX 一致、
-  数据段与签过名的 `.PKGINFO` 里的 `datahash` 一致。会在手机上执行的安装脚本与触发器必须逐个列进 `SCRIPTS_NOT_RUN`
-  (按内容的 SHA-256 钉住,并写明为什么不跑也正确),否则构建失败。
-  同时生成 `app/src/main/java/com/wangzan101/mika/cap/sandbox/BundledRuntime.kt`(版本、SHA-256、大小)与
-  `app/src/main/assets/runtime/packages.json`(所有软件包、版本、许可证;「开源许可」页从它生成)。
-- 产物逐字节可重现:
+- `runtime/sources.lock`:最小ルートファイルシステムのアドレスと SHA-256、および各パッケージのリポジトリ、バージョン、APKINDEX チェックサム、`.apk` の SHA-256。
+- `build-runtime.py`:`sources.lock` に従ってダウンロード・検証し、`rootfs.tar.xz` を組み立てる。全工程で apk を実行せず、apk の配置規則に従ってパッケージを展開し、
+  パッケージの署名済みメタデータから `/lib/apk/db/installed` を書き出す。そのため、実行環境内の apk から見えるデータベースとの整合性が保たれる。
+  各 `.apk` について、ロックファイルの SHA-256、自身の RSA 署名（公開鍵は固定した最小ルートファイルシステムから取得）、制御部分のチェックサムと APKINDEX の一致、
+  データ部分と署名済み `.PKGINFO` 内の `datahash` の一致を確認する。端末上で実行されるインストールスクリプトとトリガーは、1 つずつ `SCRIPTS_NOT_RUN` に列挙しなければならない
+  （内容の SHA-256 で固定し、実行しなくても正しい理由を明記する）。そうでなければビルドは失敗する。
+  同時に `app/src/main/java/com/wangzan101/mika/cap/sandbox/BundledRuntime.kt`（バージョン、SHA-256、サイズ）と、
+  `app/src/main/assets/runtime/packages.json`（すべてのパッケージ、バージョン、ライセンス。「オープンソースライセンス」ページの生成元）を生成する。
+- 成果物はバイト単位で再現可能:
 
 ```bash
 python3 tools/sandbox/build-runtime.py --resolve   # 换 Alpine 小版本或软件包后重新求依赖,改写 runtime/sources.lock
@@ -32,22 +32,22 @@ python3 tools/sandbox/build-runtime.py             # 生成 rootfs.tar.xz、Bund
 python3 tools/sandbox/build-runtime.py --check     # 重新生成并与仓库里的产物比较,不一致退出 1
 ```
 
-`build-runtime.py` 里的 `WANT` 必须与 core 的 `SANDBOX_PACKAGES` 一致(`BundledRuntimeTest` 核对)。
+`build-runtime.py` の `WANT` は core の `SANDBOX_PACKAGES` と一致しなければならない（`BundledRuntimeTest` で照合）。
 
-运行环境包含 `tzdata`。每次启动命令时,`ProcRunner.env` 都把手机当前的 IANA 时区写入 `TZ`,
-让命令行、Python 和 Node 的本地时间与手机一致,并保留夏令时和历史偏移规则;手机切换时区后,下一条命令随之更新。
+実行環境には `tzdata` を含む。コマンドを起動するたびに `ProcRunner.env` が端末の現在の IANA タイムゾーンを `TZ` に設定し、
+コマンドライン、Python、Node のローカル時刻を端末と一致させ、夏時間と過去の時差規則も維持する。端末のタイムゾーンを変更すると、次のコマンドから反映する。
 
-## 文件
+## ファイル
 
-- `sources.lock`:每行 `名称 版本 下载地址 SHA-256`。编译和打源码包都只用这里列出的源码包,下载后先核对 SHA-256。
-- `patches/`:对上游源码的修改,文件名 `<名称>-<序号>-<说明>.patch`,按文件名顺序以 `patch -p1` 打上。补丁跟随被修改组件的许可证。
-  - `proot-0001-exitkill.patch`:给 PRoot 的跟踪选项加上 `PTRACE_O_EXITKILL`。这样 PRoot 退出时(即使被 SIGKILL 杀掉),内核会杀掉所有被跟踪的进程,沙箱里的命令不会在后台继续运行。
-  - `proot-0002-seccomp-trap-enosys.patch`:安卓给 App 装的 seccomp 策略对新系统调用(io_uring、clone3、faccessat2、epoll_pwait2、rseq 等)发 SIGSYS,且比后装的任何过滤器优先,沙箱里的程序一试探就被杀。PRoot 在这种 SIGSYS(`si_code == SYS_SECCOMP`)的信号停止处把返回值改成 `-ENOSYS` 并取消信号,程序走自己的退路;arm64 上只带 `AT_EACCESS` 的 faccessat2 改发成 faccessat(App 进程实际与有效身份总相同,两者等价),权限判断仍由内核给出。
-  - `proot-0003-arm64-new-path-syscalls.patch`:PRoot 5.4.0 的 arm64 调用号表只到 statx(291),之后新增的调用 PRoot 认不出,平台放行时它们带着没转换的路径直达内核,按宿主路径执行(例如 musl 的 `faccessat(…, AT_EACCESS)` 先试 faccessat2,判断的是错误的文件)。补上这些编号并加进 PRoot 的 seccomp 跟踪列表:faccessat2、fchmodat2 与 faccessat、fchmodat 一样转换路径;execveat(会绕过 execve 的处理)、openat2(`RESOLVE_*` 规则针对沙箱内的目录树)、io_uring_setup(路径操作不经系统调用)、新挂载接口(open_tree、move_mount、fspick、mount_setattr、open_tree_attr)与 setxattrat 等 *xattrat、file_getattr/file_setattr 一律返回 `-ENOSYS`,调用方退回老的调用,由 PRoot 正常转换。同时修正查表时的越界判断(`index > length` 改为 `>=`)。
-  - `proot-0004-link2symlink-fstat-nonfile.patch`:link2symlink 扩展在 fstat 返回时把描述符的 `/proc` 链接当路径 lstat;管道、套接字等(`pipe:[…]`)lstat 失败后,原代码接着读未初始化的 stat 结构,随栈上残留值不同,时而把成功的 fstat 改成 -1(EPERM)。启动时检查标准描述符的程序(node 会直接 abort)因此随机失败。改为 lstat 失败即不处理;`" (deleted)"` 后缀只在读到链接后检查;链接目标消失时返回 -errno 而不是 -1。
-- `build-native.sh`:从 `sources.lock` 下载源码、核对 SHA-256、打补丁,用 NDK 28.2.13676358(API 30)交叉编译三个程序。
+- `sources.lock`: 1 行あたり `名称 版本 下载地址 SHA-256`。ここにリストされているソース コード パッケージは、ソース コード パッケージのコンパイルとビルドにのみ使用してください。ダウンロード後、まず SHA-256 を確認してください。
+- `patches/`: 上流のソース コードを変更します。ファイル名は `<名称>-<序号>-<说明>.patch` で、ファイル名の順に `patch -p1` と入力します。パッチは、変更されるコンポーネントのライセンスに従います。
+  - `proot-0001-exitkill.patch`: PRoot の追跡オプションに `PTRACE_O_EXITKILL` を追加します。このようにして、PRoot が終了すると (SIGKILL によって強制終了された場合でも)、カーネルは追跡されているすべてのプロセスを強制終了し、サンドボックス内のコマンドはバックグラウンドで実行され続けなくなります。
+  - `proot-0002-seccomp-trap-enosys.patch`: Android によってアプリ用にインストールされた seccomp ポリシーは、新しいシステム コール (io_uring、clone3、faccessat2、epoll_pwait2、rseq など) に SIGSYS を送信し、インストール後のフィルターよりも優先されます。サンドボックス内のプログラムはテストされるとすぐに強制終了されます。 PRoot は、この SIGSYS のシグナル停止 (`si_code == SYS_SECCOMP`) で戻り値を `-ENOSYS` に変更し、シグナルをキャンセルし、プログラムは自ら後退します。 arm64 上の `AT_EACCESS` のみを持つ faccessat2 は faccessat に変更されます (アプリ プロセスの実際の ID は常に有効な ID と同じであり、2 つは同等です)。許可の判断は引き続きカーネルによって行われます。
+  - `proot-0003-arm64-new-path-syscalls.patch`: PRoot 5.4.0 の arm64 呼び出し番号テーブルは statx(291) までしか到達せず、新しく追加された呼び出しは PRoot によって認識されません。プラットフォームがそれらを解放すると、それらは変換されていないパスでカーネルに直接移動し、ホスト パスに従って実行されます (たとえば、musl の `faccessat(…, AT_EACCESS)` は最初に faccessat2 を試行し、間違ったファイルを判断します)。次の数値を入力して、PRoot の seccomp トラッキング リストに追加します。 faccessat2、fchmodat2 および faccessat、fchmodat 変換パス。 execveat (execve 処理をバイパスします)、openat2 (`RESOLVE_*` ルールはサンドボックス内のディレクトリ ツリー用)、io_uring_setup (システム コールを使用しないパス操作)、新しいマウント インターフェイス (open_tree、move_mount、fspick、mount_setattr、open_tree_attr)、および setxattrat です。 *xattrat、file_getattr/file_setattr はすべて `-ENOSYS` を返し、呼び出し元は古い呼び出しを返します。これは PRoot によって通常どおり変換されます。同時にテーブル参照時の範囲外判定を修正(`index > length`を`>=`に変更)。
+  - `proot-0004-link2symlink-fstat-nonfile.patch`: link2symlink 拡張機能は、fstat が lstat を返すときに、記述子の `/proc` リンクをパスとして使用します。パイプ、ソケットなど（`pipe:[…]`）。 lstat が失敗した後、元のコードは初期化されていない stat 構造体の読み取りを続けます。スタックの残存値によっては、成功した fstat が -1(EPERM) に変更される場合があります。したがって、起動時に標準記述子をチェックするプログラム (ノードは直接中止されます) はランダムに失敗します。 lstat エラーを処理しないように変更されました。 `" (deleted)"` サフィックスは、リンクを読み取った後にのみチェックされます。リンク ターゲットが消えると、-1 の代わりに -errno が返されます。
+- `build-native.sh`: `sources.lock` からソース コードをダウンロードし、SHA-256 を確認し、パッチを適用し、NDK 28.2.13676358 (API 30) を使用して 3 つのプログラムをクロスコンパイルします。
 
-## 重现编译
+## の再コンパイル
 
 ```bash
 export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358
@@ -55,11 +55,11 @@ tools/sandbox/build-native.sh           # 编译并覆盖 app/src/main/jniLibs/a
 tools/sandbox/build-native.sh --check   # 只重编并与仓库里的产物比较 SHA-256,不一致退出 1
 ```
 
-编译时会做路径前缀映射,并且不写 build-id,所以同一个 NDK 编出的产物逐字节相同。用 `--check` 可以确认仓库里的二进制确实来自这些源码。
+はコンパイル時にパス プレフィックス マッピングを実行し、ビルド ID を書き込まないため、同じ NDK によってコンパイルされた製品はバイトごとに同じになります。 `--check` を使用して、ウェアハウス内のバイナリが実際にこれらのソース コードからのものであることを確認します。
 
-## 发布 APK 时一起发布源码包
+## はAPKリリース時にソースコードパッケージをリリースします
 
-每次发布 APK,都要把 `sources.lock` 列出的源码包、`patches/`、编译脚本和许可证打包成 `mika-<版本>-gpl-sources.tar.gz`,和 APK 放在同一个发布页。在仓库根目录运行:
+が APK をリリースするたびに、ソース コード パッケージ `patches/`、`sources.lock` にリストされているコンパイル スクリプトおよびライセンスを `mika-<版本>-gpl-sources.tar.gz` にパッケージ化し、APK と同じリリース ページに配置する必要があります。リポジトリのルート ディレクトリで実行します。
 
 ```bash
 VERSION=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts)
@@ -80,5 +80,5 @@ cp -R tools/sandbox/runtime "$OUT/runtime/lock"
 COPYFILE_DISABLE=1 tar -czf "build/gpl-sources/$NAME.tar.gz" -C build/gpl-sources "$NAME"
 ```
 
-运行后得到 `build/gpl-sources/mika-<版本>-gpl-sources.tar.gz`。上传前用 `tar -tzf` 看一眼,确认里面有两个源码包、`patches/`,
-以及 `runtime/` 下每个 GPL/LGPL/MPL 软件包的目录和 `runtime/SOURCES.txt`(gcc 等源码较大,整包约数百 MB)。
+を実行すると、`build/gpl-sources/mika-<版本>-gpl-sources.tar.gz` が得られます。アップロードする前に、`tar -tzf` を使用して 2 つのソース コード パッケージ `patches/` があることを確認してください。
+、`runtime/`、および `runtime/SOURCES.txt` の下の各 GPL/LGPL/MPL ソフトウェア パッケージのディレクトリ (gcc およびその他のソース コードはより大きく、パッケージ全体は約数百 MB)。

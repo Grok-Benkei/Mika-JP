@@ -19,38 +19,38 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /*
- * 工具上下文里的界面状态:开局由 [Interfaces.attach] 放进去,有界面的工具(手机、网页、通用工具里点名屏幕的)从这里取。
- * 工具引擎(core/tool)不认识这些,只经 [com.wangzan101.mika.core.tool.SurfaceLayer] 用到界面一侧。
+ * ツールコンテキストのインターフェイスステータス: [Interfaces.attach] が最初に入力され、インターフェイスを持つツール (携帯電話、Web ページ、一般ツールの点呼画面) がここから取得されます。
+ * ツール エンジン (コア/ツール) はこれらを認識せず、[com.wangzan101.mika.core.tool.SurfaceLayer] を介してインターフェイス側のみを使用します。
  */
 
-/** 界面状态在工具上下文里的键。 */
+/** ツールコンテキストのインターフェイスステータスキー。 */
 internal val INTERFACES = CapabilityKey<Interfaces>("interfaces")
 
-/** 本任务的界面状态(开局放进来的那一份)。 */
+/** このタスクのインターフェースステータス (最初に入力されたもの)。 */
 internal val ToolContext.interfaces: Interfaces get() = this[INTERFACES] ?: error("interfaces not attached")
 
-/** 分发器那个任务的界面状态(执行入口、回放按读屏判定时用)。 */
+/** ディストリビュータのタスクのインタフェース状態（画面読み取り判定による入力、再生を実行する場合に使用）。 */
 internal val ToolDispatcher.interfaces: Interfaces get() = ctx.interfaces
 
-/** 每块屏的读屏状态,按能力的 id。 */
+/** アビリティのIDに応じた各画面の画面読み取り状況。 */
 internal val ToolContext.sessions: Map<String, ScreenSession> get() = interfaces.sessions
 
-/** 最近操作的是哪块屏。 */
+/** 最近使用した画面。 */
 internal val ToolContext.focus: SurfaceFocus get() = interfaces.focus
 
-/** 此刻在操作的那块屏的读屏状态(分发器在每次调用前按工具所属的屏记下,见 [focus])。 */
+/** 現在操作されている画面の画面読み取りステータス (ディストリビュータは各呼び出しの前にツールが属する画面を記録します。[focus] を参照)。 */
 internal val ToolContext.session: ScreenSession get() = sessions.getValue(focus.current.id)
 internal val ToolContext.screen: ScreenPort get() = session.screen
 
-/** 此刻在操作的那块屏。 */
+/** が現在操作している画面です。 */
 internal val ToolContext.surface: Surface get() = focus.current
 internal val ToolContext.lastSnapshot: ScreenSnapshot? get() = session.lastSnapshot
 
-/** 此刻那块屏上 find_visually 找到的点(@vN);那块屏上任何写操作后清空。 */
+/** 現時点でその画面上で find_visually によって見つかったポイント (@vN)。その画面で書き込み操作を行うとクリアされます。 */
 internal val ToolContext.located: LocateRegistry get() = session.located
 internal val ToolContext.locatedInfo: MutableMap<String, Located> get() = session.locatedInfo
 
-/** 上次写操作之后看过 describe:这期间的坐标点击按看图得来的点对待。 */
+/** 最後の書き込み操作後に表示される説明: この期間中の座標クリックは、画像から取得された点として扱われます。 */
 internal var ToolContext.described: Boolean
     get() = session.described
     set(v) { session.described = v }
@@ -58,21 +58,21 @@ internal val ToolContext.locator: Locator? get() = session.locator
 
 internal fun ToolContext.clearLocated() = session.clearLocated()
 
-/** 端口的动作结果转成工具结果:没变化、被切到别的 App、页面没静下来都写进提示;失败按错误码给说明。 */
+/** ポートのアクション結果はツール結果に変換されます。変化なし、別のアプリに切り替えられている、ページが静かでないなどはすべてプロンプトとして書き込まれます。失敗はエラー コードによって説明されます。 */
 internal fun ToolContext.action(r: ActionResult): ToolExecution = when (r) {
     is ActionResult.Ok -> {
-        // 被切到别的 App(不是目标 App 自己调起的付款页之类):付款申报作废
+        // は別のアプリに切り替えられました (ターゲット アプリ自体によって呼び出された支払いページではありません): 支払い宣言は無効です
         if (r.appSwitched != null && !r.switchedByTarget) refusedPay = null
         val hints = listOfNotNull(
             HINT_TAP_UNCHANGED.takeIf { r.changed == false && !reportsEffect && r.opened == null },
-            // 开到用户主屏上又挪回来的,由下面那句说清,不再说被切走
+            // はユーザーのホーム画面に開かれ、その後元に戻りました。次の文でそれを明確にしましょう。もう切り取られたとは言えなくなります。
             r.appSwitched?.takeIf { r.opened == null }?.let { switchHint(it, r.switchedByTarget) },
             HINT_NOT_SETTLED.takeIf { r.settled == false },
             r.coveredBy?.let { Feedback.format("covered_by", "pkg" to it) },
             r.opened?.let { openedHint(it) },
-            // 系统在用户屏上问的,留给用户选:不说怎么选
+            // システムはユーザー画面に質問を表示し、ユーザーの選択に任せます。選択方法については指示されません。
             r.chooser?.takeIf { r.opened?.picker != true }?.let { Feedback.format("launch.chooser", "pkg" to it.packageName) },
-            // 要的就是另一份时,开出另一份不用再提醒;开出的不是要的那份,照实说
+            // 別のコピーが必要な場合は、別のコピーを発行するときに通知する必要はありません。要求したコピーが要求したものと異なる場合は、真実を話してください。
             (r.opened?.inProfile ?: r.inProfile)?.takeIf { it == OpenedElsewhere.OTHER_PROFILE && r.requestedUser == null }?.let { Feedback["profile.other"] },
             r.requestedUser?.takeIf { r.profileUser != null && r.profileUser != it }?.let { wanted ->
                 if (r.inProfile == OpenedElsewhere.MAIN_PROFILE) Feedback["profile.main_not_requested"]
@@ -106,10 +106,10 @@ internal fun ToolContext.action(r: ActionResult): ToolExecution = when (r) {
 }
 
 /**
- * 动作让 App 开到了用户主屏上时给模型的那句:挪回来了就说在 Mika 的屏上接着做、别再点一次;系统在用户屏上问打开哪一个的,
- * 说留给用户选、别再点也别替用户选,下一个动作会等用户选完;用户关了那个问题、用户亲手处理完了的,照实说;
- * 要用户亲手处理的弹窗(登录验证一类)留在用户屏上,说别挪回来、请用户在那里点;留在用户屏上没动的(用户正用着),
- * 说别再来、请用户处理。
+ * アクションは、ユーザーのホーム画面でアプリが開かれたとき、モデルに通知します。元に戻されたときは、ミカの画面で続行し、再度クリックしないでください。システムはユーザーの画面上でどれを開くかを尋ねます。
+ * は、ユーザーの選択に任されていると述べています。再度クリックしたり、ユーザーに代わって選択したりしないでください。次のアクションは、ユーザーが選択を完了するまで待機します。ユーザーが問題をクローズし、ユーザーが個人的に対処する場合、これは当てはまります。
+ * ユーザーが自分で処理する必要があるポップアップ ウィンドウ (ログイン認証など) がユーザー画面に残り、ウィンドウを元に戻さず、そこをクリックするようユーザーに指示します。ユーザー画面上で変更されていないもの (ユーザーが現在使用しているもの)、
+ * は二度と来ないでユーザーに対処してほしいと言いました。
  */
 internal fun openedHint(o: OpenedElsewhere): String {
     val app = o.app ?: o.packageName
@@ -124,8 +124,8 @@ internal fun openedHint(o: OpenedElsewhere): String {
 }
 
 /**
- * 稳定编号开着时先把模型编号翻译成端口编号再交给 [act]:编号已退役返回 ref_expired,不执行;
- * 旧一屏的编号仍在最新一屏时照常执行并标 relocated。运行记录里另记端口编号。
+ * 安定した番号がオンの場合、最初にモデル番号をポート番号に変換してから、それを [act] に渡します。番号は廃止され、ref_expired が返され、実行されません。
+ * 最新の画面が使用される場合、古い画面の番号は引き続き実行され、通常どおり再配置済みとマークされます。ポート番号も実行記録に記録します。
  */
 internal suspend fun ToolContext.withPortRef(ref: Pair<String, String>?, act: suspend (Pair<String, String>?) -> ToolExecution): ToolExecution {
     val st = session.stabilizer
@@ -137,8 +137,8 @@ internal suspend fun ToolContext.withPortRef(ref: Pair<String, String>?, act: su
         record = JsonObject(e.record + buildJsonObject { put("portRef", r.portRef); put("portSnapshotId", r.portSnapshotId) }))
 }
 
-/** 坐标换算用的一屏:最近一次读屏,还没读过就读一次。 */
+/** 座標変換に使用する画面。最新の画面読み込みと、まだ読み込んでいない画面です。 */
 internal suspend fun ToolContext.lastOrSnapshot(): ScreenSnapshot = session.lastSnapshot ?: session.snapshot()
 
-/** 确认申报的 app 按当前那块屏的写法校验(手机上是包名,网页上是站点主机名)。 */
+/** 現在の画面の記述方法（携帯電話ではパッケージ名、Webページではサイトホスト名）に従って、宣言したアプリが検証されていることを確認します。 */
 internal fun ToolContext.confirmTarget(app: String): String = surface.declaredTarget(app)

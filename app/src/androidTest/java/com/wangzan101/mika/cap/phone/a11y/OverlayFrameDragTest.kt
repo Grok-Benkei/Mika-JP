@@ -12,7 +12,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 浮层窗口根上的拖动:只有按在把手里才拖,拖动时里面的按钮收到取消、不算点按;把手外的滑动交给里面的内容。 */
+/** フローティング レイヤー ウィンドウのルート上でドラッグ: ハンドルの内側を押しているときのみドラッグします。ドラッグすると、内側のボタンはキャンセルされ、カウントされません。ハンドルの外側をスライドすると、内側のコンテンツに渡されます。 */
 @RunWith(AndroidJUnit4::class)
 class OverlayFrameDragTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -23,7 +23,7 @@ class OverlayFrameDragTest {
         override fun end(dx: Float, dy: Float) { calls += "end" }
     }
 
-    /** 里面的内容(像卡片上的收起按钮和能滚的来回):记下收到的按下、抬起和取消。 */
+    /** 内のコンテンツ (カードの折りたたみボタンや前後にロールする機能など): 押下、持ち上げ、およびキャンセルを受信したことに注意してください。 */
     private inner class Content : View(context) {
         override fun onTouchEvent(e: MotionEvent): Boolean {
             when (e.actionMasked) {
@@ -35,7 +35,7 @@ class OverlayFrameDragTest {
         }
     }
 
-    /** 400×800 的窗口,整块都是内容。 */
+    /** 400×800 ウィンドウにはコンテンツが満載です。 */
     private fun frame(handle: Rect?): OverlayFrame = OverlayFrame(context).apply {
         addView(Content(), FrameLayout.LayoutParams(400, 800))
         measure(View.MeasureSpec.makeMeasureSpec(400, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(800, View.MeasureSpec.EXACTLY))
@@ -59,7 +59,7 @@ class OverlayFrameDragTest {
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             frame(Rect(0, 0, 400, 60)).gesture(200f, 30f, far)
         }
-        // 移过阈值:开始拖,里面收到取消(不会当成点按),抬起只结束拖动
+        // 閾値を超えた場合：ドラッグ開始、キャンセル受付（クリックとみなしません）、ドラッグ終了までリフトのみ
         assertEquals(listOf("down", "start", "cancel", "end"), calls)
     }
 
@@ -67,7 +67,7 @@ class OverlayFrameDragTest {
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             frame(Rect(0, 0, 400, 60)).gesture(200f, 400f, far)
         }
-        // 没有拖动;整串触摸都交给了里面的内容(例如滚动)
+        // ドラッグはありません。一連のタッチ全体が内部のコンテンツに与えられます (スクロールなど)
         assertEquals(listOf("down", "up"), calls)
     }
 

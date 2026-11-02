@@ -36,7 +36,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 侧栏的「浏览器」入口;起始页的几段(搜索、常用网站、整理、最近打开),网页的顶栏和工具栏、「更多」面板、「给 Mika 登录」横幅。 */
+/** サイドバーの「ブラウザ」入口。スタート ページのいくつかのセクション (検索、頻繁に使用する Web サイト、組織、最近開いたもの)、Web ページのトップ バーとツールバー、[詳細] パネル、および [Mika へのログイン] バナー。 */
 @RunWith(AndroidJUnit4::class)
 class BrowserScreenTest {
     @get:Rule(order = Int.MIN_VALUE) val chinese = ChineseUi()

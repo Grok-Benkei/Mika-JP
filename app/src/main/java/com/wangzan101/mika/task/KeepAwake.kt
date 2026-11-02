@@ -14,14 +14,14 @@ interface WakeLockPort {
 }
 
 /**
- * 任务在跑时屏幕不熄灭:持有屏幕 wake lock,不改任何系统设置、不改亮度。
- * 熄屏后系统会丢弃注入的触摸并随后上锁,所以 Agent 干活期间不能让屏幕自动熄灭;
- * 但用户没在操作时屏幕不必全亮,到了系统的超时照常变暗(见 [ScreenWakeLock])。
+ * タスクの実行中に画面が消えません。画面のウェイクロックを押したままにし、システム設定を変更せず、明るさも変更しないでください。
+ * 画面がオフになると、システムは挿入されたタッチを破棄してロックするため、エージェントの動作中に画面を自動的にオフにすることはできません。
+ * ただし、ユーザーが操作していないときは、画面が完全に明るい必要はありません。システムがタイムアウトすると、通常どおり暗くなります ([ScreenWakeLock] を参照)。
  *
- * 只在 Running 时持有。等待接管/回答/继续/解锁时屏幕不需要为 Agent 亮着,
- * 再保持 [GRACE_MS](用户多半正要处理,别让屏幕在他眼前熄掉)后释放,任务继续跑时重新持有。
- * 结束、失败、取消立即释放。锁随进程走:Mika 异常退出时系统自动收回,不需要持久化恢复。
- * 用户按电源键照样能熄屏(没带 ACQUIRE_CAUSES_WAKEUP),这时 gate 会让任务等待解锁。
+ * は実行時のみ保持されます。引き継ぎ/応答/続行/ロック解除を待機しているときに、エージェントの画面をオンにする必要はありません。
+ * を押してから [GRACE_MS] を押したままにして (ユーザーはおそらく処理しようとしているので、目の前で画面をオフにしないでください)、その後放し、タスクの実行が継続したらもう一度押し続けます。
+ * 終了、失敗、キャンセル、即時リリース。ロックはプロセスに従って行われます。システムは異常終了すると、Mika を自動的に元に戻します。永続的な回復は必要ありません。
+ * ユーザーは、電源ボタンを押して画面をオフにすることができます (ACQUIRE_CAUSES_WAKEUP なし)。このとき、ゲートはタスクをロック解除を待機させます。
  */
 class KeepAwake(private val lock: WakeLockPort, private val scope: CoroutineScope) {
     private var held = false
@@ -63,7 +63,7 @@ class KeepAwake(private val lock: WakeLockPort, private val scope: CoroutineScop
         }
     }
 
-    /** 任务结束:释放并忽略之后到达的任何状态(旁路协程里迟到的发布不能重新拿锁)。 */
+    /** タスク終了: 解放し、その後到達した状態を無視します (バイパス コルーチンでの遅い解放はロックを再取得できません)。 */
     @Synchronized
     fun close() {
         closed = true
@@ -76,8 +76,8 @@ class KeepAwake(private val lock: WakeLockPort, private val scope: CoroutineScop
 }
 
 /**
- * 几个任务共用一把屏幕锁:每个任务拿一份 [lease],第一份持有时获取、最后一份放开时释放。
- * 每份自己记着拿没拿,重复获取或释放不会多算。
+ * いくつかのタスクが画面ロックを共有します。各タスクは [lease] のコピーを取得します。これは、最初のコピーが保持されるときに取得され、最後のコピーが解放されるときに解放されます。
+ * 各コピーを取得したかどうかを覚えておいてください。繰り返しの取得または解放はカウントされません。
  */
 class SharedWakeLock(private val lock: WakeLockPort) {
     private var count = 0
@@ -104,11 +104,11 @@ class SharedWakeLock(private val lock: WakeLockPort) {
 }
 
 /**
- * 屏幕锁用 SCREEN_DIM_WAKE_LOCK:屏幕保持开着,用户一段时间没碰手机时由系统照常调暗,
- * 用户一碰又回到原来的亮度。不改系统亮度,也不调亮。调暗时屏幕仍是开着、可交互的状态,
- * 注入的触摸照样送达;Agent 操作的是另一块虚拟显示屏,那边的输入也不受主屏明暗影响。
- * 这类锁已标为弃用(推荐窗口的 FLAG_KEEP_SCREEN_ON),但 Mika 在后台跑任务时没有自己的窗口,
- * 而前台服务持有的这类锁仍然有效。
+ * 画面ロックの SCREEN_DIM_WAKE_LOCK: 画面はオンのままで、ユーザーが一定期間電話に触れないと、システムは通常どおり画面を暗くします。
+ * はタッチするとすぐに元の明るさに戻ります。システムの明るさは変更されず、明るくなります。暗くしても、画面は開いたままでインタラクティブです。
+ * によって注入されたタッチは引き続き配信されます。エージェントは別の仮想ディスプレイ画面を操作し、そこへの入力はメイン画面の明るさの影響を受けません。
+ * このタイプのロックは非推奨としてマークされています (Windows では FLAG_KEEP_SCREEN_ON が推奨されます) が、バックグラウンドでタスクを実行する場合、Mika には独自のウィンドウがありません。
+ * フロントエンド サービスによって保持されているこのようなロックは引き続き有効です。
  */
 class ScreenWakeLock(context: Context) : WakeLockPort {
     private val lock = context.getSystemService(PowerManager::class.java)
@@ -119,11 +119,11 @@ class ScreenWakeLock(context: Context) : WakeLockPort {
     override fun release() { if (lock.isHeld) lock.release() }
 
     companion object {
-        /** 保持亮屏但允许系统按超时调暗。 */
+        /** 画面はオンのままですが、タイムアウトによってシステムが暗くなります。 */
         @Suppress("DEPRECATION")
         const val LEVEL = PowerManager.SCREEN_DIM_WAKE_LOCK
 
-        /** 兜底上限,防止哪条路径漏了释放;正常由任务状态释放。 */
+        /** には、パスがリリースを逃すことを防ぐための上限があります。通常はタスクのステータスによって解放されます。 */
         private const val MAX_HOLD_MS = 6 * 60 * 60 * 1000L
     }
 }

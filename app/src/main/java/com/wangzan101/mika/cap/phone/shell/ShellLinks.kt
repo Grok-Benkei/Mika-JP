@@ -2,13 +2,13 @@ package com.wangzan101.mika.cap.phone.shell
 
 import com.wangzan101.mika.core.tool.LinkPolicy
 
-/** 外壳服务打开链接前的两项判断,不依赖安卓类,单元测试直接调。 */
+/** シェル サービスは、リンクを開く前に 2 つの判断を行います。 Android クラスに依存せず、単体テストを直接調整します。 リンクを開くことが許可されておらず、null にすることが許可されている場合、 */
 internal object ShellLinks {
-    /** 链接不允许打开时返回 [ShellService.START_INVALID_LINK],允许为 null。分发器已查过,这里再查一次。 */
+    /** は [ShellService.START_INVALID_LINK] を返します。販売代理店は確認済みです。ここでもう一度確認してください。 */
     fun refuse(action: String?, uri: String?, pkg: String?): Int? =
         if (LinkPolicy.check(action, uri, pkg) != null) ShellService.START_INVALID_LINK else null
 
-    /** 能打开链接的 App 里有一个在主屏有任务就算在用;一个都解析不出时看不清,也按在用处理。 */
+    /** リンクを開くことができるアプリのうち、ホーム画面にタスクがあるアプリは使用中とみなされます。どのアプリも解析できない場合、そのアプリはまだ使用中であるとみなされます。 */
     fun inUse(candidates: List<String>, onMainScreen: Set<String>): Boolean =
         candidates.isEmpty() || candidates.any { it in onMainScreen }
 }

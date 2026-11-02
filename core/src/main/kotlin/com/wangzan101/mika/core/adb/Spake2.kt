@@ -5,12 +5,12 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 
 /**
- * adb 无线配对用的 SPAKE2 变体(edwards25519 + SHA-512)。必须和设备上的实现逐字节一致:
- * - 私钥 = (64 字节随机数 mod L) × 8,乘以余因子;
- * - 口令标量 = SHA-512(口令) mod L,再按低三位依次加 L、2L、4L,使它成为 8 的倍数(与设备端的历史修正一致);
- * - 发送 P* = 私钥·B + 口令标量·(甲方用 M,乙方用 N);
- * - 共享密钥 = SHA-512(每段带 8 字节小端长度前缀:甲名、乙名、甲消息、乙消息、私钥·(Q* − 口令标量·对方常量)、SHA-512(口令))。
- * M、N 由公开种子串推导,见 [SEED_M]/[SEED_N];测试里重新推导并核对。
+ * SPAKE2 バリアント (edwards25519 + SHA-512)。デバイス上の実装とバイトごとに一貫性がある必要があります。
+ * - 秘密キー = (64 バイトの乱数 mod L) × 8、補数を掛けます。
+ * - パスワード スカラー = SHA-512 (パスワード) mod L、次に下 3 桁を押し、L、2L、4L を順に追加して 8 の倍数にします (デバイス側の履歴修正と一致します)。
+ * - P* = 秘密鍵・B + パスワード・スカラー・(パーティ A は M を使用、パーティ B は N を使用) を送信します。
+ * - 共有キー = SHA-512 (8 バイトのリトルエンディアン長プレフィックスを持つ各セグメント: 名前 A、名前 B、メッセージ A、メッセージ B、秘密キー · (Q* − パスワード スカラー · 相手側定数)、SHA-512 (パスワード))。
+ * M と N は公開シード文字列から推定されます。[SEED_M]/[SEED_N] を参照してください。再導出してテストにチェックインします。
  */
 class Spake2(
     private val role: Role,
@@ -28,7 +28,7 @@ class Spake2(
     fun generateMessage(password: ByteArray, random: SecureRandom = SecureRandom()): ByteArray =
         generateMessage(password, ByteArray(64).also { random.nextBytes(it) })
 
-    /** [seed] 是 64 字节随机数;只有测试传入固定值。 */
+    /** [seed] は 64 バイトの乱数です。テストは固定値でのみ合格します。 */
     internal fun generateMessage(password: ByteArray, seed: ByteArray): ByteArray {
         check(myMsg == null) { "message already generated" }
         require(seed.size == 64)
@@ -47,7 +47,7 @@ class Spake2(
         return msg.copyOf()
     }
 
-    /** 返回 64 字节共享密钥;对方的点不在曲线上时抛 [IllegalArgumentException]。 */
+    /** は 64 バイトの共有キーを返します。相手のポイントがカーブ上にない場合は[IllegalArgumentException]を投げます。 */
     fun processMessage(theirMsg: ByteArray): ByteArray {
         val msg = checkNotNull(myMsg) { "generateMessage first" }
         check(!done) { "already processed" }
@@ -80,7 +80,7 @@ class Spake2(
         internal val M = requireNotNull(EdPoint.decode(EdPoint.hex("5ada7e4bf6ddd9adb6626d32131c6b5c51a1e347a3478f53cfcf441b88eed12e")))
         internal val N = requireNotNull(EdPoint.decode(EdPoint.hex("10e3df0ae37d8e7a99b5fe74b44672103dbddcbd06af680d71329a11693bc778")))
 
-        /** 由种子串推导常量点:SHA-256(种子),解不出点就对摘要再取 SHA-256,直到落在曲线上。 */
+        /** シード文字列から定数点: SHA-256 (シード) を推定します。ポイントを解決できない場合は、サマリーから曲線に該当するまで SHA-256 を使用します。 */
         internal fun derivePoint(seed: String): EdPoint {
             var v = MessageDigest.getInstance("SHA-256").digest(seed.toByteArray(Charsets.US_ASCII))
             while (true) {

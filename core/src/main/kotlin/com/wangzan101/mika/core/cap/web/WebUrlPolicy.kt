@@ -5,17 +5,17 @@ import java.net.URI
 import java.net.URLDecoder
 import com.wangzan101.mika.core.net.UrlHost
 
-/** 页面想跳去 App 的链接;[packageName] 能从链接里解析出来、且是合法包名时才有。 */
+/** ページはアプリのリンクにジャンプしたいと考えています。 [packageName] はリンクからのみ解析でき、正当なパッケージ名です。 */
 data class ExternalLink(val url: String, val packageName: String?)
 
-/** 网址规则:能打开什么、哪些是跳 App 的链接、两个地址是否同一站点。 */
+/** URL ルール: 開くことができるもの、アプリにジャンプするためのリンク、および 2 つのアドレスが同じサイトであるかどうか。 */
 object WebUrlPolicy {
-    /** 浏览器自身协议:既不能导航,也不是跳 App。 */
+    /** ブラウザー独自のプロトコル: ナビゲーションもアプリジャンプもありません。 */
     private val BROWSER_SCHEMES = setOf("http", "https", "file", "content", "javascript", "data", "about", "blob")
 
     private val SCHEME_RE = Regex("^[A-Za-z][A-Za-z0-9+.-]*$")
 
-    /** 应用商店的网页地址(主机, 路径前缀):打开它们的用意是装或开 App。 */
+    /** アプリ ストアの Web アドレス (ホスト、パス プレフィックス): これらを開く目的は、アプリをインストールまたは開くことです。 */
     private val STORE_PAGES = listOf(
         "play.google.com" to "/store/apps",
         "market.android.com" to "/details",
@@ -23,7 +23,7 @@ object WebUrlPolicy {
         "itunes.apple.com" to "/",
     )
 
-    /** null = 可以打开;否则是给模型的 invalid_arguments 说明。 */
+    /** null = 開くことができます。それ以外の場合は、モデルに指定された無効な引数の説明になります。 */
     fun checkNavigable(url: String): String? {
         val u = url.trim()
         if (u.isEmpty()) return "the URL is empty"
@@ -34,7 +34,7 @@ object WebUrlPolicy {
         return null
     }
 
-    /** intent:、自定义协议、应用商店链接(含商店网页) → 跳 App 的链接;普通网页与浏览器自身协议为 null。 */
+    /** インテント:、カスタム プロトコル、アプリ ストア リンク (ストア Web ページを含む) → アプリにジャンプするリンク。通常の Web ページとブラウザ自体の間のプロトコルは null です。 */
     fun external(url: String): ExternalLink? {
         val u = url.trim()
         val scheme = scheme(u) ?: return null
@@ -55,16 +55,16 @@ object WebUrlPolicy {
         return if (scheme in BROWSER_SCHEMES) null else ExternalLink(u, null)
     }
 
-    /** 小写 ASCII 域名(国际化域名转成 xn-- 形式),去掉端口和开头的 www.;解析不出为 null。 */
+    /** 小文字の ASCII ドメイン名 (xn-- 形式に変換された国際化ドメイン名)、ポートと www を削除します。初めに。解析されない場合は null になります。 */
     fun host(url: String): String? = UrlHost.of(url)
 
-    /** 两个地址是否同一站点,见 [UrlHost.sameSite]。 */
+    /** 2 つのアドレスが同じサイト上にあるかどうかについては、[UrlHost.sameSite] を参照してください。 */
     fun sameSite(a: String, b: String): Boolean = UrlHost.sameSite(a, b)
 
-    /** 可注册域名,见 [UrlHost.registrable]。 */
+    /** はドメイン名を登録できます。[UrlHost.registrable] を参照してください。 */
     fun registrable(host: String): String? = UrlHost.registrable(host)
 
-    /** 同源:协议、主机名、端口都相同(缺省端口按协议补齐)。 */
+    /** は同じソースから来ています。プロトコル、ホスト名、ポートはすべて同じです (デフォルトのポートはプロトコルに従って完成します)。 */
     fun sameOrigin(a: String, b: String): Boolean {
         val oa = origin(a) ?: return false
         return oa == origin(b)
@@ -86,7 +86,7 @@ object WebUrlPolicy {
         return p.takeIf(PACKAGE_NAME_RE::matches)
     }
 
-    /** 协议名(小写);「example.com:8080」「localhost:3000」这类没写协议的不算。 */
+    /** プロトコル名 (小文字)。プロトコルを持たない「example.com:8080」や「localhost:3000」はカウントされません。 */
     private fun scheme(url: String): String? {
         val i = url.indexOf(':')
         if (i <= 0) return null

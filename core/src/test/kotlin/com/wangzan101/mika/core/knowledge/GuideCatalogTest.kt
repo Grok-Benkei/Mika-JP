@@ -20,7 +20,7 @@ import java.nio.file.Files
 import com.wangzan101.mika.core.assembly.toolDispatcher
 
 class GuideCatalogTest {
-    /** 一个带脚本清单的技能,放在临时目录里当作类路径;清单里有一项文件缺失(构建期校验会拦,这里直接写索引)。 */
+    /** は、クラスパスとして一時ディレクトリに配置されるスクリプト リストを持つスキルです。リストに 1 つのファイルがありません (ビルド期間の検証によってブロックされるため、インデックスはここに直接書き込まれます)。 */
     private val catalog: GuideCatalog by lazy {
         val root = Files.createTempDirectory("skills").toFile()
         File(root, KnowledgeIndex.RESOURCE).apply { parentFile.mkdirs() }.writeText(KnowledgeIndex.encode(listOf(
@@ -70,7 +70,7 @@ class GuideCatalogTest {
         val on = catalog.view("report", note = toolsNote(true)) as GuideView.Found
         assertTrue(on.content.startsWith(SANDBOX_TOOLS_NOTE))
         assertEquals("skills/report", catalog.scriptSource(on.info))
-        // 同步进沙箱的只有清单和清单里列出、确实存在的文件
+        // 実際に存在するリストとリストにリストされているファイルのみがサンドボックスに同期されます。
         assertEquals(setOf("skills/report/scripts/manifest.json", "skills/report/scripts/tabulate.py", "skills/report/scripts/fetch.mjs"), catalog.scriptFiles().keys)
     }
 
@@ -89,14 +89,14 @@ class GuideCatalogTest {
         assertEquals(ScriptManifest.NEEDS_NETWORK, scripts[1]["reason"]!!.jsonPrimitive.content)
         assertEquals("需要账号授权", scripts[2]["reason"]!!.jsonPrimitive.content)
         assertTrue(r["content"]!!.jsonPrimitive.content.startsWith(SANDBOX_TOOLS_NOTE))
-        // 列清单前先把技能目录核对成打包的那份
+        // リストを作成する前に、パッケージ コピーに含まれるスキル カタログを確認してください。
         assertEquals(1, sb.prepares)
-        // 还在准备:不列脚本(清单要等准备好),但工具已提供,附注按可运行脚本给
+        // はまだ準備中です。スクリプトはリストされていません (リストは準備ができるまで待つ必要があります)。しかし、ツールは提供されています。メモは実行可能なスクリプトとして提供されます。
         sb.status = SandboxStatus.NotInstalled
         val pending = Json.parseToJsonElement(toolDispatcher(FakeScreen(), skills = catalog, sandbox = sb).execute(call).content.toString()).jsonObject
         assertNull(pending["scripts"])
         assertTrue(pending["content"]!!.jsonPrimitive.content.startsWith(SANDBOX_TOOLS_NOTE))
-        // 设备不支持:没有沙箱工具
+        // デバイスはサポートされていません: サンドボックス ツールはありません
         sb.status = SandboxStatus.Unsupported("x86")
         val off = Json.parseToJsonElement(toolDispatcher(FakeScreen(), skills = catalog, sandbox = sb).execute(call).content.toString()).jsonObject
         assertNull(off["scripts"])

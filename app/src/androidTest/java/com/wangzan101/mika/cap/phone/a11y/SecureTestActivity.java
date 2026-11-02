@@ -6,8 +6,8 @@ import android.view.WindowManager;
 import android.widget.TextView;
 
 /**
- * 带防截屏标志的页面:虚拟屏上画成黑色,但无障碍树仍可读。
- * 测试 APK 的页面运行在测试包自己的进程里、不带 Kotlin 标准库,所以用 Java 写。
+ * スクリーンショット防止フラグのあるページ: 仮想画面は黒く塗られていますが、アクセシビリティ ツリーはまだ読み取ることができます。
+ * テスト APK ページは、Kotlin 標準ライブラリを使用せずにテスト パッケージ独自のプロセスで実行されるため、Java で書かれています。 画面読み取りと入力検証用の
  */
 public class SecureTestActivity extends Activity {
     @Override

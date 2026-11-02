@@ -6,12 +6,12 @@ import com.wangzan101.mika.cap.phone.shell.ShellClip.Restore
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** 粘贴输入换剪贴板、再还原:读不到绝不当成空的,剪贴板不是 Mika 的就不动。 */
+/** 入力をクリップボードに貼り付けてから復元します。読み取れない場合でも、空とは見なされません。クリップボードがミカのものでない場合、クリップボードは移動しません。 */
 class ShellClipTest {
     @Test fun readDistinguishesEmptyFromUnreadable() {
         assertEquals(Read.Has, ShellClip.read(clipPresent = true, hasPrimaryClip = true, descriptionPresent = true))
         assertEquals(Read.Empty, ShellClip.read(clipPresent = false, hasPrimaryClip = false, descriptionPresent = false))
-        // 取到的是空,但系统说有内容:读不到,不是空的
+        // 取得されたものは空ですが、システムはコンテンツがあると表示します: 読み取れません、空ではありません
         assertEquals(Read.Unreadable, ShellClip.read(clipPresent = false, hasPrimaryClip = true, descriptionPresent = false))
         assertEquals(Read.Unreadable, ShellClip.read(clipPresent = false, hasPrimaryClip = false, descriptionPresent = true))
     }
@@ -19,7 +19,7 @@ class ShellClipTest {
     @Test fun restoreOnlyTouchesOursOrEmpty() {
         assertEquals(Restore.PutBack, ShellClip.restore(priorEmpty = false, now = Now.Ours))
         assertEquals(Restore.Clear, ShellClip.restore(priorEmpty = true, now = Now.Ours))
-        // 用户中途复制了别的、或此刻读不到:不动
+        // ユーザーが途中で何か他のものをコピーしたか、現時点ではそれを読み取ることができません: 移動しません
         for (prior in listOf(true, false)) {
             assertEquals(Restore.Leave, ShellClip.restore(prior, Now.Other))
             assertEquals(Restore.Leave, ShellClip.restore(prior, Now.Unreadable))
@@ -27,7 +27,7 @@ class ShellClipTest {
     }
 
     @Test fun clearedByOthersGetsUsersClipBack() {
-        // Mika 的内容被别人清掉了(比如系统定时清空):原来有内容就放回去,原来是空的就不用管
+        // ミカのコンテンツは他の人によってクリアされています (たとえば、システムが定期的にクリアします)。コンテンツが含まれている場合は元に戻してください。過去に空であったとしても気にしません。
         assertEquals(Restore.PutBack, ShellClip.restore(priorEmpty = false, now = Now.Empty))
         assertEquals(Restore.Leave, ShellClip.restore(priorEmpty = true, now = Now.Empty))
     }

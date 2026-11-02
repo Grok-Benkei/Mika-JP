@@ -6,7 +6,7 @@ import javax.crypto.Mac
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
-/** HKDF-SHA256(RFC 5869)。salt 为空时按 RFC 用 32 个零字节。 */
+/** HKDF-SHA256 (RFC 5869)。ソルトが空の場合、RFC ごとに 32 個のゼロバイトが使用されます。 */
 object Hkdf {
     fun sha256(ikm: ByteArray, salt: ByteArray?, info: ByteArray, length: Int): ByteArray {
         require(length in 1..255 * 32)
@@ -33,8 +33,8 @@ object Hkdf {
 }
 
 /**
- * 配对通道上的 AES-128-GCM:密钥 = HKDF(SPAKE2 密钥, 无 salt, "adb pairing_auth aes-128-gcm key", 16);
- * 12 字节 nonce 的前 8 字节放各自方向的序号(小端,从 0 起每条消息加一),其余为零;无附加数据,16 字节标签附在密文后。
+ * ペアリング チャネルの AES-128-GCM: key = HKDF(SPAKE2 key, no Salt, "adb paring_auth aes-128-gcm key", 16);
+ * 12 バイトのノンスの最初の 8 バイトには、各方向のシーケンス番号 (リトル エンディアン、0 から始まるメッセージごとに 1 を加えたもの) が含まれており、残りは 0 です。追加のデータはなく、16 バイトのラベルが暗号文に付加されます。 認証が失敗した場合、
  */
 class PairingCipher(keyMaterial: ByteArray) {
     private val key = SecretKeySpec(Hkdf.sha256(keyMaterial, null, INFO, 16), "AES")
@@ -43,7 +43,7 @@ class PairingCipher(keyMaterial: ByteArray) {
 
     fun encrypt(plain: ByteArray): ByteArray = run(Cipher.ENCRYPT_MODE, encSeq++, plain)
 
-    /** 认证失败抛 [javax.crypto.AEADBadTagException]。 */
+    /** は [javax.crypto.AEADBadTagException] をスローします。 */
     fun decrypt(sealed: ByteArray): ByteArray = run(Cipher.DECRYPT_MODE, decSeq, sealed).also { decSeq++ }
 
     private fun run(mode: Int, seq: Long, data: ByteArray): ByteArray {
@@ -59,7 +59,7 @@ class PairingCipher(keyMaterial: ByteArray) {
     }
 }
 
-/** 配对认证:SPAKE2 交换消息,得到密钥后建 [PairingCipher]。名字含结尾的 NUL,与设备端一致。 */
+/** ペアリング認証: SPAKE2 はキーを取得した後、メッセージを交換し、[PairingCipher] を構築します。名前の末尾に NUL が含まれており、デバイス側と一致しています。 adb ワイヤレス ペアリング用の */
 class PairingAuth private constructor(role: Spake2.Role, password: ByteArray, seed: ByteArray?) {
     private val spake = if (role == Spake2.Role.ALICE) Spake2(role, CLIENT_NAME, SERVER_NAME) else Spake2(role, SERVER_NAME, CLIENT_NAME)
     val message: ByteArray = if (seed == null) spake.generateMessage(password, SecureRandom()) else spake.generateMessage(password, seed)

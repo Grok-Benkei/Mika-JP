@@ -18,7 +18,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 设置 › 恢复与修复:几项默认显示打开,拨动直接执行,不弹确认框。 */
+/** 設定 › 回復と修復: いくつかの項目はデフォルトでオンになっているように表示され、確認ボックスをポップアップ表示せずに直接実行できます。 */
 @RunWith(AndroidJUnit4::class)
 class RecoverySectionTest {
     @get:Rule(order = Int.MIN_VALUE) val chinese = ChineseUi()

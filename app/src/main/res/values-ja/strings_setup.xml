@@ -61,7 +61,7 @@
     <string name="model_example_compat">例: deepseek-chat</string>
     <string name="model_example_grok">例: grok-4</string>
     <string name="model_probe_not_found">モデル「%1$s」は存在しません。プロバイダーのドキュメントにある完全なモデル ID を入力してください(%2$s)。</string>
-    <string name="model_probe_not_found_no_list">モデルを一覧にできず、「%1$s」でのテスト呼び出しでも見つかりませんでした。アドレスかインターフェースの種類が間違っているか、そのモデルが存在しない可能性が高いです(モデル名の例: %2$s)。</string>
+    <string name="model_probe_not_found_no_list">モデルを一覧にできず、「%1$s」でのテスト呼び出しでも見つかりませんでした。アドレスかインターフェースの種類が間違っているか、そのモデルが存在しない可能性が高いです(%2$s)。</string>
     <string name="model_probe_no_tools_pick">%1$s はツールを呼び出しませんでした。Mika がタスクをこなすには、ツールを呼び出せるモデルが必要です。別のメインモデルを選んでください。</string>
     <string name="model_preset_match">これは %1$s の公式のアドレスです。プリセットを使うと、アドレスとインターフェースの種類が自動で入力されます。</string>
     <string name="model_preset_kind_mismatch">インターフェースの種類も合っていません: %1$s は %2$s インターフェースを使いますが、%3$s が選ばれています。</string>

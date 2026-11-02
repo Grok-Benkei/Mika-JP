@@ -1,10 +1,10 @@
 package com.wangzan101.mika.core.record
 
-/** 运行记录的接收方。实现方自己吞掉写盘错误:记录失败不能影响任务。 */
+/** 走行記録の受信機。実装はディスク書き込みエラーを単独で飲み込みます。つまり、記録の失敗がタスクに影響を与えることはありません。 */
 interface RunSink {
     fun event(e: RunEvent)
 
-    /** [png] 是第 [mediaId] 张存下的画面。 */
+    /** [png] は、保存された画像 [mediaId] です。 */
     fun media(mediaId: Int, png: ByteArray) {}
 
     companion object {

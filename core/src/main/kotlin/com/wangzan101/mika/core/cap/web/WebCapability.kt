@@ -25,10 +25,10 @@ private const val EVIDENCE_PAGE_CHARS = 3000
 private val HOST_RE = Regex("^[a-z0-9-]+(\\.[a-z0-9-]+)+$")
 
 /**
- * 内置浏览器:网页那一套屏幕工具,再加打开网页、读页、页面脚本、下载上传;接了网页端口([port])才提供工具。
- * [workspacePath] 是上传时的工作区路径检查(规范化、符号链接解析由 app 侧做)。
- * [pacing] 是一页一页看的节奏(见 [PagePacing]):换页的动作之前补足这一页的停留;[sitePace] 按主机名给出站点知识对浏览快慢的说法;
- * [idle] 给了时停留里轻轻滚几下页面(见 [IdleScroll])。
+ * 内蔵ブラウザ: Web ページ用の一連の画面ツールに加え、Web ページを開く、ページの読み取り、ページ スクリプト、ダウンロードとアップロード。ツールは、Web ポート ([port]) に接続した後にのみ提供されます。
+ * [workspacePath] は、アップロード時のワークスペース パスのチェックです (正規化とシンボリック リンクの解決はアプリ側で行われます)。
+ * [pacing] は、ページごとに読むリズムです ([PagePacing] を参照)。このページでの一時停止は、ページ変更アクションの前に完了します。 [sitePace] は、ホスト名と閲覧速度に応じてサイトの知識を提供します。
+ * [idle] それを与えるときは、立ち止まってページを数回そっとスクロールしてください ([IdleScroll] を参照)。
  */
 internal class WebCapability(
     val port: WebPort?,
@@ -47,10 +47,10 @@ internal class WebCapability(
 
     override fun tools(): List<AgentTool> = WebGroup.tools
 
-    /** 这次的话是从浏览器页上对着一页问的(带着 [AttachedPage] 的说明):那一页已经是当前标签,开局就展开网页一组。 */
+    /** 今回は、ブラウザのページからページ（[AttachedPage]の説明付き）への出題です。そのページはすでに現在のタブになっており、最初はWebページのグループが展開されます。 */
     override fun preload(task: String): Boolean = port != null && AttachedPage.has(task)
 
-    /** 页面说明里的标题、网址和选中的字来自网页,去掉后剩下用户打的字。 */
+    /** ページ説明内のタイトル、URL、および選択された単語は Web ページから取得され、削除された後もユーザーが入力した単語は残ります。 */
     override fun userWords(text: String): String = AttachedPage.words(text)
 
     override val family = WEB_FAMILY
@@ -60,7 +60,7 @@ internal class WebCapability(
             mode = { siteMode(p) })
     }
 
-    /** 网页那一组收着时不给。 */
+    /** Web ページのセットは、収集時に提供されません。 */
     override fun sections(env: PromptEnv): List<String> =
         if (env.isOpen(id) && WebGroup.tools.any { it.name in env.offered }) listOf(env.gate(Prompts.capability(WEB))) else emptyList()
 
@@ -71,21 +71,21 @@ internal class WebCapability(
         dwell.afterIdle = { ctx.sessions[id]?.reprobe() }
     }
 
-    /** 用户答过话:同一网站的页数上限重新算(用户答应了接着看)。 */
+    /** ユーザーは次のように回答しました: 同じ Web サイトのページ数の上限が再計算されます (ユーザーは同意して読み続けました)。 */
     override fun onUserAnswered(ctx: ToolContext) = dwell.userAnswered()
 
-    /** 网页上的对外动作:做的这一次不受页数上限拦;做成之后这个网站的页数上限不再算(成批联系、投递做到网站自己的上限为止)。 */
+    /** Web ページ上の外部アクション: 今回はページ制限によって制限されません。完成後はウェブサイトのページ数制限はなくなります（一括連絡や配信はウェブサイト独自の制限内となります）。 */
     override fun onOutwardStart(ctx: ToolContext, site: String) = dwell.outwardStart(site)
 
     override fun onOutwardEnd(ctx: ToolContext, site: String, done: Boolean) = dwell.outwardEnd(site, done)
 
-    /** 再看一眼:此刻这一页的界面状态,另附整页正文的开头(界面状态只有视口里的元素)。 */
+    /** もう一度見てください: 現時点でのこのページのインターフェイス ステータスと、ページ全体のテキストの先頭 (インターフェイス ステータスにはビューポート内の要素のみが含まれます)。 */
     override suspend fun freshLook(ctx: ToolContext, withImage: Boolean): Look? {
         val p = port ?: return null
         return ctx.sessions[id]?.freshLook(withImage) { pageStart(p)?.let { webRead(it, null) } }
     }
 
-    /** 确认申报的 app 在网页上是站点主机名(国际化域名按 ASCII 形式),和网页读屏的 packageName 一致。 */
+    /** 宣言されたアプリが Web ページ上のサイト ホスト名 (国際化ドメイン名は ASCII 形式) であり、Web ページ スクリーン リーダーのパッケージ名と一致していることを確認します。 */
     private fun declaredHost(app: String): String {
         val host = app.takeIf { it.isNotEmpty() && it.none { c -> c in "/:?#@\\ " } }?.let { UrlHost.of("https://$it") }
         if (host == null || !HOST_RE.matches(host))
@@ -93,21 +93,21 @@ internal class WebCapability(
         return host
     }
 
-    /** 整页正文的开头。 */
+    /** テキストのページ全体の始まり。 */
     private suspend fun pageStart(p: WebPort): String? {
         val text = try { p.readPage(EVIDENCE_PAGE_CHARS, 0, scrollLazy = false).text } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
-        return text?.takeIf { it.isNotBlank() }?.let { "网页正文(开头):\n$it" }
+        return text?.takeIf { it.isNotBlank() }?.let { "Webページ本文（冒頭）:\n$it" }
     }
 
-    /** 当前标签此刻用的版本(mobile / desktop);读不到为 null。 */
+    /** 現時点で現在のタグで使用されているバージョン (モバイル/デスクトップ)。読み取られない場合は null です。 */
     private suspend fun siteMode(p: WebPort): String? = try { p.siteMode() } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
 
     /**
-     * 网页那一套屏幕工具读屏与动作经它:返回键是页面的后退;读屏的包名换成站点主机名
-     * (确认关卡按它核对「申报的是不是眼前这个」)。读屏时把地址交给 [dwell] 认新的一页;
-     * 可能换页的动作(点击、后退、按键、往下滚、滑动)之前先补足这一页的停留,打字、清空、往上滚不等。
-     * 按编号点、后退、按键、往下滚不按屏幕坐标做,停留里可以轻轻滚几下页面;按坐标点、滑动的停留里不滚(坐标会对不上)。
-     * 这个网站本任务里的页到了上限时,除往下滚之外的这些动作都不做,报 page_limit。
+     * は、Web ページの画面ツールのセットを使用して、画面を読み取って操作します。Return キーはページに戻ることです。画面読み取り用のパッケージ名はサイトのホスト名に置き換えられます。
+     * (レベルを確認し、クリックして「報告しているのが目の前のレベルかどうか」を確認します)。画面を読み取るときは、新しいページを認識するためにアドレスを [dwell] に与えます。
+     * は、ページ変更アクション (クリック、戻る、ボタン、下スクロール、スライド)、入力、消去、上スクロールなどの前にこのページで一時停止した時間を補うことができます。
+     * 番号の付いたポイントを押す、戻る、キーを押す、または下にスクロールする場合、画面座標は押されません。一時停止中にページを数回ゆっくりスクロールできます。座標点を押して一時停止をスライドしてもスクロールしません（座標は一致しません）。
+     * この Web サイトのこのタスクのページが上限に達すると、下にスクロールする以外のアクションは実行されず、page_limit が報告されます。
      */
     private class WebScreen(private val port: WebPort, private val dwell: PageDwell) : ScreenPort by port {
         override suspend fun back(): ActionResult = paced(idle = true) { port.historyBack() }
@@ -123,13 +123,13 @@ internal class WebCapability(
 
         override suspend fun scroll(ref: String?, snapshotId: String?, down: Boolean): ActionResult {
             if (!down) return port.scroll(ref, snapshotId, false)
-            // 往下滚是读这一页余下的内容:到了页数上限也照滚;停留中用户插了话就不滚
+            // ページの残りを読むには下にスクロールします。ページ制限に達した場合でもスクロールします。ユーザーが滞在中に中断するとスクロールしません。 最初に
             try { dwell.before(port = port, gate = false) } catch (e: DwellStop) { return ActionResult.Failed(e.code, e.detail) }
             val mark = dwell.scrollMark(port)
             return port.scroll(ref, snapshotId, true).also { dwell.afterScroll(port, mark) }
         }
 
-        /** 先补足停留(到了页数上限、停留中用户插了话就不做,报 page_limit 或 skipped_for_new_message),再做 [action]。 */
+        /** が滞留を補い (ページ制限に達し、滞留中にユーザーが中断した場合、滞留は行われず、page_limit または Skiped_for_new_message が報告されます)、次に [action] が行われます。 */
         private suspend fun paced(idle: Boolean, action: suspend () -> ActionResult): ActionResult {
             try {
                 dwell.before(port = port.takeIf { idle })
@@ -150,10 +150,10 @@ internal class WebCapability(
     }
 }
 
-/** 本任务的网页端口;没有网页为 null。 */
+/** このタスクの Web ページ ポート。 Web ページがない場合は null になります。 */
 internal val ToolContext.web: WebPort? get() = this[WebCapability.KEY]?.port
 
-/** 本任务的一页一页的停留;没有网页能力为 null。 */
+/** このタスクはページごとに行われます。ページなしの機能は null です。 */
 internal val ToolContext.dwell: PageDwell? get() = this[WebCapability.KEY]?.dwell
 
 internal val ToolContext.workspacePath: ((String) -> WorkspacePathCheck)? get() = this[WebCapability.KEY]?.workspacePath

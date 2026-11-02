@@ -1,1 +1,1 @@
-Start a countdown timer of a given number of seconds in the phone's clock app, without opening its screens.
+表示を開かずに、指定された秒数のカウントダウンタイマーを、スマートフォンの時計アプリで開始する。

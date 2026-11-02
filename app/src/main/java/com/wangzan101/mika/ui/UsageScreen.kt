@@ -100,13 +100,13 @@ import java.time.ZoneOffset
 import com.wangzan101.mika.i18n.uiLocale
 import kotlin.math.roundToInt
 
-/** 用量页顶上的五段:前四段是固定的范围,[Custom] 打开日期选择。 */
+/** 使用状況ページの上部にある 5 つのセグメント: 最初の 4 つのセグメントは固定範囲であり、[Custom] は日付の選択を開きます。 */
 enum class UsagePreset(private val labelRes: Int) {
     Day(R.string.usage_24h), Week(R.string.usage_7d), Month(R.string.usage_30d), Quarter(R.string.usage_90d), Custom(R.string.usage_custom);
 
     val label: String get() = tr(labelRes)
 
-    /** 这一段对应的范围;[Custom] 要给出 [from]..[to](本地日期)。 */
+    /** このセクションの対応範囲。 [Custom] は [from]..[to] (現地の日付) を与える必要があります。 */
     fun range(from: LocalDate?, to: LocalDate?): UsageRange = when (this) {
         Day -> UsageRange.Last24Hours
         Week -> UsageRange.LastDays(7)
@@ -116,10 +116,10 @@ enum class UsagePreset(private val labelRes: Int) {
     }
 }
 
-/** 按模型排行里的一行:[share] 是占这一排(全部服务商,或选中的那家)的比例。 */
+/** モデル ランキングの行: [share] は、この行 (すべてのサービス プロバイダー、または選択したサービス プロバイダー) の割合です。 */
 data class ModelRank(val provider: ProviderUsage, val model: ModelUsage, val share: Double)
 
-/** Token 用量的文字、数字写法和图表用的小规则。 */
+/** トークンの使用に関するテキスト、数値の書き込み、グラフの小さなルール。 */
 object UsageCopy {
     val TITLE: String get() = tr(R.string.usage_title)
     val NONE: String get() = tr(R.string.usage_none)
@@ -138,29 +138,19 @@ object UsageCopy {
     val CHANGE_DATES: String get() = tr(R.string.usage_change_dates)
     const val UNIT = "Token"
 
-    /** 图表里有自己颜色的服务商最多几家(主题里 [MikaColors.series] 的个数),其余在趋势图里归为「其他」。 */
+    /** チャート内で独自の色を持つサービス プロバイダーの最大数 (テーマ内の [MikaColors.series] の数) であり、残りはトレンド チャートで「その他」として分類されます。 */
     const val COLORED = 3
 
     /**
-     * token 数:一万以下照写;往上按万、亿,保留三位有效数字(四舍五入,去掉末尾的 0),
-     * 例如 8765、1.23 万、12.3 万、123 万、1.5 亿;繁体写成萬、億。
+     * トークン番号: 10,000 未満の場合は書き留めます。上がった場合は、10,000 または 100,000,000 を押し、有効数字 3 桁を維持します (四捨五入して最後の 0 を削除します)。
+     * たとえば、8765、12,300、123,000、123 万、1 億 5,000 万。繁体字中国語では、万または十億と書きます。
      */
     fun tokens(n: Long): String {
         if (n < 10_000) return n.toString()
         val wan = round3(BigDecimal(n).divide(BigDecimal(10_000)))
-        val locale = uiLocale()
-        if (locale.language == "zh") {
-            val hant = locale.script == "Hant"
-            if (wan < BigDecimal(10_000)) return "${wan.stripTrailingZeros().toPlainString()} ${if (hant) "萬" else "万"}"
-            val yi = round3(BigDecimal(n).divide(BigDecimal(100_000_000)))
-            return "${yi.stripTrailingZeros().toPlainString()} ${if (hant) "億" else "亿"}"
-        }
-        // 英文按千、百万、十亿写:12.3K、1.5M
-        for ((unit, size) in listOf("K" to 1_000L, "M" to 1_000_000L, "B" to 1_000_000_000L)) {
-            val v = round3(BigDecimal(n).divide(BigDecimal(size)))
-            if (v < BigDecimal(1_000) || unit == "B") return "${v.stripTrailingZeros().toPlainString()}$unit"
-        }
-        return n.toString()
+        if (wan < BigDecimal(10_000)) return "${wan.stripTrailingZeros().toPlainString()} 万"
+        val yi = round3(BigDecimal(n).divide(BigDecimal(100_000_000)))
+        return "${yi.stripTrailingZeros().toPlainString()} 億"
     }
 
     private fun round3(v: BigDecimal): BigDecimal = v.setScale(
@@ -172,12 +162,12 @@ object UsageCopy {
         RoundingMode.HALF_UP,
     )
 
-    /** 设置首页那一行的值:近 7 天的合计,没有时写「还没有」。 */
+    /** ホームページの行の値を設定します。過去 7 日間の合計、そうでない場合は「まだ」と記入します。 */
     fun settingsValue(weekTokens: Long): String = if (weekTokens <= 0) NONE else tr(R.string.usage_last_7d, tokens(weekTokens))
 
     fun calls(n: Long) = trPlural(R.plurals.times, n.toInt())
 
-    /** 占比:不到 1% 但不是 0 时写「<1%」。 */
+    /** 割合: 1% 未満ですが 0 ではないため、「<1%」と書き込みます。 */
     fun percent(share: Double): String {
         val p = (share * 100).roundToInt()
         return if (p == 0 && share > 0) "<1%" else "$p%"
@@ -193,12 +183,12 @@ object UsageCopy {
         UsageStep.Week -> tr(R.string.usage_weekly)
     }
 
-    /** 本地日期:今年的不写年份。 */
+    /** 現地の日付: 今年の年は書かないでください。 */
     fun date(d: LocalDate, today: LocalDate): String =
         if (d.year == today.year) tr(R.string.date_month_day, d.monthValue, d.month.getDisplayName(java.time.format.TextStyle.SHORT, uiLocale()), d.dayOfMonth)
         else tr(R.string.date_year_month_day, d.year, d.monthValue, d.month.getDisplayName(java.time.format.TextStyle.SHORT, uiLocale()), d.dayOfMonth)
 
-    /** 范围选择下面那一行,写出实际是哪几天。 */
+    /** 範囲として下の行を選択し、実際の日数を書き留めます。 */
     fun rangeText(range: UsageRange, today: LocalDate): String = when (range) {
         UsageRange.Last24Hours -> tr(R.string.usage_past_24h)
         is UsageRange.LastDays -> tr(R.string.usage_until_today, date(UsageQuery.days(range, today).first, today))
@@ -207,7 +197,7 @@ object UsageCopy {
         }
     }
 
-    /** 趋势图下面的刻度:按小时写「18:00」(此刻那一格写「现在」),按天、按周写「10/27」(今天写「今天」)。 */
+    /** 傾向グラフの下のスケール: 時間単位で「18:00」と書き込み (この時点でボックスに「今」と書き込みます)、日および週単位で「10/27」と書き込みます (日単位で「今日」と書き込みます)。 */
     fun axis(b: UsageBucket, step: UsageStep, today: LocalDate, last: Boolean = false): String = when {
         step == UsageStep.Hour && last -> tr(R.string.usage_now)
         step == UsageStep.Hour -> "%d:%02d".format(b.start.hour, b.start.minute)
@@ -215,7 +205,7 @@ object UsageCopy {
         else -> "${b.start.monthValue}/${b.start.dayOfMonth}"
     }
 
-    /** 点中一根柱子时说的是哪段时间。 */
+    /** 柱をクリックするとどの期間が表示されるか。 このサービス プロバイダー */
     fun period(b: UsageBucket, step: UsageStep, today: LocalDate): String = when (step) {
         UsageStep.Hour -> "%d:%02d".format(b.start.hour, b.start.minute)
         UsageStep.Day -> date(b.start.toLocalDate(), today)
@@ -226,10 +216,10 @@ object UsageCopy {
         }
     }
 
-    /** 这家服务商在图表里用第几种颜色;排在 [COLORED] 家之后的为 null(灰色、趋势图里归「其他」)。 */
+    /** はグラフでどの色を使用しますか。 [COLORED] の後のものは null (灰色で、トレンド チャートでは「その他」に分類されます) です。 */
     fun colorSlot(p: ProviderUsage): Int? = p.order.takeIf { it < COLORED }
 
-    /** 网格线的顶:不小于 [max] 的 1、2、4、6、8 乘 10 的幂,一半处的刻度也是整数。 */
+    /** グリッド ラインの上部: [max] の 1、2、4、6、8 の 10 倍以上であり、ハーフ スケールも整数です。 */
     fun niceMax(max: Long): Long {
         if (max <= 0) return 1
         var scale = 1L
@@ -237,7 +227,7 @@ object UsageCopy {
         return listOf(1L, 2L, 4L, 6L, 8L, 10L).map { it * scale }.first { it >= max }
     }
 
-    /** 按模型排行:选了服务商只列这家的,没选列全部服务商的;按 token 从多到少,占比按这一排的合计。 */
+    /** モデル別ランキング: サービス プロバイダーが選択されている場合、このプロバイダーのみがリストされます。すべてのサービス プロバイダーが選択されるわけではありません。トークンごとに、最も多いものから最も少ないものまで、割合はこの行の合計に基づきます。 */
     fun modelRanking(report: UsageReport, providerId: String?): List<ModelRank> {
         val from = providerId?.let { id -> listOfNotNull(report.provider(id)) } ?: report.providers
         val rows = from.flatMap { p -> p.models.map { p to it } }
@@ -248,14 +238,14 @@ object UsageCopy {
 }
 
 /**
- * 设置 › Token 用量:一个页面。顶上选时间和这段时间的总用量,下面三张图:用量趋势(按服务商叠起来)、
- * 按服务商排行(点一家选中,再点取消)、按模型排行(可切服务商)。选中的服务商只影响图里亮哪家、模型列哪家的,
- * 总用量始终是全部。账本每记一笔([UsageLedger.version])就重新统计;本地时区在统计时换算。
+ * 設定 › トークンの使用法: 1 ページ。上部の時刻と、この期間内の合計使用量を選択します。次の 3 つの図は、使用傾向 (サービス プロバイダーごとに積み上げたもの)、
+ * サービス プロバイダー別のランキング (クリックして選択し、クリックしてキャンセル)、モデル別のランキング (サービス プロバイダーを切り替えることができます)。選択したサービス プロバイダーは、図内でどのサービス プロバイダーが強調表示されるか、およびどのサービス プロバイダーがモデルにリストされるかにのみ影響します。
+ * の合計使用量は常にすべてです。レコードが台帳 ([UsageLedger.version]) に記録されるたびに、統計が再計算されます。ローカル タイム ゾーンは統計中に変換されます。
  */
 @Composable
 fun UsageScreen(ledger: UsageLedger, providers: StateFlow<List<Provider>>, onBack: () -> Unit) {
     var preset by rememberSaveable { mutableStateOf(UsagePreset.Week) }
-    // 自定义范围的两头,存成纪元日(rememberSaveable 能存的类型)
+    // カスタム範囲の両端がエポック日として保存されます (rememberSaveable タイプは保存可能)
     var customFrom by rememberSaveable { mutableStateOf<Long?>(null) }
     var customTo by rememberSaveable { mutableStateOf<Long?>(null) }
     var picking by remember { mutableStateOf(false) }
@@ -266,11 +256,11 @@ fun UsageScreen(ledger: UsageLedger, providers: StateFlow<List<Provider>>, onBac
     val zone = ZoneId.systemDefault()
     val report by produceState<UsageReport?>(null, version, range, live) {
         value = withContext(Dispatchers.Default) {
-            // 连着的服务商按连接先后传进去,配色按这个先后固定
+            // 接続されたサービスプロバイダーは接続に従って順番に送信され、カラーマッチングはこの順番に従って固定されます。
             UsageQuery.report(ledger.snapshot(), range, Instant.now(), zone, live.associate { it.id to it.name })
         }
     }
-    // 换了时间后选中的服务商在这段里没有用量了,就退回全部
+    // 時刻変更後、選択したサービスプロバイダーはこの期間は利用がないため、すべて返却されます。
     LaunchedEffect(report) {
         val r = report ?: return@LaunchedEffect
         if (selected?.let(r::provider) == null) selected = null
@@ -299,9 +289,9 @@ fun UsageScreen(ledger: UsageLedger, providers: StateFlow<List<Provider>>, onBac
 }
 
 /**
- * 不带状态的用量页,便于测试。[report] 为 null 表示还在统计,只显示范围选择。
- * [onPreset] 收到 [UsagePreset.Custom] 时由调用方打开日期选择;已经是自定义时点「改日期」也打开([onPickCustom])。
- * [selected] 是选中的服务商(null 为全部),点排行或胶囊经 [onSelect] 改。
+ * ステータスのない使用状況ページ。テストに便利です。 [report] が null の場合は、統計がまだ収集中であり、範囲選択のみが表示されていることを意味します。
+ * [onPreset] [UsagePreset.Custom] を受信すると、発信者は日付選択を開きます。 「日付の変更」もカスタム時点 ([onPickCustom]) で開きます。
+ * [selected] は選択されたサービス プロバイダー (null はすべてを意味します)、クリック ランキングまたはカプセルは [onSelect] によって変更されます。
  */
 @Composable
 fun UsageContent(
@@ -387,7 +377,7 @@ fun UsageContent(
 
 private fun seriesColor(c: MikaColors, p: ProviderUsage): Color = UsageCopy.colorSlot(p)?.let { c.series.getOrNull(it) } ?: c.seriesOther
 
-/** 总用量卡:大字是输入加输出,下面一排输入、输出、缓存命中、调用次数。 */
+/** 合計使用量カード: 大きなワードは入力と出力で、一番下の行は入力、出力、キャッシュ ヒット、および呼び出し時間です。 */
 @Composable
 private fun TotalsCard(t: UsageTotals) {
     val c = MikaTheme.colors
@@ -424,7 +414,7 @@ private fun Stat(label: String, value: String, modifier: Modifier) {
     }
 }
 
-/** 一张图的卡片:左边标题,右边一句小字。 */
+/** 写真付きのカード: 左側にタイトル、右側に短い文章。 */
 @Composable
 private fun ChartCard(title: String, hint: String, content: @Composable () -> Unit) {
     val c = MikaTheme.colors
@@ -441,7 +431,7 @@ private fun ChartCard(title: String, hint: String, content: @Composable () -> Un
 
 private val CardTitle = TextStyle(fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
 
-/** 没有用量时:一张居中的说明卡。 */
+/** 金額を使用しない場合: 中央に配置された指示カード。 */
 @Composable
 private fun EmptyCard() {
     val c = MikaTheme.colors
@@ -458,8 +448,8 @@ private fun EmptyCard() {
 }
 
 /**
- * 排行的一行:名字、横条(颜色是服务商的)、用量和占比。[dim] 时整行变淡(选了别的服务商),[bold] 时名字加粗(选中的);
- * [muted] 的名字用辅助文字色(已删除的服务商)。
+ * ランキングの行: 名前、水平バー (色はサービス プロバイダーの色)、使用状況、および割合。 [dim] の場合、行全体が明るくなります (別のサービス プロバイダーが選択されています)。[bold] の場合、名前が太字になります (選択されています)。
+ * [muted] の名前は、補助文字色 (削除されたサービス プロバイダー) を使用します。 サービスプロバイダーを切り替えるための
  */
 @Composable
 private fun RankRow(
@@ -504,7 +494,7 @@ private val RankMono = TextStyle(fontSize = 12.5.sp, lineHeight = 18.sp, fontFam
 private val RankValue = TextStyle(fontSize = 13.sp, lineHeight = 17.sp)
 private val RankShare = TextStyle(fontSize = 11.sp, lineHeight = 14.sp)
 
-/** 切换服务商的胶囊:选中时强调色实底;[deleted] 的名字变淡、后面写「（已删除）」。 */
+/** カプセル: 選択すると、色が強調され、単色の背景が強調表示されます。 [deleted] の名前が薄くなり、その後に「(削除)」と表示されます。 */
 @Composable
 private fun UsageChip(text: String, selected: Boolean, onClick: () -> Unit, deleted: Boolean = false, tag: String) {
     val c = MikaTheme.colors
@@ -528,13 +518,13 @@ private fun UsageChip(text: String, selected: Boolean, onClick: () -> Unit, dele
 
 private val ChipText = TextStyle(fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium)
 
-/** 趋势图里的一段:有自己颜色的服务商各一段([slot] 是颜色序号),其余合成「其他」([slot] 为 null)。 */
+/** はトレンド チャートのセグメントです。各サービス プロバイダーには独自の色があり ([slot] は色番号)、残りは「その他」に結合されます ([slot] は null)。 */
 private data class StackPart(val slot: Int?, val tokens: Long)
 
 /**
- * 用量趋势:每格一根柱子,按服务商叠起来(有颜色的在下、「其他」在最上),段与段、柱与柱之间留 2dp,每根柱子顶上圆角 4dp。
- * 右边留一列写两条虚线网格的刻度(整数的顶和一半)。点一根在上方写出这一格的合计和各家的用量,再点一次收起;
- * 选了服务商时别家的段淡到四分之一。
+ * の使用傾向: グリッドごとに 1 つの柱、サービス プロバイダーに従って積み重ねられ (色付きの柱が下部、「その他」が上部)、セグメントと列の間に 2 dp の間隔があり、各列の上部に 4 dp の丸い角が残ります。
+ * 右側の列をそのままにして、2 つの点線グリッドのスケール (整数の上半分と半分) を書き込みます。 1 つをクリックすると、このグリッドの合計と各世帯の消費量が上部に書き込まれ、もう一度クリックしてグリッドを閉じます。
+ * サービス プロバイダーを選択すると、他のプロバイダーのパフォーマンスは 4 分の 1 に低下しました。
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -546,7 +536,7 @@ private fun TrendChart(report: UsageReport, selected: String?, today: LocalDate)
     val colored = report.providers.filter { UsageCopy.colorSlot(it) != null }.sortedBy { it.order }
     val hasOthers = report.providers.any { UsageCopy.colorSlot(it) == null && it.totals.tokens > 0 }
     val selectedSlot = selected?.let(byId::get)?.let { UsageCopy.colorSlot(it) ?: -1 }
-    // 自下而上:有颜色的按先后,「其他」在最上
+    // 下から順に色分けされたアイテムが表示され、「その他」が上に表示されます。
     val slots: List<Int?> = colored.map(UsageCopy::colorSlot) + if (hasOthers) listOf(null) else emptyList()
     val stacks = series.map { b ->
         val bySlot = b.byProvider.entries.groupBy { byId[it.key]?.let(UsageCopy::colorSlot) }
@@ -606,7 +596,7 @@ private fun TrendChart(report: UsageReport, selected: String?, today: LocalDate)
                 }
             }
         }
-        // 网格刻度写在右边那一列
+        // グリッドスケールは右の列に記載されています
         GridLabel(UsageCopy.tokens(nice), Modifier.align(Alignment.TopEnd).offset(y = (-7).dp))
         GridLabel(UsageCopy.tokens(nice / 2), Modifier.align(Alignment.CenterEnd).offset(y = (-7).dp))
         tapped?.let { i -> TrendTip(series[i], report, i, gutter, today) }
@@ -640,7 +630,7 @@ private fun GridLabel(text: String, modifier: Modifier) {
 
 private val GridText = TextStyle(fontSize = 10.5.sp, lineHeight = 14.sp)
 
-/** 点中一根柱子时的说明:哪段时间、合计,下面各家服务商各一行(按用量从多到少);横向对着那根柱子,不出图的左右边。 */
+/** 柱をクリックするときの手順: 以下の各サービス プロバイダーの合計期間が 1 つの行に表示されます (最も多いものから最も少ないものまで)。その柱を水平に向け、写真の左右は映さないようにしてください。 */
 @Composable
 private fun TrendTip(b: UsageBucket, report: UsageReport, index: Int, gutter: Dp, today: LocalDate) {
     val c = MikaTheme.colors
@@ -669,11 +659,11 @@ private fun TrendTip(b: UsageBucket, report: UsageReport, index: Int, gutter: Dp
 private val TipShape = RoundedCornerShape(8.dp)
 private val TipText = TextStyle(fontSize = 11.5.sp, lineHeight = 18.sp)
 
-/** 自定义范围的日期选择:只能选账本还留着的日子(最近 [UsageLedger.KEEP_DAYS] 天)到今天,两头都选了才可查看。 */
+/** カスタム範囲の日付選択: 元帳がまだ保持されている日 (最新の [UsageLedger.KEEP_DAYS] 日) から今日までのみ選択できます。両端を選択した場合のみ表示できます。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun UsageRangePicker(today: LocalDate, from: LocalDate?, to: LocalDate?, onPicked: (LocalDate, LocalDate) -> Unit, onDismiss: () -> Unit) {
-    // 日期选择器的日期是 UTC 零点的毫秒数
+    // 日付ピッカーの日付は UTC ゼロからのミリ秒数です
     fun millis(d: LocalDate) = d.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
     fun date(ms: Long) = Instant.ofEpochMilli(ms).atZone(ZoneOffset.UTC).toLocalDate()
     val earliest = today.minusDays(UsageLedger.KEEP_DAYS.toLong())

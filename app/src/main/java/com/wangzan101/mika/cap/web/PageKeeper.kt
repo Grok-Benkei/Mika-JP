@@ -17,25 +17,25 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 
 /**
- * 进程里那一份「任务结束后留下的网页」:任务结束时([WebStack.close])把模型用 web_keep_open 标过的那一页从任务的标签池里拿出来,
- * 连同它挂着的那块后台网页显示一起交到这里——页面照旧挂在任务期间那块显示上,和任务期间一样看得见、照常运行,不另做别的手脚。
- * 全局至多一页([KeptPageSlot]),[KEEP_OPEN_HOURS][com.wangzan101.mika.core.cap.web.KEEP_OPEN_HOURS] 小时后自动关;
- * 内存紧张被系统要求释放、渲染进程崩了或被系统收回、用户关掉、留了另一页时也关。关的时候销毁标签、放掉显示、Cookie 写盘,
- * 并交给 [onClosed](在来源对话那一轮记下原因)。
- * 留着的那一页不在任何任务的标签池里:之后的任务列不到、关不到它;它算进各任务共用的标签总数(见 [TabBudget]),但不会被腾位置关掉。
- * 进程靠任务服务的前台通知撑着(见 TaskService)。会动到 WebView 的都在主线程;[close] 任意线程可调。
+ * プロセスの「タスク終了後に残された Web ページ」: タスクが終了すると ([WebStack.close])、モデルが web_keep_open でマークしたページをタスクのタグ プールから取り出します。
+ * は、ハングアップしているバックグラウンド Web ページ表示とともにここに配信されます。ページはタスク中もディスプレイ上にハングしており、他のトリックを行わなくても、タスク中は通常どおり表示され、実行されます。
+ * 全体で最大1ページ（[KeptPageSlot]）で、[KEEP_OPEN_HOURS][com.wangzan101.mika.core.cap.web.KEEP_OPEN_HOURS] 時間後に自動で閉じる;
+ * メモリ逼迫でシステムから解放を求められた場合、レンダリングプロセスがクラッシュするかシステムに回収された場合、ユーザーが閉じた場合、別のページを残した場合にも閉じる。閉じる際はタブを破棄し、表示を解放し、Cookie を書き出す、
+ * そして [onClosed] へ渡す（由来した会話のその実行に理由を記録する）。
+ * 残されたページはどのタスクのタブプールにも入らない: 後続のタスクからは列挙も終了もできない; 各タスク共通のタブ総数には数える（[TabBudget] 参照）が、空きを作るために閉じられることはない。
+ * プロセスは、タスク サービスのフォアグラウンド通知によってサポートされています (TaskService を参照)。 WebView を移動させるものはすべてメインスレッド内にあります。 [close] はどのネジでも調整できます。
  */
 class PageKeeper(
     private val context: Context,
     private val budget: TabBudget,
     clock: () -> Long = System::currentTimeMillis,
 ) : TabBudget.Member {
-    /** 撑着页面的标签和它挂着的显示。 */
+    /** は、ページのラベルとそれに付属する表示を保持します。 */
     class Held(val tab: WebTab, val host: WebHost)
 
     private val main = Handler(Looper.getMainLooper())
 
-    /** 关掉一页之后(主线程外也可能调):来源对话那一轮记下原因。由 App 接上。 */
+    /** ページを閉じた後 (メインスレッドの外で調整される場合もあります): ソースダイアログラウンドの理由を書き留めます。アプリで接続。 */
     @Volatile var onClosed: (KeptPage, KeptPageClose) -> Unit = { _, _ -> }
 
     private val slot: KeptPageSlot<Held> = KeptPageSlot(clock, release = ::release, onClosed = { p, r ->
@@ -44,13 +44,13 @@ class PageKeeper(
         onClosed(p, r)
     })
 
-    /** 此刻留着的那一页;没有为 null。 */
+    /** 現在ページは終了しています。 nullではありません。 */
     val page: StateFlow<KeptPage?> get() = slot.page
 
     private val expiry: Runnable = object : Runnable {
         override fun run() {
             if (slot.expireIfDue()) return
-            // 系统深睡时这个计时会停:每隔一会儿按墙上时钟核一次,醒来过了点就关
+            // このタイマーは、システムがディープ スリープ状態になると停止します。壁時計を時々確認し、しばらくして目覚めたときに電源を切ります。
             slot.remainingMs()?.let { main.postDelayed(this, it.coerceIn(1_000L, CHECK_MS)) }
         }
     }
@@ -65,10 +65,10 @@ class PageKeeper(
         override fun onLowMemory() = Unit
     }
 
-    /** 留着的页面上发生的事:只管崩溃;弹窗、下载、跳 App 一律不接(没有任务在看它)。 */
+    /** が残したページで何が起こるか: クラッシュするだけです。ポップアップ ウィンドウ、ダウンロード、またはジャンプ アプリを受け入れません (それを監視しているタスクはありません)。 */
     private inner class Listener(val id: Long) : WebTab.Listener {
         override fun onCrashed(tab: WebTab) {
-            // 在 WebView 自己的回调之外关
+            // は WebView 自体のコールバックの外で閉じます
             main.post { slot.closeIf(id, if (tab.reclaimed) KeptPageClose.Memory else KeptPageClose.Crashed) }
         }
     }
@@ -79,15 +79,15 @@ class PageKeeper(
     }
 
     /**
-     * 收下 [tab](已从任务的标签池里拿出来)和它的显示 [host],留在后台接着运行;此刻留着的另一页先关掉。
-     * 标签已关、崩了或显示已关时收不下,返回 null,调用方自己销毁。主线程。
+     * は [tab] (タスクのタグ プールから取り出された) とその表示 [host] を受け入れ、バックグラウンドに残して実行を続けます。この時点で残っている他のページが最初に閉じられます。
+     * ラベルが閉じているか、折りたたまれているか、または閉じたと表示されているときに閉じることができない場合は、null が返され、呼び出し元が自分でラベルを破棄します。メインスレッド。
      */
     fun keep(tab: WebTab, host: WebHost, origin: KeptOrigin): KeptPage? {
         check(Looper.myLooper() == Looper.getMainLooper()) { "PageKeeper.keep must run on the main thread" }
         if (tab.destroyed || tab.crashed || host.closed) return null
         val url = tab.view.url
         val site = url?.let(WebUrlPolicy::host) ?: url.orEmpty()
-        // 挂回它那块显示上(任务结束时它可能不是挂着的那一个);页面照旧认为自己可见
+        // はディスプレイにハングバックします (タスクの終了時にハングアップしていたものではない可能性があります)。ページはまだ表示されていると認識しています
         host.attach(tab)
         runCatching { WebTab.cookieManager().flush() }
         val p = slot.keep(Held(tab, host), origin, site, url, tab.view.title)
@@ -98,7 +98,7 @@ class PageKeeper(
         return p
     }
 
-    /** 关掉留着的那一页(用户点了关闭、通知上的按钮、内存紧张等);没有留着的返回 false。任意线程。 */
+    /** 残りのページを閉じます (ユーザーが閉じるをクリックした、通知のボタンがクリックされた、メモリが不足しているなど)。残りのページがない場合は false を返します。どのスレッドでも。 */
     fun close(reason: KeptPageClose): Boolean {
         if (Looper.myLooper() != Looper.getMainLooper()) {
             if (slot.page.value == null) return false
@@ -108,16 +108,16 @@ class PageKeeper(
         return slot.close(reason)
     }
 
-    /** 还剩多久自动关(毫秒);没有留着的为 null。 */
+    /** が自動的にシャットダウンするまでの残り時間 (ミリ秒)。残っていない場合は null になります。 */
     fun remainingMs(): Long? = slot.remainingMs()
 
-    /** 留着的那个标签(测试和真机验收看页面还在不在跑);没有为 null。 */
+    /** によって残されたタグ (テストと実機の受け入れのために、ページがまだ実行されているかどうかを確認してください)。そうでない場合は null です。 */
     fun keptTab(): WebTab? = slot.handle()?.tab
 
-    /** 运行 [runId] 那一轮要记下的留页:(站点, 关掉的原因),见 [KeptPageSlot.recordFor]。 */
+    /** は [runId] を実行します。そのラウンドで記録される残りのページは次のとおりです: (サイト、シャットダウンの理由)、[KeptPageSlot.recordFor] を参照してください。 */
     fun recordFor(runId: String?): Pair<String, String?>? = slot.recordFor(runId)
 
-    /** 留着的那一页的实时画面,每 [FRAME_MS] 取一帧(和任务期间画中画同一个来源:它那块显示的最新一帧);没有画面时发 null。 */
+    /** によって残されたページのリアルタイム ピクチャは、[FRAME_MS] ごとに 1 フレームを取得します (タスク中のピクチャ イン ピクチャと同じソース、つまりそこに表示される最新のフレーム)。画像がない場合はnullを送信します。 */
     fun frames(): Flow<Bitmap?> = flow {
         while (true) {
             emit(slot.handle()?.host?.takeIf { !it.closed }?.latestFrame())
@@ -125,11 +125,11 @@ class PageKeeper(
         }
     }.flowOn(Dispatchers.IO)
 
-    // ---------- 全局上限 ----------
+    // ---------- グローバル上限値 ----------
 
     override fun tabCount(): Int = if (slot.page.value != null) 1 else 0
 
-    /** 留着的那一页不给腾位置关掉:用户要它接着开着。 */
+    /** 残りのページは、スペースを確保するために閉じられません。ユーザーは開いたままにしておきたいと考えています。 */
     override fun oldestSpare(except: String?): Pair<String, Long>? = null
 
     override fun evictForBudget(tabId: String) = Unit
@@ -145,7 +145,7 @@ class PageKeeper(
 
     private companion object {
         const val TAG = "MikaPageKeeper"
-        /** 多久按墙上时钟核一次到没到点。 */
+        /** 壁時計はどのくらいの頻度でチェックする必要がありますか? */
         const val CHECK_MS = 60_000L
         const val FRAME_MS = 500L
     }

@@ -28,7 +28,7 @@ import org.junit.Test
 import com.wangzan101.mika.core.assembly.toolDispatcher
 import com.wangzan101.mika.core.uistate.interfaces
 
-/** 每次读屏换下一份元素清单;端口编号每屏从 @e1 起,snapshotId 是 p1、p2…;同名元素位置不变。 */
+/** は、画面が読み取られるたびに次の要素リストに変更されます。各画面のポート番号は @e1 から始まり、snapshotId は p1、p2... になります。同じ名前の要素の位置は変更されません。 ポートの 2 番目の画面の */
 private class ScriptedScreen(private vararg val screens: List<String>) : ScreenPort by FakeScreen() {
     val calls = mutableListOf<String>()
     var reads = 0
@@ -64,11 +64,11 @@ class ToolDispatcherStableRefTest {
         val d = toolDispatcher(s, stableRefs = true)
         d.execute(call("phone_observe")); d.execute(call("phone_observe"))
         val r = d.execute(call("phone_tap", """{"ref":"@e2","snapshotId":"p2"}"""))
-        // 模型的 @e2(返回)在端口第二屏是 @e3
+        // モデルの @e2 (リターン) は @e3 です
         assertEquals(listOf("tapRef @e3 p2"), s.calls)
         assertEquals("true", r.content.s("ok"))
         assertNull(r.content["relocated"])
-        assertNull(r.content["portRef"]) // 端口编号不给模型
+        assertNull(r.content["portRef"]) // ポート番号がモデルに付与されていません
         assertEquals("@e3", r.record.s("portRef"))
         assertEquals("p2", r.record.s("portSnapshotId"))
         d.execute(call("phone_type_text", """{"ref":"@e1","snapshotId":"p2","text":"x"}"""))
@@ -92,7 +92,7 @@ class ToolDispatcherStableRefTest {
         for (args in listOf("""{"ref":"@e1","snapshotId":"p1"}""")) {
             val r = d.execute(call("phone_tap", args))
             assertEquals("ref_expired", r.content.s("error"))
-            assertTrue("Read the screen again" in r.content.s("message"))
+            assertTrue(r.content.s("message"), "状態を再度読み、新しい ref と snapshotId を使う" in r.content.s("message"))
         }
         assertEquals("ref_expired", d.execute(call("phone_type_text", """{"ref":"@e2","snapshotId":"p1","text":"x"}""")).content.s("error"))
         assertTrue(s.calls.isEmpty())
@@ -107,7 +107,7 @@ class ToolDispatcherStableRefTest {
         assertNotNull(snap); assertEquals("p2", snap!!.snapshotId)
         assertEquals("发送", snap.elements.single { it.ref == "@e1" }.name)
         assertNotNull(IrreversibleDetector.classify("phone_tap", args, snap, d.interfaces.peek()))
-        // 旧 snapshotId 但编号仍在最新一屏:按最新一屏判(真正点下去的是最新一屏里的它)
+        // 古い snapshotId ですが、番号は最新の画面にあります: 最新の画面に従って判断します (実際のクリックは最新の画面です)
         val old = Json.parseToJsonElement("""{"ref":"@e1","snapshotId":"p1"}""").jsonObject
         assertTrue(d.interfaces.actionTarget(d.declared("phone_tap"), old).aimed!!.elements.any { it.name == "新的" })
         assertNotNull(IrreversibleDetector.classify("phone_tap", old, d.interfaces.actionTarget(d.declared("phone_tap"), old).aimed, d.interfaces.peek()))
@@ -133,7 +133,7 @@ class ToolDispatcherStableRefTest {
             reply(Part.ToolCall("a", "phone_observe", "{}")),
             reply(Part.ToolCall("b", "phone_observe", "{}")),
             reply(Part.ToolCall("c", "phone_tap", """{"ref":"@e2","snapshotId":"p2"}""")),
-            com.wangzan101.mika.core.testing.answerReply("好了"),
+            com.wangzan101.mika.core.testing.answerReply("完了しました"),
         )
         val s = ScriptedScreen(listOf("搜索", "返回"), listOf("新的", "搜索", "返回"))
         kotlinx.coroutines.runBlocking {
@@ -156,7 +156,7 @@ class ToolDispatcherStableRefTest {
             reply(Part.ToolCall("a", "phone_observe", "{}")),
             reply(Part.ToolCall("b", "phone_observe", "{}")),
             reply(Part.ToolCall("c", "phone_tap", """{"ref":"@e1","snapshotId":"p2"}""")),
-            com.wangzan101.mika.core.testing.answerReply("没发"),
+            com.wangzan101.mika.core.testing.answerReply("送信していません"),
         )
         val s = ScriptedScreen(listOf("提交订单", "返回"), listOf("新的", "提交订单", "返回"))
         kotlinx.coroutines.runBlocking {

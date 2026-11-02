@@ -44,13 +44,13 @@ import com.wangzan101.mika.ui.components.ValueTone
 import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 
-/** 「添加模型」里「用账号登录」那一组的三家。ChatGPT 的登录另有一套,xAI、OpenRouter 对应 [AccountProvider]。 */
+/** 「モデルの追加」の「アカウントでログイン」のグループに3社あります。 ChatGPT、xAI、および OpenRouter には、[AccountProvider] に対応する別のログイン セットがあります。 */
 enum class SignInKind(val account: AccountProvider?, val label: String, val tag: String) {
     ChatGpt(null, "ChatGPT", "chatgpt"),
     Xai(AccountProvider.Xai, "xAI / Grok", "xai"),
     OpenRouter(AccountProvider.OpenRouter, "OpenRouter", "openrouter");
 
-    /** 「改用 API Key」时选的预设;ChatGPT 没有这一项。 */
+    /** 「API キーに切り替える」ときに選択されるデフォルト。 ChatGPT にはこのオプションがありません。 */
     val keyPreset: String? get() = when (this) {
         ChatGpt -> null
         Xai -> "xAI"
@@ -62,7 +62,7 @@ enum class SignInKind(val account: AccountProvider?, val label: String, val tag:
     }
 }
 
-/** 这一家在账号登录里的样子:已登录的服务商 id(没有或已退出为 null)、正在登录、失败的原因。 */
+/** この会社のアカウント ログインは次のようになります: ログインしたサービス プロバイダー ID (なし、またはログアウトした場合は null)、ログイン、および失敗の理由。 */
 internal fun ModelSetupUi.signInState(kind: SignInKind): Triple<String?, Boolean, String?> = when (kind) {
     SignInKind.ChatGpt -> Triple(
         providers.firstOrNull { it.kind == ProviderConfig.Kind.ChatGpt }?.id?.takeIf { chatGptAccount?.signedIn == true },
@@ -81,8 +81,8 @@ internal fun ModelSetupUi.signInState(kind: SignInKind): Triple<String?, Boolean
 }
 
 /**
- * 「用账号登录 · 不用填 Key」:ChatGPT、xAI / Grok、OpenRouter 各一行。已登录的写「已登录」,点进服务商详情;
- * 没登录的点开说明面板([onOpen]),在面板里才开始登录。正在登录的写「登录中…」,点开看进度。
+ * 「アカウントでログイン・キー入力不要」：ChatGPT、xAI / Grok、OpenRouter に各 1 行。ログインしている場合は、「ログイン済み」と入力し、サービス プロバイダーの詳細をクリックします。
+ * ログインしていない場合は、説明パネル ([onOpen]) をクリックしてログインを開始します。ログインしている場合は、「ログイン中...」と書き込み、クリックして進行状況を確認します。
  */
 @Composable
 internal fun AccountSignInGroup(ui: ModelSetupUi, onOpen: (SignInKind) -> Unit, openProvider: (String) -> Unit) {
@@ -106,7 +106,7 @@ internal fun AccountSignInGroup(ui: ModelSetupUi, onOpen: (SignInKind) -> Unit, 
     }
 }
 
-/** 登录面板的动作:开始、取消、改用 API Key(选好那家的预设、打开填 Key 的表单)、关掉。 */
+/** ログイン パネルのアクション: 開始、キャンセル、API キーへの切り替え (その会社のデフォルトを選択、フォームを開いてキーを入力)、閉じる。 */
 class SignInSheetActions(
     val start: (SignInKind) -> Unit = {},
     val cancel: (SignInKind) -> Unit = {},
@@ -115,8 +115,8 @@ class SignInSheetActions(
 )
 
 /**
- * 一家账号登录的面板。先说明会发生什么(和风险),点「继续登录」才开始;登录中:xAI 显示短码(复制并重新打开确认页)、
- * 别的写「在浏览器里完成」,都可以取消;失败在面板里说原因,可以再试。成功后由页面关掉面板、打开详情。
+ * アカウントでログインするためのパネル。まず何が起こるか (およびリスク) を説明し、[ログインを続ける] をクリックして開始します。ログイン: xAI はショートコードを表示します (コピーして確認ページを再度開きます)。
+ * それ以外の場合は「ブラウザで完了」と書いていただければキャンセル可能です。失敗した場合は、その理由がパネルに表示され、再試行できます。成功したら、パネルを閉じて、ページから詳細を開きます。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,7 +132,7 @@ internal fun SignInSheet(ui: ModelSetupUi, kind: SignInKind, actions: SignInShee
     }
 }
 
-/** 面板里的内容(不带面板本身,便于测试)。 */
+/** パネルの内容 (簡単にテストできるようにパネル自体はなし)。 */
 @Composable
 internal fun SignInSheetBody(ui: ModelSetupUi, kind: SignInKind, actions: SignInSheetActions) {
     val (_, running, failure) = ui.signInState(kind)
@@ -140,7 +140,7 @@ internal fun SignInSheetBody(ui: ModelSetupUi, kind: SignInKind, actions: SignIn
     Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 20.dp, end = 20.dp, bottom = 20.dp).testTag("signin-sheet-${kind.tag}")) {
         when {
             code != null -> DeviceCodeBody(ui.accountSignIn, code) { actions.cancel(kind) }
-            // 同一时刻只有一次登录:别家正在登录时这里不能开始
+            // 同時にログインできるのは 1 つだけです。他の人がログインしている間は、ここから開始することはできません。
             else -> IntroBody(kind, running, failure, busy = !running && (ui.chatGptSignIn == ListState.Running || ui.accountSignIn.running), actions)
         }
     }
@@ -179,7 +179,7 @@ private fun IntroBody(kind: SignInKind, running: Boolean, failure: String?, busy
     }
 }
 
-/** xAI 设备码:和浏览器确认页上一样的短码、有效期;复制并重新打开确认页;等待中可以取消。 */
+/** xAI デバイス コード: ブラウザーの確認ページと同じショート コードと有効期間。確認ページをコピーして再度開きます。待っている間にキャンセルも可能です。 */
 @Composable
 private fun DeviceCodeBody(s: AccountSignInUi, code: String, cancel: () -> Unit) {
     val c = MikaTheme.colors

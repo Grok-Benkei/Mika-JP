@@ -26,10 +26,10 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 /**
- * 一次动作落在哪里,由界面一侧给出,执行入口的不可逆判定与审批只读它:
- * [args] 是判定用的参数(点看图找到的 @vN 时换成它登记的坐标与所见),[aimed] 是模型那一眼(按 snapshotId 找到的那次读屏,
- * 没给编号时是坐标换算会用的那一屏),[bySight] 表示点的是看图得来的位置,[seen] 是视觉模型复看确认过的所见文字,
- * [readAgeMs] 是那次读屏距今多久(不知道为 null)。[now] 此刻重新看一眼(只在要判不可逆时读;不登记编号)。
+ * アクションがどこに該当するかはインターフェイス側で指定されます。執行入口の不可逆的な判決と承認はこう読むしかない。
+ * [args] は判定に使用されるパラメータ (画像内にある @vN をクリックすると、登録されている座標と表示される内容に置き換えます)、[aimed] はモデルのビュー (snapshotId で見つかった画面読み取り、
+ * は番号が指定されていない場合の座標変換に使用される画面です)、[bySight] は画像を見て得られた点の位置を示し、[seen] はビジュアルモデルを確認して確認した後に表示されるテキストです。
+ * [readAgeMs] は、画面の読み取りからの経過時間です (不明、null です)。 [now] この時点でもう一度見てください (不可逆的であると判断された場合にのみ読み取ります。番号は登録しないでください)。
  */
 class ActionTarget internal constructor(
     val args: JsonObject,
@@ -42,45 +42,45 @@ class ActionTarget internal constructor(
     suspend fun now(): ScreenSnapshot? = look()
 }
 
-/** 按描述指目标的参数:元素显示的字、名字或输入框提示语;可再加角色。 */
+/** は、説明に従ってターゲットのパラメータを指します。要素によって表示される単語、名前、または入力ボックスのプロンプトです。役割を追加することができます。 */
 const val DESCRIBED_ELEMENT = "element"
 const val DESCRIBED_ROLE = "role"
-/** 和描述同时给就不知道该按哪个。 */
+/** と説明が同時に出てくるのでどれをクリックすればいいのか分かりません。 */
 private val DESCRIBED_CONFLICTS = listOf("ref", "snapshotId", "x", "y")
-/** 页面弹框挂着时的错误码(见 cap/web 的 DIALOG_OPEN)。 */
+/** ページ ポップアップがハングしたときのエラー コード (cap/web の DIALOG_OPEN を参照)。 */
 private const val DIALOG_OPEN_CODE = "dialog_open"
-/** 不止一个对得上时最多列几个。 */
+/** 複数が一致する場合は、最大でもいくつかをリストします。 */
 private const val DESCRIBED_LISTED = 6
-/** 看图找过、没找到或没确认的原因(其余是画面拿不到、不能看)。 */
+/** 理由は、画像を探しましたが、見つからないか、確認できなかったためです（残りは、画像を取得または表示できないことです）。 */
 private val SIGHT_MISSED = setOf("not_found", "name_mismatch", "not_confirmed", "unverified_grounding", "vision_unavailable")
 
-/** 按描述找目标的结果:[Resolved] 是换成编号后的参数和找到的元素,[Failed] 是给模型的失败结果。 */
+/** 説明に従ってターゲットを検索した結果: [Resolved] は番号と見つかった要素を変更した後のパラメーター、[Failed] はモデルの失敗結果です。 */
 sealed interface Described {
     /**
-     * [note]:按开头或包含对上时附进动作结果的说明(描述了什么、实际对上了谁);完全相同为 null。
-     * [element] 为 null:树里没有,看图找到的点(参数换成 @vN)。
+     * [note]: 先頭を押すか、マッチング時に添付されるアクション結果の説明 (説明内容、実際にマッチングした人) を含めます。同じことがヌルです。
+     * [element] は null です。ツリーには点がありません。点は画像を見ることで見つかります (パラメーターは @vN に変更されます)。
      */
     class Resolved(val args: JsonObject, val element: UiElement?, val note: JsonObject? = null) : Described
     class Failed(val result: ToolExecution) : Described
 }
 
 /**
- * 一个任务里有界面的能力(手机、网页)共用的界面状态:每块屏一份读屏状态、在操作哪块屏、给执行入口看的动作目标、路线要的目标与锚点。
- * 分发器在每次调用前后经它做界面上的收尾(动作前看一眼、比出实际效果、附上动作之后的界面、清掉看图得来的点);
- * 分发器和核心的循环不认识它,只经 [SurfaceLayer] 用到它。开局由 [attach] 放进工具上下文,有界面的工具从上下文里取。
+ * タスク内のインターフェース機能（携帯電話、Web ページ）が共有するインターフェース状態。各画面の画面読み取り状態のコピー、どの画面を操作しているか、実行入口のアクション対象、ルートのターゲットとアンカーポイント。
+ * ディストリビュータは、各呼び出しの前後にインターフェイスを完成させるためにこれを使用します (アクションの前に確認し、実際の効果を比較し、アクションの後にインターフェイスを接続し、画像から取得したポイントをクリアします)。
+ * ディストリビュータとコア ループはそれを認識せず、[SurfaceLayer] のみがそれを使用します。スタートは [attach] によってツール コンテキストに入れられ、インターフェイスを持つツールはコンテキストから取得されます。
  */
 internal class Interfaces(
     surfaces: List<Surface>,
     stableRefs: Boolean,
     private val config: ToolConfig,
     val shots: Shots,
-    /** 最近一次读到的界面文字(几块屏共用);动作之后读到的和它一样就不再记一遍。 */
+    /** 最後に読み取られたインターフェイス テキスト (複数の画面で共有)。アクション後に読み取られた内容が同じであれば、再度記憶されることはありません。 */
     lastRead: () -> String?,
 ) : SurfaceLayer {
     companion object {
         /**
-         * 本任务的界面状态:[surfaces] 是接上了端口的屏,[stableRefs] 开着时跨读屏用稳定编号(动作自带屏幕、元素优先时总是开着)。
-         * 放进 [ctx],有界面的工具从那里取。
+         * このタスクのインターフェースのステータス: [surfaces] は、ポートに接続されている画面です。 [stableRefs] がオンの場合、安定した番号が画面全体の読み取りに使用されます (アクションには独自の画面があり、優先度が与えられると要素は常にオンになります)。
+         * を [ctx] に配置し、そこからインターフェイス ツールを取得します。
          */
         fun attach(ctx: ToolContext, surfaces: List<Surface>, stableRefs: Boolean): Interfaces =
             Interfaces(surfaces, stableRefs || ctx.config.inlineScreen || ctx.config.adaptiveVision, ctx.config, ctx.shots) {
@@ -99,7 +99,7 @@ internal class Interfaces(
         sessionFor(tool).checkAppAccess(current = after || tool.verb !in APP_TARGET_VERBS)
     }
 
-    /** 此刻在操作的那块屏的读屏状态。 */
+    /** 現在操作している画面の画面読み取り状態。 */
     val session: ScreenSession get() = sessions.getValue(focus.current.id)
 
     override val current: String get() = focus.current.id
@@ -108,18 +108,18 @@ internal class Interfaces(
 
     override fun leave(succeeded: Boolean) = focus.leave(succeeded)
 
-    /** 开着时写操作执行前取目标元素与锚点(回放开关打开时由循环设置)。 */
+    /** がオンの場合、ターゲット要素とアンカー ポイントは書き込み操作が実行される前に取得されます (再生スイッチがオンのときにループによって設定されます)。 */
     override var captureTargets: Boolean = false
 
-    /** 工具 [tool] 那块屏的读屏状态;不是屏幕工具时是最近操作的那块。 */
+    /** ツール [tool] その画面の画面読み取りステータス。画面ツールでない場合は、最後に操作したものになります。 */
     private fun sessionFor(tool: AgentTool?): ScreenSession = tool?.capability?.let(sessions::get) ?: session
 
-    /** 这个工具作用在哪块屏上;不是屏幕工具为 null。 */
+    /** このツールが動作する画面。ツールが画面ではない場合、null になります。 */
     override fun surfaceOf(tool: AgentTool?): String? = tool?.capability?.takeIf { it in sessions }
 
     /**
-     * 用另一块屏的编号操作这块屏的工具:结果是 wrong_surface,说明编号属于哪块屏、该用哪个工具。
-     * 认不出编号是哪块屏的(过期太久、拼错)时为 null,照常交给工具(按过期处理)。
+     * 別の画面の番号を使用して、この画面上のツールを操作します。結果は、その番号がどの画面に属しているか、およびどのツールを使用する必要があるかを示す、間違った表面になります。
+     * 番号がどの画面に属しているかを認識できない場合 (期限切れが長すぎるか、スペルが間違っている場合)、番号は null となり、通常どおりツールに渡されます (期限切れとして処理されます)。
      */
     override fun misaimed(tool: AgentTool, args: JsonObject, tools: ToolIndex): ToolExecution? {
         val own = tool.capability?.let(sessions::get) ?: return null
@@ -136,19 +136,19 @@ internal class Interfaces(
             "observe" to (tools.nameOf(Verb.Observe, own.surface.id) ?: tool.name)))
     }
 
-    /** 一次调用之前在界面上做的:路线要的目标、改变界面的动作前先看一眼。由 [finish] 收尾。 */
+    /** は、呼び出しの前にインターフェイスで実行されます。インターフェイスを変更する前に、ルートのターゲットとアクションを確認してください。 [finish]で終了。 */
     private class Prep(
         val session: ScreenSession,
         val probe: ScreenSession.EffectProbe?,
         val aimed: Pair<UiElement?, List<Int>?>?,
     ) {
-        /** 这次调用由界面一侧报实际效果(effect)。 */
+        /** この呼び出しは、インターフェイス側からの実際の効果を報告します。 */
         val reportsEffect: Boolean get() = probe != null
     }
 
     override suspend fun around(tool: AgentTool, args: JsonObject, inlineScreen: Boolean, body: suspend (reportsEffect: Boolean) -> ToolExecution): ToolExecution {
         if (tool.offScreen || tool.verb == Verb.ListApps) return body(false)
-        // 按目标启动可离开受限应用;此时不采集旧页面,只在启动后附上允许的页面。
+        // 制限されたアプリケーションを終了するターゲットに従って起動します。現時点では古いページは収集されず、起動後に許可されたページのみがアタッチされます。
         if (tool.verb in APP_TARGET_VERBS) {
             val raw = body(false)
             return finish(tool, args, Prep(session, null, null), raw, inlineScreen)
@@ -160,18 +160,18 @@ internal class Interfaces(
     private suspend fun prepare(tool: AgentTool, o: JsonObject): Prep {
         val session = this.session
         gateView.capture = if (captureTargets && tool.routable) gateView.captureTarget(session, tool.verb, o) else null
-        // 改变界面的动作:动作前先看一眼(元素表 + 画面),动作后比出实际效果
+        // インターフェースのアクションを変更します。アクションの前に見て (要素テーブル + 画面)、アクション後の実際の効果を比較します。 呼び出し
         val probe = if (tool.reportsEffect) session.probe(o.argStr("snapshotId")) else null
         val aimed = probe?.let { effectTarget(session, tool.verb, o, it.before) }
         return Prep(session, probe, aimed)
     }
 
-    /** 调用不是界面上的(或没走到 [prepare]):路线目标不留。 */
+    /** はインターフェイス上にありません (または、[prepare] に送信されません)。ルート ターゲットは残されていません。 */
     override fun skip() { gateView.capture = null }
 
     /**
-     * 一次调用之后:成功的动作按 [inlineScreen] 附界面差异;画面按观察策略附上,并报回实际效果;
-     * 动过这块屏之后(失败的也算,参数不对没执行的不算),这块屏上之前看图得来的点就不再可信。
+     * が 1 回呼び出された後: 成功したアクションは [inlineScreen] に従ってアタッチされます。観察戦略に従ってスクリーンが取り付けられ、実際の効果が報告されます。
+     * この画面を改ざんした後 (失敗はカウントされますが、パラメータが間違っている場合や実行の失敗はカウントされません)、前の写真から得られたこの画面のポイントは信頼できなくなります。
      */
     private suspend fun finish(tool: AgentTool, o: JsonObject, prep: Prep, raw: ToolExecution, inlineScreen: Boolean): ToolExecution {
         val session = prep.session
@@ -180,7 +180,7 @@ internal class Interfaces(
         var result = raw
         val ok = result.content["ok"] == JsonPrimitive(true)
         if (inlineScreen && tool.showsScreenAfter && ok) result = session.withScreen(result)
-        // 旧模式的视觉主模型直接看动作后画面；分级模式只在界面差异或下次 observe 需要时补图。
+        // 古いモードでは、ビジュアル メイン モデルはアクション後の画像を直接参照します。階層モードでは、インターフェイスに違いがある場合、または次の観察が必要な場合にのみ画像が追加されます。
         if (tool.showsScreenAfter && ok && !config.adaptiveVision && result.images.isEmpty() && "screen" !in result.content) result = session.withFrame(result)
         val probe = prep.probe
         val aimed = prep.aimed
@@ -193,8 +193,8 @@ internal class Interfaces(
     }
 
     /**
-     * 判效果用的目标:按编号的动作是模型那一屏里的那个元素,输入、清空没给编号时是动作前有焦点的输入框;
-     * 画面区域是目标的范围,坐标动作(含看图找到的点)是落点周围一小块。都没有为 (null, null)。
+     * 効果を判定する対象：数字に応じたアクションがモデル画面内の要素となります。数字を入力せずにクリアすると、アクションの前にフォーカスが置かれた入力ボックスになります。
+     * 画面領域はターゲットの範囲であり、座標アクション (画像を見て見つけた点を含む) は着地点の周囲の小さな領域です。どちらも (null、null) ではありません。
      */
     private fun effectTarget(session: ScreenSession, verb: Verb, o: JsonObject, before: ScreenSnapshot?): Pair<UiElement?, List<Int>?> {
         val ref = o.argStr("ref")?.takeIf { !LOCATED_REF.matches(it) }
@@ -213,10 +213,10 @@ internal class Interfaces(
     }
 
     /**
-     * 按描述指目标的点击、打字([DESCRIBED_ELEMENT] 参数,没有编号和坐标):此刻重读一屏(登记编号),找唯一对上的元素,
-     * 把参数换成它的 ref + snapshotId,之后的判定、审批、执行、核实都和按编号的一样。
-     * 打字时树缺了一块或不能用、里面没有对得上的输入框,就看图找(见 [bySight])。
-     * 不是这类调用为 null;找不到、不止一个、参数冲突时是给模型的失败结果,不执行。
+     * は、説明に従ってターゲットのクリックとタイプを指します ([DESCRIBED_ELEMENT] パラメーター、番号と座標はありません)。 次に、画面 (登録番号) を再読み込みして、唯一一致する要素を見つけます。
+     * パラメータをそのref + snapshotIdに置き換えると、以降の判断、承認、実行、検証は番号に基づくものと同じになります。
+     * 入力時に、ツリーの一部が欠落しているか使用できず、一致する入力ボックスがありません。写真を見てください ([bySight] を参照)。
+     * このタイプの呼び出しが見つからない場合は、null になります。見つからない場合、複数ある場合、またはパラメータが競合している場合は、モデルの失敗結果となり、実行されません。
      */
     suspend fun described(tool: AgentTool?, args: JsonObject): Described? {
         val verb = tool?.verb
@@ -231,10 +231,10 @@ internal class Interfaces(
             return Described.Failed(fail("invalid_arguments", "$DESCRIBED_ELEMENT: give either $DESCRIBED_ELEMENT or $it, not both"))
         }
         val role = args.argStr(DESCRIBED_ROLE)?.trim()?.ifEmpty { null }
-        // 内部读的一屏:模型没看到,不算它读过(不清掉「手里那屏已过时」);这一屏留给接着的动作当「动作前」
+        // 内部読み取り画面: モデルはそれを見ていないため、読み取りとしてカウントされません (「手持ちの画面が古い」をクリアできません)。この画面は、「アクション前」として次のアクションのために予約されています。
         val snap = screenAttempt { session.snapshot(internal = true) }
             ?: return Described.Failed(fail("screen_unavailable", Feedback["screen_unavailable"]))
-        // 页面弹框挂着:页面停着,什么都点不到
+        // ページのポップアップ ボックスがハングします: ページが停止されており、何もクリックできません。
         if (snap.web?.dialog != null) {
             session.clearPrimed()
             return Described.Failed(failCode(DIALOG_OPEN_CODE))
@@ -248,34 +248,34 @@ internal class Interfaces(
                 JsonObject(args.filterKeys { it != DESCRIBED_ELEMENT && it != DESCRIBED_ROLE } +
                     mapOf("ref" to JsonPrimitive(m.element.ref), "snapshotId" to JsonPrimitive(snap.snapshotId))),
                 m.element,
-                // 不是完全相同的名字:如实说出按描述对上的是哪个
+                // はまったく同じ名前ではありません。正直に言って、どれが説明と一致するか教えてください。
                 if (m.exact) null else JsonObject(mapOf("resolvedFrom" to JsonPrimitive(shown), "matched" to JsonPrimitive(m.element.name.take(80)),
                     "matchedRef" to JsonPrimitive(m.element.ref), "snapshotId" to JsonPrimitive(snap.snapshotId))),
             )
             is DescribedMatch.Ambiguous -> Described.Failed(fail("element_ambiguous", Feedback.format("described.ambiguous",
                 "text" to shown, "count" to m.candidates.size, "snapshot" to snap.snapshotId,
                 "candidates" to m.candidates.take(DESCRIBED_LISTED).joinToString("; ") { e ->
-                    val near = DescribedTarget.neighbour(e, snap.elements)?.let { " near 「${it.take(30)}」" }.orEmpty()
-                    val off = if (DescribedTarget.usable(e, verb == Verb.TypeText)) "" else " (not actionable)"
-                    "${e.ref} ${e.role} 「${e.name.take(40)}」 at ${e.bounds}$near$off"
+                    val near = DescribedTarget.neighbour(e, snap.elements)?.let { " 付近の文字「${it.take(30)}」" }.orEmpty()
+                    val off = if (DescribedTarget.usable(e, verb == Verb.TypeText)) "" else "（操作できません）"
+                    "${e.ref} ${e.role} 「${e.name.take(40)}」 位置 ${e.bounds}$near$off"
                 })))
             DescribedMatch.None -> {
-                // 打字而这一屏的树缺了一块或不能用:树里对不上不等于屏上没有,改看图找这个框
+                // 入力中ですが、この画面上のツリーに一部が欠けているか、使用できません。ツリーが一致しない場合でも、それが画面上にないわけではありません。このフレームを見つけるには写真を見てください。
                 val locator = session.locator
                 if (verb == Verb.TypeText && locator != null && session.treeBlind(snap)) bySight(session, locator, args, shown)
                 else Described.Failed(fail("element_not_found", Feedback.format("described.none",
-                    "text" to shown, "role" to (role?.let { " with role $it" } ?: ""), "observe" to observe)))
+                    "text" to shown, "role" to (role?.let { "（role: $it）" } ?: ""), "observe" to observe)))
             }
         }
     }
 
     /**
-     * 看图找按描述指的输入框(和 find_visually 同一套核对:红框复看,没佐证的标出来),参数换成找到的 @vN:
-     * 之后和模型自己传 @vN 一样,先核对画面没变、那一下点击过不可逆判定,粘贴后按屏上文字核对点没点中。
+     * 画像を見て、説明で示されている入力ボックスを見つけて (find_visually と同じチェック セット: 赤いボックスを再読み取り、根拠のないものにマークを付けます)、パラメーターを @vN で見つかったものに置き換えます。
+     * 以降は@vNにモデルをアップロードするのと同じです。まず、画面が変化していないこと、およびクリックが不可逆的に判定されていることを確認します。貼り付け後、画面上のテキストを押して、ポイントがクリックされたかどうかを確認します。
      */
     private suspend fun bySight(session: ScreenSession, locator: Locator, args: JsonObject, shown: String): Described =
         when (val r = locator.locate(shown, null)) {
-            // 看了没找到(或看图这一下出错):换个说法或给点;画面拿不到、不能看(受保护、还没开 App)照 find_visually 的说明
+            // が見つかりませんでした (または画像を見るときにエラーが発生しました): 説明を変更するか、アドバイスをお願いします。画面を取得または表示できない（保護されており、アプリがまだ開いていない）場合は、find_visually の指示に従ってください
             is LocateResult.NotFound -> Described.Failed(fail("element_not_found", Feedback.format("described.not_seen",
                 "text" to shown, "reason" to r.reason,
                 "next" to if (r.reason in SIGHT_MISSED) Feedback["described.not_seen.retry"] else r.message)))
@@ -291,7 +291,7 @@ internal class Interfaces(
             }
         }
 
-    /** 执行入口看的这一步的目标(见 [ActionTarget]);只读,不执行任何动作。 */
+    /** は、このステップの目標を実行します ([ActionTarget] を参照)。読み取り専用のため、アクションは実行されません。 */
     fun actionTarget(tool: AgentTool?, args: JsonObject): ActionTarget {
         val session = sessionFor(tool)
         val verb = tool?.verb
@@ -300,41 +300,41 @@ internal class Interfaces(
             gateView.confirmedSeen(session, verb, args), snapshotAgeMs(args.argStr("snapshotId")), ::peek)
     }
 
-    /** 那次读屏距今多少毫秒;不在任何一块屏最近几次里为 null。 */
+    /** 画面の読み取りからのミリ秒数。どの画面の最後の数回でもない場合は、null になります。 */
     private fun snapshotAgeMs(snapshotId: String?): Long? = sessions.values.firstNotNullOfOrNull { s ->
         s.recentSnapshots.firstOrNull { it.snapshotId == snapshotId }?.let { snap -> s.readAt[snap.snapshotId]?.let { System.currentTimeMillis() - it } }
     }
 
-    /** 那次读屏(按工具 [tool] 那块屏、参数里的 snapshotId 找);不在最近几次里为 null。 */
+    /** の画面読み取り (ツール [tool] の画面をクリックし、パラメーターで snapshotId を見つけます)。過去数回ではない場合は null です。 */
     fun snapshotFor(tool: AgentTool?, args: JsonObject): ScreenSnapshot? = gateView.snapshotFor(sessionFor(tool), args)
 
-    /** 运行记录用:模型编号此刻对应的端口编号;稳定编号关着、没有 @eN 或编号已过期时为空。 */
+    /** の実行記録では、現時点でのモデル番号に対応するポート番号が使用されます。安定した番号がオフになっている場合、@eN がない場合、または番号の有効期限が切れている場合は空になります。 */
     override fun portRecord(tool: AgentTool?, args: JsonObject): JsonObject = gateView.portRecord(sessionFor(tool), args)
 
-    /** 上一次调用是写操作时,它的目标元素(没有或认不出为 null)与动作前锚点;否则为 null。 */
+    /** 最後の呼び出しが書き込み操作だった場合、そのターゲット要素 (null) が認識されないか、アクションの前のアンカーで認識されました。それ以外の場合は null でした。 */
     fun lastActionTarget(): Pair<Selector?, Anchors>? = gateView.capture?.let { it.target to it.before }
 
-    /** 上一次写操作前的那一屏受系统防截屏保护。 */
+    /** 最後の書き込み操作前の画面は、スクリーンショットからシステムによって保護されています。 */
     fun lastActionProtected(): Boolean = gateView.capture?.snapshot?.protected == true
 
-    /** 上一次写操作之后此刻读一屏(不登记编号),取动作后新出现的文字;不是写操作或读不到为 null。 */
+    /** 最後の書き込み操作後のこの時点で 1 つの画面 (登録番号なし) を読み取り、アクションの後に新しく表示されたテキストを取得します。書き込み操作ではない場合、または読み取りできない場合は、null になります。 */
     suspend fun actionAfter(): Anchors? {
         if (gateView.capture == null) return null
         return peek()?.let(::anchorsAfter)
     }
 
-    /** 同上,用调用方已经读好的动作后一屏。 */
+    /** 上記と同じですが、呼び出し元がすでに読んでいるアクションを使用します。 */
     fun anchorsAfter(after: ScreenSnapshot): Anchors? = gateView.anchorsAfter(after)
 
-    /** 此刻重新读最近操作的那块屏,不登记编号、不改模型手里的读屏;读不到为 null。 */
+    /** この時点で、モデルハンドに番号を登録したり、画面の読み取りを変更したりせずに、最近操作した画面を再読み取りします。読み取れない場合は null になります。 */
     suspend fun peek(): ScreenSnapshot? = session.peek()
 
-    /** 等最近操作的那块屏稳定,最多 [timeoutMs];读不到状态也照常返回。 */
+    /** など 最近操作した画面は [timeoutMs] までは安定しています。ステータスを読み取れない場合は通常どおりに戻ります。 */
     override suspend fun settle(timeoutMs: Long) {
         screenAttempt { session.screen.waitStable(timeoutMs) }
     }
 
-    /** 最近操作的那块屏此刻的一帧(原图)和它的画面编号,登记进回看;受保护页面、付款页不截,截不到为 null。 */
+    /** 最近操作した画面のフレーム（原画）とその画面番号をレビュー登録します。保護ページ、決済ページは切り取られず、切り取られない場合はnullとなります。 */
     override suspend fun visibleText(): List<String> = peek()?.elements?.map { it.name }.orEmpty()
 
     override suspend fun waitUntil(until: Until, clock: () -> Long, interrupted: () -> Boolean): UntilOutcome =
@@ -342,13 +342,13 @@ internal class Interfaces(
 
     override suspend fun imageNow(): Pair<ByteArray, Int>? = session.currentFrame()
 
-    /** 主模型能看图时动作之后发的一屏:画面和元素表是同一时刻的;屏上还没有 App 时为 null。 */
+    /** メイン モデルは、画像を表示するときにアクションの後に画面を表示できます。画面と要素テーブルは同時に表示されます。画面上にアプリがない場合は null になります。 */
     override suspend fun viewNow(): ToolDispatcher.Glance? = session.currentView()
 
-    /** 模型此刻还看得到哪些读屏(裁剪、压缩之后);差异的 base 不在其中时发全量。 */
+    /** モデルで引き続き表示される画面の読み取り値 (トリミングと圧縮後)。異なる塩基が含まれていない場合は、全額が送信されます。 */
     override fun setVisible(ids: Set<String>) { sessions.values.forEach { it.visible = ids } }
 
-    /** 运行状态里写的这块屏此刻的版本(网页的手机版、电脑版);没有或读不到为 null。 */
+    /** 実行ステータスに書き込まれたこの画面の現在のバージョン (Web ページのモバイル バージョン、コンピューター バージョン)。利用できない場合、または読み取ることができない場合は、null になります。 */
     override suspend fun mode(): String? = focus.surfaces.firstNotNullOfOrNull { it.mode }?.invoke()
 }
 

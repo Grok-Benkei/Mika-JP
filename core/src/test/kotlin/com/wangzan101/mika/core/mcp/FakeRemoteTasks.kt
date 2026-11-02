@@ -5,7 +5,7 @@ import com.wangzan101.mika.core.remote.RemoteTasks
 import com.wangzan101.mika.core.remote.RemoteTask
 import com.wangzan101.mika.core.agent.TaskState
 
-/** 测试用的任务出入口:状态由测试直接改,记下回答和取消。 */
+/** テストのためのタスクの開始と終了: ステータスはテストから直接変更され、回答とキャンセルが記録されます。 */
 class FakeRemoteTasks : RemoteTasks {
     val tasks = LinkedHashMap<String, RemoteTask>()
     val answers = mutableListOf<Pair<String, String>>()

@@ -2,7 +2,16 @@
 <resources>
     <string name="language_title">言語</string>
     <string name="language_system">システムに合わせる</string>
-    <string name="language_system_detail">Mika が対応していればシステムの言語を使い、対応していなければ英語を使います</string>
+    <string name="language_system_detail">このアプリは日本語専用です。システムの言語にかかわらず日本語で表示します</string>
+    <string name="language_simplified_chinese" translatable="false">简体中文</string>
+    <string name="language_traditional_chinese" translatable="false">繁體中文</string>
+    <string name="language_english" translatable="false">English</string>
+    <string name="language_japanese" translatable="false">日本語</string>
+    <string name="language_korean" translatable="false">한국어</string>
+    <string name="language_spanish" translatable="false">Español</string>
+    <string name="language_portuguese" translatable="false">Português</string>
+    <string name="language_russian" translatable="false">Русский</string>
+    <string name="language_indonesian" translatable="false">Bahasa Indonesia</string>
     <string name="settings_basic">基本</string>
     <string name="settings_model">モデル</string>
     <string name="settings_not_set">未設定</string>

@@ -106,35 +106,35 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * 对话输入栏的按住说话:输入框上的手势([holdToTalk])、按住时整条变蓝的输入栏([VoiceBarCover])、
- * 输入栏上方的「在听」卡片和上滑取消提示、没听清之类的轻提示([VoiceFloat])、
- * 「还不能语音输入」和录音权限的说明([VoiceSheetHost])。状态都在 [HoldToTalk] 里,这里只管画和接线。
+ * 長押ししてダイアログ入力フィールドで話します: 入力ボックスのジェスチャー ([holdToTalk])、押すと入力フィールド全体が青色に変わります ([VoiceBarCover])。
+ * 入力フィールドの上にある「リスニング」カードと、上にスワイプしてプロンプトをキャンセルしたり、はっきりと聞こえないなどの軽いリマインダー ([VoiceFloat])、
+ * 「音声入力はまだ利用できません」と録音許可の説明 ([VoiceSheetHost])。ステータスはすべて[HoldToTalk]になっており、ここでは描画と配線のみを行っています。
  */
 
-/** 按住约这么久(毫秒)才开始听;不到就是点一下打字。 */
+/** この長さ (ミリ秒) ほど押し続けると、リスニングが開始されます。そうでない場合は、クリックして入力してください。 */
 private const val HOLD_MS = 300L
 
-/** 从手指按下算,不到这么久(毫秒)松开就当误触、没听清。 */
+/** 指を押してから指を離すまでの時間がこの時間（ミリ秒）未満の場合は誤タッチとみなされ、聞こえにくくなります。 */
 private const val MIN_TOTAL_MS = 500L
 
-/** 一次最多听这么久;最后 [COUNTDOWN_MS] 卡片右下角倒数。 */
+/** は一度に最大でこの長さまで聴くことができます。最後に、カードの右下隅で [COUNTDOWN_MS] がカウントダウンします。 */
 private const val MAX_MS = 60_000L
 private const val COUNTDOWN_MS = 10_000L
 
-/** 手指往上滑过这么多就是「松开取消」。 */
+/** ここまで指を上にスライドさせると「離してキャンセル」を意味します。 */
 private val CancelLift = 80.dp
 
-/** 底部弹层:哪种说明。 */
+/** 下部弾性層: どの説明。 */
 internal sealed interface VoiceSheet {
     data object Permission : VoiceSheet
-    /** 已经允许录音,识别服务仍说没有权限或录音出错:说明系统的麦克风总开关和权限管理,或被别的应用占用。 */
+    /** は録音を許可しましたが、認識サービスは依然として許可がないか、録音エラーがあると表示します。これは、システムのマイク マスター スイッチと許可管理が他のアプリケーションによって占有されていることを意味します。 */
     data object MicBlocked : VoiceSheet
     data class Unavailable(val why: SpeechEngineSpec.Why) : VoiceSheet
 }
 
-/** 按住说话时界面上要的文字;不碰界面,单测直接测。 */
+/** 話すときにインターフェイス上のテキストを押し続けます。インターフェースには触れず、1回のテストで直接測定してください。 */
 internal object VoiceCopy {
-    /** 卡片顶上的小标签:用的是哪个转文字。 */
+    /** カード上部の小さなラベル: テキストの変換に使用されます。 */
     fun engine(spec: SpeechEngineSpec): String = when (spec) {
         is SpeechEngineSpec.Doubao -> tr(R.string.speech_doubao_model)
         is SpeechEngineSpec.System -> tr(if (spec.onDevice) R.string.voice_engine_phone_offline else R.string.voice_engine_phone)
@@ -142,12 +142,12 @@ internal object VoiceCopy {
         is SpeechEngineSpec.Unavailable -> ""
     }
 
-    /** 失败时输入栏上方那一句;权限、引擎用不了平时走说明弹层,这里只给一句标题兜底。 */
+    /** 失敗した場合の入力フィールドの上の文。権限とエンジンは使用できません。通常は説明ポップアップレイヤーに移動します。要点を伝えるには、たった 1 文だけです。 */
     fun failure(why: SpeechFailure): String = when (why) {
         SpeechFailure.Busy -> tr(R.string.voice_busy)
         SpeechFailure.Network -> tr(R.string.voice_network)
         SpeechFailure.MicUnavailable, SpeechFailure.AudioError -> tr(R.string.voice_mic_unavailable)
-        // 服务商的错沿用模型出错时的说法(额度、Key、找不到模型……)
+        // モデルエラーが発生した場合、サービスプロバイダーのエラーがステートメントに続きます (金額、キー、モデルが見つかりません...)
         is SpeechFailure.Provider -> tr(R.string.voice_provider_failed, why.error.message.orEmpty())
         SpeechFailure.NoPermission -> tr(R.string.voice_permission_title)
         is SpeechFailure.Unavailable -> tr(R.string.voice_unavailable_title)
@@ -164,7 +164,7 @@ internal object VoiceCopy {
         SpeechEngineSpec.Why.Off -> tr(R.string.voice_unavailable_off)
     }
 
-    /** 最后十秒的倒数;还早时为 null。 */
+    /** 最後の 10 秒までのカウントダウン。まだ早い場合は null。 */
     fun countdown(elapsedMs: Long): String? {
         val left = MAX_MS - elapsedMs
         if (left > COUNTDOWN_MS) return null
@@ -172,7 +172,7 @@ internal object VoiceCopy {
     }
 }
 
-/** 录音权限被拒过的记号:系统不再弹框时(拒过、也不该再解释)改弹说明,按钮直达 App 的权限页。 */
+/** 録音許可が拒否されたことを示すサイン: システムがボックスをポップアップ表示しなくなったら (拒否されたため、再度説明する必要はありません)、ポップアップの説明を変更し、ボタンをクリックしてアプリの許可ページに直接移動します。 */
 private object MicPermission {
     private const val PREFS = "voice_input"
     private const val DENIED = "mic_denied"
@@ -184,15 +184,15 @@ private object MicPermission {
 }
 
 /**
- * 输入栏一次按住说话的界面状态:手指是不是还按着([holding])、卡片上的引擎标签、弹层和轻提示。
- * 开会话、转事件、收尾都交给 [hold]。
+ * 入力フィールドを押して話したときのインターフェイスのステータス: 指がまだ押されているかどうか ([holding])、カードのエンジン ラベル、ポップアップ レイヤー、およびライト プロンプト。
+ * はセッションを開始し、イベントを転送し、すべてを [hold] に終了します。
  */
 @Stable
 internal class VoiceHold(private val voice: VoiceSource, private val scope: CoroutineScope) {
-    // 「太短」按手指按下算不到半秒:开始听时已经按了 HOLD_MS,状态机只再数剩下的
+    // 「短すぎる」は、指で押したときの 0.5 秒未満です。聞き始めたときに HOLD_MS が押されており、ステート マシンは残りの時間のみをカウントします。
     val hold = HoldToTalk(clock = SystemClock::elapsedRealtime, maxMs = MAX_MS, minMs = MIN_TOTAL_MS - HOLD_MS)
 
-    /** 长按开始以后手指还没离开。 */
+    /** 長押しして開始した後、指が離れていません。 */
     var holding by mutableStateOf(false)
         private set
     var engine by mutableStateOf("")
@@ -200,14 +200,14 @@ internal class VoiceHold(private val voice: VoiceSource, private val scope: Coro
     var sheet by mutableStateOf<VoiceSheet?>(null)
     var toast by mutableStateOf<String?>(null)
 
-    /** 有录音权限时返回 true;没有时去要(或弹说明)并返回 false,这一次不开始。由界面装上(要 Activity)。 */
+    /** は、記録許可がある場合は true を返します。録音許可がない場合は false を返し（または説明を再生し）、 false を返します。今回は始まりません。インターフェイスによってインストールされます (アクティビティが必要です)。 */
     internal var ensureMic: () -> Boolean = { true }
     internal var haptic: () -> Unit = {}
     private var collector: Job? = null
 
     /**
-     * 长按到时:先看能不能用、有没有权限,都行才开始听。
-     * 上一段松开后还在转(服务商卡住、或自带识别在收尾)也可以重新按:上一段不要了,由 [HoldToTalk.press] 取消。
+     * 時間を長押しします。まず使用できるかどうか、許可があるかどうかを確認してから、リスニングを開始します。
+     * は、前のセクションを解放した後も回転しています (サービス プロバイダーが停止しているか、組み込みの認識が終了しています)。もう一度押すこともできます。前のセクションは不要になり、[HoldToTalk.press] によってキャンセルされます。
      */
     fun begin() {
         if (holding) return
@@ -232,14 +232,14 @@ internal class VoiceHold(private val voice: VoiceSource, private val scope: Coro
         if (holding) hold.drag(upPx, thresholdPx)
     }
 
-    /** 手指离开:交给状态机(取消、太短、收尾)。 */
+    /** フィンガー リーフ: ステート マシンに渡されます (キャンセル、短すぎる、終了)。 */
     fun end() {
         if (!holding) return
         holding = false
         hold.release()
     }
 
-    /** 手势被打断、离开页面、转屏、App 到后台:这一段不要了。 */
+    /** ジェスチャーが中断され、ページから離れ、画面が切り替わり、アプリがバックグラウンドに移行します。このセクションは不要になりました。 */
     fun abort() {
         holding = false
         hold.dispose()
@@ -251,8 +251,8 @@ internal class VoiceHold(private val voice: VoiceSource, private val scope: Coro
 private val IdleState = MutableStateFlow<HoldToTalk.State>(HoldToTalk.State.Idle)
 
 /**
- * 输入栏要的那一份 [VoiceHold];没有 [voice] 或用户在设置里选了「不用」时为 null(输入框只能打字)。
- * 说完的字交给 [onText]。
+ * は、入力フィールドに必要な [VoiceHold] です。ユーザーが設定で「使用しない」を選択した場合 (入力ボックスは入力のみ可能)、[voice] が存在しないか、null になります。
+ * は完成した言葉を [onText] に渡しました。
  */
 @Composable
 internal fun rememberVoiceHold(voice: VoiceSource?, onText: (String) -> Unit): VoiceHold? {
@@ -271,7 +271,7 @@ internal fun rememberVoiceHold(voice: VoiceSource?, onText: (String) -> Unit): V
     vh.ensureMic = {
         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) true
         else {
-            // 第一次按住才要权限;拒过且系统不再弹框时,改成说明 + 去系统设置
+            // 許可を求める場合は、初めて長押しするだけです。拒否され、システムがボックスをポップアップ表示しなくなった場合は、説明に変更してシステム設定に移動します
             val activity = context.findActivity()
             val blocked = MicPermission.denied(context) && activity != null &&
                 !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.RECORD_AUDIO)
@@ -290,8 +290,8 @@ internal fun rememberVoiceHold(voice: VoiceSource?, onText: (String) -> Unit): V
                 when (val why = s.why) {
                     null -> vh.toast = VoiceCopy.NO_MATCH
                     is SpeechFailure.Unavailable -> vh.sheet = VoiceSheet.Unavailable(why.why)
-                    // 录音权限还没给:照旧弹系统框或「去设置」。已经给了仍报没有权限,或识别服务报录音出错:
-                    // 另弹说明(系统的麦克风总开关、权限管理)。麦克风起不来的其他情况照旧提示可能被占用
+                    // 録音許可がまだ与えられていません: システム ボックスをポップアップ表示するか、「設定に移動」します。すでに与えられているにもかかわらず、権限がないことが報告されるか、認識サービスが記録エラーを報告します。
+                    // 別の説明（システムマイクマスタースイッチ、権限管理）。マイクをオンにできない他の状況でも、マイクが使用されている可能性があることを示すメッセージが表示されます。
                     SpeechFailure.NoPermission -> if (vh.ensureMic()) vh.sheet = VoiceSheet.MicBlocked
                     SpeechFailure.AudioError -> vh.sheet = VoiceSheet.MicBlocked
                     else -> vh.toast = VoiceCopy.failure(why)
@@ -301,7 +301,7 @@ internal fun rememberVoiceHold(voice: VoiceSource?, onText: (String) -> Unit): V
             else -> Unit
         }
     }
-    // 按着时由界面推着走:计时、到 60 秒收尾(录音到点自己停,不收尾字就丢了)
+    // が押されるとインターフェイスによってプッシュされます: タイミング、60 秒で終了 (ポイントに到達すると録音が停止します。そうでない場合は、最後の単語が失われます)
     val listening = state is HoldToTalk.State.Listening
     LaunchedEffect(listening) {
         while (listening) {
@@ -314,18 +314,18 @@ internal fun rememberVoiceHold(voice: VoiceSource?, onText: (String) -> Unit): V
         delay(if (t == VoiceCopy.NO_MATCH) 2_000 else 3_500)
         vh.toast = null
     }
-    // 离开页面、转屏、App 到后台:丢掉正在说的这一段
+    // ページを離れ、画面を切り替え、アプリのバックグラウンドに移動します。話している段落を破棄します。
     LifecycleStartEffect(vh) { onStopOrDispose { vh.abort() } }
     return vh
 }
 
-/** [vh] 此刻的状态;没有 [vh] 时一直是平时。 */
+/** [vh] は現在の状態です。 [vh] がなければ常に正常です。 */
 @Composable
 internal fun voiceState(vh: VoiceHold?): HoldToTalk.State = (vh?.hold?.state ?: IdleState).collectAsState().value
 
 /**
- * 盖在没聚焦的输入框上的手势:点一下照旧打字([onTap] 聚焦弹键盘),按住约 0.3 秒开始听,
- * 按着往上滑过 [CancelLift] 是取消,松开交给状态机。
+ * フォーカスのない入力ボックスをカバーするジェスチャー: クリックして入力を続けます ([onTap] はキーボードの演奏に焦点を当てます)。約 0.3 秒間押し続けると音声が聞こえ始めます。
+ * [CancelLift] を押して上にスライドさせてキャンセルし、解放してステート マシンに渡します。
  */
 @Composable
 internal fun Modifier.holdToTalk(vh: VoiceHold, onTap: () -> Unit): Modifier {
@@ -334,7 +334,7 @@ internal fun Modifier.holdToTalk(vh: VoiceHold, onTap: () -> Unit): Modifier {
         awaitEachGesture {
             val down = awaitFirstDown()
             down.consume()
-            // true:点一下;false:手指动了或没了,不算我们的;null:按满了,开始听
+            // true: 1 回クリックします。 false: 指が動いたり消えたりした場合、それは私たちのものとしてカウントされません。 null: 指が完全に押されると、リスニングが開始されます。
             val tapped = withTimeoutOrNull<Boolean>(HOLD_MS) {
                 var result: Boolean? = null
                 while (result == null) {
@@ -375,7 +375,7 @@ internal fun Modifier.holdToTalk(vh: VoiceHold, onTap: () -> Unit): Modifier {
     }
 }
 
-/** 按着时整条输入栏变蓝(上滑到取消时变红),中间波形和「松开 填入」;盖在玻璃输入栏上。 */
+/** 押すと、入力フィールド全体が青に変わり (上にスライドするとキャンセルされ、赤に変わります)、中央の波形と「放すと入力」になります。ガラスの入力フィールドを覆います。 */
 @Composable
 internal fun VoiceBarCover(vh: VoiceHold, state: HoldToTalk.State, reduceMotion: Boolean, modifier: Modifier = Modifier) {
     val s = state as? HoldToTalk.State.Listening
@@ -396,7 +396,7 @@ internal fun VoiceBarCover(vh: VoiceHold, state: HoldToTalk.State, reduceMotion:
     }
 }
 
-/** 波形:14 根细条,高低跟着音量走;关了动画时只跟音量,不自己摆。输入栏和悬浮胶囊的说话面板共用。 */
+/** 波形: 14 本の細いバー、高さはボリュームに従います。アニメーションをオフにすると、アニメーションはボリュームに追従するだけで、自動的には動きません。入力フィールドは、浮遊カプセルの発話パネルと共有されます。 */
 @Composable
 internal fun VoiceWave(level: Float, flat: Boolean, reduceMotion: Boolean, color: Color) {
     val loud by animateFloatAsState(if (flat) 0f else level.coerceIn(0f, 1f), if (reduceMotion) snap() else tween(120), label = "wave-level")
@@ -416,15 +416,15 @@ internal fun VoiceWave(level: Float, flat: Boolean, reduceMotion: Boolean, color
 private const val WAVE_BARS = 14
 
 /**
- * 输入栏上方浮起的那一层,不占布局(放在输入栏前面、高度算 0、往上画):
- * 按着时的「上滑取消」提示、「在听」卡片,以及没听清之类的轻提示。
- * [title] 是卡片顶上那句(平时「在听」,任务在跑时「插话给『…』」)。
+ * 入力フィールドの上に浮かぶレイヤーはレイアウトを占有しません (入力フィールドの前に配置し、高さを 0 として計算し、上向きに描画します)。
+ * 「上にスワイプしてキャンセル」プロンプトを押すと、「リスニング」カードが表示され、はっきりと聞こえないなどの軽いプロンプトが表示されます。
+ * [title] はカードの一番上の文です (通常は「聞いている」、タスクの実行中は「「...」に割り込む」)。
  */
 @Composable
 internal fun VoiceFloat(vh: VoiceHold, state: HoldToTalk.State, title: String, backdrop: GlassBackdrop?, reduceMotion: Boolean) {
     val gap = with(LocalDensity.current) { 12.dp.roundToPx() }
     val listening = state as? HoldToTalk.State.Listening
-    // 卡片收起的动画里还要画最后那一刻的内容
+    // カードを折るアニメーションも、直前の内容を描画する必要があります。
     val last = remember { arrayOfNulls<HoldToTalk.State.Listening>(1) }
     if (listening != null) last[0] = listening
     Box(
@@ -452,7 +452,7 @@ internal fun VoiceFloat(vh: VoiceHold, state: HoldToTalk.State, title: String, b
     }
 }
 
-/** 「上滑取消」的小胶囊;滑到了变红写「松开 取消」。 */
+/** 「上にスワイプしてキャンセル」用の小さなカプセル。上にスライドすると赤くなり、「放すとキャンセル」と表示されます。 */
 @Composable
 private fun CancelHint(armed: Boolean, modifier: Modifier = Modifier) {
     val c = MikaTheme.colors
@@ -470,8 +470,8 @@ private fun CancelHint(armed: Boolean, modifier: Modifier = Modifier) {
 }
 
 /**
- * 「在听」卡片:顶上一个红点(在录)、说给谁、用的哪个转文字、用时;中间实时的字(末尾还可能变的几个字浅一些);
- * 底下说松开以后会怎样,最后十秒倒数。上滑到取消时字划掉、边框变红。
+ * 「リスニング」カード: 上部の赤い点 (録音)、誰に宛てたもの、どのテキストをいつ使用するか。途中のリアルタイムの単語 (最後のいくつかの単語は軽くなる場合があります)。
+ * はリリース後に何が起こるかを示し、最後の 10 秒がカウントダウンされます。上にスライドしてキャンセルすると、文字が取り消され、枠線が赤くなります。
  */
 @Composable
 private fun ListenCard(s: HoldToTalk.State.Listening, title: String, engine: String, backdrop: GlassBackdrop?) {
@@ -525,7 +525,7 @@ private fun ListenCard(s: HoldToTalk.State.Listening, title: String, engine: Str
     }
 }
 
-/** 卡片顶上那个点:在录时蓝色一圈一圈往外;要取消时变红、不动。 */
+/** カード上部のポイント: 記録中、青い円が外側に移動します。キャンセルすると赤くなり動かなくなります。 */
 @Composable
 private fun RecDot(armed: Boolean) {
     val c = MikaTheme.colors
@@ -543,7 +543,7 @@ private fun RecDot(armed: Boolean) {
     )
 }
 
-/** 输入栏上方的一句轻提示(没听清、识别服务忙……),一会儿自己消失。 */
+/** 入力フィールドの上にある軽いプロンプト (はっきりと聞こえませんでした。認識サービスがビジーです...) は、しばらくすると消えます。 */
 @Composable
 private fun VoiceToast(text: String) {
     val c = MikaTheme.colors
@@ -554,7 +554,7 @@ private fun VoiceToast(text: String) {
     )
 }
 
-/** 服务商松开后在转:输入框里转圈加「转文字…」。 */
+/** サービス プロバイダーを解放した後、[回転:] 入力ボックスに「テキストを回転...」を丸で囲んで追加します。 */
 @Composable
 internal fun VoiceConverting(modifier: Modifier = Modifier) {
     val c = MikaTheme.colors
@@ -564,7 +564,7 @@ internal fun VoiceConverting(modifier: Modifier = Modifier) {
     }
 }
 
-/** 能按住说话时的灰字:前面一个小话筒。 */
+/** は、話すときに灰色の単語を押し続けることができます: 前面にある小さなマイク。 */
 @Composable
 internal fun VoicePlaceholder(mode: ComposerMode) {
     val c = MikaTheme.colors
@@ -574,7 +574,7 @@ internal fun VoicePlaceholder(mode: ComposerMode) {
     }
 }
 
-/** 按着说话时对话内容虚化变淡,注意力在卡片上;安卓 12 以下只变淡。 */
+/** を押して話すと、会話の内容がぼやけて色が薄くなり、フォーカスがカードに置かれます。 Android 12 以下ではフェードのみです。 */
 @Composable
 internal fun Modifier.voiceDim(on: Boolean, reduceMotion: Boolean): Modifier {
     val p by animateFloatAsState(if (on) 1f else 0f, if (reduceMotion) snap() else tween(250), label = "voice-dim")
@@ -588,7 +588,7 @@ internal fun Modifier.voiceDim(on: Boolean, reduceMotion: Boolean): Modifier {
     }
 }
 
-/** 「还不能语音输入」(「去选」到设置里选转文字)和录音权限的说明(「去设置」到系统里 Mika 的权限页)。 */
+/** 「音声入力はまだ利用できません」 (「設定に移動」して「テキスト」を選択) と録音許可の説明 (システムのミカの許可ページに「設定に移動」)。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun VoiceSheetHost(vh: VoiceHold, onPickSpeech: () -> Unit) {

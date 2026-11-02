@@ -82,13 +82,13 @@ class HistoryReadTest {
         assertEquals(JsonPrimitive(true), r["ok"])
         assertEquals("查三家店的价格", r["said"]!!.jsonPrimitive.content)
         val items = (r["items"] as JsonArray).map { it as JsonObject }
-        // 进度说明 + 两条原文;重复的原文、不带调用的回答不重复给
+        // 進行状況の説明 + 2 つのオリジナル テキスト。繰り返された元のテキストと電話なしの応答は繰り返されません。
         assertEquals(listOf("note", "read", "output"), items.map { it["kind"]!!.jsonPrimitive.content })
         assertEquals(3, r["totalItems"]!!.jsonPrimitive.int)
         assertTrue(items[1]["text"]!!.jsonPrimitive.content.startsWith("<untrusted>"))
         assertEquals("甲店菜单", items[1]["where"]!!.jsonPrimitive.content)
         assertNull(r["nextOffset"])
-        // 读到的原文交给核查,网页上的仍是不可信的
+        // 私が読んだ原文を検証のために提出します。 Web ページにあるものはまだ信頼できません。
         assertEquals(listOf("甲店:拿铁 28 元", "乙店:拿铁 25 元"), tool.observations.map { it.text })
         assertEquals(Trust.Untrusted, tool.observations[0].trust)
         assertEquals("history", tool.observations[0].source)
@@ -105,7 +105,7 @@ class HistoryReadTest {
         val second = call(records, """{"turn":2,"offset":$next}""").content
         val n = ((second["items"] as JsonArray)[0] as JsonObject)["n"]!!.jsonPrimitive.int
         assertEquals(next, n)
-        // 一条原文有长度上限
+        // 原文の長さには上限があります
         val one = call(FakeRecords(mapOf("run-a" to listOf(RunEvent.Observed(1, 1, "长".repeat(10_000))))), """{"turn":2}""").content
         assertEquals(HistoryRead.ITEM_CHARS, (((one["items"] as JsonArray)[0] as JsonObject)["text"]!!.jsonPrimitive.content).length)
     }

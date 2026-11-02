@@ -25,7 +25,7 @@ class ConversationStoreTest {
         assertNotEquals(id, b.newConversation())
     }
 
-    /** 留在后台运行的那一页(站点)和它后来关掉的原因跟着那一轮存下;没留页的轮次不写这两个字段。 */
+    /** バックグラウンドで実行されたままになっているページ (サイト) とその後のシャットダウンの理由は、そのラウンドとともに保存されます。これら 2 つのフィールドは、ページが残らないラウンドでは書き込まれません。 */
     @Test fun persistsKeptPage() {
         val dir = tmp.newFolder("c")
         val a = ConversationStore(dir)
@@ -38,7 +38,7 @@ class ConversationStoreTest {
         assertFalse("keptPage" in java.io.File(dir, "$id.json").readText().substringAfter("谢谢"))
     }
 
-    /** 这一轮用过的能力组跟着存下(下一轮开局据此预先展开);没用过的不写这个字段。 */
+    /** このラウンドで使用された能力グループは保存されます (次のラウンドはそれに応じて事前拡張されます)。使用されていない場合、このフィールドは書き込まれません。 */
     @Test fun persistsUsedGroups() {
         val dir = tmp.newFolder("c")
         val a = ConversationStore(dir)
@@ -49,7 +49,7 @@ class ConversationStoreTest {
         assertFalse("groups" in java.io.File(dir, "$id.json").readText().substringAfter("谢谢"))
     }
 
-    /** 插话打断的那段回复和插话一一对应存下;没打断过的轮次不写这个字段,旧文件读出来是空的。 */
+    /** 割り込みにより中断された応答は、割り込みと 1 対 1 対応で保存されます。このフィールドは中断されていないラウンドでは書き込まれず、古いファイルは読み取られたときに空になります。 */
     @Test fun persistsInterruptedReplies() {
         val dir = tmp.newFolder("c")
         val a = ConversationStore(dir)
@@ -62,7 +62,7 @@ class ConversationStoreTest {
         assertFalse("interruptedReplies" in java.io.File(dir, "$id.json").readText().substringAfter("谢谢"))
     }
 
-    /** 插话之前已经说完的回复同样一一对应存下;没有时不写这个字段。 */
+    /** 中断前に終了した応答も 1 対 1 対応で保存されます。何もない場合、このフィールドは書き込まれません。 */
     @Test fun persistsFinishedReplies() {
         val dir = tmp.newFolder("c")
         val a = ConversationStore(dir)
@@ -73,7 +73,7 @@ class ConversationStoreTest {
         assertFalse("finishedReplies" in java.io.File(dir, "$id.json").readText().substringAfter("谢谢"))
     }
 
-    /** 删对话:对话文件、标题、挪到一边的损坏文件、临时文件都删掉,列表里没有了,别的对话不动;删完发一次改动。 */
+    /** ダイアログの削除: ダイアログ ファイル、タイトル、脇に移動された破損したファイル、および一時ファイルがすべて削除されます。これらはリストには表示されなくなり、他のダイアログは変更されません。削除後、変更内容が掲載されます。 */
     @Test fun deleteRemovesTheConversationAndItsSidecars() = kotlinx.coroutines.runBlocking {
         val dir = tmp.newFolder("c")
         val store = ConversationStore(dir)
@@ -102,7 +102,7 @@ class ConversationStoreTest {
         assertEquals(null, store.pinnedAt(id))
     }
 
-    /** 用户改的名字说了算:后台起标题晚到也不盖掉;起好了的标题用户照样能改;空的不改。 */
+    /** ユーザーが変更した名前が最終決定権を持ちます。タイトルはバックグラウンドで遅れても上書きされません。ユーザーは作成されたタイトルを変更できます。空のタイトルは変更されません。 ピン */
     @Test fun renameByUserWinsOverAutoTitle() {
         val dir = tmp.newFolder("c")
         val store = ConversationStore(dir)
@@ -124,7 +124,7 @@ class ConversationStoreTest {
         assertFalse(store.rename(other, "再改"))
     }
 
-    /** 置顶记在 `.pin` 里(置顶的时间),重开还在;列表带上置顶时间,不改对话的先后;取消置顶就没了。 */
+    /** は `.pin` (ピンが固定された時刻) に記録され、再起動後もそのまま残ります。ピンの時間はリストに含まれ、会話の順序は変更されません。ピンを解除すると消えます。 */
     @Test fun pinPersistsAndShowsInTheList() {
         val dir = tmp.newFolder("c")
         val store = ConversationStore(dir)
@@ -138,12 +138,12 @@ class ConversationStoreTest {
         assertTrue(again.setPinned("a", false))
         assertEquals(null, again.pinnedAt("a"))
         assertFalse(java.io.File(dir, "a.pin").exists())
-        // 删掉的对话不再置顶回来
+        // 削除された会話が上部に固定されなくなりました
         again.delete("b")
         assertFalse(again.setPinned("b", true))
     }
 
-    /** 删之后才到的补写(后台起好的标题、收尾后补的结局)不把对话写回来;再存进一轮就是重新用这个编号。 */
+    /** 削除後の書き換え（バックグラウンドで作成されたタイトル、エンディングの後に追加されたエンディング）では、ダイアログは書き戻されません。再度保存すると、この番号を再度使用することになります。 */
     @Test fun lateWritesDoNotReviveADeletedConversation() {
         val dir = tmp.newFolder("c")
         val store = ConversationStore(dir)
@@ -240,7 +240,7 @@ class ConversationStoreTest {
         assertEquals(2, b.turns(id).size)
     }
 
-    // 任务结束后补记忆提示、删记忆时,这一轮的文件卡片不能丢
+    // タスク後にメモリ プロンプトを追加したりメモリを削除したりする場合、このラウンドのファイル カードが失われることはありません。
     @Test fun filesSurviveNoteUpdatesAndStrip() {
         val dir = tmp.newFolder("d")
         val store = ConversationStore(dir)
@@ -254,7 +254,7 @@ class ConversationStoreTest {
         assertTrue(r.first.memoryNotes.isEmpty())
     }
 
-    // 写过哪个对话就发出它的编号:存进一轮、改一轮、去掉记忆提示
+    // は、書き込まれた各ダイアログの番号を送信します。1 ラウンドを保存し、1 ラウンドを変更し、メモリープロンプトを削除します。
     @Test fun announcesChangedConversations() = kotlinx.coroutines.test.runTest {
         val s = ConversationStore(tmp.newFolder("c"))
         val seen = mutableListOf<String>()
@@ -267,11 +267,11 @@ class ConversationStoreTest {
         s.updateTurn("a", "missing") { it }
         s.stripMemory(setOf("m1"))
         assertEquals(listOf("a", "b", "a", "a"), seen)
-        // 只有删对话才发 deletions
+        // 会話が削除された場合にのみ削除を送信します
         assertEquals(emptyList<String>(), deleted)
     }
 
-    /** 从哪一页开始的对话:记在旁边的 .page 文件里,列表里带着;旧对话没有它照常读;删对话一起删掉。 */
+    /** 会話はどのページから始まりますか?その隣の .page ファイルにそれを書き留めると、リストに含まれます。古い会話は、それなしでも通常どおり読み上げられます。会話を削除して一緒に削除します。 */
     @Test fun pageOriginPersistsAndIsOptional() {
         val dir = tmp.newFolder("c")
         val a = ConversationStore(dir)
@@ -286,9 +286,9 @@ class ConversationStoreTest {
         val listed = b.list().associateBy { it.id }
         assertEquals("shop.example.com", listed.getValue(paged).page?.host)
         assertEquals(null, listed.getValue(plain).page)
-        // 对话文件的格式不变:没有多出来的字段
+        // 会話ファイルの形式は変更されません。追加のフィールドはありません。
         assertFalse(java.io.File(dir, "$paged.json").readText().contains("shop.example.com"))
-        // 坏了的 .page 当作没有
+        // 壊れた .page は存在しないものとして扱われます。
         java.io.File(dir, "$plain.page").writeText("{not json")
         assertEquals(null, b.pageOrigin(plain))
         b.delete(paged)
@@ -297,8 +297,8 @@ class ConversationStoreTest {
     }
 
     /**
-     * 「用户此刻在哪个对话」也记下来:进程重启后胶囊据此接着那个对话,而不是靠文件时间猜最近的;
-     * 新开还没说话的对话记成 [CurrentChat.Fresh];删掉它时一起清掉;这个文件不进对话列表。
+     * 「ユーザーが現在どの会話に参加しているか」も記録されます。プロセスが再起動された後、カプセルはファイル時間に基づいて最新の会話を推測するのではなく、それに応じて会話を継続します。
+     * 新しく開かれた、まだ話されていない会話は、[CurrentChat.Fresh] として記録されます。削除すると、一緒にクリアされます。このファイルは会話リストには追加されません。
      */
     @Test fun remembersTheConversationOnScreen() {
         val dir = tmp.newFolder("c")
@@ -309,23 +309,23 @@ class ConversationStoreTest {
 
         a.setCurrent(CurrentChat.Fresh)
         assertEquals(CurrentChat.Fresh, a.currentChat())
-        // 新开的对话还没有对话文件,重启后照样读得回来
+        // 新しく開かれた会話にはまだ会話ファイルがありません。再起動後も読み込むことができます。
         assertEquals(CurrentChat.Fresh, ConversationStore(dir).currentChat())
         assertEquals(listOf(id), ConversationStore(dir).list().map { it.id })
 
         a.setCurrent(CurrentChat.Open(id))
         assertEquals(CurrentChat.Open(id), ConversationStore(dir).currentChat())
         assertEquals(CurrentChat.Open(id), ConversationStore(dir).current.value)
-        // 记在旁边的 current 文件里,不动对话文件、不进列表
+        // は現在のファイルの隣に記録され、ダイアログ ファイルやリストには移動しません。
         assertEquals(setOf("$id.json", "current"), dir.list()!!.toSet())
         assertEquals(listOf(id), a.list().map { it.id })
 
-        // 删掉这个对话:指向它的记录一起清掉,胶囊回落到最近那个
+        // この会話を削除します。この会話を指すレコードは一緒にクリアされ、カプセルは最新の会話に戻ります。
         a.delete(id)
         assertEquals(null, ConversationStore(dir).currentChat())
     }
 
-    /** 分支复制到选定的那一轮(含在内),之后的不复制;源对话原样不动。 */
+    /** ブランチは選択したラウンド (両端を含む) にコピーされ、後続のブランチはコピーされません。ソースダイアログは変更されません。 */
     @Test fun branchCopiesThroughTheChosenTurn() {
         val dir = tmp.newFolder("c")
         val store = ConversationStore(dir)
@@ -339,11 +339,11 @@ class ConversationStoreTest {
             listOf(Turn("一", "甲", "succeeded"), Turn("二", "乙", "succeeded")),
             ConversationStore(dir).turns(target),
         )
-        // 源对话仍是三轮
+        // ソースダイアログはまだ 3 ラウンドです
         assertEquals(listOf("一", "二", "三"), store.turns(source).map { it.userText })
     }
 
-    /** 分支带走标题、网页来源和分支来源,不带走置顶。 */
+    /** ブランチは、タイトル、Web ページのソース、およびブランチのソースを取り除きますが、トップは取り除きません。 */
     @Test fun branchCopiesTitlePageAndOriginButNotPin() {
         val dir = tmp.newFolder("c")
         val store = ConversationStore(dir)
@@ -363,7 +363,7 @@ class ConversationStoreTest {
         assertEquals(null, again.pinnedAt(target))
     }
 
-    /** 源不存在、源文件损坏、轮次越界、目标已有对话文件:都返回 false,什么都不写。 */
+    /** ソースが存在せず、ソース ファイルが破損しており、ラウンドは範囲外で、ターゲットにはすでにダイアログ ファイルがあります。すべて false を返し、何も書き込みません。 */
     @Test fun branchRejectsBadInput() {
         val dir = tmp.newFolder("c")
         val store = ConversationStore(dir)
@@ -388,7 +388,7 @@ class ConversationStoreTest {
         assertEquals(listOf("已有"), store.turns(target).map { it.userText })
     }
 
-    /** 分支可以再分支,轮数按上一级的分支内容算,来源指向上一个对话。 */
+    /** ブランチは再度分岐することができ、ラウンド数は上位レベルのブランチの内容に従って計算され、ソースは前の会話を指します。 */
     @Test fun branchOfBranchWorks() {
         val dir = tmp.newFolder("c")
         val store = ConversationStore(dir)
@@ -405,7 +405,7 @@ class ConversationStoreTest {
         assertEquals(source, store.branchOrigin(middle)?.parentId)
     }
 
-    /** 删对话时分支来源一起删掉。 */
+    /** 会話を削除すると、ブランチソースも削除されます。 */
     @Test fun deleteRemovesBranchSidecar() {
         val dir = tmp.newFolder("c")
         val store = ConversationStore(dir)
@@ -420,7 +420,7 @@ class ConversationStoreTest {
         assertEquals(null, store.branchOrigin(target))
     }
 
-    /** 列表带上分支来源;普通对话、没有 .branch 的旧对话为 null。 */
+    /** ブランチ ソースを含むリスト。通常の会話、.branch のない古い会話は null です。 */
     @Test fun listExposesBranchOrigin() {
         val dir = tmp.newFolder("c")
         val store = ConversationStore(dir)
@@ -434,7 +434,7 @@ class ConversationStoreTest {
         assertEquals(null, listed.getValue(source).branchOf)
     }
 
-    /** 从用户消息重新问:只复制这一轮之前的轮次,来源记 after=false。 */
+    /** はユーザー メッセージから再度尋ねます: このラウンドの前のラウンドのみをコピーします。ソースは after=false として記録されます。 */
     @Test fun branchBeforeCopiesOnlyEarlierTurns() {
         val dir = tmp.newFolder("c")
         val store = ConversationStore(dir)
@@ -455,7 +455,7 @@ class ConversationStoreTest {
         assertEquals(listOf("一", "二", "三"), store.turns(source).map { it.userText })
     }
 
-    /** 第一轮之前没有轮次:分支是空的,不进侧栏;标题和来源已经写好,第一句话存进来后接着用。 */
+    /** 最初のラウンドの前にラウンドはありません。ブランチは空であり、サイドカラムに入りません。タイトルとソースが書き込まれており、最初の文は保存されて後で使用されます。 */
     @Test fun branchBeforeTheFirstTurnMakesAnEmptyBranch() {
         val dir = tmp.newFolder("c")
         val store = ConversationStore(dir)
@@ -476,7 +476,7 @@ class ConversationStoreTest {
         assertTrue(store.list().any { it.id == target })
     }
 
-    /** 重新问也拒绝坏输入:源不存在、轮次越界、目标已有文件。 */
+    /** リクエストは不正な入力も拒否します。ソースが存在せず、ラウンドが範囲外で、ターゲットにすでにファイルがあります。 */
     @Test fun branchBeforeRejectsBadInput() {
         val dir = tmp.newFolder("c")
         val store = ConversationStore(dir)

@@ -28,12 +28,12 @@ import com.wangzan101.mika.core.uistate.withPortRef
 import com.wangzan101.mika.core.uistate.DwellStop
 import com.wangzan101.mika.core.uistate.dwellStopped
 
-/** 复制、剪切、粘贴。 */
+/** コピー、カット、ペースト。 */
 private val CLIPBOARD_KEYS = setOf("KeyC", "KeyX", "KeyV")
 
 /**
- * web_interact:按 action 校验参数(多给的参数报错,不默默忽略),坐标按最近一屏换成 view 像素,
- * 稳定编号开着时两头的编号都先翻译成端口编号。组合键、拖动、下拉选择可能触发提交,要按目标判不可逆。
+ * web_interact: アクションに従ってパラメーターを検証し (余分なパラメーターはエラーを報告し、黙って無視されません)、座標は最新の画面に従ってビュー ピクセルに置き換えられます。
+ * 安定した番号付けがオンになっている場合、両端の番号が最初にポート番号に変換されます。キーの組み合わせ、ドラッグ、およびドロップダウン選択によって送信がトリガーされる場合がありますが、それが元に戻せないかどうかを判断するには、ターゲットが送信を決定する必要があります。
  */
 internal object Interact : WebTool {
     override val verb = Verb.Interact
@@ -81,11 +81,11 @@ internal object Interact : WebTool {
             "key" -> {
                 val spec = a.str("key", max = 60) ?: throw ArgError("key", "required for action key")
                 val combo = CdpKeys.parseCombo(spec) ?: throw ArgError("key", "not a supported key or combination: '$spec'. Use names like Enter, Escape, Tab, ArrowDown, Control+A, Shift+Tab")
-                // 剪贴板快捷键会把用户剪贴板里的东西交给网页(或改掉剪贴板):不做
+                // クリップボード ショートカット キーは、ユーザーのクリップボードの内容を Web ページに転送します (またはクリップボードを変更します): しないでください
                 if (combo.modifiers.any { it == KeyModifier.Control || it == KeyModifier.Meta } && combo.key.code in CLIPBOARD_KEYS) {
                     throw ArgError("key", "clipboard shortcuts (copy, cut, paste) are not allowed; use web_type_text to enter text")
                 }
-                // 回车一类的键可能提交、换页:和点击一样先补足这一页的停留
+                // Enter などのキーは送信してページを変更できます。クリックと同じように、最初にこのページに滞在した時間を埋め合わせます。
                 try { ctx.dwell?.before(port = w) } catch (e: DwellStop) { return dwellStopped(e) }
                 ctx.action(w.pressCombo(combo))
             }
@@ -108,7 +108,7 @@ internal object Interact : WebTool {
         }
     }
 
-    /** 一个落点:编号([refKey],snapshotId 共用)或 0–999 坐标;两样都给、坐标只给一半时报错,都没给为 null。 */
+    /** ドロップ ポイント: 数値 ([refKey]、snapshotId によって共有) または 0 ～ 999 の座標。両方が指定された場合、座標の半分のみが指定された場合はエラーが報告され、どちらも指定されなかった場合は null になります。 */
     private suspend fun point(a: Args, ctx: ToolContext, refKey: String, xKey: String, yKey: String): WebPoint? {
         val ref = a.str(refKey)
         val x = a.coord(xKey); val y = a.coord(yKey)
@@ -124,7 +124,7 @@ internal object Interact : WebTool {
         return WebPoint.Xy(toPx(x, s.width), toPx(y!!, s.height))
     }
 
-    /** 稳定编号开着时把模型编号翻译成端口编号;已退役为 null(ref_expired)。 */
+    /** 安定した番号がオンの場合、モデル番号をポート番号に変換します。廃止されると null (ref_expired) になります。 */
     private fun portPoint(p: WebPoint, ctx: ToolContext): WebPoint? {
         val st = ctx.session.stabilizer
         if (p !is WebPoint.Ref || st == null) return p

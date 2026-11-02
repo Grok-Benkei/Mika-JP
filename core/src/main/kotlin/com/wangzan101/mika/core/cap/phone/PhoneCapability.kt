@@ -26,13 +26,13 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
 /**
- * 手机:手机那一套屏幕工具、打开 App 与链接。
- * [pacing] 是在 App 里一步一步操作的节奏(见 [AppPacing]):改动屏幕的动作之前补足停留,限制浏览快慢的 App 屏数有上限;
- * [appPace] 按包名给出 App 知识对浏览快慢的说法;[idle] 给了时新的一屏上的停留里轻轻滚几下(见 [IdleScroll])。
+ * 携帯電話: 携帯電話上で開くアプリとリンクの画面ツールのセット。
+ * [pacing] は、アプリの段階的な操作のリズムです ([AppPacing] を参照)。画面のアクションを変更する前の一時停止を補い、ブラウジング速度を制限するアプリの画面の数を制限します。
+ * [appPace] は、パッケージ名に応じたブラウジング速度に関する情報をアプリに提供します。 [idle] は Shi Xin に画面上で一時停止を与え、ゆっくりと数回スクロールします ([IdleScroll] を参照)。
  */
 internal class PhoneCapability(
     val screen: ScreenPort,
-    /** 提速开关 deepLinks:提供打开链接的工具。 */
+    /** スピードアップ スイッチ deepLinks: リンクを開くためのツールを提供します。 */
     val deepLinks: Boolean,
     pacing: AppPacing = AppPacing.Off,
     appPace: (String) -> PlacePace = { PlacePace.NORMAL },
@@ -57,8 +57,8 @@ internal class PhoneCapability(
     }, targetNote = "the exact package name of the app")
 
     /**
-     * 手机一段跟着打开、列出 App 的工具走;手机那一组收着时不给。
-     * 应用访问的规则只在用户禁用了 App(或设置读不出来)时接在后面:名单为空时手机工具不会因它被拒,模型用不着这段。
+     * 携帯電話グループは、アプリを開いて一覧表示するためのツールに従います。携帯電話グループは保存時に指定されません。
+     * アプリケーション アクセスのルールは、ユーザーがアプリを無効にしている (または設定を読み取れない) 場合にのみ適用されます。リストが空の場合、それを理由にモバイル ツールが拒否されることはなく、モデルにはこの段落は必要ありません。
      */
     override fun sections(env: PromptEnv): List<String> {
         if (!env.isOpen(id) || tools.none { it.verb in SECTION_VERBS && it.name in env.offered }) return emptyList()
@@ -74,16 +74,16 @@ internal class PhoneCapability(
         dwell.onIdleScroll = { ctx.sessions[id]?.movedByMika() }
     }
 
-    /** 用户答过话:限制浏览快慢的 App 的屏数重新算(用户答应了接着看)。 */
+    /** ユーザーの回答: 閲覧速度を制限するアプリの画面数は再計算されます (ユーザーは同意して閲覧を続けました)。 */
     override fun onUserAnswered(ctx: ToolContext) = dwell.userAnswered()
 
-    /** App 里的对外动作做成之后,这个 App 不再设屏数上限(成批联系、投递做到 App 自己的上限为止)。 */
+    /** アプリの外部アクションが完了すると、アプリは画面数の上限を設定しなくなります (バッチ連絡と配信はアプリ自体の上限に達します)。 */
     override fun onOutwardEnd(ctx: ToolContext, site: String, done: Boolean) = dwell.outwardEnd(site, done)
 
     /**
-     * 改动屏幕的动作之前按 App 里的节奏停:此刻在哪个 App、这一屏多少字按模型最近读到的那一屏算。
-     * 在 App 里换屏的动作(点、滑、返回、按键、手势)在限制浏览快慢的 App 里到了屏数上限就不做,报 page_limit;打字、清空、滚动、
-     * 拨滚轮、打开别的 App 和对外动作本身不拦。接下来的动作不按屏上的位置做(返回、按键、按方向滚)时,停留里可以轻轻滚几下。
+     * 画面を切り替える前に、アプリのリズムに従って停止します。現在どのアプリを使用しているか、この画面の単語数は、モデルが最近読み取った画面に基づいて計算されます。
+     * ブラウジング速度を制限するアプリでは、画面数が上限に達すると、画面変更アクション (クリック、スライド、リターン、キー押下、ジェスチャー) が実行されなくなり、page_limit が報告されます。タイピング、クリア、スクロール、
+     * は、スクロール ホイールを回したり、他のアプリを開いたり、外部アクションを行ったりしてもブロックされません。画面上の位置に応じて次の動作が行われない場合（戻る、ボタンを押す、方向に合わせてスクロールする）、滞在中に数回ロールすることができます。
      */
     override suspend fun beforeWrite(ctx: ToolContext, verb: Verb?, outward: Boolean): Paced {
         if (!dwell.paced) return Paced.NONE
@@ -97,7 +97,7 @@ internal class PhoneCapability(
         }
     }
 
-    /** 动作做完:界面大变或换了 App 算换到了新的一屏(往下滚读同一页余下的内容不算进屏数)。 */
+    /** アクションが完了しました: インターフェイスが大幅に変更されたか、アプリが新しい画面に変更されました (同じページの残りのコンテンツを読むために下にスクロールしても、入力された画面の数としてカウントされません)。 */
     override fun afterWrite(ctx: ToolContext, verb: Verb?, result: JsonObject) {
         if (!dwell.paced) return
         val effect = result["effect"] as? JsonObject
@@ -107,36 +107,36 @@ internal class PhoneCapability(
         dwell.after(app, newScreen, counts = verb != Verb.Scroll)
     }
 
-    /** 再看一眼:此刻手机上那个 App 的界面状态。 */
+    /** もう一度見てください。現時点での電話機のアプリのインターフェイスのステータスです。 */
     override suspend fun freshLook(ctx: ToolContext, withImage: Boolean): Look? = ctx.sessions[id]?.freshLook(withImage)
 
-    /** 系统命令连着失败了几次;成功一次清零。 */
+    /** システム コマンドが数回連続して失敗しました。一度無事クリアされました。 */
     var commandFailures = 0
 
-    /** 本任务已提醒过系统命令换回专门工具:之后再做那几类事的命令不执行。 */
+    /** このタスクは、システム コマンドに特別なツールに戻すよう通知しました。後でそのような種類の処理を実行するコマンドは実行されません。 */
     var commandSteered = false
 
     companion object {
         val KEY = CapabilityKey<PhoneCapability>(PHONE)
         private val SECTION_VERBS = setOf(Verb.LaunchApp, Verb.ListApps)
 
-        /** 应用访问规则那一段(capabilities/app-access.md)。 */
+        /** アプリケーション アクセス ルールのセクション (capabilities/app-access.md)。 */
         private const val APP_ACCESS = "app-access"
 
-        /** 在 App 里换屏的动作:受限制浏览快慢的 App 的屏数上限拦。 */
+        /** アプリ内の画面を変更するアクション: アプリ内の画面の最大数は、閲覧速度によって制限されます。 */
         private val BROWSES = setOf(Verb.Tap, Verb.Swipe, Verb.Back, Verb.PressKey, Verb.PhoneGesture)
 
-        /** 不按屏上的位置做的动作:之前的停留里轻轻滚几下不会让它点偏。 */
+        /** 画面上の位置に従わないアクション: 前回の停止中に数回ローリングしても、位置はずれません。 */
         private val IDLE_BEFORE = setOf(Verb.Back, Verb.PressKey, Verb.Scroll)
 
-        /** 一屏上给人看的字数(输入框里的字、提示语不算)。 */
+        /** 1 画面に表示される単語の数 (入力ボックスとプロンプト内の単語はカウントされません)。 */
         internal fun textChars(s: ScreenSnapshot): Int =
             s.elements.filter { !it.editable && !it.hint }.sumOf { it.name.codePointCount(0, it.name.length) }
 
-        /** 手机一组可能提供的全部工具。 */
+        /** 携帯電話のセットが提供するすべてのツール。 */
         fun tools(): List<AgentTool> = PhoneGroup.tools
     }
 }
 
-/** 本任务的手机能力。 */
+/** このタスクのための携帯電話の機能。 */
 internal val ToolContext.phone: PhoneCapability get() = this[PhoneCapability.KEY]!!

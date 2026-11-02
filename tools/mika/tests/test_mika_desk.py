@@ -140,19 +140,25 @@ class DeskTest(unittest.TestCase):
                                 capture_output=True, text=True, timeout=10)
         self.assertEqual(2, result.returncode)
 
-    def test_every_text_has_chinese_and_english(self):
+    def test_every_text_and_fallback_is_japanese(self):
         desk_dir = SCRIPT.parent / "mika_desk"
         script = (desk_dir / "desk.js").read_text(encoding="utf-8")
         table = script[script.index("const STRINGS = {"):script.index("\n};", script.index("const STRINGS = {"))]
-        strings = dict(re.findall(r'^  (\w+): \["([^"]+)", "[^"]+"\],$', table, re.M))
-        self.assertEqual(len(strings), table.count("\n  "), "every entry needs non-empty Chinese and English text")
+        strings = json.loads(table.removeprefix("const STRINGS = ") + "\n}")
+        self.assertGreater(len(strings), 100)
+        for name, variants in strings.items():
+            self.assertEqual(2, len(variants), name)
+            self.assertEqual(variants[0], variants[1], name)
+            self.assertRegex(variants[0], r"[\u3040-\u30ff\u4e00-\u9fff]", name)
         used = set(re.findall(r'\bt\("(\w+)"', script))
         used |= set(re.findall(r'data-i18n(?:-placeholder|-label)?="(\w+)"', (desk_dir / "index.html").read_text(encoding="utf-8")))
         used |= set(re.findall(r'"(err[A-Z]\w*)"', script))
         self.assertEqual(set(), used - strings.keys())
         tones = script[script.index("const tones = {"):script.index("};", script.index("const tones = {"))]
         self.assertEqual(set(), set(re.findall(r"(\w+):", tones)) - strings.keys())
-        self.assertIsNone(re.search(r"[\u4e00-\u9fff]", script.replace(table, "")), "Chinese text outside the table")
+        page = (desk_dir / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(["ja"], re.findall(r'<option value="([^"]+)"', page))
+        self.assertIn('<html lang="ja">', page)
 
     def test_lost_write_is_not_retried_and_old_phones_cannot_steer(self):
         def respond(method, path, body):

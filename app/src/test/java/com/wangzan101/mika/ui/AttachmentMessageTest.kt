@@ -22,7 +22,7 @@ class AttachmentMessageTest {
         assertTrue(p.hasAttachments)
     }
 
-    /** 旧对话里存下的写法:名字里带括号、只有附件没有话、大小是字节。 */
+    /** 古い会話で保存された書き込み方法: 名前に括弧、単語なしの添付ファイルのみ、サイズ (バイト)。 */
     @Test fun oldMessagesParseTheSameWay() {
         val p = AttachmentMessage.parse("附件:/workspace/inbox/报表 (1).csv(2 KB)\n附件:/workspace/inbox/x(512 B)")
         assertEquals("", p.words)
@@ -42,23 +42,23 @@ class AttachmentMessageTest {
 
     @Test fun composeWritesWhatParseReads() {
         val text = AttachmentLines.compose("查一下", listOf("/workspace/inbox/a.png" to "3 KB", "/workspace/inbox/b.docx" to "1.0 MB"))
-        assertEquals("查一下\n附件:/workspace/inbox/a.png(3 KB)\n附件:/workspace/inbox/b.docx(1.0 MB)", text)
+        assertEquals("查一下\n添付:/workspace/inbox/a.png(3 KB)\n添付:/workspace/inbox/b.docx(1.0 MB)", text)
         val p = AttachmentMessage.parse(text)
         assertEquals("查一下", p.words)
         assertEquals(1, p.photos.size)
         assertEquals(1, p.files.size)
-        assertEquals("附件:/workspace/inbox/a.png(3 KB)", AttachmentLines.compose("", listOf("/workspace/inbox/a.png" to "3 KB")))
-        // 交给任务的写法和以前一样
+        assertEquals("添付:/workspace/inbox/a.png(3 KB)", AttachmentLines.compose("", listOf("/workspace/inbox/a.png" to "3 KB")))
+        // 割り当て方法は従来と同じです
         assertEquals(text, ChatViewModel.withAttachments("查一下", listOf("/workspace/inbox/a.png" to 3072L, "/workspace/inbox/b.docx" to 1024L * 1024)))
     }
 
     @Test fun plainDropsThePathLines() {
         assertEquals("查车次", AttachmentMessage.plain("查车次\n附件:/workspace/inbox/a.pdf(1 KB)"))
-        assertEquals("照片", AttachmentMessage.plain("附件:/workspace/inbox/a.jpg(1 KB)"))
-        assertEquals("2 张照片", AttachmentMessage.plain("附件:/workspace/inbox/a.jpg(1 KB)\n附件:/workspace/inbox/b.png(1 KB)"))
+        assertEquals("写真", AttachmentMessage.plain("附件:/workspace/inbox/a.jpg(1 KB)"))
+        assertEquals("写真 2 枚", AttachmentMessage.plain("附件:/workspace/inbox/a.jpg(1 KB)\n附件:/workspace/inbox/b.png(1 KB)"))
         assertEquals("a.pdf", AttachmentMessage.plain("附件:/workspace/inbox/a.pdf(1 KB)"))
-        assertEquals("a.pdf 等 2 个文件", AttachmentMessage.plain("附件:/workspace/inbox/a.pdf(1 KB)\n附件:/workspace/inbox/b.zip(1 KB)"))
-        assertEquals("照片和文件", AttachmentMessage.plain("附件:/workspace/inbox/a.jpg(1 KB)\n附件:/workspace/inbox/b.zip(1 KB)"))
+        assertEquals("a.pdf ほか 2 件のファイル", AttachmentMessage.plain("附件:/workspace/inbox/a.pdf(1 KB)\n附件:/workspace/inbox/b.zip(1 KB)"))
+        assertEquals("写真とファイル", AttachmentMessage.plain("附件:/workspace/inbox/a.jpg(1 KB)\n附件:/workspace/inbox/b.zip(1 KB)"))
         assertEquals("没有附件\n第二行", AttachmentMessage.plain("没有附件\n第二行"))
     }
 
@@ -74,7 +74,7 @@ class AttachmentMessageTest {
     @Test fun badgeByExtension() {
         assertEquals("PDF", FileBadge.text("合同.pdf"))
         assertEquals("XLSX", FileBadge.text("表.xlsx"))
-        assertEquals("文件", FileBadge.text("README"))
+        assertEquals("ファイル", FileBadge.text("README"))
         assertEquals(FileBadge.Kind.Pdf, FileBadge.kind("a.PDF"))
         assertEquals(FileBadge.Kind.Sheet, FileBadge.kind("a.csv"))
         assertEquals(FileBadge.Kind.Doc, FileBadge.kind("a.docx"))
@@ -96,7 +96,7 @@ class AttachmentMessageTest {
         val full = AttachTray.toggle(items, photo(99))
         assertTrue(full.full)
         assertEquals(items, full.items)
-        // 取消一张后又能选
+        // キャンセル後再度選択可能
         items = AttachTray.toggle(items, photo(3)).items
         assertEquals(AttachTray.LIMIT - 1, items.size)
         assertNull(AttachTray.order(items, "content://m/3"))
@@ -109,7 +109,7 @@ class AttachmentMessageTest {
         assertEquals(AttachTray.LIMIT, items.size)
         assertEquals(listOf("content://m/0", "content://f/1"), items.take(2).map { it.uri })
         assertEquals(2, dropped)
-        // 照片的序号只数照片
+        // 写真のシリアル番号は写真のみをカウントします
         assertEquals(2, AttachTray.order(items, "content://m/1"))
         assertNull(AttachTray.order(items, "content://f/1"))
         assertFalse(file.photo)

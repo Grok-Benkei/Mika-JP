@@ -12,8 +12,8 @@ import com.wangzan101.mika.ui.ExchangeStatus
 import com.wangzan101.mika.ui.StatusCopy
 
 /**
- * 卡片里的一件事:[kind]/[line] 和胶囊上那件事的说法一致;[startedAt] 在跑、等条件时有(显示用时);
- * [ahead]/[behind] 是接管队里排在它前面、后面还有几件(主屏一次只交一个 App)。
+ * カード内の 1 つの内容: [kind]/[line] はカプセル上の内容と一致しています。 [startedAt] は走行時等に存在します（時刻を表示）。
+ * [ahead]/[behind] は乗っ取りチームの中でその前にあり、その後ろにはさらにいくつかあります (メイン画面で一度に引き渡せるアプリは 1 つだけです)。
  */
 data class CardRun(
     val run: CapsuleRun,
@@ -25,17 +25,17 @@ data class CardRun(
 )
 
 /**
- * 卡片此刻显示什么:卡片只说一件事,不是列表(怎么挑见 [CapsuleCards.of])。那件此刻在操作 App 或网页就是任务卡片([Detail]),
- * 否则是那个对话的对话卡片([Chat]);没有任务(开关是「一直显示」)时也是对话卡片,不带任务。
+ * カードには現時点で何が表示されますか: カードには 1 つのことだけが記載されており、リスト ([CapsuleCards.of] の選択方法) は記載されていません。あなたが今アプリやWebページで操作しているのはタスクカード([Detail])です。
+ * それ以外の場合は、そのダイアログのダイアログ カード ([Chat])。タスクがない場合（スイッチが「常に表示」）、タスクのない対話カードでもあります。
  */
 sealed interface CardView {
-    /** 任务卡片:小画面、步骤、要你做的事和按钮。 */
+    /** タスク カード: 小さな画面、手順、やるべきこと、ボタン。 */
     data class Detail(val run: CardRun, val content: CardContent) : CardView
 
     /**
-     * 对话卡片:[conversationId] 那个对话的来回(见 [ChatThread])。带着 [run] 时是那件事所在的对话,[content] 是它此刻的样子
-     * (要你回答、同意时按钮固定在对话下面)。不带任务时是空闲卡片:接着用户此刻在的那个对话([current]),没有记录时接着最近的
-     * 那个([title] 是它的标题);[fresh] 时是新对话;没有任何对话时 [conversationId] 为 null,只能开新对话。
+     * ダイアログ カード: [conversationId] そのダイアログの前後関係 ([ChatThread] を参照)。 [run] とは、それがどこにあるのかという会話です。[content] は、現時点でどのように見えるかです。
+     * (回答または同意を求められる場合、ボタンは会話の下に固定されます)。タスクがない場合、それはアイドル カードです。ユーザーが現在参加している会話 ([current]) が続行されます。記録がない場合は最新のものから継続します。
+     * ([title] はタイトルです); [fresh] は新しい会話です。会話がない場合、[conversationId] は null となり、新しい会話のみを開くことができます。
      */
     data class Chat(
         val conversationId: String?,
@@ -44,70 +44,70 @@ sealed interface CardView {
         val title: String? = null,
         val fresh: Boolean = false,
         /**
-         * 用户此刻在 App 里就在这个对话(见 [CapsuleIdle]):别的对话里已结束、还挂着的那件不把卡片抢过去。
-         * 兜底那张「接着最近对话」是 false。
+         * ユーザーは現在アプリでこの会話に参加しています ([CapsuleIdle] を参照): 他の会話で終了し、まだハングしているカードを取得しないでください。
+         * 「最近の会話を続ける」の一番下の行は誤りです。
          */
         val current: Boolean = false,
     ) : CardView {
-        /** 卡片里列哪个对话、发出去的话进哪个对话:空闲卡片的新对话时为 null(由调用方新开一个)。 */
+        /** どの会話がカードにリストされているか、および送信された場合にどの会話が入力されるか: アイドル状態のカードに新しい会話がある場合、それは null になります (発信者によって新しい会話が開かれます)。 */
         val target: String? get() = if (fresh) null else conversationId
     }
 
-    /** 留在后台运行的那一页:实时画面、还剩多久自动关、来自哪个对话,「打开对话」「关闭网页」。没有输入框。 */
+    /** バックグラウンドで実行されたままのページ: リアルタイム画面、自動的に閉じるまでにかかる時間、どの会話からのものか、「会話を開く」と「Web ページを閉じる」。入力ボックスはありません。 */
     data class Kept(val page: KeptPage) : CardView
 }
 
-/** 卡片底部输入框里的话交给谁:插话给在跑的任务、回答 Mika 的提问、同一个对话接着说、空闲时开始说。 */
+/** カードの下部にある入力ボックスに言葉を入力してください。実行中のタスクに口を挟む、ミカの質問に答える、同じ会話を続ける、手が空いたら話し始めます。 */
 enum class CardInputKind { Steer, Answer, Continue, Start }
 
 data class CardInput(val hint: String, val kind: CardInputKind)
 
-/** 详情里按状态放的内容;按钮都转成任务服务现有的动作。 */
+/** 詳細では、ステータスに応じて内容が表示されます。ボタンはタスク サービスの既存のアクションに変換されます。 */
 sealed interface CardContent {
-    /** 干活中:做过的步骤(最多 [CapsuleCards.STEPS] 步),最后一步是此刻在做的;停止在输入框右边。 */
+    /** 作業中: 完了したステップ ([CapsuleCards.STEPS] ステップまで)、現在最後のステップが実行中です。入力ボックスの右側で停止します。 */
     data class Working(val steps: List<String>) : CardContent
 
     /**
-     * 要你接管:[need] 是那一句「需要你:…」,[body] 是为什么(模型写的话,付款时加上商品、金额、地址);
-     * 排在别的接管后面时 [canTakeOver] 为 false,[queueLine] 写明先后。
+     * はあなたに引き継いでもらいたいです: [need] は「あなたが必要です:...」という文で、[body] はその理由です (モデルに書かれている場合は、支払い時に製品、金額、住所を追加してください)。
+     * が他のテイクオーバーの後に順位付けされている場合、[canTakeOver] は false となり、[queueLine] は順序を示します。
      */
     data class Takeover(val need: String, val body: String, val queueLine: String?, val canTakeOver: Boolean) : CardContent
 
-    /** 要你同意一次花钱的操作(只能同意这一次):和对话页的确认卡片同一套字和编号 [key]。 */
+    /** では、支出操作に同意する必要があります (同意できるのは 1 回だけです): 会話ページの確認カードと同じ一連の単語と番号 [key]。 */
     data class Confirm(val title: String, val body: String, val key: Int) : CardContent
 
-    /** Mika 问你:给了 [options] 就列成按钮;没有选项的回答在 Mika 里打字(卡片里的输入下一步再做)。 */
+    /** ミカはあなたに尋ねました: [options] を与えると、ボタンとしてリストされます。選択肢がない場合は、「Mika」に答えを入力してください（カードへの入力は次に行われます）。 */
     data class Question(val prompt: String, val options: List<String>) : CardContent
 
-    /** 等条件:为什么停;[resumable] 时给「继续」。 */
+    /** およびその他の条件: 停止する理由。 [resumable]の場合は「続行」を指定してください。 */
     data class Held(val why: String, val resumable: Boolean) : CardContent
 
-    /** 办好了 / 没办成 / 已停止:回答在对话卡片的来回里。 */
+    /** 完了 / 未完了 / 停止: 答えはダイアログ カードにあります。 */
     data class Result(val kind: CapsuleKind) : CardContent
 }
 
-/** 卡片内容的纯逻辑:挑哪一件、任务卡片还是对话卡片,每种状态放什么,步骤取哪几条。 */
+/** カード コンテンツの純粋なロジック: タスク カードまたはダイアログ カードのどの項目を選択するか、各状態に何を入れるか、どの手順を実行するか。 */
 object CapsuleCards {
-    /** 干活中最多带几步(只为限住内存):卡片里那段和小画面一样高,放不下的旧步骤往上滚着看。 */
+    /** 作業中に実行する最大ステップ数 (メモリを制限するため): カード内の部分は小さな画面と同じ高さです。上にスクロールすると、配置できない古いステップが表示されます。 */
     const val STEPS = 50
 
     val QUEUED_AHEAD: String get() = tr(R.string.card_queued_ahead)
 
     /**
-     * 展开时显示哪一件(只一件,没有列表,也不在卡片里切换;同时有别的事,到 Mika 的对话页看):
-     * 先是刚在卡片里发了话的那个对话([follow])的任务(进行中的优先),好让用户在卡片里看到回答;
-     * 否则按 [runs] 的先后取第一件——[CapsuleModel.cardRuns] 已排成要你处理(接管、同意、回答)在前,再是进行中的,
-     * 最后是刚结束、还没消失的;一件都没有时,任务结束后留下的那一页还在后台运行([kept])就是它的卡片,
-     * 再没有是 [idle](为 null 就收起)。选出的那件是任务卡片还是对话卡片见 [taskCard]。
+     * を展開するとどの項目が表示されますか (項目は 1 つだけで、リストやカードの切り替えはありません。同時に他の項目がある場合は、Mika の会話ページに移動して確認してください):
+     * まず、カードに送信されたばかりの会話のタスク ([follow]) (進行中のものが優先されます)。これにより、ユーザーはカード内の回答を確認できます。
+     * それ以外の場合は、[runs] の順序で最初の項目を取得します。[CapsuleModel.cardRuns] は、最初に処理 (引き継ぎ、同意、回答) できるようにキューに入れられ、次に進行中の項目を取得します。
+     * は、終了したばかりでまだ消えていない最後のものです。何も残っていない場合、タスクがバックグラウンドでまだ実行されている後に残ったページ ([kept]) がそのカードになります。
+     * は [idle] ではなくなりました (null の場合は閉じられます)。選択した項目がタスクカードであるかダイアログカードであるかは、[taskCard]に表示されます。
      *
-     * [idle] 是用户此刻在的那个对话([CardView.Chat.current])时,别的对话里已结束、还挂着的结果不把卡片抢过去:
-     * 否则在对话页新开一个对话,点开胶囊看到的还是上一个对话的结果卡片。
+     * [idle] ユーザーが現在会話中 ([CardView.Chat.current])、終了してまだ保留中の他の会話はカードを取得しません。
+     * それ以外の場合、会話ページで新しい会話を開いた場合でも、カプセルをクリックすると前の会話の結果カードが表示されます。
      */
     fun of(runs: List<CardRun>, follow: String? = null, idle: CardView.Chat? = null, kept: KeptPage? = null): CardView? {
         val pick = follow?.let { f ->
             runs.firstOrNull { it.run.conversationId == f && it.kind.active } ?: runs.firstOrNull { it.run.conversationId == f }
         } ?: runs.firstOrNull()
-        // 只顶掉「别的对话里已结束、还挂着」的那件;一件都没有时留下来那页照旧是它的卡片(见 kept 一路)
+        // は、「他の会話が終了し、まだ保留中」という項目のみを拒否します。項目がなくなっても、残っているページはそのカードのままです (「保持」セクションを参照)
         val elsewhere = idle?.current == true && pick != null && !pick.kind.active && pick.run.conversationId != idle.conversationId
         if (elsewhere) return idle
         pick ?: return kept?.let(CardView::Kept) ?: idle
@@ -116,8 +116,8 @@ object CapsuleCards {
     }
 
     /**
-     * 按此刻的状态,不按经过:还没结束、此刻在操作 App 或网页([CapsuleRun.onScreen])的是任务卡片;
-     * 别的(纯聊天、已经结束的,包括操作过 App、办完回了话的)都是对话卡片。
+     * 現在のステータスを押します。プロセスは押さないでください。プロセスはまだ終わっておらず、現在アプリまたは Web ページを操作しているタスク カード ([CapsuleRun.onScreen])。
+     * その他（純粋なチャット、終了したもの、アプリを操作して取引完了後に電話に応じたものも含む）はすべて会話カードです。
      */
     fun taskCard(r: CardRun): Boolean = r.kind.active && r.run.onScreen
 
@@ -126,7 +126,7 @@ object CapsuleCards {
     val HINT_CONTINUE: String get() = tr(R.string.card_hint_continue)
     val HINT_START: String get() = tr(R.string.chat_empty_prompt)
 
-    /** 卡片底部有没有输入框、交给谁:要你接管、要你同意时没有(先处理那件事);空闲卡片是开始说。 */
+    /** カードの下部に入力ボックスはありますか?誰に渡せばいいですか？私があなたにそれを引き継いでほしい、あるいは同意してほしいと思っても、誰もいません（最初にその問題に対処してください）。無料カードが始まりです。 */
     fun input(card: CardView): CardInput? = when (card) {
         is CardView.Chat -> card.content?.let(::inputFor) ?: CardInput(HINT_START, CardInputKind.Start).takeIf { card.run == null }
         is CardView.Detail -> inputFor(card.content)
@@ -141,8 +141,8 @@ object CapsuleCards {
     }
 
     /**
-     * 卡片输入框里的话(连同截下的屏幕)进哪个对话:任务卡片、带着任务的对话卡片是那件事所在的对话;空闲卡片是它接着的对话,
-     * 选了新对话或还没有任何对话时为 null(由调用方新开一个)。
+     * カード入力ボックスにどのダイアログが入力されているか (スクリーンショットとともに): タスク カードとタスクを含むダイアログ カードは、そのものが配置されているダイアログです。アイドルカードはそれに続くダイアログです。
+     * 新しい会話が選択されている場合、またはまだ会話がない場合は null になります (新しい会話は発信者によって開かれます)。
      */
     fun conversationOf(card: CardView): String? = when (card) {
         is CardView.Detail -> card.run.run.conversationId
@@ -150,7 +150,7 @@ object CapsuleCards {
         is CardView.Kept -> card.page.conversationId
     }
 
-    /** 任务还在进行(干活中、Mika 问你、等条件)时输入框右边的停止键停哪件;别的时候为 null。 */
+    /** タスクがまだ進行中の場合 (作業中、ミカがあなたに尋ねるなど)、入力ボックスの右側にあるストップ キーでどの項目を停止する必要があります。それ以外の場合は null です。 */
     fun stopKey(card: CardView): String? {
         val (run, content) = when (card) {
             is CardView.Detail -> card.run to card.content
@@ -176,7 +176,7 @@ object CapsuleCards {
             )
             is TaskState.WaitingConfirmation -> (ex?.status as? ExchangeStatus.NeedsConfirmation)
                 ?.let { CardContent.Confirm(it.title, it.body, it.key) }
-                // 还没推出这一问一答时(刚开始跟)用包名代替 App 名
+                // この Q&A が開始される前 (フォローを開始したばかり)、アプリ名の代わりにパッケージ名が使用されていました。
                 ?: CardContent.Confirm(
                     ConfirmationCopy.title(s.request), ConfirmationCopy.detail(s.request, s.request.app),
                     ConfirmationNotifier.requestKey(s),
@@ -190,14 +190,14 @@ object CapsuleCards {
         }
     }
 
-    /** 最近 [STEPS] 步(旧的在前):实际做过的事(和对话页的步骤同一套说法),此刻在做的那句和最后一步不同时接在后面。 */
+    /** 最新の [STEPS] ステップ (古い順): 実際に行ったこと (ダイアログ ページのステップと同じこと)、現在行っている文は最後のステップとは異なります。異なる場合はそれに準じます。 */
     fun steps(ex: Exchange?, line: String): List<String> {
         val done = ex?.steps.orEmpty().map { it.text }
         val all = if (line.isNotBlank() && done.lastOrNull() != line) done + line else done
         return all.takeLast(STEPS)
     }
 
-    /** 卡片顶上的小字说这件事在什么状态。 */
+    /** カードの上部にある小さな文字には、これがどのようなステータスにあるかが示されています。 */
     fun status(kind: CapsuleKind): String = when (kind) {
         CapsuleKind.HandedOver -> tr(R.string.capsule_handed_over)
         CapsuleKind.NeedTakeover -> tr(R.string.takeover_title)
@@ -213,7 +213,7 @@ object CapsuleCards {
         CapsuleKind.Idle -> "Mika"
     }
 
-    /** 这种内容旁边放不放虚拟屏小画面(还要那件事真有画面):干活中、要你接管、等条件时放。 */
+    /** この種のコンテンツの隣に小さな仮想画面イメージを配置するかどうか (実際のイメージも必要です): 作業中、引き継ぎを求めるとき、およびその他の条件。 */
     fun showsScreen(content: CardContent): Boolean =
         content is CardContent.Working || content is CardContent.Takeover || content is CardContent.Held
 }

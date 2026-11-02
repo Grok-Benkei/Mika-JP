@@ -21,7 +21,7 @@ class ConversationDeleterTest {
 
     private val active = MutableStateFlow<List<String>>(emptyList())
     private val calls = mutableListOf<String>()
-    /** 定时任务编号 → 绑着的对话。 */
+    /** スケジュールされたタスク番号 → 関連付けられたダイアログ。 */
     private val schedules = mutableMapOf("t1" to "a", "t2" to "a", "t3" to "b")
     private val workspaces = mutableSetOf("a", "b")
 
@@ -49,7 +49,7 @@ class ConversationDeleterTest {
         assertEquals(DeleteImpact(runningTask = false, schedules = 0), d.impact("c"))
     }
 
-    /** 没有任务在跑:删它的定时任务、工作区和记录;别的对话不动;不去停任务。 */
+    /** 実行中のタスクはありません。スケジュールされたタスク、ワークスペース、レコードを削除してください。他の会話は変更されません。タスクを停止しないでください。 */
     @Test fun deletesRecordsWorkspaceAndSchedules() = runTest {
         val store = store()
         store.setPinned("a", true, at = 1L)
@@ -62,7 +62,7 @@ class ConversationDeleterTest {
         assertEquals(null, store.pinnedAt("a"))
     }
 
-    /** 有任务在跑:先删定时任务,再停任务并等它收尾(收尾时存进的那一轮也删掉),然后才删文件。 */
+    /** 実行中のタスクがあります。まずスケジュールされたタスクを削除し、次にタスクを停止して終了するのを待ちます (最後に保存されたラウンドも削除されます)。その後、ファイルを削除します。 */
     @Test fun stopsTheRunningTaskAndWaitsForItToEnd() = runTest {
         val store = store()
         active.value = listOf("a", "b")
@@ -70,7 +70,7 @@ class ConversationDeleterTest {
         runCurrent()
         assertEquals(listOf("unschedule:t1", "unschedule:t2", "cancel:a"), calls)
         assertTrue("a" in workspaces)
-        // 任务收尾:存进停止的那一轮,再从进行中拿掉
+        // タスク終了: 停止したラウンドを保存し、進行中のラウンドから削除します
         store.append("a", Turn("查天气", "已停止", "cancelled"))
         active.value = listOf("b")
         job.join()
@@ -79,7 +79,7 @@ class ConversationDeleterTest {
         assertFalse("a" in workspaces)
     }
 
-    /** 任务迟迟不收尾:等到上限照样删。 */
+    /** タスクは長期間完了していません。上限に達すると削除されます。 */
     @Test fun givesUpWaitingAfterTheLimit() = runTest {
         val store = store()
         active.value = listOf("a")
@@ -92,7 +92,7 @@ class ConversationDeleterTest {
         assertFalse("a" in workspaces)
     }
 
-    /** 工作区删不掉(设备不支持运行环境等)也照样删记录。 */
+    /** ワークスペースを削除できない場合（デバイスが動作環境をサポートしていない場合など）、レコードは削除されます。 */
     @Test fun recordsAreDeletedEvenIfTheWorkspaceFails() = runTest {
         val store = store()
         ConversationDeleter(store, active, {}, { emptyList() }, {}, { error("no sandbox") }, io = EmptyCoroutineContext).delete("a")

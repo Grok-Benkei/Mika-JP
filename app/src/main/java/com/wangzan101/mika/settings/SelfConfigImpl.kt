@@ -4,21 +4,21 @@ import com.wangzan101.mika.core.cap.phone.OperatingPace
 import com.wangzan101.mika.core.settings.SelfConfig
 
 /**
- * 模型能改的那几项设置。[FeatureFlags] 是存储,这里只挑可逆的偏好交给模型:
+ * モデルではど​​のような設定を変更できますか? [FeatureFlags] はストレージです。ここでは、可逆設定のみが選択され、モデルに渡されます。
  *
- * **不给的**:模型与 Key(换掉自己的脑子、花用户的钱)、任何删除数据(清工作区、重置运行环境、删对话)——不可逆。
- * **也不给**:容器的联网与代理——打开后数据可能离开手机,这道线要用户自己在设置里决定。
- * 给的都能随手改回去。
+ * **指定されていません**: モデルとキー (自分の頭脳を交換し、ユーザーのお金を使います)、削除されたデータ (ワークスペースをクリアし、実行環境をリセットし、会話を削除します) - 元に戻すことはできません。
+ * **指定なし**: コンテナ ネットワーキングとプロキシ - 開いた後にデータが電話から離れる可能性があります。この行はユーザーが設定で決定する必要があります。
+ * は簡単に元に戻すことができます。
  */
 class SelfConfigImpl(
     private val flags: FeatureFlags,
 ) : SelfConfig {
     override fun options(): List<SelfConfig.Option> = listOf(
-        SelfConfig.Option(KEY_PACE, "操作节奏", flags.operatingPace().name.lowercase(), listOf("fast", "standard", "human")),
-        SelfConfig.Option(KEY_MUTE, "干活时把被操作的 App 静音", onOff(flags.muteTarget()), ON_OFF),
-        SelfConfig.Option(KEY_THEME, "外观", flags.themeMode().name.lowercase(), listOf("system", "light", "dark")),
-        SelfConfig.Option(KEY_CAPSULE, "悬浮胶囊", flags.capsuleMode().name.lowercase(), listOf("off", "duringtasks", "always")),
-        SelfConfig.Option(KEY_KEEP_ON, "干活时屏幕常亮", onOff(flags.keepScreenOn()), ON_OFF),
+            SelfConfig.Option(KEY_PACE, "操作の速度", flags.operatingPace().name.lowercase(), listOf("fast", "standard", "human")),
+            SelfConfig.Option(KEY_MUTE, "操作中のアプリをミュート", onOff(flags.muteTarget()), ON_OFF),
+            SelfConfig.Option(KEY_THEME, "外観", flags.themeMode().name.lowercase(), listOf("system", "light", "dark")),
+            SelfConfig.Option(KEY_CAPSULE, "フローティングカプセル", flags.capsuleMode().name.lowercase(), listOf("off", "duringtasks", "always")),
+            SelfConfig.Option(KEY_KEEP_ON, "操作中は画面を点灯", onOff(flags.keepScreenOn()), ON_OFF),
     )
 
     override fun set(key: String, value: String): String? {

@@ -7,27 +7,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** 字号与字重。只定大小、字重、行高,颜色由用的地方给。 */
+/** のフォント サイズとウェイト。サイズ、フォントの太さ、行の高さのみが決まり、色は使用される場所によって決まります。 */
 object MikaType {
-    /** 大标题:空状态、欢迎页。 */
+    /** タイトル: 空のステータス、ようこそページ。 */
     val LargeTitle = TextStyle(fontSize = 28.sp, lineHeight = 35.sp, fontWeight = FontWeight.Bold)
-    /** 页面标题:顶栏。 */
+    /** ページ タイトル: トップバー。 */
     val Title = TextStyle(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
-    /** 正文、行标题。 */
+    /** テキスト、行タイトル。 */
     val Body = TextStyle(fontSize = 15.5.sp, lineHeight = 22.sp, fontWeight = FontWeight.Normal)
-    /** 卡片标题等需要强调的正文。 */
+    /** 強調する必要があるカードのタイトルとその他のテキスト。 */
     val BodyStrong = TextStyle(fontSize = 15.5.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
-    /** 说明文字。 */
+    /** の説明テキスト。 */
     val Caption = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Normal)
-    /** 分组小标题。 */
+    /** グループのサブタイトル。 */
     val Label = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium)
-    /** 提示、页脚。 */
+    /** プロンプト、フッター。 */
     val Hint = TextStyle(fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.Normal)
-    /** 行尾的值。 */
+    /** 行末の値。 */
     val Value = TextStyle(fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Normal)
 }
 
-/** 间距。页面左右留 [Page]。 */
+/** ピッチ。ページの左右に [Page] を残します。 */
 object MikaSpace {
     val S4 = 4.dp
     val S8 = 8.dp
@@ -38,7 +38,7 @@ object MikaSpace {
     val Page = 16.dp
 }
 
-/** 各类元素的尺寸。 */
+/** さまざまな要素の寸法。 */
 object MikaSize {
     val TopBar = 56.dp
     val IconButton = 40.dp
@@ -46,15 +46,15 @@ object MikaSize {
     val Button = 52.dp
     val Composer = 52.dp
     val Icon = 22.dp
-    /** 列表行左边的图标块,里面的图形是 [TileIcon]。 */
+    /** リスト行の左側にあるアイコン ブロック、内部のグラフィックは [TileIcon] です。 */
     val Tile = 30.dp
     val TileIcon = 18.dp
-    /** 行尾箭头等小图标。 */
+    /** 行末矢印などの小さなアイコン。 */
     val SmallIcon = 16.dp
     const val IconStroke = 1.7f
 }
 
-/** 圆角。 */
+/** 角が丸い。 */
 object MikaRadius {
     val Card = 16.dp
     val Bubble = 20.dp
@@ -63,12 +63,12 @@ object MikaRadius {
     val Tile = 9.dp
 }
 
-/** 常用形状;顶层常量,重组时不新建。 */
+/** 一般的に使用される形状。最上位の定数。再編成中に新たに作成されたものではありません。 */
 object MikaShapes {
     val Card = RoundedCornerShape(MikaRadius.Card)
-    /** 用户消息气泡:右下角是尾角。 */
+    /** ユーザー メッセージ バブル: 右下隅は末尾の隅です。 */
     val UserBubble = RoundedCornerShape(MikaRadius.Bubble, MikaRadius.Bubble, MikaRadius.BubbleTail, MikaRadius.Bubble)
-    /** Mika 的回答:左下角是尾角,和用户气泡对称。 */
+    /** ミカの答え: 左下隅は尻尾の隅で、ユーザー バブルと対称です。 */
     val AnswerBubble = RoundedCornerShape(MikaRadius.Bubble, MikaRadius.Bubble, MikaRadius.Bubble, MikaRadius.BubbleTail)
     val Button = RoundedCornerShape(MikaRadius.Button)
     val Tile = RoundedCornerShape(MikaRadius.Tile)

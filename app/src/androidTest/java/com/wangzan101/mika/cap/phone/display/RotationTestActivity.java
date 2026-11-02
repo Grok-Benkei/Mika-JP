@@ -12,7 +12,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 
-/** 用真实的 Activity 方向请求重现横屏游戏;不依赖任何第三方应用。 */
+/** 実際のアクティビティ指向リクエストを使用して水平画面のゲームプレイを再現します。サードパーティのアプリケーションには依存しません。 */
 public class RotationTestActivity extends Activity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);

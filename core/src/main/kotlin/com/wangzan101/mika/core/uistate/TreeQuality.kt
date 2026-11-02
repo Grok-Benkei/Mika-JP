@@ -1,32 +1,32 @@
 package com.wangzan101.mika.core.uistate
 
 /**
- * 这一屏的无障碍树够不够用;不够用时写进读屏结果的 treeQuality。
- * [Partial]:树缺了一块(控件大多没名字,或屏上有不少字树里没有);[Unusable]:树里几乎读不到东西;
- * [Protected]:防截屏页面,画面也看不到(照旧按 protected 处理)。
+ * この画面のアクセシビリティ ツリーが十分かどうか。そうでない場合は、画面読み取り結果のtreeQualityを書き込みます。
+ * [Partial]: ツリーの一部が欠落しています (ほとんどのコントロールに名前がないか、ツリーにない単語が画面上に多数あります)。 [Unusable]: ツリーには読み取るものはほとんどありません。
+ * [Protected]: スクリーンショット対策ページ。画面が表示されません (まだ保護されているものとして扱われます)。
  */
 internal enum class TreeQuality(val wire: String) {
     Adequate("adequate"), Partial("partial"), Unusable("unusable"), Protected("protected"),
 }
 
-/** 一次判断。[quality] 为 null:光看树判不准,要读屏上文字再定(读不到字就一直是 null);[reason] 是不够用的原因,附画面时就是 imageReason。 */
+/** 一つの判断。 [quality] は null です。ツリーを見ただけで判断するのは正確ではありません。判断するには画面上のテキストを読む必要があります (単語が読めない場合は常に null になります)。 [reason] では不十分です。画像が添付されている場合はimageReasonです。 */
 internal data class TreeCheck(val quality: TreeQuality?, val reason: String? = null) {
-    /** 树缺东西或不能用:模型要靠画面或屏上文字补。 */
+    /** ツリーに何かが欠けているか、使用できません。モデルは画像または画面上のテキストで補足する必要があります。 */
     val poor: Boolean get() = quality == TreeQuality.Partial || quality == TreeQuality.Unusable
 }
 
 /**
- * 先用便宜的树判,判不准再读屏上文字(OCR)比一比。树「明显够用」才不读字:有名字的元素够多、控件大多有名字、
- * App 窗口里没有一大块一个字也没有的区域(画布、地图、图片、读不到内容的网页)。其余拿不准的一律读字,宁可多读一次。
+ * まずは安い木を使って判断します。判断が正確でない場合は、画面上のテキストを読み取り (OCR) 比較してください。ツリーは「明らかに便利」であるため、読み取ることができません。名前付きの要素は十分にあり、ほとんどのコントロールには名前があり、
+ * アプリ ウィンドウには、文字のない大きな領域 (キャンバス、地図、画像、判読できないコンテンツを含む Web ページ) はありません。残りのよくわからない単語については、そのまま読んでください。もう一度読んだ方が良いです。
  */
 internal object TreeAdequacy {
-    /** 有名字的元素少于这个数就拿不准:只有几个字的简单页面和树缺了一大块看起来一样。 */
+    /** 名前を持つ要素の数がこの数より少ない場合は、不確実になります。数語しかない単純なページは、大きな部分が欠けているツリーと同じように見えます。 */
     private const val ENOUGH_NAMED = 6
-    /** 子树里一个字也没有的节点占屏幕这么大(0–1)就是一块盲区。 */
+    /** サブツリー内に単語のないノードが画面 (0 ～ 1) の大部分を占めるため、ブラインド エリアになります。 */
     private const val BLIND_AREA = 0.2
-    /** 有这么多个有名字的元素落在里面的,只是垫在下面的底板(背景图、容器),不算盲区。 */
+    /** には非常に多くの名前付き要素がありますが、それらはその下のベース プレート (背景画像、コンテナ) にすぎず、死角ではありません。 */
     private const val NAMED_INSIDE = 3
-    /** OCR 补出这么多行树里没有的字,就算树缺了一块。 */
+    /** OCR は、ツリーの一部が欠けている場合でも、ツリーにない非常に多くの単語行を埋めることができます。 */
     private const val MISSING_LINES = 3
     private const val APPLICATION = "application"
 
@@ -37,7 +37,7 @@ internal object TreeAdequacy {
         if (s.elements.isEmpty()) return TreeCheck(TreeQuality.Unusable, "empty_elements")
         val named = s.elements.filter { it.name.isNotBlank() }
         val controls = s.elements.filter { it.clickable || it.editable }
-        // resourceId 常是开发者内部编号,不能当成用户能认出的控件名称。
+        // resourceId は開発者の内部番号であることが多く、ユーザーが認識できるコントロール名とは見なされません。
         val namedControls = controls.count { it.name.isNotBlank() || !it.placeholder.isNullOrBlank() }
         if (controls.isNotEmpty() && (namedControls == 0 || (controls.size >= 4 && namedControls * 3 <= controls.size)))
             return TreeCheck(if (named.isEmpty()) TreeQuality.Unusable else TreeQuality.Partial, "unlabeled_controls")
@@ -46,16 +46,16 @@ internal object TreeAdequacy {
         return TreeCheck(TreeQuality.Adequate)
     }
 
-    /** 树判不准时按 OCR 补出的、树里没有的字([missing],已去掉认错的行)定下来;没读到字([missing] 为 null)照旧判不准。 */
+    /** ツリーが正しく判定されなかった場合は、OCR を押してツリーにない単語を埋めます ([missing]、エラー行は削除されています)。単語が読み取られていない場合 ([missing] が null)、判定は依然として不正確です。 */
     fun withText(tree: TreeCheck, missing: List<VisibleTextLine>?): TreeCheck {
         if (tree.quality != null || missing == null) return tree
         return if (missing.size >= MISSING_LINES) TreeCheck(TreeQuality.Partial, "text_outside_tree") else TreeCheck(TreeQuality.Adequate)
     }
 
-    /** App 窗口里有一块盲区:子树一个字也没有、够大,而且不是垫在有名字的元素下面的底板。 */
+    /** アプリ ウィンドウには盲点があります。サブツリーには単語がなく、十分な大きさであり、名前付き要素の下のベース プレートではありません。 */
     private fun blindArea(s: ScreenSnapshot, named: List<UiElement>): Boolean {
         var found = false
-        // 返回这棵子树里有没有字;一遍走完,每个节点只看一次
+        // は、このサブツリーに単語があるかどうかを返します。 1 回のパスの後、各ノードは 1 回だけ表示されます
         fun visit(node: UiTreeNode): Boolean {
             var text = !node.text.isNullOrBlank() || !node.description.isNullOrBlank() || !node.hintText.isNullOrBlank()
             for (child in node.children) if (visit(child)) text = true

@@ -28,8 +28,8 @@ import kotlinx.coroutines.flow.onEach
 import com.wangzan101.mika.a11y.MikaAccessibilityService
 
 /**
- * 实时汇总开始任务需要的系统状态。内置助手、无障碍、开发者开关有回调就跟着变;
- * 通知权限没有回调,界面回到前台时调 [refresh]。
+ * は、タスクをリアルタイムで開始するために必要なシステム ステータスを要約します。コールバックがある場合、組み込みのアシスタント、アクセシビリティ、および開発者スイッチはそれに応じて変更されます。
+ * 通知権限にはコールバックがなく、インターフェイスがフォアグラウンドに戻ると [refresh] が呼び出されます。
  */
 private const val OP_RESTRICTED_SETTINGS = "android:access_restricted_settings"
 
@@ -51,7 +51,7 @@ class SystemStatusMonitor(context: Context, private val shell: BuiltinShellContr
             Settings.Secure.getUriFor(Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES), false, a11ySetting,
         )
         ScreenAccessibility.instance.onEach { refresh() }.launchIn(s)
-        // 引导页要实时跟着系统开关走:用户在系统设置里打开后,回来就看到下一步
+        // ブート ページは、システムの切り替えにリアルタイムで従う必要があります。ユーザーがシステム設定でページを開いた後、戻ってきたときに次のステップが表示されます。
         app.contentResolver.registerContentObserver(DeveloperSettings.developerOptionsUri, false, a11ySetting)
         app.contentResolver.registerContentObserver(DeveloperSettings.wirelessDebuggingUri, false, a11ySetting)
         app.contentResolver.registerContentObserver(DeveloperSettings.usbDebuggingUri, false, a11ySetting)
@@ -77,7 +77,7 @@ class SystemStatusMonitor(context: Context, private val shell: BuiltinShellContr
         notificationsAllowed = app.getSystemService(NotificationManager::class.java).areNotificationsEnabled(),
         attentionLowered = channelLowered(TaskService.CHANNEL_ATTENTION),
         resultLowered = channelLowered(TaskService.CHANNEL_RESULT),
-        // 先建好频道:配对前就能看出它是不是被关了或调低了,也能直接打开它的设置页
+        // 最初にチャンネルを作成します。ペアリングする前にチャンネルがオフになっているかオフになっているかを確認でき、設定ページを直接開くこともできます。
         pairingChannel = PairingNotifier.ensureChannel(app).health,
         attentionImportance = channelImportance(TaskService.CHANNEL_ATTENTION),
         resultImportance = channelImportance(TaskService.CHANNEL_RESULT),
@@ -94,13 +94,13 @@ class SystemStatusMonitor(context: Context, private val shell: BuiltinShellContr
     private fun channelImportance(id: String): Int? =
         app.getSystemService(NotificationManager::class.java).getNotificationChannel(id)?.importance
 
-    /** 频道已建好、但重要程度低于「弹出」(用户或系统调低的,App 改不回来)。 */
+    /** チャネルが作成されましたが、その重要性は「ポップアップ」よりも低くなります (ユーザーまたはシステムがそれを下げた場合、アプリはそれを元に戻すことはできません)。 */
     private fun channelLowered(id: String) = app.getSystemService(NotificationManager::class.java).getNotificationChannel(id)
         ?.let { it.importance < NotificationManager.IMPORTANCE_HIGH } ?: false
 
     /**
-     * 系统会不会拦着不让打开无障碍。按能力判断:安卓 13 起有「受限制的设置」这项权限,读得到且已允许就不拦;
-     * 读不到(系统没有这项或不让读)时当作可能会拦,只是多给一个入口。
+     * システムはアクセシビリティを開くことを妨げますか?機能による判断: Android 13 以降、「制限付き設定」権限があります。読み取り可能で許可されている場合はブロックされません。
+     * を読み取れない場合 (システムにこの項目がないか、読み取りが許可されていない場合)、ブロックされる可能性がありますが、追加のエントリは 1 つだけ提供されます。
      */
     private fun restrictedSettings(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
@@ -118,7 +118,7 @@ class SystemStatusMonitor(context: Context, private val shell: BuiltinShellContr
         return if (me in enabled) AccessibilityState.EnabledNotRunning else AccessibilityState.Off
     }
 
-    /** 开机后还没解锁过一次:这时无障碍服务绑不上是系统行为,不是故障。 */
+    /** はオンになってから一度もロックが解除されていません: 現時点では、アクセシビリティ サービスをバインドできません。これはシステムの動作であり、故障ではありません。 */
     private fun userLocked(): Boolean =
         runCatching { app.getSystemService(UserManager::class.java)?.isUserUnlocked }.getOrNull() == false
 }

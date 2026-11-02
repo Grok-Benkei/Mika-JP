@@ -1,30 +1,30 @@
 package com.wangzan101.mika.voice
 
 /**
- * 按住期间识别服务自己结束一段后重开,把各段拼起来。
- * 中日文段之间直接相连,其他文字(英文等)段之间加一个空格。纯逻辑,不碰系统。
+ * 長押しすると、サービスが一定期間終了し、その後再開されてセグメントが結合されたことが認識されます。
+ * 中国語と日本語の段落は直接接続されており、他のテキスト（英語など）の段落の間にはスペースが追加されます。純粋なロジックであり、システムには一切触れません。
  */
 class Segments {
     private var done = ""
     private var pending = ""
 
-    /** 当前这一段的中间结果;返回到此刻的全文。 */
+    /** 現在の段落の中間結果。現時点では全文に戻ります。 */
     fun partial(text: String): String {
         pending = text.trim()
         return full()
     }
 
-    /** 当前这一段识别完了,[text] 是这一段的最终文字。 */
+    /** 現在の段落が認識されており、[text] がこの段落の最後のテキストです。 */
     fun segmentDone(text: String) {
         done = join(done, text.trim())
         pending = ""
     }
 
-    /** 已完成的各段加上还没完成那段的中间结果;松开后等不到最终结果时就用它。 */
+    /** 完了した各セグメントと未完了のセグメントの中間結果。最終結果を待つことができない場合は、リリースしてから使用してください。 */
     fun full(): String = join(done, pending).trim()
 
     companion object {
-        /** 末尾这么多个字(按码点)还可能被识别服务改掉,界面上画得淡一些。 */
+        /** の末尾には (コード ポイントによる) 非常に多くの文字があり、認識サービスによって変更される可能性があり、インターフェイスは明るく表示されます。 */
         private const val TAIL = 4
 
         fun split(full: String): SpeechEvent.Partial {
@@ -41,10 +41,10 @@ class Segments {
             else -> "$a $b"
         }
 
-        /** 紧跟前文、前面不加空格的标点。 */
+        /** 句読点は前のテキストの直後にあり、前にスペースはありません。 */
         private const val ATTACHED = ",.!?;:)"
 
-        /** 本身是空白,或属于不用空格分词的文字(汉字、假名及其全角标点)。 */
+        /** 自体が空白であるか、単語 (漢字、かな、全角句読点) を区切るのにスペースを使用しないテキストに属します。 */
         private fun noSpace(cp: Int): Boolean {
             if (Character.isWhitespace(cp)) return true
             when (Character.UnicodeScript.of(cp)) {

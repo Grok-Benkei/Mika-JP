@@ -23,7 +23,7 @@ data class ExtractReport(
     val dirs: Int,
     val symlinks: Int,
     val hardlinksCopied: Int,
-    /** 最多 [RootfsExtractor.MAX_SKIPPED_NAMES] 个名字;总数看 [skippedTotal]。 */
+    /** には最大でも [RootfsExtractor.MAX_SKIPPED_NAMES] の名前があります。合計数については、[skippedTotal] を参照してください。 */
     val skipped: List<String>,
     val skippedTotal: Int = skipped.size,
 )
@@ -31,14 +31,14 @@ data class ExtractReport(
 class UnsafeArchiveException(msg: String) : Exception(msg)
 
 /**
- * 把根文件系统 tar.gz 流式解到 dest。
+ * ルート ファイル システム tar.gz を dest にストリーミングします。
  *
- * - 符号链接的目标原样保留(哪怕是绝对路径,它在 PRoot 里按根文件系统解释)。
- * - 安卓上 App 不能建硬链接,硬链接改为复制已解出的目标。
- * - 设备文件、FIFO 跳过,记进 skipped。
- * - 任何条目(以及硬链接目标)规范化后不在 dest 里,或要穿过一个已解出的符号链接,抛 UnsafeArchiveException;
- *   已解出的内容由调用方用 [deleteTree] 删除——不能用 File.deleteRecursively,它会跟随(绝对)符号链接删到 dest 外面。
- * - 条目数超过 maxEntries,或普通文件与硬链接副本的总字节数超过 maxBytes,同样抛 UnsafeArchiveException。
+ * - シンボリック リンクのターゲットはそのまま残ります (絶対パスであっても、PRoot ではルート ファイル システムとして解釈されます)。
+ * - Android 上のアプリはハード リンクを作成できず、代わりにハード リンクは解決されたターゲットをコピーします。
+ * - デバイス ファイル、FIFO がスキップされ、スキップされたものとして記録されました。
+ * - 正規化後に dest にないエントリ (およびハード リンク ターゲット)、または解決されたシンボリック リンクを通過すると、UnsafeArchiveException がスローされます。
+ *   の抽出されたコンテンツは、呼び出し元によって [deleteTree] を使用して削除されます。File.deleteRecursively は使用できません。(絶対) シンボリック リンクに続く dest の外側で削除されます。
+ * - エントリ数が maxEntries を超えている場合、または通常のファイルとハード リンク コピーの合計バイト数が maxBytes を超えている場合も、UnsafeArchiveException がスローされます。
  */
 object RootfsExtractor {
     const val MAX_SKIPPED_NAMES = 1000
@@ -50,7 +50,7 @@ object RootfsExtractor {
         maxEntries: Int = 200_000,
     ): ExtractReport = extractTar(GzipCompressorInputStream(BufferedInputStream(tarGz), true), dest, maxBytes, maxEntries)
 
-    /** 同 [extract],输入是已解压的 tar 流(调用方自己解 xz 等)。 */
+    /** は [extract] と同じで、入力は解凍された tar ストリームです (呼び出し元が xz などを自分でデコードします)。 */
     fun extractTar(
         input: InputStream,
         dest: File,
@@ -81,7 +81,7 @@ object RootfsExtractor {
                 val entry = tar.nextEntry ?: break
                 if (++entries > maxEntries) throw UnsafeArchiveException("archive has more than $maxEntries entries")
                 val rel = relativeName(entry.name)
-                if (rel.isEmpty()) continue // "./" 本身就是 dest
+                if (rel.isEmpty()) continue // "./" 自体が dest です
                 val target = resolveInside(root, rel, entry.name)
                 when {
                     entry.isDirectory -> {
@@ -107,23 +107,23 @@ object RootfsExtractor {
                         if (attrs.isRegularFile) addBytes(attrs.size(), rel)
                         prepareParent(target)
                         removeIfLinkOrFile(target, dirOk = false)
-                        // NOFOLLOW_LINKS:目标若是符号链接,复制链接本身而不是它指向的东西
+                        // NOFOLLOW_LINKS: ターゲットがシンボリック リンクの場合、リンクが指すものではなくリンク自体をコピーします。 isFile の前の
                         Files.copy(source, target, LinkOption.NOFOLLOW_LINKS, StandardCopyOption.COPY_ATTRIBUTES)
                         hardlinks++
                     }
-                    // 放在 isFile 之前:Commons Compress 对设备条目的 isFile 也可能为真
+                    // : Commons Compress はデバイス エントリの isFile にも true である可能性があります
                     entry.isCharacterDevice || entry.isBlockDevice || entry.isFIFO -> skip(rel)
                     entry.isFile -> {
-                        // 库只会读出条目声明的字节数,所以按声明大小卡上限就够了
+                        // ライブラリは、エントリによって宣言されたバイト数のみを読み取るため、宣言されたサイズの上限で十分です。
                         addBytes(entry.size, rel)
                         prepareParent(target)
                         removeIfLinkOrFile(target, dirOk = false)
-                        // CREATE_NEW:路径上若冒出符号链接,宁可失败也不跟过去写
+                        // CREATE_NEW: パス上にシンボリック リンクが表示された場合は、過去をたどるよりも失敗するほうがよいでしょう。
                         Files.newOutputStream(target, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE).use { tar.copyTo(it) }
                         setMode(target, entry.mode, isDir = false)
                         files++
                     }
-                    else -> skip(rel) // 其他不认识的类型
+                    else -> skip(rel) // その他の不明なタイプ
                 }
             }
         }
@@ -131,13 +131,13 @@ object RootfsExtractor {
     }
 
     /**
-     * 删除整棵树,绝不跟随符号链接(链接本身被删,指向的东西不动);删之前把每个目录改成属主可读写可进入,
-     * 否则只读目录里的东西删不掉。dest 不存在时什么也不做。
+     * ツリー全体を削除し、決してシンボリック リンクをたどらないようにします (リンク自体は削除され、ポイントされたものは移動しません)。削除する前に、所有者が読み取り、書き込み、アクセスできるように各ディレクトリを変更してください。
+     * そうしないと、読み取り専用ディレクトリの内容を削除できません。 dest が存在しない場合は何もしません。
      */
     fun deleteTree(dest: File) {
         val root = dest.toPath()
         if (!Files.exists(root, LinkOption.NOFOLLOW_LINKS)) return
-        // 不传 FOLLOW_LINKS:符号链接(包括 root 本身是链接时)按普通文件交给 visitFile
+        // は FOLLOW_LINKS を渡しません: シンボリック リンク (ルート自体がリンクである場合を含む) は通常のファイルとして visitFile に渡されます。
         Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
             override fun preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult {
                 val perms = Files.getPosixFilePermissions(dir, LinkOption.NOFOLLOW_LINKS).toMutableSet()
@@ -166,7 +166,7 @@ object RootfsExtractor {
             throw UnsafeArchiveException("invalid symlink target: ${e.message}")
         }
 
-    /** 去掉开头的 "./" 与末尾的 "/";绝对路径直接拒绝。 */
+    /** 先頭の「./」と末尾の「/」を削除します。絶対パスは直接拒否されます。 */
     private fun relativeName(name: String): String {
         if (name.startsWith("/")) throw UnsafeArchiveException("absolute path in archive: $name")
         var n = name
@@ -182,7 +182,7 @@ object RootfsExtractor {
             throw UnsafeArchiveException("invalid path in archive: ${e.message}")
         }
         if (!p.startsWith(root)) throw UnsafeArchiveException("path escapes destination: $original")
-        // 中间某一级若是已解出的符号链接,写进去就可能落到 dest 外面
+        // 中間レベルの 1 つが解決済みのシンボリック リンクである場合、それを書き込むと dest の範囲外になる可能性があります。
         var cur = root
         for (part in root.relativize(p).toList().dropLast(1)) {
             cur = cur.resolve(part)
@@ -199,13 +199,13 @@ object RootfsExtractor {
         if (Files.isSymbolicLink(target)) {
             Files.delete(target)
         } else if (Files.isDirectory(target, LinkOption.NOFOLLOW_LINKS)) {
-            if (!dirOk) Files.delete(target) // 非空目录会抛 IOException,交给调用方
+            if (!dirOk) Files.delete(target) // 空ではないディレクトリは IOException をスローし、呼び出し元に渡します。
         } else if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
             Files.delete(target)
         }
     }
 
-    /** 只取 0777;属主始终可读写,目录始终可进入,否则之后写不进、删不掉。 */
+    /** は 0777 のみを受け取ります。所有者はいつでも読み書きでき、ディレクトリはいつでも入力できます。そうでない場合は、後で書き込んだり削除したりすることはできません。 */
     private fun setMode(target: Path, tarMode: Int, isDir: Boolean) {
         var m = (tarMode and 0x1ff) or 0x180
         if (isDir) m = m or 0x40

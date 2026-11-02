@@ -67,16 +67,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * 一次运行的时间线(只读):顶部是目标、标准、一行小结(点开看时间去向)和结局(模型调用次数这类细节收在「更多详情」里),
- * 下面是竖线步骤,每步一行,点有画面的步骤看当时的画面。
+ * 実行のタイムライン (読み取り専用): 上部は目標、標準、1 行の概要 (クリックすると時間の経過を確認)、および終了 (モデル呼び出しの数などの詳細は「詳細」に収集されます) です。
+ * 以下に縦線で示した手順を示します (各手順に 1 行)。写真付きの手順をクリックするとその時の写真がご覧になれます。
  */
-/** 任务还在跑时,运行记录多久重读一次。 */
+/** タスクがまだ実行中の場合、実行レコードを再読み込みする頻度。 */
 private const val LIVE_REFRESH_MS = 1_000L
 
 @Composable
 fun RunTimelineScreen(vm: RunTimelineViewModel, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
-    // 还在跑就每秒再读一次运行记录(不自动滚到底:用户翻到哪就停在哪)
+    // 実行中に実行レコードを毎秒読み取ります (自動的に一番下までスクロールしません。ユーザーがスクロールした場所で停止します)。
     val ui by produceState<TimelineUi>(TimelineUi.Loading, vm) {
         while (true) {
             val next = withContext(Dispatchers.IO) { vm.load() }
@@ -161,7 +161,7 @@ private fun HeaderGroup(h: TimelineHeader, onExport: () -> Unit) {
                 RowValue(stringResource(R.string.timeline_step_limit_value, h.stepsUsed, limit))
             }
         }
-        // 还没跑完:这里说「进行中」,下面这些小结(核查、结局)等结束了才有
+        // はまだ実行を終了していません。ここでは「進行中」と表示されており、終了するまで次の概要 (検証、終了) は利用できません。
         if (h.running) {
             ListRow(null, stringResource(R.string.timeline_outcome)) { RowValue(stringResource(R.string.timeline_running), ValueTone.Plain) }
         } else {
@@ -170,7 +170,7 @@ private fun HeaderGroup(h: TimelineHeader, onExport: () -> Unit) {
             }
         }
         if (h.verdict != stringResource(R.string.verify_none)) ListRow(null, stringResource(R.string.timeline_check)) { RowValue(h.verdict) }
-        // 小结那一行已经写了用时
+        // 概要行にはすでに時刻が書き込まれています
         if (h.metrics == null) h.duration?.let { d -> ListRow(null, stringResource(R.string.timeline_duration)) { RowValue(d) } }
         ListRow(null, stringResource(R.string.timeline_export), stringResource(R.string.timeline_export_hint), onClick = onExport) { RowChevron() }
         ListRow(null, stringResource(R.string.timeline_more), onClick = { more = !more }) {
@@ -234,7 +234,7 @@ private fun TimelineRow(s: TimelineStep, first: Boolean, last: Boolean, vm: RunT
             }
             s.activities.forEach { a ->
                 val action = if (a.count > 1) trPlural(R.plurals.timeline_viewed_times, a.count) else a.label
-                // 和对话里点开一步用的是同一份说法(错误码只对开发有意义,给人看的是没成功)
+                // はダイアログで使用されているステートメントと同じです (エラー コードは開発のみに意味があり、他のユーザーには失敗を示します)
                 val effect = ChatCopy.effectLabel(a.effect)
                 Text(
                     listOfNotNull(action, a.target?.takeIf(String::isNotBlank), effect.takeIf(String::isNotBlank)).joinToString(" · "),
@@ -271,7 +271,7 @@ private fun TagChip(t: Tag) {
     )
 }
 
-/** 当时的画面:在后台线程解码;文件已被清理时只说一句。 */
+/** 当時の画像：バックグラウンドスレッドでデコード中。ファイルがクリーンアップされたら、一言言うだけです。 */
 @Composable
 private fun Shot(vm: RunTimelineViewModel, id: Int, step: Int) {
     val image by produceState<ImageBitmap?>(null, id) {

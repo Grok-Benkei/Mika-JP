@@ -87,8 +87,8 @@ internal val MiniShape = RoundedCornerShape(8.dp)
 internal val InitialSmall = TextStyle(fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold)
 
 /**
- * 网站的方块:有存下的网站图标就画在白底上;没有时是按主机名定的底色加名字的第一个字。
- * 图标文件在后台读,读过的留在进程里的小缓存里(按文件和保存时间)。
+ * Web サイトのアイコン: Web サイトのアイコンが保存されている場合は、白い背景に描画されます。ホスト名と名前の最初の文字によって決定される背景色である場合もあります。
+ * アイコン ファイルはバックグラウンドで読み取られ、読み取られたファイルはプロセス中の小さなキャッシュに保存されます (ファイルと保存時間に応じて)。
  */
 @Composable
 fun SiteTile(face: SiteFace, size: Dp, shape: Shape, initialStyle: TextStyle) {
@@ -122,8 +122,8 @@ private fun rememberSiteIcon(face: SiteFace): ImageBitmap? {
 }
 
 /**
- * 网页的顶栏:关闭(回起始页)、地址栏、刷新(加载时是停止),下面一条 2dp 的进度条。
- * 地址栏平时只显示锁和网站名(搜索结果页是搜的词),电脑版时带一个「电脑版」小标签;点了展开成完整网址可改,右边「取消」收回。
+ * Web ページの上部バー: 閉じる (開始ページに戻る)、アドレス バー、更新 (読み込み時に停止)、およびその下の 2dp 進行状況バー。
+ * アドレス バーには通常、ロックと Web サイト名のみが表示されます (検索結果ページは検索用語です)。コンピュータ版には「PC 版」という小さなラベルが付いています。変更するにはクリックして完全な URL に展開し、右側の「キャンセル」をクリックして元に戻します。
  */
 @Composable
 fun BrowserPageBar(
@@ -198,7 +198,7 @@ private fun AddressPill(page: BrowserPage, face: SiteFace?, modifier: Modifier, 
 
 private val TagText = TextStyle(fontSize = 11.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold)
 
-/** 展开的地址栏:完整网址全选着,键盘上是「前往」。 */
+/** 展開されたアドレス バー: 完全な URL が選択され、キーボードの「Go」が表示されます。 */
 @Composable
 private fun AddressEditor(url: String, modifier: Modifier, onGo: (String) -> Unit) {
     val c = MikaTheme.colors
@@ -223,7 +223,7 @@ private fun AddressEditor(url: String, modifier: Modifier, onGo: (String) -> Uni
     }
 }
 
-/** 网页下面的工具栏:后退、前进、起始页、分享、更多。 */
+/** Web ページの下のツールバー: 戻る、進む、開始ページ、共有など。 */
 @Composable
 fun BrowserToolbar(
     page: BrowserPage,
@@ -250,7 +250,7 @@ fun BrowserToolbar(
     }
 }
 
-/** 「给 Mika 登录」的横幅:说明这次用的是 Mika 办事时的那一版,登录完点「登录好了」。 */
+/** 「ミカ用ログイン」バナー：今回はミカが使用しているバージョンを使用することを意味します。ログイン後、「ログイン」をクリックしてください。 */
 @Composable
 fun LoginBanner(desktop: Boolean, onDone: () -> Unit) {
     val c = MikaTheme.colors
@@ -271,8 +271,8 @@ fun LoginBanner(desktop: Boolean, onDone: () -> Unit) {
 }
 
 /**
- * 「更多」面板:顶上是这个网站(图标、名字、主机名),下面刷新、复制链接、在其他浏览器里打开、加入常用网站(已在常用时是从常用移除)、
- * 换成电脑版 / 换回手机版(这个网站下次也这样)。点任何一项先关面板再做。
+ * 「その他」パネル: 上部は Web サイト (アイコン、名前、ホスト名)、下は更新、リンクをコピー、他のブラウザーで開き、よく使用される Web サイトを追加します (よく使用される Web サイトから削除)。
+ * コンピューター版に切り替える / モバイル版に戻す (この Web サイトは次回も同じ操作を行います)。項目をクリックする前にパネルを閉じてください。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

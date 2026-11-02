@@ -8,8 +8,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 /**
- * 对话框样式的页面:从后台服务打开时落在用户主屏,用来重现登录验证、账号确认一类需要用户点确认的弹窗。
- * 测试 APK 的页面运行在测试包自己的进程里、不带 Kotlin 标准库,所以用 Java 写。
+ * ダイアログ スタイル ページ: バックグラウンド サービスから開くと、ユーザーのホーム画面に表示されます。ログイン認証やアカウント確認など、ユーザーが確認のためにクリックする必要があるポップアップ ウィンドウを再現するために使用されます。
+ * テスト APK ページは、Kotlin 標準ライブラリを使用せずにテスト パッケージ独自のプロセスで実行されるため、Java で書かれています。 画面読み取りと入力検証用の
  */
 public class DialogSpillTestActivity extends Activity {
     @Override

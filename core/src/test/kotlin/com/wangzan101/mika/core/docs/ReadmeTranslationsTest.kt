@@ -1,91 +1,91 @@
 package com.wangzan101.mika.core.docs
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
-import java.security.MessageDigest
 
 /**
- * docs/readme/ 下的几份译文跟得上仓库首页的英文 README.md:
- *  - 每份译文开头有 `<!-- translated-from: README.md @ <指纹> -->`,指纹是翻译时 README.md 的 [fingerprint];
- *    README.md 改了而译文没跟着改,这里失败并列出哪几份过期了;
- *  - 译文和 README.md 的 `## ` 小节一样多,用到的本地图片一样(各自按所在目录解析成仓库里的路径再比);网上的徽章图各语言自己写,不比。
- * 生成段落只在 README.md 和简体中文 [ReadmeSections.README_ZH] 里,由 [ReadmeSectionsTest] 守着;其他译文不能有。
+ * 旧言語別URLは残し、本文を複製せず日本語の正本へ案内する。
+ * README.zh-CN.mdの生成領域は[ReadmeSectionsTest]が別に検証する。
  */
 class ReadmeTranslationsTest {
     private val root = File("..").canonicalFile
-    private val source get() = File(root, ReadmeSections.README).readText()
 
-    @Test fun translationsAreUpToDate() {
-        val current = fingerprint(source)
-        val stale = TRANSLATIONS.mapNotNull { name ->
-            val marker = MARKER.find(File(root, name).readText())?.groupValues?.get(1)
-            when (marker) {
-                null -> "$name 开头缺少 <!-- translated-from: README.md @ $current -->"
-                current -> null
-                else -> "$name 是从旧版 README.md($marker)翻译的;按 README.md 的改动更新译文,再把开头的 translated-from 改成 $current"
-            }
+    @Test fun legacyEnglishPathsStayAvailableAndPointToJapaneseDocuments() {
+        val aliases = File(root, "docs").walkTopDown()
+            .filter { it.isFile && it.name.endsWith(".en.md") }
+            .map { it.relativeTo(root).invariantSeparatorsPath }
+            .toSet()
+        assertEquals("既存の英語版URLを残し、すべてを案内ページとして検査する", ENGLISH_ALIASES, aliases)
+        aliases.sorted().forEach { path ->
+            assertAlias(path, File(path).name.removeSuffix(".en.md") + ".md")
         }
-        assertTrue("README 译文过期了(README.md 现在的指纹是 $current):\n" + stale.joinToString("\n"), stale.isEmpty())
     }
 
-    @Test fun translationsKeepStructure() {
-        val sections = sections(source)
-        val images = localImages(source, ReadmeSections.README)
-        val bad = TRANSLATIONS.flatMap { name ->
-            val text = File(root, name).readText()
-            listOfNotNull(
-                sections(text).takeIf { it != sections }?.let { "$name 有 $it 个 ## 小节,README.md 有 $sections 个" },
-                localImages(text, name).takeIf { it != images }?.let { "$name 的本地图片和 README.md 不一样:多了 ${it - images},少了 ${images - it}" },
-            )
+    @Test fun legacyReadmePathsPointDirectlyToTheJapaneseRootReadme() {
+        README_ALIASES.forEach { path ->
+            assertAlias(path, "../../README.md")
+            assertEquals(File(root, "README.md").canonicalFile, File(File(root, path).parentFile, "../../README.md").canonicalFile)
         }
-        assertTrue("README 译文和 README.md 结构不一致:\n" + bad.joinToString("\n"), bad.isEmpty())
     }
 
-    @Test fun translationsHaveNoGeneratedBlocks() {
-        val bad = (TRANSLATIONS - ReadmeSections.README_ZH).filter { "<!-- generated:" in File(root, it).readText() }
-        assertTrue("生成段落只放在 README.md、${ReadmeSections.README_ZH},其他译文里换成指向它们的一句话:$bad", bad.isEmpty())
+    @Test fun legacyGeneratedReadmeAlsoLinksToTheJapaneseRootReadme() {
+        val path = "docs/readme/README.zh-CN.md"
+        val file = File(root, path)
+        assertTrue("生成領域を持つ旧READMEのURLを残す: $path", file.isFile)
+        val links = LINK.findAll(file.readText(Charsets.UTF_8)).toList()
+        assertTrue("$path から日本語の正本へ直接案内する", links.any { it.groupValues[2] == "../../README.md" })
     }
 
-    @Test fun fingerprintIgnoresGeneratedBlocksAndLineEndings() {
-        val a = "前\n${ReadmeSections.start("x")}\n旧\n${ReadmeSections.end("x")}\n后\n"
-        val b = "前\r\n${ReadmeSections.start("x")}\r\n新的清单\r\n${ReadmeSections.end("x")}\r\n后\r\n"
-        assertEquals(fingerprint(a), fingerprint(b))
-        assertNotEquals(fingerprint(a), fingerprint(a.replace("后", "改了")))
-        assertEquals(12, fingerprint(a).length)
+    @Test fun allLegacyPathsUseJapaneseGuidanceWithoutDuplicatedInstructions() {
+        (ENGLISH_ALIASES + README_ALIASES).forEach { path ->
+            val text = File(root, path).readText(Charsets.UTF_8)
+            val paragraphs = text.trim().split(Regex("""\r?\n\s*\r?\n"""))
+            assertEquals("$path は見出しと短い案内文だけにする", 2, paragraphs.size)
+            assertTrue("$path の見出しは日本語で案内する", paragraphs.first().startsWith("# ") && "日本語" in paragraphs.first())
+            assertTrue("$path の本文は日本語の正本を案内する", "日本語" in paragraphs.last())
+            assertFalse("$path に画像や複製した実行手順を置かない", "![" in text || "```" in text)
+            assertFalse("$path に旧翻訳署名・生成領域・HTMLを置かない", '<' in text || '>' in text)
+            assertFalse("$path から外部の導入先へ案内しない", "://" in text)
+        }
+    }
+
+    private fun assertAlias(path: String, target: String) {
+        val alias = File(root, path)
+        assertTrue("互換URLのファイルを残す: $path", alias.isFile)
+        val links = LINK.findAll(alias.readText(Charsets.UTF_8)).toList()
+        assertEquals("$path の案内リンクは正本への1件だけにする", 1, links.size)
+        assertEquals("$path の正本リンク", target, links.single().groupValues[2])
+        assertTrue("$path のリンク名も日本語で案内する", "日本語" in links.single().groupValues[1])
+        val canonical = File(alias.parentFile, target).canonicalFile
+        assertTrue("$path の正本が存在する: $target", canonical.isFile)
+        assertTrue("$path の正本はリポジトリ内に置く", canonical.toPath().startsWith(root.toPath()))
+        assertFalse("$path が別の英語版を経由しない", canonical.name.endsWith(".en.md"))
+        assertFalse("$path が自分自身を参照しない", canonical == alias.canonicalFile)
     }
 
     companion object {
-        /** 译文都在 docs/ 下,core/build.gradle.kts 里测试的 docsDir 输入已经盖住;放到别处要另加输入。 */
-        val TRANSLATIONS = listOf(ReadmeSections.README_ZH) +
-            listOf("zh-Hant", "ja", "ko", "es").map { "docs/readme/README.$it.md" }
-        private val MARKER = Regex("""<!-- translated-from: README\.md @ ([0-9a-f]+) -->""")
-        private val GENERATED = Regex("""<!-- generated:([\w-]+):start -->.*?<!-- generated:\1:end -->""", RegexOption.DOT_MATCHES_ALL)
-
-        /** README.md 去掉生成段落(连同标记)、统一换行后的 SHA-256,取前 12 位十六进制。生成段落随代码变,不算译文要跟的改动。 */
-        fun fingerprint(readme: String): String {
-            val text = GENERATED.replace(readme.replace("\r\n", "\n"), "")
-            return MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }.take(12)
-        }
-
-        private fun prose(text: String): List<String> {
-            var fenced = false
-            return text.lines().filter { line ->
-                if (line.trimStart().startsWith("```")) { fenced = !fenced; false } else !fenced
-            }
-        }
-
-        private fun sections(text: String) = prose(text).count { it.startsWith("## ") }
-
-        private val IMAGE = Regex("""<img\s[^>]*\bsrc="([^"]+)"|!\[[^\]]*]\(([^)\s]+)""")
-
-        /** [text] 里的本地图片,按所在文件 [path](相对仓库根目录)的目录解析成仓库里的路径,各语言的相对写法不同也能比。 */
-        private fun localImages(text: String, path: String): Set<String> {
-            val dir = File(path).parentFile
-            return IMAGE.findAll(prose(text).joinToString("\n")).map { it.groupValues[1].ifEmpty { it.groupValues[2] } }
-                .filter { "://" !in it }.map { (if (dir == null) File(it) else File(dir, it)).normalize().invariantSeparatorsPath }.toSet()
-        }
+        private val ENGLISH_ALIASES = setOf(
+            "docs/README.en.md",
+            "docs/agent-quickstart.en.md",
+            "docs/cli.en.md",
+            "docs/computer-install.en.md",
+            "docs/computer.en.md",
+            "docs/dev/README.en.md",
+            "docs/dev/knowledge-format.en.md",
+            "docs/disclaimer.en.md",
+            "docs/faq.en.md",
+            "docs/features.en.md",
+            "docs/install-with-agent.en.md",
+            "docs/mcp.en.md",
+            "docs/models.en.md",
+            "docs/modes.en.md",
+            "docs/setup-guide.en.md",
+        )
+        private val README_ALIASES = setOf("ja", "zh-Hant", "ko", "es")
+            .map { "docs/readme/README.$it.md" }.toSet()
+        private val LINK = Regex("""(?<!!)\[([^\]]+)]\(([^)\s]+)\)""")
     }
 }

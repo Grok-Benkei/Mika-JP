@@ -32,10 +32,10 @@ class McpSettingsTest {
         val token = settings().token()
         assertTrue(token.length >= 40)
         assertEquals(token, settings().token())
-        // 文件里是密文,读不出原文
+        // ファイルには暗号文が含まれており、元のテキストを読み取ることができません。
         val raw = tmp.root.resolve("mcp-token.bin").readBytes()
         assertFalse(String(raw, Charsets.ISO_8859_1).contains(token))
-        // 换一个钥匙(比如重装后钥匙库没了)就读不出旧令牌,另生成一个
+        // キーを変更すると (たとえば、再インストール後にキーストアがなくなった場合)、古いトークンを読み取ることができなくなり、別のトークンが生成されます。
         val other = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
         assertNotEquals(token, McpSettings(tmp.root, AesGcmKeyCipher { other }).token())
     }

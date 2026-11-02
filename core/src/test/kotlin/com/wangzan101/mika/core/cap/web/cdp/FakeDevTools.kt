@@ -18,14 +18,14 @@ import java.util.Base64
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.concurrent.thread
 
-/** 进程内的一对管道:客户端一端是 [CdpStream],服务端一端给假 DevTools 用。 */
+/** プロセス内のパイプのペア: クライアント側は [CdpStream] で、サーバー側は偽の DevTools によって使用されます。 */
 class PipeStream(override val input: InputStream, override val output: OutputStream, private val onClose: () -> Unit) : CdpStream {
     override fun close() = onClose()
 }
 
 /**
- * 假 DevTools:每次 [open] 起一个服务线程。`/json/...` 走 HTTP;其余路径做 WebSocket 升级,
- * 之后每条文本消息交给 [onMessage](默认回 `{"echo": params}`)。服务端独立实现帧编解码,不复用客户端代码。
+ * False DevTools: [open] がサービス スレッドを開始するたび。 `/json/...` は HTTP を使用します。他のパスは WebSocket にアップグレードする必要があります。
+ * の後の各テキスト メッセージは [onMessage] に渡されます (デフォルトでは `{"echo": params}` に戻ります)。サーバーは、クライアント コードを再利用せずに、フレームのエンコードとデコードを独立して実装します。
  */
 class FakeDevTools(
     private val badAccept: Boolean = false,
@@ -176,7 +176,7 @@ class FakeDevTools(
             out.flush()
         }
 
-        /** 不发关闭帧直接断。 */
+        /** はシャットダウン フレームを送信せずに直接切断します。 */
         fun drop() = closer()
     }
 }

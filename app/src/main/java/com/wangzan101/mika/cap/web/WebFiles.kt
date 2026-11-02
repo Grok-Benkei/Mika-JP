@@ -11,9 +11,9 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 /**
- * 一个任务在网页上的文件:下载落到 [workspaceDir](本对话工作区)的 downloads/,上传只交这个工作区里的文件。
- * 上传不把工作区文件本身交出去:经关口复制到 App 私有的中转区([UploadStaging]),FileProvider 只开放中转区。
- * 选择框取走后副本留 [keepMs](页面提交表单时才读),之后、或任务结束时删掉;没取走的马上删。
+ * Web ページ上のファイルのタスク: [workspaceDir] (この会話のワークスペース) のダウンロード/をダウンロードし、このワークスペース内のファイルのみをアップロードします。
+ * アップロードでは、ワークスペース ファイル自体は渡されません。ファイルはゲートウェイを介してアプリのプライベート転送領域 ([UploadStaging]) にコピーされ、ファイルプロバイダーは転送領域を開くだけです。
+ * 選択ボックスが削除された後、コピーは [keepMs] (ページがフォームを送信するときに読み取り専用) のままになり、後でまたはタスクの終了時に削除されます。削除されなかったものはすぐに削除されます。
  */
 class WebFiles(
     private val context: Context,
@@ -28,7 +28,7 @@ class WebFiles(
 
     sealed interface Upload {
         class Ok(val uris: List<Uri>, val names: List<String>, val staged: UploadStaging.Staged) : Upload
-        /** [error] 为 file_not_found、path_outside_workspace、linked_file 或 file_too_large。 */
+        /** [error] は、file_not_found、path_outside_workspace、linked_file、または file_too_large です。 */
         class Refused(val error: String, val path: String) : Upload
     }
 
@@ -47,7 +47,7 @@ class WebFiles(
         return Upload.Ok(uris, staged.files.map { it.name }, staged)
     }
 
-    /** 上传那一下结束:选择框取走了([consumed])就过 [keepMs] 再删,没取走马上删。 */
+    /** のアップロードが終了します。選択ボックス ([consumed]) が削除されたら、[keepMs] に移動して削除します。削除されていない場合は、すぐに削除してください。 */
     fun release(staged: UploadStaging.Staged, consumed: Boolean) {
         if (!consumed) return drop(staged)
         val job = scope.launch {
@@ -62,14 +62,14 @@ class WebFiles(
         staging.delete(staged)
     }
 
-    /** 任务结束:还留着的副本都删掉。 */
+    /** ミッションは終了しました: 残りのコピーはすべて削除されます。 */
     fun close() {
         val all = synchronized(live) { live.keys.toList() }
         all.forEach(::drop)
     }
 
     companion object {
-        /** 启动时清掉上次进程留下的副本。 */
+        /** は、開始時に最後のプロセスによって残されたコピーをクリアします。 */
         fun clearStale(context: Context, gate: WorkspaceFileGate) {
             UploadStaging(File(context.cacheDir, UploadStaging.DIR), gate).clear()
         }

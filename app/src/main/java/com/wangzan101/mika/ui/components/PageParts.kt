@@ -37,8 +37,8 @@ import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 
 /**
- * 二级页的骨架:页面底 + 顶栏(左上角返回)+ 下面可滚动的内容(左右各 16)。
- * 内容很长、要懒加载的页面不用它,自己在 [TopBar] 下面放 LazyColumn。
+ * 第2階層ページの骨格: ページ背景 + トップバー（左上に戻る）+ 下にスクロール可能なコンテンツ（左右各 16）。
+ * のコンテンツが非常に長く、ページを遅延してロードする必要がある場合は、使用しないでください。 LazyColumn を [TopBar] の下に置きます。
  */
 @Composable
 fun SubPage(
@@ -60,7 +60,7 @@ fun SubPage(
     }
 }
 
-/** 行下面的一排操作按钮(小号胶囊),和行的文字对齐。 */
+/** 行の下に、行のテキストに合わせて配置された操作ボタン (小さなカプセル) の行。 */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RowActions(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
@@ -71,7 +71,7 @@ fun RowActions(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     ) { content() }
 }
 
-/** 搜索框:浅填充底、圆角 14、高 40,左边放大镜。给了 [onSubmit] 时键盘上是「前往」,按下交给它。 */
+/** 検索ボックス: 浅く塗りつぶされた底、丸い角 14、高さ 40、左側に虫眼鏡。 [onSubmit] を渡すと、キーボードに「Go」と表示されるので、それを押して渡します。 */
 @Composable
 fun SearchField(
     value: String,
@@ -99,7 +99,7 @@ fun SearchField(
     }
 }
 
-/** 空状态:一两句居中的说明。 */
+/** 空の状態: 中央に配置された 1 文または 2 文の命令。 */
 @Composable
 fun EmptyNote(text: String, modifier: Modifier = Modifier) {
     Text(

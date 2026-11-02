@@ -11,7 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
-/** 「语音转文字」选择页的分组和设置卡片上的两行字。 */
+/** [Speech to Text] 選択ページのグループ化および設定カード上の 2 行のテキスト。 */
 class SpeechOptionsTest {
     @get:Rule val texts = ChineseTexts()
 
@@ -39,14 +39,14 @@ class SpeechOptionsTest {
 
     @Test fun autoWithSystemShowsPhoneAndOffline() {
         val s = SpeechOptions.summary(SpeechChoice.Auto, SystemCapability(available = true, onDevice = true), listOf(openAi))
-        assertEquals("手机自带", s.title)
-        assertEquals("可离线", s.sub)
+        assertEquals("スマホ内蔵", s.title)
+        assertEquals("オフラインで使えます", s.sub)
         assertTrue(s.subOk)
     }
 
     @Test fun autoWithoutSystemIsUnset() {
         val s = SpeechOptions.summary(SpeechChoice.Auto, SystemCapability(false, false), listOf(openAi))
-        assertEquals("未设置", s.title)
+        assertEquals("未設定", s.title)
         assertNull(s.sub)
     }
 
@@ -54,8 +54,8 @@ class SpeechOptionsTest {
         val silent = SystemCapability(available = true, onDevice = true, responsive = false)
         for (choice in listOf(SpeechChoice.Auto, SpeechChoice.System)) {
             val s = SpeechOptions.summary(choice, silent, listOf(openAi))
-            assertEquals("手机自带", s.title)
-            assertEquals("没有响应", s.sub)
+            assertEquals("スマホ内蔵", s.title)
+            assertEquals("応答なし", s.sub)
             assertFalse(s.subOk)
         }
     }
@@ -63,7 +63,7 @@ class SpeechOptionsTest {
     @Test fun missingProviderIsUnset() {
         val choice = SpeechChoice.Provider("gone", "whisper-1", TranscribeMethod.AudioTranscriptions)
         val s = SpeechOptions.summary(choice, SystemCapability(true, true), listOf(openAi))
-        assertEquals("未设置", s.title)
+        assertEquals("未設定", s.title)
     }
 
     @Test fun providerChoiceShowsModelAndProviderName() {
@@ -74,6 +74,6 @@ class SpeechOptionsTest {
     }
 
     @Test fun offShowsNone() {
-        assertEquals("不用", SpeechOptions.summary(SpeechChoice.Off, SystemCapability(true, true), emptyList()).title)
+        assertEquals("なし", SpeechOptions.summary(SpeechChoice.Off, SystemCapability(true, true), emptyList()).title)
     }
 }

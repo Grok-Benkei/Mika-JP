@@ -5,7 +5,7 @@ import com.wangzan101.mika.core.tool.HandBack
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 
-/** 运行中的输入唯一入口;用户原话无限排队且逐字保留,停止信号直接送达。 */
+/** は動作中の唯一の入力入口です。ユーザーの元の単語は無期限にキューに入れられてそのまま保持され、停止信号が直接配信されます。 */
 class RunInbox {
     data class UserSteer(val messageId: String, val text: String, val currentTaskOnly: Boolean = false)
 
@@ -22,10 +22,10 @@ class RunInbox {
     @Volatile private var closed = false
     @Volatile private var stopRequested = false
     private var remaining: List<UserSteer> = emptyList()
-    /** 每句插话都唤醒正在等待的模型请求(撤掉它,带着这句话重问);正在执行的工具不受影响。 */
+    /** 各割り込みは、待機中のモデル要求をウェイクアップします (それを削除し、この文で再度要求します)。実行ツールは影響を受けません。 */
     internal val redirects = Channel<Unit>(Channel.CONFLATED)
     private val pending = MutableStateFlow(false)
-    /** 有插话还没交给模型:撤掉也不丢东西的等待据此提前结束(见 [waitOrSteer])。 */
+    /** は中断されており、まだモデルに引き渡されていません。待機は削除後に何も失われることなく早期に終了します ([waitOrSteer] を参照)。 */
     val signal = SteerSignal(pending)
 
     internal fun bind(to: Handler) {
@@ -45,7 +45,7 @@ class RunInbox {
         return InputReceipt.Accepted
     }
 
-    /** 远程追加只属于当前任务;与关闭、取消互斥,拒绝时不转成下一任务。 */
+    /** リモート追加は現在のタスクにのみ属します。 close と cancel は相互に排他的です。拒否された場合、次のタスクには引き継がれません。 */
     fun steerCurrent(messageId: String, text: String): InputReceipt = synchronized(lock) {
         if (closed || stopRequested) InputReceipt.Closed
         else enqueue(UserSteer(messageId, text, currentTaskOnly = true))
@@ -74,7 +74,7 @@ class RunInbox {
         return InputReceipt.Accepted
     }
 
-    /** 只撤回还在收件箱里、手机上插的消息;和交给模型、收尾互斥。电脑追加的([UserSteer.currentTaskOnly])撤不回,由电脑那边定。 */
+    /** は、まだ受信トレイにあり、携帯電話に挿入されたメッセージのみを取り消します。それをモデルに渡すことと閉じることは相互に排他的です。コンピュータによって追加されたもの ([UserSteer.currentTaskOnly]) は取り消すことができず、コンピュータによって決定されます。 */
     fun withdrawSteer(id: String): Boolean = synchronized(lock) {
         val i = steers.indexOfFirst { it.messageId == id }
         if (closed || i < 0 || steers[i].currentTaskOnly) return@synchronized false
@@ -84,10 +84,10 @@ class RunInbox {
         true
     }
 
-    /** 有没有还没交给模型的插话;只看不取(批量执行在子步之间据此停下)。 */
+    /** モデルにまだ配信されていない中断はありますか?これらは無視されるだけです (サブステップ間ではそれに応じてバッチ実行が停止します)。 */
     fun hasSteers(): Boolean = synchronized(lock) { steers.isNotEmpty() }
 
-    /** 只在模型调用之前或一批工具完成之后取;清除已不再需要的 redirect 唤醒。 */
+    /** モデルの呼び出し前、またはツールのバッチが完了した後にのみ取得されます。不要になったリダイレクト ウェイクアップをクリアします。 */
     internal fun takeSteers(): List<UserSteer> = synchronized(lock) {
         val out = steers.toList()
         steers.clear()
@@ -96,7 +96,7 @@ class RunInbox {
         out
     }
 
-    /** 收尾以后还没消费的插话交给宿主作为下一任务。 */
+    /** 終了後、未使用のコメントは次のタスクとしてホストに渡されます。 */
     internal fun close(): List<UserSteer> = synchronized(lock) {
         if (closed) return@synchronized remaining
         closed = true
@@ -108,8 +108,8 @@ class RunInbox {
     }
 
     /**
-     * 要交出回答、就此收尾时调用:还有没交给模型的插话就不关(返回 false,调用方带着它接着做);
-     * 没有就关上(返回 true),此后的插话才成为下一任务。看和关在同一把锁里,中间插不进话。
+     * 応答が引き渡されて終了が完了したときに呼び出されます。モデルに引き渡されていない割り込みがまだ存在しており、閉じられません (false を返し、呼び出し元はそれを受け取って続行します)。
+     * が使用できない場合は、それを閉じます (true を返す)。その後の割り込みは次のタスクになります。見ているのと同じ鍵の中に閉じ込められているのでは、その間に何も言うことはできません。
      */
     internal fun closeUnlessSteered(): Boolean = synchronized(lock) {
         if (steers.isNotEmpty()) return@synchronized false
@@ -119,7 +119,7 @@ class RunInbox {
 
     fun nextTaskMessages(): List<UserSteer> = synchronized(lock) { remaining.toList() }
 
-    /** 宿主收尾或取消尚未开跑的任务时，把未消费的用户原话交给下一个任务。 */
+    /** ホストが終了するか、まだ開始されていないタスクをキャンセルすると、消費されなかったユーザーの元の単語は次のタスクに引き継がれます。 */
     fun handoffUnconsumed(): List<UserSteer> = synchronized(lock) {
         close()
         remaining.also { remaining = emptyList() }

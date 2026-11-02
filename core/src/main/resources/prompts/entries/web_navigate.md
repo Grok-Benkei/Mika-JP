@@ -1,1 +1,1 @@
-Open a web page (http or https only) in Mika's built-in browser. From your next call on you also get the tools that read and operate the page (web_observe, web_tap, web_type_text, ...). To only read a page's text, web_read_page with url is enough.
+Mika の内蔵ブラウザでウェブページ（http または https のみ）を開く。次の呼び出しからは、そのページを読む・操作する手段（web_observe、web_tap、web_type_text など）も得られる。ページの文面を読むだけなら、url を伴う web_read_page で十分。

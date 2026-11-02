@@ -11,7 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 在安装后的 APK 中实际加载两套本地模型识别中英文。 */
+/** は実際に、インストールされた APK で中国語と英語を認識するために 2 セットのローカル モデルをロードします。 */
 @RunWith(AndroidJUnit4::class)
 class PhoneOcrTest {
     @Test fun bundledModelsRecognizeChineseAndEnglish() = runBlocking {

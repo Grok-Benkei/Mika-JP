@@ -1,1 +1,1 @@
-Read a text file under /workspace or /opt/mika/skills, by byte offset and limit. Binary files return only their size and type; images are returned as images when you can see images.
+/workspace または /opt/mika/skills の下にある文面ファイルを、バイト単位のオフセットと制限で読む。バイナリファイルについては、サイズと種類だけが返る。画像は、画像を見られる場合に画像として返る。

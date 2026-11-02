@@ -20,7 +20,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 设置 › 恢复与修复 › 兼容性自检:不带真实自检的页面,看各状态下显示什么、按钮交给谁。 */
+/** 設定 › 回復と修復 › 互換性セルフチェック: 実際のセルフチェックのないページ。各状態で何が表示され、誰にボタンが与えられているかを確認します。 */
 @RunWith(AndroidJUnit4::class)
 class SelfCheckScreenTest {
     @get:Rule(order = Int.MIN_VALUE) val chinese = ChineseUi()

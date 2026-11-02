@@ -97,7 +97,7 @@ class SkillDrafterTest {
         assertNull(Eligibility.check(runEvents(extra = listOf(RunEvent.Confirmation(50, "send", null, null, null, "approved"))), null, TOOLS, done = true))
         assertEquals("followed_personal_skill", Eligibility.check(runEvents(), "send-wechat-message", TOOLS, done = true))
         assertEquals("takeover_user_finished", Eligibility.check(runEvents(extra = listOf(RunEvent.Takeover(50, "payment", "user_finished", 10, 4))), null, TOOLS, done = true))
-        // 出错的动作不算步数
+        // エラーアクションは歩数としてカウントされません
         val withErrors = runEvents().map { e ->
             if (e is RunEvent.ToolResult && e.tool == "phone_tap") e.copy(resultJson = """{"ok":false,"error":"ref_expired"}""") else e
         }
@@ -111,7 +111,7 @@ class SkillDrafterTest {
         assertTrue(lines.all { it.where == "com.tencent.mm" })
         assertEquals(false, lines.last().changed)
         val text = ActionDigest.render(lines)
-        assertTrue(text.contains("<输入内容>"))
+        assertTrue(text.contains("<入力内容>"))
         assertFalse(text.contains("明天回家吃饭"))
         assertFalse(text.contains("张三"))
         assertEquals(2, ActionDigest.of(runEvents(), TOOLS, maxLines = 2).size)
@@ -126,7 +126,7 @@ class SkillDrafterTest {
         val d = draft(text(md())) as DraftResult.Draft
         assertFalse(d.skill.markdown.contains("老妈"))
         assertFalse(d.skill.markdown.contains("明天回家吃饭"))
-        assertTrue(d.skill.markdown.contains("输入 <参数>\n2. 输入 <参数> 后点发送"))
+        assertTrue(d.skill.markdown.contains("输入 <パラメータ>\n2. 输入 <パラメータ> 后点发送"))
         assertEquals(SkillStatus.pending, d.skill.status)
         assertEquals("r1", d.skill.learnedFrom)
         assertNull(d.isUpdateOf)
@@ -140,8 +140,8 @@ class SkillDrafterTest {
         assertFalse(request.contains("晚上一起吃饭"))
         assertFalse(request.contains("老妈"))
         assertFalse(request.contains("明天回家吃饭"))
-        assertTrue(request.contains("目标:给『<参数>』发『<参数>』"))
-        assertTrue(request.contains("<输入内容>"))
+        assertTrue(request.contains("目標:给『<パラメータ>』发『<パラメータ>』"))
+        assertTrue(request.contains("<入力内容>"))
         assertTrue(request.contains("tap 「搜索」"))
         assertTrue(model.offeredTools.single().isEmpty())
     }
@@ -164,13 +164,13 @@ class SkillDrafterTest {
     }
 
     @Test fun interfaceNamesFromTheAnswerStayInTheDraft() {
-        // 回答里提到的页面名字正是做法本身:草稿里写到它不算照抄,照收
+        // 回答で言及されているページの名前は、まさにその方法そのものです。下書きに書いてもコピーとはみなされず、そのまま受け入れます。
         val model = FakeModel(text(md(body = "\n3. 进「关于手机」页看版本号")))
         val r = runBlocking { SkillDrafter(model).draft(DraftInput("r1", goal, "版本号在「关于手机」页上", emptyList(), runEvents(), tools, TOOLS), InMemoryPersonalSkills(), bundled) }
         assertTrue((r as DraftResult.Draft).skill.markdown.contains("关于手机"))
     }
 
-    // 起草时把已有的个人技能(连同待确认的草稿)列给模型,是不是同一类事由它判断
+    // 製図の際、モデルに既存の個人スキルを（確認する製図と合わせて）記載します。同じ種類のものかどうかを判断します。
     @Test fun requestListsExistingSkillsAndDrafts() {
         val store = InMemoryPersonalSkills(personalSkill("zhihu-collections", display = "查看知乎收藏夹列表", description = "数知乎收藏夹", status = SkillStatus.suspended))
         store.putPending("d0", personalSkill("wechat-msg", display = "微信消息", description = "发微信"))
@@ -193,7 +193,7 @@ class SkillDrafterTest {
         assertFalse(d.skill.markdown.contains("updates:"))
     }
 
-    // 指向不存在的技能(或内置技能)的 updates 不算数:当作新的一份
+    // 更新はカウントされません。新しいコピーとして扱われます。
     @Test fun bogusUpdatesTreatedAsNew() {
         val mine = personalSkill("wechat-msg", display = "微信消息")
         for (bogus in listOf("no-such-skill", "messaging")) {
@@ -204,14 +204,14 @@ class SkillDrafterTest {
             assertNull(d.skill.replacesDraftOf)
             assertFalse(d.skill.markdown.contains("updates:"))
         }
-        // 没写 updates:名字再像也不替模型并进已有的
+        // は更新を書き込みませんでした。名前がどれほど似ていても、モデルを置き換えたり、既存のモデルとマージしたりすることはありません。
         val d = draft(text(md()), existing = InMemoryPersonalSkills(personalSkill("wechat-msg", display = "微信消息", extraMeta = "apps: [com.tencent.mm]\n"))) as DraftResult.Draft
         assertNull(d.isUpdateOf)
-        // 新的一份不能占已有的名字
+        // 新しいコピーは既存の名前を占有することはできません。
         assertEquals(DraftResult.Dropped("name_taken"), draft(text(md(name = "wechat-msg", updates = "nope")), existing = InMemoryPersonalSkills(mine)))
     }
 
-    // 指向一份待确认的草稿:换掉那份草稿,不再堆一份
+    // は確認されるドラフトを指します。そのドラフトを置き換えて、もう積み重ねないようにします。
     @Test fun updatesPendingDraftReplacesIt() {
         val store = InMemoryPersonalSkills(personalSkill("wechat-msg"))
         store.putPending("d0", personalSkill("new-thing", display = "新事"))
@@ -220,7 +220,7 @@ class SkillDrafterTest {
         assertEquals("new-thing", d.skill.name)
         assertNull(d.isUpdateOf)
         assertNull(d.skill.replacesDraftOf)
-        // 那份草稿本身是已有技能的更新:新草稿接着更新同一份
+        // そのドラフト自体は既存のスキルの更新です。新しいドラフトは同じスキルを更新します。
         store.putPending("d1", personalSkill("wechat-msg").copy(replacesDraftOf = "wechat-msg"))
         val u = draft(text(md(updates = "wechat-msg")), existing = store) as DraftResult.Draft
         assertEquals("d1", u.replacesPending)
@@ -248,7 +248,7 @@ class SkillDrafterTest {
         assertEquals(DraftResult.Dropped("unknown_tool"), draft(text(md(body = "\n3. 用 `open_chat` 打开聊天"))))
     }
 
-    // 沙箱技能脚本:只有清单里标为可运行的才能写进草稿
+    // サンドボックス スキル スクリプト: リストで実行可能としてマークされているもののみをドラフトに書き込むことができます
     @Test fun runScriptOnlyForRunnableManifestEntries() {
         val runnable = bundled.runnableScripts()
         assertTrue("skills/documents/scripts/extract_pdf.py" in runnable)
@@ -260,7 +260,7 @@ class SkillDrafterTest {
         assertEquals("unrunnable_script", check("\n3. 用 `run_bundled_script` 跑 sites/youtube.com/scripts/fetch_transcript.py"))
         assertEquals("unrunnable_script", check("\n3. 用 `run_bundled_script` 跑 scripts/palettes.py 和 scripts/extract_marker.py"))
         assertEquals("unrunnable_script", check("\n3. 用 `run_bundled_script` 跑一个脚本"))
-        // 起草路径用目录里的清单
+        // ディレクトリ内のリストを使用してパスを作成します
         val events = runEvents()
         val r = runBlocking {
             SkillDrafter(FakeModel(text(md(body = "\n3. 用 `run_bundled_script` 跑 sites/youtube.com/scripts/fetch_transcript.py"))))
@@ -269,7 +269,7 @@ class SkillDrafterTest {
         assertEquals(DraftResult.Dropped("unrunnable_script"), r)
     }
 
-    // 网页任务:网页工具名算已知工具;网址里的查询词和读到的网页正文都不进起草请求
+    // Web ページ タスク: Web ページ オブジェクトの名前は既知のオブジェクトとみなされます。 URL内のクエリワードおよび読み取られたWebページのテキストは、起草リクエストには含まれません。
     @Test fun webRunDraftKeepsUrlsAndPageTextOut() {
         val known = knownToolNames()
         assertTrue(known.containsAll(WEB_TOOLS))
@@ -296,14 +296,14 @@ class SkillDrafterTest {
 
     @Test fun invalidOrTakenNameDropped() {
         assertEquals(DraftResult.Dropped("invalid_name"), draft(text(md(name = "Send_Wechat"))))
-        assertEquals(DraftResult.Dropped("name_taken"), draft(text(md(name = "wechat")))) // 与内置同名
+        assertEquals(DraftResult.Dropped("name_taken"), draft(text(md(name = "wechat")))) // はビルトインと同じ名前です
     }
 
     @Test fun modelErrorDropped() {
         assertEquals(DraftResult.Dropped("model_error"), draft(ModelError.Auth()))
     }
 
-    /** 网页上的动作记在「网站 主机名」下,不沿用之前的 App;网页上点到的名字算网页内容,草稿里出现就丢。 */
+    /** Web ページ上のアクションは「Web サイトのホスト名」の下に記録され、以前のアプリは使用されません。 Web ページ上でクリックされた名前は Web ページのコンテンツとしてカウントされ、下書きに表示されると失われます。 */
     @Test fun webActionsTrackTheSite() {
         val pageObserve = """{"ok":true,"currentSite":"shop.example.com","snapshotId":"w1","elements":[""" +
             """{"ref":"@e1","role":"link","name":"李四的订单 2024-001","center":{"x":1,"y":1}}]}"""
@@ -319,12 +319,12 @@ class SkillDrafterTest {
         )
         val lines = ActionDigest.of(runEvents(extra = web), TOOLS)
         val nav = lines.single { it.tool == "web_navigate" }
-        assertEquals("shop.example.com", nav.target) // 只记站点,不记查询串
-        assertEquals("网站 shop.example.com", nav.where)
+        assertEquals("shop.example.com", nav.target) // はサイトのみを記憶し、クエリ文字列は記憶しません
+        assertEquals("ウェブサイト shop.example.com", nav.where)
         val tapOnPage = lines.single { it.step == 12 }
-        assertEquals("网站 shop.example.com", tapOnPage.where)
+        assertEquals("ウェブサイト shop.example.com", tapOnPage.where)
         assertEquals("李四的订单 2024-001", tapOnPage.target)
-        // 回到手机:又记在 App 下
+        // 携帯電話に戻ります: アプリで再度録音します
         assertEquals("com.tencent.mm", lines.single { it.step == 13 }.where)
 
     }

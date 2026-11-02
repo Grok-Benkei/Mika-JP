@@ -6,14 +6,14 @@ import com.wangzan101.mika.core.access.AppAccessState
 import kotlinx.coroutines.delay
 
 /**
- * 手机端口的应用访问边界:每个 [ScreenPort] 成员都在这里显式写出(不用 `by` 委托),端口以后加的成员不会不经检查就漏过去;
- * 测试里逐个成员核对这一点。
+ * モバイル ポートのアプリケーション アクセス境界: 各 [ScreenPort] メンバーはここに明示的に書き込まれ (`by` 委任なし)、後でポートに追加されたメンバーが検査なしで見逃されることはありません。
+ * このポイントをメンバーごとにテストで確認します。
  *
- * 读屏、动作前后各核对一次前台窗口的归属;按目标打开(App、分享、指定了 App 的链接)只看目标。
- * 窗口探针 [packages] 只读归属,不采集内容,也不为检查创建屏幕。禁用名单为空时什么也不多做。
+ * 画面の読み取りと、アクションの前後に各1回、前面ウィンドウの帰属を確認する; 対象を開く場合（App、共有、App を指定したリンク）は対象だけを見る。
+ * ウィンドウプローブ [packages] は帰属を読むだけで、内容は収集せず、確認のために画面も作らない。禁止リストが空のときは何も追加で行わない。
  *
- * 少问窗口:[snapshot]、[peek] 直接用读到的这一屏里的窗口归属核对,不另问;给了 [windowToken](窗口一变就变的计数)时,
- * 核对过的结果在窗口没变、名单没变、且不超过 [CHECK_TTL_MS] 时直接沿用(同一次读屏紧接着的截图、预览的一帧帧画面)。
+ * ウィンドウへの問い合わせを減らす: [snapshot]、[peek] は読み取ったその画面の中のウィンドウ帰属で直接確認し、別途尋ねない; [windowToken]（ウィンドウが変わるたびに変わるカウンタ）が渡されたときは、
+ * 確認済みの結果は、ウィンドウが変わらず、リストも変わらず、かつ [CHECK_TTL_MS] を超えていなければそのまま使い回す（同じ画面読み取りに続くスクリーンショットや、プレビューの連続フレーム）。
  */
 class AppAccessScreenPort(
     private val inner: ScreenPort,
@@ -24,7 +24,7 @@ class AppAccessScreenPort(
     private val windowToken: (() -> Long)? = null,
     private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
 ) : ScreenPort {
-    /** 上一次核对通过时的窗口计数、名单版本、是否在保护 Mika 自己的界面、时刻。 */
+    /** 最後のチェックに合格したときのウィンドウ数、リストのバージョン、Mika 自身のインターフェイスが保護されているかどうか、および時間。 */
     private class Verified(val token: Long, val revision: Long, val guarded: Boolean, val at: Long)
 
     @Volatile private var verified: Verified? = null
@@ -45,7 +45,7 @@ class AppAccessScreenPort(
         return v.token == token && v.revision == state.revision && v.guarded == guarded && clock() - v.at <= CHECK_TTL_MS
     }
 
-    /** 核对 [found] 这些窗口归属;有认不出归属的,隔一会儿再问一次窗口。通过了记下,供 [stillVerified] 沿用。 */
+    /** これらのウィンドウ [found] の所有権を確認します。所有者が分からない場合は、しばらくしてから再度窓口に問い合わせてください。承認された場合は、[stillVerified] が将来使用できるように記録します。 */
     private suspend fun verify(state: AppAccessState, found: List<String?>, guarded: Boolean, token: Long?) {
         verified = null
         var s = state
@@ -65,13 +65,13 @@ class AppAccessScreenPort(
         verified = t?.let { Verified(it, s.revision, guarded, clock()) }
     }
 
-    /** 读一屏:读到的就带着窗口归属,读完拿它核对;端口不给窗口时退回问窗口。 */
+    /** 画面の読み取り: 画面を読み取ると、ウィンドウの所有権も取得します。読んだ後は、それを確認してください。ポートがウィンドウに割り当てられていない場合は、質問するウィンドウに戻ります。 */
     private suspend fun observed(read: suspend () -> ScreenSnapshot): ScreenSnapshot {
         val state = appAccess.current()
         if (!state.available) throw AppAccessDenied("app_access_unavailable", null)
         val guarded = protectedUi()
         if (state.blocked.isEmpty() && !guarded) return read()
-        // 计数先取:读的过程中窗口变了,下一次就不沿用
+        // 最初にカウントします: 読み取りプロセス中にウィンドウが変更されるため、次回は使用されません
         val token = windowToken?.invoke()
         val snap = read()
         verify(appAccess.current(), snap.accessPackages() ?: packages(), guarded, token)
@@ -89,7 +89,7 @@ class AppAccessScreenPort(
         appAccess.current().denial(packageName)?.let { throw it }
     }
 
-    // ---------- 读屏 ----------
+    // ---------- 画面の読み取り ----------
     override suspend fun snapshot() = observed { inner.snapshot() }
     override suspend fun peek() = observed { inner.peek() }
     override suspend fun screenshotPng() = checked { inner.screenshotPng() }
@@ -98,7 +98,7 @@ class AppAccessScreenPort(
     override suspend fun isProtected() = checked { inner.isProtected() }
     override suspend fun checkScreen() = checked { inner.checkScreen() }
 
-    // ---------- 在当前屏上的动作 ----------
+    // ---------- 現在の画面でのアクション ----------
     override suspend fun tapRef(ref: String, snapshotId: String) = checked { inner.tapRef(ref, snapshotId) }
     override suspend fun tapXY(x: Int, y: Int) = checked { inner.tapXY(x, y) }
     override suspend fun doubleTapRef(ref: String, snapshotId: String) = checked { inner.doubleTapRef(ref, snapshotId) }
@@ -115,7 +115,7 @@ class AppAccessScreenPort(
     override suspend fun pressKey(keyCode: Int) = checked { inner.pressKey(keyCode) }
     override suspend fun setWheel(ref: String, snapshotId: String, value: String) = checked { inner.setWheel(ref, snapshotId, value) }
 
-    // ---------- 等待与事件 ----------
+    // ---------- 待機とイベント ----------
     override suspend fun waitStable(timeoutMs: Long) = checked { inner.waitStable(timeoutMs) }
     override suspend fun awaitChange(timeoutMs: Long) = checked { inner.awaitChange(timeoutMs) }
     override suspend fun waitFor(condition: String, value: String?, timeoutMs: Long) = checked { inner.waitFor(condition, value, timeoutMs) }
@@ -123,7 +123,7 @@ class AppAccessScreenPort(
     override suspend fun watchEvents(kind: String, packageName: String?, durationMs: Long, maxEvents: Int) =
         checked { inner.watchEvents(kind, packageName, durationMs, maxEvents) }
 
-    // ---------- 按目标打开:可以离开受限的 App,只看目标 ----------
+    // ---------- ターゲットごとに開く: 制限されたアプリを離れて、ターゲットのみを表示できます ----------
     override suspend fun openApp(packageName: String, cold: Boolean): ActionResult {
         target(packageName)
         return inner.openApp(packageName, cold)
@@ -139,22 +139,22 @@ class AppAccessScreenPort(
         return inner.shareText(packageName, text)
     }
 
-    /** 指定了 App 的在这里看;没指定的由端口按名单挑接手的 App(由谁打开只有端口知道)。 */
+    /** 指定されたアプリはここで表示できます。指定されていないアプリは、リストに従ってポートによって選択されます (誰がアプリを開くのかはポートだけが知っています)。 */
     override suspend fun openLink(action: String?, uri: String?, packageName: String?): ActionResult {
         packageName?.let(::target)
         return inner.openLink(action, uri, packageName)
     }
 
-    /** 只等占用登记、不读屏;目标照打开时一样先看,受限的 App 不必等,当场拒。 */
+    /** は職業の登録を待つだけで、画面の読み取りは行いません。対象の写真を開くと最初に表示され、制限されたアプリは待つ必要がなく、その場で拒否されます。 */
     override suspend fun awaitAppFree(packageName: String, userId: Int?, timeoutMs: Long): AppWait {
         target(packageName)
         return inner.awaitAppFree(packageName, userId, timeoutMs)
     }
 
-    /** 接手的 App 由端口按名单挑(由谁接只有端口知道);做完后的前台由执行入口照常核对。 */
+    /** によって引き継がれたアプリは、リストに従ってポートによって選択されます (誰がアプリを受け取るかはポートのみが知っています)。終了後のフロントは通常通り執行入口にてチェックを行っております。 */
     override suspend fun systemAction(action: SystemAction) = inner.systemAction(action)
 
-    // ---------- 不碰任何 App 界面的:原样转交 ----------
+    // ---------- アプリのインターフェースには触れないでください。そのまま渡してください ----------
     override suspend fun systemCommand(command: String) = inner.systemCommand(command)
     override suspend fun listApps() = inner.listApps()
     override suspend fun otherProfiles() = inner.otherProfiles()
@@ -162,17 +162,17 @@ class AppAccessScreenPort(
     override val afterTask: AfterTaskMarks? get() = inner.afterTask
 
     companion object {
-        /** 有认不出归属的窗口时,隔多久再问一次(刚开的窗口要一会儿才读得到)。 */
+        /** 認識できないウィンドウがある場合、どれくらいの頻度で再質問する必要があります(新しく開いたウィンドウを読み込むまでに時間がかかります)。 */
         const val RETRY_MS = 100L
 
-        /** 核对结果在窗口没变时最多沿用多久;兜住窗口事件来晚的那一小段。 */
+        /** ウィンドウが変更されていない場合にチェック結果を使用できる最大時間。これは、ウィンドウ イベントが遅れて発生する短い期間をカバーします。 */
         const val CHECK_TTL_MS = 1_000L
     }
 }
 
 /**
- * 这一屏里各 App 窗口的归属,规则同端口的窗口探针:有 App 窗口就是它们的包名(读不到根节点的为 null);
- * 没有 App 窗口时是认得出的前台 App,也没有就是空屏(空列表)。端口没给窗口层级(网页、测试端口)时为 null,由调用方另问。
+ * この画面の各アプリ ウィンドウの所有権。ルールは同じポートのウィンドウ プローブです。アプリ ウィンドウがある場合は、そのパッケージ名です (ルート ノードを読み取れない場合は null)。
+ * アプリウィンドウがない場合はフロントエンドアプリが認識され、アプリウィンドウがない場合は画面は空（空リスト）となります。ポートがウィンドウ レベル (Web ページ、テスト ポート) に指定されていない場合、ポートは null になり、呼び出し元は個別に問い合わせます。
  */
 internal fun ScreenSnapshot.accessPackages(): List<String?>? {
     val apps = windows.filter { it.type == "application" }

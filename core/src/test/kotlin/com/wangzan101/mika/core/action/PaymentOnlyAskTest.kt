@@ -35,7 +35,7 @@ import com.wangzan101.mika.core.assembly.toolDispatcher
 private fun el(ref: String, role: String, name: String, b: List<Int>, editable: Boolean = false, secret: Boolean = false) =
     UiElement(ref, role, name, 0, 0, b, null, !editable, editable, false, secret = secret)
 
-/** 和 [title] 的聊天页:标题、输入框、「发送」,另有「卸载」按钮、密码框、一个普通按钮和一行「删除」。 */
+/** と [title] のチャット ページ: タイトル、入力ボックス、「送信」、「アンインストール」ボタン、パスワード ボックス、通常ボタン、「削除」の行。 */
 private fun chatPage(title: String = "张三") = listOf(
     el("@e1", "text", title, listOf(0, 0, 999, 80)),
     el("@e2", "edit", "明天见", listOf(0, 900, 790, 999), editable = true),
@@ -46,7 +46,7 @@ private fun chatPage(title: String = "张三") = listOf(
     el("@e7", "button", "删除", listOf(800, 500, 990, 560)),
 )
 
-/** 结算页:店名、合计金额和「提交订单」「立即支付」。 */
+/** チェックアウト ページ: ストア名、合計金額、「注文を送信」および「今すぐ支払う」。 */
 private val checkoutPage = listOf(
     el("@e1", "text", "耳机店", listOf(0, 0, 999, 80)),
     el("@e2", "text", "合计 ¥25", listOf(0, 800, 600, 860)),
@@ -85,7 +85,7 @@ private var seq = 0
 private fun call(name: String, args: String = "{}") = Part.ToolCall("m${++seq}", name, args)
 private fun tools(vararg c: Part.ToolCall) = ModelReply(c.toList(), StopReason.ToolUse, null)
 private val OBSERVE get() = tools(call("phone_observe"))
-private val FINISH get() = com.wangzan101.mika.core.testing.answerReply("好了")
+private val FINISH get() = com.wangzan101.mika.core.testing.answerReply("完了しました")
 private fun tap(ref: String) = tools(call("phone_tap", """{"ref":"$ref","snapshotId":"s1"}"""))
 private fun type(ref: String, text: String) = tools(call("phone_type_text", """{"text":"$text","ref":"$ref","snapshotId":"s1"}"""))
 private val ASK_ORDER get() =
@@ -100,7 +100,7 @@ private class Settable(var auto: Boolean = false) : ApprovalSettings {
     override fun autonomous() = auto
 }
 
-/** 询问时只有花钱的那一步先问用户;别的(发送、删除、卸载、密码框、一般改动)都直接做。 */
+/** 質問するときは、最初にお金を使うステップについてのみユーザーに質問してください。他のすべての手順 (送信、削除、アンインストール、パスワード ボックス、一般的な変更) は直接行われます。 */
 @OptIn(ExperimentalCoroutinesApi::class)
 class PaymentOnlyAskTest {
     private fun loop(
@@ -164,7 +164,7 @@ class PaymentOnlyAskTest {
     }
 
     @Test fun confirmationIsOnlyForSpendingMoney() = runTest {
-        // 写不出金额的申请(发消息)不交给用户,直接告诉模型去做
+        // 金額の書き込み（メッセージの送信）ができない場合、アプリケーションはユーザーに渡されず、モデルに直接指示されます。
         val s = Chat()
         val send = tools(call("request_confirmation", """{"action":"send","target":"张三","content":"明天见","app":"com.chat"}"""))
         val m = FakeModel(OBSERVE, send, tap("@e3"), FINISH)
@@ -180,7 +180,7 @@ class PaymentOnlyAskTest {
         val s = Chat(page = checkoutPage)
         val approvals = Settable()
         val m = FakeModel(OBSERVE, tap("@e3"), tap("@e3"), FINISH)
-        // 第一次点提交订单时还在询问:被拦下;模型再点之前用户换成了自主
+        // 初めて注文を送信するためにクリックしたとき、私はまだ尋ねていました。「止められました。」モデルを再度クリックする前に、ユーザーは自律型に変更されました。
         val flipping = object : ChatModel by m {
             override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
                 if (m.requests.size == 2) approvals.auto = true
@@ -214,13 +214,13 @@ class PaymentOnlyAskTest {
     }
 
     @Test fun mikaNeverOperatesItself() = runTest {
-        // 屏上是 Mika 自己:不点
+        // 画面にはミカ自身が表示されます: クリックしないでください
         val s = Chat(app = "com.mika")
         val m = FakeModel(OBSERVE, tap("@e6"), GIVE_UP)
         loop(m, s, self = "com.mika").run("t")
         assertTrue(s.taps.isEmpty())
         assertEquals("own_app", m.result(2).s("error"))
-        // 从别的 App 打开 Mika、打开它的应用详情:不做
+        // 他のアプリからミカを開き、そのアプリケーションの詳細を開きます: これは行わないでください
         s.app = "com.chat"
         val m2 = FakeModel(OBSERVE, tools(call("phone_launch_app", """{"package":"com.mika"}""")), tools(call("phone_open_link", """{"uri":"package:com.mika"}""")), GIVE_UP)
         loop(m2, s, self = "com.mika").run("t")

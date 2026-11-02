@@ -8,7 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Test
 
-/** 胶囊卡片的输入框:收起时没发出的字留着,说的话接在后面。 */
+/** カプセルカード入力ボックス: 折りたたんだときに送信されなかった単語を保持し、その後の単語をフォロ​​ーします。 */
 class CardInputUiTest {
     private val screen = PendingScreen(CapturedScreen(null, UserScreen("", 0L, "com.android.settings", "设置")), null)
 

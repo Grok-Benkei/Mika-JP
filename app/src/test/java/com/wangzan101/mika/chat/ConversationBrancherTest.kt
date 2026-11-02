@@ -11,7 +11,7 @@ import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.nio.file.Files
 
-/** 分支工作区只复制 `inbox/` 里的普通文件;符号链接、inbox 外的文件都不进去。纯 JVM,不依赖 Android。 */
+/** ブランチ ワークスペースは、`inbox/` 内の通常のファイルのみをコピーします。シンボリック リンクや受信トレイ外のファイルは含まれません。純粋な JVM は Android に依存しません。 */
 class ConversationBrancherTest {
     @get:Rule val tmp = TemporaryFolder()
 

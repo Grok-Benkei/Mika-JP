@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** 外壳侧再查一次链接:和 :core 分发器同一组用例,绕过分发器直接调 startView 的也拦得住。 */
+/** シェル側でリンクを再度確認します。:core ディストリビュータと同じ一連の使用例で、ディストリビュータをバイパスして startView を直接呼び出すことも停止できます。 */
 class LinkPolicyTest {
     private val invalid = ShellService.START_INVALID_LINK
 
@@ -47,7 +47,7 @@ class LinkPolicyTest {
         val main = setOf("com.a", "com.b")
         assertEquals(true, ShellLinks.inUse(listOf("com.c", "com.b"), main))
         assertEquals(false, ShellLinks.inUse(listOf("com.c"), main))
-        // 解析不出包名时看不清,按在用处理
+        // パッケージ名が解析できない場合は、パッケージ名を明確に確認できません。使用済みとして扱ってください。
         assertEquals(true, ShellLinks.inUse(emptyList(), main))
     }
 }

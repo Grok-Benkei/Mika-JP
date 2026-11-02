@@ -13,51 +13,51 @@ import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 import java.nio.file.attribute.BasicFileAttributes
 
-/** 句柄所指文件的类型与身份(fstat/lstat)。 */
+/** ハンドル (fstat/lstat) が指すファイルのタイプと ID。 */
 data class FdStat(val kind: Kind, val nlink: Long, val size: Long, val dev: Long, val ino: Long) {
     enum class Kind { FILE, DIR, LINK, OTHER }
 }
 
-/** 打开一次得到的句柄;实际是哪个文件只看句柄本身(安卓上读 /proc/self/fd/N),不再按路径重走。 */
+/** は、一度取得したハンドルを開きます。実際のファイルを決定するためにハンドル自体 (Android では /proc/self/fd/N を読み取ります) のみが使用され、パスを再トレースする必要はありません。 */
 interface OpenFd : Closeable {
     fun realPath(): String
     fun stat(): FdStat
-    /** 文件句柄上的通道(读或写,看打开方式);目录没有。 */
+    /** ファイル ハンドルのチャネル (開く方法に応じて読み取りまたは書き込み)。ディレクトリにはありません。 */
     fun channel(): FileChannel
     fun truncate(size: Long)
 }
 
 enum class OpenHow { READ, CREATE_NEW, WRITE, APPEND }
 
-/** [FdSys] 报的系统调用错误,由 [WorkspaceFileGate] 换成工具层的错误码。 */
+/** [FdSys] によって報告されたシステム コール エラーは、[WorkspaceFileGate] のツール層のエラー コードに置き換えられます。 */
 class FdSysException(val kind: Kind, cause: Throwable? = null) : IOException(kind.name, cause) {
     enum class Kind { NOT_FOUND, EXISTS, LINK, NOT_DIR, NOT_FILE }
 }
 
 /**
- * 系统调用那一层。带 dir 的调用都以那个已打开的目录为准,[name] 是单段名字,最后一段不跟随链接。
- * 安卓上的实现在 app(open O_NOFOLLOW + /proc/self/fd/N);[NioFdSys] 是 JVM 上按路径的近似,只给 JVM 测试用。
+ * システムコール層。 dir を使用した呼び出しは、開かれたディレクトリに基づきます。 [name] は単一セグメント名であり、最後のセグメントはリンクに続きません。
+ * は Android のアプリに実装されています (O_NOFOLLOW + /proc/self/fd/N を開きます)。 [NioFdSys] は JVM 上のパスの近似値であり、JVM テストにのみ使用されます。
  */
 interface FdSys {
-    /** 根目录本身(调用方给的、沙箱碰不到的路径);最后一段是链接时报 LINK。 */
+    /** ルート ディレクトリ自体 (呼び出し元によって指定され、サンドボックスからは到達できないパス)。最後の段落はリンクです。 */
     fun openRoot(path: File): OpenFd
     fun openDir(dir: OpenFd, name: String, create: Boolean): OpenFd
     fun openFile(dir: OpenFd, name: String, how: OpenHow): OpenFd
-    /** 不跟随链接;不存在为 null。 */
+    /** リンクを辿らない; 存在しなければ null。 */
     fun lstat(dir: OpenFd, name: String): FdStat?
     fun readlink(dir: OpenFd, name: String): String?
     fun list(dir: OpenFd): List<String>
-    /** 删掉这一项本身(文件、链接或空目录),不跟随链接。 */
+    /** その項目自体を削除する（ファイル、リンク、または空のディレクトリ）。リンクは辿らない。 */
     fun remove(dir: OpenFd, name: String)
-    /** 同一目录里改名,[to] 已有(文件或链接)时整个换掉。 */
+    /** 同じディレクトリの中で名前を変える。[to] が既にある場合（ファイルかリンク）は丸ごと置き換える。 */
     fun rename(dir: OpenFd, from: String, to: String)
     fun symlink(dir: OpenFd, name: String, target: String)
     fun chmod(fd: OpenFd, mode: Int)
 }
 
 /**
- * JVM 上的近似实现:按路径解析,检查与使用之间有空隙。只用于 JVM 单元测试(macOS 上没有 /proc/self/fd);
- * 手机上一律用 app 里的安卓实现。
+ * JVM 上の近似実装: パスで解決するため、確認と使用の間に隙間がある。JVM 単体テスト専用（macOS には /proc/self/fd がない）;
+ * 携帯電話はすべて、アプリに Android を使用して実装されています。
  */
 object NioFdSys : FdSys {
     private class Fd(val path: Path, private val ch: FileChannel?) : OpenFd {
@@ -100,7 +100,7 @@ object NioFdSys : FdSys {
         val p = fd(dir).path.resolve(name)
         val a = attrs(p)
         if (a?.isSymbolicLink == true) throw FdSysException(if (how == OpenHow.CREATE_NEW) FdSysException.Kind.EXISTS else FdSysException.Kind.LINK)
-        // NIO 打不开 O_NONBLOCK:FIFO 之类先按类型拒掉,免得读写时卡住
+        // NIO を開けません。 O_NONBLOCK: FIFO などは、読み取りおよび書き込み中のスタックを避けるために、タイプによって最初に拒否されます。
         if (a != null && !a.isRegularFile) throw FdSysException(if (how == OpenHow.CREATE_NEW) FdSysException.Kind.EXISTS else FdSysException.Kind.NOT_FILE)
         val opts = when (how) {
             OpenHow.READ -> setOf(StandardOpenOption.READ)

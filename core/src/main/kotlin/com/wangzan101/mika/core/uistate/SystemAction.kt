@@ -1,28 +1,28 @@
 package com.wangzan101.mika.core.uistate
 
 /**
- * 经安卓标准接口(intent)做的系统动作:设闹钟、计时器,打开闹钟列表,打开预填好的新日程。
- * 由手机上装着的时钟、日历 App 接手;没有 App 接时端口报 [SystemActionResult.NOT_SUPPORTED],模型退回去操作界面。
+ * システム アクション (インテント): 目覚まし時計の設定、タイマー、目覚まし時計リストを開く、事前に入力された新しいスケジュールを開きます。
+ * は、携帯電話にインストールされている時計とカレンダーのアプリによって引き継がれます。アプリがない場合、タイムポートは [SystemActionResult.NOT_SUPPORTED] を報告し、モデルは操作インターフェイスに戻ります。
  */
 sealed interface SystemAction {
-    /** [days] 每周重复的日子,按 java.util.Calendar 的写法(1 = 周日 … 7 = 周六),空 = 只响一次。 */
+    /** [days] 毎週繰り返される日、java.util.Calendar の記述方法に従って (1 = 日曜日... 7 = 土曜日)、空 = 1 回だけ鳴ります。 */
     data class SetAlarm(val hour: Int, val minute: Int, val label: String? = null, val days: List<Int> = emptyList(), val vibrate: Boolean? = null) : SystemAction
     data class SetTimer(val seconds: Int, val label: String? = null) : SystemAction
     data object ShowAlarms : SystemAction
-    /** 起止为毫秒时间戳;[allDay] 时只看日期。 */
+    /** はミリ秒のタイムスタンプで開始および終了します。 [allDay] は日付のみを参照します。 */
     data class AddCalendarEvent(
         val title: String, val beginMs: Long, val endMs: Long? = null, val allDay: Boolean = false,
         val location: String? = null, val description: String? = null,
     ) : SystemAction
 
-    /** 交给 App 后不留界面(闹钟、计时器);其余在 Mika 的屏上打开那个 App 的页面。 */
+    /** App へ渡した後は UI を残さない（アラーム、タイマー）; それ以外は Mika の画面でその App のページを開く。 */
     val silent: Boolean get() = this is SetAlarm || this is SetTimer
 }
 
 /**
- * 系统动作的结果。[result] 失败时原因为 [NOT_SUPPORTED](没有 App 接这个动作)、app_in_use_by_user、launch_failed 等;
- * [handledBy] 接手的 App 的包名;[nextAlarmBefore] / [nextAlarmAfter] 是动作前后系统报的下一个闹钟(毫秒时间戳,没有为 null),
- * [alarmReadable] 为 false 时读不到;[showing]:动作之后 Mika 的屏上开着 [handledBy] 的页面(本该悄悄设好的,App 却开了界面)。
+ * システムアクションの結果。[result] が失敗のときの理由は [NOT_SUPPORTED]（そのアクションを受ける App がない）、app_in_use_by_user、launch_failed など;
+ * [handledBy] は引き受けた App のパッケージ名; [nextAlarmBefore] / [nextAlarmAfter] はアクションの前後にシステムが報告した次のアラーム（ミリ秒のタイムスタンプ、なければ null）、
+ * [alarmReadable] が false のときは読めない; [showing]: アクションの後に Mika の画面で [handledBy] のページが開いている（本来静かに設定されるはずが、App が UI を開いた）。
  */
 data class SystemActionResult(
     val result: ActionResult,

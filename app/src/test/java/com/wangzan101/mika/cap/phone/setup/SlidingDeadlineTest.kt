@@ -28,7 +28,7 @@ class SlidingDeadlineTest {
         assertFalse(result.await())
     }
 
-    /** 引导页开着放了九分多钟才去系统设置:从这时起再看 10 分钟,不按第一次开始的时候收工。 */
+    /** ブート ページは、システム設定に移動するまで 9 分以上開いたままになっていました。この時点から、さらに 10 分間視聴しましたが、ボタンを押して終了することはありませんでした。 */
     @Test
     fun extendingWhileWaitingCountsFromThen() = runTest {
         val d = deadline()

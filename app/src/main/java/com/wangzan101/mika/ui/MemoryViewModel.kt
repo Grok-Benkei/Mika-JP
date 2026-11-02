@@ -35,16 +35,16 @@ import com.wangzan101.mika.i18n.uiLocale
 import com.wangzan101.mika.core.assembly.knownTools
 import com.wangzan101.mika.core.tool.Verb
 
-/** 页面三段:已记下的、个人技能、等你确认的(待批准的做法 + 技能与 App 知识草稿)。 */
+/** ページには、書き留められた内容、個人スキル、確認を待っている内容 (承認されるべきプラクティス + スキルとアプリの知識のドラフト) の 3 つのセクションがあります。 */
 enum class Segment { Memories, Skills, Pending }
 
-/** 列表里的一条记忆;[source] 是「你在 10 月 23 日说:『…』」或「你手写的」。 */
+/** リスト内のメモリ。 [source] は、「あなたは 10 月 23 日に「...」と言った」または「あなたの手書き」です。 */
 data class Row(
     val id: String, val kind: MemoryKind, val content: String, val keywords: List<String>, val source: String,
     val pinned: Boolean, val pending: Boolean, val replaces: String?,
 )
 
-/** [clearStage]:0 没在清除,1 第一次确认,2 第二次确认。[message] 是一次性的提示(比如「这类信息我不会记」)。 */
+/** [clearStage]: 0 未クリア、1 初回確認、2 2 回目確認。 [message] は 1 回限りのリマインダーです (「この種の情報は覚えません」など)。 */
 data class MemoryUi(
     val segment: Segment = Segment.Memories,
     val query: String = "",
@@ -56,13 +56,13 @@ data class MemoryUi(
     val clearStage: Int = 0,
     val skills: SkillsUi = SkillsUi(),
 ) {
-    /** 「待确认」段的条数:待批准的记忆 + 技能草稿 + 还没收下的 App 知识草稿。 */
+    /** 「確認中」セクションの項目の数: 承認される思い出 + スキルドラフト + まだ没収されていないアプリのナレッジドラフト。 */
     val pendingCount: Int get() = pending.size + skills.drafts.size + skills.appKnowledge.count { it.stage == AppKnowledgeStage.Draft }
 }
 
 /**
- * 「记忆与技能」页的状态:分段、搜索(空查询按更新时间倒序)、待批准的做法置顶、编辑、置顶、删除、手写新增、
- * 全部清除(两次确认)和三个开关。技能分段见 [SkillsUi]。
+ * 「記憶とスキル」ページのステータス: セグメント化、検索 (空のクエリは更新時間の逆順)、承認される実践リストの先頭、編集、先頭、削除、手書き追加、
+ * すべてクリア（確認2つ）、スイッチ3つ。スキルのセグメンテーションについては、[SkillsUi] を参照してください。
  */
 class MemoryViewModel(
     private val store: MemoryStore,
@@ -70,16 +70,16 @@ class MemoryViewModel(
     private val skills: PersonalSkills?,
     scope: CoroutineScope,
     brokenNotice: StateFlow<String?> = MutableStateFlow(null),
-    /** 全部清除:记忆文件、坏文件另存、个人技能都删掉并重建密钥。 */
+    /** すべてクリア: メモリ ファイルを削除し、不良ファイルを保存し、個人スキルとキーを再作成します。 */
     private val wipe: () -> Unit = { store.clearAll() },
     private val clock: () -> Long = System::currentTimeMillis,
-    /** 删掉了一条记忆:对话里指向它的提示也去掉。 */
+    /** はメモリを削除しました。ダイアログ内でメモリを指すプロンプトも削除されました。 */
     private val onForgotten: (String) -> Unit = {},
-    /** 收下改过的技能时校验提到的工具名。 */
+    /** 変更されたスキルを受け入れるときに指定されたツール名を確認してください。 */
     private val toolNames: Set<String> = knownToolNames(),
-    /** 跑技能脚本的工具名。 */
+    /** スキルスクリプトを実行するためのツール名。 */
     private val scriptTool: String? = knownTools().nameOf(Verb.RunBundledScript),
-    /** 收下改过的技能时:提到跑脚本的工具的,脚本得是清单里标为可运行的。 */
+    /** 変更されたスキルを受け入れる場合: スクリプトを実行するツールに関しては、スクリプトがリスト内で実行可能としてマークされている必要があります。 */
     private val runnableScripts: Set<String> = emptySet(),
     private val appDrafts: AppKnowledgeDraftStore? = null,
 ) {
@@ -107,7 +107,7 @@ class MemoryViewModel(
         if (store.forget(id).isSuccess) onForgotten(id)
     }
     fun approve(id: String) { store.approve(id) }
-    /** 待批准的做法点「不要」= 删除。 */
+    /** 承認する＝削除するメソッドの「しない」をクリックします。 */
     fun reject(id: String) = delete(id)
 
     fun add(kind: MemoryKind, content: String, keywords: List<String>) =
@@ -142,11 +142,11 @@ class MemoryViewModel(
 
     private fun row(m: MemoryItem) = Row(m.id, m.kind, m.content, m.keywords, sourceLine(m.source), m.pinned, m.status == MemoryStatus.pending, m.replaces)
 
-    // ---- 技能分段 ----
+    // ---- スキルセグメンテーション ----
     private fun skillsUi(): SkillsUi = skills?.let { SkillsUi.of(it, appDrafts) } ?: SkillsUi()
     private fun skillsChanged() = skillsVersion.update { it + 1 }
 
-    /** 收下草稿;[edited] 是用户改过的全文,和起草出来的一样要过格式与安全校验,不过就不收并说明。 */
+    /** はドラフトを受け入れます。 [edited] は、ユーザーによって変更された全文です。草案と同様にフォーマットとセキュリティチェックを通過する必要がありますが、受け入れられず、説明も受けられません。 */
     fun approveSkill(draftId: String, edited: String? = null) {
         val p = skills ?: return
         val problem = edited?.let { SkillDrafter.validate(it, toolNames, scriptTool, runnableScripts) }
@@ -167,7 +167,7 @@ class MemoryViewModel(
 
     fun suspendSkill(name: String) = changeSkill(name) { it.copy(status = SkillStatus.suspended) }
 
-    /** 恢复时清掉旧结果,免得下一次一不顺又马上被停用。 */
+    /** 次回何か問題が発生したときにすぐに非アクティブ化されないように、復元時に古い結果をクリアします。 */
     fun restoreSkill(name: String) = changeSkill(name) {
         it.copy(status = it.restoredStatus(), outcomes = emptyList())
     }
@@ -207,14 +207,14 @@ class MemoryViewModel(
 }
 
 /**
- * 一份 App 知识补充。待确认的:[revision] 为 true 是对在用那份的修订,否则是第一次补充;
- * [changedLines] 是相对在用那份(第一次补充时相对空白)加了、去掉的行。
- * [replaced]:收下的修订正在试用,暂时顶替了这一份(不注入;修订被归档就换回来)。
+ * アプリの知識の補足。確認: [revision] が true の場合、それは現在使用されているもののリビジョンであり、それ以外の場合は最初の追加です。
+ * [changedLines] は、現在使用されている行に対して追加または削除された行です (最初に追加されたときは比較的空白です)。
+ * [replaced]: 受け入れられたリビジョンは試用中であり、一時的にこのリビジョンと置き換えられました (挿入されません。リビジョンはアーカイブ後に置き換えられます)。
  */
 data class AppKnowledgeRow(val id: String, val name: String, val markdown: String, val stage: AppKnowledgeStage,
     val revision: Boolean = false, val changedLines: List<String> = emptyList(), val replaced: Boolean = false)
 
-/** 技能分段的内容:待收下的草稿和已收下的个人技能(在用的在前)。 */
+/** スキル セグメントの内容: 承認されるドラフトと承認された個人スキル (現在使用されているものが最初)。 */
 
 data class SkillsUi(val drafts: List<SkillRow> = emptyList(), val installed: List<SkillRow> = emptyList(),
     val appKnowledge: List<AppKnowledgeRow> = emptyList()) {
@@ -247,7 +247,7 @@ data class SkillsUi(val drafts: List<SkillRow> = emptyList(), val installed: Lis
             )
         }
 
-        /** 更新草稿相对原来那份(技能或 App 知识补充):「+ 」新增的行、「- 」去掉的行(不比空行)。 */
+        /** 元のドラフトと比較して更新されたドラフト (スキルまたはアプリの知識の補足): 「+」で行が追加され、「-」で行が削除されました (空白行はなくなりました)。 */
         fun changedLines(old: String, new: String): List<String> {
             val before = old.lines().map { it.trimEnd() }.filter { it.isNotBlank() }
             val after = new.lines().map { it.trimEnd() }.filter { it.isNotBlank() }
@@ -263,11 +263,11 @@ data class SkillsUi(val drafts: List<SkillRow> = emptyList(), val installed: Lis
     }
 }
 
-/** [id] 是草稿编号(已收下的为技能名);[changedLines] 是更新草稿相对原技能改了的行。 */
+/** [id] はドラフト番号です (受け入れられるものはスキル名です)。 [changedLines] は、更新されたドラフトで元のスキルから変更された行です。 */
 data class SkillRow(
     val id: String, val name: String, val display: String, val description: String, val markdown: String,
     val suspended: Boolean = false, val trial: Boolean = false, val canRestore: Boolean = false,
     val recent: List<String> = emptyList(), val changedLines: List<String> = emptyList(),
-    /** 用户在任务里要求写下的(不是从办成的任务里学来的)。 */
+    /** ユーザーは、それをタスクに書き留めるように要求しました (完了したタスクからは学習されません)。 */
     val userCreated: Boolean = false,
 )

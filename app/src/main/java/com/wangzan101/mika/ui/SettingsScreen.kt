@@ -65,12 +65,12 @@ import java.time.ZoneId
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** 设置里能进入的子页面;[Home] 是设置首页。 */
+/** 設定から入れる子ページ; [Home] は設定のトップページ。 */
 private enum class SettingsPage { Home, AppAccess, Usage, PhoneOps, DuringWork, Capsule, Language, Notifications, WebSites, Sandbox, Routes, Recovery, SelfCheck, ComputerAccess, McpServers, Developer, RunStats }
 
 /**
- * 设置页:总状态卡 + 基本 / 隐私与数据 / 高级 / 关于四组。各子页面在这里切换(返回键先回首页),
- * 模型页由 [onOpenModels]、关于页由 [onOpenAbout] 交给 Activity。修复动作由 [onFix] 交给 Activity 去做(请求权限、跳转系统设置)。
+ * 設定ページ: 全体の状態カード + 基本 / プライバシーとデータ / 詳細 / Mika についての4グループ。各子ページはここで切り替える（戻るキーはまずトップへ戻る）、
+ * モデルページは [onOpenModels]、Mika についてページは [onOpenAbout] が Activity へ渡す。修復アクションは [onFix] が Activity へ渡して実行する（権限の要求、システム設定への遷移）。
  */
 @Composable
 fun SettingsScreen(
@@ -82,18 +82,18 @@ fun SettingsScreen(
     onOpenModels: () -> Unit,
     onOpenMemory: (() -> Unit)? = null,
     webSites: WebSitesState? = null,
-    /** 开发者选项里的「自主模式」:当前值和换它的办法。 */
+    /** 開発者向けオプションの「自律モード」: 現在の値とその変更方法。 */
     autonomous: Boolean = false,
     onAutonomous: (Boolean) -> Unit = {},
-    /** 查到的新版本号;有它时「关于 Mika」一行写「x 可更新」带红点。 */
+    /** は見つかった新しいバージョン番号です。それが見つかると、「About Mega」行に「x は更新できます」と赤い点が表示されます。 */
     updateVersion: String? = null,
     onOpenAbout: () -> Unit = {},
-    /** 外部 MCP server 设置(outbound);为空时不显示入口。 */
+    /** 外部 MCP サーバー設定 (アウトバウンド);空の場合、エントリは表示されません。 */
     mcpServers: com.wangzan101.mika.settings.McpServerStore? = null,
 ) {
     val configs by store.configs.collectAsState()
     val roles by store.roles.collectAsState()
-    // 开发者选项里的「看图定位已验证」跟着看图模型(看图用主模型时是主模型那条配置)
+    // 開発者向けオプションの「表示画像の位置確認」は画像モデルに従います（メインモデルを使用して画像を表示する場合は、メインモデルの構成となります）
     val visionConfig = remember(configs, roles) { store.configFor(ModelRole.Vision) }
     var page by rememberSaveable { mutableStateOf(SettingsPage.Home) }
     var explaining by remember { mutableStateOf<Problem?>(null) }
@@ -101,7 +101,7 @@ fun SettingsScreen(
     fun fix(f: Fix) = if (f == Fix.AddModel) onOpenModels() else onFix(f)
     val onProblem: (Problem) -> Unit = { p -> StatusCopy.directFix(p)?.let(::fix) ?: run { explaining = p } }
 
-    // 并行任务的上限只在实验开关 parallelTasks 打开时出现;设备能力按此刻算,第二块屏建失败过就按失败算
+    // 並列タスクの上限は、実験的なスイッチParallelTask​​sがオンになっている場合にのみ表示されます。デバイスの能力はこの時点に基づいて計算され、2 番目の画面の構築に失敗した場合は失敗として計算されます。
     val context = LocalContext.current
     val flags = remember { FeatureFlags.get(context) }
     var parallelMax by remember { mutableIntStateOf(flags.parallelMax()) }
@@ -111,7 +111,7 @@ fun SettingsScreen(
     var stepLimit by remember { mutableStateOf(flags.taskStepLimit()) }
     var selfConfig by remember { mutableStateOf(flags.selfConfig()) }
     var capsuleMode by remember { mutableStateOf(flags.capsuleMode()) }
-    // 换语言时界面会重建,这里每次进来读一次即可
+    // 言語を変更するとインターフェースが再構築されます。ここに来たらいつでも読むことができます。
     val language = remember { AppLanguage.current(context) }
     val runtimeLimit by (context.applicationContext as com.wangzan101.mika.MikaApp).taskState.parallelLimit.collectAsState()
     var speed by remember { mutableStateOf(flags.speedFlags()) }
@@ -120,7 +120,7 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { routeCount = withContext(Dispatchers.IO) { runCatching { routeStore.count() }.getOrNull() } }
     val sandboxStatus by remember { SandboxState.get(context) }.status.collectAsState()
-    // 网络代理:只在这里改;读设置要解密、看浏览器支不支持要加载 WebView,都放到后台
+    // ネットワーク プロキシ: ここでのみ変更します。復号化する設定を読み取り、ブラウザが WebView の読み込みをサポートしているかどうかを確認し、すべてバックグラウンドで実行されます。
     val proxies = remember { NetProxyStore.get(context) }
     var proxy by remember { mutableStateOf<String?>(null) }
     var browserProxy by remember { mutableStateOf<WebProxy.Mode?>(null) }
@@ -133,7 +133,7 @@ fun SettingsScreen(
     val mcpNetworkOn by mcp.settings.enabled.collectAsState()
     val mcpUsbOn by mcp.usb.enabled.collectAsState()
     val mcpOn = mcpNetworkOn || mcpUsbOn
-    // 「Token 用量」一行的值:近 7 天的合计,账本每记一笔就重算
+    // 「トークン使用量」行の値: 過去 7 日間の合計。入力が行われるたびに台帳が再計算されます。
     val usage = remember { (context.applicationContext as com.wangzan101.mika.MikaApp).usage }
     val usageVersion by usage.version.collectAsState()
     var usageWeek by remember { mutableStateOf<Long?>(null) }
@@ -149,10 +149,10 @@ fun SettingsScreen(
             secondDisplayFailed = runtimeLimit.reason == ParallelCapability.SECOND_DISPLAY_FAILED,
         ),
     )
-    // 开发者选项只在调试版和性能测试版里列出:发布版的各开关按评测结果统一定默认值
+    // 開発者向けオプションは、デバッグ バージョンとパフォーマンス テスト バージョンにのみ記載されています。リリース バージョンの各スイッチのデフォルト値は、評価結果に基づいて決定されます。
     val showDeveloper = com.wangzan101.mika.record.DetailedTraces.supportedBuild
     val toHome = { page = SettingsPage.Home }
-    // 通知页可以从首页或手机操作页进,返回回到进来的那一页
+    // の通知ページはホームページまたは携帯電話の操作ページから入り、元のページに戻ることができます
     var notificationsFrom by rememberSaveable { mutableStateOf(SettingsPage.Home) }
     val back = {
         page = when (page) {
@@ -207,7 +207,7 @@ fun SettingsScreen(
         )
         SettingsPage.Language -> LanguageScreen(language, onLanguage = { AppLanguage.set(context, it) }, onBack = toHome)
         SettingsPage.Capsule -> CapsuleScreen(capsuleMode, onMode = { flags.setCapsuleMode(it); capsuleMode = it }, onBack = toHome)
-        // 没有数据时首页不显示入口,走不到这一页
+        // データが無い場合、ホームページに入り口が表示されず、このページにたどり着けません。
         SettingsPage.WebSites -> webSites?.let { WebSitesScreen(it, onBack = toHome) }
         SettingsPage.Sandbox -> SandboxScreen(onBack = toHome)
         SettingsPage.Routes -> RoutesScreen(
@@ -260,34 +260,34 @@ fun SettingsScreen(
 }
 
 /**
- * 不带状态的设置首页,便于测试。可选的入口([usageTokens]、[onOpenMemory]、[webSitesCount]、[grantsCount]、[routes]、[sandbox])
- * 为空时对应那一行不显示;[showDeveloper] 为假(发布版)时没有开发者选项。
+ * は、テストを容易にするためにステータスなしのホームページを設定します。オプションの入口 ([usageTokens]、[onOpenMemory]、[webSitesCount]、[grantsCount]、[routes]、[sandbox])
+ * が空の場合、対応する行は表示されません。 [showDeveloper] が false (リリース バージョン) の場合、開発者向けオプションはありません。
  */
 @Composable
 fun SettingsContent(
     status: SystemStatus,
     androidRelease: String,
-    /** 当前主模型的名字;没有可用的主模型时为空。 */
+    /** 現在のメインモデルの名前。利用可能なメイン モデルがない場合は空です。 */
     mainModel: String?,
     onBack: () -> Unit,
     onProblem: (Problem) -> Unit,
     onOpenModels: () -> Unit,
-    /** 网络代理(空串表示不用);为空(还没读出来)时不显示这一行。 */
+    /** ネットワーク プロキシ (空の文字列は使用されないことを意味します);この行が空の場合（まだ読み込まれていない場合）には表示されません。 */
     proxy: String? = null,
-    /** 网络代理那一行下面的说明。 */
+    /** ネットワーク プロキシ行の下の説明。 */
     proxyNote: String? = null,
     onOpenProxy: () -> Unit = {},
-    /** 近 7 天用了多少 token;为空(还没统计出来)时不显示这一行。 */
+    /** 過去 7 日間に使用されたトークンの数。この行が空（まだ計算されていない）の場合は表示されません。 */
     usageTokens: Long? = null,
     onOpenUsage: () -> Unit = {},
     onOpenPhoneOps: () -> Unit = {},
     onOpenAppAccess: () -> Unit = {},
     onOpenDuringWork: () -> Unit = {},
-    /** 悬浮胶囊此刻的选择,写在「悬浮胶囊」一行的右边。 */
+    /** 現在選択されているサスペンション カプセルは、「サスペンション カプセル」行の右側に表示されます。 */
     capsuleMode: CapsuleMode = CapsuleMode.DEFAULT,
     onOpenCapsule: () -> Unit = {},
     onOpenNotifications: () -> Unit = {},
-    /** 此刻选的界面语言,写在「语言」一行的右边。 */
+    /** 「言語」行の右側に、現在選択されているインターフェース言語が記載されています。 */
     language: AppLanguage = AppLanguage.System,
     onOpenLanguage: () -> Unit = {},
     onOpenMemory: (() -> Unit)? = null,
@@ -295,14 +295,14 @@ fun SettingsContent(
     onOpenWebSites: () -> Unit = {},
     sandbox: SandboxStatus? = null,
     onOpenSandbox: () -> Unit = {},
-    /** 已记住的操作路线条数;为空(还没读出来)时不显示这一行。 */
+    /** 記憶された操作ルートの数。この行が空の場合（まだ読み込まれていない場合）には表示されません。 */
     routes: Int? = null,
     onOpenRoutes: () -> Unit = {},
     onOpenRecovery: () -> Unit = {},
-    /** 电脑连接(MCP)开着没有;为空时不显示这一行。 */
+    /** コンピューター接続 (MCP) がオンになっているかどうか。この行が空の場合は表示されません。 */
     computerAccess: Boolean? = null,
     onOpenComputerAccess: () -> Unit = {},
-    /** 外部 MCP server 数量;为空时不显示入口。 */
+    /** 外部 MCP サーバーの数。空の場合、エントリは表示されません。 */
     mcpServersCount: Int? = null,
     onOpenMcpServers: () -> Unit = {},
     showDeveloper: Boolean = false,
@@ -310,7 +310,7 @@ fun SettingsContent(
     versionName: String = "",
     updateVersion: String? = null,
     onOpenAbout: () -> Unit = {},
-    /** 外部 MCP server 设置(outbound);为空时不显示入口。 */
+    /** 外部 MCP サーバー設定 (アウトバウンド);空の場合、エントリは表示されません。 */
     mcpServers: com.wangzan101.mika.settings.McpServerStore? = null,
 ) {
     val check = Prerequisites.check(status, hasMainModel = mainModel != null)
@@ -323,7 +323,7 @@ fun SettingsContent(
                 RowValue(mainModel ?: stringResource(R.string.settings_not_set))
                 RowChevron()
             }
-            // 调模型的连接要不要走代理,和模型放在一起找得到;容器、更新、内置浏览器也按这一处
+            // モデルの接続を調整するためにプロキシを使用するかどうかは、モデルと一緒に確認できます。コンテナ、アップデート、組み込みブラウザもここで見つけることができます。
             proxy?.let {
                 ListRow(MikaIcons.Link, NetProxyCopy.TITLE, proxyNote, onClick = onOpenProxy) {
                     RowValue(NetProxyCopy.value(it))
@@ -415,7 +415,7 @@ fun SettingsContent(
     }
 }
 
-/** 「手机操作」一行尾部的状态胶囊:无障碍和内置助手都就绪才是「可用」。 */
+/** 「モバイル操作」行の末尾にあるステータス カプセル: アクセシビリティと組み込みアシスタントの準備ができている場合にのみ「利用可能」。 */
 @Composable
 private fun PhoneOpsPill(status: SystemStatus) {
     when {
@@ -433,8 +433,8 @@ private fun sandboxValue(s: SandboxStatus): String = when (s) {
 }
 
 /**
- * 页面顶上的总状态:一切正常是「一切就绪」;否则变成第一个问题的提示,带修复按钮。
- * 焦点提醒改不了,只在手机操作页的「系统版本」一行里提示,不占这里。
+ * ページ上部の全体的なステータス: すべてが正常な場合は「準備完了」。それ以外の場合は、修復ボタンを含む最初の問題プロンプトになります。
+ * フォーカスリマインダーは変更できません。これは、携帯電話の操作ページの「システム バージョン」行でのみ要求され、このスペースを占有しません。
  */
 @Composable
 private fun StatusSummary(check: Prerequisites.Check, onProblem: (Problem) -> Unit) {

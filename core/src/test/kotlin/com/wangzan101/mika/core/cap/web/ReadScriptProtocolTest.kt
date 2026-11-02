@@ -20,7 +20,7 @@ class ReadScriptProtocolTest {
            "parent":{"callFrames":[{"url":"${if (scriptFrame) ReadScriptProtocol.PRELUDE_URL else "app.js"}"}]}}}}""")
 
     @Test fun anyRequestFromTheScriptIsAViolation() {
-        // 读脚本不碰网络:同源 GET 也不行
+        // スクリプトの読み取りがネットワークに接続されません: 同じソースからの GET も機能しません
         for ((m, u) in listOf("GET" to "https://shop.test/api?x=1", "GET" to "https://shop.test:443/api", "POST" to "https://shop.test/api",
             "GET" to "https://evil.test/api", "PUT" to "https://api.shop.test/x")) {
             val v = ReadScriptProtocol.requestViolation(request(m, u))
@@ -28,14 +28,14 @@ class ReadScriptProtocolTest {
             assertTrue(v!!, v.contains("web_capture"))
         }
         assertNotNull(ReadScriptProtocol.requestViolation(request("GET", "https://cdn.test/x", redirect = true)))
-        // 页面自己的请求不管
+        // ページは、それ自体のリクエストを気にしません。
         assertNull(ReadScriptProtocol.requestViolation(request("POST", "https://evil.test/x", scriptFrame = false)))
         assertNull(ReadScriptProtocol.requestViolation(request("GET", "https://shop.test/x", scriptFrame = false)))
     }
 
     @Test fun preludeHasNoWayToTheNetwork() {
         val p = ReadScriptProtocol.PRELUDE
-        // 原生 fetch 不再留给读取世界;fetch 和能发请求的函数、构造器一律报 blocked_network
+        // のネイティブフェッチは読み取りの世界に任されなくなりました。 fetch、リクエストを送信できる関数とコンストラクターは、blocked_network を報告します。
         assertFalse(p.contains("G.fetch"))
         assertFalse(p.contains("nativeFetch"))
         assertTrue(p.contains(ReadScriptProtocol.NETWORK_MESSAGE))

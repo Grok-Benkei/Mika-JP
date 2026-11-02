@@ -34,36 +34,36 @@ class PairingNoticeTest {
     @Test
     fun pairingFailuresKeepTheInputWithHowToRetry() {
         assertEquals(
-            PairingNotice.EnterCode(5, "配对码不对或已失效：在配对窗口重新点「使用配对码配对设备」拿新的码，再填一次"),
+            PairingNotice.EnterCode(5, "コードが違うか、期限切れです。ペア設定のウィンドウで「ペア設定コードによるデバイスのペア設定」をもう一度タップして新しいコードを表示し、入力し直してください"),
             PairingNotice.of(BuiltinShellStatus.Failed(BuiltinShellFailure.WrongCode), PairingDiscovery.Found(5)),
         )
-        // 窗口关了(找不到配对窗口)也留着输入框,说同样的办法
+        // ウィンドウは閉じられています (ペアリング ウィンドウが見つかりません) が、入力ボックスはまだ残っています。同じ方法が使用されます。
         val closed = PairingNotice.of(BuiltinShellStatus.Failed(BuiltinShellFailure.PairingWindowClosed), PairingDiscovery.Searching)
         closed as PairingNotice.EnterCode
         assertNull(closed.port)
-        assertTrue(closed.error!!.endsWith("拿新的码，再填一次"))
-        // 配对之后的失败请用户回 Mika
+        assertTrue(closed.error!!.endsWith("新しいコードを表示し、入力し直してください"))
+        // ペアリングに失敗した場合は、Mika までご連絡ください。
         assertEquals(
-            PairingNotice.Problem("连上了,但没能准备好"),
+            PairingNotice.Problem("接続しましたが、準備できませんでした"),
             PairingNotice.of(BuiltinShellStatus.Failed(BuiltinShellFailure.HelperStartFailed), PairingDiscovery.Found(5)),
         )
     }
 
-    /** 配对失效:引导页让用户重新配对,找到配对窗口后和没配对时一样给输入框;还没找到时照旧请用户回 Mika。 */
+    /** ペアリングの失敗: ガイド ページでは、ユーザーに再ペアリングするよう求められます。ペアリング ウィンドウを見つけた後の入力ボックスは、ペアになっていないときと同じになります。まだ見つからない場合でも、ユーザーはミカに戻るように求められます。 */
     @Test
     fun revokedPairingGetsTheInputOnceThePairingWindowIsFound() {
         val revoked = BuiltinShellStatus.Failed(BuiltinShellFailure.AuthorizationRevoked)
         assertEquals(PairingNotice.EnterCode(37001), PairingNotice.of(revoked, PairingDiscovery.Found(37001)))
-        assertEquals(PairingNotice.Problem("配对失效了"), PairingNotice.of(revoked, PairingDiscovery.Searching))
-        assertEquals(PairingNotice.Problem("配对失效了"), PairingNotice.of(revoked, PairingDiscovery.Idle))
-        // 用 USB 启动命令起的助手停了要再运行一次命令,找到配对窗口也不给输入框
+        assertEquals(PairingNotice.Problem("ペア設定の期限が切れました"), PairingNotice.of(revoked, PairingDiscovery.Searching))
+        assertEquals(PairingNotice.Problem("ペア設定の期限が切れました"), PairingNotice.of(revoked, PairingDiscovery.Idle))
+        // USB 起動コマンドで起動したアシスタントが停止し、コマンドを再度実行する必要があります。ペアリングウィンドウを見つけても、入力ボックスがありません。
         assertEquals(
-            PairingNotice.Problem("手机助手已停止"),
+            PairingNotice.Problem("スマホのヘルパーが停止しました"),
             PairingNotice.of(BuiltinShellStatus.Failed(BuiltinShellFailure.UsbHelperStopped), PairingDiscovery.Found(37001)),
         )
     }
 
-    /** 找到配对窗口时,通知给不给输入框和无障碍读到码后试不试(PairingScreen.attempt)对每种状态都一致。 */
+    /** ペアリングウィンドウが見つかった場合、入力ボックスを与えるかどうか、障害なくコードを読み取って試行するかどうかの通知(PairingScreen.attempt)は状態ごとに一貫しています。 */
     @Test
     fun codeInputMatchesWhatAutoReadWouldTry() {
         val reading = PairingScreenReading("123456", null)
@@ -90,9 +90,9 @@ class PairingNoticeTest {
         val waits = generateSequence(0) { it + 1 }.map { PairingNotice.realertAfter(enter, it) }.takeWhile { it != null }.toList()
         assertEquals(3, waits.size)
         assertEquals(PairingNotice.MAX_REALERTS, waits.size)
-        // 越往后隔得越久
+        // 後ろに行くほど時間がかかります 間違った情報を入力すると、
         assertEquals(waits.filterNotNull().sorted(), waits)
-        // 填错后的提示也会再提醒;别的状态不提醒
+        // に再度通知されます。他のステータスについてはリマインダーは表示されません。
         assertEquals(PairingNotice.REALERT_MS[0], PairingNotice.realertAfter(PairingNotice.EnterCode(5, "x"), 0))
         listOf(PairingNotice.Working, PairingNotice.Done, PairingNotice.Problem("x")).forEach { assertNull(PairingNotice.realertAfter(it, 0)) }
     }
@@ -100,16 +100,16 @@ class PairingNoticeTest {
     @Test
     fun aSubmittedCodeShowsPairingUntilThePairingStarts() {
         val revoked = BuiltinShellStatus.Failed(BuiltinShellFailure.AuthorizationRevoked)
-        // 填了码、配对还没开始:不按填码前的状态算,也不结束(助手原本在运行时也一样,配对开始后状态还会变)
+        // コードを入力した後、ペアリングが開始されていません: コードを入力する前の状態に従ってカウントされず、終了しません (アシスタントが最初に実行されている場合も同様で、ペアリング開始後にステータスが変わります)
         assertEquals(PairingNotice.Working to false, PairingNotice.follow(revoked, PairingDiscovery.Searching, repairing = false, submitted = true))
         assertEquals(PairingNotice.Working to false, PairingNotice.follow(BuiltinShellStatus.Running, PairingDiscovery.Searching, repairing = false, submitted = true))
-        // 没填码时照常按状态算
-        assertEquals(PairingNotice.Problem("配对失效了") to false, PairingNotice.follow(revoked, PairingDiscovery.Searching, repairing = false, submitted = false))
+        // コードが入力されていない場合は、通常通りステータスに応じて計算されます。
+        assertEquals(PairingNotice.Problem("ペア設定の期限が切れました") to false, PairingNotice.follow(revoked, PairingDiscovery.Searching, repairing = false, submitted = false))
     }
 
     @Test
     fun followingEndsOnlyWhenRunningOutsideARepair() {
-        // 重新配对时运行中的旧状态不算配好:不发、不结束
+        // 再ペアリングするとき、古い実行状態は適切な一致とみなされません: 送信なし、終了なし
         assertEquals(null to false, PairingNotice.follow(BuiltinShellStatus.Running, PairingDiscovery.Searching, repairing = true, submitted = false))
         assertEquals(PairingNotice.Done to true, PairingNotice.follow(BuiltinShellStatus.Running, PairingDiscovery.Idle, repairing = false, submitted = false))
     }
@@ -124,32 +124,32 @@ class PairingNoticeTest {
     fun channelKeepsWhatWorksMigratesOldOnesAndRespectsTheUser() {
         val old = PairingChannel.IDS.first()
         val new = PairingChannel.IDS.last()
-        // 旧版本建的、够高:接着用,不换 id
+        // は古いバージョンで構築されており、十分な高さがあるため、ID を変更せずに引き続き使用します。
         assertEquals(
             ChannelPlan.Use(old, PairingChannelHealth.Ready),
             PairingChannel.plan(listOf(ChannelSnapshot(old, NotificationManager.IMPORTANCE_HIGH, userSet = false))),
         )
-        // 旧版本建得不够高、用户没动过:换新 id 重建
+        // 古いバージョンは十分な高さで構築されておらず、ユーザーが触っていません: 新しい ID に置き換えて再構築してください
         assertEquals(
             ChannelPlan.Create(new),
             PairingChannel.plan(listOf(ChannelSnapshot(old, NotificationManager.IMPORTANCE_DEFAULT, userSet = false))),
         )
-        // 用户自己调低:不改回去,提示
+        // ユーザーが自分で調整します: 元に戻さないでください。プロンプトが表示されます
         assertEquals(
             ChannelPlan.Use(old, PairingChannelHealth.Lowered),
             PairingChannel.plan(listOf(ChannelSnapshot(old, NotificationManager.IMPORTANCE_DEFAULT, userSet = true))),
         )
-        // 用户关掉:发不出来
+        // ユーザーがオフになりました: 送信できません
         assertEquals(
             ChannelPlan.Use(new, PairingChannelHealth.Off),
             PairingChannel.plan(listOf(ChannelSnapshot(new, NotificationManager.IMPORTANCE_NONE, userSet = true))),
         )
-        // 最新的 id 也不够高、又没有更新的可换:只能提示
+        // の最新 ID は十分な高さではなく、これを置き換える新しい ID がありません。プロンプトを表示することしかできません。
         assertEquals(
             ChannelPlan.Use(new, PairingChannelHealth.Lowered),
             PairingChannel.plan(listOf(ChannelSnapshot(new, NotificationManager.IMPORTANCE_LOW, userSet = false))),
         )
-        // 新旧都在时看新的
+        // 老いも若きも新しいものを見よ
         assertEquals(
             ChannelPlan.Use(new, PairingChannelHealth.Ready),
             PairingChannel.plan(

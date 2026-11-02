@@ -27,18 +27,18 @@ import androidx.activity.enableEdgeToEdge
 import com.wangzan101.mika.settings.FeatureFlags
 import com.wangzan101.mika.settings.ThemeMode
 
-/** 动效:时长和曲线。系统关了动画时([MikaTheme.reduceMotion])直接到位。 */
+/** アニメーション: 長さとカーブ。システムがアニメーション ([MikaTheme.reduceMotion]) をオフにすると、アニメーションは直接配置されます。 */
 object MikaMotion {
     const val PAGE_MS = 220
     const val SWITCH_MS = 200
-    /** 减速曲线:起步快、落地慢。 */
+    /** 減速曲線: 速いスタート、遅い着陸。 */
     val Decelerate: Easing = CubicBezierEasing(0f, 0f, 0.2f, 1f)
 
     fun <T> page(reduceMotion: Boolean): AnimationSpec<T> = if (reduceMotion) snap() else tween(PAGE_MS, easing = Decelerate)
     fun <T> switch(reduceMotion: Boolean): AnimationSpec<T> = if (reduceMotion) snap() else tween(SWITCH_MS, easing = Decelerate)
 }
 
-/** 系统「移除动画」(动画时长缩放为 0)时为真。 */
+/** これは、システムが「アニメーションを削除する」(アニメーションの継続時間が 0 にスケールされる) 場合に当てはまります。 */
 fun animationsOff(context: Context): Boolean =
     Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
 
@@ -53,8 +53,8 @@ object MikaTheme {
 }
 
 /**
- * 设置里的外观:跟随系统时看系统,一直浅色/深色时照设置。设置一改(设置页或任务里改的)当场换,不重建界面,
- * 所以页面、输入、滚动位置都不丢。
+ * 設定の外観：システムをフォローするときにシステムを見て、常に明るい/暗いときに設定します。一度設定を変更すると（設定ページまたはタスクで変更）、インターフェイスを再構築することなく、その場で変更できます。
+ * したがって、ページ、入力、スクロール位置は失われません。
  */
 @Composable
 fun appearanceDark(): Boolean {
@@ -68,10 +68,10 @@ fun appearanceDark(): Boolean {
     }
 }
 
-/** 状态栏、导航栏的图标深浅跟界面一致:界面强制浅色而系统是深色时,图标也得是深色的才看得见。 */
+/** ステータス バーとナビゲーション バーのアイコンの深さはインターフェイスと同じです。インターフェイスが強制的に明るくされ、システムが暗い場合、アイコンも表示されるように暗くする必要があります。 */
 fun ComponentActivity.systemBarsFor(dark: Boolean) {
     val transparent = android.graphics.Color.TRANSPARENT
-    // 旧系统上导航栏不能全透明,垫一层半透明的底;取值与 enableEdgeToEdge 默认的一致
+    // 古いシステムのナビゲーション バーは完全に透明にできないため、半透明の底部を埋め込む必要があります。この値は、enableEdgeToEdge のデフォルト値と一致します。
     val lightScrim = android.graphics.Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
     val darkScrim = android.graphics.Color.argb(0x80, 0x1b, 0x1b, 0x1b)
     enableEdgeToEdge(
@@ -80,7 +80,7 @@ fun ComponentActivity.systemBarsFor(dark: Boolean) {
     )
 }
 
-/** 深浅色按设置里的外观([appearanceDark]);同时把 Material 组件(弹窗、输入框、底部面板)的颜色对上。 */
+/** 暗い色と明るい色は設定 ([appearanceDark]) の外観に従います。同時に、マテリアル コンポーネント (ポップアップ ウィンドウ、入力ボックス、下部パネル) の色と一致させます。 */
 @Composable
 fun MikaTheme(dark: Boolean = appearanceDark(), reduceMotion: Boolean = false, content: @Composable () -> Unit) {
     val colors = if (dark) DarkColors else LightColors

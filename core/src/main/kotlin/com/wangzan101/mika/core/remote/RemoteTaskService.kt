@@ -4,20 +4,20 @@ import kotlinx.coroutines.delay
 import java.util.UUID
 
 /**
- * 远程入口共用的业务错误;HTTP 状态和 MCP isError 由各自适配器决定。
- * 要按入口换说法的几种情形各是一个子类,适配器按类型换,不去比对 message 的文字。
+ * リモート ポータルに共通のビジネス エラー。 HTTP ステータスと MCP isError は、それぞれのアダプターによって決定されます。
+ * 入り口に応じてメッセージを変更する必要があるいくつかの状況はそれぞれサブクラスです。アダプターはタイプに応じて変更され、メッセージのテキストは比較されません。
  */
 sealed class RemoteTaskError(val code: Code, message: String) : Exception(message) {
     enum class Code { INVALID_ARGUMENT, NOT_FOUND, GONE, CONFLICT, UNAVAILABLE }
 
-    /** 其余错误:message 原样给调用方。 */
+    /** その他のエラー: メッセージは呼び出し元にそのまま送信されます。 */
     class General(code: Code, message: String) : RemoteTaskError(code, message)
     class NoSuchTask(val id: String) : RemoteTaskError(Code.NOT_FOUND, "No remote task with id $id")
     class BadConversation : RemoteTaskError(Code.INVALID_ARGUMENT,
         "conversation must be one returned by an earlier remote task (looks like mcp-<uuid>)")
-    /** 这一步要用户在手机上处理,不能远程回答。 */
+    /** この手順では、ユーザーが携帯電話で処理する必要があり、リモートで応答することはできません。 私がそれを見つけたとき、 */
     class NeedsPhone : RemoteTaskError(Code.CONFLICT, RemoteStatus.ON_PHONE_NOTE)
-    /** 查到时还在问,交回答时问题已经没了。 */
+    /** はまだ質問していましたが、回答を送信した時点で質問は消えていました。 */
     class QuestionClosed : RemoteTaskError(Code.CONFLICT, "The question is no longer open; check the task's status.")
 }
 
@@ -26,8 +26,8 @@ data class RemoteCancellation(val taskId: String, val accepted: Boolean, val sta
 data class RemoteSteerReceipt(val taskId: String, val messageId: String)
 
 /**
- * CLI API 与 MCP 共用的任务用例。没有 HTTP、JSON-RPC、工具名或命令行参数。
- * 只经 [RemoteTasks] 接入手机上原有的任务服务,不创建另一份执行器或任务状态。
+ * CLI API と MCP で共有されるタスクのユースケース。 HTTP、JSON-RPC、ツール名、コマンドライン引数はありません。
+ * は、[RemoteTasks] を介して携帯電話上の元のタスク サービスにのみアクセスし、別のエグゼキュータまたはタスク状態を作成しません。
  */
 class RemoteTaskService(private val tasks: RemoteTasks, private val pollMs: Long = 250) {
     init { require(pollMs > 0) }
@@ -54,7 +54,7 @@ class RemoteTaskService(private val tasks: RemoteTasks, private val pollMs: Long
         return tasks.list(limit)
     }
 
-    /** 一次有界等待,状态变了或终止就返回;等待超时不取消手机任务。等待中任务查不到了,就返回最后看到的状态。 */
+    /** ステータスが変更されるか終了すると、制限付き待機が返されます。待機時間がタイムアウトしても、携帯電話のタスクはキャンセルされません。待機中のタスクが見つからない場合は、最後に確認された状態に戻ります。 */
     suspend fun wait(id: String, timeoutS: Int = DEFAULT_WAIT_S): RemoteWait {
         val first = get(id)
         if (timeoutS !in 1..MAX_WAIT_S) invalid("timeout_s must be between 1 and $MAX_WAIT_S")
@@ -70,7 +70,7 @@ class RemoteTaskService(private val tasks: RemoteTasks, private val pollMs: Long
         return RemoteWait(now, RemoteStatus.of(now.state) != from)
     }
 
-    /** 只能回答追问,不能把付款确认或手机接管当作普通回答。 */
+    /** はフォローアップの質問にのみ回答でき、支払い確認や携帯電話の引き継ぎを通常の回答として扱うことはできません。 */
     fun answer(id: String, text: String): String {
         val task = get(id)
         val clean = required(text, "text", MAX_ANSWER)
@@ -83,7 +83,7 @@ class RemoteTaskService(private val tasks: RemoteTasks, private val pollMs: Long
         return task.id
     }
 
-    /** 仅向运行中的任务追加;回答、审批、接管和恢复仍走各自入口。宿主再次核对状态和收件箱。 */
+    /** は実行中のタスクにのみ追加されます。返信、承認、引き継ぎ、回復にはそれぞれ独自の入り口があります。ホストはステータスと受信箱を再度確認します。 */
     fun steer(id: String, text: String): RemoteSteerReceipt {
         val task = get(id)
         val clean = required(text, "text", MAX_STEER)
@@ -96,7 +96,7 @@ class RemoteTaskService(private val tasks: RemoteTasks, private val pollMs: Long
         return RemoteSteerReceipt(task.id, messageId)
     }
 
-    /** accepted 只表示已交给任务服务,是否到 cancelled 终态仍以状态查询为准。 */
+    /** が受け入れられたということは、タスク サービスに引き渡されたことを意味するだけです。キャンセルされた最終状態に達するかどうかは、引き続きステータスのクエリの対象となります。 */
     fun cancel(id: String): RemoteCancellation {
         val task = get(id)
         val status = RemoteStatus.of(task.state)
@@ -122,7 +122,7 @@ class RemoteTaskService(private val tasks: RemoteTasks, private val pollMs: Long
         const val MAX_GOAL = 4_000
         const val MAX_ANSWER = 2_000
         const val MAX_STEER = 4_000
-        // 保留已发出的对话编号,让新 CLI 与原 MCP 可以继续同一个远程对话。
+        // は発行されたセッション番号を保持するため、新しい CLI と元の MCP が同じリモート セッションを継続できるようになります。
         private const val CONVERSATION_PREFIX = "mcp-"
         fun newConversation(): String = CONVERSATION_PREFIX + UUID.randomUUID()
         private fun isUuid(id: String) = runCatching { UUID.fromString(id).toString() == id }.getOrDefault(false)

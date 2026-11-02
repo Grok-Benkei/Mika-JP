@@ -88,7 +88,7 @@ class ChatViewModelTest {
         ChatViewModel(backgroundScope, state, stage, actions, store, appLabel = { if (it == "com.chat") "聊天" else it },
             activities = acts, steers = steerFlow).also { runCurrent() }
 
-    /** 和 [vm] 一样,但能指定这块屏开没开。 */
+    /** は [vm] と同じですが、画面のオン/オフを指定できます。 */
     private fun TestScope.vmWithScreen(open: MutableStateFlow<Boolean>) =
         ChatViewModel(backgroundScope, state, stage, actions, ConversationStore(tmp.newFolder()),
             appLabel = { if (it == "com.chat") "聊天" else it }, activities = acts, steers = steerFlow,
@@ -99,7 +99,7 @@ class ChatViewModelTest {
         runCurrent()
     }
 
-    /** 运行事件里又多了一件实际做过的事。 */
+    /** ランニングイベントで実際に行われることがもう 1 つあります。 */
     private fun TestScope.did(step: Int, kind: String, tool: String, target: String?, effect: String = "completed", title: String? = null, failed: Boolean = false) {
         acts.value = acts.value + RunEvent.Activity(0, step, kind, tool, target, effect, title = title, failed = failed)
         runCurrent()
@@ -110,11 +110,11 @@ class ChatViewModelTest {
         val check = Prerequisites.check(ready.copy(accessibility = AccessibilityState.Off), hasMainModel = false)
         assertFalse(vm.send("查天气", check))
         assertTrue(calls.isEmpty())
-        // 无障碍只在操作手机 App 时需要,不挡任务;挡住的只有没模型
+        // アクセシビリティは、モバイル アプリを操作する場合にのみ必要であり、タスクをブロックしません。モデルのみがブロックされます。
         assertEquals(listOf(Problem.NoModel), vm.ui.value.blocked)
         assertTrue(vm.ui.value.exchanges.isEmpty())
 
-        // 通知没开不算挡路
+        // 通知がオンになっていない場合は、道路を妨害したとはみなされません。
         assertTrue(vm.send("查天气", Prerequisites.check(ready.copy(notificationsAllowed = false), hasMainModel = true)))
         assertNull(vm.ui.value.blocked)
         assertEquals(listOf("start:查天气"), calls)
@@ -129,30 +129,30 @@ class ChatViewModelTest {
         emit(TaskState.Running(1, ""))
         var steps = vm.ui.value.exchanges.single().steps
         assertTrue(steps.isEmpty())
-        assertEquals("正在处理", liveLine(vm.ui.value.exchanges.single()))
+        assertEquals("作業中", liveLine(vm.ui.value.exchanges.single()))
 
-        // 选了工具还没做:不按工具名列一行,等实际做了再列
+        // ツールを選択しましたが、まだ実行していません: ツールを連続してリストせず、実際に完了するまで待ちます。
         emit(TaskState.Running(1, "我先打开设置", "phone_launch_app"))
         assertTrue(vm.ui.value.exchanges.single().steps.isEmpty())
         did(1, "act", "phone_launch_app", "com.chat", "place_changed")
         steps = vm.ui.value.exchanges.single().steps
-        assertEquals(StepRow(1, "打开 App · 聊天", "", StepState.Run), steps.single())
-        assertEquals("打开 App · 聊天", liveLine(vm.ui.value.exchanges.single()))
+        assertEquals(StepRow(1, "アプリを開く · 聊天", "", StepState.Run), steps.single())
+        assertEquals("アプリを開く · 聊天", liveLine(vm.ui.value.exchanges.single()))
 
-        // 读取:不出现「看屏幕」;连着读同一处合成一行;不知道读的是哪里的不列
+        // 読み取り: 「画面を見てください」が表示されません。同じ場所の連続した読み取り値は 1 行に結合されます。どこを読んでいるのかわかりません。
         emit(TaskState.Running(2, "我先打开设置"))
         emit(TaskState.Running(2, "phone_observe", "phone_observe"))
         did(2, "observe", "phone_observe", "com.chat", title = "会话列表")
         did(2, "observe", "phone_diagnose", "com.chat", title = "会话列表")
         did(2, "observe", "phone_observe", null)
         steps = vm.ui.value.exchanges.single().steps
-        assertEquals(listOf("打开 App · 聊天", "看了聊天的会话列表"), steps.map { it.text })
+        assertEquals(listOf("アプリを開く · 聊天", "聊天 の 会话列表 を確認"), steps.map { it.text })
         assertEquals(listOf(StepState.Ok, StepState.Run), steps.map { it.state })
 
         emit(TaskState.WaitingTakeover("captcha", "出现滑块验证码"))
         val ex = vm.ui.value.exchanges.single()
         assertEquals(StepState.Wait, ex.steps.last().state)
-        assertEquals("需要你处理", liveLine(ex))
+        assertEquals("あなたの対応が必要", liveLine(ex))
         assertEquals(ExchangeStatus.NeedsTakeover("captcha", "出现滑块验证码"), ex.status)
         assertEquals(ComposerMode.Busy, vm.ui.value.composer)
 
@@ -172,27 +172,27 @@ class ChatViewModelTest {
         assertEquals("skip", calls.last())
     }
 
-    // 回答原样显示;来源不从回答里拆,由运行记录里代码记下的那份给出
+    // 答えはそのまま表示されます。ソースは答えから分離されておらず、実行記録に書き留められたコードによって与えられます。
     @Test fun finalAnswerShownAsIs() = runTest {
         val vm = vm()
         vm.send("电量多少", ok)
         emit(TaskState.Running(1, "phone_observe", "phone_observe"))
         did(1, "observe", "phone_observe", "com.chat")
-        emit(TaskState.Running(2, "phone_observe")) // 下一步还在等模型就结束了:这一行不留
+        emit(TaskState.Running(2, "phone_observe")) // 次のステップはまだモデルを待っていますが、これで終了です。この行は残されません。
         emit(TaskState.Succeeded("电量 86%,正在充电。来源:设置 › 电池"))
         val ex = vm.ui.value.exchanges.single()
         assertEquals(ExchangeStatus.Done("电量 86%,正在充电。来源:设置 › 电池", null), ex.status)
-        assertEquals(listOf(StepRow(1, "看了聊天", "", StepState.Ok)), ex.steps)
+        assertEquals(listOf(StepRow(1, "聊天 を確認", "", StepState.Ok)), ex.steps)
         assertEquals(ComposerMode.Idle, vm.ui.value.composer)
 
         assertEquals("没有依据段落" to null, splitEvidence("没有依据段落"))
-        // 旧记录(对话文件)里的写法:最后单独一行以「依据:」开头,照旧拆出来
+        // 旧レコード（会話ファイル）の書き方：最後の一行が「Based on:」で始まり、区切られたまま
         assertEquals("已把亮度调到 50%。\n自动亮度已关闭。" to "设置 › 显示 页面的亮度滑块显示 50%,自动亮度开关为关",
             splitEvidence("已把亮度调到 50%。\n自动亮度已关闭。\n依据: 设置 › 显示 页面的亮度滑块显示 50%,自动亮度开关为关"))
         assertEquals("结论。" to "来自搜索结果第一条", splitEvidence("结论。证据：来自搜索结果第一条"))
     }
 
-    /** 每一步都带着它实际做的动作:点开这一步才看得到用了哪个工具、对什么、结果如何。 */
+    /** の各ステップには実際のアクションがあります。このステップをクリックすると、どのツールが使用されたか、何が使用されたか、および結果がどうなったかを確認できます。 */
     @Test fun eachStepCarriesWhatItActuallyDid() = runTest {
         val vm = vm()
         vm.send("打开设置看电量", ok)
@@ -202,18 +202,18 @@ class ChatViewModelTest {
         val ex = vm.ui.value.exchanges.single()
         assertEquals(
             listOf(
-                // 用工具的界面说法,不带工具名
-                StepAction("点击", "聊天", "changed", false),
-                StepAction("输入文字", "com.other", "unknown_code", true),
+                // は、ツール名なしでツール インターフェイス ステートメントを使用します。
+                StepAction("タップ", "聊天", "changed", false),
+                StepAction("テキストを入力", "com.other", "unknown_code", true),
             ),
             ex.stepActions.getValue(1),
         )
-        // 只挂在有动作的那一步上
+        // はアクションのあるステップでのみハングします
         assertEquals(setOf(1), ex.stepActions.keys)
-        // 点开后每件事一行:做了什么 · 对什么 · 结果;错误码不给人看,说「没成功」
+        // クリックすると、それぞれに 1 行が表示されます: 何が行われたか、何が行われたか、結果。エラーコードは他の人には表示されず、「失敗しました」と表示されます
         val lines = ex.stepActions.getValue(1).map(ChatCopy::actionLine)
-        assertEquals("点击 · 聊天 · ${tr(R.string.result_effective)}", lines[0])
-        assertEquals("输入文字 · com.other · ${tr(R.string.step_failed)}", lines[1])
+        assertEquals("タップ · 聊天 · ${tr(R.string.result_effective)}", lines[0])
+        assertEquals("テキストを入力 · com.other · ${tr(R.string.step_failed)}", lines[1])
         lines.forEach { assertFalse(it, it.contains("phone_") || it.contains("unknown_code")) }
     }
 
@@ -224,7 +224,7 @@ class ChatViewModelTest {
         emit(TaskState.Succeeded("余额 10 元", verified = false, note = "结果页受系统防截屏保护"))
         val ex = vm.ui.value.exchanges.single()
         assertEquals(ExchangeStatus.Done("余额 10 元", null, verified = false, note = "结果页受系统防截屏保护"), ex.status)
-        assertEquals("办完了,但没能核实:结果页受系统防截屏保护", (ex.status as ExchangeStatus.Done).unverifiedLine)
+        assertEquals("完了しましたが、確認できませんでした: 结果页受系统防截屏保护", (ex.status as ExchangeStatus.Done).unverifiedLine)
         assertEquals(PipMode.Done, vm.ui.value.pip.mode)
 
         vm.send("再查", ok)
@@ -244,21 +244,21 @@ class ChatViewModelTest {
         screen.value = true
         runCurrent()
         var ex = vm.ui.value.exchanges.single()
-        assertEquals(StepRow(1, "打开 App · cn.railway", "", StepState.Run, "打开 12306"), ex.steps.single())
+        assertEquals(StepRow(1, "アプリを開く · cn.railway", "", StepState.Run, "打开 12306"), ex.steps.single())
         assertEquals("打开 12306", liveLine(ex))
         assertTrue(vm.ui.value.operatingPhone)
 
-        // 模型请求在途时显示中性状态，不虚构新步骤。
+        // モデルは、リクエストの転送中はニュートラル状態を示し、新しいステップは作成されません。
         emit(TaskState.Running(2, ""))
         ex = vm.ui.value.exchanges.single()
         assertEquals(1, ex.steps.size)
-        assertEquals("正在处理", liveLine(ex))
+        assertEquals("作業中", liveLine(ex))
 
         emit(TaskState.Running(2, "", "phone_tap", reason = "正在 12306 搜索上海到杭州的车次"))
         assertEquals("正在 12306 搜索上海到杭州的车次", liveLine(vm.ui.value.exchanges.single()))
         did(2, "act", "phone_tap", "cn.railway", "changed")
 
-        // 等解锁时不算在后台操作
+        // などはロック解除時のバックグラウンド操作としてカウントされません。
         emit(TaskState.Held(TaskGate.LOCKED))
         assertFalse(vm.ui.value.operatingPhone)
 
@@ -268,13 +268,13 @@ class ChatViewModelTest {
         emit(TaskState.Succeeded("有 3 趟\n依据:12306 查询结果页"))
         ex = vm.ui.value.exchanges.single()
         assertEquals(80_000L, ex.elapsedMs)
-        assertEquals("做了 3 步 · 1 分 20 秒", stepsSummary(ex))
+        assertEquals("3 ステップ · 1 分 20 秒", stepsSummary(ex))
         assertFalse(vm.ui.value.operatingPhone)
-        // 不知道用时就只说步数
-        assertEquals("做了 3 步", stepsSummary(ex.copy(elapsedMs = null)))
+        // 時間がわからない場合は、歩数を言ってください。
+        assertEquals("3 ステップ", stepsSummary(ex.copy(elapsedMs = null)))
     }
 
-    /** 顶栏副标题「正在操作 …」:最近一件有对象的事所在的 App(包名换成 App 名)。 */
+    /** 一番上の列のサブタイトル「Operating...」: 最新のオブジェクトが配置されているアプリ (パッケージ名をアプリ名に置き換えます)。 */
     @Test fun livePlaceIsTheLatestTargetedApp() = runTest {
         val vm = vm()
         vm.send("看聊天", ok)
@@ -284,10 +284,10 @@ class ChatViewModelTest {
         did(2, "act", "phone_wait", null)
         val ex = vm.ui.value.exchanges.single()
         assertEquals("聊天", vm.livePlace(ex))
-        assertEquals("正在操作聊天" to ChatCopy.Tone.Accent, ChatCopy.subtitle(ex, vm.livePlace(ex)))
+        assertEquals("聊天 で作業中" to ChatCopy.Tone.Accent, ChatCopy.subtitle(ex, vm.livePlace(ex)))
     }
 
-    // 随调用写的进度说明优先于调用里的用意
+    // 通話で書かれた進行状況の説明は、通話の意図よりも優先されます。
     @Test fun liveLinePrefersNarration() = runTest {
         val vm = ChatViewModel(backgroundScope, state, stage, actions, ConversationStore(tmp.newFolder())).also { runCurrent() }
         vm.send("查车次", ok)
@@ -304,7 +304,7 @@ class ChatViewModelTest {
         var ex = vm.ui.value.exchanges.single()
         assertEquals("第一段", ex.draft)
         assertTrue(ex.steps.isEmpty())
-        assertEquals("正在处理", liveLine(ex))
+        assertEquals("作業中", liveLine(ex))
 
         emit(TaskState.Running(1, "", preview = "第一段和第二段"))
         assertEquals("第一段和第二段", vm.ui.value.exchanges.single().draft)
@@ -315,7 +315,7 @@ class ChatViewModelTest {
         assertEquals(ExchangeStatus.Done("完整答复", null), ex.status)
     }
 
-    // 退回一次后仍没对上的几处:结果卡片上逐条列出,不打绿勾
+    // 一度返却した後も一致しないものがいくつかあります。緑色のチェックを入れずに結果カードに 1 つずつ記載します
     @Test fun unconfirmedItemsAreListedOnTheCard() = runTest {
         val vm = ChatViewModel(backgroundScope, state, stage, actions, ConversationStore(tmp.newFolder())).also { runCurrent() }
         vm.send("看价格", ok)
@@ -324,7 +324,7 @@ class ChatViewModelTest {
         val done = vm.ui.value.exchanges.single().status as ExchangeStatus.Done
         assertEquals("咖啡豆 ¥79", done.answer)
         assertNull(done.evidence)
-        assertEquals("这几处没能确认:79", done.unverifiedLine)
+        assertEquals("確認できませんでした: 79", done.unverifiedLine)
     }
 
     @Test fun phoneHintOnlyWhileTheScreenIsOpen() = runTest {
@@ -332,7 +332,7 @@ class ChatViewModelTest {
         val vm = ChatViewModel(backgroundScope, state, stage, actions, ConversationStore(tmp.newFolder()), screenOpen = screen).also { runCurrent() }
         vm.send("算一下 1+1", ok)
         emit(TaskState.Running(1, "", "run_command"))
-        // 没开过屏(文件、网页、纯对话的任务):不说在后台操作手机
+        // は、バックグラウンドで電話を操作することは言うまでもなく、画面 (ドキュメント、Web ページ、純粋な会話タスク) を開いたことがありません。
         assertFalse(vm.ui.value.operatingPhone)
         screen.value = true
         runCurrent()
@@ -345,12 +345,12 @@ class ChatViewModelTest {
         assertEquals("电量 86%" to "设置 › 电池", answerParts("电量 86%\n依据:设置 › 电池"))
         assertEquals("电量 86%" to "电池页", answerParts("电量 86% ", evidence = " 电池页 "))
         assertEquals("电量 86%\n依据:设置 › 电池" to "电池页", answerParts("电量 86%\n依据:设置 › 电池", evidence = "电池页"))
-        // 给了空的就照旧从回答里拆
+        // 空の場合は、回答から削除してください。
         assertEquals("电量 86%" to "设置 › 电池", answerParts("电量 86%\n依据:设置 › 电池", evidence = " "))
         assertEquals("没有依据" to null, answerParts("没有依据"))
     }
 
-    // 新记录:来源由代码从证据账本里找(sources 事件),逐条列出,画面是这些读取那一步的
+    // 新しいレコード: ソースは証拠台帳 (ソース イベント) のコードによって検出され、1 つずつリストされます。画像はこれらを読み取るステップを示しています。
     @Test fun evidenceSourceUsesRecordedSources() {
         val events = listOf(
             RunEvent.Media(1, 1, 1, "com.chat"),
@@ -361,8 +361,8 @@ class ChatViewModelTest {
             )),
         )
         val source = evidenceSource(events) { if (it == "com.chat") "聊天" else it }
-        assertEquals(EvidenceSource("www.12306.cn", listOf(1), listOf("第 1 步 · 聊天", "第 3 步 · www.12306.cn · 车次查询")), source)
-        assertEquals("来源 · www.12306.cn · 1 张截图", sourceLabel(source))
+        assertEquals(EvidenceSource("www.12306.cn", listOf(1), listOf("ステップ 1 · 聊天", "ステップ 3 · www.12306.cn · 车次查询")), source)
+        assertEquals("ソース · www.12306.cn · スクリーンショット 1 枚", sourceLabel(source))
     }
 
     @Test fun evidenceSourceIsTheLastSavedScreen() {
@@ -373,12 +373,12 @@ class ChatViewModelTest {
         )
         val source = evidenceSource(events) { if (it == "com.chat") "聊天" else it }
         assertEquals(EvidenceSource("www.12306.cn", listOf(2, 3)), source)
-        assertEquals("来源 · www.12306.cn · 2 张截图", sourceLabel(source))
+        assertEquals("ソース · www.12306.cn · スクリーンショット 2 枚", sourceLabel(source))
         assertEquals(EvidenceSource("聊天", listOf(1)), evidenceSource(events.take(1)) { if (it == "com.chat") "聊天" else it })
-        // 没有截图(文件、纯对话的任务)、还没取到时只写「来源」
+        // にはスクリーンショット (ファイル、純粋な対話タスク) はありません。取得していない場合は「ソース」とだけ書いてください。
         assertEquals(EvidenceSource(null, emptyList()), evidenceSource(emptyList()))
-        assertEquals("来源", sourceLabel(EvidenceSource(null, emptyList())))
-        assertEquals("来源", sourceLabel(null))
+        assertEquals("ソース", sourceLabel(EvidenceSource(null, emptyList())))
+        assertEquals("ソース", sourceLabel(null))
     }
 
     @Test fun livePreviewVisibleOnlyWhileRunning() = runTest {
@@ -419,21 +419,21 @@ class ChatViewModelTest {
         assertFalse(vm.ui.value.pip.visible)
         vm.expandPip()
         assertFalse(vm.ui.value.pip.expanded)
-        // 开 App 前的提问只在聊天卡片里
+        // アプリを開く前の質問はチャット カードのみにあります
         emit(TaskState.WaitingInput("哪个?", null))
         assertFalse(vm.ui.value.pip.visible)
         emit(TaskState.Running(2, "phone_launch_app", "phone_launch_app"))
 
-        screen.value = true // 第一次 phone_launch_app 建了屏
+        screen.value = true // Phone_launch_app が初めて画面を構築したとき
         runCurrent()
         assertTrue(vm.ui.value.pip.visible)
         assertEquals(PipMode.Running, vm.ui.value.pip.mode)
-        // 开过屏之后的接管照常要你处理
+        // 通常どおり画面を開いた後、引き継ぎを処理する必要があります。
         emit(TaskState.WaitingTakeover("login", "需要登录"))
         assertTrue(vm.ui.value.pip.visible)
         assertEquals(PipMode.NeedsYou, vm.ui.value.pip.mode)
 
-        // 收尾先撤屏再报结束:完成后停留的那几秒照样显示
+        // 最後に、最初に画面を削除してから終了をアナウンスします。完了後の数秒は表示されたままです。
         screen.value = false
         runCurrent()
         emit(TaskState.Succeeded("安卓 14\n依据:关于手机页"))
@@ -450,7 +450,7 @@ class ChatViewModelTest {
         assertFalse(vm.ui.value.pip.visible)
         val done = vm.ui.value.exchanges.single().status as ExchangeStatus.Done
         assertEquals(ExchangeStatus.Done("你好!", null, verified = false, reviewed = false), done)
-        // 什么也没核对的聊天:不打标
+        // 何もチェックされていないチャット: マークなし
         assertNull(done.unverifiedLine)
     }
 
@@ -458,18 +458,18 @@ class ChatViewModelTest {
         val b = PipPhysics.Bounds(1080f, 2400f, 200f, 420f, margin = 30f, top = 300f, bottom = 250f)
         assertEquals(850f to 330f, b.position(Corner.TopEnd))
         assertEquals(30f to 1700f, b.position(Corner.BottomStart))
-        // 停在右上附近、没有速度:回右上
+        // は右上付近で停止し、速度がありません: 右上に戻ります
         assertEquals(Corner.TopEnd, PipPhysics.snapCorner(700f, 500f, 0f, 0f, b))
-        // 同一位置向下甩:投射落点在下半屏
+        // 同じ位置で下に投げる: 投射着点が画面の下半分にある
         assertEquals(Corner.BottomEnd, PipPhysics.snapCorner(700f, 500f, 0f, 2500f, b))
-        // 向左下甩
+        // 左投げ
         assertEquals(Corner.BottomStart, PipPhysics.snapCorner(700f, 500f, -2000f, 2500f, b))
         assertEquals(499f, PipPhysics.project(1000f), 0.01f)
-        // 窗口太矮(比如键盘弹出):不钻到顶栏下面,下方的角退到和上方一样
+        // ウィンドウが短すぎます (キーボードがポップアップするなど)。上部バーの下にドリルされず、下の角が上の角と同じレベルまで後退します。
         val short = b.copy(height = 900f)
         assertEquals(30f to 330f, short.position(Corner.BottomStart))
 
-        // 临界阻尼:收敛到目标,不越过
+        // 臨界減衰: 目標に収束し、超えない
         val spring = PipPhysics.Spring()
         var m = PipPhysics.Motion(0f, 0f)
         var max = 0f
@@ -498,12 +498,12 @@ class ChatViewModelTest {
         assertFalse(vm.ui.value.pip.expanded)
         stage.value = Takeover.Stage.HandedOver
         runCurrent()
-        assertFalse(vm.ui.value.pip.expanded) // 同一次等待里不反复弹开
+        assertFalse(vm.ui.value.pip.expanded) // は同じ待機中に繰り返しバウンスしません
         assertEquals(Takeover.Stage.HandedOver, vm.ui.value.takeoverStage)
 
         emit(TaskState.Running(2, "", null))
         assertFalse(vm.ui.value.pip.expanded)
-        // 只有接管自动展开:提问时要让输入框和选项留在眼前
+        // テイクオーバーのみが自動的に展開されます。質問するときは、入力ボックスとオプションを目の前に置いてください。
         emit(TaskState.WaitingInput("选哪个?", listOf("A", "B")))
         assertFalse(vm.ui.value.pip.expanded)
         assertEquals(PipMode.NeedsYou, vm.ui.value.pip.mode)
@@ -533,13 +533,13 @@ class ChatViewModelTest {
         vm.cancel()
         busy.value = false
         runCurrent()
-        assertTrue(calls.toString(), calls.isEmpty()) // 没开始,也不去取消服务里收尾中的上一个任务
+        assertTrue(calls.toString(), calls.isEmpty()) // は開始されておらず、仕上げプロセスの前のタスクもキャンセルされません。
         assertEquals(ExchangeStatus.Cancelled(), vm.ui.value.exchanges.single().status)
         assertEquals(ComposerMode.Idle, vm.ui.value.composer)
         assertFalse(vm.ui.value.pip.visible)
     }
 
-    // 等着服务空下来时,那条消息下面说清在等前一个任务,不像卡住了;交给服务后换成任务自己的进展
+    // サービスが無料になるのを待っているとき、メッセージの下部に、前のタスクを待っていることが明確に示されます。これは、スタックしているようなものではありません。サービスに引き渡した後は、タスク自体の進行状況に置き換えられます。
     @Test fun waitingMessageSaysItWaitsForThePreviousTask() = runTest {
         val busy = MutableStateFlow(true)
         val vm = ChatViewModel(backgroundScope, state, stage, actions, ConversationStore(tmp.newFolder()), busy)
@@ -548,7 +548,7 @@ class ChatViewModelTest {
         runCurrent()
         val waiting = vm.ui.value.exchanges.single()
         assertEquals(ExchangeStatus.Working, waiting.status)
-        assertEquals("等前一个任务做完再开始", ChatCopy.progressLine(waiting))
+        assertEquals("前のタスクが終わってから始まります", ChatCopy.progressLine(waiting))
         busy.value = false
         runCurrent()
         assertEquals(listOf("start:下一个"), calls)
@@ -556,21 +556,21 @@ class ChatViewModelTest {
         assertEquals("打开设置", ChatCopy.progressLine(vm.ui.value.exchanges.single()))
     }
 
-    // 对话页看到服务空着就交过去,交到之前别处(定时、电脑)先开始了一个:服务把这条排在它后面(不丢),
-    // 对话里看得到在排队;那个任务收尾后这条照常开始、做完
+    // 会話ページでサービスが空であることが確認されると、サービスが引き渡されます。引き渡す前に、別のサービスが別の場所 (タイミング、コンピューター) で開始されます。サービスは、このサービスをその後ろにランク付けします (失われないようにします)。
+    // ダイアログにキューが表示されます。タスクが完了すると、このタスクは通常どおりに開始および終了します。
     private fun TestScope.raceVm(): ChatViewModel {
         val vm = ChatViewModel(backgroundScope, state, stage, actions, ConversationStore(tmp.newFolder()), MutableStateFlow(false),
             shownTask = shown, activeConversations = active).also { runCurrent() }
         assertTrue(vm.send("订会议室", ok))
         assertEquals(listOf("start:订会议室"), calls)
         val mine = vm.ui.value.conversationId!!
-        // 别处的任务抢先开始、在服务里显示着:不接到这个对话里
+        // 他の場所のタスクが最初に開始され、サービスに表示されます: この会話を受信しないでください
         active.value = listOf("remote")
         shown.value = "remote" to TaskState.Running(3, "查快递")
         emit(TaskState.Running(3, "查快递"))
         assertEquals("订会议室", vm.ui.value.exchanges.single().goal)
         assertEquals(ExchangeStatus.Working, vm.ui.value.exchanges.single().status)
-        // 这条排在它后面,服务显示它的排队状态
+        // はその後ろでキューに入れられており、サービスにはそのキューのステータスが表示されます。
         val queued = TaskState.Held(GateReason.queued("排队中:前面还有 1 个任务"))
         active.value = listOf("remote", mine)
         shown.value = mine to queued
@@ -583,7 +583,7 @@ class ChatViewModelTest {
         val mine = vm.ui.value.conversationId!!
         assertEquals(ExchangeStatus.Queued("排队中:前面还有 1 个任务"), vm.ui.value.exchanges.single().status)
         assertEquals(ComposerMode.Busy, vm.ui.value.composer)
-        // 那个任务收尾,这条放出来开始跑,直到做完
+        // そのタスクは終了しました。このタスクは解放され、完了するまで実行が開始されます。
         active.value = listOf(mine)
         shown.value = mine to TaskState.Running(1, "打开日历", reason = "打开日历")
         emit(TaskState.Running(1, "打开日历", reason = "打开日历"))
@@ -593,7 +593,7 @@ class ChatViewModelTest {
         assertEquals("订好了", (vm.ui.value.exchanges.single().status as ExchangeStatus.Done).answer)
     }
 
-    // 排着队时点停止:只停这个对话的那条,不发不带编号的停止(那会停掉服务显示着的、别处开始的任务)
+    // キューイング時に停止: 会話のみを停止し、番号なしの停止は送信しません (サービスによって表示され、他の場所で開始されたタスクは停止します)。
     @Test fun stopWhileQueuedInServiceCancelsOnlyThisMessage() = runTest {
         val vm = raceVm()
         val mine = vm.ui.value.conversationId!!
@@ -629,20 +629,20 @@ class ChatViewModelTest {
         val waiting = TaskState.WaitingConfirmation(ConfirmationRequest(IrrevAction.send, "张三", "明天见", null, "com.chat"))
         emit(waiting)
         val ex = vm.ui.value.exchanges.last()
-        assertEquals(ExchangeStatus.NeedsConfirmation("要你同意:发送", "在 聊天\n对象:张三\n内容:明天见", ConfirmationNotifier.requestKey(waiting)), ex.status)
+        assertEquals(ExchangeStatus.NeedsConfirmation("許可が必要: 送信", "聊天 で\n宛先: 张三\n内容: 明天见", ConfirmationNotifier.requestKey(waiting)), ex.status)
         assertEquals(StepState.Wait, ex.steps.last().state)
         assertEquals(PipMode.NeedsYou, vm.ui.value.pip.mode)
-        assertEquals("等你同意", liveLine(ex))
+        assertEquals("あなたの許可を待っています", liveLine(ex))
         assertFalse(vm.ui.value.operatingPhone)
         assertEquals(ComposerMode.Busy, vm.ui.value.composer)
-        // 回答后回到运行
+        // は応答後に実行に戻ります
         emit(TaskState.Running(4, "", null))
         assertEquals(ExchangeStatus.Working, vm.ui.value.exchanges.last().status)
     }
 
     @Test fun approveCallsAction() = runTest {
         val vm = vm()
-        // 卡片按钮带着它所属的申报
+        // カード ボタンには、それが属する宣言が含まれています
         vm.approve(7)
         vm.decline(8)
         assertEquals(listOf("approve:7", "decline:8"), calls)
@@ -660,13 +660,13 @@ class ChatViewModelTest {
 
         vm.send("查电量", ok)
         emit(TaskState.Running(1, "看看", "phone_observe"))
-        assertNull(vm.ui.value.exchanges.last().runId) // 还在跑时不给入口
-        // 服务先记下这次的编号再报结束
+        assertNull(vm.ui.value.exchanges.last().runId) // は実行中は入力できません。
+        // サービスは、最初に今回の番号を書き留めてから、終了を報告します。
         endedRunId.value = "r-new"
         emit(TaskState.Succeeded("85%"))
         assertEquals("r-new", vm.ui.value.exchanges.last().runId)
 
-        // 下一个任务的编号后来才到:已结束的那条不跟着变
+        // 後で到着した次のタスクの番号。終了したタスクはそれに応じて変更されません。
         vm.send("再查", ok)
         emit(TaskState.Running(1, "看看", "phone_observe"))
         endedRunId.value = "r-next"
@@ -677,7 +677,7 @@ class ChatViewModelTest {
         assertEquals("r-new", vm.ui.value.exchanges[1].runId)
     }
 
-    // 停止:当场已停止、输入框空出来;交代还在写时标「正在整理」,写好记进对话后成为这一轮的回答
+    // 停止: その場で停止し、入力ボックスは空です。説明はまだ書かれており、タイムマークは「整理中」です。それを書き留めて対話に入力すると、それがこのラウンドの答えになります。
     @Test fun stoppedTurnShowsSummaryWhenItArrives() = runTest {
         val endedRunId = MutableStateFlow<String?>(null)
         val summarizing = MutableStateFlow<Set<String>>(emptySet())
@@ -690,7 +690,7 @@ class ChatViewModelTest {
         emit(TaskState.Running(1, "看看", "phone_launch_app"))
         vm.cancel()
         assertEquals("cancel", calls.last())
-        // 服务先登记「正在整理」、记下编号,再报结束,接着记下「已取消」那一轮
+        // サービスは、最初に「編成」を登録し、番号を書き留め、次に終了を報告し、次に「キャンセル」ラウンドを書き留めます
         summarizing.value = setOf("r1")
         endedRunId.value = "r1"
         emit(TaskState.Cancelled)
@@ -706,13 +706,13 @@ class ChatViewModelTest {
         val ex = vm.ui.value.exchanges.single()
         assertEquals(ExchangeStatus.Cancelled("停止前看完了网络、蓝牙;显示、声音还没看。"), ex.status)
         assertEquals("r1", ex.runId)
-        // 重新打开对话:从存下的那份读出交代
+        // 会話を再開します: 保存されたコピーから説明を読みます
         vm.newConversation()
         vm.openConversation(id)
         assertEquals(ExchangeStatus.Cancelled("停止前看完了网络、蓝牙;显示、声音还没看。"), vm.ui.value.exchanges.single().status)
     }
 
-    // 交代写不成(或没什么可交代):「正在整理」去掉,只留已停止
+    // 説明を書くことができません（または説明するものがありません）: 「編成」を削除して「停止」のみを残します
     @Test fun stoppedTurnWithoutSummaryDropsTheHint() = runTest {
         val endedRunId = MutableStateFlow<String?>(null)
         val summarizing = MutableStateFlow<Set<String>>(emptySet())
@@ -741,7 +741,7 @@ class ChatViewModelTest {
             },
             describeAttachments = { uris -> uris.map { PendingAttachment(it, if (it.endsWith("1")) "报表.csv" else "big.iso", 10L) } },
         ).also { runCurrent() }
-        // 沙箱没就绪:没有附件按钮,也不收
+        // サンドボックスの準備ができていません: 添付ボタンもコレクションもありません
         assertFalse(vm.ui.value.attachEnabled)
         vm.attach(listOf("content://x/1"))
         runCurrent()
@@ -750,22 +750,22 @@ class ChatViewModelTest {
         sandbox.value = true
         runCurrent()
         assertTrue(vm.ui.value.attachEnabled)
-        // 选好时只挂在输入框上方,不复制
+        // 選択すると、入力ボックスの上にのみ表示され、コピーされません。
         vm.attach(listOf("content://x/1", "content://x/2"))
         runCurrent()
         assertEquals(listOf("content://x/1", "content://x/2"), vm.ui.value.attachments.map { it.uri })
         assertTrue(imported.isEmpty())
 
-        // 发送时才复制进工作区,路径写进消息
+        // は送信時にワークスペースにコピーされ、パスがメッセージに書き込まれます。
         assertTrue(vm.send("汇总一下", ok))
         runCurrent()
         val id = vm.ui.value.conversationId!!
         assertEquals(listOf(id to listOf("content://x/1", "content://x/2")), imported)
-        assertEquals(listOf("start:汇总一下\n附件:/workspace/inbox/报表 (1).csv(2 KB)"), calls)
+        assertEquals(listOf("start:汇总一下\n添付:/workspace/inbox/报表 (1).csv(2 KB)"), calls)
         assertTrue(vm.ui.value.attachments.isEmpty())
         assertEquals(listOf("big.iso"), vm.ui.value.rejectedAttachments)
         assertFalse(vm.ui.value.importing)
-        // 任务在跑时不收附件
+        // タスクの実行時に添付ファイルを受信しない
         vm.attach(listOf("content://x/3"))
         runCurrent()
         assertTrue(vm.ui.value.attachments.isEmpty())
@@ -780,7 +780,7 @@ class ChatViewModelTest {
         assertTrue(vm.toggleAttachment(PendingAttachment("content://m/1", "a.jpg", 1L)))
         assertTrue(vm.send("", ok))
         runCurrent()
-        assertEquals(listOf("start:附件:/workspace/inbox/a.jpg(3.0 MB)"), calls)
+        assertEquals(listOf("start:添付:/workspace/inbox/a.jpg(3.0 MB)"), calls)
     }
 
     @Test fun nothingIsSentWhenEveryAttachmentFailsAndThereAreNoWords() = runTest {
@@ -805,7 +805,7 @@ class ChatViewModelTest {
         ).also { runCurrent() }
         repeat(AttachTray.LIMIT) { assertTrue(vm.toggleAttachment(PendingAttachment("content://m/$it", "p.jpg", 1L))) }
         assertFalse(vm.toggleAttachment(PendingAttachment("content://m/x", "p.jpg", 1L)))
-        // 再点已选的一张就取消
+        // キャンセルするには選択したものをクリックしてください
         assertTrue(vm.toggleAttachment(PendingAttachment("content://m/0", "p.jpg", 1L)))
         assertEquals(AttachTray.LIMIT - 1, vm.ui.value.attachments.size)
         vm.attach(listOf("content://f/1", "content://f/2"))
@@ -841,7 +841,7 @@ class ChatViewModelTest {
         assertEquals("1.5 MB", ChatViewModel.sizeLabel(1_572_864))
     }
 
-    // ---- 并行任务(开关 parallelTasks 打开)----
+    // ---- 並列タスク (ParallelTasks スイッチがオン) ----
     private val shown = MutableStateFlow<Pair<String, TaskState>?>(null)
     private val active = MutableStateFlow<List<String>>(emptyList())
 
@@ -859,7 +859,7 @@ class ChatViewModelTest {
         runCurrent()
     }
 
-    /** 删掉屏上这个对话:当场换成新的空对话,侧栏不再列它,删的事交给后台。 */
+    /** 画面上のこのダイアログを削除します。その場で新しい空のダイアログに置き換えます。サイド列にはリストされなくなり、削除はバックグラウンドに残ります。 */
     @Test fun deletingTheOpenConversationShowsAFreshOne() = runTest {
         val store = ConversationStore(tmp.newFolder())
         store.append("a", Turn("查天气", "晴", "succeeded"))
@@ -877,7 +877,7 @@ class ChatViewModelTest {
         assertTrue(vm.ui.value.exchanges.isEmpty())
         assertEquals(ComposerMode.Idle, vm.ui.value.composer)
 
-        // 删别的对话:屏上的不动
+        // 他の会話を削除しました: 画面は動きません
         vm.openConversation("b")
         vm.deleteConversation("x")
         runCurrent()
@@ -885,7 +885,7 @@ class ChatViewModelTest {
         assertEquals(listOf("订票"), vm.ui.value.exchanges.map { it.goal })
     }
 
-    /** 侧栏里改名、置顶:存下来,侧栏按存下的重排(置顶的在「置顶」一段,最近置顶的在前);删掉的对话不再改。 */
+    /** 名前を変更してサイドバーの一番上に固定します。保存し、保存したものに従ってサイドバーを再配置します (一番上のものが「トップ」セクションにあり、最後に固定されたものが前面にあります)。削除された会話は変更されなくなります。 */
     @Test fun renameAndPinReorderTheDrawer() = runTest {
         val store = ConversationStore(tmp.newFolder())
         store.append("a", Turn("查天气", "晴", "succeeded"))
@@ -915,7 +915,7 @@ class ChatViewModelTest {
         assertNull(store.pinnedAt("c"))
     }
 
-    /** 删掉的对话又有人往里存了(悬浮胶囊接着在那个编号里说):侧栏重新列出它。 */
+    /** 誰かが削除された会話を再度保存しました (サスペンション カプセルはその番号で発言しました): サイドバーに再リストします。 */
     @Test fun aDeletedConversationThatIsWrittenAgainIsListedAgain() = runTest {
         val store = ConversationStore(tmp.newFolder())
         store.append("a", Turn("查天气", "晴", "succeeded"))
@@ -928,7 +928,7 @@ class ChatViewModelTest {
         assertTrue(vm.deleted.value.isEmpty())
     }
 
-    /** 并行时删掉正在跑任务的屏上对话:不再跟那个任务,它之后的状态也不接到新对话里。 */
+    /** 実行中のタスクの画面上のダイアログを並行して削除します。そのタスクには従わなくなり、その後のステータスは新しいダイアログに含まれなくなります。 */
     @Test fun deletingARunningOpenConversationStopsFollowingIt() = runTest {
         val store = ConversationStore(tmp.newFolder())
         val vm = parallelVm(store)
@@ -965,13 +965,13 @@ class ChatViewModelTest {
         val store = ConversationStore(tmp.newFolder())
         store.append("b", Turn("查天气", "晴\n依据:天气 App", "succeeded"))
         val vm = parallelVm(store)
-        // 对话 a 的任务在跑
+        // ダイアログ a のタスクが実行中です
         vm.switchTo("a")
         assertTrue(vm.send("设置版本号", ok))
         show("a", TaskState.Running(1, "打开设置"))
         assertEquals(ComposerMode.Busy, vm.ui.value.composer)
 
-        // 对话 b 也有任务在跑:切过去先让服务显示它,载入历史并接上它此刻的状态
+        // ダイアログ b 実行中のタスクもあります。それに切り替えてサービスに最初に表示させ、履歴をロードして現在のステータスに接続します。
         active.value = listOf("a", "b")
         show("b", TaskState.Running(2, "看屏幕"))
         vm.switchTo("b")
@@ -979,16 +979,16 @@ class ChatViewModelTest {
         assertTrue("show:b" in calls)
         assertEquals(listOf("查天气", "查快递"), vm.ui.value.exchanges.map { it.goal })
         assertEquals(ExchangeStatus.Working, vm.ui.value.exchanges.last().status)
-        // a 的状态不进 b 的对话
+        // a のステータスは b の会話に入りません
         show("a", TaskState.Succeeded("done"))
         assertEquals(ExchangeStatus.Working, vm.ui.value.exchanges.last().status)
 
-        // 屏上是 b:停止只发给 b 的任务,不先改显示
+        // 画面は b: 最初に表示を変更せずに b へのタスクのみの送信を停止します。
         calls.clear()
         vm.cancel()
         assertEquals(listOf("cancel@b"), calls)
 
-        // 没有任务的新对话:别的任务还在跑也能开新任务,不等服务空下来
+        // タスクなしの新しいダイアログ: 他のタスクの実行中に新しいタスクを開始でき、サービスが空くまで待つ必要はありません。
         vm.newConversation()
         assertEquals(ComposerMode.Idle, vm.ui.value.composer)
         assertTrue(vm.send("新建闹钟", ok))
@@ -1029,11 +1029,11 @@ class ChatViewModelTest {
         notesFlow.value = mapOf("r1" to com.wangzan101.mika.memory.RunNotes("c1", "r1", listOf(remembered)))
         runCurrent()
         val note = vm.ui.value.exchanges.single().memoryNotes.single()
-        assertEquals("记住了:用户点外卖不要香菜", vm.noteText(note))
-        // 内容现取:那条删掉后写「一条已删除的记忆」
+        assertEquals("覚えました:用户点外卖不要香菜", vm.noteText(note))
+        // コンテンツの取得: そのアイテムを削除した後、「削除されたメモリ」を書き込みます
         items.value = items.value.filter { it.id != "a" }
-        assertEquals("记住了:一条已删除的记忆", vm.noteText(note))
-        // 重新打开对话时从存下的那一轮读回(只存了种类和编号)
+        assertEquals("覚えました:削除済みのメモリ", vm.noteText(note))
+        // 会話を再度開くときに、保存されたラウンドから読み戻します (タイプと番号のみが保存されます)
         val store = ConversationStore(tmp.newFolder())
         store.append("c2", Turn("点外卖", "ok", "succeeded", runId = "r2", memoryNotes = listOf(remembered), usedMemory = listOf("a")))
         val vm2 = ChatViewModel(backgroundScope, state, stage, actions, store).also { runCurrent(); it.openConversation("c2"); runCurrent() }
@@ -1048,7 +1048,7 @@ class ChatViewModelTest {
         vm.undoNote("r1", remembered); runCurrent()
         assertEquals(listOf("undo:t1"), learnCalls)
         assertEquals(listOf(expired), vm.ui.value.exchanges.single().memoryNotes)
-        // 令牌失效:不删提示,只去掉「撤销」
+        // トークンの無効化: プロンプトは削除せず、「取り消し」のみを削除してください。
         vm.undoNote("r1", expired); runCurrent()
         assertEquals(listOf(expired.copy(undoToken = null)), vm.ui.value.exchanges.single().memoryNotes)
         assertEquals(listOf(expired.copy(undoToken = null)), savedNotes.last().memoryNotes)
@@ -1059,10 +1059,10 @@ class ChatViewModelTest {
         val second = procedure.copy(undoToken = "expired", pendingId = "p2", memoryId = "p2")
         notesFlow.value = mapOf("r1" to com.wangzan101.mika.memory.RunNotes("c1", "r1", listOf(procedure, second)))
         runCurrent()
-        assertEquals("要我以后都这样做吗?点外卖先比价", vm.noteText(procedure))
+        assertEquals("今後もこのようにしますか？点外卖先比价", vm.noteText(procedure))
         vm.approveNote("r1", procedure); runCurrent()
         assertEquals(listOf("approve:p1"), learnCalls)
-        // 「不要」时令牌已失效:直接删掉那条做法
+        // 「不要」の場合、トークンの有効期限が切れています: そのメソッドを直接削除してください すべてクリアすると、
         vm.rejectNote("r1", vm.ui.value.exchanges.single().memoryNotes.single()); runCurrent()
         assertEquals(listOf("approve:p1", "undo:expired", "forget:p2"), learnCalls)
         assertTrue(vm.ui.value.exchanges.single().memoryNotes.isEmpty())
@@ -1074,7 +1074,7 @@ class ChatViewModelTest {
         runCurrent()
         val ex = vm.ui.value.exchanges.single()
         assertEquals(listOf("用户点外卖不要香菜", "用户喝咖啡不加糖"), vm.usedMemoryTexts(ex.usedMemory))
-        // 全部清除后不再列出(界面据此不显示「用到 n 条记忆」)
+        // はリストされなくなります (それに応じて、インターフェイスには「n メモリ使用中」は表示されません)。
         items.value = emptyList()
         assertTrue(vm.usedMemoryTexts(ex.usedMemory).isEmpty())
     }
@@ -1091,7 +1091,7 @@ class ChatViewModelTest {
         assertEquals(listOf(learned), vm.ui.value.exchanges.single().skillNotes)
     }
 
-    // 在没有任务的对话里按按钮,绝不落到别的对话的任务上;按下时带的是那一刻屏上的对话
+    // タスクのないダイアログでボタンを押しても、他のダイアログのタスクに分類されることはありません。押すと、その瞬間の画面にダイアログが表示されます。
     @Test fun buttonsInConversationWithoutRunGoNowhere() = runTest {
         val vm = parallelVm(ConversationStore(tmp.newFolder()))
         active.value = listOf("a")
@@ -1108,7 +1108,7 @@ class ChatViewModelTest {
         assertEquals(listOf("resume@a"), calls.filter { "@" in it })
     }
 
-    // 接管进度只跟屏上这个对话的任务;切到没有任务的对话时清掉
+    // は、進行状況が画面上のダイアログにのみ関係するタスクを引き継ぎます。タスクのないダイアログに切り替えると、それがクリアされます。
     @Test fun takeoverStageFollowsScreenConversation() = runTest {
         val vm = parallelVm(ConversationStore(tmp.newFolder()))
         active.value = listOf("a")
@@ -1126,7 +1126,7 @@ class ChatViewModelTest {
         assertEquals(Takeover.Stage.None, vm.ui.value.takeoverStage)
     }
 
-    // 导出的文件和成功标准一样是每个任务各自的:服务显示的是别的对话的任务时,不挂到屏上这个对话的卡片上
+    // エクスポートされたファイルと成功基準は、各タスク独自のものです。サービスが他の会話のタスクを表示する場合、画面上のこの会話のカードにはハングしません。
     @Test fun sharedFilesFollowScreenConversation() = runTest {
         val files = MutableStateFlow<List<com.wangzan101.mika.chat.SharedFile>>(emptyList())
         val vm = parallelVm(ConversationStore(tmp.newFolder()), files)
@@ -1143,7 +1143,7 @@ class ChatViewModelTest {
         assertEquals(listOf(mine), vm.ui.value.exchanges.last().files)
     }
 
-    // 每个对话的卡片用它自己那次的运行编号,不管服务当时显示的是哪个任务
+    // 各会話カードは、サービスがその時点でどのタスクを表示しているかに関係なく、独自の実行番号を使用します。
     @Test fun endedCardUsesItsConversationsRunId() = runTest {
         val ended = MutableStateFlow<Map<String, String?>>(emptyMap())
         val vm = ChatViewModel(
@@ -1154,7 +1154,7 @@ class ChatViewModelTest {
         vm.switchTo("a")
         assertTrue(vm.send("设置版本号", ok))
         show("a", TaskState.Running(1, "打开设置"))
-        // 别的对话的任务结束了,只记在它自己名下
+        // 他のダイアログのタスクは終了し、独自の名前でのみ記録されます
         ended.value = mapOf("b" to "r-b")
         runCurrent()
         assertNull(vm.ui.value.exchanges.last().runId)
@@ -1163,7 +1163,7 @@ class ChatViewModelTest {
         assertEquals("r-a", vm.ui.value.exchanges.last().runId)
     }
 
-    // 跑的时候就挂上运行编号(「运行过程」当场能进),按卡片所在的对话取,不用服务显示中的那个
+    // 実行中は、実行中の番号を切ります (「実行中のプロセス」はその場で入力できます)。カードが配置されているダイアログをクリックします。サービス表示内のダイアログは使用しないでください。
     @Test fun runningCardUsesItsOwnConversationsLiveRunId() = runTest {
         val live = mutableMapOf<String, String>()
         val vm = ChatViewModel(
@@ -1175,7 +1175,7 @@ class ChatViewModelTest {
         assertTrue(vm.send("设置版本号", ok))
         live["b"] = "r-b"
         show("a", TaskState.Running(0, "正在准备"))
-        assertNull("这个对话的任务还没分到编号:不拿别的对话的", vm.ui.value.exchanges.last().runId)
+        assertNull("この会話のタスクにはまだ ID がないため、別の会話の ID を使わない", vm.ui.value.exchanges.last().runId)
         live["a"] = "r-a"
         show("a", TaskState.Running(1, "打开设置"))
         assertEquals("r-a", vm.ui.value.exchanges.last().runId)
@@ -1183,7 +1183,7 @@ class ChatViewModelTest {
         assertEquals("r-a", vm.ui.value.exchanges.last().runId)
     }
 
-    // 开关在界面建好之后才打开:开始任务时重读,不用重建界面
+    // スイッチはインターフェイスの構築後にオンになります。タスクの開始時に再読み込みされ、インターフェイスを再構築する必要はありません。
     @Test fun parallelFlagReadWhenStarting() = runTest {
         var flag = false
         val vm = ChatViewModel(
@@ -1196,14 +1196,14 @@ class ChatViewModelTest {
         val first = vm.ui.value.conversationId
         active.value = listOf(first!!)
         runCurrent()
-        // 新对话里能接着开第二个
+        // は新しい会話で 2 番目の会話を開くことができます
         vm.newConversation()
         assertTrue(vm.ui.value.conversationId != first)
         assertTrue(vm.send("新建闹钟", ok))
         assertEquals("start:新建闹钟", calls.last())
     }
 
-    // 换对话时也重读开关
+    // ダイアログ変更時にスイッチも再読み込み
     @Test fun parallelFlagReadWhenSwitching() = runTest {
         var flag = false
         val vm = ChatViewModel(
@@ -1214,11 +1214,11 @@ class ChatViewModelTest {
         runCurrent()
         flag = true
         vm.openConversation("b")
-        // 并行时切到有任务在跑的对话会让服务显示它
+        // タスクが並行して実行されているダイアログに切り替えると、サービスによってダイアログが表示されます。
         assertTrue("show:b" in calls)
     }
 
-    // 有没有屏也是每个任务各自的:显示中的是别的对话的任务时不进这张卡片
+    // 画面の有無もタスクごとに異なります。表示中のタスクが別の対話タスクの場合、このカードは入力されません。
     @Test fun otherConversationsScreenStaysOut() = runTest {
         val screen = MutableStateFlow(true)
         val vm = ChatViewModel(
@@ -1226,7 +1226,7 @@ class ChatViewModelTest {
             parallelFlag = { true }, shownTask = shown, activeConversations = active,
         ).also { runCurrent() }
         vm.switchTo("a")
-        // 别的对话的任务开着屏:新任务还没有屏,不出画中画
+        // 他のダイアログ タスクの画面が開いています。新しいタスクには画面がなく、ピクチャ イン ピクチャも表示されません。
         assertTrue(vm.send("设置版本号", ok))
         assertFalse(vm.ui.value.pip.visible)
         show("b", TaskState.Running(1, "看屏幕"))
@@ -1235,15 +1235,15 @@ class ChatViewModelTest {
         runCurrent()
     }
 
-    // 真机上界面线程是立即调度的:服务一换显示,状态当场就送进来。切走再切回一个还在跑的对话,
-    // 那一问一答的原话、步骤(包括切走期间的)、文件都要在,不能另起一条空原话的
+    // 実マシン上のインターフェイス スレッドはすぐにスケジュールされます。サービスの表示が変更されるとすぐに、ステータスがその場で送信されます。一旦会話を切り上げてから、また会話を切り戻します。
+    // 質問と回答の元の文言、手順 (締め切り期間を含む)、および文書がそこに存在する必要があり、別の空の元の文を開始することはできません。
     @Test fun switchingBackRestoresTheRunningExchange() = runTest {
         val runStates = mapOf("a" to MutableStateFlow<TaskState>(TaskState.Running(0, "")), "b" to MutableStateFlow<TaskState>(TaskState.Running(0, "")))
         val fileA = com.wangzan101.mika.chat.SharedFile("a.csv", 1, "Download/Mika/a.csv", "content://media/1")
         val runFiles = mapOf("a" to listOf(fileA), "b" to emptyList())
         val goals = mapOf("a" to "第一个任务", "b" to "第二个任务")
         val files = MutableStateFlow<List<com.wangzan101.mika.chat.SharedFile>>(emptyList())
-        // 和服务一样:换显示时先抄文件,再抄带对话编号的状态
+        // サービスと同じ: 表示を変更するときは、最初にファイルをコピーしてから、会話番号のステータスをコピーします
         val immediate = object : TaskActions by actions {
             override fun show(conversationId: String) {
                 files.value = runFiles.getValue(conversationId)
@@ -1266,7 +1266,7 @@ class ChatViewModelTest {
         immediate.show("a")
         publish("a", TaskState.Running(1, "打开设置", "phone_launch_app"))
 
-        // 切到没有任务的 b 开第二个任务:a 的那一问一答停到一边,a 接着跑
+        // タスクなしで b にカットし、2 番目のタスクを開始します。a の質疑応答を停止し、a は実行を継続します。
         vm.switchTo("b")
         assertTrue(vm.send("第二个任务", ok))
         active.value = listOf("a", "b")
@@ -1279,7 +1279,7 @@ class ChatViewModelTest {
         val ex = vm.ui.value.exchanges.last()
         assertEquals("第一个任务", ex.goal)
         assertEquals(listOf(fileA), ex.files)
-        // 切走期间 a 的进展照样记着
+        // カットオフ期間中のaの進捗はまだ記憶されています
         assertEquals("点版本号", ex.line)
         assertEquals(ExchangeStatus.Working, ex.status)
         assertEquals(1, vm.ui.value.exchanges.size)
@@ -1333,7 +1333,7 @@ class ChatViewModelTest {
         assertEquals(SteerState.Joined, vm.ui.value.exchanges.single().steers.single().state)
     }
 
-    // 电脑追加的话也显示在对话里,但长按不给撤回、编辑,直接调也撤不回,不去问服务
+    // パソコンで追加した場合は会話にも表示されますが、長押ししても撤回や編集はされず、直接転送の場合は撤回されず、サービスも求められません。
     @Test fun remoteSteersOfferNoWithdrawOrEdit() = runTest {
         val vm = vm()
         vm.send("当前任务", ok)
@@ -1352,7 +1352,7 @@ class ChatViewModelTest {
         assertEquals(SteerState.Received, vm.ui.value.exchanges.single().steers.last().state)
     }
 
-    // 悬浮胶囊带着屏幕、浏览器页带着页面说明插的话也显示在对话里:取回编辑会把标记原文放进输入框,只给撤回,不给编辑
+    // フローティング カプセルには、画面とページの説明が記載されたブラウザ ページが付属しています。これを挿入すると、ダイアログにも表示されます。エディターを取得すると、マークされた元のテキストが入力ボックスに入力されます。削除されるだけであり、編集はされません。
     @Test fun steersWithAScreenOrAPageCanOnlyBeWithdrawn() = runTest {
         val vm = vm()
         vm.send("当前任务", ok)
@@ -1369,7 +1369,7 @@ class ChatViewModelTest {
         assertFalse(calls.any { it.startsWith("withdraw:") })
         assertTrue(vm.withdrawSteer("p"))
         assertEquals(listOf(SteerState.Received, SteerState.Withdrawn), vm.ui.value.exchanges.single().steers.map { it.state })
-        // 只有字和引用的照旧能编辑
+        // 編集できるのは単語と引用のみです。
         assertTrue(editableSteer("改这句话"))
         assertTrue(editableSteer(QuoteMessage.compose(QuoteMessage.Quote(QuoteMessage.From.Mika, "明天有雨"), "改这句话")))
     }
@@ -1388,7 +1388,7 @@ class ChatViewModelTest {
         assertEquals(SteerState.Withdrawn, vm.ui.value.exchanges.single().steers.single().state)
     }
 
-    // 任务在跑时输入框照样能发:发出去的话挂在这一问一答下面,交给当前任务;去向由服务报回来
+    // タスクは、実行時に入力ボックスで送信することもできます。送信すると、この質問と回答の下でハングされ、現在のタスクに渡されます。宛先はサービスによって報告されます
     @Test fun messageWhileRunningSteersTheTask() = runTest {
         val vm = vm()
         vm.send("订明天的会议室", ok)
@@ -1402,21 +1402,21 @@ class ChatViewModelTest {
         assertNull(steerLabel(ex.steers.single().state))
         assertEquals(ComposerMode.Busy, vm.ui.value.composer)
 
-        // 模型下一步之前拿到了这句话
+        // モデルは次のステップに進む前にこの文を取得しました
         steerFlow.value = listOf(SteerNote(steerIds.single(), "改成后天", SteerState.Joined))
         runCurrent()
-        assertEquals("已加入当前任务", steerLabel(vm.ui.value.exchanges.single().steers.single().state))
+        assertEquals("実行中のタスクに追加しました", steerLabel(vm.ui.value.exchanges.single().steers.single().state))
 
-        // 又说一句,任务就收尾了:这句没交到任务手里,作为下一件事
+        // 別の文を言うとミッションは終了します: この文は次のこととしてミッションには引き継がれません。
         assertTrue(vm.send("顺便订午饭", ok))
         emit(TaskState.Succeeded("订好了"))
         ex = vm.ui.value.exchanges.single()
         assertEquals(listOf(SteerState.Joined, SteerState.Next), ex.steers.map { it.state })
-        assertEquals("将作为下一件事", steerLabel(ex.steers.last().state))
+        assertEquals("次のタスクとして待機しています", steerLabel(ex.steers.last().state))
         assertEquals(1, vm.ui.value.exchanges.size)
     }
 
-    // 插话打断了正在写的回复:那段字随插话的去向一起报回来,挂在插话上;之后状态再变也不丢
+    // は作成中の応答を中断しました。段落は中断の方向とともに報告され、中断を保留しました。中断後もステータスは失われません。
     @Test fun interruptedReplyStaysWithItsSteer() = runTest {
         val vm = vm()
         vm.send("查今天的天气", ok)
@@ -1434,7 +1434,7 @@ class ChatViewModelTest {
         assertEquals("今天晴,最高", vm.ui.value.exchanges.single().steers.single().interrupted)
     }
 
-    // 任务的收件箱一收下就有回音「已收到，下一步处理」;任务就此收尾时它和还没发到的一样作为下一件事
+    // タスクが受信箱に受信されるとすぐに、「受信しました、次のステップ」という応答が返されます。タスクが完了すると、まだ送信されていないため、次のタスクとして扱われます。
     @Test fun receivedSteerIsShownAtOnceAndBecomesNextIfTheRunEnds() = runTest {
         val vm = vm()
         vm.send("订明天的会议室", ok)
@@ -1444,7 +1444,7 @@ class ChatViewModelTest {
         runCurrent()
         val note = vm.ui.value.exchanges.single().steers.single()
         assertEquals(SteerState.Received, note.state)
-        assertEquals("已收到，下一步处理", steerLabel(note.state))
+        assertEquals("了解です — 次のステップへ", steerLabel(note.state))
         emit(TaskState.Succeeded("订好了"))
         assertEquals(SteerState.Next, vm.ui.value.exchanges.single().steers.single().state)
     }
@@ -1460,7 +1460,7 @@ class ChatViewModelTest {
         assertEquals(SteerState.Cancelled, vm.ui.value.exchanges.single().steers.single().state)
     }
 
-    // 收尾之后服务才报回去向:照样改到那一问一答上
+    // サービスは完了後に報告されます。 To: 引き続きその質問と回答に変更します
     @Test fun lateSteerOutcomeStillLandsOnItsExchange() = runTest {
         val vm = vm()
         vm.send("查快递", ok)
@@ -1472,19 +1472,19 @@ class ChatViewModelTest {
         assertEquals(SteerState.Next, vm.ui.value.exchanges.single().steers.single().state)
     }
 
-    // 没成功的动作只说没成功,不把错误码给人看
+    // アクションが失敗した場合、失敗したことだけが表示され、エラー コードは他の人には表示されません。
     @Test fun failedActionHidesErrorCode() = runTest {
         val vm = vm()
         vm.send("发消息", ok)
         emit(TaskState.Running(1, "", "phone_tap"))
         did(1, "act", "phone_tap", "com.chat", "ref_expired", failed = true)
         val row = vm.ui.value.exchanges.single().steps.single()
-        assertEquals("点击 · 聊天", row.title)
-        assertEquals("没成功", row.subtitle)
+        assertEquals("タップ · 聊天", row.title)
+        assertEquals("失敗", row.subtitle)
         assertFalse(row.toString().contains("ref_expired"))
     }
 
-    // 原话的任务还在等服务收尾上一个时插的话:先开始原话的任务,再把插话交给它
+    // 元の呼び出しのタスクはまだサービスが完了するのを待っています。最後の割り込みは、最初に元の呼び出しのタスクを開始し、次に割り込みをそれに渡します。
     @Test fun steerDuringPendingStartIsSentAfterTheStart() = runTest {
         val busy = MutableStateFlow(true)
         val vm = ChatViewModel(backgroundScope, state, stage, actions, ConversationStore(tmp.newFolder()), busy, steers = steerFlow)
@@ -1499,7 +1499,7 @@ class ChatViewModelTest {
         assertEquals(listOf("start:订会议室", "steer:要大一点的"), calls)
     }
 
-    // 停止时还没交到任务手里的插话一起作废,标成已取消;还在等服务时停止,插话也不发
+    // 停止すると、タスクに渡されていない割り込みは無効になり、キャンセル済みとしてマークされます。サービスを待っている間に停止すると、割り込みは送信されません。
     @Test fun stopCancelsPendingSteers() = runTest {
         val vm = vm()
         vm.send("查快递", ok)
@@ -1508,7 +1508,7 @@ class ChatViewModelTest {
         vm.cancel()
         assertEquals("cancel", calls.last())
         assertEquals(SteerState.Cancelled, vm.ui.value.exchanges.single().steers.single().state)
-        assertEquals("已取消", steerLabel(SteerState.Cancelled))
+        assertEquals("キャンセルしました", steerLabel(SteerState.Cancelled))
         emit(TaskState.Cancelled)
         assertEquals(SteerState.Cancelled, vm.ui.value.exchanges.single().steers.single().state)
 
@@ -1525,7 +1525,7 @@ class ChatViewModelTest {
         assertEquals(SteerState.Cancelled, vm2.ui.value.exchanges.single().steers.single().state)
     }
 
-    // 插话可能成为下一件事:和开新任务过同一道检查
+    // 次は介入が行われる可能性があります: 新しいタスクを開くのと同じチェックに合格する
     @Test fun steerIsCheckedLikeANewTask() = runTest {
         val vm = vm()
         vm.send("查快递", ok)
@@ -1535,7 +1535,7 @@ class ChatViewModelTest {
         assertTrue(vm.ui.value.exchanges.single().steers.isEmpty())
     }
 
-    // 引用随下一句话发出去:新任务和插话都带上,发完就清掉;只有引用没写话时不发
+    // 引用符は次の文とともに送信されます。新しいタスクとコメントが含まれており、送信後にクリアされます。言葉のない引用のみは送信されません。
     @Test fun quoteGoesWithTheNextMessage() = runTest {
         val vm = vm()
         vm.quote(QuoteMessage.From.Mika, "  明天有小雨 ")
@@ -1557,14 +1557,14 @@ class ChatViewModelTest {
         assertEquals(steer, vm.ui.value.exchanges.single().steers.single().text)
         assertNull(vm.ui.value.quote)
 
-        // 去掉引用:照常只发话
+        // 引用を削除: 通常どおり単語を送信するだけです
         vm.quote(QuoteMessage.From.Mika, "x")
         vm.clearQuote()
         vm.send("再快一点", ok)
         assertEquals("steer:再快一点", calls.last())
     }
 
-    // 引用只属于屏上这个对话:换对话、开新对话时清掉
+    // 参照は、画面上のこのダイアログにのみ属します。ダイアログを変更するとき、または新しいダイアログを開くときにクリアします。
     @Test fun quoteIsDroppedWhenTheConversationChanges() = runTest {
         val store = ConversationStore(tmp.newFolder())
         val id = store.newConversation()
@@ -1578,7 +1578,7 @@ class ChatViewModelTest {
         assertNull(vm.ui.value.quote)
     }
 
-    // 存下的带引用的话重开时原样回来(界面据此画出引的那条);旧的话没有引用
+    // 引用符付きで保存された単語は、再度開くとそのまま表示されます (インターフェイスはそれに応じて引用符を描画します)。古い言葉には引用符がありません。
     @Test fun quotedTurnsSurviveReopening() = runTest {
         val store = ConversationStore(tmp.newFolder())
         val id = store.newConversation()
@@ -1596,7 +1596,7 @@ class ChatViewModelTest {
         assertEquals("查天气", ChatCopy.title(vm.ui.value.exchanges))
     }
 
-    // 交给任务的插话随那一轮存下:重开对话、重启后照样显示在那一轮下面
+    // タスクに割り当てられた割り込みは、そのラウンドとともに保存されます。会話を再開した後も、そのラウンドの下に表示されます。
     @Test fun joinedSteersSurviveReopening() = runTest {
         val store = ConversationStore(tmp.newFolder())
         val id = store.newConversation()
@@ -1605,10 +1605,10 @@ class ChatViewModelTest {
         vm.openConversation(id)
         val ex = vm.ui.value.exchanges.single()
         assertEquals(listOf("要大一点的"), ex.steers.map { it.text })
-        assertEquals("已加入当前任务", steerLabel(ex.steers.single().state))
+        assertEquals("実行中のタスクに追加しました", steerLabel(ex.steers.single().state))
     }
 
-    // 插话打断的那段回复也随那一轮存下,重开时还挂在那句插话上;没打断的那句没有
+    // 割り込みによって中断された応答もそのラウンドとともに保存され、再開時にもその割り込みに添付されたままになります。中断されなかった応答は中断されません。
     @Test fun interruptedRepliesSurviveReopening() = runTest {
         val store = ConversationStore(tmp.newFolder())
         val id = store.newConversation()
@@ -1618,7 +1618,7 @@ class ChatViewModelTest {
         assertEquals(listOf("今天晴", null), vm.ui.value.exchanges.single().steers.map { it.interrupted })
     }
 
-    // 插话之前已经说完的回复:随插话的去向报回来,之后状态再变也不丢;存下后重开照样挂在那句插话上
+    // 中断する前に完了した応答: 中断の方向を報告します。ステータスは保存後に失われません。保存して再度開いた後も、割り込みはハングアップしたままになります。
     @Test fun finishedReplyStaysWithItsSteer() = runTest {
         val vm = vm()
         vm.send("查今天的天气", ok)
@@ -1640,22 +1640,22 @@ class ChatViewModelTest {
         assertEquals(listOf("今天晴", null), vm.ui.value.exchanges.single().steers.map { it.finished })
     }
 
-    // ---- 别处(悬浮胶囊、定时任务)开始的任务和存下的轮次 ----
+    // ---- 他の場所で開始されたタスク (中断されたカプセル、時間指定されたタスク) と保存されたラウンド ----
 
-    /** 开关关着,服务的状态带着对话编号([shown])。 */
+    /** スイッチはオフになっており、サービス ステータスには会話番号 ([shown]) が含まれています。 */
     private fun TestScope.taggedVm(store: ConversationStore, endedRunId: MutableStateFlow<String?> = MutableStateFlow(null)) = ChatViewModel(
         backgroundScope, state, stage, actions, store, endedRunId = endedRunId,
         shownTask = shown, activeConversations = active, runGoal = { if (it == "a") "胶囊里说的" else null }, steers = steerFlow, activities = acts,
     ).also { runCurrent() }
 
-    /** 服务显示的任务换了状态:带编号的那份先写,和服务里一样。 */
+    /** サービスに表示されるタスクのステータスが変更されました。サービス内と同様に、番号付きのコピーが最初に書き込まれます。 */
     private fun TestScope.serve(conversationId: String, s: TaskState) {
         shown.value = conversationId to s
         state.value = s
         runCurrent()
     }
 
-    // 别处跑完存进屏上这个对话的一轮:当场补上,只一条
+    // 他の場所で実行した後、この会話を画面に保存します。その場で仲直りします。1 つだけです
     @Test fun turnSavedElsewhereAppearsOnce() = runTest {
         val store = ConversationStore(tmp.newFolder())
         store.append("a", Turn("查天气", "晴", "succeeded", runId = "r1"))
@@ -1665,14 +1665,14 @@ class ChatViewModelTest {
         runCurrent()
         assertEquals(listOf("查天气", "订会议室"), vm.ui.value.exchanges.map { it.goal })
         assertEquals(listOf("要大一点的"), vm.ui.value.exchanges.last().steers.map { it.text })
-        // 后面改了那一轮(补上记忆提示):重读,不多出一条
+        // 次の変更ラウンド (思い出のヒントの追加): 再読み込み、1 つだけ
         store.updateTurn("a", "r2") { it.copy(outcome = "订好了 3 楼") }
         runCurrent()
         assertEquals(2, vm.ui.value.exchanges.size)
         assertEquals("订好了 3 楼", (vm.ui.value.exchanges.last().status as ExchangeStatus.Done).answer)
     }
 
-    // 存进别的对话的轮次不动屏上这个对话
+    // 別の会話の順番を保存し、この会話を画面に表示したままにします
     @Test fun turnSavedInAnotherConversationLeavesScreenAlone() = runTest {
         val store = ConversationStore(tmp.newFolder())
         store.append("a", Turn("查天气", "晴", "succeeded", runId = "r1"))
@@ -1684,7 +1684,7 @@ class ChatViewModelTest {
         assertEquals(before, vm.ui.value)
     }
 
-    // 这里跟的任务结束、那一轮存进对话:不论先存还是先报结束,都只一条,保留这里的步骤
+    // これは、タスクの終了と入金ラウンドに関するダイアログです。最初に保存するか最初に報告するかに関係なく、ステップは 1 つだけです。ここでの手順をそのままにしておきます。
     @Test fun ownRunSavedIsNotDuplicated() = runTest {
         val ended = MutableStateFlow<String?>(null)
         for (savedFirst in listOf(false, true)) {
@@ -1708,7 +1708,7 @@ class ChatViewModelTest {
         }
     }
 
-    // 屏上这个对话里别处开始的任务:接着显示,原话用任务自己的,别处插的话也挂上;结束存下后只一条
+    // 画面上のこの会話の他の場所でタスクが開始されました。その後表示されます。元の単語はタスク自身のものであり、他の場所に挿入された単語もハングアップされます。最後が救われた後は一つだけ
     @Test fun runStartedElsewhereInThisConversationIsFollowed() = runTest {
         val store = ConversationStore(tmp.newFolder())
         store.append("a", Turn("查天气", "晴", "succeeded", runId = "r1"))
@@ -1731,7 +1731,7 @@ class ChatViewModelTest {
         assertEquals(listOf("只看顺丰的"), vm.ui.value.exchanges.last().steers.map { it.text })
     }
 
-    // 打开(或回到)一个有任务在跑、这里还没在跟的对话:当场接上,不等下一次状态变化
+    // タスクが実行中であり、ここでフォローされていない会話を開く (または戻る): 次のステータスの変化を待たずに、その場で選択します。
     @Test fun openingOrRefreshingAttachesActiveRun() = runTest {
         val store = ConversationStore(tmp.newFolder())
         val vm = taggedVm(store)
@@ -1742,12 +1742,12 @@ class ChatViewModelTest {
         assertEquals("胶囊里说的", vm.ui.value.exchanges.single().goal)
         assertEquals(ExchangeStatus.Working, vm.ui.value.exchanges.single().status)
 
-        // 回到前台时再接一次:已经在跟,不另起一条
+        // フロントデスクに戻ったらもう一度答えてください: すでにフォローしています。別のアカウントを開始しないでください
         vm.refresh()
         assertEquals(1, vm.ui.value.exchanges.size)
     }
 
-    // 开关关着时别的对话的任务不接到屏上这个对话里;这里正在跟的任务被换下显示时让服务显示回来
+    // スイッチがオフになると、他のダイアログのタスクは画面上のこのダイアログに接続されません。ここでフォローしているタスクを置き換えて表示するとサービス表示に戻ります。
     @Test fun serialRunInAnotherConversationIsNotAttached() = runTest {
         val store = ConversationStore(tmp.newFolder())
         store.append("a", Turn("查天气", "晴", "succeeded", runId = "r1"))
@@ -1764,14 +1764,14 @@ class ChatViewModelTest {
         active.value = listOf("a")
         serve("a", TaskState.Running(1, "", "phone_launch_app"))
         calls.clear()
-        // 定时任务在对话 b 里排上,服务显示了它
+        // スケジュールされたタスクはダイアログ b でスケジュールされており、サービスはそれを表示します
         active.value = listOf("a", "b")
         serve("b", TaskState.Held(GateReason.queued("排队中:前面还有 1 个任务")))
         assertEquals(listOf("show:a"), calls)
         assertEquals(ExchangeStatus.Working, vm.ui.value.exchanges.last().status)
     }
 
-    // 还没有对话时接上的任务:连同那个对话存下的轮次一起显示,之后存进来的也对得上
+    // ダイアログがない場合に受信したタスク: そのダイアログの保存されたラウンドと一緒に表示され、後で保存されたものも一致します
     @Test fun adoptingARunLoadsItsConversation() = runTest {
         val store = ConversationStore(tmp.newFolder())
         store.append("a", Turn("查天气", "晴", "succeeded", runId = "r1"))
@@ -1782,7 +1782,7 @@ class ChatViewModelTest {
         assertEquals(listOf("查天气", "胶囊里说的"), vm.ui.value.exchanges.map { it.goal })
     }
 
-    // ---- 别处开始的任务,按服务里真实的先后:先显示(状态送出),再登记进任务列表 ----
+    // ---- 他の場所で開始されたタスクは、サービス内の実際の順序に従います。最初に表示され (ステータスが送信され)、次にタスク リストに登録されます ----
 
     private val goals = mutableMapOf<String, String>()
     private val endedRun = MutableStateFlow<String?>(null)
@@ -1792,7 +1792,7 @@ class ChatViewModelTest {
         shownTask = shown, activeConversations = active, runGoal = goals::get, steers = steerFlow, activities = acts,
     ).also { runCurrent() }
 
-    /** 服务开始一个任务:先显示它(带编号的状态、状态),之后才登记进任务列表(对话、原话)。 */
+    /** サービスはタスクを開始します。タスクは最初に表示され（番号付きステータス、ステータス）、次にタスクリストに登録されます（ダイアログ、元の単語）。 */
     private fun TestScope.startedElsewhere(conversationId: String, goal: String) {
         val s = TaskState.Running(0, "正在准备")
         shown.value = conversationId to s
@@ -1803,7 +1803,7 @@ class ChatViewModelTest {
         runCurrent()
     }
 
-    // 屏上这个对话里别处(悬浮胶囊)发的话:在跑时就显示那句话和步骤,和在这里发的一样
+    // この会話の他の場所 (中断されたカプセル) に投稿された単語が画面上にある場合: その文とステップは、ここに投稿されたものと同様に、ランニング中に表示されます。
     @Test fun runStartedElsewhereShowsMessageWhileRunning() = runTest {
         for (parallel in listOf(false, true)) {
             val store = ConversationStore(tmp.newFolder())
@@ -1817,8 +1817,8 @@ class ChatViewModelTest {
             state.value = shown.value!!.second
             runCurrent()
             did(1, "act", "phone_launch_app", "com.chat")
-            assertEquals(listOf("打开 App · 聊天"), vm.ui.value.exchanges.last().steps.map { it.text })
-            // 回到前台再接一次:不另起一条
+            assertEquals(listOf("アプリを開く · 聊天"), vm.ui.value.exchanges.last().steps.map { it.text })
+            // フロントデスクに戻って再度受け取ります: 新しいものはありません
             vm.refresh()
             assertEquals(2, vm.ui.value.exchanges.size)
             assertEquals("胶囊里说的", vm.ui.value.exchanges.last().goal)
@@ -1831,7 +1831,7 @@ class ChatViewModelTest {
         }
     }
 
-    // 屏上还没有对话时接上别处开始的任务:那句话也在
+    // 画面にダイアログがないときに他の場所で開始されたタスクを引き継ぐ: その文もそこにあります
     @Test fun adoptedRunShowsItsMessage() = runTest {
         val vm = registryVm(ConversationStore(tmp.newFolder()), parallel = false)
         startedElsewhere("a", "胶囊里说的")
@@ -1839,7 +1839,7 @@ class ChatViewModelTest {
         assertEquals(listOf("胶囊里说的"), vm.ui.value.exchanges.map { it.goal })
     }
 
-    // 别处在新对话里开始的任务:侧栏列在进行中;打开它(回到 Mika)就看到那句话和在跑的状态
+    // 新しい会話の別の場所で開始されたタスク: サイドバーには進行中として表示されます。それを開くと (Mika に戻ると)、その文と実行ステータスが表示されます。 「
     @Test fun runInNewConversationElsewhereOpensWithMessage() = runTest {
         for (parallel in listOf(false, true)) {
             val store = ConversationStore(tmp.newFolder())
@@ -1860,7 +1860,7 @@ class ChatViewModelTest {
         }
     }
 
-    // 正在长出来的回答排在已交给模型的插话后面、还没交给模型的插话前面
+    // 」が成長しているという回答は、モデルに与えられたコメントの後ろと、モデルに与えられていないコメントの前に表示されます。
     @Test fun draftSitsBetweenJoinedAndWaitingSteers() {
         val joined = SteerNote("a", "改成明天", SteerState.Joined)
         val received = SteerNote("b", "简短点", SteerState.Received)
@@ -1869,42 +1869,42 @@ class ChatViewModelTest {
         assertEquals(listOf(joined) to emptyList<SteerNote>(), steersAroundDraft(listOf(joined)))
         assertEquals(emptyList<SteerNote>() to listOf(received), steersAroundDraft(listOf(received)))
     }
-    /** 等另一个任务放开 App 时仍在干活:进展那一行写在等谁,不算暂停、也不算要你处理。 */
+    /** は、別のタスクを待っている間にアプリがリリースされても動作し続けます。誰を待っているかについて書かれた進行状況の行は、一時停止またはユーザーが処理するものとしてカウントされません。 */
     @Test fun waitingForAnotherTasksAppIsStillWorking() = runTest {
         val vm = vm()
         vm.send("给张三发消息", ok)
         emit(TaskState.Running(2, "打开聊天", tool = "phone_launch_app", progress = com.wangzan101.mika.core.agent.RunProgress.WaitingForApp("聊天")))
         val ex = vm.ui.value.exchanges.single()
         assertEquals(ExchangeStatus.Working, ex.status)
-        assertEquals("等另一个任务用完聊天", ex.line)
+        assertEquals("ほかのタスクが 聊天 を使い終わるのを待っています", ex.line)
         assertEquals(ComposerMode.Busy, vm.ui.value.composer)
     }
 
-    /** 屏一开小画面就浮出来;用户关掉后只剩小按钮,任务照常在跑。 */
+    /** 画面がオンになるとすぐに、小さな画面がポップアップ表示されます。ユーザーがオフにした後は、小さなボタンだけが残り、タスクはまだ実行されています。 */
     @Test fun smallWindowCanBeClosedForThisTask() = runTest {
         val open = MutableStateFlow(false)
         val vm = vmWithScreen(open)
         vm.send("打开设置看电量", ok)
         emit(TaskState.Running(0, "正在准备"))
-        assertFalse("还没开屏时不浮出来", vm.ui.value.pip.visible)
+        assertFalse("画面を開く前は小画面を表示しない", vm.ui.value.pip.visible)
         open.value = true
         runCurrent()
         assertTrue(vm.ui.value.pip.visible)
         assertFalse(vm.ui.value.pip.closed)
 
         vm.closePip()
-        assertTrue("关掉后还有小按钮", vm.ui.value.pip.visible)
+        assertTrue("閉じた後も小さなボタンを表示する", vm.ui.value.pip.visible)
         assertTrue(vm.ui.value.pip.closed)
         assertEquals(ExchangeStatus.Working, vm.ui.value.exchanges.single().status)
-        // 之后的进展不让它自己再浮出来
+        // 以降の進歩により、それが自然に再浮上することはありません。
         emit(TaskState.Running(1, "点了设置"))
         assertTrue(vm.ui.value.pip.closed)
 
         vm.reopenPip()
-        assertFalse("点小按钮再打开", vm.ui.value.pip.closed)
+        assertFalse("小さなボタンを押すと再表示する", vm.ui.value.pip.closed)
     }
 
-    /** 关着小画面时要你接管:不自己弹开,但小按钮进入「要你处理」的样子,要你做的事照样在对话卡片里。 */
+    /** は、小さな画面が閉じているときに引き継ぐように求めます。画面は自動的にポップアップしませんが、小さなボタンは「処理する必要があります」となり、要求された内容はダイアログ カード内に表示されます。 */
     @Test fun closedSmallWindowStillSignalsWhenItNeedsYou() = runTest {
         val open = MutableStateFlow(false)
         val vm = vmWithScreen(open)
@@ -1917,12 +1917,12 @@ class ChatViewModelTest {
         val pip = vm.ui.value.pip
         assertTrue(pip.visible)
         assertTrue(pip.closed)
-        assertFalse("关着时接管也不弹开", pip.expanded)
+        assertFalse("閉じている場合は引き継ぎ時も自動展開しない", pip.expanded)
         assertEquals(PipMode.NeedsYou, pip.mode)
         assertTrue(vm.ui.value.exchanges.single().status is ExchangeStatus.NeedsTakeover)
     }
 
-    /** 关掉只管那一个任务:下一个任务照常浮出小画面。 */
+    /** そのタスクだけをオフにします。次のタスクは引き続き小さな画面に表示されます。 */
     @Test fun closingTheSmallWindowOnlyLastsForThatTask() = runTest {
         val open = MutableStateFlow(false)
         val vm = vmWithScreen(open)
@@ -1944,8 +1944,8 @@ class ChatViewModelTest {
         assertFalse(vm.ui.value.pip.closed)
     }
 
-    // ---------- 胶囊接着哪个对话 ----------
-    // 胶囊不看对话文件最后被谁写过,而是看界面此刻在哪个对话:这三处改动各告诉它一次。
+    // ---------- カプセルに続くダイアログ ----------
+    // カプセルは、誰が会話ファイルを最後に書いたかを調べませんが、インターフェースが現在どの会話に参加しているかを調べます。これら 3 つの変更はそれぞれ 1 回伝えられます。
 
     @Test fun newChatTellsTheCapsuleItIsAFreshOne() = runTest {
         val store = ConversationStore(tmp.newFolder())
@@ -1963,7 +1963,7 @@ class ChatViewModelTest {
         assertEquals(CurrentChat.Open("c-old"), store.currentChat())
     }
 
-    /** 新对话里说的第一句话定下编号:胶囊之后接着这个对话,不是上一个。 */
+    /** 新しい対話で話される最初の文には番号が付けられます。対話は前の文ではなく、カプセルの後に続きます。 */
     @Test fun theFirstMessageInANewChatTellsTheCapsuleItsId() = runTest {
         val store = ConversationStore(tmp.newFolder())
         val vm = vm(store)
@@ -1973,11 +1973,11 @@ class ChatViewModelTest {
         assertTrue(id != null)
         assertEquals(CurrentChat.Open(id!!), store.currentChat())
         emit(TaskState.Succeeded("晴"))
-        // 结束后还是它:胶囊不会跳回上一个对话
+        // 終わった後も同じです: カプセルは前の会話に戻りません
         assertEquals(CurrentChat.Open(id), store.currentChat())
     }
 
-    /** 只记下复制了哪两个工作区,返回事先给的结果。 */
+    /** は、どの 2 つのワークスペースがコピーされたかを記録するだけで、事前に指定された結果を返します。 */
     private class FakeBranchWorkspace(var result: BranchCopyResult? = BranchCopyResult(copied = 1)) : BranchWorkspace {
         val calls = mutableListOf<Pair<String, String>>()
         override suspend fun copyInbox(sourceId: String, targetId: String, maxBytes: Long): BranchCopyResult? {
@@ -1986,7 +1986,7 @@ class ChatViewModelTest {
         }
     }
 
-    /** 从回答分支:复制到这一轮(含),标题加后缀,切到新对话;原对话不变,工作区的 inbox 也复制过去。 */
+    /** 回答ブランチから: このラウンド (包括的) にコピーし、タイトルにサフィックスを追加して、新しい会話に切り替えます。元の会話は変更されず、ワークスペースの受信トレイもコピーされます。 */
     @Test fun branchFromCopiesThroughTheTurnAndOpensTheBranch() = runTest {
         val store = ConversationStore(tmp.newFolder())
         val source = store.newConversation()
@@ -2013,7 +2013,7 @@ class ChatViewModelTest {
         assertEquals(listOf(source to target), workspace.calls)
     }
 
-    /** 源对话没有标题时用第一句话当底,再加后缀。 */
+    /** ソースの会話にタイトルがない場合は、最初の文をベースとして使用し、接尾辞を追加します。 */
     @Test fun branchTitleFallsBackToTheFirstWords() = runTest {
         val store = ConversationStore(tmp.newFolder())
         val source = store.newConversation()
@@ -2027,7 +2027,7 @@ class ChatViewModelTest {
         assertEquals("帮我整理发票 · 分支", store.title(target!!))
     }
 
-    /** 任务在跑、输入框正忙、轮次越界、这一轮还没结束、没有对话:都不分支。 */
+    /** タスクは実行中です。入力ボックスはビジーです。ラウンドは範囲外です。ラウンドはまだ終了していません。ダイアログはありません。分岐もありません。 */
     @Test fun branchFromRefusesRunningBusyAndBadTurns() = runTest {
         val store = ConversationStore(tmp.newFolder())
         val source = store.newConversation()
@@ -2047,12 +2047,12 @@ class ChatViewModelTest {
         assertNull(vm.branchFrom(1))
         assertNull(vm.branchFrom(-1))
 
-        // 发出新一句后输入框正忙,不能再分支
+        // 新しい文の送信後に入力ボックスがビジー状態になり、分岐できなくなります。
         assertTrue(vm.send("新一句", ok))
         assertNull(vm.branchFrom(0))
     }
 
-    /** 工作区超过上限、没复制成:轮次照常分支,界面能拿到「附件没有全部复制」的提示。 */
+    /** ワークスペースは上限を超えているためコピーされません。通常どおり丸い分岐が発生し、インターフェイスに「すべての添付ファイルがコピーされていません」というプロンプトが表示されます。 */
     @Test fun branchFromReportsAttachmentsThatDidNotCopy() = runTest {
         val store = ConversationStore(tmp.newFolder())
         val source = store.newConversation()
@@ -2067,7 +2067,7 @@ class ChatViewModelTest {
         assertNull(vm.branchCopy.value)
     }
 
-    /** 源对话文件坏了:返回 null,不切走。 */
+    /** ソース会話ファイルが壊れています。null が返され、切り取られません。 */
     @Test fun branchFromFailsWithoutSwitchingWhenTheSourceIsUnreadable() = runTest {
         val dir = tmp.newFolder()
         val store = ConversationStore(dir)
@@ -2081,7 +2081,7 @@ class ChatViewModelTest {
         assertEquals(source, vm.ui.value.conversationId)
     }
 
-    /** 从用户消息重新问:复制这一轮之前,返回要预填的文字;原对话不变,切到新对话。 */
+    /** は、ユーザー メッセージから再度尋ねます。このラウンドをコピーする前に、事前に入力されるテキストを返してください。元の会話は変更されず、新しい会話に切り替わります。 */
     @Test fun branchBeforeCopiesEarlierTurnsAndReturnsPrefill() = runTest {
         val store = ConversationStore(tmp.newFolder())
         val source = store.newConversation()
@@ -2110,7 +2110,7 @@ class ChatViewModelTest {
         assertEquals(listOf(source to branch), workspace.calls)
     }
 
-    /** 第一轮之前没有轮次:新对话是空的;原消息带附件时提示重新添加。 */
+    /** 最初のラウンドの前にラウンドはありません。新しい会話は空です。元のメッセージに添付ファイルがある場合は、添付ファイルを再追加するように求められます。 */
     @Test fun branchBeforeTheFirstTurnIsEmptyAndFlagsAttachments() = runTest {
         val store = ConversationStore(tmp.newFolder())
         val source = store.newConversation()
@@ -2129,7 +2129,7 @@ class ChatViewModelTest {
         assertTrue(vm.ui.value.exchanges.isEmpty())
     }
 
-    /** 菜单显示的入口和点了之后的判断一致:这一轮没结束时两个入口都不显示,动作也不做;在跑、正忙时同样。 */
+    /** メニューに表示される入り口は、クリック後の判定と一致します。ラウンドが終了していない場合は、どちらの入り口も表示されず、アクションは実行されません。走っているときや忙しいときも同様です。 */
     @Test fun branchMenuMatchesWhatTheActionAllows() = runTest {
         val store = ConversationStore(tmp.newFolder())
         val source = store.newConversation()
@@ -2152,7 +2152,7 @@ class ChatViewModelTest {
 
         activeNow.value = emptyList()
         runCurrent()
-        // 发出新一句:第 1 轮还没结束,输入框正忙,两个入口都不显示,动作也不做
+        // は新しい文を送信しました: 最初のラウンドはまだ終わっていません。入力ボックスはビジーで、どちらの入り口も表示されず、アクションは実行されません。
         assertTrue(vm.send("新一句", ok))
         assertNull(vm.branchTurn("r1"))
         assertNull(vm.retryTurn("u1"))
@@ -2161,7 +2161,7 @@ class ChatViewModelTest {
         assertNull(vm.branchFrom(1))
     }
 
-    /** 任务在跑、轮次越界、输入框正忙:都不重新问。 */
+    /** タスクは実行中、ラウンドは範囲外、入力ボックスはビジー状態です。再度質問する必要はありません。 */
     @Test fun branchBeforeRefusesRunningBusyAndBadTurns() = runTest {
         val store = ConversationStore(tmp.newFolder())
         val source = store.newConversation()

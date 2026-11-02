@@ -22,9 +22,9 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.launch
 
 /**
- * 把「Mika 被杀后要不要拉起来」([RestoreWish])交给内置助手:胶囊模式、有没有任务在跑、「替我打开无障碍」、
- * 系统列表里有没有 Mika 的无障碍服务,任一变了、或换了助手,就经 [IMikaShell.setRestoreWish] 再交一次。
- * 助手读不到 Mika 的设置,Mika 死后只按最后交到的这一份行事。
+ * Leave 「殺されたミカを引き上げますか？」 ([RestoreWish]) 内蔵アシスタントへ: カプセル モード、実行中のタスクがあるかどうか、「アクセシビリティをオンにしてください」、
+ * システムリストにミカのアクセシビリティサービスはありますか?変更またはアシスタントが変更された場合は、[IMikaShell.setRestoreWish] を通じて再度送信してください。
+ * アシスタントはミカの設定を読み取ることができません。ミカの死後、彼は最後に渡されたものに従ってのみ行動します。
  */
 class RestoreWishSync(
     private val hub: HelperHub,
@@ -43,8 +43,8 @@ class RestoreWishSync(
     @OptIn(ExperimentalCoroutinesApi::class)
     fun start() {
         var lastOn: Boolean? = null
-        // 列表里没了 Mika 的服务要过一会儿才交出去:进程被强行停止时系统会先拿掉它,不能让这一下把心愿改掉;
-        // 一直没有(用户在系统设置里关掉了)才不替他写回
+        // リストにないMikaのサービスは引き継がれるまでに時間がかかります。プロセスが強制的に停止されると、システムは最初にそのサービスを削除します。これによってあなたの希望を変更することはできません。
+        // は彼に返信することはありませんでした (ユーザーがシステム設定で返信をオフにしました)
         val accessibilityOn = accessibility.map { it.enabled }.distinctUntilChanged().mapLatest { on ->
             if (!on && lastOn == true) delay(OFF_SETTLE_MS)
             lastOn = on

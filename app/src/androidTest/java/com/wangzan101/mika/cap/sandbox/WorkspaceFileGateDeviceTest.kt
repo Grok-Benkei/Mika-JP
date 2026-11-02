@@ -15,7 +15,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 
-/** 按句柄的安卓实现跑同一套关口规则,另加只在真机上测得了的:FIFO 不阻塞、检查之后再换文件也碰不到外面。 */
+/** は、ハンドルの Android 実装に従って同じパス ルールのセットを実行します。さらに、実際のマシンでのみ測定されたものに加えて、FIFO はブロックされず、ファイルはチェック後に変更できず、外部に触れることができません。 */
 @RunWith(AndroidJUnit4::class)
 class WorkspaceFileGateDeviceTest : WorkspaceFileGateContract() {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -33,7 +33,7 @@ class WorkspaceFileGateDeviceTest : WorkspaceFileGateContract() {
         assertTrue("took ${System.currentTimeMillis() - begin} ms", System.currentTimeMillis() - begin < 3_000)
     }
 
-    /** 打开之后把目录换成指向外面的链接:句柄上的读写仍是原来那个文件,外面的文件不受影响。 */
+    /** を開いた後、ディレクトリを外部を指すリンクに変更します。ハンドルでの読み取りと書き込みは元のファイルのままであり、外部ファイルは影響を受けません。 */
     @Test fun swapAfterOpenDoesNotRedirect() {
         File(ws, "d").mkdirs(); File(ws, "d/a.txt").writeText("inside")
         gate.openRead(ws, "d/a.txt").use { g ->
@@ -48,7 +48,7 @@ class WorkspaceFileGateDeviceTest : WorkspaceFileGateContract() {
         assertEquals("x", File(ws, "e-old/new.txt").readText())
     }
 
-    /** /proc/self/fd 读出的根目录与文件路径同出一源,/data/user/0 与 /data/data 的写法差别不影响判断。 */
+    /** /proc/self/fd によって読み取られるルート ディレクトリとファイル パスは同じソースからのものです。 /data/user/0と/data/dataの書き込みの違いは判定に影響しません。 */
     @Test fun realPathsComeFromTheHandle() {
         File(ws, "x.txt").writeText("1")
         gate.openRead(File(context.dataDir, ws.relativeTo(context.dataDir).path), "x.txt").use { assertEquals(1L, it.size) }

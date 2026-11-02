@@ -19,7 +19,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 真机测试:在 Agent 虚拟屏上用系统设置验证读屏、操作和各项核实机制。 */
+/** 実機テスト: エージェント仮想画面のシステム設定を使用して、画面の読み取り、動作、およびさまざまな検証メカニズムを検証します。 */
 @RunWith(AndroidJUnit4::class)
 class AndroidScreenTest {
     private val agent = DeviceSupport.newAgent()
@@ -88,7 +88,7 @@ class AndroidScreenTest {
     @Test
     fun tapReportsChangedAndUnchanged() = runBlocking<Unit> {
         val s = openSettings()
-        // 标题文字不可点,点上去页面不变
+        // タイトル文字をクリックできません。クリックしてもページは変更されません。
         val title = s.elements.first { !it.clickable && !it.editable && !it.scrollable && it.name == "设置" }
         val miss = ok(screen.tapXY(title.centerX, title.centerY))
         assertEquals(false, miss.changed)
@@ -103,11 +103,11 @@ class AndroidScreenTest {
     @Test
     fun staleRefRelocatesAfterMinorChange() = runBlocking<Unit> {
         val old = openSettings()
-        // 屏幕中部一个有名字、名字唯一的可点条目
+        // 画面中央にある一意の名前を持つクリック可能なエントリ
         val target = old.elements.first { e ->
             e.clickable && e.name.isNotBlank() && e.centerY in 800..1300 && old.elements.count { it.clickable && it.name == e.name } == 1
         }
-        // 慢慢往上拖一小段,界面轻微挪动;再读一次屏,旧快照就过期了
+        // 短い距離をゆっくりとドラッグすると、インターフェイスがわずかに移動します。もう一度画面を読み取ると、古いスナップショットの有効期限が切れます。
         ok(screen.swipe(360, 1000, 360, 960))
         val now = screen.snapshot()
         val moved = now.elements.first { it.clickable && it.name == target.name }
@@ -143,11 +143,11 @@ class AndroidScreenTest {
         val s = openSettings()
         val p = screen.peek()
         val wlan = p.elements.first { it.clickable && it.name.startsWith("WLAN") }
-        // peek 的读屏不进编号登记表
+        // ピークは、画面を読み取るときに番号登録フォームに入力されません
         assertEquals(ActionResult.Failed("ref_expired"), screen.tapRef(wlan.ref, p.snapshotId))
         val search = s.elements.first { it.editable || it.name.contains("搜索") }
         ok(screen.tapRef(search.ref, s.snapshotId))
-        // 搜索框拿到输入焦点后,读屏标出 focused
+        // 検索ボックスが入力フォーカスを取得した後、画面を読み取り、フォーカス済みとしてマークします。
         assertNotNull("no focused field", pollUntil(5_000) { runBlocking { screen.peek() }.elements.firstOrNull { it.editable && it.focused } })
     }
 
@@ -156,7 +156,7 @@ class AndroidScreenTest {
         val s = openSettings()
         val search = s.elements.first { it.editable || it.name.contains("搜索") }
         ok(screen.tapRef(search.ref, s.snapshotId))
-        // 搜索页的输入框拿到焦点后直接往焦点框里打字
+        // 検索ページの入力ボックスにフォーカスが当たったら、フォーカス ボックスに直接入力します。
         val typed = pollUntil(5_000) {
             runBlocking { screen.typeText(null, null, "WLAN") }.takeIf { it is ActionResult.Ok }
         }
@@ -225,7 +225,7 @@ class AndroidScreenTest {
         val s = openSettings()
         ok(screen.tapRef(s.clickable("WLAN").ref, s.snapshotId))
         snapUntil { snap -> snap.elements.any { it.role == "Switch" } }
-        // 普通启动回到上次的页面,冷启动回到首页
+        // 通常起動は最後のページに戻り、コールド起動はホームページに戻ります
         ok(screen.openApp(SETTINGS, cold = true))
         snapUntil { snap -> snap.elements.any { it.clickable && it.name.startsWith("WLAN") } }
     }

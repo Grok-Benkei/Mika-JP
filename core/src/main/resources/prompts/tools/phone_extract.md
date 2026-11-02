@@ -1,1 +1,1 @@
-Extract visible accessibility data without a screenshot: text nodes, list rows grouped by their scrollable parent, or editable form fields with labels and parent context. Secret field values are omitted. This reads one screen; use phone_collect for content across screens.
+画像なしに、見えるアクセシビリティデータを抽出する。文面のノード、スクロール可能な親ごとにまとめた一覧の行、またはラベルと親の文脈を伴う編集可能なフォームの欄。秘密の欄の値は省略される。これは1つの状態を読む。複数の状態にわたる内容には phone_collect を使う。

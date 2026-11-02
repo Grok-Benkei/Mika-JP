@@ -8,20 +8,20 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * 带着用户屏幕的一句话给模型时的写法,只在这里。和相册里的图片(附件,照旧是文件)分开:
- * - 用户这句话本身写成「用户刚截下他正在看的屏幕(App,时刻),没有附言 / 附言:…」(不让截图时照实说没截到);
- * - 屏上的字和编号是另一段上下文([detail]),没有附言时再带上按屏幕猜意图的规矩;
- * - 之前几轮里的屏幕只剩一行([earlier]):App、时刻和屏上开头几个字,要再看按编号回看。
+ * はここだけのモデルにユーザー画面付きの文章を書き込む方法です。アルバム内の写真とは別にします (添付ファイル、静止画ファイル):
+ * - ユーザーの文自体は、「ユーザーは見ている画面 (アプリ、時間) のスクリーンショットを撮ったところです。追記なし / PS:...」 (スクリーンショットを撮るときに真実を語ることは許可されていません) と書かれています。
+ * - 画面上の単語と数字は別のコンテキスト ([detail]) です。追記がない場合は画面を押して意図を推測するルールに従ってください。
+ * - 以前のラウンドで画面に残っているのは 1 行 ([earlier]) だけです: アプリ、時間、画面上の最初のいくつかの単語。もう一度見たい場合は、番号を押すと戻ります。
  */
 object UserScreenPrompt {
-    /** 之前几轮里那一屏留几个字的开头。 */
+    /** 前のラウンドの画面上のいくつかの単語の始まり。 */
     const val GIST_CHARS = 40
 
     private val TIME = DateTimeFormatter.ofPattern("MMM d HH:mm", Locale.ENGLISH)
 
     fun time(at: Long, zone: ZoneId): String = TIME.format(Instant.ofEpochMilli(at).atZone(zone))
 
-    /** 用户这句话:[screen] 为 null 是截图已经不在了。 */
+    /** ユーザーは次のように述べています: [screen] は null です。これは、スクリーンショットがもう存在しないことを意味します。 */
     fun said(id: String, screen: UserScreen?, words: String, zone: ZoneId): String {
         if (screen == null) return listOf(Feedback.format("user_screen.missing", "id" to id), words).filter(String::isNotBlank).joinToString("\n")
         val vars = arrayOf("app" to screen.app, "time" to time(screen.takenAt, zone), "words" to words)
@@ -34,8 +34,8 @@ object UserScreenPrompt {
     }
 
     /**
-     * 这一屏的详情(上下文正文):编号、App、时刻、屏上的字(套上不可信标记:屏上的字是别人或 App 写的);
-     * [noWords] 时接上按屏幕猜意图的规矩,[askVision] 时说看不到图可以问看图模型。不让截图的页面只说截不到该怎么回。
+     * この画面の詳細 (コンテキスト テキスト): 数字、アプリ、時間、画面上の単語 (信頼できないマークを付けます: 画面上の単語は他の人またはアプリによって書かれたものです)。
+     * と[noWords]については、画面を押すことで意図を推測するルールに従います。 [askVision] の場合、写真が表示されない場合は、写真のモデルを確認するように依頼できます。スクリーンショットを禁止するページには、スクリーンショットが撮れないことと返信方法のみが記載されています。
      */
     fun detail(screen: UserScreen, noWords: Boolean, askVision: Boolean, zone: ZoneId): String {
         if (screen.blocked) return Feedback["user_screen.blocked_reply"]
@@ -50,7 +50,7 @@ object UserScreenPrompt {
             .joinToString("\n\n")
     }
 
-    /** 之前几轮里的一屏收成一行;截图已经不在时只说不在了。 */
+    /** 前のラウンドでは、1 つの画面と 1 つのラインが収集されました。スクリーンショットがなくなったときは、もう存在しないと表示されました。 */
     fun earlier(id: String, screen: UserScreen?, zone: ZoneId): String {
         if (screen == null) return Feedback.format("user_screen.missing", "id" to id)
         val vars = arrayOf("id" to id, "app" to screen.app, "time" to time(screen.takenAt, zone))
@@ -59,13 +59,13 @@ object UserScreenPrompt {
         return Feedback.format("user_screen.earlier", *vars, "gist" to gist)
     }
 
-    /** 屏上开头的几个字(跳过很短的零碎),给之前几轮那一行用;没有字为 null。 */
+    /** 画面上の最初のいくつかの単語 (非常に短いフラグメントをスキップ) は、前のラウンドの行に使用されます。単語がない場合は null です。 */
     fun gist(screen: UserScreen): String? {
         val text = screen.lines.map { it.text }.filter { it.length >= 2 }.joinToString(" ").ifEmpty { return null }
         return if (text.length <= GIST_CHARS) text else text.take(GIST_CHARS) + "…"
     }
 
-    /** 之前一轮里用户说的话:屏幕那一行换成 [earlier],附言接在后面(一行)。不带屏幕的原样返回。 */
+    /** 前のラウンドでユーザーが言ったこと: 画面上の行を [earlier] に置き換えると、追記が続きます (1 行)。スクリーン無しでそのまま返却。 */
     fun collapse(text: String, lookup: (String) -> UserScreen?, zone: ZoneId): String {
         val p = UserScreenMessage.parse(text)
         if (!p.hasScreen) return text

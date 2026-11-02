@@ -33,10 +33,10 @@ import org.junit.runner.RunWith
 import com.wangzan101.mika.shell.IMikaShell
 
 /**
- * 外壳 20 项能力的对照验收(destroy 在 [ShellDestroyParityDeviceTest])。
- * shell 由 [DeviceSupport.shell] 提供,哪个后端在用就测哪个,两个后端跑同一套断言。
- * 断言尽量看外壳以外的证据:DisplayManager、探针页自己报的屏和任务、appops 命令、测试进程直接读剪贴板。
- * 需要外壳已连上;用户的主屏不被打扰(只在 Mika 自己建的屏上开页面)。
+ * シェルの 20 の機能の比較受け入れ ([ShellDestroyParityDeviceTest] で破棄)。
+ * シェルは [DeviceSupport.shell] によって提供されます。どのバックエンドが使用されるかはテストされます。両方のバックエンドは同じアサーション セットを実行します。
+ * アサートするときは、シェル以外の証拠を調べてみてください。DisplayManager、プローブ ページ自体によって報告される画面とタスク、appops コマンド、テスト プロセスはクリップボードを直接読み取ります。
+ * ではシェルを接続する必要があります。ユーザーのホーム画面には影響しません（ミカが作成した画面でページのみが開きます）。
  */
 @RunWith(AndroidJUnit4::class)
 class ShellParityDeviceTest {
@@ -50,7 +50,7 @@ class ShellParityDeviceTest {
     @Before
     fun setUp() {
         probe = ShellProbe(context)
-        // 前一个用例若中途失败,外壳里可能还挂着待还原的剪贴板
+        // 前の使用例が途中で失敗した場合、復元されるクリップボードがシェル内でハングしたままになる可能性があります。
         shell.restoreClip()
         audioBefore = ParityAudio.mode(SETTINGS)
         clipBefore = ParityClip.text(context)
@@ -69,7 +69,7 @@ class ShellParityDeviceTest {
     private fun newScreen(width: Int = 720, height: Int = 1600, dpi: Int = 320) =
         ParityScreen(shell, width, height, dpi).also { screens += it }
 
-    /** 用 am 把探针页开到指定屏(不经外壳的启动方法),等它报到。 */
+    /** am を使用して、指定された画面にプローブ ページを開き (シェルを使用しないメソッドの開始)、報告を待ちます。 */
     private fun probeOn(displayId: Int): ProbeEvent {
         sh("am start --display $displayId -f 0x18000000 -n ${ShellProbe.COMPONENT}")
         return probe.await { it.kind == ShellProbe.RESUMED && it.display == displayId }
@@ -129,7 +129,7 @@ class ShellParityDeviceTest {
         assertNotNull("display ${s.id} still present", pollUntil(3_000) { true.takeIf { dm.getDisplay(s.id) == null } })
     }
 
-    /** 只释放屏(不经 finishDisplay 挪走留下的)时,屏上的任务随屏关掉;任务结束时的去留见 [AppsAfterTaskDeviceTest]。 */
+    /** 画面のみが解放される (finishDisplay を使用せずに削除される) と、画面上のタスクは画面とともにオフになります。タスクが終了したら、[AppsAfterTaskDeviceTest] を参照してください。 */
     @Test
     fun releaseDisplayDestroysTasksOnIt() {
         val s = newScreen()
@@ -178,7 +178,7 @@ class ShellParityDeviceTest {
         val times = longArrayOf(0, 60, 120, 180)
         val started = System.currentTimeMillis()
         assertTrue(shell.injectStroke(s.id, xs, ys, times))
-        // 注完才返回:至少过了这一笔的时长
+        // 入金完了後の返却: 少なくともこの時間が経過しました
         assertTrue(System.currentTimeMillis() - started >= 170)
         val down = probe.await { it.kind == ShellProbe.TOUCH && it.action == MotionEvent.ACTION_DOWN }
         val release = probe.await { it.kind == ShellProbe.TOUCH && it.action == MotionEvent.ACTION_UP }
@@ -213,7 +213,7 @@ class ShellParityDeviceTest {
     fun injectKeyRefusesKeysOutsideTheAllowlist() {
         val s = newScreen()
         focusedProbeOn(s.id)
-        // 只用打到虚拟屏上也无害的键;电源、音量这类绝不在真机上试
+        // は、仮想画面上で無害なキーを押すだけで済みます。実機で電源や音量などを試しないでください。 タスクがあるときに
         assertFalse(shell.injectKey(s.id, KeyEvent.KEYCODE_HOME))
         assertFalse(shell.injectKey(s.id, KeyEvent.KEYCODE_SEARCH))
         Thread.sleep(1_000)
@@ -283,7 +283,7 @@ class ShellParityDeviceTest {
     @Test
     fun restartAppKillsAndRelaunchesOnDisplay() {
         val s = newScreen()
-        // 设置在别处(哪怕后台)有任务时冷启动会降级成普通启动;先清掉,确定走结束进程那条路
+        // が別の場所 (バックグラウンドでも) に設定されている場合、コールド スタートは通常のスタートにダウングレードされます。まずそれをクリアして、必ずプロセスを終了してください。
         sh("am force-stop $SETTINGS")
         assertEquals(ShellService.START_OK, shell.startApp(s.id, SETTINGS))
         assertNotNull(pollUntil(5_000) { shell.topTaskId(s.id).takeIf { it != -1 } })
@@ -312,7 +312,7 @@ class ShellParityDeviceTest {
     @Test
     fun moveTaskMovesTaskToOtherDisplay() {
         val a = newScreen(720, 1600, 320)
-        // 两块屏尺寸不同,搬过去后探针页一定会重新报到
+        // 2 つの画面のサイズは異なります。移動後、プローブページが再登録されます。
         val b = newScreen(1080, 1920, 480)
         val task = probeOn(a.id).task
         probe.clear()
@@ -377,7 +377,7 @@ class ShellParityDeviceTest {
 
     // ---- getAudioMode / setAudioMode / setAudioMuted ----
 
-    // 不假设起始模式:新装的包多半是 default,设成与默认相同的 allow 后 appops 也报 default。一律与基线比
+    // は開始モードを想定していません。新しくインストールされたパッケージのほとんどはデフォルトです。許可をデフォルトと同じに設定すると、appops もデフォルトを報告します。常にベースラインと比較
 
     @Test
     fun getAudioModeMatchesAppOps() {
@@ -449,7 +449,7 @@ class ShellParityDeviceTest {
     fun restoreClipPutsBackUserText() {
         ParityClip.put(context, "parity-user")
         assertEquals(ShellService.CLIP_SET, shell.setClipText("parity-ours"))
-        // 连续放两次,还原的仍是第一次之前用户的
+        // 2 回連続でプレイしても、復元は初回以前のユーザーのままです。
         assertEquals(ShellService.CLIP_SET, shell.setClipText("parity-ours-2"))
         shell.restoreClip()
         assertEquals("parity-user", ParityClip.text(context))
@@ -522,13 +522,13 @@ class ShellParityDeviceTest {
 
     companion object {
         const val NO_SUCH_APP = "com.wangzan101.no.such.app"
-        // Display.FLAG_TRUSTED 是隐藏常量
+        // Display.FLAG_TRUSTED は非表示の定数です
         val DISPLAY_FLAG_TRUSTED: Int =
             runCatching { Display::class.java.getField("FLAG_TRUSTED").getInt(null) }.getOrDefault(1 shl 7)
     }
 }
 
-/** 测试直接经外壳建的屏,画面进本进程的 ImageReader。 */
+/** は、シェルを通じてこのプロセスの画面と画面に直接入る ImageReader をテストします。 */
 class ParityScreen(private val shell: IMikaShell, width: Int, height: Int, dpi: Int) : AutoCloseable {
     val reader: ImageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
     val id: Int = shell.createDisplay(reader.surface, width, height, dpi)
@@ -552,7 +552,7 @@ class ParityScreen(private val shell: IMikaShell, width: Int, height: Int, dpi: 
     }
 }
 
-/** 不经外壳,直接用 appops 命令读写 PLAY_AUDIO。 */
+/** は、appops コマンドを直接使用して、シェルを経由せずに PLAY_AUDIO の読み取りと書き込みを行います。 */
 object ParityAudio {
     fun mode(pkg: String): String =
         Regex("""PLAY_AUDIO:\s*([a-z_]+)""").find(sh("appops get $pkg PLAY_AUDIO"))?.groupValues?.get(1) ?: "default"
@@ -563,8 +563,8 @@ object ParityAudio {
 }
 
 /**
- * 测试进程直接读写系统剪贴板。后台读剪贴板要 READ_CLIPBOARD_IN_BACKGROUND,临时借 shell 的权限。
- * 只按纯文字保存和还原用户原来的内容。
+ * テスト プロセスは、システム クリップボードを直接読み書きします。バックグラウンドでクリップボードを読み取るには、シェルの権限を一時的に借用する READ_CLIPBOARD_IN_BACKGROUND が必要です。
+ * は、ユーザーの元のコンテンツをプレーン テキストでのみ保存および復元します。
  */
 object ParityClip {
     private const val READ_IN_BACKGROUND = "android.permission.READ_CLIPBOARD_IN_BACKGROUND"
@@ -582,14 +582,14 @@ object ParityClip {
         }
     }
 
-    /** 剪贴板上的文字;空的返回 null。 */
+    /** クリップボード上のテキスト。空の場合は null が返されます。 */
     fun text(context: Context): String? = asShell {
         manager(context).primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.text?.toString()
     }
 
     fun description(context: Context): ClipDescription? = asShell { manager(context).primaryClipDescription }
 
-    /** 放一段用户自己的文字;null 表示清空。 */
+    /** ユーザー独自のテキストを挿入します。 null はクリアを意味します。 */
     fun put(context: Context, text: String?) {
         val cm = manager(context)
         if (text == null) cm.clearPrimaryClip() else cm.setPrimaryClip(ClipData.newPlainText("user", text))

@@ -27,8 +27,8 @@ import kotlin.math.roundToInt
 import com.wangzan101.mika.core.assembly.toolDispatcher
 
 /**
- * phone_find_visually 在 Agent 虚拟屏上只读浏览系统设置(需要内置助手与无障碍服务)。
- * 没有真的看图模型:视觉路径用脚本模型,框按控件树里「WLAN」那一行的坐标算出来。
+ * phone_find_visually エージェント仮想画面上の読み取り専用参照システム設定 (組み込みのアシスタントおよびアクセシビリティ サービスが必要)。
+ * には実際の画像表示モデルがありません。ビジュアル パスはスクリプト モデルを使用し、コントロール ツリーの「WLAN」行の座標に基づいて計算されます。
  */
 @RunWith(AndroidJUnit4::class)
 class LocateDeviceTest {
@@ -39,7 +39,7 @@ class LocateDeviceTest {
         agent?.release()
     }
 
-    /** 依次给出固定回答的视觉模型。 */
+    /** 決まった答えを順番に返すビジュアルモデル。 */
     private class ScriptedVision(vararg answers: String, verified: Boolean = true) : ChatModel {
         override val capabilities = Capabilities(toolCalls = false, vision = true, contextTokens = 32_000, reasoning = false, groundingVerified = verified)
         private val answers = ArrayDeque(answers.toList())
@@ -66,7 +66,7 @@ class LocateDeviceTest {
         val r = runBlocking { a.screen.openApp(SETTINGS) }
         assertTrue("openApp: $r", r is ActionResult.Ok)
         val home = a.snapUntil { s -> s.elements.any { it.name.trim() == "WLAN" } }
-        // 过渡动画结束,两次截图才对得上
+        // トランジション アニメーションが終了しました。アニメーションを一致させるには 2 つのスクリーンショットが必要です。
         Thread.sleep(1_000)
         return a to home
     }
@@ -90,7 +90,7 @@ class LocateDeviceTest {
         val r = d.run("phone_find_visually", """{"target":"WLAN","text":"WLAN"}""")
         assertEquals(r.toString(), "true", r.s("found"))
         assertEquals("elements", r.s("source"))
-        assertEquals("控件树命中不问视觉模型", 0, model.asked)
+        assertEquals("要素ツリーで見つかった場合は画像用モデルに問い合わせない", 0, model.asked)
         tapAndExpectWlanPage(a, d, r)
     }
 
@@ -98,11 +98,11 @@ class LocateDeviceTest {
     fun visionPathTapsWlan() {
         val (a, home) = openSettingsHome()
         val row = home.elements.first { it.name.trim() == "WLAN" }.bounds
-        // 读屏的 0–999 换成模型用的 0–1000
+        // 画面読み取りの 0 ～ 999 はモデルの 0 ～ 1000 に置き換えられます
         val box = row.map { (it * 1000 / 999.0).roundToInt() }
         val model = ScriptedVision("""{"bbox_2d": [${box.joinToString(", ")}], "seen": "WLAN"}""", "是")
         val d = toolDispatcher(a.screen, vision = VisionService(model, BitmapImageOps))
-        // 不给 text:不走控件树
+        // テキストなし: コントロール ツリーなし
         val r = d.run("phone_find_visually", """{"target":"WLAN 那一行"}""")
         assertEquals(r.toString(), "true", r.s("found"))
         assertEquals("vision", r.s("source"))
@@ -115,7 +115,7 @@ class LocateDeviceTest {
         val (a, home) = openSettingsHome()
         val row = home.elements.first { it.name.trim() == "WLAN" }.bounds
         val box = """{"bbox_2d": [${row.map { (it * 1000 / 999.0).roundToInt() }.joinToString(", ")}], "seen": "WLAN"}"""
-        // 定位准度没验证过:再框一次、两次复看都确认才交出去
+        // 測位精度は未検証ですので、再度フレームに入れて2度確認してからお渡し下さい。
         val model = ScriptedVision(box, "是", box, "是", verified = false)
         val d = toolDispatcher(a.screen, vision = VisionService(model, BitmapImageOps))
         val r = d.run("phone_find_visually", """{"target":"WLAN 那一行"}""")

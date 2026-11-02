@@ -28,14 +28,14 @@ import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.URI
 
-/** Mika 自己连接用的网络代理:按设置走代理、本机和局域网直连、HTTP 代理的账号密码、出错时说清是代理的问题。 */
+/** ミカが単独で接続するために使用するネットワーク プロキシ: 設定に従って、プロキシを使用し、ローカル マシンと LAN の間の直接接続、HTTP プロキシのアカウント パスワード、およびエラーがある場合は、プロキシに問題があることを示してください。 */
 class NetProxyTest {
     private lateinit var server: MockWebServer
 
     @Before fun setUp() { server = MockWebServer().also { it.start() } }
     @After fun tearDown() { server.shutdown() }
 
-    /** 一个肯定连不上的本机端口。 */
+    /** 絶対に接続されないローカルポート。 */
     private fun closedPort(): Int = ServerSocket(0).use { it.localPort }
 
     @Test fun parsesAddressesAndNeverShowsCredentials() {
@@ -55,7 +55,7 @@ class NetProxyTest {
         assertEquals(Proxy.Type.SOCKS, v6.javaProxy().type())
         assertTrue(v6.forApp)
 
-        assertFalse("https 代理只有容器用得上", ProxyAddress.parse("https://proxy.example.com:443")!!.forApp)
+        assertFalse("httpsプロキシはコンテナでのみ利用できます", ProxyAddress.parse("https://proxy.example.com:443")!!.forApp)
         for (bad in listOf("", "127.0.0.1:7890", "ftp://h:21", "http://host", "http://h:80/path", "http://h :80")) assertNull(bad, ProxyAddress.parse(bad))
     }
 
@@ -67,7 +67,7 @@ class NetProxyTest {
         for (h in listOf("api.openai.com", "8.8.8.8", "172.32.0.1", "100.128.0.1", "192.169.0.1", "2001:db8::1", "generativelanguage.googleapis.com")) {
             assertFalse(h, LocalHosts.bypassesProxy(h))
         }
-        // 判断明文 http 安不安全用的那一套仍然严格:机器名、.lan 不算本机
+        // 平文 http が安全かどうかを判断する方法は依然として厳密であり、マシン名と .lan はローカル マシンとしてカウントされません。
         assertFalse(LocalHosts.isLocal("nas"))
         assertFalse(LocalHosts.isLocal("box.lan"))
     }
@@ -80,12 +80,12 @@ class NetProxyTest {
         assertEquals(listOf(Proxy.NO_PROXY), net.selector.select(URI("http://192.168.1.20:11434/v1")))
         assertEquals(listOf(Proxy.NO_PROXY), net.selector.select(URI("http://localhost:1234/v1")))
 
-        // 改了设置马上按新的走
+        // 設定を変更したら、すぐに新しい設定をクリックします。
         setting = "http://10.0.0.2:8080"
         assertEquals(Proxy.Type.HTTP, net.selector.select(URI("https://api.example.com/v1")).single().type())
         setting = ""
         assertEquals(listOf(Proxy.NO_PROXY), net.selector.select(URI("https://api.example.com/v1")))
-        // https 代理 Mika 自己的连接用不上:直连
+        // httpsプロキシミカ自身の接続は使用できません：直接接続
         setting = "https://proxy.example.com:443"
         assertEquals(listOf(Proxy.NO_PROXY), net.selector.select(URI("https://api.example.com/v1")))
     }
@@ -116,7 +116,7 @@ class NetProxyTest {
     }
 
     @Test fun lanHostsBypassTheProxy() = runTest {
-        // 代理指向连不上的端口;本机的服务照样连得上
+        // プロキシは、接続できないポートを指しています。ローカル サービスはまだ接続されています。
         val net = NetProxy { "http://alice:pw@127.0.0.1:${closedPort()}" }
         server.enqueue(MockResponse().setBody("ok"))
         val raw = HttpSupport.execute(net.client(), Request.Builder().url(server.url("/v1/models")).build())
@@ -134,10 +134,10 @@ class NetProxyTest {
             fail("expected a proxy error")
         } catch (e: ModelError.Proxy) {
             assertEquals(ProxyFailure.AuthFailed, e.failure)
-            assertFalse("账号密码不对不重试", RetryPolicy.transient(e))
+            assertFalse("アカウントやパスワードの誤りでは再試行しません", RetryPolicy.transient(e))
             assertEquals("proxy_auth", RetryPolicy.label(e))
         }
-        // 带过一次账号密码还被拒就不再试
+        // アカウントとパスワードを一度入力しましたが拒否されたため、再度入力しません。
         assertEquals(2, server.requestCount)
     }
 
@@ -151,7 +151,7 @@ class NetProxyTest {
             assertEquals(ProxyFailure.Unreachable, e.failure)
             assertTrue(RetryPolicy.transient(e))
         }
-        // 没走代理的连接失败照旧是网络错误
+        // プロキシなしでの接続失敗は、やはりネットワーク エラーです。
         try {
             HttpSupport.execute(OkHttpClient(), Request.Builder().url("http://127.0.0.1:$port/v1").build())
             fail("expected a network error")
@@ -175,7 +175,7 @@ class NetProxyTest {
         assertEquals(ProxyFailure.Unreachable, NetProxy.classify(SocketException("Malformed reply from SOCKS server")))
         assertEquals(ProxyFailure.Unreachable, NetProxy.classify(ConnectException("Failed to connect to /127.0.0.1:7890")))
         assertEquals(ProxyFailure.Unreachable, NetProxy.classify(SocketTimeoutException("connect timed out")))
-        assertNull("读回复时超时不是代理的问题", NetProxy.classify(SocketTimeoutException("timeout")))
+        assertNull("応答の読み取り中のタイムアウトはプロキシの問題ではありません", NetProxy.classify(SocketTimeoutException("timeout")))
         assertNull(NetProxy.classify(IOException("unexpected end of stream")))
     }
 
@@ -185,11 +185,11 @@ class NetProxyTest {
         val pa = net.socksCredentials("SOCKS5", "10.0.0.9", 1080)!!
         assertEquals("bob", pa.userName)
         assertEquals("pw", String(pa.password))
-        assertNull("别的主机不答", net.socksCredentials("SOCKS5", "10.0.0.8", 1080))
-        assertNull("别的端口不答", net.socksCredentials("SOCKS5", "10.0.0.9", 1081))
-        assertNull("不是 SOCKS 的询问不答", net.socksCredentials("http", "10.0.0.9", 1080))
+        assertNull("別のホストには応答しません", net.socksCredentials("SOCKS5", "10.0.0.8", 1080))
+        assertNull("別のポートには応答しません", net.socksCredentials("SOCKS5", "10.0.0.9", 1081))
+        assertNull("SOCKS以外の問い合わせには応答しません", net.socksCredentials("http", "10.0.0.9", 1080))
         setting = "http://bob:pw@10.0.0.9:1080"
-        assertNull("HTTP 代理不经这里给", net.socksCredentials("SOCKS5", "10.0.0.9", 1080))
+        assertNull("HTTPプロキシの認証情報はここから渡しません", net.socksCredentials("SOCKS5", "10.0.0.9", 1080))
     }
 
     @Test fun onlyClientsBuiltHereAreConsideredProxied() {

@@ -17,10 +17,10 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
 /**
- * 从运行记录重建证据账本。新记录里每条进账的观察都记成了 observed(带编号):照原样放回([EvidenceLedger.restore]),和运行时的账本一样。
- * 旧记录(没有带编号的 observed)按当时各工具记进账本的字段重建:读界面的元素文字(旧的 screen_text,读取时已换成编号为 0 的 observed)
- * 和工具结果里读到的字段,结果里给干活模型的提示、说明、错误不算;助手自己写的东西(跑的命令、写进文件后又读回来的内容)不作证据,
- * 命令放在来处里,输出里原样出现在命令里的行(回显)不记。两种记录都按调用参数补上助手打进输入框的字。
+ * 実行記録から証拠台帳を再構築します。新しいレコードに入力される各観測値は、観測されたものとして (番号付きで) 記録されます。実行中の台帳と同じように、そのまま ([EvidenceLedger.restore]) に戻されます。
+ * 古いレコード (観察された番号なし) は、その時点で各ツールによって会計帳簿に記録されたフィールドに従って再構築されます: 読み取りインターフェイスの要素テキスト (古い screen_text、読み取り時に観察された番号 0 に置き換えられました)
+ * およびツール結果で読み取られるフィールド、結果内の作業モデルに与えられたヒント、指示、およびエラーはカウントされません。アシスタント自身が書いたもの (コマンドの実行、ファイルに書き込まれた後に読み戻される内容) は証拠として使用されません。
+ * コマンドはソース内に配置され、コマンド内にそのまま表示される行 (エコー) は出力には記録されません。両方のレコードには、呼び出しパラメータに従ってアシスタントが入力ボックスに入力した単語が入力されます。
  */
 internal object RecordedEvidence {
     fun ledger(events: List<RunEvent>, tools: ToolIndex): EvidenceLedger =
@@ -37,7 +37,7 @@ internal object RecordedEvidence {
         return l
     }
 
-    /** 这次回复打进输入框的字(运行记录里打了码的不算)。 */
+    /** 今回は、入力ボックスに入力された単語が返信されます（走行記録に入力された単語はカウントされません）。 */
     private fun typed(e: RunEvent.ModelReply, tools: ToolIndex): String? =
         if (e.acted && tools.verb(e.tool) == Verb.TypeText) obj(e.argsJson.orEmpty())?.s("text")?.takeIf { it != Redactor.MASK } else null
 
@@ -47,7 +47,7 @@ internal object RecordedEvidence {
         val labels = mutableMapOf<String, String>()
         val written = mutableSetOf<String>()
         var site: String? = null
-        // 最近打开、读过的网页的标题:之后没有可能换页的动作时,读屏读的就是这一页
+        // 最近開いて読んだ Web ページのタイトル: その後ページを変更する可能性がない場合、スクリーン リーダーはこのページを読み上げます。
         var title: Pair<String, Int>? = null
         for (e in events) when (e) {
             is RunEvent.ModelReply -> if (e.acted) {
@@ -66,7 +66,7 @@ internal object RecordedEvidence {
                 val r = obj(e.resultJson) ?: continue
                 when (tools.verb(e.tool)) {
                     Verb.Navigate, Verb.ReadPage, Verb.Tabs -> title = r.s("title")?.takeIf { r["ok"] == JsonPrimitive(true) }?.let { it to e.step }
-                    // 点、返回、按键、打字、换 App 之后读到的未必还是那一页
+                    // クリック、戻る、キーを押す、入力する、アプリを変更した後に表示される内容は、同じページではない可能性があります。
                     in PAGE_CHANGING -> title = null
                     else -> Unit
                 }
@@ -82,47 +82,47 @@ internal object RecordedEvidence {
         labels: MutableMap<String, String>, written: MutableSet<String>, site: String?,
     ) {
         val ok = r["ok"] == JsonPrimitive(true)
-        // 旧记录里改名前的工具名按现在的名字记,和运行时一样
+        // 旧レコードの名前変更前のツール名が、実行時と同じ現在の名前で記録されます。
         val name = tools[e.tool]?.name ?: e.tool
         fun add(kind: ObsKind, text: String, place: Place? = null, authored: String? = null, title: String? = null) =
             l.add(Observation(kind, text, place = place, authored = authored, title = title), e.step, e.atMs)
-        fun page() = add(ObsKind.Fact, "$name:网址 ${r.s("url")},网页标题「${r.s("title").orEmpty()}」" + (r.s("httpStatus")?.let { ",HTTP 状态 $it" } ?: ""))
+        fun page() = add(ObsKind.Fact, "$name:URL ${r.s("url")},ページタイトル「${r.s("title").orEmpty()}」" + (r.s("httpStatus")?.let { ",HTTP状態 $it" } ?: ""))
         when (tools.verb(e.tool)) {
             Verb.Navigate -> if (ok) page()
             Verb.ReadPage -> if (ok) {
-                val links = r.list("links").joinToString("\n") { "链接「${it.s("text")}」${it.s("url")}" }
-                val images = r.list("images").filter { !it.s("alt").isNullOrBlank() }.joinToString("\n") { "图片「${it.s("alt")}」${it.s("url")}" }
+                val links = r.list("links").joinToString("\n") { "リンク「${it.s("text")}」${it.s("url")}" }
+                val images = r.list("images").filter { !it.s("alt").isNullOrBlank() }.joinToString("\n") { "画像「${it.s("alt")}」${it.s("url")}" }
                 val read = listOf(r.s("text").orEmpty(), links, images).filter { it.isNotBlank() }.joinToString("\n")
-                if (read.isNotBlank()) add(ObsKind.Read, "网页正文(${r.s("url")},从第 ${a.s("offset") ?: "0"} 字起)\n$read", r.s("url")?.let(Place::page), title = r.s("title"))
+                if (read.isNotBlank()) add(ObsKind.Read, "ページ本文（${r.s("url")},開始位置 ${a.s("offset") ?: "0"}文字目）\n$read", r.s("url")?.let(Place::page), title = r.s("title"))
                 page()
             }
             Verb.Tabs -> if (ok) {
                 val tabs = r.list("tabs").ifEmpty { listOf(r) }.filter { it.s("title") != null }
-                if (tabs.isNotEmpty()) add(ObsKind.Fact, tabs.joinToString("\n", "$name:\n") { "标签 ${it.s("tabId")}:网址 ${it.s("url")},网页标题「${it.s("title")}」" })
+                if (tabs.isNotEmpty()) add(ObsKind.Fact, tabs.joinToString("\n", "$name:\n") { "タブ ${it.s("tabId")}:URL ${it.s("url")},ページタイトル「${it.s("title")}」" })
             }
-            Verb.EvaluateJs -> if (ok) r.s("result")?.let { add(ObsKind.Read, "网页数据脚本的结果(${site ?: "当前网页"})\n$it", site?.let(Place::site)) }
-            Verb.SiteCommand -> if (ok) r.s("result")?.let { add(ObsKind.Read, "站点命令 ${a.s("name")} 的结果(${site ?: "当前网页"})\n$it", site?.let(Place::site)) }
-            Verb.Script -> r.s("result")?.takeIf { it != "null" }?.let { add(ObsKind.Read, "页面脚本的结果(${site ?: "当前网页"})\n$it", site?.let(Place::site)) }
+            Verb.EvaluateJs -> if (ok) r.s("result")?.let { add(ObsKind.Read, "ページデータスクリプトの結果(${site ?: "現在のページ"})\n$it", site?.let(Place::site)) }
+            Verb.SiteCommand -> if (ok) r.s("result")?.let { add(ObsKind.Read, "サイトコマンド ${a.s("name")}の結果（${site ?: "現在のページ"})\n$it", site?.let(Place::site)) }
+            Verb.Script -> r.s("result")?.takeIf { it != "null" }?.let { add(ObsKind.Read, "ページスクリプトの結果(${site ?: "現在のページ"})\n$it", site?.let(Place::site)) }
             Verb.Downloads -> if (ok) r.list("downloads").takeIf { it.isNotEmpty() }?.let { list ->
-                add(ObsKind.Read, list.joinToString("\n", "下载列表(文件名来自网页):\n") { d ->
+                add(ObsKind.Read, list.joinToString("\n", "ダウンロード一覧（ファイル名はページ上の表記）:\n") { d ->
                     listOf("file", "status", "bytes", "error").mapNotNull { k -> d.s(k)?.let { "$k=$it" } }.joinToString(" ")
                 })
             }
-            Verb.Capture -> if (ok) r.s("body")?.let { add(ObsKind.Read, "网络响应(${r.s("url")},HTTP ${r.s("status")})\n$it", r.s("url")?.let(Place::page)) }
-            Verb.RunCommand -> r.s("output")?.let { add(ObsKind.Output, "退出码 ${r.s("exitCode")}:\n$it", Place.command("run_command「${a.s("command")?.take(200)}」"), a.s("command")) }
-            Verb.RunBundledScript -> r.s("output")?.let { add(ObsKind.Output, "退出码 ${r.s("exitCode")}:\n$it", Place.command("run_bundled_script ${a.s("source") ?: a.s("skill")}/${a.s("script")}"), a["args"]?.toString()) }
+            Verb.Capture -> if (ok) r.s("body")?.let { add(ObsKind.Read, "ネットワーク応答(${r.s("url")},HTTP ${r.s("status")})\n$it", r.s("url")?.let(Place::page)) }
+            Verb.RunCommand -> r.s("output")?.let { add(ObsKind.Output, "終了コード ${r.s("exitCode")}:\n$it", Place.command("run_command「${a.s("command")?.take(200)}」"), a.s("command")) }
+            Verb.RunBundledScript -> r.s("output")?.let { add(ObsKind.Output, "終了コード ${r.s("exitCode")}:\n$it", Place.command("run_bundled_script ${a.s("source") ?: a.s("skill")}/${a.s("script")}"), a["args"]?.toString()) }
             Verb.ReadFile -> if (ok && r.s("path") !in written) r.s("content")?.let { add(ObsKind.Output, it, Place.file("read_file ${r.s("path")}")) }
             Verb.WriteFile -> if (ok) {
                 r.s("path")?.let { written += it }
-                add(ObsKind.Output, "write_file 写入 ${r.s("path")}(${r.s("bytesWritten")} 字节,文件现为 ${r.s("size")} 字节)")
+                add(ObsKind.Output, "write_fileの保存先: ${r.s("path")}(${r.s("bytesWritten")}バイト、現在のファイルサイズ: ${r.s("size")}バイト）")
             }
             Verb.SearchFiles -> if (ok) r.list("matches").let { m ->
                 add(ObsKind.Output, m.joinToString("\n") { "${it.s("file")}:${it.s("line")}: ${it.s("text")}" }, Place.command("search_files「${a.s("pattern")?.take(100)}」"))
             }
-            Verb.ShareFile -> if (ok) add(ObsKind.Output, "share_file 已存到 ${r.s("savedAs")}")
+            Verb.ShareFile -> if (ok) add(ObsKind.Output, "share_fileの保存先: ${r.s("savedAs")}")
             Verb.ListApps -> if (ok) r.list("apps").forEach { app -> app.s("package")?.let { p -> app.s("label")?.let { labels[p] = it } } }
-            Verb.LaunchApp -> if (ok) a.s("package")?.let { p -> add(ObsKind.Fact, "$name 打开了 $p" + (labels[p]?.let { "(App 名字「$it」)" } ?: "")) }
-            Verb.ShareText -> if (ok) a.s("package")?.let { p -> add(ObsKind.Fact, "$name 打开了 $p 的分享页(还没发出)" + (labels[p]?.let { "(App 名字「$it」)" } ?: "")) }
+            Verb.LaunchApp -> if (ok) a.s("package")?.let { p -> add(ObsKind.Fact, "$name が$p を開きました" + (labels[p]?.let { "（アプリ名「$it」）" } ?: "")) }
+            Verb.ShareText -> if (ok) a.s("package")?.let { p -> add(ObsKind.Fact, "$name が$p の共有画面を開きました（まだ送信していません）" + (labels[p]?.let { "（アプリ名「$it」）" } ?: "")) }
             else -> Unit
         }
     }

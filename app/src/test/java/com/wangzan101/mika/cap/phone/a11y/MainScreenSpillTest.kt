@@ -25,7 +25,7 @@ class MainScreenSpillTest {
     }
 
     @Test fun backgroundTaskOnTheMainScreenBroughtToFrontIsPulledBackToo() {
-        // 系统把那个 App 已有的后台任务拉到前台,不新建任务
+        // システムは、新しいタスクを作成せずに、そのアプリの既存のバックグラウンド タスクをフォアグラウンドに移動します。
         val a = arrival(from = MainScreenSpill.MAIN)
         assertEquals(listOf(PullBack(a)), decide(a))
     }
@@ -43,7 +43,7 @@ class MainScreenSpillTest {
     }
 
     @Test fun taskMovedFromAnotherDisplayIsATakeoverNotASpill() {
-        // 接管(本任务或别的任务)是把任务从 Mika 的屏挪到主屏
+        // (このタスクまたは他のタスク) の引き継ぎとは、タスクをミカの画面からホーム画面に移動することです
         assertTrue(decide(arrival(from = 5)).isEmpty())
     }
 
@@ -55,20 +55,20 @@ class MainScreenSpillTest {
     @Test fun userTappingTheMainScreenMeansTheUserOpenedIt() {
         val other = MainScreenSpill.Tap(since + 400, "com.other")
         assertTrue(decide(arrival(at = since + 900), taps = listOf(other)).isEmpty())
-        // 动作之前的点按不算
+        // アクション前のクリックはカウントされません
         assertEquals(1, decide(arrival(at = since + 900), taps = listOf(MainScreenSpill.Tap(since - 100, "com.other"))).size)
     }
 
     @Test fun userTappingThePopupItselfLeavesItThere() {
-        // 弹窗冒出来之后用户就点在上面(在屏幕上点确认):用户在用它,不挪
+        // ポップアップ ウィンドウが表示された後、ユーザーがそれをクリックします (画面で確認します)。ユーザーはそれを使用しており、移動しません。
         val a = arrival(at = since + 900)
         assertEquals(listOf(InUse(a)), decide(a, taps = listOf(MainScreenSpill.Tap(since + 1_500, "com.chat"))))
-        // 点的是别的 App 的窗口:说不清,照常挪回
+        // が別のアプリのウィンドウをクリックしました。はっきりとはわからないので、通常どおり元に戻します。
         assertEquals(1, decide(a, taps = listOf(MainScreenSpill.Tap(since + 1_500, "com.other"))).size)
     }
 
     @Test fun previousTopComingBackIsNotASpill() {
-        // 挪走开出来的那个之后,原来最上面的又露出来
+        // 出てきたものを外すと、また上のものが露出しました。
         assertTrue(decide(arrival(task = 3, from = MainScreenSpill.MAIN), topBefore = 3).isEmpty())
     }
 
@@ -80,10 +80,10 @@ class MainScreenSpillTest {
     @Test fun systemQuestionIsLeftForTheUserAndNothingElseIs() {
         val leave = MainScreenSpill.Handling.LeaveForUser
         val move = MainScreenSpill.Handling.Move
-        // 系统的选择器,或系统包的窗口里的选项对得上装了两份的 App:留给用户选,从不挪、从不重开
+        // システム セレクターまたはシステム パッケージ ウィンドウのオプションは、アプリの 2 つのコピーをインストールするのと同等です。選択はユーザーに任されており、移動したり再度開いたりすることはありません。
         assertEquals(leave, MainScreenSpill.handling(systemPackage = true, systemPicker = true, optionsMatch = false))
         assertEquals(leave, MainScreenSpill.handling(systemPackage = true, systemPicker = false, optionsMatch = true))
-        // 系统设置一类的普通系统页面、普通 App:挪回
+        // 共通のシステム ページとシステム設定などの共通アプリ: 戻る
         assertEquals(move, MainScreenSpill.handling(systemPackage = true, systemPicker = false, optionsMatch = false))
         assertEquals(move, MainScreenSpill.handling(systemPackage = false, systemPicker = false, optionsMatch = true))
     }
@@ -94,13 +94,13 @@ class MainScreenSpillTest {
         val picked = arrival(task = 9, at = gone - 200)
         val pick = { list: List<MainScreenSpill.Arrival> -> MainScreenSpill.picked(list, 8, gone, 1_000, 3_000, 3, home) }
         assertEquals(picked, pick(listOf(chooser, picked)))
-        // 用户刚点过选项也算(那一下就是选)
+        // ユーザーがオプションをクリックしただけ (その後、選択した) 場合もカウントされます。
         assertEquals(picked, MainScreenSpill.picked(listOf(picked), 8, gone, 1_000, 3_000, 3, home))
-        // 关掉选择框后露出来的原来那个不算:用户把问题关了
+        // 選択ボックスを閉じた後に公開された元のものはカウントされません: ユーザーが問題を閉じました
         assertEquals(null, pick(listOf(chooser, arrival(task = 3, at = gone, from = MainScreenSpill.MAIN))))
-        // 选择框关掉很久之前冒出来的不是选出来的
+        // ずっと前にポップアップした選択ボックスが選択されていませんでした。
         assertEquals(null, pick(listOf(arrival(task = 9, at = gone - 5_000))))
-        // 本来就在主屏后台的那个 App 被拉到前台:就是选中的那份
+        // もともとホーム画面の背景にあったアプリが前面に引っ張られました: それが選択されたアプリです
         val existing = arrival(task = 12, at = gone + 400, from = MainScreenSpill.MAIN, user = 128)
         assertEquals(existing, pick(listOf(chooser, existing)))
     }
@@ -108,22 +108,22 @@ class MainScreenSpillTest {
     @Test fun pickedAppNeedsTheUserForAPasswordOrASecureUnreadablePage() {
         assertTrue(MainScreenSpill.needsUser(passwordField = true, readable = true, secureWindow = false))
         assertTrue(MainScreenSpill.needsUser(passwordField = false, readable = false, secureWindow = true))
-        // 树本来就读不出东西的 App 不算要用户处理,照常挪回
+        // ツリーから読み取れないアプリは、ユーザーが処理する必要はなく、通常どおり元に戻されます。
         assertEquals(false, MainScreenSpill.needsUser(passwordField = false, readable = false, secureWindow = false))
         assertEquals(false, MainScreenSpill.needsUser(passwordField = false, readable = true, secureWindow = false))
     }
 
     @Test fun accountServiceWithoutLauncherIsAUserStep() {
         val auth = setOf("com.example.accounts", "com.example.chat")
-        // 系统的账号登录服务:登记了认证器、没有桌面图标,冒到主屏上的加账号、验证码页整屏、没有密码框也留给用户
+        // システムのアカウント ログイン サービス: 認証子は登録されており、デスクトップ アイコンはなく、アカウントの追加はホーム画面に表示され、確認コード ページが画面全体に表示され、パスワード ボックスはユーザーに残されません。
         assertTrue(MainScreenSpill.authenticatorUi("com.example.accounts", auth, hasLauncher = false))
     }
 
     @Test fun authenticatorAppWithLauncherIsMovedBackAsBefore() {
         val auth = setOf("com.example.accounts", "com.example.chat")
-        // 聊天 App 为同步联系人登记了认证器,但它有桌面图标:会话、分享页冒到主屏上照常挪回,不因认证器留下
+        // チャット アプリは連絡先を同期するための認証システムを登録していますが、デスクトップ アイコンがあります。つまり、会話と共有ページがホーム画面にポップアップ表示され、認証システムに取り残されることなく、通常どおり元に戻ります。
         assertFalse(MainScreenSpill.authenticatorUi("com.example.chat", auth, hasLauncher = true))
-        // 不是认证器的包,没有桌面图标也不算
+        // は認証パッケージではないため、デスクトップ アイコンがない場合はカウントされません。
         assertFalse(MainScreenSpill.authenticatorUi("com.example.helper", auth, hasLauncher = false))
     }
 

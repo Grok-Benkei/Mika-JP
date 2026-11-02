@@ -19,8 +19,8 @@ import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 /**
- * 进程内的假 adbd:CNXN → STLS → TLS(要求客户端证书,只认 [authorized] 里的公钥)→ CNXN,
- * 然后提供几个 exec 服务。单线程事件循环,发出的每个 WRTE 都等客户端 OKAY 再发下一个。
+ * プロセスでの偽の adbd: CNXN → STLS → TLS (クライアント証明書が必要、[authorized] の公開キーのみを認識) → CNXN、
+ * は、いくつかの実行サービスを提供します。シングルスレッドのイベント ループ。送信された各 WRTE はクライアントの OKAY を待ってから次の WRTE を送信します。
  */
 class FakeAdbd(
     private val authorized: List<AdbIdentity>,
@@ -48,7 +48,7 @@ class FakeAdbd(
             while (!server.isClosed) {
                 val s = server.accept()
                 current = s
-                try { serve(s) } catch (e: IOException) { /* 客户端断开 */ } finally { s.close(); sessionsEnded.put(Unit) }
+                try { serve(s) } catch (e: IOException) { /* クライアントが切断した */ } finally { s.close(); sessionsEnded.put(Unit) }
             }
         } catch (_: IOException) {
         } catch (t: Throwable) {
@@ -122,12 +122,12 @@ class FakeAdbd(
         }
     }
 
-    /** 等这个客户端的会话在设备端处理完;客户端断开后再看 [received] 要先调用,否则最后几条消息可能还没记下。 */
+    /** このクライアントのセッションがデバイス側で処理し終わるのを待つ; クライアントが切断した後に [received] を見る場合は先に呼び出すこと。そうしないと最後の数件のメッセージがまだ記録されていない可能性がある。 */
     fun awaitSessionEnd() {
         check(sessionsEnded.poll(5, TimeUnit.SECONDS) != null) { "fake adbd session did not end" }
     }
 
-    /** 模拟设备那头断开(关掉无线调试、adbd 重启)。 */
+    /** デバイス側の切断を模擬する（ワイヤレスデバッグを切る、adbd の再起動）。 */
     fun dropClients() {
         current?.close()
     }
@@ -148,7 +148,7 @@ class AdbConnectionTest {
             AdbConnection.open("127.0.0.1", d.port, tls).use { c ->
                 assertTrue(c.banner.startsWith("device::ro.product.name=fake"))
                 assertEquals("hello world\n", c.exec("echo hello world").readText())
-                // 同一连接上可以再开流
+                // 同じ接続でストリームを再び開ける
                 assertEquals("again\n", c.exec("echo again").readText())
             }
             d.awaitSessionEnd()

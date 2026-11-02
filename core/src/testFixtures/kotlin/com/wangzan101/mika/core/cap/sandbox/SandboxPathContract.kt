@@ -12,12 +12,12 @@ import java.nio.file.Files
 import com.wangzan101.mika.core.workspace.SandboxPaths
 
 /**
- * 每个 [SandboxPort] 实现都要满足的路径规则:越界、符号链接逃逸、技能目录只读、完整输出落盘不出工作区。
- * 子类给出沙箱和一个在沙箱根目录之外的宿主目录(符号链接的目标)。
+ * 各 [SandboxPort] 実装は、パス ルール (範囲外、シンボリック リンク エスケープ、スキル ディレクトリ読み取り専用、完全な出力はワークスペースから出ない) を満たす必要があります。
+ * サブクラスは、サンドボックスと、サンドボックスのルート ディレクトリの外にあるホスト ディレクトリ (シンボリック リンクのターゲット) を提供します。
  */
 abstract class SandboxPathContract {
     protected abstract fun sandbox(): SandboxPort
-    /** 宿主上不属于任何工作区、也不属于技能目录的目录;测试只在里面建子目录。 */
+    /** は、どのワークスペースにもスキル ディレクトリにも属さないホスト上のディレクトリです。テストではその中にサブディレクトリのみが作成されます。 */
     protected abstract fun outsideDir(): File
     protected open val workspace = "contract-ws"
 
@@ -65,7 +65,7 @@ abstract class SandboxPathContract {
         val path = sb.saveOutput(workspace, "完整输出")
         assertTrue(path, path.startsWith("/workspace/.mika/out-"))
         assertEquals("完整输出", sb.hostPath(workspace, path, forWrite = false)!!.readText())
-        // .mika 被换成指到外面的链接:不写,抛异常
+        // .mika は外部を指すリンクに置き換えられます: 書き込まれず、例外がスローされました
         val out = freshOutside()
         val mika = File(wsRoot(), ".mika")
         mika.deleteRecursively()

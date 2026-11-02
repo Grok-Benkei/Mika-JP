@@ -1,6 +1,6 @@
 package com.wangzan101.mika.core.agent
 
-/** 提速开关的显式全关值；App 的首次默认值由 FeatureFlags 决定。 */
+/** 高速化スイッチの明示的な完全オフ値。アプリの最初のデフォルト値は、FeatureFlags によって決定されます。 */
 data class SpeedFlags(
     val inlineScreen: Boolean = false,
     val batchSteps: Boolean = false,
@@ -8,9 +8,9 @@ data class SpeedFlags(
     val deepLinks: Boolean = false,
     val lightSteps: Boolean = false,
     val parallelTasks: Boolean = false,
-    /** 压缩时摘要写成结构化的四段并用真实用量校准估算(会改变模型所见,评测对比后再定)。 */
+    /** が圧縮されると、概要が 4 つの構造化された段落に書き込まれ、推定値が実際の使用状況に基づいて調整されます (モデルが認識する内容が変化し、評価と比較の後に決定されます)。 */
     val structuredCompaction: Boolean = false,
-    /** 元素优先,只有读不清或模型主动请求时才给主模型画面。 */
+    /** 要素が優先され、メイン モデル画面は、それが不明瞭な場合、またはモデルによって積極的に要求された場合にのみ表示されます。 */
     val adaptiveVision: Boolean = false,
 ) {
     private fun on(): Map<String, Boolean> = mapOf(
@@ -20,17 +20,17 @@ data class SpeedFlags(
         "adaptiveVision" to adaptiveVision,
     )
 
-    /** 打开的开关名按字母序用逗号连接;全关为 "none"。[parse] 可读回。 */
+    /** オンになっているスイッチ名がアルファベット順にカンマで接続されます。オフはすべて「なし」です。 [parse] を読み戻すことができます。 */
     fun describe(): String = on().filterValues { it }.keys.sorted().joinToString(",").ifEmpty { NONE }
 
     companion object {
         private const val NONE = "none"
         val OFF = SpeedFlags()
         private val KEYS = OFF.on().keys
-        /** 已转正或撤掉的开关:存着的设置、评测参数里还可能有,读到就略过。 */
+        /** プラスになった、または削除されたスイッチ: 保存された設定や評価パラメータにまだ残っている可能性がありますので、読んだ場合はスキップしてください。 */
         private val RETIRED = setOf("cacheFriendlyPrune")
 
-        /** "none"(或空)= 全关;否则逗号分隔的 `键=on|off` 或只写键名(= on)。未知键或值抛 [IllegalArgumentException]。 */
+        /** "なし" (または空) = すべてオフ。それ以外の場合は、カンマ区切り `键=on|off` または単にキー名 (= on) を書き込みます。不明なキーまたは値が [IllegalArgumentException] をスローします。 */
         fun parse(spec: String): SpeedFlags {
             val s = spec.trim()
             if (s.isEmpty() || s == NONE) return OFF

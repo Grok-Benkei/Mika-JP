@@ -3,15 +3,15 @@ package com.wangzan101.mika.cap.phone.shell
 import java.lang.reflect.Method
 
 /**
- * 让 Mika 的虚拟屏一直亮着。带 OWN_DISPLAY_GROUP 建的屏(安卓 13 起的可信屏)自成一个显示组,有自己的息屏计时;
- * 注入的输入不算用户操作,放着不管,到了息屏时间这组屏就睡了:画面不再合成、截图不变、点按没反应。
- * 屏在的时候每 [PERIOD_MS] 替它报一次用户操作(比系统允许的最短息屏时间短得多),屏放掉就停。
- * [poke] 报不了(系统没有按屏报的接口)时不再试,屏照常用。
+ * は、Mika の仮想画面をオンのままにします。 OWN_DISPLAY_GROUP で構築された画面 (Android 13 以降の信頼された画面) は、独自の表示グループを形成し、独自の画面一時停止タイミングを持ちます。
+ * によって挿入された入力は、ユーザー操作としてカウントされません。放っておくと、画面休止時間になると画面がスリープ状態になり、画面が合成されなくなり、スクリーンショットがそのまま残り、クリックしても反応がなくなります。
+ * 画面がオンの場合、[PERIOD_MS] はその操作に対するユーザー操作 (システムで許可されている最短の画面オフ時間よりもはるかに短い) を報告し、画面が放されると停止します。
+ * [poke] を報告できない場合 (システムに画面上で報告するためのインターフェイスがない)、再試行しないでください。画面の写真が一般的に使用されます。
  */
 internal class DisplayAwake(
-    /** 替这块屏报一次用户操作;报不了返回 false。 */
+    /** は、この画面に対するユーザー操作を報告します。報告できない場合は false を返します。 */
     private val poke: (Int) -> Boolean,
-    /** 马上跑一次、之后每隔 [PERIOD_MS] 跑一次;返回停下它的办法。 */
+    /** はすぐに 1 回実行され、その後は [PERIOD_MS] ごとに実行されます。停止方法に戻ります。 */
     private val repeat: (Runnable) -> () -> Unit,
 ) {
     private val running = HashMap<Int, () -> Unit>()
@@ -21,7 +21,7 @@ internal class DisplayAwake(
         if (unavailable) return
         val cancel = repeat(Runnable { if (!poke(displayId)) giveUp() })
         synchronized(running) { running.put(displayId, cancel) }?.invoke()
-        // 第一次就报不了时 giveUp 可能早于登记跑完:补停一次
+        // 初めて登録が失敗した場合、giveUp は登録よりも早く実行を終了する可能性があります: 1 つの停止を埋め合わせます
         if (unavailable) stopAll()
     }
 
@@ -42,19 +42,19 @@ internal class DisplayAwake(
         const val PERIOD_MS = 4_000L
         // PowerManager.USER_ACTIVITY_EVENT_TOUCH
         const val EVENT_TOUCH = 2
-        // Display.DEFAULT_DISPLAY_GROUP(隐藏常量)
+        // Display.DEFAULT_DISPLAY_GROUP (隠し定数)
         private const val DEFAULT_DISPLAY_GROUP = 0
 
         /**
-         * 要不要替这块屏报:只有它真的自成一组时才报。报到默认组(用户主屏所在的组)会让用户的主屏也一直不灭。
-         * [groupId] 读不到为 null,这时按建屏时带没带 [ownGroupFlag] 算。
+         * この画面についてレポートしますか: 本当に独自のグループを形成している場合のみレポートします。デフォルト グループ (ユーザーのホーム画面が配置されているグループ) にチェックインすると、ユーザーのホーム画面は維持されます。
+         * [groupId] が読み取れない場合は null になります。この場合、画面作成時に[ownGroupFlag]が含まれているかどうかによります。
          */
         fun needed(flags: Int, ownGroupFlag: Int, groupId: Int?): Boolean =
             flags and ownGroupFlag != 0 && groupId != DEFAULT_DISPLAY_GROUP
 
         /**
-         * IPowerManager 里按屏报用户操作的那个重载 `userActivity(int displayId, long time, int event, int flags)`(安卓 12 起);
-         * 只有不带屏号的老重载时为 null:它报给默认组,会让用户的主屏不灭,不用。
+         * `userActivity(int displayId, long time, int event, int flags)` (Android 12 以降) を画面上にリロードして、IPowerManager でのユーザー操作を報告します。 画面番号のない古いリロードのみの場合、
+         * は null です。デフォルト グループに報告され、ユーザーのホーム画面が維持され、使用されません。
          */
         fun userActivityMethod(cls: Class<*>): Method? = cls.methods.firstOrNull {
             it.name == "userActivity" && it.parameterTypes.contentEquals(PER_DISPLAY)

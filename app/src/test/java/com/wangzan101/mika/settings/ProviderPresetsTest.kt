@@ -15,7 +15,7 @@ class ProviderPresetsTest {
 
     private fun preset(label: String) = ProviderPresets.all.single { it.label == label }
 
-    /** 地址、名字不重复(按地址认预设);云端的都走 https,明文 http 只给自己机器上跑的。 */
+    /** アドレスと名前は繰り返されません (デフォルトのアドレスに従って)。すべてのクラウド サーバーは https を使用し、プレーン テキストの http は自分のマシンでのみ実行されます。 */
     @Test fun urlsAreUniqueAndOnlySelfHostedUsePlainHttp() {
         val withUrl = ProviderPresets.all.filter { it.baseUrl.isNotEmpty() }
         assertEquals(withUrl.size, withUrl.map { it.baseUrl }.distinct().size)
@@ -27,12 +27,12 @@ class ProviderPresetsTest {
         }
     }
 
-    /** 自己跑的服务:地址可改、Key 可不填,名字仍用预设名;云端预设地址不给改、Key 必填。 */
+    /** 自己実行サービス: アドレスは変更でき、キーは空白のままにすることができ、名前は引き続きデフォルト名を使用します。デフォルトのクラウド アドレスは変更できず、キーが必要です。 */
     @Test fun selfHostedPresetsHaveEditableUrlAndOptionalKey() {
         val ollama = AddForm.of(preset("Ollama")).copy(baseUrl = "http://192.168.1.20:11434/v1")
         assertTrue(ollama.urlEditable)
         assertFalse(ollama.keyRequired)
-        assertTrue("不填 Key 也能测试", ollama.canTest)
+        assertTrue("Key を入力せずにテストできる", ollama.canTest)
         assertEquals("Ollama", ollama.providerName)
         val openAi = AddForm.of(preset("OpenAI"))
         assertFalse(openAi.urlEditable)
@@ -41,7 +41,7 @@ class ProviderPresetsTest {
         assertTrue(openAi.copy(apiKey = "sk").canTest)
     }
 
-    /** 主机名对得上就认出是哪家(路径不论);自己跑的服务、认不出的地址不算。 */
+    /** ホスト名が一致する場合は、(パスに関係なく) ホスト名を識別できます。自分で実行するサービスや認識できないアドレスはカウントされません。 */
     @Test fun presetByHost() {
         assertEquals("Gemini", ProviderPresets.forHost("https://generativelanguage.googleapis.com")?.label)
         assertEquals("Gemini", ProviderPresets.forHost(" https://generativelanguage.googleapis.com/v1beta/openai/ ")?.label)
@@ -53,13 +53,13 @@ class ProviderPresetsTest {
         assertNull(ProviderPresets.forHost("https://models.example.com/v1"))
         assertNull(ProviderPresets.forHost("http://127.0.0.1:11434/v1"))
         assertNull(ProviderPresets.forHost("not a url"))
-        // 每个有地址、不是自己跑的预设都认得出自己
+        // アドレスがあり、単独で実行されないすべてのプリセットは、それ自体を認識します。
         ProviderPresets.all.filter { it.baseUrl.isNotEmpty() && !it.selfHosted }.forEach {
             assertEquals(it.label, ProviderPresets.forHost(it.baseUrl)?.label)
         }
     }
 
-    /** Coding Plan 的 Key 和标准 API 不通用;地址要落在官方分开的 OpenAI 兼容端点上。 */
+    /** コーディング プランのキーと標準 API は汎用ではありません。アドレスは、公式の別個の OpenAI 互換エンドポイントに該当する必要があります。 */
     @Test fun codingPlanUsesItsOwnDocumentedEndpoint() {
         val standard = preset("智谱")
         val coding = preset("智谱 Coding Plan")

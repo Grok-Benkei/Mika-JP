@@ -10,58 +10,58 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 
 /**
- * 页面脚本(web_script)里 `mika.*` 的调用交给 Mika 的入口。端口只管传话:
- * 每个调用原样交给 [call],返回值(`{ok, value}` 或 `{ok:false, error, message}`)原样交回脚本。
- * 读页面的调用(query、queryAll、text)返回 `{ok:true, read:{…}}`:参数已校验、已计数,由端口在读取世界里照它读。
+ * ページ スクリプト (web_script) 内の `mika.*` への呼び出しは、Mika のエントリに渡されます。ポートは呼び出しのみを送信します。
+ * の各呼び出しはそのまま[call]に渡され、戻り値(`{ok, value}`または`{ok:false, error, message}`)がそのままスクリプトに渡されます。
+ * ページを読み取るための呼び出し (query、queryAll、text) は `{ok:true, read:{…}}` を返します。パラメーターは検証およびカウントされており、ポートは読み取りワールドでそれらを読み取ります。
  */
 interface ScriptBridge {
-    /** 抛 [ScriptAbort] 结束整个脚本(超上限、要确认、被守卫叫停、页面交给了用户)。 */
+    /** は [ScriptAbort] をスローしてスクリプト全体を終了します (上限を超え、確認が必要で、警備員によって停止され、ページがユーザーに渡されました)。 */
     suspend fun call(op: String, args: JsonObject): JsonObject
-    /** `mika.log`:不等回复。 */
+    /** `mika.log`: 応答を待っています。 */
     fun log(text: String)
 }
 
 class ScriptAbort(val error: String, message: String) : Exception(message)
 
 sealed interface ScriptRun {
-    /** 跑完了;[valueJson] 是返回值的 JSON(没有返回值为 null)。 */
+    /** は実行を終了しました。 [valueJson] は戻り値の JSON です (戻り値は null ではありません)。 */
     data class Done(val valueJson: String?) : ScriptRun
-    /** 整页跳走,脚本停在这里。 */
+    /** ページ全体が飛び、スクリプトはここで停止します。 */
     data object Navigated : ScriptRun
-    /** [error]:script_error | timeout | devtools_unavailable | no_tab_open,或 [ScriptAbort] 的错误码。[line] 是脚本里的行号(从 1 起)。 */
+    /** [error]:スクリプトエラー |タイムアウト | devtools_利用不可 | no_tab_open、または [ScriptAbort] エラー コード。 [line] はスクリプト内の行番号です (1 から始まります)。 */
     data class Failed(val error: String, val message: String, val line: Int? = null) : ScriptRun
 }
 
-/** 页面脚本里一次 `mika.*` 调用。[id] 为 0 表示不等回复(log)。 */
+/** ページ スクリプト内の `mika.*` 呼び出し。 [id] は 0 で、不等な応答 (ログ) を示します。 */
 data class ScriptCall(val id: Int, val op: String, val args: JsonObject)
 
 /**
- * 页面脚本的做法:模型代码拿不到任何页面对象(按构造,不靠禁用清单)。
- * - 脚本世界:一个新的隔离世界,前置脚本只做两件事——用事先存下的 AsyncFunction 编译模型代码,把这个世界全局对象上
- *   (含原型链)所有名字都当成参数遮住、传 undefined,只放行 [ALLOWED_GLOBALS](纯 ECMAScript 内置,碰不到 DOM);
- *   再把能把字符串当代码跑、能拿到全局对象的路(Function 构造器家族、eval、调用栈 API)封掉。模型代码能用的只有 `mika`,
- *   `mika` 的每个调用都是发给 Mika 的 JSON 消息,回来的也只是 JSON。
- * - 读取世界:另一个隔离世界,只装固定的 [READER](Mika 自己写的),按校验过的参数读 DOM、返回纯数据(密码一类的值打码);
- *   模型代码和它不在一个世界,拿不到它手里的任何对象。
+ * ページ スクリプト アプローチ: モデル コードはページ オブジェクトを取得できません (リストを無効にすることではなく、構造によって)。
+ * - スクリプト ワールド: 新しい孤立した世界。事前スクリプトは 2 つのことだけを実行します。事前に保存された AsyncFunction を使用してモデル コードをコンパイルし、ワールドのグローバル オブジェクトをアップロードします。
+ *   (プロトタイプ チェーンを含む) のすべての名前はパラメーターとしてカバーされ、未定義として渡されます。また、[ALLOWED_GLOBALS] (純粋な ECMAScript 組み込み、DOM に触れることができません) のみが許可されます。
+ *   次に、文字列をコードとして実行し、グローバル オブジェクト (関数コンストラクター ファミリ、eval、コール スタック API) を取得する方法をブロックします。使用できるモデルコードは`mika`のみです。
+ *   `mika` の各呼び出しは、Mika に送信される JSON メッセージであり、返されるのは JSON のみです。
+ * - 世界を読む: 別の隔離された世界。修正された [READER] (Mika 自身が作成) のみをインストールし、検証されたパラメーターに従って DOM を読み取り、純粋なデータ (パスワードなどの値コーディング) を返します。
+ *   モデル コードはそれと同じ世界に存在しないため、オブジェクトを手に入れることはできません。
  */
 object PageScriptProtocol {
     const val SOURCE_URL = "mika-script.js"
     const val PRELUDE_URL = "mika-prelude.js"
-    /** 单次 mika.wait 的上限(毫秒)。 */
+    /** 1 回の mika.wait の上限 (ミリ秒)。 */
     const val MAX_WAIT_MS = 10_000
     const val WORLD_PREFIX = "mika-script-"
     const val READER_WORLD_PREFIX = "mika-reader-"
-    /** 脚本读到密码一类输入框的值时得到的东西(和运行记录的打码一致)。 */
+    /** スクリプトがパスワードなどの入力ボックスの値を読み取るときに取得するもの (実行中のレコードのコーディングと一致)。 */
     const val SECRET_MASK = "***"
 
     /**
-     * 不读值的输入框:和页面读屏脚本(page.js)同一条规则——密码框、隐藏字段,
-     * 以及 autocomplete 标着密码、银行卡、一次性验证码的。
+     * 読み取り不可能な値を含む入力ボックス: ページ画面読み上げスクリプト (page.js) と同じルール - パスワード ボックス、隠しフィールド、
+     * とオートコンプリートには、パスワード、銀行カード、ワンタイム認証コードがマークされています。
      */
     val SECRET_AUTOCOMPLETE = listOf("current-password", "new-password", "cc-number", "cc-csc", "cc-exp", "cc-exp-month", "cc-exp-year", "one-time-code")
     val SECRET_INPUT_TYPES = listOf("password", "hidden")
 
-    /** 模型代码里能用的全局名:只有 ECMAScript 本身的值和函数,没有一个能通到 DOM 或全局对象。 */
+    /** モデル コードで使用できるグローバル名: ECMAScript 自体の値と関数のみ。DOM やグローバル オブジェクトに渡すことはできません。 */
     val ALLOWED_GLOBALS = listOf(
         "undefined", "NaN", "Infinity", "Object", "Array", "Number", "Boolean", "String", "Symbol", "BigInt", "Date", "RegExp", "Promise",
         "Map", "Set", "WeakMap", "WeakSet", "WeakRef", "JSON", "Math", "Intl", "Reflect", "Proxy",
@@ -71,7 +71,7 @@ object PageScriptProtocol {
         "parseInt", "parseFloat", "isNaN", "isFinite", "encodeURI", "encodeURIComponent", "decodeURI", "decodeURIComponent", "Iterator",
     )
 
-    /** 不能当参数名的(严格模式的保留字);eval 另外封掉。 */
+    /** はパラメータ名 (厳密モードの予約語) として使用できません。 eval もブロックされます。 */
     internal val RESERVED = listOf(
         "eval", "arguments", "break", "case", "catch", "class", "const", "continue", "debugger", "default", "delete", "do", "else", "enum",
         "export", "extends", "false", "finally", "for", "function", "if", "import", "in", "instanceof", "new", "null", "return", "super",
@@ -79,7 +79,7 @@ object PageScriptProtocol {
         "interface", "package", "private", "protected", "public", "await", "async", "mika",
     )
 
-    /** 模型代码的第 1 行前面,编译后的源码还有几行(`(async function anonymous(…`、`) {`、`'use strict';`、`return (async () => {`)。 */
+    /** モデル コードの最初の行の前に、コンパイルされたソース コード (`(async function anonymous(…`、`) {`、`'use strict';`、`return (async () => {`) の数行があります。 */
     private const val LINE_OFFSET = 4
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -87,9 +87,9 @@ object PageScriptProtocol {
     private fun js(v: List<String>): String = v.joinToString(",", "[", "]") { JsonPrimitive(it).toString() }
 
     /**
-     * 装进脚本世界的前置脚本:存下要用的原件,封掉把字符串当代码跑的路,算出要遮住的名字,定义 `__mikaRun`。
-     * 每个 mika 调用带编号放进发件箱,Kotlin 一直挂着一个 [TAKE](等到下一条就交回),结果用 `__mikaSettle(id, r)` 回传;
-     * `__mikaEnd()` 让之后的调用都失败,挂着的 [TAKE] 交回 null。不用 DevTools 的绑定:绑定要打开 Runtime,开着它页面察觉得到调试器。
+     * は、スクリプトの世界にインストールされる事前スクリプトです。使用するオリジナルを保存し、文字列をコードとして実行する方法をブロックし、マスクされる名前を特定し、`__mikaRun` を定義します。
+     * 各 mika 通話は番号付きで送信ボックスに入れられます。 Kotlin は常に [TAKE] をハングし (次のイベントまで返されます)、結果は `__mikaSettle(id, r)` で返されます。
+     * `__mikaEnd()` により後続の呼び出しが失敗し、保留中の [TAKE] は null を返します。 DevTools を使用しないバインド: バインドにはランタイムを開く必要があり、デバッガーを開くとページにデバッガーが表示されます。
      */
     val PRELUDE: String = """
 (() => {
@@ -100,7 +100,7 @@ object PageScriptProtocol {
   const stringify = JSON.stringify, apply = Reflect.apply, timer = G.setTimeout, freeze = O.freeze;
   const fixed = (o, k, v) => { try { O.defineProperty(o, k, { value: v, writable: false, enumerable: false, configurable: false }); } catch (e) {} };
   const unavailable = function () { throw new TypeError('not available in web_script: the script has no access to the page; use mika.*'); };
-  // 把字符串当代码跑(会在全局作用域里跑,拿得到全局对象)、调用栈 API(拿得到函数和 this)
+  // 文字列をコードとして実行する経路（グローバルスコープで動き、グローバルオブジェクトに到達できる）と、呼び出しスタックのAPI（関数やthisに到達できる）。
   for (const f of [function () {}, async function () {}, function* () {}, async function* () {}]) fixed(O.getPrototypeOf(f), 'constructor', unavailable);
   fixed(G, 'eval', unavailable);
   fixed(G, 'Function', unavailable);
@@ -108,7 +108,7 @@ object PageScriptProtocol {
 
   const pending = new Map();
   let seq = 0, ended = false;
-  // 发件箱:Kotlin 挂着的 __mikaTake 等在 takers 里,来一条交一条
+  // 送信キュー。Kotlinが登録した__mikaTakeなどをtakersに保持し、届いたデータを順に渡す。
   const outbox = [], takers = [];
   const post = (s) => { const t = takers.shift(); if (t) t(s); else outbox.push(s); };
   fixed(G, '__mikaTake', () => new Promise((r) => {
@@ -156,7 +156,7 @@ object PageScriptProtocol {
     log: (...xs) => { if (!ended) post(stringify({ id: 0, op: 'log', args: { text: xs.map(str).join(' ') } })); },
   });
 
-  // 这个世界全局对象上(含原型链)的每个名字都遮住,只放行纯 ECMAScript 内置
+  // この実行環境のグローバルオブジェクトにある名前を、プロトタイプチェーンも含めてすべて隠す。純粋なECMAScript組み込みだけを許可する。
   const ALLOWED = new Set(${js(ALLOWED_GLOBALS)});
   const RESERVED = new Set(${js(RESERVED)});
   const names = new Set(['globalThis', 'window', 'self', 'document', 'location', 'top', 'parent', 'frames', 'opener']);
@@ -167,7 +167,7 @@ object PageScriptProtocol {
   const shadow = [...names];
   const blanks = shadow.map(() => undefined);
   fixed(G, '__mikaRun', (code) => {
-    // 模型代码放在里层的箭头函数里:它声明的名字(哪怕和遮住的同名)在自己的作用域里,不和参数冲突
+    // モデルのコードは内側のアロー関数に入れる。隠した名前と同名の宣言も独自のスコープに属するため、引数と衝突しない。
     const fn = new AsyncFunction(...shadow, 'mika', "'use strict';\nreturn (async () => {\n" + code + '\n})();\n//# sourceURL=$SOURCE_URL');
     return apply(fn, undefined, [...blanks, mika]).then((r) => (r === undefined ? null : stringify(r)));
   });
@@ -175,20 +175,20 @@ object PageScriptProtocol {
 //# sourceURL=$PRELUDE_URL
 """.trimStart()
 
-    /** 跑模型代码的表达式(在脚本世界里求值,等 Promise)。 */
+    /** はモデルコードの式を実行します(スクリプトワールドなどで評価されるお約束)。 */
     fun run(code: String): String = "globalThis.__mikaRun(${JsonPrimitive(code)})"
 
     /**
-     * 模型代码里不许有 import(按词法查,字符串、注释、正则之外出现就拦):动态 import 在全局作用域里跑模块,拿得到全局对象。
-     * 返回问题说明,没问题为 null。
+     * モデル コードではインポートは許可されません (語彙をチェックし、文字列、コメント、正規表現の外側にある場合はブロックします): 動的インポートは、グローバル スコープでモジュールを実行し、グローバル オブジェクトを取得します。
+     * は問題の説明を返します。問題がない場合は null になります。
      */
     fun codeProblem(code: String): String? =
         if (JsSource.usesImport(code)) "import is not available in page scripts (write the word only inside strings or comments)" else null
 
     /**
-     * 读取世界里固定的读取器:按 `{mode, selector, fields, limit, maxChars}` 读 DOM,只返回纯数据。
-     * mode:one(第一个)、all(列表与总数)、count(个数)、text(合起来的可见文字)、has(页面文字里有没有 [selector] 这段字)。
-     * 密码一类的值和 value 属性打码,on* 属性不给。
+     * は世界の固定リーダーを読み取ります。`{mode, selector, fields, limit, maxChars}` を押して DOM を読み取ります。純粋なデータのみが返されます。
+     * モード: one (最初)、all (リストと合計)、count (数値)、text (結合された表示テキスト)、has (ページ テキストに [selector] という単語があるかどうか)。
+     * パスワードのような値と value 属性がコーディングされ、on* 属性は与えられません。
      */
     val READER: String = """
 (() => {
@@ -246,12 +246,12 @@ object PageScriptProtocol {
 })();
 """.trimStart()
 
-    /** 在读取世界里照 [spec] 读的表达式。 */
+    /** は、読み方の世界では [spec] に従って読まれる式です。 */
     fun read(spec: JsonObject): String = "globalThis.__mikaRead($spec)"
 
     /**
-     * 兜底:脚本还是发出了请求时,`Network.requestWillBeSent` 的发起调用栈里会有模型脚本或前置脚本。
-     * 看整条栈(含异步的 parent 链)。
+     * 結論: スクリプトが引き続きリクエストを発行する場合、`Network.requestWillBeSent` 開始コール スタックにモデル スクリプトまたは事前スクリプトが存在します。
+     * スタック全体 (非同期親チェーンを含む) を表示します。
      */
     fun requestFromScript(params: JsonObject): Boolean {
         var stack = (params["initiator"] as? JsonObject)?.get("stack") as? JsonObject
@@ -264,16 +264,16 @@ object PageScriptProtocol {
         return false
     }
 
-    /** 兜底:脚本跑着、又没有 mika 动作在做时,主框架要跳转——不是 mika 动作带来的,一律拦下。 */
+    /** 結論: スクリプトが実行中で、進行中の mika アクションがない場合、メイン フレームはジャンプします。それが mika アクションによって引き起こされていない場合、メイン フレームは停止します。 */
     fun navigationOutsideAction(params: JsonObject, mainFrameId: String, inAction: Boolean): Boolean =
         !inAction && (params["frameId"] as? JsonPrimitive)?.contentOrNull == mainFrameId
 
     private val SCRIPT_URLS = setOf(SOURCE_URL, PRELUDE_URL)
 
-    /** 取发件箱里下一条消息的表达式(在脚本世界里求值,等 Promise;收尾后交回 null)。 */
+    /** 送信ボックス内の次のメッセージの式を取得します (スクリプトの世界で評価し、Promise を待ちます。完了後に null を返します)。 */
     const val TAKE = "globalThis.__mikaTake()"
 
-    /** 发件箱里的一条消息;不是合法的调用为 null。 */
+    /** 送信トレイ内のメッセージ。有効でない呼び出しは null です。 */
     fun parseCall(payload: String): ScriptCall? {
         val o = runCatching { json.parseToJsonElement(payload).jsonObject }.getOrNull() ?: return null
         val id = (o["id"] as? JsonPrimitive)?.takeIf { !it.isString }?.intOrNull?.takeIf { it >= 0 } ?: return null
@@ -282,7 +282,7 @@ object PageScriptProtocol {
         return ScriptCall(id, op, args)
     }
 
-    /** 回传第 [id] 个调用的结果。结果是 JSON 对象字面量,直接嵌进表达式。 */
+    /** は、[id] 番目の呼び出しの結果を返します。結果は、式に直接埋め込まれた JSON オブジェクト リテラルです。 */
     fun settle(id: Int, result: JsonObject): String = "globalThis.__mikaSettle && globalThis.__mikaSettle($id, $result)"
 
     const val END = "globalThis.__mikaEnd && globalThis.__mikaEnd()"
@@ -290,8 +290,8 @@ object PageScriptProtocol {
     private val STACK_LINE = Regex(Regex.escape(SOURCE_URL) + ":(\\d+):\\d+")
 
     /**
-     * `Runtime.evaluate` 的 exceptionDetails → (说明, 脚本里的行号)。行号取调用栈里模型脚本的位置,换算成模型写的第几行(从 1 起);
-     * 语法错没有这样的栈,不报行号。
+     * `Runtime.evaluate` 例外詳細 → (説明、スクリプト内の行番号)。行番号は、コール スタック内のモデル スクリプトの位置を取得し、モデルによって書き込まれた行番号 (1 から始まる) に変換します。
+     * 構文エラー そのようなスタックは存在しないため、行番号は報告されません。
      */
     fun error(details: JsonObject): Pair<String, Int?> {
         val exception = details["exception"] as? JsonObject

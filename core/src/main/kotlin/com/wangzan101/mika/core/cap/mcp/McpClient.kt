@@ -26,18 +26,18 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
-/** 传输层只须实现这两个操作；每个 Run 开局调用一次 tools，之后目录不变。 */
+/** トランスポート層は、これら 2 つの操作を実装するだけで済みます。ツールは実行デプロイメントごとに 1 回呼び出され、その後ディレクトリは変更されません。 */
 interface McpEndpoint {
     val serverId: String
     fun tools(): List<McpToolDescriptor>
     suspend fun call(name: String, arguments: JsonObject): McpResult
 
-    /** 连接时从服务端读到的资源目录;不支持就是空。 */
+    /** 接続中にサーバーから読み取られたリソース ディレクトリ。サポートされていない場合は空になります。 */
     fun resources(): List<McpResourceDescriptor> = emptyList()
     suspend fun readResource(uri: String): McpResult =
         McpResult("MCP server does not support resources", isError = true)
 
-    /** 连接时从服务端读到的提示词模板;不支持就是空。 */
+    /** 接続時にサーバーから読み取られるプロンプト単語テンプレート。サポートされていない場合は空になります。 */
     fun prompts(): List<McpPromptDescriptor> = emptyList()
     suspend fun getPrompt(name: String, arguments: JsonObject): McpResult =
         McpResult("MCP server does not support prompts", isError = true)
@@ -59,7 +59,7 @@ data class McpToolDescriptor(
 
 data class McpResult(val text: String, val isError: Boolean = false, val costUnits: Long = 0)
 
-/** resources/list 的一项;v1 只用 uri/name/description 给模型看。 */
+/** resource/list;v1 の項目は、モデルを表示するために uri/name/description のみを使用します。 */
 data class McpResourceDescriptor(
     val uri: String,
     val name: String,
@@ -67,7 +67,7 @@ data class McpResourceDescriptor(
     val mimeType: String? = null,
 )
 
-/** prompts/list 的一项。 */
+/** プロンプト/リストの項目。 */
 data class McpPromptDescriptor(
     val name: String,
     val description: String = "",
@@ -80,10 +80,10 @@ data class McpPromptArgument(
     val required: Boolean = false,
 )
 
-/** 每个服务独立配置；Restricted 不采信服务自称的只读注解。 */
+/** 各サービスは個別に構成されます。 Restricted は、サービスが要求する読み取り専用アノテーションを受け入れません。 */
 enum class McpTrust { Restricted, TrustAnnotations }
 
-/** 长结果的完整文本由宿主保存；返回的引用只含文件路径或资源 ID。 */
+/** 長い結果の完全なテキストはホストによって保存されます。返される参照には、ファイル パスまたはリソース ID のみが含まれます。 */
 fun interface McpResultStore { fun save(serverId: String, toolName: String, content: String): String }
 
 data class McpConnection(
@@ -92,13 +92,13 @@ data class McpConnection(
     val maxCostUnits: Long? = null,
     val previewChars: Int = 4000,
     val trust: McpTrust = McpTrust.Restricted,
-    /** 只暴露这些工具;null 表示全部,空集表示一个都不给。 */
+    /** はこれらのツールのみを公開します。 null はすべてを意味し、空のセットは何も意味しません。 */
     val allowedTools: Set<String>? = null,
 ) {
     init { require(previewChars > 0 && (maxCostUnits == null || maxCostUnits >= 0)) }
 }
 
-/** 没有只读注解就按可写处理；破坏性与开放世界操作记成不可逆、对外(审批记录据此知道任务做过对外的事)。 */
+/** 読み取り専用の注釈がない場合は、書き込み可能として扱われます。破壊的でオープンワールドの操作は、不可逆的で外部的な操作として記録されます (承認記録には、タスクが外部のことを行ったことがわかります)。 */
 fun mcpApprovalRisk(a: McpAnnotations, trust: McpTrust = McpTrust.TrustAnnotations): ApprovalRisk = when {
     a.destructiveHint == true -> ApprovalRisk(ActionRisk.Irreversible)
     a.openWorldHint == true -> ApprovalRisk(ActionRisk.External)
@@ -124,7 +124,7 @@ internal class McpCapability(connection: McpConnection, override val id: String)
     override fun tools(): List<AgentTool> = tools
     override fun sections(env: PromptEnv): List<String> = emptyList()
 
-    /** resources/read 合成一个只读工具;服务端有同名工具时让位给服务端。 */
+    /** リソース/読み取りは読み取り専用ツールに合成されます。サーバーに同じ名前のツールがある場合、それがサーバーに与えられます。 */
     private fun resourceTool(connection: McpConnection): AgentTool? {
         val resources = endpoint.resources()
         if (resources.isEmpty() || "resource_read" in serverToolNames) return null
@@ -149,7 +149,7 @@ internal class McpCapability(connection: McpConnection, override val id: String)
         )
     }
 
-    /** prompts/get 合成一个只读工具,参数名和说明来自 prompts/list。 */
+    /** プロンプト/ゲットは読み取り専用ツールに合成され、パラメータ名と説明はプロンプト/リストから取得されます。 */
     private fun promptTool(connection: McpConnection): AgentTool? {
         val prompts = endpoint.prompts()
         if (prompts.isEmpty() || "prompt_get" in serverToolNames) return null
@@ -234,7 +234,7 @@ private class McpClientTool(
     )
 }
 
-/** resources/prompts 合成的只读工具;结果裁剪、预算、不可信标记和普通 MCP 工具共用一套。 */
+/** リソース/プロンプト 合成読み取り専用ツール。結果クリッピング、予算設定、信頼できないマーキング、および一般的な MCP ツールは同じセットを共有します。 */
 private class McpSyntheticTool(
     override val capability: String,
     private val serverId: String,

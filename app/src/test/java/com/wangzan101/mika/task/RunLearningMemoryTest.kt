@@ -26,7 +26,7 @@ class RunLearningMemoryTest {
         val notes = runBlocking {
             RunLearning(MemorySwitches(), store, MapSkills(), catalog, MemoryExtractor(model), null, { "d" }).learn(aftermath(listOf("点外卖,以后都不要香菜")))
         }
-        assertEquals(listOf("记住了:用户点外卖不要香菜"), notes.memoryNotes.map { n -> n.text(store.items.value.find { it.id == n.memoryId }) })
+        assertEquals(listOf("覚えました:用户点外卖不要香菜"), notes.memoryNotes.map { n -> n.text(store.items.value.find { it.id == n.memoryId }) })
         assertEquals(listOf("x"), notes.usedMemory)
         assertEquals("conv-1", store.items.value.single().source.conversationId)
         assertEquals("Ui", store.items.value.single().source.channel)
@@ -42,7 +42,7 @@ class RunLearningMemoryTest {
                 .learn(aftermath(listOf("以后都不要香菜"), listOf(saved)))
         }
         assertTrue(model.requests.isEmpty())
-        assertEquals(listOf("记住了:用户住在张江"), notes.memoryNotes.map { n -> n.text(store.items.value.find { it.id == n.memoryId }) })
+        assertEquals(listOf("覚えました:用户住在张江"), notes.memoryNotes.map { n -> n.text(store.items.value.find { it.id == n.memoryId }) })
     }
 
     @Test fun noUtterancesNoCall() {

@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-/** 一次已提交运行的控制面;取消可以直接发,用户文字经 Inbox 进入。 */
+/** コントロール サーフェスは操作のために一度送信されました。キャンセルは直接送信でき、ユーザーのテキストは受信箱から入力されます。 */
 class RunHandle internal constructor(
     val spec: RunSpec,
     private val inbox: RunInbox,
@@ -27,7 +27,7 @@ class RunHandle internal constructor(
     fun nextTaskMessages(): List<RunInbox.UserSteer> = inbox.nextTaskMessages()
 }
 
-/** S1 的直接运行入口。S3 的 TaskCenter 将决定何时启动它。 */
+/** S1の直結入口。 S3 の TaskCenter がいつ開始するかを決定します。 */
 fun AgentLoop.start(scope: CoroutineScope, spec: RunSpec): RunHandle {
     val inbox = RunInbox()
     val phase = MutableStateFlow<RunPhase>(RunPhase.Queued)

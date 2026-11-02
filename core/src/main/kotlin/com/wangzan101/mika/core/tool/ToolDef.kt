@@ -7,7 +7,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** 一个工具发给模型的定义;参数表同时用于生成 schema 和拒绝未知字段。 */
+/** モデル定義を送信するツール。パラメーター テーブルは、スキーマの生成と不明なフィールドの拒否の両方に使用されます。 */
 internal class ToolDef(
     val name: String,
     val description: String,
@@ -15,7 +15,7 @@ internal class ToolDef(
     val required: List<String> = emptyList(),
 ) {
     val allowed: Set<String> = props.keys + "reason"
-    /** 参数里的 reason 是工具自己的字段(比如接管的原因),不是附加的用意说明。 */
+    /** パラメーターの理由は、追加の目的ステートメントではなく、ツール自体のフィールド (テイクオーバーの理由など) です。 */
     val ownReason = "reason" in props
 
     fun spec() = ToolSpec(name, description, buildJsonObject {
@@ -47,9 +47,9 @@ internal fun strArray(d: String, max: Int) = buildJsonObject {
 }
 
 /**
- * 每个工具附带的 reason(用意说明)的说法:界面上把它当这一步的说明给用户看,所以和给用户的话一样用用户最近那句话的语言写。
+ * 各ツールに添付する理由。画面にステップの説明として表示するため、入力言語にかかわらず日本語で書く。
  */
-internal const val REASON_NOTE = "Optional short note on why you are calling this, in the user's language; shown to the user as the step label."
+internal const val REASON_NOTE = "このツールを呼ぶ理由を日本語で短く書けます。ユーザーにステップの説明として表示されます。入力言語にかかわらず日本語で書いてください。"
 
 internal const val COORD = "Normalized 0-999 (0,0 is top-left, 999,999 is bottom-right) over the latest screen."
 internal const val REF = "Element ref such as @e3 from the latest read of this screen; must be paired with its snapshotId."

@@ -68,10 +68,10 @@ class ChatGptProviderTest {
         tmp.root.walk().filter(File::isFile).forEach { f -> assertFalse(f.name, f.readText().contains("secret-")) }
         store().listModels(p)
         assertEquals(Triple(ProviderConfig.Kind.ChatGpt, ChatGptAuth.API_BASE, "secret-access"), listCalls.single())
-        // 客户端标识照带;ChatGPT 没声明会话头,不发会话号
+        // クライアント ID はまだ存在します。 ChatGPT はセッション ヘッダーを宣言せず、セッション番号も送信しません。
         assertEquals(mapOf("User-Agent" to "Mika/1.2.3"), listHeaders.single())
         assertNull(p.sessionHeader)
-        // 再登录一次是更新同一家,不新添
+        // 再度ログインすると同じ会社が更新され、新規は追加されません。
         s.connectChatGpt(session().copy(accessToken = "secret-2"), emptyList())
         assertEquals(1, s.providers.value.size)
         assertTrue(s.use(ModelRole.Main, p.id, "gpt-x", caps))
@@ -103,7 +103,7 @@ class ChatGptProviderTest {
         assertEquals("client-1", store().chatGptRegistration().second)
         assertEquals(p.id, store().configFor(ModelRole.Main)?.providerId)
         assertEquals(ListFailure.Auth, (store().listModels(p) as ModelListResult.Failed).reason)
-        assertTrue("退出后列模型不发请求", listCalls.isEmpty())
+        assertTrue("ログアウト後のモデル一覧取得ではリクエストを送らない", listCalls.isEmpty())
     }
 
     @Test fun unconfirmedRevokeStillClearsLocalTokens() = runTest {

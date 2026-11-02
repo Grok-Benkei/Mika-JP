@@ -7,24 +7,24 @@ import android.provider.CalendarContract
 import com.wangzan101.mika.core.uistate.SystemAction
 
 /**
- * 系统动作用的安卓标准 intent:设闹钟、计时器、打开闹钟列表(AlarmClock),打开预填好的新日程(CalendarContract 的插入页)。
- * 先写成与安卓无关的 [Spec](单测直接比),再换成 [Intent]。内置助手只放行这几种([allowed]),不替 Mika 启动任意的 intent。
+ * システムアクションの Android 標準インテント: 目覚まし時計、タイマーの設定、目覚まし時計リスト (AlarmClock) を開く、事前に入力された新しいスケジュール (CalendarContract 挿入ページ) を開きます。
+ * は、最初は Android とは関係のない [Spec] (単一テストの直接比較) として書き込まれ、その後 [Intent] に置き換えられます。組み込みアシスタントはこれらのタイプ ([allowed]) のみを許可し、Mika のインテントを開始しません。
  */
 object SystemIntents {
-    /** 日程插入页按类型匹配:直接写明类型,不靠日历提供方去查(查它要日历的可见性)。 */
+    /** タイプによるスケジュール挿入ページの一致: カレンダー プロバイダーのチェックに依存せず、タイプを直接示します (チェックにはカレンダーの表示が必要です)。 */
     const val EVENTS_TYPE = "vnd.android.cursor.dir/event"
     const val EVENTS_URI = "content://${CalendarContract.AUTHORITY}/events"
 
-    /** Mika 的兼容性自检页:内置助手认出这个组件后以 shell 身份直接开到 Mika 的屏上,不按 [allowed] 走。 */
+    /** ミカの互換性セルフチェック ページ: 内蔵アシスタントがこのコンポーネントを認識し、[allowed] を押すことなくシェルとしてミカの画面に直接開きます。 */
     const val OWN_PAGE_CLASS = "com.wangzan101.mika.selfcheck.SelfCheckTargetActivity"
 
-    /** 能接这个 intent 的一个页面;[system] 是系统自带的 App。 */
+    /** は、このインテントを受信できるページです。 [system] はシステムに付属するアプリです。 */
     data class Handler(val packageName: String, val className: String, val system: Boolean)
 
     /**
-     * 交给哪一个:只有一个就是它;用户设过默认的([defaultPackage],系统按默认解析出来的包,不是选择器)用默认的;
-     * 否则先挑系统自带的,再按先后。直接指定到那个页面:悄悄设好的动作不该在 Mika 的屏上留一个「用哪一个」的选择框。
-     * 没有为 null(不支持,模型退回去操作界面)。
+     * どれを渡すか: 1 つだけあり、それがそれです。ユーザーはデフォルトのもの ([defaultPackage]、セレクターではなくデフォルトでシステムによって解析されるパッケージ) を設定しており、デフォルトのものを使用します。
+     * それ以外の場合は、システムに付属しているものを最初に選択し、その後の順序に従います。そのページに直接割り当てる: 静かに設定されたアクションは、Mika の画面に「どれを使用するか」の選択ボックスを残すべきではありません。
+     * は null (サポートされていません。モデルは操作インターフェイスに戻ります)。
      */
     fun choose(handlers: List<Handler>, defaultPackage: String?): Handler? =
         handlers.singleOrNull()
@@ -32,14 +32,14 @@ object SystemIntents {
             ?: handlers.firstOrNull { it.system }
             ?: handlers.firstOrNull()
 
-    /** 一个 intent 的内容:动作、数据和类型、附加值(只有 Int、Long、Boolean、String、整数列表)。 */
+    /** インテントの内容: アクション、データとタイプ、追加の値 (Int、Long、Boolean、String、整数リストのみ)。 */
     data class Spec(val action: String, val data: String? = null, val type: String? = null, val extras: Map<String, Any> = emptyMap())
 
     fun spec(a: SystemAction): Spec = when (a) {
         is SystemAction.SetAlarm -> Spec(AlarmClock.ACTION_SET_ALARM, extras = buildMap {
             put(AlarmClock.EXTRA_HOUR, a.hour)
             put(AlarmClock.EXTRA_MINUTES, a.minute)
-            // 不开时钟的界面:直接设好
+            // インターフェイス: 直接設定します
             put(AlarmClock.EXTRA_SKIP_UI, true)
             a.label?.let { put(AlarmClock.EXTRA_MESSAGE, it) }
             if (a.days.isNotEmpty()) put(AlarmClock.EXTRA_DAYS, ArrayList(a.days))
@@ -61,7 +61,7 @@ object SystemIntents {
         })
     }
 
-    /** 内置助手只替 Mika 启动这几种:动作在表里,插入的只能是日程。 */
+    /** の組み込みアシスタントは、Mika に対して次のタイプのアクションのみをアクティブにします。アクションはテーブル内にあり、スケジュールのみを挿入できます。 */
     fun allowed(action: String?, data: String?): Boolean = when (action) {
         AlarmClock.ACTION_SET_ALARM, AlarmClock.ACTION_SET_TIMER, AlarmClock.ACTION_SHOW_ALARMS -> data == null
         Intent.ACTION_INSERT -> data == EVENTS_URI

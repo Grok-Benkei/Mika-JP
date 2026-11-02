@@ -10,7 +10,7 @@ class ApkIntegrityTest {
     @get:Rule val temp = TemporaryFolder()
 
     @Test fun acceptsOfficialApk() {
-        ApkIntegrity.requireOfficialUrl("https://github.com/wangzan101/Mika/releases/download/v0.2.0/Mika.apk")
+        ApkIntegrity.requireOfficialUrl("https://github.com/yebisu0529-ship-it/Mika-JP/releases/download/v0.2.0/Mika.apk")
     }
 
     @Test fun rejectsUntrustedDownloads() {
@@ -18,11 +18,11 @@ class ApkIntegrityTest {
             "http://github.com/wangzan101/Mika/releases/download/v0.2.0/Mika.apk",
             "https://github.com.evil.test/wangzan101/Mika/releases/download/v0.2.0/Mika.apk",
             "https://github.com/other/Mika/releases/download/v0.2.0/Mika.apk",
-            "https://github.com/wangzan101/Mika/releases/download/../../other.apk",
-            "https://github.com/wangzan101/Mika/releases/download/%2e%2e/%2E%2e/%2e%2e/%2e%2e/other/x.apk",
+            "https://github.com/yebisu0529-ship-it/Mika-JP/releases/download/../../other.apk",
+            "https://github.com/yebisu0529-ship-it/Mika-JP/releases/download/%2e%2e/%2E%2e/%2e%2e/%2e%2e/other/x.apk",
             "https://objects.githubusercontent.com/wangzan101/Mika/releases/download/v0.2.0/Mika.apk",
-            "https://github.com/wangzan101/Mika/releases/download/v0.2.0/Mika.zip",
-            "https://github.com/wangzan101/Mika/releases/tag/v0.2.0",
+            "https://github.com/yebisu0529-ship-it/Mika-JP/releases/download/v0.2.0/Mika.zip",
+            "https://github.com/yebisu0529-ship-it/Mika-JP/releases/tag/v0.2.0",
             "https://user:pass@github.com/wangzan101/Mika/releases/download/v0.2.0/Mika.apk",
             "https://github.com:8443/wangzan101/Mika/releases/download/v0.2.0/Mika.apk",
         )) rejects { ApkIntegrity.requireOfficialUrl(url) }
@@ -32,7 +32,7 @@ class ApkIntegrityTest {
         val file = temp.newFile().apply { writeText("abc") }
         val digest = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         ApkIntegrity.verify(file, 3, digest)
-        ApkIntegrity.verify(file, null, null) // 兼容没有附件摘要的旧发布元数据。
+        ApkIntegrity.verify(file, null, null) // は、添付ファイルの概要のない古い出版物メタデータと互換性があります。
         rejects { ApkIntegrity.verify(file, 4, digest) }
         rejects { ApkIntegrity.verify(file, 3, "sha256:bad") }
         rejects { ApkIntegrity.verify(file, 3, "md5:" + "0".repeat(64)) }
@@ -44,7 +44,7 @@ class ApkIntegrityTest {
 
     @Test fun signerMustMatchInstalledOrCarryItInHistory() {
         ApkIntegrity.requireSameSigner(setOf("a"), setOf("a"), setOf("a"))
-        // 新包轮换到新证书,旧证书在签名历史里
+        // 新しいパッケージは新しい証明書にローテーションされ、古い証明書は署名履歴にあります
         ApkIntegrity.requireSameSigner(setOf("a"), setOf("b"), setOf("a", "b"))
         for ((installed, archive, history) in listOf(
             Triple(setOf("a"), setOf("b"), setOf("b")),
@@ -54,7 +54,7 @@ class ApkIntegrityTest {
         )) {
             try {
                 ApkIntegrity.requireSameSigner(installed, archive, history)
-                throw AssertionError("签名不同应拒绝: $installed / $archive")
+                throw AssertionError("署名が異なる場合は拒否する: $installed / $archive")
             } catch (e: ApkRejected) {
                 assertEquals(ApkRejected.Reason.Signer, e.reason)
             }
@@ -76,6 +76,6 @@ class ApkIntegrityTest {
             assertEquals(ApkRejected.Reason.Corrupt, e.reason)
             return
         }
-        throw AssertionError("应拒绝不可信或不完整的 APK")
+        throw AssertionError("信頼できない、または不完全な APK は拒否する")
     }
 }

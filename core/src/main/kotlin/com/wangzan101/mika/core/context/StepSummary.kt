@@ -5,23 +5,23 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
 /**
- * 折叠掉的步骤的结构化摘要:目标 / 已确认的事实 / 进展 / 下一步。每折一轮就在上一份的基础上更新([next])。
- * 内容全从任务原话、工具结果和模型自己说的话里确定性地取,不另调模型:每次压缩都要重算摘要,
- * 调模型既多一次往返,同样的历史也可能得出不同的摘要,请求前缀就不稳了。
- * 各段都有上限(事实每种 [MAX_FACT_VALUES] 个、进展 [MAX_PROGRESS] 行、更早的结局 [MAX_EARLIER_KINDS] 种,每项截到 [CLIP] 字),
- * 步数再多摘要也不会无限变长。
+ * 折りたたまれたステップの構造化された概要: 目標/確認された事実/進捗状況/次のステップ。割引の各ラウンドは、前回の割引 ([next]) に基づいて更新されます。
+ * の内容は、タスクの元の単語、ツールの結果、モデル自体の単語から決定的に取得されます。モデルに対する追加の調整は行われません。圧縮ごとに要約を再計算する必要があります。
+ * では、モデルを調整するためにさらに 1 ラウンド トリップが必要で、同じ履歴でも異なるダイジェストが生成される可能性があるため、リクエスト プレフィックスは不安定です。
+ * 各セグメントには上限があります (ファクトごとに [MAX_FACT_VALUES]、進行状況に [MAX_PROGRESS]、以前のエンディングに [MAX_EARLIER_KINDS]、項目ごとに [CLIP])、
+ * 手順がいくらあっても、要約が無限に長くなるわけではありません。
  */
 data class StepSummary(
     val goal: String,
-    /** 事实种类 → 值(去重,新的在后)。 */
+    /** ファクト タイプ → 値 (重複を削除し、新しいものが最後になります)。 */
     val facts: Map<String, List<String>> = emptyMap(),
     val progress: List<String> = emptyList(),
-    /** 并成计数的更早步骤:结局 → 步数。 */
+    /** は、カウントの前のステップ (終了 → ステップ数) にマージされます。 折りたたみセクションの */
     val earlier: Map<String, Int> = emptyMap(),
-    /** 模型在折叠段里最后说的打算。 */
+    /** モデルの最終計画。 */
     val intent: String? = null,
 ) {
-    /** 折进一轮:[line] 是这一步的进展行(以「→ 结局」结尾),[results] 是这一轮成功的工具结果,[said] 是模型这一轮说的话。 */
+    /** は 1 つのラウンドに折りたたまれます。[line] はこのステップの進行状況ライン (「→ 終了」で終わる)、[results] はこのラウンドの成功したツールの結果、[said] はモデルがこのラウンドで言ったことです。 */
     fun next(line: String, results: List<JsonObject>, said: String?): StepSummary {
         val f = facts.toMutableMap()
         for (r in results) for ((key, kind) in FACT_KEYS) {
@@ -53,7 +53,7 @@ data class StepSummary(
     }
 
     private companion object {
-        /** 结果里能当事实记下的短字段 → 事实种类。 */
+        /** 結果にファクトとして記録できる短いフィールド → ファクトタイプ。 */
         val FACT_KEYS = linkedMapOf("currentApp" to "apps visited", "url" to "pages opened", "path" to "files read or written")
         const val MAX_FACT_VALUES = 4
         const val MAX_PROGRESS = 15

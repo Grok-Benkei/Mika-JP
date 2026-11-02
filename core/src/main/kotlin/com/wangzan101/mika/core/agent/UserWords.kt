@@ -3,17 +3,17 @@ package com.wangzan101.mika.core.agent
 import com.wangzan101.mika.core.tool.ToolDispatcher
 
 /**
- * 用户一句话里他自己的话(开局、插话、回答追问一个口径)。语言提示和回答的语言检查只看他这次打的字([typed]);
- * 记忆、技能的引文还认他引的自己说过的话([said]),引的 Mika 的回答不算。
+ * ユーザー自身の 1 文の言葉 (開始、中断、フォローアップの質問への回答)。言語プロンプトと回答の言語チェックでは、今回入力した単語 ([typed]) のみが調べられます。
+ * 記憶とスキルに関する引用には、彼の発言 ([said]) からの引用も含まれますが、ミカの回答からの引用はカウントされません。
  */
 internal object UserWords {
     /**
-     * [text] 是去掉屏幕说明后的那句(见 [UserScreenTurns]);再先后去掉浏览器页的页面说明([ToolDispatcher.userWords])、
-     * 最前面引的那一段([QuoteMessage])和末尾的附件行([AttachmentLines])。都没有时是原话;只引了一段、只选了字、只带了附件时为空。
+     * [text] は、画面の説明を削除した後の文です ([UserScreenTurns] を参照)。次に、ブラウザ ページ ([ToolDispatcher.userWords]) のページ説明を削除します。
+     * 最初に引用された段落 ([QuoteMessage]) と最後の添付行 ([AttachmentLines])。何もない場合は、元の単語を意味します。段落のみが引用され、単語のみが選択され、添付ファイルのみが含まれる場合は、空になります。
      */
     fun typed(text: String, tools: ToolDispatcher): String = AttachmentLines.words(QuoteMessage.words(tools.userWords(text)))
 
-    /** [typed] 之外,引的是用户自己说过的话时连引的那段一起算(对话页引的是他当时打的字),放在前面;引的是 Mika 的回答时只有 [typed]。 */
+    /** [typed] に加えて、ユーザー自身が発言した内容を引用する場合、引用された段落は一緒にカウントされ (対話ページの引用はユーザーがその時点で入力したものです)、前に配置されます。ミカの回答を引用する場合、[typed] のみが引用されます。 */
     fun said(text: String, tools: ToolDispatcher): String {
         val own = QuoteMessage.parse(tools.userWords(text)).quote?.takeIf { it.from == QuoteMessage.From.You }?.text
         return listOfNotNull(own, typed(text, tools)).filter { it.isNotBlank() }.joinToString("\n")

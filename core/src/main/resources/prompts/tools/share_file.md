@@ -1,1 +1,1 @@
-Save a file from /workspace to the phone's Download/Mika folder (at most 100 MB) and show it to the user as a file card. Use it to hand results to the user.
+/workspace のファイルをスマートフォンの Download/Mika フォルダに保存し（最大100 MB）、ファイルカードとしてユーザーに表示する。結果をユーザーに渡すために使う。

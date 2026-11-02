@@ -1,1 +1,1 @@
-Capture the current screen as an image.
+現在の状態を画像として取得する。

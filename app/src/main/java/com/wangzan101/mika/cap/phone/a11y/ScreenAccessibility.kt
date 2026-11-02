@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
-/** Mika 的无障碍服务:操作和事件转给当前已连接实例,任务持有旧实例时也能在重连后恢复。 */
+/** ミカのアクセシビリティ サービス: 操作とイベントは現在接続されているインスタンスに転送され、古いインスタンスを保持しているタスクも再接続後に復元できます。 */
 open class ScreenAccessibility : AccessibilityService() {
 
     private class DisplayEvent(val displayId: Int, val event: AccessibilityEvent)
@@ -31,8 +31,8 @@ open class ScreenAccessibility : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        // 不少 App 把显示结果的文字控件标成「对无障碍不重要」,不读它们就看不到结果;配置文件里已声明,
-        // 这里再按运行时补一次,防止系统沿用旧的服务配置
+        // 多くのアプリは、結果を表示するテキスト コントロールを「アクセシビリティにとって重要ではない」としてマークします。読まないと結果はわかりません。設定ファイルに次のように記述されています
+        // システムが古いサービス構成を使用しないように、実行時に再度入力します。
         serviceInfo?.let { info ->
             if (info.flags and AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS == 0) {
                 info.flags = info.flags or AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
@@ -60,7 +60,7 @@ open class ScreenAccessibility : AccessibilityService() {
 
     private var overlayHost: OverlayHost? = null
 
-    /** 在用户屏幕上画浮层用的宿主(只在主线程用);服务断开时它加的窗口一起拆掉。 */
+    /** は、ユーザー画面上にフローティング レイヤーを描画するために使用されるホストです (メイン スレッドでのみ使用されます)。サービスが切断されると、追加されたウィンドウも一緒に削除されます。 */
     fun overlays(): OverlayHost = overlayHost ?: OverlayHost(this).also { overlayHost = it }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -78,21 +78,21 @@ open class ScreenAccessibility : AccessibilityService() {
             val text = listOfNotNull(title, body).joinToString(" ").ifBlank { event.text.joinToString(" ") }
             notifications.tryEmit(ScreenEvent("notification", event.packageName?.toString(), text.take(2_000)))
         }
-        // 没人订阅就不复制、不查屏号,事件很密
+        // 誰も購読しない場合、画面番号のコピーや確認は行われません。このイベントは極秘です。
         if (events.subscriptionCount.value == 0) return
         val displayId = displayOf(event)
         if (displayId == Display.INVALID_DISPLAY) return
-        // API 33 以下系统会在回调返回后回收事件对象,订阅方异步读取前先复制一份
+        // API 33 次のシステムは、コールバックが返された後にイベント オブジェクトをリサイクルし、サブスクライバーは非同期で読み取る前にコピーを作成します。
         events.tryEmit(DisplayEvent(displayId, AccessibilityEvent(event)))
     }
 
     override fun onInterrupt() = Unit
 
-    /** 指定屏上的窗口;该屏没有窗口(或不存在)时为空列表。 */
+    /** は画面上のウィンドウを指定します。画面上にウィンドウがない (または存在しない) 場合、これは空のリストです。 */
     fun windowsOn(displayId: Int): List<AccessibilityWindowInfo> =
         instance.value?.windowsOnAllDisplays?.get(displayId).orEmpty()
 
-    /** 在指定屏上沿 [path] 做一次单指手势;完成返回 true,被取消或无法下发返回 false。 */
+    /** 指定された画面上で [path] に沿って 1 本指のジェスチャを実行します。完了した場合は true を返し、キャンセルされた場合または送信できない場合は false を返します。 */
     suspend fun gesture(displayId: Int, path: Path, durationMs: Long): Boolean {
         return gesture(displayId, listOf(path), durationMs)
     }
@@ -100,7 +100,7 @@ open class ScreenAccessibility : AccessibilityService() {
     suspend fun gesture(displayId: Int, paths: List<Path>, durationMs: Long): Boolean =
         dispatch(displayId, paths.map { GestureDescription.StrokeDescription(it, 0, durationMs.coerceAtLeast(1)) })
 
-    /** 在同一点上连点 [count] 下(一次手势里先后几笔):每下按住 [holdMs],两下之间隔 [gapMs]。 */
+    /** ドット [count] を同じ点に接続します (1 回のジェスチャで数ストローク): 2 つのドットの間に [gapMs] を入れて、毎回 [holdMs] を押し続けます。 */
     suspend fun taps(displayId: Int, x: Float, y: Float, count: Int, holdMs: Long, gapMs: Long): Boolean {
         val at = Path().apply { moveTo(x, y) }
         return dispatch(displayId, (0 until count).map { i -> GestureDescription.StrokeDescription(at, i * (holdMs + gapMs), holdMs.coerceAtLeast(1)) })
@@ -126,7 +126,7 @@ open class ScreenAccessibility : AccessibilityService() {
         }
     }
 
-    /** 截一张用户屏幕(主屏)的结果:画面,或屏上有防截屏窗口,或截不到(错误码)。 */
+    /** ユーザーの画面 (ホーム画面) のスクリーンショットを撮った結果: 画面上にスクリーンショット防止ウィンドウがあるか、スクリーンショットを撮ることができません (エラー コード)。 */
     sealed interface MainShot {
         class Ok(val bitmap: Bitmap) : MainShot
         data object Secure : MainShot
@@ -134,8 +134,8 @@ open class ScreenAccessibility : AccessibilityService() {
     }
 
     /**
-     * 截一张主屏(用户看着的那块屏,包括 Mika 自己的浮层:要不要藏起来由调用方定)。系统限制两次截图至少隔一会儿,
-     * 太快时等一秒再截一次。画面是软件位图(可以读像素、编码)。
+     * ホーム画面のスクリーンショットを撮ります (ユーザーが見ている画面には、ミカ自身のフローティング レイヤーが含まれています。それを非表示にするかどうかは呼び出し元が決定します)。システムでは、2 つのスクリーンショットを少なくとも一定の間隔をあけて撮影するように制限されています。
+     * 速すぎる場合は、1 秒待ってから再度カットしてください。画像はソフトウェア ビットマップです (ピクセルとコードを読み取ることができます)。
      */
     suspend fun takeMainScreenshot(): MainShot {
         val first = screenshotOnce()
@@ -162,7 +162,7 @@ open class ScreenAccessibility : AccessibilityService() {
             }
 
             override fun onFailure(errorCode: Int) {
-                // 屏上有防截屏窗口:安卓 14 起有专门的错误码;更早的系统截出来是黑的,由调用方看画面判断
+                // 画面にはスクリーンショット防止ウィンドウがあります。Android 14 からは特別なエラー コードが発生します。以前のシステムのスクリーンショットは黒であり、発信者は画面を見て判断できます。
                 val secure = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && errorCode == ERROR_TAKE_SCREENSHOT_SECURE_WINDOW
                 if (cont.isActive) cont.resume(if (secure) MainShot.Secure else MainShot.Failed(errorCode))
             }
@@ -170,19 +170,19 @@ open class ScreenAccessibility : AccessibilityService() {
     }
 
     /**
-     * 发生在指定屏上的无障碍事件。通道跨实例保留,只有当前连接的服务发布事件。
+     * 指定された画面でアクセシビリティ イベントが発生しました。チャネルはインスタンス間で保持され、現在接続されているサービスのみがイベントを発行します。
      */
     fun eventsFor(displayId: Int): Flow<AccessibilityEvent> =
         events.filter { it.displayId == displayId }.map { it.event }
 
     fun notificationEvents(): Flow<ScreenEvent> = notifications
 
-    /** 窗口变了的信号(见 [windowChanges]);通道跨服务实例保留。 */
+    /** ウィンドウが変更されたことを知らせます ([windowChanges] を参照)。チャネルはサービス インスタンス間で保持されます。 */
     fun windowChanges(): Flow<Unit> = windowChanges
 
     /**
-     * 事件所在的屏。API 33 起事件自带屏号;更早的系统按事件的窗口号去各屏窗口里找,
-     * 找不到(如没有窗口号的通知类事件)就丢弃。
+     * イベントが配置されている画面。 API 33 以降、イベントには独自の画面番号が付属します。以前のシステムでは、イベントのウィンドウ番号に従って、各画面ウィンドウでイベントが検索されます。
+     * が見つからない場合 (たとえば、ウィンドウ番号の通知イベントがない場合) は破棄されます。
      */
     private fun displayOf(event: AccessibilityEvent): Int {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return event.displayId
@@ -197,20 +197,20 @@ open class ScreenAccessibility : AccessibilityService() {
 
     companion object {
         private const val EVENT_BUFFER = 64
-        /** 两次截图之间系统要求的间隔(安卓原版是一秒)。 */
+        /** システムが必要とする 2 つのスクリーンショットの間隔 (元の Android バージョンは 1 秒)。 */
         private const val SCREENSHOT_INTERVAL_MS = 1_000L
 
-        // 保持热流:调用方用 UNDISPATCHED 先订阅再操作,不要因服务切换引入异步订阅窗口。
-        // 事件只作观察用,订阅方处理不过来时丢最旧的,不阻塞系统回调
+        // ホット フローを維持する: 呼び出し元は UNDISPATCHED を使用して、最初にサブスクライブしてから操作します。サービスの切り替えによる非同期のサブスクリプション ウィンドウを導入しないでください。
+        // イベントは観察のみを目的としています。サブスクライバがそれを処理できない場合、最も古いものは破棄され、システム コールバックはブロックされません。
         private val events = MutableSharedFlow<DisplayEvent>(
             extraBufferCapacity = EVENT_BUFFER,
             onBufferOverflow = BufferOverflow.DROP_OLDEST,
         )
-        /** 窗口变了(加上、拿掉、挪动,包括输入法弹出收起):只是个信号,订阅方自己去读窗口。 */
+        /** ウィンドウが変更されました (追加、削除、移動、入力メソッドのポップアップと折りたたみを含む)。これは単なる信号であり、加入者は自分でウィンドウを読み取ることができます。 */
         private val windowChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
         private val windowGeneration = java.util.concurrent.atomic.AtomicLong()
 
-        /** 窗口每加上、拿掉、换页一次就加一(任何屏上的都算);只用来判断「窗口自上次以来变没变」,值本身没有含义。 */
+        /** は、ウィンドウが追加、削除、またはページングされるたびに 1 ずつ増加します (画面上のすべてがカウントされます)。これは、ウィンドウが前回から変更されたかどうかを判断するためにのみ使用されます。値自体には意味がありません。 */
         fun windowGeneration(): Long = windowGeneration.get()
         private val notifications = MutableSharedFlow<ScreenEvent>(
             extraBufferCapacity = EVENT_BUFFER,
@@ -218,7 +218,7 @@ open class ScreenAccessibility : AccessibilityService() {
         )
 
         private val _instance = MutableStateFlow<ScreenAccessibility?>(null)
-        /** 已连接的服务实例;服务未开启或已断开时为 null。 */
+        /** 接続されたサービス インスタンス。サービスが開始されていない場合、または切断されている場合は null。 */
         val instance: StateFlow<ScreenAccessibility?> = _instance.asStateFlow()
     }
 }

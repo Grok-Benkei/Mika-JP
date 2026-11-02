@@ -49,60 +49,60 @@ import java.util.concurrent.ConcurrentHashMap
 import com.wangzan101.mika.cap.web.WebOwner
 
 /**
- * 每个网页标签的 DevTools 会话入口。连不上(系统不支持、被拦、标签已关)时为 null,
- * 调用方退回注入脚本的做法。所有标签默认桌面版,这是新的基线,不依赖会话:没有会话时 WebView 设置里的
- * 桌面 UA、UA-CH(支持时)和宽视口照样生效,只是少了仿真那一层(视口宽度、navigator.platform)。
+ * 各 Web ページ タグの DevTools セッション エントリ。接続を確立できない場合 (システムが接続をサポートしていないか、ブロックされているか、ラベルが閉じられている場合)、これは null になります。
+ * 呼び出し元はインジェクション スクリプトを返します。すべてのタブのデフォルトはデスクトップ バージョンです。これが新しいベースラインであり、セッションに依存しません。セッションがない場合、WebView 設定は
+ * デスクトップ UA、UA-CH (サポートされている場合) およびワイド ビューポートは引き続き有効ですが、シミュレーション レイヤー (ビューポート幅、navigator.platform) がありません。
  *
- * 连法按顺序试、记住结果:直连本进程的 `webview_devtools_remote_<pid>`;被拒就经 [relay] 代连(内置助手,shell 身份;由装配层给);都不行就没有。
- * 进程里通常一份(App 给出,见 [of]);测试可以自己造一份,换会话来源、连法都只影响自己。
- * 每个标签第一次用时写下标记、逐个目标找到它并记住 targetId,之后一直用这一条会话;断了重连一次,再不行这个标签降级(过一阵再试)。
+ * 接続方法を順番に試して結果を覚えておいてください。このプロセスの `webview_devtools_remote_<pid>` に直接接続します。拒否された場合は、[relay] を使用してクライアントに代わって接続します (組み込みアシスタント、シェル ID、アセンブリ層によって与えられます)。それが機能しない場合は接続されません。 通常、プロセス内には
+ * のコピーが 1 つあります (アプリによって提供されます。[of] を参照)。テスト用に、独自のコピーを作成できます。セッション ソースと接続方法の変更は、自分自身にのみ影響します。
+ * 各タグを初めて使用するときにタグを書き留め、1 つずつ見つけて targetId を覚えてください。その後、このセッションを使用し続けます。一度切断して再接続し、失敗した場合、タグはダウングレードされます (しばらくしてから再試行してください)。
  *
- * 桌面版网页也在这里:标签一建好就把 WebView 设置换成桌面 UA(连不上 DevTools 时的退路)并在文档开始注入身份补丁,
- * 会话连上后再用仿真把 UA-CH、视口、触摸与指针一并换成桌面(见 [DesktopProfile]);按站点记住的手机版站点都换回默认。
- * 用户在 Mika 里选定了界面语言时,两种版本的网页都按那种语言请求(见 [PageLanguage]);跟随系统时不动。
+ * デスクトップ Web ページもここにあります。ラベルが作成されたらすぐに、WebView 設定をデスクトップ UA (DevTools に接続できない場合のフォールバック) に変更し、ドキュメントの先頭に ID パッチを挿入します。
+ * セッションが接続されたら、シミュレーションを使用して、UA-CH、ビューポート、タッチ、およびポインターをデスクトップに置き換えます ([DesktopProfile] を参照)。サイトごとに記憶されているすべてのモバイル サイトがデフォルトに戻ります。
+ * ユーザーが Mega でインターフェイス言語を選択すると、Web ページの両方のバージョンがその言語で要求されます ([PageLanguage] を参照)。システムに従っているときは動きません。
  */
 class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
     enum class Route { Unknown, Direct, Relay, None }
 
-    /** 测试用:只走直连 / 只走代连 / 当作连不上;null 为自动。改了之后调 [resetRoute]。 */
+    /** テスト: 直接接続のみ / プロキシ接続のみ / 接続が利用できないかのように; null は自動を意味します。修正後は[resetRoute]を調整してください。 */
     @Volatile var forceRoute: Route? = null
 
     private val _route = MutableStateFlow(Route.Unknown)
-    /** 最近一次检测到的连法;Unknown 是还没测过。 */
+    /** 最後に検出された接続方法。不明はまだテストされていません。 */
     val route: StateFlow<Route> = _route.asStateFlow()
 
     private val _available = MutableStateFlow(false)
-    /** 现在能用 DevTools(诊断与界面用)。 */
+    /** は、DevTools (診断およびインターフェイス用) を使用できるようになりました。 */
     val available: StateFlow<Boolean> = _available.asStateFlow()
 
     @Volatile var provider: (WebTab) -> CdpSession? = this::cached
 
-    /** 已经连好的会话;还没连就在后台开始连并先返回 null。不阻塞,任意线程可调。 */
+    /** セッションは接続されました。接続する前にバックグラウンドで接続を開始し、最初に null を返します。ブロッキングがなく、どのスレッドでも調整できます。 */
     fun session(tab: WebTab): CdpSession? =
-        // 换了来源的会话(测试自备的等)也要按这个标签的视口仿真换算 Input 坐标
+        // セッションのソースが変更された場合 (独自のテストなど)、このラベルのビューポート シミュレーションに従って入力座標も変換する必要があります。
         provider(tab)?.also { s -> links[tab]?.let { s.inputScale = it.inputScale } }
 
-    /** 等会话连好(至多 [timeoutMs]);连不上为 null。不要在持有主线程等待的地方调。 */
+    /** と他のセッションが接続されています (最大 [timeoutMs])。接続されていない場合は null です。メインスレッドが待機している場所では呼び出さないでください。 タグ */
     suspend fun awaitSession(tab: WebTab, timeoutMs: Long = ATTACH_TIMEOUT_MS): CdpSession? {
         val link = links[tab] ?: return null
         return bounded(timeoutMs) { attach(link) }
     }
 
-    /** 这个标签现在用的是手机版网页。 */
+    /** は、Web ページのモバイル バージョンで使用されるようになりました。 */
     fun isMobile(tab: WebTab): Boolean = links[tab]?.mobile ?: false
 
-    /** 这个标签的 DevTools 目标 id;没连上过为 null。 */
+    /** このタグの DevTools ターゲット ID。接続されていない場合は null です。 */
     fun targetId(tab: WebTab): String? = links[tab]?.targetId
 
-    // ---------- 标签生命周期(WebTab 调) ----------
+    // ---------- ラベルのライフサイクル (WebTab 調整) ----------
 
-    /** 标签刚建好(主线程):打开调试接口,换成桌面版的 WebView 设置,关掉 X-Requested-With 头。 */
+    /** ラベルが作成されました (メイン スレッド): デバッグ インターフェイスを開き、WebView 設定のデスクトップ バージョンに変更して、X-Requested-With ヘッダーをオフにします。 */
     fun prepare(tab: WebTab, context: Context) {
         val st = tab.view.settings
         init(context, st)
         val link = Link(tab)
         links[tab] = link
-        // 视图换了大小(换了宿主显示、进出接管界面):桌面版的视口缩放跟着重算
+        // ビューのサイズが変更されました (ホスト ディスプレイが変更され、引き継ぎインターフェイスが変更されました): デスクトップ バージョンのビューポートのスケーリングが再計算されました。
         tab.view.addOnLayoutChangeListener { _, l, t, r, b, ol, ot, or, ob ->
             if (r - l != or - ol || b - t != ob - ot) onViewResized(link)
         }
@@ -114,20 +114,20 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
         link.acceptLanguage = chosenAcceptLanguage()
     }
 
-    /** 主文档加载前(主线程,可挂起):按目标网站选好手机版或桌面版,并尽量在第一次导航前连好会话、设好仿真。 */
+    /** メイン ドキュメントをロードする前 (メイン スレッド、一時停止可能): ターゲット Web サイトに応じてモバイル バージョンまたはデスクトップ バージョンを選択し、最初のナビゲーションの前にセッションの接続とシミュレーションのセットアップを試みます。 */
     suspend fun beforeLoad(tab: WebTab, url: String) {
         val link = links[tab] ?: return
         val mobile = wantsMobile(link, url) ?: false
         val changed = link.mobile != mobile
         if (changed) switchMode(link, mobile)
-        // 用户中途换了 Mika 的语言:已开着的标签在下一次主文档加载前换过来(这里重设仿真,这一页就按新的语言请求)
+        // ユーザーが途中でミカの言語を変更しました: 開いているタグは、次のメインドキュメントがロードされる前に変更されます (シミュレーションはここでリセットされ、このページは新しい言語で要求されます)
         chosenAcceptLanguage().let { lang ->
             if (lang != link.acceptLanguage) {
                 link.acceptLanguage = lang
                 link.configured = null
             }
         }
-        // 连接与仿真在后台做,这里至多等一小会儿:到点就照常加载(这一页先按 WebView 设置的退路走,连上后再换)
+        // の接続とシミュレーションはバックグラウンドで行われます。最大でもしばらく待ちます。ポイントに到達すると、通常どおりロードされます (このページは、最初に WebView によって設定された退避パスに従い、接続後に変更されます)
         bounded(BEFORE_LOAD_WAIT_MS) {
             val s = attach(link)
             if (s != null && link.configured != link.mobile) link.lock.withLock { configure(link, s) }
@@ -135,15 +135,15 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
         }
     }
 
-    // 在独立的协程里做,调用方等到上限就走,不会被里面的阻塞读写拖住
+    // は独立したコルーチンで実行されます。呼び出し元は、内部の読み取りと書き込みのブロックによって妨げられることなく、上限まで待機して終了します。
     private suspend fun <T> bounded(timeoutMs: Long, block: suspend () -> T?): T? {
         val job = scope.async { block() }
         return withTimeoutOrNull(timeoutMs) { job.await() }
     }
 
     /**
-     * 主文档开始加载(主线程):点链接、跳转到了另一种版本的网站时换过来,并重新加载一次。
-     * 不是网页(about:blank 等)的不动。
+     * メインドキュメントの読み込みが開始されます (メインスレッド): リンクをクリックし、Web サイトの別のバージョンにジャンプし、変更して、再度リロードします。
+     * は Web ページ (about:blank など) に対して不動ではありません。
      */
     fun onPageStarted(tab: WebTab, url: String?) {
         val link = links[tab] ?: return
@@ -159,35 +159,35 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
     }
 
     /**
-     * 这个标签自己定每个网站用哪一版([policy] 收主机名,返回 true 为手机版),不再看按站点记住的那份(Agent 的);
-     * 设为 null 换回那份。只影响这一个标签,下一次主文档加载时生效(当前页由调用方重新加载)。主线程调用。
+     * このタグは、各 Web サイトで使用するバージョンを決定します ([policy] はホスト名を収集し、モバイル バージョンの場合は true を返します)。サイト (エージェント) によって記憶されているバージョンは参照されなくなります。
+     * は、その共有と交換するために null に設定されます。このタグにのみ影響し、次回メインドキュメントがロードされたとき (現在のページが呼び出し元によって再ロードされたとき) に有効になります。メインスレッドによって呼び出されます。
      */
     fun setModePolicy(tab: WebTab, policy: ((String?) -> Boolean)?) {
         links[tab]?.policy = policy
     }
 
     /**
-     * 这个标签由用户亲手看、亲手点(浏览器页里的标签):桌面版也不加视口仿真,页面能双指缩放(见 [DesktopProfile.viewportCall])。
-     * 下一次配置会话时生效。主线程调用。
+     * このタグはユーザーによって表示およびクリックされます (ブラウザ ページ内のタグ)。デスクトップ バージョンにはビューポート エミュレーションが含まれておらず、ページは 2 本の指で拡大および縮小できます ([DesktopProfile.viewportCall] を参照)。
+     * は、次回セッションが構成されるときに有効になります。メインスレッドによって呼び出されます。
      */
     fun setHandOperated(tab: WebTab) {
         links[tab]?.handOperated = true
     }
 
-    /** Agent 的标签打开 [host] 时用不用手机版(按站点记住的那份;还没有任何标签建好时按默认的桌面版)。 */
+    /** エージェント ラベル [host] を開くとき、モバイル バージョンを使用する必要がありますか (サイトに記憶されているバージョンをクリックします。ラベルが作成されていない場合は、デフォルトのデスクトップ バージョンをクリックします)。 */
     fun agentWantsMobile(host: String?): Boolean = modes?.isMobile(host) ?: false
 
-    // 标签自己的规则优先;没有就看按站点记住的那份,还没读进来为 null
+    // タグ独自のルールが優先されます。そうでない場合は、サイトに記憶されているものを見てください。読み込まれていない場合はnullとなります。
     private fun wantsMobile(link: Link, url: String): Boolean? {
         val host = WebUrlPolicy.host(url)
         link.policy?.let { return it(host) }
         return modes?.isMobile(host)
     }
 
-    /** 这个视图该挂在桌面视口大小的宿主显示上(所在标签用桌面版)。不认识的视图为 false。 */
+    /** このビューは、デスクトップ ビューポート サイズでホスト ディスプレイにハングアップする必要があります (ラベルにはデスクトップ バージョンを使用します)。未知の見解は誤りです。 */
     fun wantsDesktopHost(view: WebView): Boolean = links.values.firstOrNull { it.tab.view === view }?.let { !it.mobile } ?: false
 
-    // 主线程:两层设置换过来,挂在宿主上的视图换到对应大小的显示
+    // メインスレッド: 2 層設定を切り替え、ホストにぶら下がっているビューを対応するサイズの表示に切り替えます。
     private fun switchMode(link: Link, mobile: Boolean) {
         link.mobile = mobile
         applySettings(link.tab.view.settings, mobile)
@@ -196,8 +196,8 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
     }
 
     /**
-     * 主线程:桌面版在每个文档(含框架)开始时注入身份补丁([DesktopProfile.identityScript]),手机版撤掉。
-     * 系统不支持文档开始注入时由会话上的 Page.addScriptToEvaluateOnNewDocument 代替(见 [configure])。
+     * メイン スレッド: デスクトップ バージョンでは、各ドキュメント (フレームを含む) の先頭に ID パッチ ([DesktopProfile.identityScript]) が挿入され、モバイル バージョンではそれが削除されます。
+     * システムは最初はドキュメント インジェクションをサポートしていません。これはセッションで Page.addScriptToEvaluateOnNewDocument に置き換えられます ([configure] を参照)。
      */
     private fun applyIdentityScript(link: Link) {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return
@@ -220,24 +220,24 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
         }
     }
 
-    /** 标签关了:断开会话、忘掉它。 */
+    /** タグは閉じられています: セッションを切断して忘れてください。 */
     fun release(tab: WebTab) {
         val link = links.remove(tab) ?: return
         link.session?.let { s -> scope.launch { s.close() } }
         link.session = null
     }
 
-    /** 记下站点用手机版还是桌面版;当前页要由调用方重新加载(加载前 [beforeLoad] 会换过来)。 */
+    /** サイトがモバイル バージョンを使用しているかデスクトップ バージョンを使用しているかに注意してください。現在のページは呼び出し元によって再ロードされます (ロード前に [beforeLoad] が変更されます)。 テスト用の */
     fun setSiteMode(host: String, mobile: Boolean) {
         modes?.set(host, mobile)
     }
 
-    /** 测试用:换回真实的会话来源(别的测试换过 [provider] 没换回时)。 */
+    /** : 実際のセッション ソースに戻します (他のテストで [provider] が変更されたが、元に戻されていない場合)。 */
     fun resetProvider() {
         provider = this::cached
     }
 
-    /** 测试用:忘掉检测到的连法,下次重新检测。 */
+    /** テスト用: 検出された接続方法を忘れて、次回再テストします。 */
     fun resetRoute() {
         path = null
         directFailed = false
@@ -252,32 +252,32 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
         @Volatile var session: CdpSession? = null
         @Volatile var targetId: String? = null
         @Volatile var mobile = false
-        /** 这个标签自己的版本规则(见 [setModePolicy]);null 时按站点记住的那份。 */
+        /** このタグ独自のバージョン ルール ([setModePolicy] を参照)。 null の場合、サイトによって記憶されているもの。 */
         @Volatile var policy: ((String?) -> Boolean)? = null
-        /** 用户亲手操作的标签(见 [setHandOperated]):不加视口仿真。 */
+        /** ユーザー操作ラベル ([setHandOperated] を参照): ビューポート エミュレーションはありません。 */
         @Volatile var handOperated = false
-        /** 网页按哪种语言请求(Accept-Language 的值);null 是跟随系统、不覆盖。建标签和每次主文档加载前按 Mika 的语言取。 */
+        /** Web ページが要求される言語 (Accept-Language の値)。 null は、システムに従い、それをカバーしないことを意味します。メインドキュメントをロードする前に、毎回タグを作成し、ミカの言語でタグを取得します。 */
         @Volatile var acceptLanguage: String? = null
-        /** 会话上已设好的版本;null 是还没设。 */
+        /** バージョンはセッションに設定されました。 null はまだ設定されていないことを意味します。 */
         @Volatile var configured: Boolean? = null
         @Volatile var degradedAt = 0L
         @Volatile var loadedBeforeAttach = false
         @Volatile var everAttached = false
-        /** 当前仿真下 Input 域坐标与 CSS 像素之比(见 [CdpSession.inputScale])。 */
+        /** 現在のシミュレーションにおける入力ドメイン座標と CSS ピクセルの比率 ([CdpSession.inputScale] を参照)。 */
         @Volatile var inputScale = 1.0
-        /** 不加视口仿真时页面的 devicePixelRatio(WebView 每 CSS 像素占几个视图像素),及量它时视图所在的显示。 */
+        /** ビューポート シミュレーションが追加されていない場合のページの devicePixelRatio (WebView の各 CSS ピクセルが占めるビュー ピクセル数)、および測定時のビューの表示。 */
         @Volatile var baseDpr: Double? = null
         @Volatile var baseDprDisplay = -1
-        /** 这条会话上已经设了视口仿真;设后页面读到的 devicePixelRatio。 */
+        /** ビューポート シミュレーションがこのセッションに設定されています。次のページで読み取った devicePixelRatio を設定します。 */
         @Volatile var metricsSet = false
         @Volatile var emulatedDpr: Double? = null
-        /** 文档开始注入的桌面身份补丁(主线程动);手机版时为 null。 */
+        /** デスクトップ ID パッチがドキュメントの先頭に挿入されました (メインスレッドがアクティブ)。モバイル版の場合は null。 */
         var identityScript: ScriptHandler? = null
-        /** 系统不支持文档开始注入时,在这条会话上登记的同一份补丁的编号。 */
+        /** システムは、ドキュメントの挿入開始時にこのセッションに登録されている同じパッチ番号をサポートしていません。 */
         @Volatile var sessionScriptId: String? = null
     }
 
-    /** 一种连法。 */
+    /** 接続方法です。 */
     private class Path(val route: Route, val transport: CdpTransport)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -291,7 +291,7 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
     @Volatile private var desktopUa: String? = null
     @Volatile private var desktopMetadata: UserAgentMetadata? = null
     @Volatile private var defaultMetadata: UserAgentMetadata? = null
-    /** WebView 的默认手机身份(UA 与 CDP 样子的 UA-CH):手机版选定了语言时照搬它,只换语言。 */
+    /** WebView のデフォルトのモバイル ID (UA および CDP 形式の UA-CH): モバイル バージョンで言語を選択すると、それがコピーされ、言語のみが変更されます。 */
     @Volatile private var defaultUa: String = ""
     @Volatile private var defaultMetadataJson: JsonObject? = null
     @Volatile private var appContext: Context? = null
@@ -312,7 +312,7 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
         this.defaultUa = defaultUa
         val (major, full) = DesktopProfile.version(defaultUa) ?: ("120" to "120.0.0.0")
         val metadataOk = WebViewFeature.isFeatureSupported(WebViewFeature.USER_AGENT_METADATA)
-        // 第一次改设置之前取内核自己的 UA-CH,手机版站点换回它
+        // 初めて設定を変更する前に、カーネル独自の UA-CH をモバイル版サイトに置き換えてください。
         val probe = if (metadataOk) runCatching { WebSettingsCompat.getUserAgentMetadata(st) }.getOrNull() else null
         val engine = probe?.brandVersionList?.map { Brand(it.brand, it.majorVersion, it.fullVersion) }
         val brands = DesktopProfile.brands(engine, major, full)
@@ -335,15 +335,15 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
     }
 
     /**
-     * 用户在 Mika 里选定的语言对应的 Accept-Language;跟随系统为 null。标签先按 ICU 的常见写法补全
-     * (en → en-Latn-US)再写成请求头。
+     * ミカでユーザーが選択した言語に対応する Accept-Language。次のシステムは null です。まず、ICUの一般的な書き方に従ってラベルを完成させます。
+     * (en → en-Latn-US) がリクエスト ヘッダーとして書き込まれます。
      */
     private fun chosenAcceptLanguage(): String? {
         val tag = appContext?.let { runCatching { AppLanguage.current(it).tag }.getOrNull() } ?: return null
         return PageLanguage.acceptLanguage(ULocale.addLikelySubtags(ULocale.forLanguageTag(tag)).toLanguageTag())
     }
 
-    // 退路这一层:UA、UA-CH(支持时)、宽视口。仿真连上后以仿真为准(语言只有仿真能设,见 [attach] 里的重新加载)
+    // リトリート レイヤー: UA、UA-CH (サポートされている場合)、ワイド ビューポート。シミュレーションが接続された後は、シミュレーションが優先されます (言語はシミュレーションによってのみ設定できます。[attach] のリロードを参照してください)。
     private fun applySettings(st: WebSettings, mobile: Boolean) {
         st.userAgentString = if (mobile) null else desktopUa
         st.useWideViewPort = !mobile
@@ -379,20 +379,20 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
         }
         if (s == null) {
             link.degradedAt = SystemClock.elapsedRealtime()
-            // 代连这条路可能已经断了(助手没了):下次重新检测
+            // 接続パスが壊れている可能性があります (アシスタントが消えています): 次回再確認してください
             if (p.route == Route.Relay) invalidate(p)
             return null
         }
         link.session = s
         link.degradedAt = 0L
         link.configured = null
-        // 新会话上没有仿真(断开时 WebView 已撤销)
+        // 新しいセッションでエミュレーションがありません (切断されると WebView が取り消されます) シミュレーションが設定される前に
         link.metricsSet = false
         link.sessionScriptId = null
         runCatching { configure(link, s) }.onFailure { Log.w(TAG, "emulation on tab ${tab.id}: ${it.message}") }
         if (!link.everAttached && link.loadedBeforeAttach && (!link.mobile || link.acceptLanguage != null)) {
-            // 页面在仿真设好之前就加载了(弹出的标签、第一页没等到会话等):按桌面版或选定的语言重新加载一次。
-            // WebView 设置里没有语言这一项,只有仿真能换请求头,所以手机版选定了语言时也要重载
+            // ページがロードされました (ポップアップ タブ、セッションを待機していない最初のページなど): デスクトップのバージョンまたは選択した言語に従って 1 回リロードします。
+            // WebView 設定に言語項目がありません。リクエスト ヘッダーを変更できるのはシミュレーションのみであるため、言語の選択時にモバイル バージョンもリロードする必要があります。
             withContext(Dispatchers.Main) { if (!tab.destroyed) tab.view.reload() }
         }
         link.everAttached = true
@@ -403,7 +403,7 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
     private suspend fun configure(link: Link, s: CdpSession) {
         val mobile = link.mobile
         if (mobile) {
-            // 跟随系统时空 UA 即撤销覆盖,回到 WebView 设置里的(已换回默认);选定了语言时照搬默认身份、只换语言
+            // はシステムの時間と空間 UA に従います。つまり、オーバーライドをキャンセルして WebView 設定に戻ります (デフォルトに戻されました)。言語を選択すると、デフォルトの ID がコピーされ、言語のみが変更されます。
             s.send("Emulation.setUserAgentOverride", PageLanguage.mobileOverride(defaultUa, defaultMetadataJson, link.acceptLanguage), timeoutMs = CALL_TIMEOUT_MS)
             s.send("Emulation.clearDeviceMetricsOverride", timeoutMs = CALL_TIMEOUT_MS)
             link.metricsSet = false
@@ -415,14 +415,14 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
                 link.sessionScriptId = null
             }
         } else {
-            // 还没排版时按宿主默认的桌面视口尺寸
+            // タイプセットする前に、ホストのデフォルトのデスクトップ ビューポート サイズを押します。
             val (size, display) = withContext(Dispatchers.Main) {
                 val v = link.tab.view
                 (if (v.width > 0 && v.height > 0) v.width to v.height else DesktopProfile.HOST_WIDTH to DesktopProfile.HOST_HEIGHT) to (v.display?.displayId ?: -1)
             }
             val (w, h) = size
             desktop?.let { s.send("Emulation.setUserAgentOverride", PageLanguage.withLanguage(it, link.acceptLanguage), timeoutMs = CALL_TIMEOUT_MS) }
-            // 触摸、指针与悬停:每条单独发,内核不认的那条不影响别的
+            // タッチ、ポインター、ホバー: それぞれは個別に送信され、カーネルが認識しないものは他のものには影響しません。
             for ((m, p) in DesktopProfile.emulationCalls()) {
                 runCatching { s.send(m, p, timeoutMs = CALL_TIMEOUT_MS) }.onFailure { Log.i(TAG, "$m not applied on tab ${link.tab.id}: ${it.message}") }
             }
@@ -437,7 +437,7 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
             DesktopProfile.viewportCall(hand, w, h, fit).let { (m, p) -> s.send(m, p, timeoutMs = CALL_TIMEOUT_MS) }
             link.metricsSet = !hand
             link.emulatedDpr = if (hand) null else readDpr(s)
-            // 缩放后 Input 域的坐标按缩放前的视图(DIP)解释:调用方照旧给 CSS 像素,发送时乘上
+            // スケーリング後の入力フィールドの座標は、スケーリング前のビュー (DIP) に従って解釈されます。呼び出し元は通常どおり CSS ピクセルを与え、次のように乗算されます。
             s.inputScale = fit ?: 1.0
             link.inputScale = s.inputScale
             Log.i(TAG, if (hand) "tab ${link.tab.id} desktop identity without viewport emulation (hand-operated)" else "tab ${link.tab.id} desktop viewport fitted to ${w}x$h view px (scale $fit)")
@@ -446,8 +446,8 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
     }
 
     /**
-     * 不加仿真时 WebView 每 CSS 像素占几个视图像素。它取决于 WebView 认的显示密度,视图换了显示可能就变,
-     * 所以按显示记;要重量时先撤掉仿真,等页面读到的值离开仿真时的值再取。
+     * シミュレーションなしで WebView の各 CSS ピクセルが占めるビュー ピクセル数。 WebViewが認識する表示密度に依存します。ビューを変更すると表示が変わる場合があります。
+     * そこで表示マークを押してください。重みが必要な場合は、まずシミュレーションをキャンセルし、シミュレーションが終了したときにページで読み取られた値を取得します。
      */
     private suspend fun baseDpr(link: Link, s: CdpSession, display: Int): Double {
         link.baseDpr?.takeIf { link.baseDprDisplay == display }?.let { return it }
@@ -479,13 +479,13 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
             val tab = link.tab
             if (links[tab] !== link || tab.destroyed || tab.crashed || link.session !== s) return@launch
             link.session = null
-            // 每次断线各重连一次;连不上这个标签降级,过一阵再试
+            // 切断されるたびに再接続します。このラベルに接続できない場合、ラベルはダウングレードされます。しばらくしてからもう一度お試しください。
             delay(RECONNECT_BACKOFF_MS)
             if (attach(link) == null) Log.w(TAG, "tab ${tab.id} lost its devtools session and could not reconnect: degraded")
         }
     }
 
-    /** 已知 targetId:直接连回去(标签与目标的对应跨导航不变)。目标没了为 null。 */
+    /** 既知の targetId: 直接接続し直します (ラベルとターゲット間の対応はナビゲーション全体で変更されません)。ターゲットがなくなった場合は null になります。 */
     private suspend fun reopen(p: Path, targetId: String): CdpSession? {
         val t = CdpDiscovery.list(p.transport, socketName, timeoutMs = DISCOVERY_TIMEOUT_MS).firstOrNull { it.id == targetId } ?: return null
         val ws = t.webSocketDebuggerUrl ?: return null
@@ -515,7 +515,7 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
         return null
     }
 
-    // 握手有上限(到点关流),卡住的握手不会一直占着标签的锁
+    // ハンドシェイクには上限があり (フローはその時点でオフになります)、スタックしたハンドシェイクが常にタグのロックを占有するわけではありません。
     private suspend fun connect(p: Path, webSocketUrl: String): CdpSession? =
         try {
             CdpSession.connect(p.transport, socketName, CdpDiscovery.webSocketPath(webSocketUrl), handshakeTimeoutMs = CONNECT_TIMEOUT_MS)
@@ -526,7 +526,7 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
             null
         }
 
-    /** 在标签当前文档里写下标记(主线程执行),等它执行完。 */
+    /** タグの現在のドキュメント (メインスレッドによって実行) にタグを書き込み、完了するまで待ちます。 */
     private suspend fun mark(tab: WebTab, marker: String): Boolean {
         val done = CompletableDeferred<Boolean>()
         withContext(Dispatchers.Main) {
@@ -576,7 +576,7 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
     companion object {
         private const val TAG = "MikaDevtools"
         private const val ATTACH_TIMEOUT_MS = 3_000L
-        /** 第一次导航前等会话的上限:连不上也不能把打开网页拖太久。 */
+        /** 最初のナビゲーション前の待機セッションの上限: 接続できない場合、Web ページを開くのを長時間遅らせることはできません。 */
         private const val BEFORE_LOAD_WAIT_MS = 2_500L
         private const val PROBE_TIMEOUT_MS = 2_000L
         private const val DISCOVERY_TIMEOUT_MS = 3_000L
@@ -586,12 +586,12 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
         private const val RECONNECT_BACKOFF_MS = 500L
         private const val DPR_SETTLE_MS = 500L
         private const val DPR_POLL_MS = 50L
-        /** 降级的标签过这么久再试一次(助手可能重新起来了)。 */
+        /** ダウングレードされたタグは、時間が経ってから再試行する必要があります (アシスタントが再度開始された可能性があります)。 */
         private const val DEGRADED_RETRY_MS = 60_000L
-        /** 代连检测失败后过这么久才再测(助手可能还没起来)。 */
+        /** プロキシ接続テストが失敗した後、再度テストするのに非常に時間がかかりました (アシスタントがまだ起動していない可能性があります)。 */
         private const val RELAY_RETRY_MS = 15_000L
 
-        /** 进程里那一份(App 给出)。 */
+        /** プロセスのもの (アプリによって与えられる)。 */
         fun of(context: Context): WebDevtools = WebOwner.of(context).webDevtools
     }
 }

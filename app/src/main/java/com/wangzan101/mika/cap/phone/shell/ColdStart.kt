@@ -1,8 +1,8 @@
 package com.wangzan101.mika.cap.phone.shell
 
 /**
- * launch_app cold=true 时能不能结束进程。结束进程会连带清掉这个 App 在任何屏上的状态,
- * 所以只要它在 Mika 的屏以外还有任务(哪怕在后台),就不结束,改为普通启动。
+ * launch_app cold=trueの場合、プロセスを終了できますか?プロセスを終了すると、どの画面でもこのアプリのステータスがクリアされます。
+ * したがって、Mika の画面の外にタスクがある限り (バックグラウンドであっても)、終了することはなく、通常どおりに開始されます。
  */
 enum class ColdStart {
     RESTART, WARM, IN_USE;

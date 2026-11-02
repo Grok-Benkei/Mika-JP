@@ -6,7 +6,7 @@ import org.junit.Test
 import java.io.File
 
 class LicensesTest {
-    /** 单元测试的工作目录是 app/;仓库根目录在上一级。 */
+    /** 単体テストの作業ディレクトリは app/ です。ウェアハウスのルート ディレクトリは上位レベルにあります。 */
     private val notices = File("../licenses/THIRD_PARTY_NOTICES.md").takeIf { it.isFile } ?: File("licenses/THIRD_PARTY_NOTICES.md")
 
     @Test
@@ -25,7 +25,7 @@ class LicensesTest {
         assertEquals("GPL-2.0-or-later", byName.getValue("PRoot").license)
         assertEquals("LGPL-3.0-or-later", byName.getValue("talloc").license)
         assertEquals("Apache-2.0", byName.getValue("Apache Commons Compress").license)
-        listOf("OkHttp", "Okio", "kotlinx.coroutines", "kotlinx.serialization", "Kotlin 标准库", "AndroidX(含 Jetpack Compose)")
+        listOf("OkHttp", "Okio", "kotlinx.coroutines", "kotlinx.serialization", "Kotlin標準ライブラリ", "AndroidX（Jetpack Composeを含む）")
             .forEach { assertEquals(it, "Apache-2.0", byName.getValue(it).license) }
         assertTrue(Licenses.GPL_SOURCE_OFFER.contains("gpl-sources.tar.gz"))
         assertTrue(Licenses.GPL_SOURCE_OFFER.contains("PRoot") && Licenses.GPL_SOURCE_OFFER.contains("talloc"))
@@ -33,13 +33,13 @@ class LicensesTest {
         assertEquals("0BSD", byName.getValue("XZ for Java").license)
     }
 
-    /** 「开源许可」页逐个列出自带运行环境里的软件包,每个都有许可证。 */
+    /** [オープン ソース ライセンス] ページには、組み込みオペレーティング環境のソフトウェア パッケージが 1 つずつリストされ、それぞれにライセンスが付いています。 */
     @Test
     fun runtimePackagesListed() {
         val manifest = File("src/main/assets/runtime/packages.json")
         val entries = Licenses.runtimePackages(manifest.readText())
         assertTrue(entries.size > 40)
         listOf("busybox", "musl", "python3", "nodejs", "py3-pillow", "py3-pypdf").forEach { n -> assertTrue(n, entries.any { it.name == n }) }
-        entries.forEach { assertTrue(it.name, it.license.isNotBlank() && it.note.startsWith("版本 ")) }
+        entries.forEach { assertTrue(it.name, it.license.isNotBlank() && it.note.startsWith("バージョン ")) }
     }
 }

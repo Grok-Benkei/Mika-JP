@@ -19,8 +19,8 @@ import java.nio.file.StandardCopyOption
 import java.util.UUID
 
 /**
- * 个人技能 `skills/personal/<name>/`、待收下草稿 `skills/pending/<id>/`,各含 `SKILL.md` + `meta.json`,明文
- * (沉淀时已去掉个人信息,便于查看与调试)。SKILL.md 读不出或缺失时照样列出,由技能目录报「坏了」,不静默消失。
+ * 個人スキル `skills/personal/<name>/`、承認されるドラフト `skills/pending/<id>/`、それぞれに `SKILL.md` + `meta.json`、プレーン テキストが含まれます
+ * (表示とデバッグを容易にするために、個人情報は降水中に削除されています)。 SKILL.md が読み取れない場合や見つからない場合でも、リストには表示されます。スキル ディレクトリは「壊れている」と報告され、静かに消えることはありません。
  */
 class PersonalSkillFiles(dir: File) : PersonalSkills {
     private val personalDir = File(dir, "skills/personal")
@@ -70,11 +70,11 @@ class PersonalSkillFiles(dir: File) : PersonalSkills {
         if (!ID.matches(id)) return null
         val draftDir = File(pendingDir, id)
         val draft = read(draftDir, null) ?: return null
-        // 更新草稿收下后覆盖它指向的那份已有技能
+        // 更新ドラフトが承認されると、それが指す既存のスキルが上書きされます。
         val name = draft.replacesDraftOf?.takeIf { PersonalSkills.NAME.matches(it) } ?: draft.name
         if (draft.replacesDraftOf != null && draft.baseHash != null &&
             get(name)?.markdown?.let { PersonalSkills.fingerprint(it) } != draft.baseHash) return null
-        // 头部名字跟存放的名字走:更新草稿、用户改过的全文都可能对不上
+        // ヘッダー名が保存されている名前と異なります。更新されたドラフトとユーザーが変更した全文は一致しない可能性があります。
         val markdown = PersonalSkills.withName(editedMarkdown ?: draft.markdown, name)
         val skill = draft.copy(name = name, markdown = markdown, status = SkillStatus.trial, replacesDraftOf = null, baseHash = null)
         archive(name, "approve")
@@ -95,7 +95,7 @@ class PersonalSkillFiles(dir: File) : PersonalSkills {
         }
     }
 
-    /** 撤销一次删除或覆盖：只接受本地改动日志中的旧版本，不从外部路径读。 */
+    /** 削除または上書きを元に戻します。ローカル変更ログ内の古いバージョンのみを受け入れ、外部パスからは読み取りません。 */
     @Synchronized override fun revisions(name: String): List<SkillRevision> {
         if (!PersonalSkills.NAME.matches(name)) return emptyList()
         return journal.takeIf { it.exists() }?.useLines { lines -> lines.mapNotNull { line ->
@@ -141,7 +141,7 @@ class PersonalSkillFiles(dir: File) : PersonalSkills {
     private fun readAll(root: File): List<PersonalSkill> =
         root.listFiles { f -> f.isDirectory }.orEmpty().sortedBy { it.name }.mapNotNull { read(it, null) }
 
-    /** [expectedName] 为 null 时名字取 meta.json(草稿目录名是编号),缺了就用目录名。 */
+    /** [expectedName]がnullの場合、名前はmeta.json（ドラフトディレクトリ名は数字）になります。存在しない場合は、ディレクトリ名が使用されます。 */
     private fun read(d: File, expectedName: String?): PersonalSkill? {
         if (!d.isDirectory) return null
         val meta = try {

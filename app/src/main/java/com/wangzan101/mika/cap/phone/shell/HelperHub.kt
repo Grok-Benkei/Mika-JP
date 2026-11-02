@@ -23,49 +23,49 @@ import java.io.IOException
 import com.wangzan101.mika.shell.IMikaShell
 
 /**
- * Mika 进程里内置助手 Binder 的落点。助手经 [HandoffProvider] 交来 Binder,在这里核对后收下;
- * 由 [com.wangzan101.mika.cap.phone.PhoneServices] 建一份(助手只认一个进程里的一个落点),
- * [BuiltinShellConnection] 和看门狗都看它的 [shell]。
+ * Mega プロセスの組み込みアシスタント Binder の場所。アシスタントは [HandoffProvider] 経由でバインダーを送信し、ここをチェックした後にそれを受け入れます。
+ * は [com.wangzan101.mika.cap.phone.PhoneServices] から作成されます (アシスタントは 1 つのプロセスで 1 つのドロップ ポイントのみを認識します)。
+ * [BuiltinShellConnection] とウォッチドッグは両方とも [shell] を参照します。
  */
 class HelperHub(context: Context) {
     private val app = context.applicationContext
 
     private val _shell = MutableStateFlow<IMikaShell?>(null)
-    /** 现在手里的助手接口;助手进程死了就变回 null。 */
+    /** アシスタント インターフェイスが手元にあります。アシスタントプロセスが終了すると null に戻ります。 */
     val shell: StateFlow<IMikaShell?> = _shell.asStateFlow()
 
     private val _restores = MutableStateFlow<HelperRestoreReport?>(null)
-    /** 助手交接时报来的「Mika 被杀后由它拉起来」的记录(诊断信息用);没拉过为 null。 */
+    /** アシスタント引き継ぎ時間からの「ミカが殺された後に引き上げられた」記録（診断情報用）。プルされない場合は null です。 */
     val restores: StateFlow<HelperRestoreReport?> = _restores.asStateFlow()
 
-    /** 经助手代连本进程的 WebView 调试套接字;助手不在时抛 IOException,助手拒绝或连不上为 null。 */
+    /** は、アシスタントを通じてこのプロセスの WebView デバッグ ソケットに接続します。アシスタントが利用できない場合は IOException がスローされ、アシスタントが拒否するか接続できない場合は null がスローされます。 */
     fun openDevtoolsSocket(endpoint: String): ParcelFileDescriptor? {
         val sh = shell.value ?: throw IOException("phone helper is not running")
         return sh.openDevtoolsSocket(endpoint)
     }
 
-    /** 交给助手的本进程令牌:Mika 进程一死,助手就从它的死亡通知得知,撤掉 Mika 留下的改动。 */
+    /** アシスタントに与えられたプロセス トークン: ミカ プロセスが終了するとすぐに、アシスタントはその終了通知からそれを知り、ミカが残した変更を削除します。 */
     private val token = Binder()
     private val nonces: HandoffNonces by lazy { HandoffNonces(PrefsNonceStore(app), SystemClock::elapsedRealtime, System::currentTimeMillis) }
 
-    /** 经 adbd 起新助手前调:这个一次性口令经 exec 流的标准输入交给助手。 */
+    /** adbd を介した新しいアシスタント プレフィックス: このワンタイム パスワードは、実行ストリームの標準入力を介してアシスタントに与えられます。 */
     fun issueLaunchNonce(): String = nonces.issueLaunch()
 
-    /** 写进「用电脑启动」脚本的一次性口令(见 [HandoffNonces.usbNonce]);交接走的是同一个 [offer]。 */
+    /** は、「Start with Computer」スクリプトに書き込まれるワンタイム パスワードです ([HandoffNonces.usbNonce] を参照)。同じ [offer] がハンドオーバーに使用されます。 */
     fun usbNonce(): String = nonces.usbNonce()
 
-    /** 口令被整体作废的次数(见 [HandoffNonces.resets]):「用电脑启动」脚本跟着它重写。 */
+    /** パスワードが全体として無効になった回数 ([HandoffNonces.resets] を参照): 「コンピューターで開始」スクリプトがそれに応じて書き換えられます。 */
     val nonceResets: StateFlow<Int> get() = nonces.resets
 
-    /** 解除配对:口令全部作废(还活着的助手下次交接会被拒绝并退出),手里的接口也放掉。 */
+    /** ペアリング解除: すべてのパスワードが無効になり (まだ生きているアシスタントは拒否され、次回終了します)、手元のインターフェイスも解放されます。 */
     fun forget() {
         nonces.clear()
         _shell.value = null
     }
 
     /**
-     * 助手来交接。只收 shell(uid 2000)、自报 uid/pid 与调用方一致、跑的是当前这份 APK、口令对的;
-     * 再调一次 Binder 确认它确实在来交接的这个进程里,最后才用掉口令并换发下一枚。
+     * アシスタントを引き継ぎます。シェル (uid 2000) のみを受け入れ、自己報告された uid/pid が呼び出し元と一致し、現在の APK が実行され、パスワードが正しい。
+     * バインダーを再度調整して、実際に引き継ぎ中であることを確認し、最後にパスワードを使用して次のパスワードに変更します。
      */
     @Synchronized
     fun offer(extras: Bundle?, callingUid: Int, callingPid: Int): Bundle {
@@ -80,7 +80,7 @@ class HelperHub(context: Context) {
         )?.let { return reject(it) }
         val gate = nonces
         val nonce = extras?.getString(HelperHandoff.KEY_NONCE)
-        // 口令不对就不碰对方给的 Binder
+        // パスワードが間違っている場合は、相手から渡されたバインダーに触れないでください。
         if (!gate.matches(nonce)) return reject(HelperHandoff.Reject.BadNonce)
         val shell = IMikaShell.Stub.asInterface(binder!!)
         val ids = runCatching { shell.identity() }.getOrNull()
@@ -93,7 +93,7 @@ class HelperHub(context: Context) {
         } catch (e: Exception) {
             return reject(HelperHandoff.Reject.NoBinder)
         }
-        // 换了新的助手:旧的随后会被新的结束,它的死亡通知因为不是当前这个而被忽略
+        // は新しいアシスタントに変更されました。古いアシスタントは新しいアシスタントによって終了され、現在のアシスタントではないため、その終了通知は無視されます。
         _shell.value = shell
         if (extras?.containsKey(HelperHandoff.KEY_RESTORED_AT) == true) {
             _restores.value = HelperRestoreReport(
@@ -127,7 +127,7 @@ class HelperHub(context: Context) {
             prefs.getString("resume", null), prefs.getString("launch", null), prefs.getLong("launchAt", 0),
             prefs.getString("usb", null), prefs.getLong("usbAt", 0),
         )
-        // 同步写:助手拿到新口令后 Mika 可能马上被杀,新进程要认得它
+        // 同期書き込み: アシスタントが新しいパスワードを取得した直後にミカが強制終了される可能性があり、新しいプロセスはそれを認識する必要があります
         override fun save(slots: NonceSlots) {
             prefs.edit().putString("resume", slots.resume).putString("launch", slots.launch).putLong("launchAt", slots.launchAt)
                 .putString("usb", slots.usb).putLong("usbAt", slots.usbAt).commit()
@@ -136,10 +136,10 @@ class HelperHub(context: Context) {
 }
 
 /**
- * 内置助手交接 Binder 的入口。要对 shell 开放所以是 exported,清单里另要求 INTERACT_ACROSS_USERS_FULL
- * (shell 有,普通 App 没有),普通 App 连 provider 都拿不到;真正的把关在 [HelperHub.offer]。
- * 落点是 App 的那一份([PhoneServices.of]):App 对象在 provider 之前就构造好了,但交接调用可能早于或与 Application.onCreate 同时到达;
- * 安全靠 MikaApp.phone 与 [HelperHub] 里口令都是同步的 lazy(谁先到谁建、只建一次),[HelperHub.offer] 本身也加了锁,不依赖 onCreate 先跑完。
+ * 内蔵アシスタント引き渡しバインダー入口。シェルに対してオープンする必要があるため、エクスポートされます。 INTERACT_ACROSS_USERS_FULL もリストに含める必要があります。
+ * (シェルにはありますが、通常のアプリにはありません)、通常のアプリはプロバイダーを取得することさえできません。実際の小切手は [HelperHub.offer] です。
+ * はアプリ ([PhoneServices.of]) の一部です。アプリ オブジェクトはプロバイダーの前に構築されますが、ハンドオーバー呼び出しは Application.onCreate よりも前に、または Application.onCreate と同時に到着する可能性があります。
+ * は、MikaApp.phone と [HelperHub] のパスワードが同期されており、遅延しているため安全です (最初に来た人がビルドし、一度だけビルドされます)。 [HelperHub.offer] 自体もロックされており、最初に実行する onCreate に依存しません。
  */
 open class HandoffProvider : ContentProvider() {
     override fun onCreate() = true

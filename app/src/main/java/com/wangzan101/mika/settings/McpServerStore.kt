@@ -42,7 +42,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
-/** 外部 MCP server 的一条配置;token 不在这个对象里,单独加密存。 */
+/** 外部 MCP サーバーの構成。トークンはこのオブジェクトには含まれず、個別に保存され、暗号化されます。 */
 @Serializable
 data class McpServerConfig(
     val id: String = UUID.randomUUID().toString(),
@@ -55,15 +55,15 @@ data class McpServerConfig(
     val previewChars: Int = 4000,
     val maxCostUnits: Long? = null,
     val allowLocalHttp: Boolean = false,
-    /** streamable-http | http-sse(2024-11-05 旧版) | stdio(沙箱里的本地进程) */
+    /** ストリーミング可能-http | http-sse(2024-11-05 旧バージョン) | stdio (サンドボックス内のローカルプロセス) */
     val transport: String = "streamable-http",
-    /** stdio 的命令行;不经过 shell,按 argv 直接执行。 */
+    /** stdio コマンドライン。シェルを経由せずに、argv を押して直接実行します。 */
     val command: String = "",
-    /** token | oauth(token 是手动 Bearer/自定义头;oauth 走 OAuth 2.1 登录) */
+    /** トークン | oauth (トークンは手動ベアラー/カスタム ヘッダーです。oauth は OAuth 2.1 ログインを使用します) */
     val auth: String = "token",
-    /** 只暴露这些工具;null 表示全部。 */
+    /** はこれらのツールのみを公開します。 null はすべてを意味します。 */
     val allowedTools: List<String>? = null,
-    /** 非密的自定义请求头;Authorization 另存。 */
+    /** 暗号化されていないカスタム リクエスト ヘッダー。認証はファイルとして保存されます。 */
     val headers: Map<String, String> = emptyMap(),
 )
 
@@ -78,8 +78,8 @@ data class McpConnections(
 data class McpTestResult(val serverName: String?, val instructions: String?, val tools: List<String>)
 
 /**
- * 外部 MCP server 的设置:配置存 `files/settings/mcp-servers.json`,token 用 [KeyCipher] 加密另存。
- * [connectionsFor] 在任务开始时连接所有启用项(整段有总时限),失败、超时的不影响其他任务/其他 server。
+ * 外部 MCP サーバー設定: 構成は `files/settings/mcp-servers.json` として保存され、トークンは暗号化されて [KeyCipher] として保存されます。
+ * [connectionsFor] タスクの開始時に有効な項目をすべて接続します (セクション全体には合計時間制限があります)。障害やタイムアウトは他のタスクや他のサーバーには影響しません。
  */
 class McpServerStore(
     private val dir: File,
@@ -87,7 +87,7 @@ class McpServerStore(
     private val http: OkHttpClient = NetProxy.shared.client(
         OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(70, TimeUnit.SECONDS),
     ),
-    /** stdio server 只能由沙箱启动;为 null 时 stdio 配置会报不可用。 */
+    /** stdio サーバーはサンドボックスでのみ起動できます。 null の場合、stdio 構成は使用不可として報告されます。 */
     private val stdio: McpStdioLauncher? = null,
 ) {
     private val file = File(dir, "mcp-servers.json")
@@ -98,7 +98,7 @@ class McpServerStore(
     private val oauth = McpOAuth(http)
     private val tokenJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val _health = MutableStateFlow<Map<String, McpHealth>>(emptyMap())
-    /** 最近一次连接/测试的结果;只在进程内,不落盘。 */
+    /** 最新の接続/テストの結果。プロセス内のみであり、ディスクにはドロップされません。 */
     val health: StateFlow<Map<String, McpHealth>> = _health.asStateFlow()
 
     @Synchronized fun add(name: String, url: String, token: String? = null): Result<McpServerConfig> =
@@ -200,14 +200,14 @@ class McpServerStore(
         }
     }
 
-    /** 刷新所有启用 server 的状态(并行)。 */
+    /** 有効なすべてのサーバーのステータスを (並行して) 更新します。 */
     suspend fun testAll() = coroutineScope {
         _servers.value.filter { it.enabled }.map { config -> async { test(config) } }.awaitAll()
     }
 
     /**
-     * 任务开头用:连上的归 [owner](任务的 [ResourceScope]),任务收尾关作用域时一起关掉;
-     * 取消落在连接中途或刚连上、还没交回时也不漏(stdio server 的进程和沙箱租约跟着放掉)。
+     * はタスクの開始時に使用されます。[owner] (タスクの [ResourceScope]) に接続され、タスクが終了してスコープが閉じられると一緒にオフになります。 接続の途中でキャンセルされた場合、または接続されたばかりでまだハンドバックされていない場合でも、
+     * は見逃されません (それに応じて、stdio サーバーのプロセスとサンドボックスのリースが解放されます)。
      */
     suspend fun connectionsFor(
         owner: ResourceScope,
@@ -217,8 +217,8 @@ class McpServerStore(
     ): McpConnections = owner.acquire(Dispatchers.IO, { c: McpConnections -> c.close() }) { connections(resultStore, workspace, budgetMs) }
 
     /**
-     * 并行连接所有启用项;单个失败只记录,不抛。整段最多等 [budgetMs]:到点还没连上的这次不接,
-     * 记成失败(健康状态里写明超时),不拖住任务开头;已经连上的照常用。被取消时连上的也关掉再抛。
+     * は、すべての有効な項目を並列に接続します。単一の失敗は記録されるだけで、スローされません。セクション全体の最大待機数は [budgetMs] です。最後に接続できなかった場合、今回はピックアップしません。
+     * は失敗として記録され (ヘルス ステータスにタイムアウトが示されます)、タスクの開始は遅れません。すでに接続されているものは通常どおり使用できます。キャンセルすると、接続されているものも閉じられ、再度スローされます。
      */
     suspend fun connections(
         resultStore: com.wangzan101.mika.core.cap.mcp.McpResultStore? = null,
@@ -248,7 +248,7 @@ class McpServerStore(
         val closed = java.util.concurrent.atomic.AtomicBoolean(false)
         return McpConnections(
             connections = connected.map { it.second },
-            // 任务收尾和它的 ResourceScope 都会关;只关一次
+            // タスクが終了し、その ResourceScope が閉じられます。一度だけ閉店した
             close = {
                 if (closed.compareAndSet(false, true)) connected.forEach { (it.second.endpoint as? Closeable)?.let { c -> runCatching { c.close() } } }
             },
@@ -256,7 +256,7 @@ class McpServerStore(
         )
     }
 
-    /** 连一个 server 并记下健康状态。 */
+    /** サーバーに接続し、健全性ステータスを記録します。 */
     private suspend fun attempt(
         config: McpServerConfig,
         resultStore: com.wangzan101.mika.core.cap.mcp.McpResultStore?,
@@ -352,8 +352,8 @@ class McpServerStore(
     }
 
     /**
-     * OAuth 2.1 登录:发现授权服务器 → 动态注册本机回调 → 打开浏览器 → 等回调换令牌。
-     * [openBrowser] 在登录开始时调用一次(由 UI 打开系统浏览器);整个流程最多等 5 分钟。
+     * OAuth 2.1 ログイン: 認可サーバーを検出 → ネイティブ コールバックを動的に登録 → ブラウザを開く → コールバックがトークンを変更するのを待ちます。
+     * [openBrowser] ログインの開始時に 1 回呼び出されます (システム ブラウザが UI によって開かれます)。プロセス全体は最大 5 分間待つ必要があります。
      */
     suspend fun authorize(config: McpServerConfig, openBrowser: (String) -> Unit): Result<McpOAuthTokens> {
         validate(config)?.let { return Result.failure(IllegalArgumentException(it)) }
@@ -402,9 +402,9 @@ class McpServerStore(
         McpHealth(false, e.message ?: e.javaClass.simpleName, emptyList(), System.currentTimeMillis())
 
     private fun oauthPage(ok: Boolean): String = if (ok) {
-        "<html><body><h3>Mika: 登录成功</h3><p>Sign-in complete. You can return to Mika.</p></body></html>"
+            "<html lang=\"ja\"><body><h3>Mika JP: ログインしました</h3><p>Mika JPに戻ってください。</p></body></html>"
     } else {
-        "<html><body><h3>Mika: 登录失败</h3><p>Sign-in failed. Return to Mika and try again.</p></body></html>"
+            "<html lang=\"ja\"><body><h3>Mika JP: ログインできませんでした</h3><p>Mika JPに戻り、もう一度お試しください。</p></body></html>"
     }
 
     private fun loadServers(): List<McpServerConfig> = runCatching {
@@ -445,11 +445,11 @@ class McpServerStore(
             Regex("^172\\.(1[6-9]|2[0-9]|3[01])\\.").containsMatchIn(host)
 
     companion object {
-        /** 设置页测试 stdio server 时用的沙箱工作区;任务里用对话 ID。 */
+        /** 設定ページで標準入出力サーバーをテストするときに使用されるサンドボックス ワークスペース。セッション ID はタスクで使用されます。 */
         const val SETTINGS_WORKSPACE = "mcp-settings"
         /**
-         * 任务开头连接外部 server 最多等这么久(所有 server 一起算)。单个 server 自己的超时可以长到几分钟,
-         * 那是给工具调用的;开头只是握手,慢的这次先不接,不让任务一直停在「准备中」。沙箱里的 stdio server 要起 PRoot,留得宽一点。
+         * タスクの開始時に外部サーバーに接続するための最大待機時間 (すべてのサーバーが一緒にカウントされます)。単一サーバー自体のタイムアウトは数分に及ぶ場合があります。
+         * がツールに対して呼び出されます。それは最初の握手だけです。遅い場合は、タスクが「準備中」のままにならないように、今回は受け入れません。サンドボックス内の stdio サーバーは PRoot を開始し、それをより広い範囲に残しておく必要があります。
          */
         const val CONNECT_BUDGET_MS = 15_000L
     }

@@ -32,17 +32,17 @@ import com.wangzan101.mika.core.uistate.AppWait
 import com.wangzan101.mika.core.uistate.action
 import com.wangzan101.mika.core.uistate.session
 
-/** 列出、打开手机上的 App:永远作用于手机。 */
+/** 電話機でアプリを一覧表示して開きます: 電話機では常に機能します。 */
 internal object ListApps : PhoneTool {
     override val verb = Verb.ListApps
-    override val label = "查看已装的 App"
+    override val label = "インストール済みアプリを表示"
     override val risk = Risk.Read
     override val entry = Entry.Alone
     override val def = ToolDef("phone_list_apps", Prompts.tool("phone_list_apps"))
 
     override suspend fun execute(a: Args, ctx: ToolContext): ToolExecution {
         val apps = ctx.phone.screen.listApps()
-        // 也装在分身、工作资料一类的另一份用户里的:每一份单列一项,带上打开它要用的 user
+        // は、クローンや作業マテリアルなどの別のユーザー コピーにもインストールされます。各コピーには個別のアイテムと、それを開くために使用するユーザーがあります。
         val copies = ctx.phone.screen.appCopies().groupBy { it.packageName }
         val access = ctx.phone.screen.appAccess.current()
         return ok {
@@ -54,7 +54,7 @@ internal object ListApps : PhoneTool {
         }
     }
 
-    /** 列出的 App 名字不单独作证据,记下来给之后打开 App 的事实用(另一份的名字不记,免得盖掉本来那份的)。 */
+    /** にリストされているアプリ名は、個別の証拠としては使用されません。これらは、後でアプリを開くために書き留められます (元のコピーが上書きされないように、別のコピーの名前は記録されません)。 */
     override fun observations(o: JsonObject, r: ToolExecution, log: EvidenceLog): List<Observation> {
         if (r.content["ok"] != JsonPrimitive(true)) return emptyList()
         (r.content["apps"] as? JsonArray)?.forEach { a ->
@@ -71,7 +71,7 @@ internal object LaunchApp : PhoneTool {
     override val verb = Verb.LaunchApp
     override val batchable = true
     override val routable = true
-    override val label = "打开 App"
+    override val label = "アプリを開く"
     override val risk = Risk.Write
     override val entry = Entry.Opens
     override val showsScreenAfter = true
@@ -91,15 +91,15 @@ internal object LaunchApp : PhoneTool {
         val user = a.int("user", 0, MAX_USER)
         val cold = a.bool("cold", false)
         val wait = a.int("wait", 1, MAX_WAIT_S)
-        // 只打开列出过的那几份:不在可用的另一份用户里(私密空间、别人的用户、没装)的一律不碰
+        // はリストされているもののみを開きます。利用可能なユーザーに含まれていないもの (プライベート スペース、他人のユーザー、インストールされていないもの) には触れません。
         if (user != null && ctx.phone.screen.appCopies().none { it.packageName == p && it.userId == user }) {
             return ctx.action(ActionResult.Failed(COPY_NOT_FOUND))
         }
-        // 换了 App,之前被拒的付款申报就不是这次的了
+        // アプリを変更したら、以前拒否された支払い申告が今回は拒否されました。
         ctx.refusedPay = null
         suspend fun open() = if (user != null) ctx.phone.screen.openAppCopy(p, user, cold) else ctx.phone.screen.openApp(p, cold)
         var opened = open()
-        // 别的任务正用着、模型要了等:等它放开再开一次;互相等(谁也等不到)、等到时限仍被占着,照实说
+        // 他のタスクが使用されており、モデルが要求されている場合は、待機します。モデルが解放されるのを待って、再度開きます。お互いを待ちます（誰も待てません）、制限時間がまだ占有されているまで待って、真実を話してください
         if (wait != null && opened is ActionResult.Failed && opened.reason == APP_IN_USE_BY_OTHER_TASK) {
             when (ctx.phone.screen.awaitAppFree(p, user, wait * 1_000L)) {
                 AppWait.Free -> opened = open()
@@ -120,14 +120,14 @@ internal object LaunchApp : PhoneTool {
     override fun observations(o: JsonObject, r: ToolExecution, log: EvidenceLog): List<Observation> {
         if (r.content["ok"] != JsonPrimitive(true)) return emptyList()
         return listOfNotNull(o.argStr("package")?.let { p ->
-            val copy = (o["user"] as? JsonPrimitive)?.contentOrNull?.let { "(另一份,用户 $it)" }.orEmpty()
-            Observation(ObsKind.Fact, "$name 打开了 $p$copy" + (log.appLabels[p]?.let { "(App 名字「$it」)" } ?: ""), source = PHONE)
+            val copy = (o["user"] as? JsonPrimitive)?.contentOrNull?.let { "（別のコピー、ユーザー $it）" }.orEmpty()
+            Observation(ObsKind.Fact, "$name が $p を開きました$copy" + (log.appLabels[p]?.let { "（アプリ名「$it」）" } ?: ""), source = PHONE)
         })
     }
 
-    /** 安卓的用户编号上限(UserHandle.PER_USER_RANGE 以内)。 */
+    /** Android ユーザー数の上限 (UserHandle.PER_USER_RANGE 内)。 */
     private const val MAX_USER = 99_999
-    /** 等别的任务放开 App 最多等几秒:再长不如先做别的,或告诉用户。 */
+    /** 他のタスクがアプリをリリースするまで待ちます。長くても数秒待ってください。最初に他のことをするか、ユーザーに伝えたほうがよいでしょう。 */
     const val MAX_WAIT_S = 180
     const val COPY_NOT_FOUND = "copy_not_found"
     const val WAIT_WOULD_DEADLOCK = "app_wait_would_deadlock"
@@ -135,12 +135,12 @@ internal object LaunchApp : PhoneTool {
 }
 
 /**
- * 任务结束时这个 App 留着还是关掉。默认留着(放回后台,停在做完的那一页,下次接着用),结束时正在出声的关掉;
- * 用户说了要它接着放、或做完就关(临时登录一类)时用它标出来。只记下,此刻什么也不动;同一份 App 再标一次以最后一次为准。
+ * タスクが終了したら、アプリはオンのままにしておくべきですか、それとも閉じるべきですか?デフォルトのままにし（バックグラウンドに戻し、完了したページに留まり、次回使用する）、終了するとサウンドをオフにします。
+ * ユーザーがプレイを継続したいとき、または終了後に閉じるときにマークするために使用します (一時的なログイン タイプ)。ただ書き留めてください。現時点では何も動いていません。同じアプリを再度マークすると、前回の時間が優先されます。
  */
 internal object AppAfterTask : PhoneTool {
     override val verb = Verb.AppAfterTask
-    override val label = "定下 App 做完后留着还是关掉"
+    override val label = "アプリの終了後の扱いを決める"
     override val risk = Risk.Write
     override val logged = true
     override val def = ToolDef("phone_app_after_task", Prompts.tool("phone_app_after_task"),
@@ -152,7 +152,7 @@ internal object AppAfterTask : PhoneTool {
         ),
         listOf("package", "action", "reason"))
 
-    /** 只是记下,不切换在操作的那块屏。 */
+    /** 操作中に画面を切り替えないでください。 */
     override fun aimAt(o: JsonObject): String? = null
 
     override suspend fun execute(a: Args, ctx: ToolContext): ToolExecution {
@@ -183,12 +183,12 @@ internal object AppAfterTask : PhoneTool {
 }
 
 /**
- * 把一段文字分享给一个 App(ACTION_SEND text/plain),在 Mika 的屏上打开它的分享页:收件人、发出都在那一页上点,
- * 这里不发出任何东西。读不到的界面里打不进字时,经分享把字带进去。
+ * テキストの一部をアプリに共有し (ACTION_SEND テキスト/プレーン)、ミカの画面でその共有ページを開きます。そのページで受信者と送信者をクリックし、
+ * ここでは何も出力されません。読めないインターフェースに単語を入力できない場合は、単語を共有して取り込みましょう。
  */
 internal object ShareText : PhoneTool {
     override val verb = Verb.ShareText
-    override val label = "分享文字到 App"
+    override val label = "アプリへテキストを共有"
     override val risk = Risk.Write
     override val showsScreenAfter = true
     override val logged = true
@@ -204,12 +204,12 @@ internal object ShareText : PhoneTool {
         val p = a.str("package")!!
         if (!LinkPolicy.PACKAGE.matches(p)) throw ArgError("package", "must be an Android package name")
         val text = a.str("text", max = 10000)!!
-        // 换了 App,之前被拒的付款申报就不是这次的了
+        // アプリを変更したら、以前拒否された支払い申告が今回は拒否されました。
         ctx.refusedPay = null
         val r = ctx.action(ctx.phone.screen.shareText(p, text))
         if (r.content["ok"] != JsonPrimitive(true)) return r
         ctx.appOpened = true
-        // 系统先问用哪一个(装了两份、分享页不止一个)时提示已经说了怎么选;到了分享页再说下一步
+        // システムが最初にどちらを使用するかを尋ねるとき (2 つのコピーがインストールされており、複数の共有ページがある場合)、プロンプトにはすでに選択方法が示されています。共有ページにアクセスしたら、次のステップについて話し合うことができます。
         val opened = if (r.content["chooser"] != null) r else withHint(r, Feedback["share.opened"])
         return unreadable(ctx, p, opened)
     }
@@ -219,7 +219,7 @@ internal object ShareText : PhoneTool {
     override fun observations(o: JsonObject, r: ToolExecution, log: EvidenceLog): List<Observation> {
         if (r.content["ok"] != JsonPrimitive(true)) return emptyList()
         return listOfNotNull(o.argStr("package")?.let { p ->
-            Observation(ObsKind.Fact, "$name 打开了 $p 的分享页(还没发出)" + (log.appLabels[p]?.let { "(App 名字「$it」)" } ?: ""), source = PHONE)
+            Observation(ObsKind.Fact, "$name が $p の共有ページを開きました（まだ送信していません）" + (log.appLabels[p]?.let { "（アプリ名「$it」）" } ?: ""), source = PHONE)
         })
     }
 }
@@ -229,7 +229,7 @@ private fun withHint(r: ToolExecution, hint: String): ToolExecution {
     return ToolExecution(JsonObject(r.content + ("hint" to JsonPrimitive(all))), changed = r.changed)
 }
 
-/** 到了前台却读不到窗口(安全窗口、启动画面……):照实说,免得模型以为没打开又去启动。 */
+/** フロントデスクに関しては、ウィンドウ (セキュリティウィンドウ、起動画面など) を読み取ることができません。モデルが開いていないと判断して再び起動しないように、正直に話してください。 */
 private suspend fun unreadable(ctx: ToolContext, p: String, r: ToolExecution): ToolExecution {
     val s = ctx.session.peek()
     if (s?.unreadableApp != p || s.elements.any { it.meaningful }) return r

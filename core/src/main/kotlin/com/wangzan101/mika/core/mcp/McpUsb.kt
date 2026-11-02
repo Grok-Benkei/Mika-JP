@@ -8,21 +8,21 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
 /**
- * 经 USB 的电脑连接:电脑用 adb 打开、只在本机回环上监听,电脑经 `adb forward` 连进来。
- * 这里是和电脑之间的约定:连接信息文件的内容、电脑上跑的脚本。都只用安卓原版 sh 和 toybox 里有的命令。
+ * USB 経由のコンピューター接続: adb でコンピューターを開き、ローカル ループバックでのみ監視します。コンピューターは `adb forward` 経由で接続されています。
+ * コンピューターとの合意事項は次のとおりです。接続情報ファイルの内容とコンピューター上で実行されるスクリプトです。オリジナルの Android sh と toybox で利用可能なコマンドのみが使用されます。
  */
 object McpUsb {
-    /** 连接信息文件名,放在 App 的外部文件目录里:安卓 11 起别的 App 读不到,电脑经 USB 调试以 shell 身份读。 */
+    /** 接続情報ファイル名。アプリの外部ファイル ディレクトリに配置されます。Android 11 以降、他のアプリはこれを読み取ることができませんが、コンピューターは USB デバッグを通じてシェルとしてそれを読み取ることができます。 */
     const val INFO_FILE = "mcp-usb.json"
 
-    /** 电脑上跑的脚本文件名,和「用电脑启动」的脚本放在一起。 */
+    /** コンピュータ上で実行されているスクリプト ファイルの名前は、「コンピュータで起動」スクリプトと一緒に配置されます。 */
     const val SCRIPT = "connect-computer.sh"
 
     private val pretty = Json { prettyPrint = true }
 
     /**
-     * 连接信息:电脑上的 MCP 客户端要填的地址和请求头,加上要先跑的端口转发。
-     * [boot] 是这次开机的编号(和 shell 里 `settings get global boot_count` 读到的一样),脚本据此认出不是上次开机留下的旧文件。
+     * 接続情報: コンピューター上の MCP クライアントによって入力されるアドレスと要求ヘッダー、および最初に実行されるポート転送。
+     * [boot] は、このブートの番号です (シェルで読み取られる `settings get global boot_count` と同じです)。これに基づいて、スクリプトは、前回の起動時に残された古いファイルではないことを認識します。
      */
     fun info(port: Int, token: String, boot: String): String = pretty.encodeToString(
         kotlinx.serialization.json.JsonObject.serializer(),
@@ -39,15 +39,15 @@ object McpUsb {
         },
     ) + "\n"
 
-    /** 电脑上把本机端口转到手机回环端口的命令;拔插数据线后要再跑一次。 */
+    /** ローカル ポートを携帯電話のループバック ポートに転送するコンピュータ上のコマンド。データ ケーブルを抜き差しした後、再度実行する必要があります。 */
     fun forward(port: Int) = "adb forward tcp:$port tcp:$port"
 
     /**
-     * 电脑经 USB 调试跑的脚本(`adb shell sh <scriptPath>`,关掉时末尾加 `off`)。不带任何口令或令牌,可以一直放着。
-     * 打开:先跑一次「用电脑启动」的脚本 [helperScript](手机助手不在就起,在就说一句),
-     * 再以 shell 身份起 Mika 的前台服务 [component]、动作 [onAction],等到这次开机的连接信息文件 [infoPath] 写好,把它打出来。
-     * 关掉:起同一服务、动作 [offAction],等连接信息文件被删掉(令牌随之作废)。
-     * 不是 shell 身份时不跑:服务只收持有 shell 级权限的调用方,普通 App 起不了它。
+     * USB デバッグ経由でコンピューターによって実行されるスクリプト (`adb shell sh <scriptPath>`、シャットダウン時に最後に `off` を追加します)。パスワードやトークンがなければ、永久にそこに残しておくことができます。
+     * 開く: まず、「コンピューターで開始」スクリプト [helperScript] を実行します (モバイル アシスタントが存在しないときに開始し、存在するときに何かを言うだけです)。
+     * 次に、Mika のフロントエンド サービス [component] を開始し、シェルとして [onAction] をアクションします。この起動用の接続情報ファイル [infoPath] が書き込まれるまで待って、それを入力します。
+     * がオフになります。同じサービスとアクション [offAction] が開始され、接続情報ファイルが削除されます (トークンはそれに応じて無効になります)。
+     * は、シェル ID ではない場合には実行されません。サービスはシェル レベルのアクセス許可を持つ呼び出し元のみを受け入れ、通常のアプリはサービスを開始できません。
      */
     fun script(scriptPath: String, helperScript: String, infoPath: String, component: String, onAction: String, offAction: String, port: Int): String {
         val again = "adb shell sh $scriptPath"

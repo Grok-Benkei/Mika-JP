@@ -33,15 +33,15 @@ import kotlin.math.roundToInt
 import com.wangzan101.mika.cap.phone.PhoneServices
 
 /**
- * 真机测试:有 DevTools 会话时点击、悬停、拖动、下拉选择、组合键、插入文字都是可信的鼠标键盘事件;
- * 会话强制为空时退回原生输入,原有行为照旧(触摸带手指类型,悬停、拖动、下拉报 devtools_unavailable)。
- * 有会话的几项要等连接接入(devtools.provider)后才跑,没有会话时跳过。
+ * 実機テスト: DevTools セッションがある場合、クリック、ホバリング、ドラッグ、ドロップダウン選択、キーの組み合わせ、テキストの挿入はすべて信頼できるマウスとキーボードのイベントです。 セッションが強制的に空になると、
+ * はネイティブ入力に戻り、元の動作は変わりません (指によるタッチ、ホバー、ドラッグ、およびドロップダウン レポート devtools_unavailable)。
+ * セッションのあるいくつかの項目は、実行する前に接続が接続される (devtools.provider) まで待機する必要があり、セッションがない場合はスキップされます。
  */
 @RunWith(AndroidJUnit4::class)
 class CdpInputDeviceTest {
     private val instr = InstrumentationRegistry.getInstrumentation()
     private val ctx = instr.targetContext
-    /** 本测试自己的一份:换会话来源、连法都不影响别的测试。 */
+    /** このテストは私自身のものです。セッション ソースと接続方法を変更しても、他のテストには影響しません。 */
     private val devtools = WebDevtools(PhoneServices.of(InstrumentationRegistry.getInstrumentation().targetContext).hub::openDevtoolsSocket)
     private lateinit var host: WebHost
     private lateinit var tab: WebTab
@@ -80,7 +80,7 @@ class CdpInputDeviceTest {
         return e!!.ref
     }
 
-    /** 连接是异步建的:等一会儿;等不到就跳过需要会话的测试。 */
+    /** 接続は非同期で確立されます。しばらくお待ちください。待ちきれない場合は、セッションが必要なテストをスキップしてください。 */
     private suspend fun requireSession(): CdpSession {
         val s = withTimeoutOrNull(10_000) {
             var s: CdpSession? = null
@@ -93,7 +93,7 @@ class CdpInputDeviceTest {
 
     private fun noSession() { devtools.provider = { null } }
 
-    /** 元素中心的 view 像素(页面 CSS 像素 × view 宽 ÷ 视口宽),给按坐标的落点用。 */
+    /** 要素の中心のビュー ピクセル (ページ CSS ピクセル × ビューの幅 ÷ ビューポートの幅) が、座標に従ってドロップ ポイントに使用されます。 */
     private suspend fun viewCenter(id: String, dx: Double = 0.0): WebPoint.Xy {
         val r = js("(function(){var b=document.getElementById('$id').getBoundingClientRect();return [b.left+b.width/2,b.top+b.height/2,innerWidth].join(',')})()")
             .trim('"').split(',').map(String::toDouble)
@@ -101,11 +101,11 @@ class CdpInputDeviceTest {
         return WebPoint.Xy(((r[0] + dx) * k).roundToInt(), (r[1] * k).roundToInt())
     }
 
-    /** 页面脚本没把滑块列成元素时按坐标。 */
+    /** ページ スクリプトに要素としてスライダーがリストされていない場合は、座標を押します。 */
     private suspend fun knob(s: ScreenSnapshot): WebPoint =
         s.elements.firstOrNull { it.resourceId == "#knob" }?.let { WebPoint.Ref(it.ref, s.snapshotId) } ?: viewCenter("knob")
 
-    // ---------- 有会话 ----------
+    // ---------- セッションがあります ----------
 
     @Test
     fun clickIsATrustedMouseClick() = runBlocking<Unit> {
@@ -116,7 +116,7 @@ class CdpInputDeviceTest {
         assertEquals("1", js("window.clicks"))
         assertEquals("true", js("window.lastTrusted"))
         assertEquals("\"mouse\"", js("window.lastPointer"))
-        // 按坐标点也一样
+        // 座標点も同様
         assertTrue(screen.tapXY(viewCenter("btn").x, viewCenter("btn").y) is ActionResult.Ok)
         assertEquals("2", js("window.clicks"))
     }
@@ -175,7 +175,7 @@ class CdpInputDeviceTest {
         assertTrue(js("window.dragX"), js("window.dragX").toDouble() > 150)
     }
 
-    // ---------- 没有会话:老路 ----------
+    // ---------- セッションなし:旧道 ----------
 
     @Test
     fun withoutSessionTapsAreFingerTouches() = runBlocking<Unit> {

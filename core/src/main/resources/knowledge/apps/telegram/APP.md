@@ -2,17 +2,13 @@
 name: telegram
 display: Telegram
 packages: ["org.telegram.messenger"]
-aliases: ["Telegram", "电报", "TG"]
+aliases: ["Telegram", "电报", "TG", "テレグラム"]
 sites: ["telegram.org"]
 open: Telegram
-description: 聊天、群和频道
+description: Telegramの会話、グループ、チャンネルを読む
 ---
-## 是什么
-Telegram 是即时通讯 App,包名 `org.telegram.messenger`。网站知识见 `telegram.org`。
+## 概要
+メッセージサービス。ユーザー名、グループ、チャンネルの同名候補を区別する。
 
-## 界面
-有 Chats(会话列表)、Contacts(联系人)和新消息入口,新消息可以从联系人或搜索里选人。进入后默认停留的页面不一定是 Chats。
-
-## 功能
-- **读消息**:在会话列表找到目标进入,滚动查看历史,每条有发送人和时间。群、频道、联系人是不同的对象。
-- **发消息**:在已有会话中输入,或从 Contacts、新消息入口选择收件人。发出后会话里出现新的消息气泡。联系人页可查看联系人资料。
+## 注意点
+公開チャンネルと個人の会話は別の対象。検索結果の抜粋だけで全文を読んだとみなさない。送信依頼では宛先、本文、添付、送信結果を確認する。会話の削除や参加・退出は実際の変更になる。ログイン、認証コード、追加のパスワードはユーザーへ引き継ぐ。

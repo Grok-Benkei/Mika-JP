@@ -4,8 +4,8 @@
 
 - Project: https://github.com/Genymobile/scrcpy
 - License: Apache-2.0
-- Usage: 以 shell 身份取得系统上下文(ActivityThread / 伪装包名的 Context)的做法仿照 scrcpy。
-  源文件头部保留出处:
+- 使用法: システムコンテキスト(ActivityThread/パッケージ名を偽装したContext)をシェルとして取得する方法はscrcpyと同様です。
+  ソース ファイル ヘッダー保持ソース:
   - `app/src/main/java/com/wangzan101/mika/shell/ShellContext.kt`
 
 ## Apache Commons Compress
@@ -13,7 +13,7 @@
 - Project: https://commons.apache.org/
 - Artifact: `org.apache.commons:commons-compress:1.28.0`
 - License: Apache-2.0
-- Usage: 以库的形式依赖,用于流式解包沙箱根文件系统的 tar.gz
+- 使用法: ライブラリの形式で依存しており、サンドボックス ルート ファイル システムの tar.gz をストリーミング解凍するために使用されます。
   (`core/src/main/kotlin/com/wangzan101/mika/core/cap/sandbox/RootfsExtractor.kt`)。
 - NOTICE:
 
@@ -30,7 +30,7 @@ The Apache Software Foundation (https://www.apache.org/).
 - Project: https://commons.apache.org/
 - Artifact: `commons-codec:commons-codec:1.19.0`
 - License: Apache-2.0
-- Usage: Apache Commons Compress 的传递依赖。
+- 使用法: Apache Commons Compress の推移的な依存関係。
 - NOTICE:
 
 ```
@@ -46,7 +46,7 @@ The Apache Software Foundation (https://www.apache.org/).
 - Project: https://commons.apache.org/
 - Artifact: `commons-io:commons-io:2.20.0`
 - License: Apache-2.0
-- Usage: Apache Commons Compress 的传递依赖。
+- 使用法: Apache Commons Compress の推移的な依存関係。
 - NOTICE:
 
 ```
@@ -62,7 +62,7 @@ The Apache Software Foundation (https://www.apache.org/).
 - Project: https://commons.apache.org/
 - Artifact: `org.apache.commons:commons-lang3:3.18.0`
 - License: Apache-2.0
-- Usage: Apache Commons Compress 的传递依赖。
+- 使用法: Apache Commons Compress の推移的な依存関係。
 - NOTICE:
 
 ```
@@ -73,27 +73,27 @@ This product includes software developed at
 The Apache Software Foundation (https://www.apache.org/).
 ```
 
-## Kotlin 标准库
+## Kotlin標準ライブラリ
 
 - Project: https://kotlinlang.org/
 - Artifacts: `org.jetbrains.kotlin:kotlin-stdlib:2.1.20`、`kotlin-stdlib-common:2.1.20`、`kotlin-stdlib-jdk7:1.9.10`、
   `kotlin-stdlib-jdk8:1.9.10`;`org.jetbrains:annotations:23.0.0`
-- License: Apache-2.0(依据各自 POM)
-- Usage: 以库的形式依赖,打进 APK。
+- ライセンス: Apache-2.0 (各 POM による)
+- 使用法: ライブラリの形式で依存し、APK を入力します。
 
 ## kotlinx.coroutines
 
 - Project: https://github.com/Kotlin/kotlinx.coroutines
 - Artifacts: `org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0`、`kotlinx-coroutines-core-jvm:1.9.0`、`kotlinx-coroutines-android:1.9.0`
-- License: Apache-2.0(依据各自 POM)
-- Usage: 以库的形式依赖,打进 APK。
+- ライセンス: Apache-2.0 (各 POM による)
+- 使用法: ライブラリの形式で依存し、APK を入力します。
 
 ## kotlinx.serialization
 
 - Project: https://github.com/Kotlin/kotlinx.serialization
-- Artifacts: `org.jetbrains.kotlinx:kotlinx-serialization-core:1.7.3`、`kotlinx-serialization-json:1.7.3`(及其 `-jvm` 变体)
-- License: Apache-2.0(依据各自 POM)
-- Usage: 以库的形式依赖,打进 APK。
+- アーティファクト: `org.jetbrains.kotlinx:kotlinx-serialization-core:1.7.3`、`kotlinx-serialization-json:1.7.3` (およびその `-jvm` バリアント)
+- ライセンス: Apache-2.0 (各 POM による)
+- 使用法: ライブラリの形式で依存し、APK を入力します。
 
 ## OpenTelemetry
 
@@ -113,24 +113,24 @@ The Apache Software Foundation (https://www.apache.org/).
 
 - Project: https://square.github.io/okhttp/
 - Artifact: `com.squareup.okhttp3:okhttp:4.12.0`
-- License: Apache-2.0(依据 POM)
-- Usage: 以库的形式依赖,用于访问模型接口。
+- ライセンス: Apache-2.0 (POM による)
+- 使用法: ライブラリの形式で依存しており、モデル インターフェイスにアクセスするために使用されます。
 
 ## Okio
 
 - Project: https://github.com/square/okio/
 - Artifacts: `com.squareup.okio:okio:3.6.0`、`okio-jvm:3.6.0`
-- License: Apache-2.0(依据各自 POM)
-- Usage: OkHttp 的依赖。
+- ライセンス: Apache-2.0 (各 POM による)
+- 使用法: OkHttp 依存関係。
 
-## AndroidX(含 Jetpack Compose)
+## AndroidX（Jetpack Composeを含む）
 
 - Project: https://developer.android.com/jetpack/androidx
-- License: Apache-2.0(依据各自 POM;`androidx.compose:compose-bom:2024.12.01` 只是版本清单,不含代码)
-- Artifacts(release 运行时类路径里的全部 AndroidX 组件):
+- ライセンス: Apache-2.0 (それぞれの POM による。`androidx.compose:compose-bom:2024.12.01` は単なるバージョン リストであり、コードは含まれません)
+- アーティファクト (ランタイム クラスパス内のすべての AndroidX コンポーネントを解放します):
   - Compose 1.7.6:`compose.runtime:runtime`、`runtime-saveable`;`compose.ui:ui`、`ui-geometry`、`ui-graphics`、`ui-text`、
     `ui-unit`、`ui-util`;`compose.foundation:foundation`、`foundation-layout`;`compose.animation:animation`、`animation-core`;
-    `compose.material:material-icons-core`、`material-ripple`(以上各含 `-android` 变体)
+    `compose.material:material-icons-core`、`material-ripple` (上記のそれぞれには `-android` バリアントが含まれます)
   - `compose.material3:material3:1.3.1`
   - `activity:activity`、`activity-ktx`、`activity-compose`:1.9.3
   - `lifecycle:*`(common、common-java8、livedata-core、process、runtime、runtime-compose、runtime-ktx、viewmodel、
@@ -140,75 +140,75 @@ The Apache Software Foundation (https://www.apache.org/).
     `savedstate:savedstate`、`savedstate-ktx`:1.2.1;`emoji2:emoji2`:1.3.0;`profileinstaller`:1.3.1;
     `startup:startup-runtime`:1.1.1;`concurrent:concurrent-futures`:1.1.0;`autofill`:1.0.0;
     `customview:customview-poolingcontainer`:1.0.0;`graphics:graphics-path`:1.0.1;`interpolator`:1.0.0;
-    `tracing`:1.0.0;`versionedparcelable`:1.1.1;`webkit:webkit`:1.12.1(内置浏览器)
-- Usage: 界面与系统组件库,打进 APK。
+    `tracing`:1.0.0;`versionedparcelable`:1.1.1;`webkit:webkit`:1.12.1(内蔵ブラウザ)
+- 使用法: インターフェイスおよびシステム コンポーネント ライブラリ。APK に入力されます。
 
 ## PRoot
 
 - Project: PRoot
-- Copyright: Copyright (C) 2015 STMicroelectronics(作者名单见源码包内 `AUTHORS`)
-- License: GPL-2.0-or-later,全文见 `licenses/GPL-2.0.txt`
+- 著作権: Copyright (C) 2015 STMicroelectronics (著者リストはソース コード パッケージ `AUTHORS` にあります)
+- ライセンス: GPL-2.0 以降、全文については `licenses/GPL-2.0.txt` を参照してください。
 - Source: https://github.com/proot-me/proot/archive/refs/tags/v5.4.0.tar.gz
 - Version: 5.4.0
 - SHA-256 (source archive): 29248aac2a7ce10c3bd5ee5602742ec33b2532310ff9cf73b79f3c133e5a5f68
-- Usage: 独立可执行程序。由 `tools/sandbox/build-native.sh` 从上述源码编译为
-  `app/src/main/jniLibs/arm64-v8a/libproot.so` 与其载入器 `libproot_loader.so`,随 APK 发布;
-  Mika 只以子进程方式运行它,不链接它。源码地址、版本与校验值同时记录在 `tools/sandbox/sources.lock`。
-  `libproot.so` 不内嵌载入器(只嵌空占位),运行时经 `PROOT_LOADER` 使用 `libproot_loader.so`。
-- Modifications: 打了四个补丁,同样以 GPL-2.0-or-later 发布:
-  `tools/sandbox/patches/proot-0001-exitkill.patch`(跟踪选项加上 `PTRACE_O_EXITKILL`:PRoot 退出时内核杀掉所有被跟踪的进程);
-  `tools/sandbox/patches/proot-0002-seccomp-trap-enosys.patch`(被 PRoot 之外的 seccomp 过滤器以 SIGSYS 拦下的系统调用改为返回
-  `-ENOSYS` 并取消信号;arm64 上只带 `AT_EACCESS` 标志的 faccessat2 改发成 faccessat);
-  `tools/sandbox/patches/proot-0003-arm64-new-path-syscalls.patch`(arm64 系统调用号表补上 statx 之后新增的带路径调用:
-  faccessat2、fchmodat2 做路径转换,execveat、openat2、io_uring_setup、新挂载接口与 *xattrat/file_*attr 返回 `-ENOSYS`;
-  并修正调用号查表的越界判断);
-  `tools/sandbox/patches/proot-0004-link2symlink-fstat-nonfile.patch`(link2symlink 扩展在 fstat 管道、套接字等非文件描述符时
-  不再读未初始化的 stat 结构、把成功的调用改成失败)。
-- 附带组件 uthash(BSD 许可证,Copyright (c) Troy D. Hanson):PRoot 源码树以子模块形式引用它,
-  只有 `care` 扩展用到;源码归档里该目录为空,Mika 的编译不包含 `care`,因此 `libproot.so` 里没有 uthash 的代码。
+- 使用法: スタンドアロンの実行可能プログラム。上記のソースコードを `tools/sandbox/build-native.sh` によってコンパイルすると、
+  `app/src/main/jniLibs/arm64-v8a/libproot.so` とそのローダー `libproot_loader.so`、APK とともにリリースされました。
+  Mito は子プロセスとしてのみ実行し、リンクしません。ソースコードのアドレス、バージョン、チェック値も`tools/sandbox/sources.lock`に記録されます。
+  `libproot.so` はローダーを埋め込みません (空のプレースホルダーのみを埋め込みます)。 `libproot_loader.so` は実行時に `PROOT_LOADER` によって使用されます。
+- 変更点: 4 つのパッチが適用されており、これも GPL-2.0 以降でリリースされています。
+  `tools/sandbox/patches/proot-0001-exitkill.patch` (追跡オプションに `PTRACE_O_EXITKILL`:PRoot を追加すると、カーネルの終了時に追跡されているすべてのプロセスが強制終了されます)。
+  `tools/sandbox/patches/proot-0002-seccomp-trap-enosys.patch` (PRoot 以外の seccomp フィルターによって SIGSYS でブロックされたシステム コールが代わりに返されます)
+  `-ENOSYS` および信号をキャンセルします。 arm64 上の `AT_EACCESS` フラグのみを持つ faccessat2 は faccessat に変更されます。
+  `tools/sandbox/patches/proot-0003-arm64-new-path-syscalls.patch` (arm64 システム コール番号テーブルが statx で追加され、新しいパス コールが追加されます。
+  faccessat2、fchmodat2 はパス変換を実行し、execveat、openat2、io_uring_setup、新しいマウント インターフェイスと *xattrat/file_*attr は `-ENOSYS` を返します。
+  、発信番号参照テーブルの範囲外判定を修正);
+  `tools/sandbox/patches/proot-0004-link2symlink-fstat-nonfile.patch` (fstat パイプ、ソケット、およびその他の非ファイル記述子の場合の link2symlink 拡張子)
+  は、初期化されていない stat 構造を読み取り、成功した呼び出しを失敗した呼び出しに変更しなくなりました)。
+- にはコンポーネント uthash (BSD ライセンス、著作権 (c) Troy D. Hanson) が付属しています。PRoot ソース ツリーはそれをサブモジュールとして参照します。
+  は、`care` 拡張機能によってのみ使用されます。ソース コード アーカイブ内のディレクトリは空で、Mika のコンパイルには `care` が含まれていないため、`libproot.so` には uthash コードはありません。
 
 ## talloc
 
 - Project: talloc (Samba)
 - Copyright: Copyright (C) Andrew Tridgell 2004;Copyright (C) Stefan Metzmacher 2006
-- License: LGPL-3.0-or-later,全文见 `licenses/LGPL-3.0.txt`;LGPL-3.0 是在 GPL-3.0 之上的附加条款,
-  GPL-3.0 全文见 `licenses/GPL-3.0.txt`
+- ライセンス: LGPL-3.0 以降、全文については `licenses/LGPL-3.0.txt` を参照してください。 LGPL-3.0 は GPL-3.0 の追加条項です。
+  GPL-3.0 全文については、`licenses/GPL-3.0.txt` を参照してください。
 - Source: https://www.samba.org/ftp/talloc/talloc-2.4.3.tar.gz
 - Version: 2.4.3
 - SHA-256 (source archive): dc46c40b9f46bb34dd97fe41f548b0e8b247b77a918576733c528e83abd854dd
-- Usage: 只编译 `talloc.c`(未修改),静态链接进独立可执行程序 `libproot.so`;Mika 自身不链接它。
-  重新链接所需的全部源码与编译脚本见 `tools/sandbox/`。
+- 使用法: `talloc.c` (未変更) のみをコンパイルし、独立した実行可能プログラム `libproot.so` に静的にリンクします。ミカ自体はリンクしません。
+  の再リンクに必要なすべてのソース コードとコンパイル スクリプトについては、`tools/sandbox/` を参照してください。
 
 ## Alpine Linux
 
 - Project: https://alpinelinux.org/
-- Version: 3.22.7(aarch64 最小根文件系统),外加 Python 3.12、Node 22、Pillow、pypdf 及其依赖
-- License: 各软件包各自的许可证(GPL、LGPL、MIT、BSD、MPL 等);逐个软件包的名称、版本与许可证见
-  `app/src/main/assets/runtime/packages.json`,App 的「开源许可」页也逐个列出
-- Usage: **随 APK 发布**,文件 `app/src/main/assets/runtime/rootfs.tar.xz`,由 `tools/sandbox/build-runtime.py`
-  按 `tools/sandbox/runtime/sources.lock` 从 Alpine 官方源取得并核对签名后生成;Mika 只以子进程方式运行其中的程序,不链接它们。
-  GPL/LGPL/MPL 软件包的对应源码(Alpine 的构建配方与上游源码)随每个版本放进 `mika-<版本>-gpl-sources.tar.gz`,
-  做法见 `tools/sandbox/README.md`。
+- バージョン: 3.22.7 (aarch64 最小ルート ファイル システム)、および Python 3.12、Node 22、Pillow、pypdf およびそれらの依存関係
+- ライセンス: 各ソフトウェア パッケージには独自のライセンス (GPL、LGPL、MIT、BSD、MPL など) があります。各ソフトウェア パッケージの名前、バージョン、ライセンスを確認してください。
+  `app/src/main/assets/runtime/packages.json`、アプリの「オープンソースライセンス」ページにも1つずつ記載されています。
+- 使用法: **APK でリリース**、ファイル `app/src/main/assets/runtime/rootfs.tar.xz`、`tools/sandbox/build-runtime.py`
+  は、`tools/sandbox/runtime/sources.lock` に従ってアルパインの公式ソースから署名を取得して検証することによって生成されます。ミカはその中のプログラムをサブプロセスとして実行するだけで、それらをリンクしません。
+  GPL/LGPL/MPL ソフトウェア パッケージの対応するソース コード (Alpine のビルド レシピおよびアップストリーム ソース コード) は、各バージョンの `mika-<版本>-gpl-sources.tar.gz` に格納されます。
+  のメソッドについては、`tools/sandbox/README.md`を参照してください。
 
-## Guava ListenableFuture(由 AndroidX 库引入)
+## Guava ListenableFuture（AndroidX経由）
 
 - Project: https://github.com/google/guava
-- Artifact: `com.google.guava:listenablefuture:1.0` — Apache-2.0(依 Maven POM)
-- Usage: 作为库依赖使用,未修改其代码。
+- アーティファクト: `com.google.guava:listenablefuture:1.0` — Apache-2.0 (Maven POM による)
+- 使用法: ライブラリの依存関係として使用され、コードは変更されていません。
 
 ## XZ for Java
 
 - Project: https://tukaani.org/xz/java.html
 - Version: 1.10(org.tukaani:xz)
 - License: 0BSD(BSD Zero Clause License);Copyright (C) The XZ for Java authors and contributors
-- Usage: 首次启动时解压自带的运行环境。
+- 使用方法: 初回起動時に組み込み実行環境を解凍します。
 
 ## commonmark-java
 
 - Project: https://github.com/commonmark/commonmark-java
 - Artifacts: `org.commonmark:commonmark:0.30.1`、`commonmark-ext-gfm-tables:0.30.1`、`commonmark-ext-gfm-strikethrough:0.30.1`
 - License: BSD-2-Clause
-- Usage: 以库的形式依赖,未修改其代码;把对话里回答的 Markdown 解析成语法树,再由 Mika 自己的界面代码显示
+- 使用法: ライブラリの形式で依存しているため、コードは変更されていません。会話で回答されたマークダウンは構文ツリーに解析され、Mika 独自のインターフェイス コードによって表示されます。
   (`app/src/main/java/com/wangzan101/mika/ui/MarkdownModel.kt`)。
 - License text:
 
@@ -237,3 +237,10 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
+## Google ML Kit
+
+- Artifacts: com.google.mlkit:text-recognition-japanese:16.0.1 / com.google.mlkit:text-recognition:16.0.1
+- License: ML Kit Terms of Service
+- Terms: https://developers.google.com/ml-kit/terms
+- Usage: 日本語とラテン文字の端末内OCR。ライセンス名とURLは配布POMに基づきます。

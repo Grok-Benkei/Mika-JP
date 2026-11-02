@@ -1,20 +1,20 @@
 package com.wangzan101.mika.core.record
 
 /**
- * 一个对话里各轮合起来用了多少 token,按每轮的运行小结([RunMetrics])算,口径和「查看过程」顶上那一行同一个
- * ([RunMetrics.tokens]:主循环每次回复报的输入加输出)。
+ * 会話の各ラウンドで使用されるトークンの数。各ラウンドの実行概要 ([RunMetrics]) に従って計算されます。口径は「プロセスの表示」の上部にある行と同じです。
+ * ([RunMetrics.tokens]: メイン ループは毎回入力と出力を報告します)。
  *
- * [missing] 是没算全的轮次:小结还没写好、旧到被清掉了(只留最近 [RunMetricsStore.DEFAULT_KEEP] 份),
- * 或有的回复服务商没报用量;这时界面写「至少」,不估算。
+ * [missing] は不完全なラウンドです。概要はまだ書かれておらず、非常に古いためクリアされています (最新の [RunMetricsStore.DEFAULT_KEEP] のコピーのみが残っています)。
+ * 一部の返信は、サービス プロバイダーが使用状況を報告しなかったことを示す場合があります。この場合、インターフェイスには「少なくとも」と表示され、推定は行われません。
  */
 data class ConversationTokens(val tokens: Long, val turns: Int, val missing: Int) {
     val partial: Boolean get() = missing > 0
 
     companion object {
-        /** 一轮的 token;没有小结、或一个也没报(全是 0)时为 null,界面不写「0 Token」。 */
+        /** トークンのラウンド。要約がない場合、または何も報告されない場合 (すべて 0)、null になり、「0 トークン」はインターフェースに書き込まれません。 */
         fun turn(m: RunMetrics?): Long? = m?.tokens?.takeIf { it > 0 }
 
-        /** [runIds] 是这个对话里已经结束的各轮(同一个只算一次);一个数也没有时为 null,界面不显示。 */
+        /** [runIds] は、このダイアログで終了したラウンドです (同じものは 1 回だけカウントされます)。数値がない場合は null となり、インターフェイスは表示されません。 */
         fun of(runIds: List<String>, metrics: Map<String, RunMetrics>): ConversationTokens? {
             val ids = runIds.distinct()
             var sum = 0L

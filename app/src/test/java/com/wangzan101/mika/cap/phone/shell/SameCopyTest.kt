@@ -4,30 +4,30 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 主屏占用、Mika 别的屏占用、冷启动看的任务:装了两份的 App 按「包名 + 用户」分开算,只装一份的照旧。 */
+/** メイン画面占有率、Mika 他の画面占有率、およびコールド スタート タスク: 2 つのコピーがインストールされているアプリは「パッケージ名 + ユーザー」に従って個別に計算されますが、1 つのコピーのみがインストールされているアプリは同じままです。 */
 class SameCopyTest {
     private val chat = "com.example.chat"
 
     @Test fun theUserOnTheMainCopyDoesNotBlockTheCloneAndViceVersa() {
-        // 主屏上是用户 0 的那份
+        // ホーム画面はユーザー 0 の共有です
         assertTrue(ShellService.sameCopy(listOf(chat), 0, chat, 0))
         assertFalse(ShellService.sameCopy(listOf(chat), 0, chat, 128))
-        // 主屏上是分身那份
+        // はホーム画面のクローンです
         assertTrue(ShellService.sameCopy(listOf(chat), 128, chat, 128))
         assertFalse(ShellService.sameCopy(listOf(chat), 128, chat, 0))
     }
 
     @Test fun unknownTaskUserCountsAsTheSameCopy() {
-        // 读不到任务属于哪份用户:宁可当成占用
+        // タスクがどのユーザーに属しているかを読み取ることができません。むしろ、占有されているものとして扱います
         assertTrue(ShellService.sameCopy(listOf(chat), null, chat, 128))
         assertTrue(ShellService.sameCopy(listOf(chat), null, chat, 0))
     }
 
     @Test fun singleCopyAndPackageOnlyChecksAreUnchanged() {
-        // 只装了一份:任务都在用户 0,和原来一样按包名算
+        // はコピーを 1 つだけインストールしました。タスクはすべてユーザー 0 にあり、以前と同様にパッケージ名によって計算されます。
         assertTrue(ShellService.sameCopy(listOf("x.launcher", chat), 0, chat, 0))
         assertFalse(ShellService.sameCopy(listOf("x.other"), 0, chat, 0))
-        // 不分哪一份(分享):任何一份都算
+        // どの部分 (シェア) であっても: どの部分でもカウントされます
         assertTrue(ShellService.sameCopy(listOf(chat), 128, chat, null))
         assertTrue(ShellService.sameCopy(listOf(chat), 0, chat, null))
     }

@@ -26,7 +26,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.coroutines.resume
 
-/** 真机测试:网页上的点击、打字、清空、滚动、后退都走真实输入,并诚实回读。不需要内置助手,不碰主屏。 */
+/** 実機テスト: Web ページ上のクリック、入力、クリア、スクロール、バックアップはすべて実際の入力で行われ、正直に読み戻されます。内蔵アシスタントは必要なく、ホーム画面に触れる必要もありません。 */
 @RunWith(AndroidJUnit4::class)
 class WebActionsTest {
     private val instr = InstrumentationRegistry.getInstrumentation()
@@ -140,7 +140,7 @@ class WebActionsTest {
         val st = status()
         assertFalse(st, st.contains("inputs=0 "))
         assertTrue(st, st.endsWith("text=你好 Mika\""))
-        // 再打一次是替换,不是接在后面
+        // 再度電話をかけると、接続ではなく交換になります。
         val s2 = screen.snapshot()
         assertEquals(Verification.MATCH, (screen.typeText(s2.ref("#editor"), s2.snapshotId, "第二次") as ActionResult.Ok).verification)
         assertTrue(status().endsWith("text=第二次\""))
@@ -263,7 +263,7 @@ class WebActionsTest {
         assertEquals(fixture("inputs.html"), s.web!!.url)
         assertEquals("inputs", s.web!!.title)
         assertEquals("t1", s.web!!.tabId)
-        // 端口自己为核实读的屏不登记编号,模型手里的编号仍可用
+        // ポート自体が検証のために読み込んだ画面には番号が登録されていません。モデルの手にある番号はまだ利用可能です。
         screen.peek()
         assertTrue(screen.tapRef(s.ref("#noop"), s.snapshotId) is ActionResult.Ok)
     }

@@ -17,13 +17,13 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
 /**
- * 远程收件库里终态和插话去向的存储格式,只在收件这一层用:领域类型([TaskState]、[FailKind])改名、加值不动盘上的字。
- * 读不出来的(格式坏了、更新的版本写的类别)不抛异常,按读不出来的失败返回,电脑照样拿到一个终态。
+ * は、リモート受信箱内のコメントの最終状態と宛先の保存形式です。これは受信レイヤーでのみ使用されます: フィールド タイプ ([TaskState]、[FailKind])。名前を変更したり値を追加しても、ディスク上の単語は変更されません。
+ * フォーマットを読み取れない場合 (フォーマットが壊れている、カテゴリが新しいバージョンで書き込まれている場合)、例外はスローされず、読み取れない場合は失敗が返され、コンピュータは引き続き最終状態を取得します。
  */
 internal object RemoteTaskRecord {
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** 盘上读不懂的终态一律报成这个。 */
+    /** ディスク上の読み取りできない最終状態はすべて、次のように報告されます。 */
     val UNREADABLE: TaskState.Terminal = TaskState.Failed("The saved result of this task could not be read.", FailKind.Environment)
 
     fun encode(state: TaskState.Terminal): String = buildJsonObject {
@@ -58,7 +58,7 @@ internal object RemoteTaskRecord {
         steers.forEach { s -> addJsonObject { put("messageId", s.messageId); put("state", s.state) } }
     }.toString()
 
-    /** 坏掉的条目跳过,不连累整份结果。 */
+    /** 壊れたエントリはスキップされ、結果全体には影響しません。 */
     fun decodeSteers(text: String): List<RemoteSteer> = runCatching {
         (json.parseToJsonElement(text) as JsonArray).mapNotNull { e ->
             val o = e as? JsonObject ?: return@mapNotNull null
@@ -66,7 +66,7 @@ internal object RemoteTaskRecord {
         }
     }.getOrDefault(emptyList())
 
-    /** 盘上的类别名单独定下,不跟着枚举改名走;新加的类别在这里编译不过,逼着定一个名字。 */
+    /** ディスク上のカテゴリ名は個別に決定され、列挙後に名前が変更されることはありません。新しく追加されたカテゴリはここではコンパイルできないため、名前を決定する必要があります。 */
     private fun wire(kind: FailKind): String = when (kind) {
         FailKind.GaveUp -> "gave_up"
         FailKind.Model -> "model"
@@ -76,7 +76,7 @@ internal object RemoteTaskRecord {
         FailKind.Interrupted -> "interrupted"
     }
 
-    /** 也认早先直接写枚举名的记录(如 `Interrupted`);认不出的(更新的版本写的)算运行环境出错。 */
+    /** は、以前に列挙名を直接書き込んだレコード (`Interrupted` など) も認識します。認識されない場合（新しいバージョンで書き込まれた場合）、動作環境のエラーとみなされます。 */
     private fun kind(raw: String?): FailKind = FailKind.entries.firstOrNull { wire(it) == raw }
         ?: FailKind.entries.firstOrNull { it.name == raw } ?: FailKind.Environment
 

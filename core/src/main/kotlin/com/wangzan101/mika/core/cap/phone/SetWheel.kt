@@ -23,13 +23,13 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * 把一个滚轮选择器(时间、日期、地区……)转到一个值:一次调用在端口里转到位(能输入就输入,能无障碍滚就滚,
- * 不行就按一格多高拖),不用模型一格一格看。转不到时照实报此刻显示的值。
+ * スクロール ホイール セレクター (時刻、日付、地域...) を値に切り替えます。ポート内でそれを回す呼び出し (可能であれば入力し、障害物がない場合はスクロールし、
+ * うまくいかない場合は、押して 1 グリッド上にドラッグするだけです)。一度に 1 グリッドずつモデルを見る必要はありません。転送できない場合は、その時点で表示されている値が報告されます。
  */
 internal object SetWheel : PhoneTool {
     override val verb = Verb.SetWheel
     override val batchable = true
-    override val label = "拨滚轮"
+    override val label = "ホイールを回す"
     override val risk = Risk.Write
     override val showsScreenAfter = true
     override val reportsEffect = true

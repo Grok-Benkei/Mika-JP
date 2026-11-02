@@ -7,11 +7,11 @@ import org.junit.Test
 import java.io.File
 import java.nio.file.Files
 
-/** 设置 › 网络代理:可能带账号密码,加密存成文件、不落明文;地址先核对再存;给人看的写法不带账号密码;旧版只给容器用时存的那份照样接上。 */
+/** 設定 › ネットワーク プロキシ: アカウントとパスワードを持つことができ、それらは暗号化され、クリア テキストなしのファイルとして保存されます。保存する前にアドレスがチェックされます。人々が読めるように書かれた方法には、アカウントとパスワードは含まれていません。古いバージョンでは、コンテナーの使用時にのみコピーが保存されます。 */
 class NetProxyStoreTest {
     private val dir: File = Files.createTempDirectory("proxy").toFile()
 
-    /** 测试用的「加密」:逐字节取反,够看出文件里不是原文。 */
+    /** テスト用の「暗号化」: バイトごとに反転し、ファイルがオリジナルのテキストではないことを確認するのに十分です。 */
     private val cipher = object : KeyCipher {
         override fun encrypt(plain: ByteArray) = ByteArray(plain.size) { plain[it].toInt().inv().toByte() }
         override fun decrypt(data: ByteArray) = encrypt(data)
@@ -23,8 +23,8 @@ class NetProxyStoreTest {
         val file = File(dir, "net-proxy.bin")
         assertTrue(file.isFile)
         val raw = String(file.readBytes(), Charsets.ISO_8859_1)
-        assertFalse("文件里不是明文", raw.contains("s3cret") || raw.contains("alice"))
-        // 新开一份(像重启之后)照样读得出来
+        assertFalse("ファイルには平文で保存しない", raw.contains("s3cret") || raw.contains("alice"))
+        // 新しいコピーを開くと (再起動後など)、引き続き読み取ることができます
         assertEquals(proxy, NetProxyStore(dir, cipher).get())
     }
 
@@ -37,7 +37,7 @@ class NetProxyStoreTest {
         assertEquals("", NetProxyStore(dir, cipher).get())
     }
 
-    /** 解不开(密钥没了)当没设,不让命令带着乱码去连。 */
+    /** のロックを解除できない (キーがなくなっている) 場合は、未設定として扱われ、コマンドが文字化けしたコードで接続されることはありません。 */
     @Test fun unreadableCountsAsNotSet() {
         File(dir, "net-proxy.bin").writeBytes(byteArrayOf(1, 2, 3))
         val broken = object : KeyCipher {
@@ -61,13 +61,13 @@ class NetProxyStoreTest {
         assertEquals("socks5://127.0.0.1:1080", NetProxyStore.display("socks5://127.0.0.1:1080"))
     }
 
-    /** 另一把「密钥」:按字节加一,和 [cipher] 解不通。 */
+    /** 別の「キー」: バイトごとに追加します。これは、[cipher] では解決できません。 */
     private val legacyCipher = object : KeyCipher {
         override fun encrypt(plain: ByteArray) = ByteArray(plain.size) { (plain[it] + 1).toByte() }
         override fun decrypt(data: ByteArray) = ByteArray(data.size) { (data[it] - 1).toByte() }
     }
 
-    /** 旧版只给容器用时存的代理:升级后照样读得出,改存成新文件、删掉旧的,之后只认新的。 */
+    /** 古いバージョンはコンテナー用のプロキシのみを提供します。アップグレード後も引き続き読み取ることができ、新しいファイルに変更し、古いファイルを削除すると、新しいファイルのみが認識されます。 */
     @Test fun containerOnlySettingIsCarriedOver() {
         val old = File(dir, "container-proxy.bin")
         old.writeBytes(legacyCipher.encrypt("socks5://bob:pw@10.0.0.9:1080".toByteArray()))
@@ -76,21 +76,21 @@ class NetProxyStoreTest {
         assertEquals("socks5://bob:pw@10.0.0.9:1080", store.get())
         assertFalse(old.exists())
         assertTrue(File(dir, "net-proxy.bin").isFile)
-        assertEquals("读的时候不算改了设置", 0, changes)
-        // 重启后(没有旧文件了)照样是这一个
+        assertEquals("読み取りは設定変更として扱わない", 0, changes)
+        // 再起動後（古いファイルはもうありません）、依然として同じです
         assertEquals("socks5://bob:pw@10.0.0.9:1080", NetProxyStore(dir, cipher, legacyCipher).get())
         store.set("http://127.0.0.1:7890")
         assertEquals(1, changes)
     }
 
-    /** 新的已经有了:旧文件不覆盖它。 */
+    /** 新しいファイルはすでに存在します。古いファイルはそれを上書きしません。 */
     @Test fun newSettingWinsOverLeftoverLegacyFile() {
         NetProxyStore(dir, cipher).set("http://10.0.0.2:8080")
         File(dir, "container-proxy.bin").writeBytes(legacyCipher.encrypt("http://old:1".toByteArray()))
         assertEquals("http://10.0.0.2:8080", NetProxyStore(dir, cipher, legacyCipher).get())
     }
 
-    /** 旧文件解不开:当没设,不报错。 */
+    /** 古いファイルを開けません。設定されていない場合、エラーは報告されません。 */
     @Test fun unreadableLegacyFileCountsAsNotSet() {
         File(dir, "container-proxy.bin").writeBytes(byteArrayOf(9, 9))
         val broken = object : KeyCipher {

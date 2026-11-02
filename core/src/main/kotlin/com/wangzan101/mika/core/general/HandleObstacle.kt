@@ -14,15 +14,15 @@ import com.wangzan101.mika.core.tool.ok
 import com.wangzan101.mika.core.tool.str
 import kotlinx.serialization.json.put
 
-/** 说出挡住当前 App 或网页的是什么,拿到该怎么处理的下一步。 */
+/** 現在のアプリまたは Web ページをブロックしているものを特定し、それに対処するための次のステップを取得します。 */
 internal object HandleObstacle : SurfaceAware {
     override val verb = Verb.HandleObstacle
-    override val label = "遇到障碍"
+    override val label = "障害に対応"
     override val risk = Risk.Read
     override val withScreens = true
     override val def = ToolDef("handle_obstacle",
         Prompts.tool("handle_obstacle"),
-        mapOf("kind" to str("What is in the way: popup = a promotion, guide or update dialog that can be closed; login = a sign-in wall; captcha = a human-verification puzzle; access_blocked = the app or site is limiting access (操作频繁, 环境异常, or a verification that keeps coming back); payment = paying, entering a password or an identity check.", BARRIER_KINDS),
+        mapOf("kind" to str("障害の種類: popup = 閉じられる広告・案内・更新ダイアログ、login = ログインが必要、captcha = 人間による認証が必要、access_blocked = アプリやサイトのアクセス制限（操作頻度・環境の異常、繰り返す認証など）、payment = 支払い・パスワード入力・本人確認。", BARRIER_KINDS),
             "reason" to str("What on the screen shows it.")),
         listOf("kind"))
 

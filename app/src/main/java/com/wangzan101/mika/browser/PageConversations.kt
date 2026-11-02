@@ -5,18 +5,18 @@ import com.wangzan101.mika.chat.PageOrigin
 import com.wangzan101.mika.core.cap.web.WebUrlPolicy
 
 /**
- * 在浏览器页上对着一页问 Mika 时,接着哪个对话(纯逻辑)。规则:
- * 1. 同一页(网址相同,不计 `#` 后面)上问过的,接着最近那个对话,不论隔了多久;
- * 2. 否则同一个网站(主机名相同)上 [SAME_SITE_MS] 内问过的,接着最近那个——在一个网站里一路点下去(搜索结果 → 商品页 → 购物车)
- *    还是同一件事;
- * 3. 都没有就开新对话。用户随时可以选「新对话」。
- * 隔了很久再来同一个网站的另一页,多半是另一件事,所以第 2 条有时限;同一页没有时限,回到这一页就是接着这一页的事。
+ * ミカにブラウザ ページの 1 ページを表示するように要求する場合、どの会話が続く必要があります (純粋なロジック)。ルール:
+ * 1. 同じページ (`#` を除く同じ URL) で質問され、どれだけ時間が経っても最新の会話を続けます。
+ * 2. それ以外の場合は、同じ Web サイト (同じホスト名) で、[SAME_SITE_MS] で質問し、次に最新の Web サイトをクリックします (検索結果 → 製品ページ → ショッピング カート)。
+ *    それでも同じです。
+ * 3. 何もない場合は、新しい会話を開きます。ユーザーはいつでも「新しい会話」を選択できます。
+ * 長い時間が経ってから同じ Web サイトの別のページに戻ってきた場合は、おそらく別のことについて話している可能性があるため、第 2 条には期限があります。同じページには時間制限はありません。このページに戻るには、このページを続行するだけです。
  */
 object PageConversations {
-    /** 同一个网站上「接着问」的时限:最近一次改动在这之内。 */
+    /** 同じ Web サイトでの「質問を続ける」の制限時間: 最新の変更はこの範囲内です。 */
     const val SAME_SITE_MS = 2 * 60 * 60 * 1000L
 
-    /** [all] 是对话列表(最近改过的在前,见 [com.wangzan101.mika.chat.ConversationStore.list]);[url] 是此刻看着的页面。 */
+    /** [all] は会話リストです (最近変更されたものが最初に表示されます。[com.wangzan101.mika.chat.ConversationStore.list] を参照)。 [url] は現在ご覧のページです。 */
     fun pick(all: List<ConversationSummary>, url: String, now: Long): ConversationSummary? {
         val page = pageKey(url)
         val host = WebUrlPolicy.host(url)
@@ -25,12 +25,12 @@ object PageConversations {
             ?: fromPages.firstOrNull { host != null && it.page!!.host == host && now - it.updatedAt in 0..SAME_SITE_MS }
     }
 
-    /** 这一页记成对话的来处:网址、主机名、标题;不是网页地址为 null。 */
+    /** このページには、会話のソース: URL、ホスト名、タイトルが記録されます。そうでない場合、Web アドレスは null です。 */
     fun origin(url: String, title: String): PageOrigin? {
         val host = WebUrlPolicy.host(url)?.takeIf { url.startsWith("http", ignoreCase = true) } ?: return null
         return PageOrigin(url, host, title.trim())
     }
 
-    /** 认「同一页」用的网址:去掉 `#` 后面和结尾的斜杠。 */
+    /** 「同じページ」を識別するために使用される URL: `#` の前後にあるスラッシュを削除します。 */
     fun pageKey(url: String): String = url.substringBefore('#').trimEnd('/')
 }

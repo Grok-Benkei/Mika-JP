@@ -15,7 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import com.wangzan101.mika.core.testing.TOOLS
 
-/** 读屏以外的大结果(读网页、命令输出、读文件……)按同一条裁剪线裁:线前的只剩短字段。 */
+/** 画面読み取り以外の大きな結果 (Web ページの読み取り、コマンド出力、ファイルの読み取りなど) は、同じ切断線に従って切り取られます。つまり、行の前には短いフィールドだけが残ります。 */
 class HistoryPrunerBigReadsTest {
     private fun round(id: String, tool: String, content: String) = listOf(
         Message(Role.Assistant, listOf(Part.ToolCall(id, tool, "{}")), Author.Mika),
@@ -35,7 +35,7 @@ class HistoryPrunerBigReadsTest {
         val out = ContextCompressor(TOOLS).compress(history, contextTokens = 64_000).messages
         assertTrue("estimate ${TokenEstimate.of(out)}", TokenEstimate.of(out) < 64_000)
         val rs = results(out)
-        // 只缩短旧结果还超:旧的读取只剩短字段(能按 url/nextOffset 再读)或折进摘要;最近一次原样
+        // 古い結果を短縮して超過するだけです。古い読み取り専用には短いフィールド (url/nextOffset を押して再度読み取ることができます) があるか、概要に組み込まれます。最新のものはそのままです
         for (r in rs.dropLast(1)) {
             val o = Json.parseToJsonElement(r.content) as JsonObject
             assertEquals(HistoryPruner.OMITTED_READ, o["text"]!!.jsonPrimitive.content)
@@ -59,11 +59,11 @@ class HistoryPrunerBigReadsTest {
         assertEquals(big, (Json.parseToJsonElement(rs["a"]!!.content) as JsonObject)["content"]!!.jsonPrimitive.content)
         assertTrue(HistoryPruner.OMITTED_READ in rs["b"]!!.content && "\"exitCode\":0" in rs["b"]!!.content)
         assertTrue(HistoryPruner.OMITTED_READ in rs["c"]!!.content && "/workspace/a.txt" in rs["c"]!!.content)
-        // 7 次往返:裁剪线在第 5 次之后,线前的 b–e 都裁(参考资料 a 除外),线后的 f 原样
+        // 7 往復: 5 番目の切断線以降、その線の前の b ～ e がすべて切断され (参照 a を除く)、線以降の f は変更されません。
         assertTrue(HistoryPruner.OMITTED_READ in rs["d"]!!.content)
         assertEquals(HistoryPruner.OMITTED_READ, rs["e"]!!.content)
         assertEquals(results(history).first { it.callId == "f" }.content, rs["f"]!!.content)
-        // 小结果不动
+        // 小さい結果が動かない
         val small = listOf(Message(Role.User, listOf(Part.Text("t")), Author.Mika)) + (1..9).flatMap { round("s$it", "run_command", "{\"output\":\"ok\"}") }
         assertEquals(small, HistoryPruner.prune(small, TOOLS, HistoryPruner.Cut(2)))
     }

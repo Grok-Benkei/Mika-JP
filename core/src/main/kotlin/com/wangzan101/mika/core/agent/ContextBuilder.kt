@@ -21,10 +21,10 @@ internal fun clipBody(body: String, limit: Int, hint: String): String =
 
 internal fun clipKnowledge(body: String): String = clipBody(body, KNOWLEDGE_BODY_LIMIT, KNOWLEDGE_TRUNCATED_HINT)
 
-/** 上下文的层。预算裁剪的优先级:[Task](L5)> [Knowledge](L2)> [Skills](L4);[Runtime] 很短,不进预算。 */
+/** コンテキストのレイヤー。予算トリミングの優先順位: [Task](L5)> [Knowledge](L2)> [Skills](L4)。 [Runtime] は非常に短く、予算に入りません。 */
 enum class ContextLayer { Task, Knowledge, Skills, Runtime }
 
-/** 可信度:写进每条上下文的外壳,告诉模型这段话是谁说的、能信到什么程度。 */
+/** 信頼性: 各コンテキストのシェルを作成して、モデルに誰がこれを言ったか、そしてそれがどの程度信頼できるかを伝えます。 */
 enum class Trust(val label: String) {
     Reference("reference material: may be out of date; what you read now takes precedence"),
     UserMemory("what the user told you before: may be out of date; when it conflicts with what they say now, follow what they say now"),
@@ -35,7 +35,7 @@ enum class Trust(val label: String) {
 }
 
 /**
- * 上下文的种类。[pinned]:压缩折叠旧步骤时保留;不保留的(提示、运行时状态)随旧步骤一起去掉。
+ * コンテキストのタイプ。 [pinned]: 圧縮して折りたたむときは古い手順を保持します。保持されないもの (プロンプト、実行時ステータス) は、古いステップとともに削除されます。
  */
 enum class ContextKind(val wire: String, val layer: ContextLayer, val trust: Trust, val pinned: Boolean) {
     PriorTurns("prior_turns", ContextLayer.Task, Trust.Record, pinned = true),
@@ -44,7 +44,7 @@ enum class ContextKind(val wire: String, val layer: ContextLayer, val trust: Tru
     SiteKnowledge("site_knowledge", ContextLayer.Knowledge, Trust.Reference, pinned = true),
     SkillsIndex("skills_index", ContextLayer.Skills, Trust.Reference, pinned = true),
     Channel("channel", ContextLayer.Runtime, Trust.Runtime, pinned = true),
-    /** 用户发来的此刻的屏幕(见 [com.wangzan101.mika.core.userscreen.UserScreenPrompt]):紧跟在那句话后面,压缩时保留。 */
+    /** ユーザーによって送信されたこの時点の画面 ([com.wangzan101.mika.core.userscreen.UserScreenPrompt] を参照): その文の直後、圧縮中に保持されます。 */
     UserScreen("user_screen", ContextLayer.Runtime, Trust.Screen, pinned = true),
     RuntimeState("runtime_state", ContextLayer.Runtime, Trust.Runtime, pinned = false),
     Notice("notice", ContextLayer.Runtime, Trust.Mika, pinned = false);
@@ -56,35 +56,35 @@ enum class ContextKind(val wire: String, val layer: ContextLayer, val trust: Tru
 }
 
 /**
- * token 预算(按 [TokenEstimate]):[total] 管 L5+L2+L4 合计,[layers] 管各层;单份参考资料另有上限(正文 token)。
- * 技能索引整份给,不受预算裁剪(见 [ContextBuilder.start])。按 token 计后各语言占的上下文一样多:
- * 和原来按字数的额度比,英文能放的字多了约一倍,中文少了约三分之一;自带的 App/网站知识正文(APP.md、SITE.md)单份都在 [KNOWLEDGE_BODY_LIMIT] 以内。
+ * トークンの予算 ([TokenEstimate] による): [total] チューブ L5+L2+L4 合計、[layers] チューブ各層。単一の参照 (テキスト トークン) には上限があります。
+ * スキル インデックスはその全体が示されており、予算削減の対象にはなりません ([ContextBuilder.start] を参照)。トークンに関して言えば、各言語は同じ量のコンテキストを占めます。 元の単語制限と比較して、
+ * は英語では約 2 倍、中国語では約 3 分の 1 少ない単語を保持できます。組み込みのアプリ/Web サイトのナレッジ テキスト (APP.md、SITE.md) の単一コピーは、[KNOWLEDGE_BODY_LIMIT] 内にあります。
  */
 data class ContextBudget(
     val total: Int = 8_000,
     val layers: Map<ContextLayer, Int> = mapOf(ContextLayer.Task to 4_000, ContextLayer.Knowledge to 5_000),
     val knowledgeItem: Int = KNOWLEDGE_BODY_LIMIT,
-    /** 每任务至多注入几份 App/站点参考资料(开局与中途合计)。 */
+    /** は、タスクごとに最大で数個のアプリ/サイト参照を挿入できます (最初と途中の合計)。 */
     val maxKnowledge: Int = 3,
-    /** 裁到不足这么多 token 的正文不值得给,整份不给。 */
+    /** のテキストは提供する価値がなく、コピー全体は提供されません。 */
     val minKeep: Int = 150,
 )
 
 /**
- * 除用户原话以外发给模型的上下文,都由这里生成:同一个外壳(种类、来源、可信度),同一套预算。
- * 线上仍是 user 角色(各家接口要求),但用 `<context …>` 标签和用户的话分开:
+ * ユーザーの元の単語に加えて、モデルに送信されるコンテキストもここで生成されます。同じシェル (タイプ、ソース、信頼性)、同じ予算セットです。
+ * にはオンラインのユーザー ロール (各インターフェイスで必要) がまだありますが、`<context …>` ラベルを使用してユーザーの言葉から分離します。
  * ```
  * <context kind="app_knowledge" source="铁路12306 · com.MobileTicket" trust="参考资料:可能过时,以当前屏幕为准">
  * …
  * </context>
  * ```
- * 一个任务一个实例:记着已用的预算和已注入的参考资料。不做 IO。
+ * 一度に 1 つのタスク: 使用された予算と注入された参考資料を記憶します。 IOは行わないでください。
  */
 class ContextBuilder(
     private val budget: ContextBudget = ContextBudget(),
     private val zone: ZoneId = ZoneId.systemDefault(),
 ) {
-    /** 开局的上下文:[messages] 依次放进历史;[knowledge] 是实际给出的参考资料(链接按它放行)。 */
+    /** オープニングのコンテキスト: [messages] が順番に履歴に追加されます。 [knowledge] は、指定された実際の参考資料です (クリックしてリンクを解放します)。 */
     class Start(val messages: List<Message>, val knowledge: List<KnowledgeEntry>)
 
     private val used = mutableMapOf<ContextLayer, Int>()
@@ -92,9 +92,9 @@ class ContextBuilder(
     private val injected = mutableSetOf<Pair<String, Surface>>()
 
     /**
-     * 开局:之前几轮、记忆、任务原话、可用渠道、参考资料、知识与技能索引,按这个顺序。
-     * 超预算时先裁 L2,L5 不丢;索引([skillsIndex])是模型知道有哪些技能的唯一入口,也整份给、不截不丢。
-     * 原话带着用户此刻的屏幕时,截图([taskImages],主模型看得到图时才有)接在原话里,屏幕的详情([screens]:来源 → 正文)紧跟在原话后面。
+     * 開始: 前回のラウンド、メモリ、ミッション テキスト、利用可能なチャンネル、参考資料、知識とスキルのインデックスの順。
+     * は、予算を超過した場合に最初に L2 と L5 をカットし、それらを失いません。インデックス ([skillsIndex]) は、モデルがどのようなスキルを持っているかを知るための唯一の入り口であり、カットしたり紛失したりすることなく完全に提供されます。
+     * のオリジナルの単語がユーザーの現在の画面に表示されると、スクリーンショット ([taskImages]、メインモデルが画像を表示できる場合にのみ利用可能) が元の単語に接続され、画面の詳細 ([screens]: ソース → テキスト) は元の単語に従います。
      */
     fun start(
         task: String,
@@ -117,7 +117,7 @@ class ContextBuilder(
         skillsIndex?.let { pieces += Piece(ContextKind.SkillsIndex, "knowledge and skills index", body = it) }
 
         val kept = fit(pieces)
-        // 任务原话是用户说的,不进外壳;放在之前几轮与记忆之后、其余上下文之前
+        // タスクの元の単語はユーザーによって発話され、シェルに入りません。それらは前のラウンドとメモリの後、他のコンテキストの前に配置されます。
         val at = kept.indexOfFirst { it.kind != ContextKind.PriorTurns && it.kind != ContextKind.Memory }.let { if (it < 0) kept.size else it }
         val messages = kept.map { it.message() }.toMutableList()
         messages.add(at, Message(Role.User, listOf(Part.Text(task)) + taskImages, Author.User))
@@ -126,24 +126,24 @@ class ContextBuilder(
         return Start(messages, keptKnowledge)
     }
 
-    /** 中途切到某个 App、打开某个站点时的参考资料;同一份只给一次,超出份数或预算返回 null。 */
+    /** 途中でアプリに切り替える場合やWebサイトを開く場合の参考資料です。同じコピーは 1 回だけです。コピー数を超えたり、予算を超えたりした場合は、null が返されます。 */
     fun knowledge(e: KnowledgeEntry?, note: String, withLinks: Boolean): Message? {
         e?.body ?: return null
         if (injected.size >= budget.maxKnowledge || !injected.add(e.name to e.surface)) return null
         return fit(listOf(knowledgePiece(e, note, withLinks))).firstOrNull()?.message()
     }
 
-    /** 用户发来的一屏的详情(屏上的字、编号);不进预算,和那句话一样留着。 */
+    /** ユーザーから送信された 1 つの画面の詳細 (画面上の単語と数字)。予算は入力せず、言われたとおりにしてください。 */
     fun userScreen(source: String, body: String): Message = Piece(ContextKind.UserScreen, source, body = body).message()
 
-    /** Mika 给模型的提示(没调工具、步数自查、步数用完……)。 */
+    /** モデルに関するミカのヒント (ツール調整なし、ステップの自己チェック、ステップ不足...)。 */
     fun notice(source: String, text: String): Message = Piece(ContextKind.Notice, source, body = text).message()
 
     /**
-     * 每轮一段的运行时状态:当前界面、第几步、本地时间、用户最近一句话里他自己打的字的开头。是一段文字,接在这一步最后一条消息的末尾(见 AgentLoop)。
-     * [place] 是任务此刻在哪(App 或站点),[label] 是 App 名,[siteMode] 是 desktop / mobile(不知道为 null)。
-     * [userWords] 是用户最近一句话里他自己打的字(不带屏幕、页面说明这些,见 AgentLoop):读到的内容多是别的语言时,模型写给用户的话容易跟着换语言,紧挨着生成处摆出这些字的开头,
-     * 让它照这句话的语言写;不在这里判断是哪种语言。
+     * 各ラウンドの各セグメントの実行時ステータス: 現在のインターフェイス、ステップ、現地時間、ユーザーが最後に入力した文の先頭。これは、このステップの最後のメッセージの末尾に添付されるテキストです (AgentLoop を参照)。
+     * [place] はタスクが現時点で存在する場所 (アプリまたはサイト)、[label] はアプリ名、[siteMode] はデスクトップ/モバイル (不明な場合は null) です。
+     * [userWords] は、最後の文でユーザーが入力した単語です (画面やページの指示はありません。AgentLoop を参照): 読み取られたコンテンツのほとんどが他の言語である場合、モデルがユーザーに書き込むときに言語を変更するのは簡単です。これらの単語の先頭を生成場所の隣に配置します。
+     * この文の言語で書かせてください。ここではどの言語であるかは判断しません。
      */
     fun runtimeState(place: Place?, label: String?, siteMode: String?, step: Int, maxSteps: Int, nowMs: Long, userWords: String? = null): Part.Text {
         val surface = when {
@@ -160,7 +160,7 @@ class ContextBuilder(
         }
         val at = Instant.ofEpochMilli(nowMs).atZone(zone)
         val time = TIME.format(at) + " " + WEEKDAYS[at.dayOfWeek.value - 1]
-        val language = userWords?.let(::excerpt)?.let { "\nWrite to the user in the language of their latest message: \"$it\"" }.orEmpty()
+        val language = userWords?.let(::excerpt)?.let { "\nWrite to the user in Japanese. Their latest message: \"$it\"" } ?: "\nWrite to the user in Japanese."
         return Part.Text(envelope(ContextKind.RuntimeState, "runtime", "Current place: $surface\nStep: $steps\nLocal time: $time$language"))
     }
 
@@ -175,9 +175,9 @@ class ContextBuilder(
     }
 
     /**
-     * 按优先级给额度:层按 L5 > L2 > L4,层内按 [RANK](标准先于记忆先于之前几轮);每份不超过本层上限和剩下的总额。
-     * 放不下的可截正文就截,截不出 [ContextBudget.minKeep] 个 token 或不可截就不给;L5 与技能索引一律保留(L5 占掉的额度会挤掉后面的层)。
-     * 不进预算的层原样保留。结果按原顺序。
+     * クォータは優先度に従って与えられます: レイヤーでは L5 > L2 > L4、内側レイヤーでは [RANK] (標準は前のラウンドの前のメモリに優先します)。各シェアは、現在のレイヤーの上限と残りの合計を超えません。
+     * は適合しない場合は切断されます。 [ContextBudget.minKeep]トークンをカットできない場合、またはカットできない場合は付与されません。 L5 とスキル インデックスは保持されます (L5 が占める割り当てにより、後続のレイヤーが排除されます)。
+     * 予算が設定されていないレイヤーはそのまま残されます。結果は元の順序です。
      */
     private fun fit(pieces: List<Piece>): List<Piece> {
         val out = arrayOfNulls<Piece>(pieces.size)
@@ -201,7 +201,7 @@ class ContextBuilder(
         return out.filterNotNull()
     }
 
-    /** 一段上下文:[head] 和 [tail](附注、链接)不截,只截 [body];[clip] 为单份正文上限(null 为不可截),[hint] 是截断后补的说明。 */
+    /** コンテキストの一部: [head] および [tail] (メモ、リンク) は切り詰められず、[body] のみが切り詰められます。 [clip] は 1 つのテキストの上限 (null は切り捨てられないことを意味します)、[hint] は切り捨て後に追加される説明です。 */
     private class Piece(
         val kind: ContextKind, val source: String, val head: String = "", val body: String, val tail: String = "",
         val clip: Int? = null, val hint: String = CLIPPED_HINT, val entry: KnowledgeEntry? = null,
@@ -209,10 +209,10 @@ class ContextBuilder(
         val fixed get() = TokenEstimate.of(head) + TokenEstimate.of(tail)
         val size get() = fixed + TokenEstimate.of(body)
 
-        /** 单份上限:正文最多 [clip] token,后面补 [hint]。 */
+        /** 単一コピー制限: 最大テキスト コンテンツは [clip] トークンで、その後に [hint] が続きます。 */
         fun capped(): Piece = if (clip != null && TokenEstimate.of(body) > clip) withBody(TokenEstimate.clip(body, clip, "\n$hint")) else this
 
-        /** 截到总长不超过 [n] token(含附注、链接与截断说明)。 */
+        /** の合計の長さは、[n] トークン (メモ、リンク、切り捨て命令を含む) を超えません。 */
         fun clipTo(n: Int): Piece {
             val room = n - fixed
             if (TokenEstimate.of(body) <= room) return this
@@ -236,43 +236,43 @@ class ContextBuilder(
         private val TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
         private const val EXCERPT_CHARS = 60
 
-        /** 用户原话的开头:空白并成一个空格,超出 [EXCERPT_CHARS] 字截断加省略号;没有字为 null。 */
+        /** ユーザーのオリジナルの単語の先頭: 空白は 1 つのスペースに結合されます。 [EXCERPT_CHARS] を超える単語は切り捨てられ、省略記号が追加されます。単語がない場合は null です。 */
         internal fun excerpt(words: String): String? {
             val flat = words.trim().replace(Regex("\\s+"), " ").takeIf { it.isNotEmpty() } ?: return null
             return if (flat.length <= EXCERPT_CHARS) flat else flat.take(EXCERPT_CHARS).trimEnd() + "…"
         }
         private val WEEKDAYS = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
-        /** 统一外壳。正文里的结束标签转义掉,外壳不会被正文提前合上。 */
+        /** 一体型ハウジング。テキスト内の終了タグはエスケープされており、テキストによってシェルが事前に閉じられることはありません。 */
         fun envelope(kind: ContextKind, source: String, body: String): String =
             "$OPEN${kind.wire}\" source=\"${attr(source)}\" trust=\"${kind.trust.label}\">\n" +
                 body.replace(CLOSE, "<\\/context>") + "\n$CLOSE"
 
-        /** 这条消息是哪种上下文;用户原话、工具结果等不是上下文,返回 null。 */
+        /** このメッセージはどのような内容ですか?ユーザーの元の単語、ツールの結果などはコンテキストではないため、null が返されます。 */
         fun kindOf(m: Message): ContextKind? {
             if (m.role != Role.User) return null
             return kindOf((m.parts.firstOrNull() as? Part.Text)?.text ?: return null)
         }
 
-        /** 这段文字是哪种上下文(接在别的消息里的运行时状态也认得出)。 */
+        /** このテキストはどのようなコンテキストに属しますか (他のメッセージに関連付けられた実行時ステータスも認識できます)。 */
         fun kindOf(text: String): ContextKind? {
             if (!text.startsWith(OPEN)) return null
             return ContextKind.ofWire(text.substring(OPEN.length).substringBefore('"'))
         }
 
-        /** 去掉消息里接着的运行时状态;没有就原样返回。 */
+        /** は、メッセージ内の後続の実行時ステータスを削除します。そうでない場合は、そのまま返却してください。 */
         fun withoutRuntimeState(m: Message): Message {
             if (m.parts.none { it is Part.Text && kindOf(it.text) == ContextKind.RuntimeState }) return m
             return m.copy(parts = m.parts.filterNot { it is Part.Text && kindOf(it.text) == ContextKind.RuntimeState })
         }
 
-        /** 外壳里的正文(不含标签);不是上下文返回 null。 */
+        /** シェル内のテキスト (タグを除く)。コンテキストでない場合は null を返します。 */
         fun bodyOf(m: Message): String? {
             kindOf(m) ?: return null
             return (m.parts.first() as Part.Text).text.substringAfter(">\n").removeSuffix("\n$CLOSE")
         }
 
-        /** 外壳上写的来源;不是上下文返回 null。 */
+        /** ソースはシェルに書き込まれます。コンテキストではない場合は null が返されます。 */
         fun sourceOf(m: Message): String? {
             kindOf(m) ?: return null
             return (m.parts.first() as Part.Text).text.substringAfter(" source=\"").substringBefore('"')

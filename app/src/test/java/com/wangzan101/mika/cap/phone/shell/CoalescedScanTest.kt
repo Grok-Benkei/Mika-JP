@@ -50,7 +50,7 @@ class CoalescedScanTest {
         val pending = scheduler.jobs.single().second
         scan.close()
         scan.request()
-        pending.run() // 即使已出队的回调晚到了,也不能继续扫描。
+        pending.run() // デキューされたコールバックが遅れて到着しても、スキャンは続行できません。
         scheduler.advance(500)
         assertEquals(0, calls)
         assertTrue(scheduler.jobs.isEmpty())

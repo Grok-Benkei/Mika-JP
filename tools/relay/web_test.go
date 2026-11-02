@@ -10,7 +10,7 @@ import (
 
 func TestWebLanguagesAndCatalogCompleteness(t *testing.T) {
 	f := newFixture(t)
-	for header, want := range map[string]string{"": "en", "zh-CN": "zh-Hans", "zh-HK": "zh-Hant", "zh-Hans-TW": "zh-Hans", "fr, en;q=0.4,zh-TW;q=0.9": "zh-Hant", "zh;q=0,en;q=1": "en", "zh;q=NaN,en;q=0.1": "en"} {
+	for _, header := range []string{"", "en", "ja", "zh-CN", "zh-HK", "zh-Hans-TW", "fr, en;q=0.4,zh-TW;q=0.9", "zh;q=0,en;q=1", "zh;q=NaN,en;q=0.1"} {
 		req, _ := http.NewRequest("GET", f.server.URL+"/", nil)
 		req.Header.Set("Accept-Language", header)
 		r, err := f.client.Do(req)
@@ -18,15 +18,15 @@ func TestWebLanguagesAndCatalogCompleteness(t *testing.T) {
 			t.Fatal(err)
 		}
 		r.Body.Close()
-		if r.Header.Get("Content-Language") != want {
-			t.Errorf("%q got %q want %q", header, r.Header.Get("Content-Language"), want)
+		if r.Header.Get("Content-Language") != "ja" {
+			t.Errorf("%q got %q want %q", header, r.Header.Get("Content-Language"), "ja")
 		}
 	}
 	for lang, words := range translations {
-		if len(words) != len(translations["en"]) {
+		if len(words) != len(translations["ja"]) {
 			t.Errorf("incomplete catalog %s", lang)
 		}
-		for key := range translations["en"] {
+		for key := range translations["ja"] {
 			if words[key] == "" {
 				t.Errorf("missing %s/%s", lang, key)
 			}
@@ -48,7 +48,7 @@ func TestWebLanguageCookieAndAdminSecretsAreNotReflected(t *testing.T) {
 		t.Fatal("invalid language redirect/cookie")
 	}
 	status, _, b := f.request(t, "POST", "/admin", "", url.Values{"owner_key": {"wrong-owner-secret"}, "action": {"pair"}}.Encode(), "application/x-www-form-urlencoded")
-	if status != 403 || strings.Contains(string(b), "wrong-owner-secret") || !strings.Contains(string(b), translations["en"]["invalidOwner"]) {
+	if status != 403 || strings.Contains(string(b), "wrong-owner-secret") || !strings.Contains(string(b), translations["ja"]["invalidOwner"]) {
 		t.Fatal("owner secret reflected or error not localized")
 	}
 	f.pair(t)

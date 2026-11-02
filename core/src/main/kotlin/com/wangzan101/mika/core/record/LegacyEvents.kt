@@ -11,9 +11,9 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 
 /**
- * 旧运行记录里改了名的事件,读取前换成现在的写法(只在读的时候换,文件不动):
- * - screen_text(读屏交给模型的元素文字)→ observed:一条读到的观察,地方是那时的站点或 App,编号为 0;
- * - screen_saved(存下一帧读屏画面)→ media。
+ * 古い実行レコード内の名前変更されたイベントは、読み取り前に現在の書き込みメソッドに変更されます (読み取り中にのみ変更され、ファイルは移動しません)。
+ * - screen_text (画面の読み取り時にモデルに与えられる要素テキスト) → 観察: 観察の読み取り、場所はその時点のサイトまたはアプリであり、番号は 0 です。
+ * - screen_saved (次の画面読み取り画面を保存) → メディア。
  */
 internal object LegacyEvents {
     fun upgrade(e: JsonElement): JsonElement {
@@ -26,7 +26,7 @@ internal object LegacyEvents {
                 put("kind", ObsKind.Read.wire)
                 val site = o.str("site")
                 val app = o.str("app")
-                // 那时网页上报站点,手机上报 App
+                // その際、WebサイトはWebサイト、携帯電話はアプリに通報されました。
                 (site?.let { PlaceKind.Site to it } ?: app?.let { PlaceKind.App to it })?.let { (k, n) ->
                     put("place", buildJsonObject { put("kind", k.wire); put("name", n) })
                     put("source", if (k == PlaceKind.Site) "web" else "phone")

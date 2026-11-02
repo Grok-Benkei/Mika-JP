@@ -6,7 +6,7 @@ import com.wangzan101.mika.ui.LearningActions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** 结果卡片上记忆与技能提示的按钮,作用在进程内同一份记忆与个人技能([memory])上;读写都在后台线程。 */
+/** 結果カードのメモリとスキル プロンプト ボタンは、プロセス内で同じメモリと個人スキル ([memory]) に作用します。読み取りと書き込みの両方がバックグラウンド スレッドで行われます。 */
 class AppLearningActions(private val context: Context, private val memory: MemoryRuntime) : LearningActions {
     private val store get() = memory.store()
     private val skills get() = memory.skills()
@@ -17,7 +17,7 @@ class AppLearningActions(private val context: Context, private val memory: Memor
     override suspend fun approve(pendingId: String) = io { store.approve(pendingId) }
     override suspend fun forget(memoryId: String) = io { store.forget(memoryId).isSuccess }
     override fun viewSkill(draftId: String) = memory.requestOpen(MemoryOpen(draftId))
-    // 恢复时清掉旧结果,免得下一次一不顺又马上被停用
+    // 次回何か問題が発生したときにすぐに非アクティブ化されないように、復元時に古い結果をクリアします。
     override suspend fun restoreSkill(name: String) {
         io { skills.update(name) {
             it.copy(status = it.restoredStatus(), outcomes = emptyList())

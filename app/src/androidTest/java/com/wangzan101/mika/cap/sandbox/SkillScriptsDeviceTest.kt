@@ -25,8 +25,8 @@ import java.lang.reflect.Proxy
 import com.wangzan101.mika.core.assembly.toolDispatcher
 
 /**
- * 随 App 打包的可运行脚本在真沙箱里经 run_bundled_script 跑一遍(和模型用的是同一条路)。
- * 需要沙箱已装好;没装就跳过。
+ * アプリにパッケージ化された実行可能なスクリプトは、実際のサンドボックスの run_bundled_script を通じて実行されます (同じパスがモデルに使用されます)。
+ * ではサンドボックスをインストールする必要があります。インストールされていない場合はスキップしてください。
  */
 @RunWith(AndroidJUnit4::class)
 class SkillScriptsDeviceTest {
@@ -34,7 +34,7 @@ class SkillScriptsDeviceTest {
     private val ws = "skill-scripts-device-test"
     private val sb = AndroidSandbox(context, SandboxState.get(context))
 
-    /** run_bundled_script 不碰屏幕;任何屏幕调用都算测试写错了。 */
+    /** run_bundled_script は画面に触れません。あらゆる画面呼び出しは、間違って書かれたテストとみなされます。 */
     private val noScreen = Proxy.newProxyInstance(ScreenPort::class.java.classLoader, arrayOf(ScreenPort::class.java)) { _, m, _ ->
         throw AssertionError("screen not expected: ${m.name}")
     } as ScreenPort
@@ -58,7 +58,7 @@ class SkillScriptsDeviceTest {
         assertEquals(r.toString(), "0", r.s("exitCode"))
     }
 
-    /** 两页、每页一行文字的最小 PDF(Helvetica,无压缩),由测试当场生成。 */
+    /** テスト中にオンサイトで生成された、2 ページと各ページに 1 行のテキストを含む最小 PDF (Helvetica、圧縮なし)。 */
     private fun samplePdf(vararg pages: String): ByteArray {
         val objs = mutableListOf<String>()
         val kids = pages.indices.joinToString(" ") { "${3 + it * 2} 0 R" }

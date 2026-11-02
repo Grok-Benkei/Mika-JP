@@ -14,7 +14,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import javax.crypto.KeyGenerator
 
-/** 经 USB 的电脑连接:开关怎么变、令牌何时换、连接信息文件何时写何时删、不跨重启,和局域网那种互不影响。 */
+/** USB 経由のコンピューター接続: スイッチの変更方法、トークンを変更するタイミング、接続情報ファイルの書き込みと削除のタイミング、クロスリブートなし、ローカル エリア ネットワークへの影響なし。 */
 class McpUsbSettingsTest {
     @get:Rule val tmp = TemporaryFolder()
     private var boot = "5"
@@ -36,14 +36,14 @@ class McpUsbSettingsTest {
         val t = u.enable()
         assertTrue(t.length >= 40)
         assertEquals(t, u.enable())
-        // 没在监听前不写给电脑
+        // は監視する前にコンピューターに書き込みません
         assertFalse(info.exists())
         u.publish(8765)
         val o = Json.parseToJsonElement(info.readText()).jsonObject
         assertEquals("http://127.0.0.1:8765/mcp", o["url"]!!.jsonPrimitive.content)
         assertEquals("Bearer $t", o["headers"]!!.jsonObject["Authorization"]!!.jsonPrimitive.content)
         assertEquals("5", o["boot"]!!.jsonPrimitive.content)
-        // 进程重启(同一次开机)接着开着、令牌不变
+        // プロセスは (同時に起動時に) 再起動され、実行を継続しますが、トークンは変更されません。
         val again = usb()
         assertTrue(again.enabled.value)
         assertEquals(t, again.token())
@@ -81,7 +81,7 @@ class McpUsbSettingsTest {
         val after = usb()
         assertFalse(after.enabled.value)
         assertNull(after.token())
-        // 上次开机留下的连接信息也清掉
+        // 前回の起動時に残された接続情報もクリアされます。
         assertFalse(info.exists())
     }
 
@@ -96,7 +96,7 @@ class McpUsbSettingsTest {
         val u = usb()
         McpModes.apply(McpModes.ACTION_USB_ON, n, u)
         assertTrue(u.enabled.value)
-        // 打开 USB 不会打开局域网那种
+        // は USB を開きますが、LAN を開きません
         assertFalse(n.enabled.value)
         assertFalse(network().enabled.value)
         assertEquals(McpModes.Listen.LoopbackOnly, McpModes.listen(n.enabled.value, u.enabled.value))
@@ -104,7 +104,7 @@ class McpUsbSettingsTest {
         val t = u.token()
         McpModes.apply(McpModes.ACTION_USB_ON, n, u)
         assertEquals(t, u.token())
-        // 没有动作(服务被系统重建)、不认识的动作:开关不变
+        // アクションなし (サービスはシステムによって再構築されます)、不明なアクション: スイッチは変更されていません
         McpModes.apply(null, n, u)
         McpModes.apply("something.else", n, u)
         assertTrue(u.enabled.value)
@@ -113,7 +113,7 @@ class McpUsbSettingsTest {
         assertFalse(u.enabled.value)
         assertEquals(McpModes.Listen.Off, McpModes.listen(n.enabled.value, u.enabled.value))
 
-        // 通知上的「关闭」两种都关
+        // 通知の「閉じる」が両方ともオフになっています 古いバージョンから保存された
         n.setEnabled(true)
         u.enable()
         assertEquals(McpModes.Listen.PrivateNetworks, McpModes.listen(n.enabled.value, u.enabled.value))

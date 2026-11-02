@@ -18,7 +18,7 @@ class AddressInputTest {
         assertEquals("https://example.com/a?b=1", AddressInput.resolve("  https://example.com/a?b=1 "))
         assertEquals("http://example.com", AddressInput.resolve("http://example.com"))
         assertEquals("HTTPS://Example.com", AddressInput.resolve("HTTPS://Example.com"))
-        // 别的协议也原样交出去,由网址规则拦下
+        // 他のプロトコルもそのまま引き継がれ、Webサイトのルールによりブロックされます。
         assertEquals("ftp://example.com", AddressInput.resolve("ftp://example.com"))
     }
 
@@ -47,7 +47,7 @@ class AddressInputTest {
         assertEquals(bing("%E5%A4%A9%E6%B0%94"), AddressInput.resolve("天气"))
         assertEquals(bing("%E4%B8%AD%E6%96%87.%E7%BD%91%E7%AB%99"), AddressInput.resolve("中文.网站"))
         assertEquals(bing("user%40example.com"), AddressInput.resolve("user@example.com"))
-        // 像版本号、小数、越界的 IP、不完整的域名、越界的端口
+        // 同様のバージョン番号、10 進数、範囲外の IP、不完全なドメイン名、範囲外のポート
         assertEquals(bing("1.5"), AddressInput.resolve("1.5"))
         assertEquals(bing("999.1.1.1"), AddressInput.resolve("999.1.1.1"))
         assertEquals(bing("example.c"), AddressInput.resolve("example.c"))

@@ -21,7 +21,7 @@ class SiteRegistryTest {
         r.visited("c.example.net"); now += 10
         r.markLoggedIn("a.example.com")
         val hosts = r.list().map { it.host }
-        // 登录过的在前,再按最近访问
+        // 最初にログインしてから、最近のアクセスをクリックした人
         assertEquals(listOf("a.example.com", "c.example.net", "b.example.org"), hosts)
         val again = registry().list()
         assertEquals(hosts, again.map { it.host })
@@ -84,13 +84,13 @@ class SiteRegistryTest {
         val r = registry()
         assertTrue(r.loginObserved("a.example.com", LoginState.SignedIn))
         assertTrue(registry().list().single().loggedInByUser)
-        // 看不出的不动,同样的结果不重写
+        // は表示されず、移動しません。同じ結果は書き換えられません
         assertFalse(r.loginObserved("a.example.com", LoginState.Unknown))
         assertFalse(r.loginObserved("a.example.com", LoginState.SignedIn))
-        // 会话过期:看出已退出就去掉
+        // セッションの有効期限が切れました: セッションが終了したことがわかったら削除してください
         assertTrue(r.loginObserved("a.example.com", LoginState.SignedOut))
         assertFalse(registry().list().single().loggedInByUser)
-        // 没登记过的站点看出已退出不新建
+        // 登録されていないサイトは終了したものとみなされ、作成されません。
         assertFalse(r.loginObserved("b.example.com", LoginState.SignedOut))
         assertEquals(listOf("a.example.com"), r.list().map { it.host })
     }
@@ -100,7 +100,7 @@ class SiteRegistryTest {
         val r = registry()
         r.markLoggedIn("shop.example.com")
         r.challenged("shop.example.com", "access_blocked")
-        // 跨重启保留,登录状态与访问时间不受影响
+        // は再起動後も保持され、ログイン ステータスとアクセス時間は影響を受けません。
         val e = registry().list().single()
         assertTrue(e.challenged(now))
         assertEquals("access_blocked", e.challenge)
@@ -108,14 +108,14 @@ class SiteRegistryTest {
         now += 10
         r.visited("shop.example.com")
         assertEquals(setOf("shop.example.com"), registry().challengedSites())
-        // 登录核实不清掉它
+        // ログインして確認してもクリアできません
         r.markLoggedIn("shop.example.com")
         assertEquals(setOf("shop.example.com"), r.challengedSites())
-        // 过期后不再算
+        // は有効期限が切れるとカウントされなくなります
         now += SiteRegistry.CHALLENGE_TTL_MS
         assertTrue(r.challengedSites().isEmpty())
         assertFalse(r.list().single().challenged(now))
-        // 再碰到一次重新算;清除该站数据(从登记表去掉)后没有了
+        // が再度発生し、再計算されました。局データをクリア（登録テーブルから削除）したら消えてしまいました。
         r.challenged("shop.example.com", "captcha")
         assertEquals(setOf("shop.example.com"), r.challengedSites())
         r.remove("shop.example.com")
@@ -131,7 +131,7 @@ class SiteRegistryTest {
         now += SiteRegistry.CHALLENGE_REFRESH_MS - 1
         r.challenged("shop.example.com", "captcha")
         assertEquals(first, file.readText())
-        // 换了种类、或过了刷新时间才重写
+        // は、タイプの変更後、またはリフレッシュ時間後に書き換えられました。
         r.challenged("shop.example.com", "access_blocked")
         assertEquals("access_blocked", registry().list().single().challenge)
         now += SiteRegistry.CHALLENGE_REFRESH_MS

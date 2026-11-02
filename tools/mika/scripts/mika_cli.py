@@ -19,7 +19,7 @@ import uuid
 
 VERSION = "0.1.0"
 API = "/api/v1"
-PHONE_FILES = "/sdcard/Android/data/com.wangzan101.mika/files"
+PHONE_FILES = os.environ.get("MIKA_PHONE_FILES", "/sdcard/Android/data/jp.studioyebisu.mika/files")
 INFO_FILE = PHONE_FILES + "/mcp-usb.json"
 CONNECT_SCRIPT = PHONE_FILES + "/connect-computer.sh"
 MAX_RESPONSE = 4 * 1024 * 1024

@@ -42,21 +42,21 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * 浮层窗口摆在哪:[gravity] 用 [android.view.Gravity] 的组合,[x]/[y] 是离那条边的像素。
- * 坐标按整块屏幕算(包括状态栏、刘海和底部手势条那几条),要避开哪里由调用方按 [OverlayArea] 定。
+ * フローティング レイヤー ウィンドウが配置される場所: [gravity] は [android.view.Gravity] の組み合わせ、[x]/[y] はそのエッジから離れたピクセルです。
+ * 座標は、画面全体 (ステータス バー、ノッチ、下部のジェスチャ バーを含む) に基づいて計算されます。回避する場所は、発信者が [OverlayArea] を押して決定します。
  */
 data class OverlayPlacement(val gravity: Int, val x: Int = 0, val y: Int = 0)
 
-/** 此刻屏幕(按当前方向)的宽高,和四边被状态栏、刘海、导航栏或手势条占掉的像素。 */
+/** 現時点での画面の幅と高さ (現在の向きによる)、およびステータス バー、ノッチ、ナビゲーション バー、またはジェスチャ バーが占める 4 辺のピクセル数。 */
 data class OverlayArea(
     val width: Int, val height: Int,
     val insetLeft: Int = 0, val insetTop: Int = 0, val insetRight: Int = 0, val insetBottom: Int = 0,
 )
 
 /**
- * 拖动窗口:手指按下后移过系统的触摸阈值才算拖动,这时窗口里正按着的按钮收到取消,不会再当成点按。
- * 可以只让窗口里的一块(把手,见 [OverlayWindow.draggable])能拖,别处的滑动照常交给里面的内容(例如滚动)。
- * [move]/[end] 给的是手指自按下以来在屏幕上移了多少像素(按屏幕坐标算,窗口跟着手指动也不会抖)。
+ * ウィンドウのドラッグ: 指を押して、ドラッグする前にシステムのタッチしきい値を超えて移動します。このとき、ウィンドウ内で押されているボタンはキャンセルされ、クリックとみなされなくなります。
+ * では、ウィンドウの一部 (ハンドル、[OverlayWindow.draggable] を参照) のみをドラッグでき、他の場所にスライドしても内部のコンテンツ (スクロールなど) に引き継がれます。
+ * [move]/[end] は、指を押してから画面上で指が移動したピクセル数を示します (画面座標に基づいて計算され、指が動いてもウィンドウは揺れません)。
  */
 interface OverlayDrag {
     fun start()
@@ -65,20 +65,20 @@ interface OverlayDrag {
 }
 
 /**
- * 长按:手指按下后不动(没移过触摸阈值)满 holdMs 才算长按,先移过阈值就是拖,之后不再算长按(见 [HoldGesture])。
- * 长按开始后窗口不跟着拖,手指在屏幕上的位置(屏幕坐标)交给这里;窗口里正按着的按钮这时收到取消,单击不再成立。
+ * 長押し: 押した後、ホールドがいっぱいになるまで指は動きません (タッチしきい値を超えて動きません)。長押しとみなされます。最初にしきい値を超えた場合はドラッグされ、長押しとはみなされなくなります ([HoldGesture] を参照)。
+ * 長押しして開始すると、ウィンドウはドラッグされず、画面上の指の位置 (画面座標) がここに渡されます。この時点でウィンドウ内で押されているボタンはキャンセルされ、クリックは確立されなくなります。
  */
 interface OverlayHold {
     fun start(rawX: Float, rawY: Float)
     fun move(rawX: Float, rawY: Float)
     fun end(rawX: Float, rawY: Float)
-    /** 系统把这串触摸收走了(例如窗口被拆、来电):这次长按不算数。 */
+    /** システムはこの一連のタッチを取り除きました (たとえば、ウィンドウが削除された、電話がかかってきたなど)。この長押しはカウントされません。 */
     fun cancel()
 }
 
 /**
- * 一串触摸算点按、拖动还是长按(纯逻辑,时钟由调用方管):[down] 后先是 [Kind.Tap](还可能是点按);
- * 手指离按下处超过 [slopPx] 就是 [Kind.Drag];还是 Tap 时到点([timeout])就是 [Kind.Hold]。定下拖或长按后不再变,下一次 [down] 重来。
+ * 一連のタッチは、クリック、ドラッグ、または長押しとしてカウントされます (純粋な論理、クロックは発信側によって管理されます): [down]、その後に [Kind.Tap] (クリックの場合もあります)。
+ * 指が押圧点から [slopPx] 以上離れている場合は、[Kind.Drag] となります。または、指がタップ点 ([timeout]) に達すると、[Kind.Hold] になります。ドラッグしても長押ししても変化しません。次回は[down]になります。
  */
 class HoldGesture(private val slopPx: Float) {
     enum class Kind { Tap, Drag, Hold }
@@ -91,7 +91,7 @@ class HoldGesture(private val slopPx: Float) {
         return kind
     }
 
-    /** 手指此刻离按下处 [dist] 像素。 */
+    /** 指は押された位置から [dist] ピクセル離れています。 */
     fun move(dist: Float): Kind {
         if (kind == Kind.Tap && dist > slopPx) kind = Kind.Drag
         return kind
@@ -104,18 +104,18 @@ class HoldGesture(private val slopPx: Float) {
 }
 
 /**
- * 借无障碍服务在用户的屏幕(主屏)上画浮层:窗口类型是无障碍浮层,不需要「显示在其他应用上层」权限。
- * 只管机制:加窗口、换位置、拖动、切换能不能接收键盘、拆窗口;画什么由调用方给的 Compose 内容决定。
- * 窗口只有内容那么大,内容以外的地方照常交给下面的 App。
- * 服务断开时由 [ScreenAccessibility] 调 [closeAll],窗口跟着拆掉。只在主线程用。
+ * ユーザー補助サービスを使用して、ユーザーの画面 (ホーム画面) にフローティング レイヤーを描画します。ウィンドウ タイプはアクセス可能なフローティング レイヤーであり、「他のアプリケーションの上に表示」権限は必要ありません。
+ * は、ウィンドウの追加、位置の変更、ドラッグ、キーボードを受け入れるかどうかの切り替え、ウィンドウの破棄などのメカニズムのみを制御します。何が描画されるかは、呼び出し元によって指定された Compose コンテンツによって決まります。
+ * のウィンドウはコンテンツと同じ大きさしかなく、コンテンツ以外の領域は通常通り次のアプリに任せられます。
+ * サービスが切断されると、[closeAll] が [ScreenAccessibility] によって呼び出され、それに応じてウィンドウが削除されます。メインスレッドでのみ使用されます。
  */
 class OverlayHost internal constructor(private val service: ScreenAccessibility) {
     private val windows = mutableListOf<OverlayWindow>()
 
     /**
-     * 加一个包住内容大小的浮层窗口。平时不抢焦点、点不到的地方照常交给下面的 App;
-     * [onOutside] 给了时,在窗口外面按下会通知它(收起卡片用)。[touchable] 为 false 时窗口只画、不接触摸(按在上面等于按在下面的 App 上)。
-     * 加不上(服务已断开、系统不让)时返回 null,不抛错。
+     * コンテンツのサイズをカバーするフローティング レイヤー ウィンドウを追加します。通常フォーカスを取得せず、クリックできない場所は、通常どおり次のアプリに任せられます。
+     * [onOutside] 与えられた場合、ウィンドウの外側を押すと通知されます（カードを閉じるために使用されます）。 [touchable] が false の場合、ウィンドウは描画のみを行い、タッチを受け取りません (上部を押すことは、下のアプリを押すことと同等です)。
+     * を追加できない場合 (サービスが切断されており、システムが追加を許可していない場合)、null が返され、エラーはスローされません。
      */
     fun open(
         placement: OverlayPlacement,
@@ -142,7 +142,7 @@ class OverlayHost internal constructor(private val service: ScreenAccessibility)
                 (if (touchable) 0 else WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE),
             PixelFormat.TRANSLUCENT,
         ).apply {
-            // 按整块屏幕摆,不让系统再把窗口挤进状态栏、导航栏以内:要避开哪里由调用方按 area() 定
+            // 画面全体を押して、システムがウィンドウをステータス バーとナビゲーション バーに押し込むのを防ぎます。避けるべき場所は、area() を押すことによって呼び出し側によって決定されます。
             fitInsetsTypes = 0
             layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
             place(placement)
@@ -154,14 +154,14 @@ class OverlayHost internal constructor(private val service: ScreenAccessibility)
             windows += window
             window
         } catch (e: RuntimeException) {
-            // 服务刚断开时窗口令牌已失效,或系统不允许这类窗口:当作没有浮层
+            // サービスが切断されたばかりのときにウィンドウ トークンの有効期限が切れているか、システムがこのタイプのウィンドウを許可していません。フローティング レイヤーが存在しないものとして扱われます。
             Log.w(TAG, "overlay unavailable", e)
             owners.destroy()
             null
         }
     }
 
-    /** 此刻屏幕的大小和四边被系统栏、刘海占掉的部分(转屏后跟着变)。读不到时退回显示尺寸,上下各留一条状态栏常见的高度。 */
+    /** この時点で、画面のサイズと、システムバーと前髪が占める四辺の部分（画面を回転すると変わります）。読み取れない場合は、ステータスバーの上下を共通の高さのまま、表示サイズに戻します。 */
     fun area(): OverlayArea = runCatching {
         val m = wm().currentWindowMetrics
         val i = m.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
@@ -173,8 +173,8 @@ class OverlayHost internal constructor(private val service: ScreenAccessibility)
     }
 
     /**
-     * 用户屏幕上输入法的上边(屏幕坐标);没弹出时为 null。不论输入法是对着哪个 App 弹的(包括 Mika 自己的浮层),
-     * 胶囊和卡片都据此让开。窗口一变就重读,读不到窗口时当作没弹出。
+     * ユーザー画面上の入力メソッドの上端 (画面座標)。ポップアップが発生しない場合は null。入力メソッドがどのアプリに対してプレイされるかに関係なく (ミカ自身のフローティング レイヤーを含む)、
+     * カプセルとカードはそれに応じて邪魔になりません。ウィンドウが変わるとすぐに再読み込みされます。ウィンドウが読み取れない場合は、ポップアップしなかったものとみなされます。
      */
     fun imeTop(): Flow<Int?> = service.windowChanges().onStart { emit(Unit) }
         .map { readImeTop() }
@@ -186,7 +186,7 @@ class OverlayHost internal constructor(private val service: ScreenAccessibility)
             ?.takeIf { !it.isEmpty }?.top
     }.getOrNull()
 
-    /** 拆掉全部浮层(服务断开时)。 */
+    /** すべてのフローティング レイヤーを削除します (サービスが切断されている場合)。 */
     fun closeAll() {
         windows.toList().forEach(OverlayWindow::close)
     }
@@ -203,7 +203,7 @@ class OverlayHost internal constructor(private val service: ScreenAccessibility)
     }
 }
 
-/** [OverlayHost.open] 加上的一个窗口。拆掉之后再调用什么都不做。 */
+/** [OverlayHost.open] ウィンドウが追加されました。それを破棄して再度呼び出しても、何も起こりません。 */
 class OverlayWindow internal constructor(
     private val host: OverlayHost,
     private val frame: OverlayFrame,
@@ -213,11 +213,11 @@ class OverlayWindow internal constructor(
     var isOpen = true
         private set
 
-    /** 窗口此刻的宽高(像素);还没排版时为 0。 */
+    /** ウィンドウの現在の幅と高さ（ピクセル）; まだレイアウトされていなければ 0。 */
     val width: Int get() = frame.width
     val height: Int get() = frame.height
 
-    /** 换位置。 */
+    /** 位置を変える。 */
     fun place(placement: OverlayPlacement) {
         if (!isOpen || params.gravity == placement.gravity && params.x == placement.x && params.y == placement.y) return
         params.place(placement)
@@ -225,8 +225,8 @@ class OverlayWindow internal constructor(
     }
 
     /**
-     * 能拖动时给 [drag],不能拖给 null。[handle] 是只有按在这块里才拖(窗口内的像素坐标,例如卡片的标题栏),
-     * 为 null 时按在哪都能拖;是空的时哪儿都不能拖。
+     * ドラッグできる場合は [drag] を渡し、できない場合は null を渡す。[handle] はその領域を押したときだけドラッグする（ウィンドウ内のピクセル座標。たとえばカードのタイトルバー）、
+     * null の場合はどこを押してもドラッグできる; 空の場合はどこを押してもドラッグできない。
      */
     fun draggable(drag: OverlayDrag?, handle: Rect? = null) {
         if (!isOpen) return
@@ -235,8 +235,8 @@ class OverlayWindow internal constructor(
     }
 
     /**
-     * 能长按时给 [hold],不能给 null:按着不动 [holdMs] 毫秒是长按(和 [draggable] 的拖动互斥,先动了就是拖)。
-     * 长按开始时轻震一下,窗口里的按钮收到取消。
+     * を長押しすると、[hold] を与えることができますが、null を与えることはできません。押して移動しない場合、[holdMs] ミリ秒が長押しされます ([draggable] のドラッグとは相互に排他的で、最初の移動はドラッグです)。
+     * 長押しすると軽い振動とともに起動し、ウィンドウ内のボタンがキャンセルされます。
      */
     fun holdable(hold: OverlayHold?, holdMs: Long = 400) {
         if (!isOpen) return
@@ -244,8 +244,8 @@ class OverlayWindow internal constructor(
     }
 
     /**
-     * 铺满整块屏幕(例如按住说话时压暗背后的那一层),或回到包住内容大小。平时空着的窗口包住内容就没有大小,
-     * 不占一块整屏的画布;要铺满时才铺满(包住内容的窗口系统会先按对话框的宽度量,内容填满也到不了整屏)。
+     * 画面全体をカバーする（話すときに長押しして後ろのレイヤーを暗くするなど）、またはコンテンツを包み込むサイズに戻ります。通常、空のウィンドウがコンテンツを囲む場合、そのウィンドウにはサイズがありません。
+     * は全画面キャンバスを占有しません。いっぱいになるといっぱいになります (コンテンツをラップするウィンドウ システムは、まずダイアログ ボックスの幅に基づいて決定され、コンテンツは画面全体を埋めません)。
      */
     fun setFullScreen(full: Boolean) {
         if (!isOpen) return
@@ -256,23 +256,23 @@ class OverlayWindow internal constructor(
         update()
     }
 
-    /** 能接收键盘时(见 [setFocusable])用户按了返回键;输入法开着时返回键先收起输入法,不到这里。 */
+    /** がキーボードを受信できる場合 ([setFocusable] を参照)、ユーザーはリターン キーを押します。インプット メソッドが開いている場合、Return キーは最初にインプット メソッドを閉じますが、ここで停止することはありません。 */
     fun onBack(onBack: (() -> Unit)?) {
         if (isOpen) frame.onBack = onBack
     }
 
-    /** 按到窗口里面(不论按在哪)时调 [onTouch]:调用方据此把淡下去的胶囊恢复。 */
+    /** は、ウィンドウが押されたときに (どこが押されたかに関係なく) 調整されます。 [onTouch]: 呼び出し元は、それに応じて色あせたカプセルを復元します。 */
     fun onTouch(onTouch: (() -> Unit)?) {
         if (isOpen) frame.onTouch = onTouch
     }
 
-    /** 内容大小变了(胶囊换成卡片、转屏后重排)时调 [onResize],调用方据此重新摆位置。 */
+    /** コンテンツ サイズが変更されると (カプセルがカードに置き換えられ、画面回転後に再配置されます)、[onResize] が調整され、それに応じて発信者の位置が変更されます。 */
     fun onResize(onResize: (() -> Unit)?) {
         if (isOpen) frame.onResize = onResize
     }
 
     /**
-     * 能不能接收键盘:要在浮层里打字时打开(输入法才会弹出来对着它),收起时立刻关上,把焦点还给下面的 App。
+     * はキーボードを受け取ることができますか: フローティング レイヤーに入力するときにキーボードを開き (キーボードに面する入力メソッドがポップアップします)、閉じるとすぐに閉じ、フォーカスが下のアプリに戻る必要があります。
      */
     fun setFocusable(focusable: Boolean) {
         if (!isOpen) return
@@ -287,9 +287,9 @@ class OverlayWindow internal constructor(
     }
 
     /**
-     * 窗口里的东西先藏起来,等它真的从屏幕上下去了再做 [block](例如截用户的屏幕),做完再显示出来。
-     * 「真的下去了」:藏起来的那一帧画好、交给系统(帧提交回调)之后,再等 [GONE_FRAMES] 个刷新,合成器换上了这一帧;
-     * 帧提交回调没来(窗口这时不画)也最多等 [GONE_WAIT_MS]。窗口本身留着(位置、状态都不变),只是这段时间里是透明的。
+     * まずウィンドウ内の内容を非表示にし、実際に画面から消えるまで待ってから、[block] (ユーザーの画面のスクリーンショットを撮るなど) を実行し、完了後に表示します。
+     * 「本当に下がっています」: 非表示のフレームが描画されてシステムに渡された後 (フレーム送信コールバック)、シンセサイザーがこのフレームを置き換える前に [GONE_FRAMES] の更新が必要です。
+     * フレーム送信コールバックが来ていません (この時点ではウィンドウは描画されていません)。最大待機時間は [GONE_WAIT_MS] です。ウィンドウ自体は残ります（位置と状態は変わりません）が、この間は透明になります。
      */
     suspend fun <T> hiddenWhile(block: suspend () -> T): T {
         val content = frame.getChildAt(0)
@@ -325,16 +325,16 @@ class OverlayWindow internal constructor(
     }
 
     private companion object {
-        /** 藏起来的那一帧交给系统后再等几个刷新:合成器在下一个刷新才换上它。 */
+        /** 隠しフレームはシステムに渡され、数回の更新を待ちます。シンセサイザーは次の更新時にそれを置き換えます。 */
         const val GONE_FRAMES = 2
         const val GONE_WAIT_MS = 300L
     }
 }
 
 /**
- * 浮层窗口的根,里面是 Compose 内容。收窗口外的按下([onOutside]);能拖动时([drag])手指按在把手([handle],没有时整个窗口)里、
- * 移过触摸阈值就把这串触摸截下来,里面的按钮收到取消。拖动按屏幕坐标算。
- * 能长按时([hold])按下就开始计时,不动满时限就截下这串触摸交给 [hold](点按和拖动都不再成立)。
+ * は、Compose コンテンツを含むフローティング ウィンドウのルートです。ウィンドウの外側を押します ([onOutside])。ドラッグするとき ([drag])、ハンドルの内側 ([handle]、そうでない場合はウィンドウ全体) を指で押します。
+ * タッチしきい値を移動すると、一連のタッチが遮断され、内部のボタンがキャンセルされます。ドラッグは画面座標に基づいて計算されます。
+ * ([hold])を長押しできる場合、押すとタイマーがスタートします。移動せずに制限時間が経過した場合、一連のタッチは中断され、[hold] に渡されます (クリックとドラッグは無効になります)。
  */
 internal class OverlayFrame(context: Context) : FrameLayout(context) {
     var onOutside: (() -> Unit)? = null
@@ -354,10 +354,10 @@ internal class OverlayFrame(context: Context) : FrameLayout(context) {
     private var tracking = false
     private var dragging = false
     private var holding = false
-    /** 长按开始时自己发给里面内容的那个取消:它经过 [track] 时不当成系统的取消。 */
+    /** 長押しすると中の内容をキャンセルします。[track]を通過するとシステムキャンセルにはなりません。 */
     private var ownCancel = false
     private val holdTimer = Runnable(::holdReached)
-    /** 长按计时走主线程的 Handler,不走 View.postDelayed:后者在窗口还没挂上时要等挂上才跑。 */
+    /** タイマーを長押しすると、メイン スレッドのハンドラーが実行されますが、View.postDelayed は実行されません。後者は、実行前にウィンドウがハングアップするまで待機する必要があります。 */
     private val timer = Handler(Looper.getMainLooper())
 
     init {
@@ -367,8 +367,8 @@ internal class OverlayFrame(context: Context) : FrameLayout(context) {
     }
 
     /**
-     * 换长按的接收方([hold] 为 null 是不能长按了)。同一个接收方再装一次(每次重画都会装)什么都不变;
-     * 换了或拿掉时,正在进行的长按先通知旧的那个取消,这串触摸之后的抬起不再交给谁——否则旧的那个永远等不到收尾。
+     * は長押しの宛先を変更します ([hold] が null の場合、長押しはできません)。同じレシーバーが再度インストールされた場合 (再描画されるたびにインストールされます)、何も変わりません。
+     * を交換または削除する場合、継続的に長押しすると、最初に古いものにキャンセルが通知され、この一連のタッチ後の持ち上げは誰にも引き継がれなくなります。そうしないと、古いものは終了を待つことはありません。
      */
     fun setHold(hold: OverlayHold?, holdMs: Long) {
         this.holdMs = holdMs
@@ -418,11 +418,11 @@ internal class OverlayFrame(context: Context) : FrameLayout(context) {
 
     override fun onInterceptTouchEvent(e: MotionEvent): Boolean = track(e) && (dragging || holding)
 
-    /** 按在内容里没有东西接的地方也能拖。 */
-    @SuppressLint("ClickableViewAccessibility") // 拖动只是挪位置;读屏时用胶囊上的「移到另一边」
+    /** コンテンツ内に接続するものがなくてもドラッグできます。 */
+    @SuppressLint("ClickableViewAccessibility") // ドラッグすると位置が移動するだけです。画面を読むときは、カプセルの「反対側に移動」を使用してください
     override fun onTouchEvent(e: MotionEvent): Boolean = track(e)
 
-    /** 跟着这串触摸;返回 true 表示还要接着收(能拖、能长按的时候)。 */
+    /** はこの一連のタッチに従います。引き続き収集されることを示す場合は true を返します (ドラッグまたは長押しできる場合)。 */
     private fun track(e: MotionEvent): Boolean {
         if (ownCancel) return true
         val d = drag
@@ -479,7 +479,7 @@ internal class OverlayFrame(context: Context) : FrameLayout(context) {
         return tracking
     }
 
-    /** 按着没动到了时限:成了长按。里面正按着的按钮马上收到取消(不等下一个触摸事件),点按、双击都不再成立。 */
+    /** 押したまま動かずに長押しすると制限時間が経過しました。内部で押されたボタンは (次のタッチ イベントを待たずに) すぐにキャンセルされ、タップもダブルクリックも無効になります。 */
     private fun holdReached() {
         val h = hold ?: return
         if (!tracking || dragging || gesture.timeout() != HoldGesture.Kind.Hold) return
@@ -504,7 +504,7 @@ private fun WindowManager.LayoutParams.place(p: OverlayPlacement) {
     y = p.y
 }
 
-/** Compose 在 Activity 之外要自己配上生命周期、状态保存与 ViewModel 的宿主;窗口加上时进入 RESUMED,拆掉时销毁。 */
+/** Compose は、アクティビティに加えて、独自のライフサイクル、状態保存、および ViewModel ホストを構成する必要があります。ウィンドウが追加されると RESUMED に入り、ウィンドウが削除されると破棄されます。 */
 internal class OverlayOwners : SavedStateRegistryOwner, ViewModelStoreOwner {
     private val registry = LifecycleRegistry(this)
     private val saved = SavedStateRegistryController.create(this)
@@ -519,7 +519,7 @@ internal class OverlayOwners : SavedStateRegistryOwner, ViewModelStoreOwner {
 
     fun destroy() {
         if (registry.currentState == Lifecycle.State.DESTROYED) return
-        // 从没启动过的(加窗口前就失败)也要先进入 CREATED 才能销毁
+        // は一度も起動されていないため (ウィンドウを追加する前に失敗しました)、CREATED に入る前に破棄する必要があります。
         if (registry.currentState == Lifecycle.State.INITIALIZED) registry.currentState = Lifecycle.State.CREATED
         registry.currentState = Lifecycle.State.DESTROYED
         viewModelStore.clear()

@@ -18,15 +18,15 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /**
- * 请求时带的 Bearer 令牌。[fresh] 为真表示上一个被拒了(HTTP 401),要先换一个新的;换不到抛 [ModelError]。
- * 没有令牌(本地服务)为 null。[refreshable] 为假的(固定的 API Key)被拒后不再重试。
+ * リクエストによってもたらされたベアラー トークン。 [fresh] が true の場合、以前のものが拒否された (HTTP 401) ため、最初に新しいものを置き換える必要があることを意味します。交換できない場合は、[ModelError] をスローします。
+ * トークンなし (ローカル サービス) は null です。 [refreshable] が false (固定 API キー) の場合、拒否された後は再試行されません。
  */
 interface BearerToken {
     val refreshable: Boolean get() = false
     suspend fun get(fresh: Boolean): String?
 
     companion object {
-        /** 固定的 API Key。 */
+        /** API キーを修正しました。 */
         fun fixed(key: String?): BearerToken = object : BearerToken {
             override suspend fun get(fresh: Boolean): String? = key
         }
@@ -34,18 +34,18 @@ interface BearerToken {
 }
 
 /**
- * OpenAI Responses 接口(`POST {base}/responses`),一律流式、不在服务端存对话(`store:false`):每次把要用的上下文都放在
- * `input` 数组里发,系统提示词放 `instructions`,对话里的系统消息改成 developer 消息(system 消息条目有的服务端不收)。
- * 工具是 function 工具(`strict:false`,Mika 的参数 schema 不按严格模式写);结果按 `function_call_output` 回给模型。
- * 默认只发这几项和 `include`;用户选了思考档位才发 `reasoning.effort`。温度、输出上限不发(套餐接口不收)。
+ * OpenAI Responses インターフェイス (`POST {base}/responses`)、常にストリーミング、サーバーにダイアログは保存されません (`store:false`): 毎回使用されるコンテキストを設定します
+ * `input` がアレイで送信され、システム プロンプト ワードは `instructions` になり、会話内のシステム メッセージは開発者メッセージに変更されます (一部のシステム メッセージ エントリはサーバーによって受け入れられません)。
+ * ツールは関数ツールです (`strict:false`、Mika のパラメーター スキーマは厳密モードで書き込まれません)。結果は `function_call_output` としてモデルに返されます。
+ * は、デフォルトでこれらのアイテムと `include` のみを送信します。 `reasoning.effort` は、ユーザーが思考装置を選択した後にのみ送信されます。温度と出力上限は送信されません（パッケージインターフェースは収集されません）。
  *
- * 推理模型的思考:请求加密后的思考内容(`include: reasoning.encrypted_content`),原样存在这一回合第一个工具调用的
- * [Part.ToolCall.opaque] 里,回放时放回工具调用前面,模型接着上一步的思路做;只给文字回答的回合不需要接着想,不存。
- * 服务端说不收 `include` 时去掉再发一次。
+ * 推論モデルについて考える: このラウンドの最初のツール呼び出しにそのまま存在する、暗号化された思考コンテンツ (`include: reasoning.encrypted_content`) をリクエストします。
+ * [Part.ToolCall.opaque] では、再生時にツール呼び出しの前に戻すと、モデルは前のステップのアイデアを継続します。テキストで回答するだけのラウンドでは、考え続ける必要がなく、保存されません。
+ * サーバーが `include` を受信しないと言ったら、それを削除して再送信します。
  *
- * 只有收到 `response.completed`(或 `response.incomplete`)才算成功;流在这之前断开当作网络故障(会重试)。
- * [chatGptPlan] 为真时请求用的是用户的 ChatGPT 套餐额度:HTTP 429 是额度到了上限、403 是账号不能这样用,都不重试。
- * [accountLogin] 是用别家账号登录(如 xAI)时那一家的名字:HTTP 403 是订阅档位不能用这个接口([ModelError.AccountPlanNotAllowed])。
+ * は、`response.completed` (または `response.incomplete`) を受信した場合にのみ成功とみなされます。それより前にストリームが切断された場合、ネットワーク障害とみなされます (再試行されます)。
+ * [chatGptPlan] が true の場合、リクエストはユーザーの ChatGPT パッケージ クォータを使用します。HTTP 429 はクォータが上限に達したことを意味し、403 はアカウントがこの方法では使用できないことを意味し、再試行は行われません。
+ * [accountLogin] は、別のアカウント (xAI など) でログインするときの会社の名前です。HTTP 403 は、サブスクリプション レベルがこのインターフェイス ([ModelError.AccountPlanNotAllowed]) を使用できないことを意味します。
  */
 class ResponsesModel(
     baseUrl: String,
@@ -54,9 +54,9 @@ class ResponsesModel(
     override val capabilities: Capabilities,
     private val http: OkHttpClient,
     private val chatGptPlan: Boolean = false,
-    /** 每个请求都带的头(见 [ClientHeaders]);令牌的头由适配器自己加。这个接口不给回复上限(套餐那条路不收)。 */
+    /** 各リクエストにはヘッダーが含まれます ([ClientHeaders] を参照)。トークン ヘッダーはアダプター自体によって追加されます。このインターフェイスには応答の上限はありません (パッケージ ルートは課金されません)。 */
     private val headers: Map<String, String> = emptyMap(),
-    /** null 使用服务端默认;服务端拒绝所选档位时照常报错,不悄悄换档重试。 */
+    /** null サーバーのデフォルトを使用します。サーバーが選択したギアを拒否した場合でも、エラーが報告され、静かにギアを変更して再試行することはありません。 */
     private val reasoningEffort: String? = null,
     private val accountLogin: String? = null,
 ) : StreamingChatModel {
@@ -119,12 +119,12 @@ class ResponsesModel(
         put("name", t.name)
         put("description", t.description)
         put("parameters", try { json.parseToJsonElement(t.parametersJsonSchema) } catch (e: Exception) {
-            throw IllegalArgumentException("工具 ${t.name} 的参数 schema 不是合法 JSON", e)
+            throw IllegalArgumentException("ツール ${t.name} のパラメータ schema が正しいJSONではありません", e)
         })
         put("strict", false)
     }
 
-    /** 一条内部消息展开成若干 `input` 条目:助手的话、思考、工具调用;工具结果各占一条;文字和图片合成一条消息。 */
+    /** 内部メッセージはいくつかの `input` エントリに展開されます: アシスタントの言葉、考え、ツールの呼び出し。ツールの結果はそれぞれ 1 つずつ説明されます。テキストと画像が 1 つのメッセージに結合されます。 */
     private fun serialize(m: Message): List<JsonObject> {
         if (m.role == Role.Assistant) return assistantItems(m)
         val out = mutableListOf<JsonObject>()
@@ -177,14 +177,14 @@ class ResponsesModel(
         return root.str("detail")?.let { ErrorBody(null, it, null) }
     }
 
-    /** 流里的 `response.failed` / `error`,以及 HTTP 出错时内容里的 `error.code`。认不出的代码为 null。 */
+    /** ストリームの `response.failed` / `error`、および HTTP エラーが発生した場合のコンテンツの `error.code`。認識されないコードは null です。 */
     private fun errorOf(code: String?, message: String, param: String?): ModelError? = when (code) {
         "subscription_sharing_usage_limit_exceeded" -> ModelError.ChatGptLimitReached()
         "subscription_sharing_user_not_eligible" -> ModelError.ChatGptNotEligible(message.take(200))
-        // 服务端一时不可用:保留登录,过一会儿再试
+        // サーバーは一時的に利用できません。ログインを維持し、後でもう一度試してください。
         "subscription_sharing_usage_unavailable", "subscription_sharing_user_unavailable" -> ModelError.Server(503)
-        "subscription_sharing_unsupported_capability" -> ModelError.BadResponse("服务端不支持请求里的 ${param ?: "某项内容"}")
-        "subscription_sharing_route_not_supported" -> ModelError.BadResponse("服务端不支持这个接口")
+        "subscription_sharing_unsupported_capability" -> ModelError.BadResponse("サーバーがリクエスト内の ${param ?: "一部の内容"} に対応していません")
+        "subscription_sharing_route_not_supported" -> ModelError.BadResponse("サーバーがこのAPIに対応していません")
         "subscription_sharing_invalid_user", "chatpass_v2_scope_not_authorized", "chatpass_v2_invalid_authorization_context" ->
             ModelError.Auth()
         "context_length_exceeded" -> ModelError.ContextTooLong()
@@ -197,7 +197,7 @@ class ResponsesModel(
 
     private fun httpError(status: Int, retryAfter: String?, body: String, err: ErrorBody?): ModelError =
         err?.let { errorOf(it.code, it.message, it.param) }
-            // 账号登录已经核对过身份:没有认得出的错误代码的 403 是档位不够,不当成 Key 不对或某个模型没开通
+            // アカウントのログインにより本人確認が行われました: 認識できないエラー コードを含む 403 は、ギアが不十分であるか、キーとみなされるべきではないか、または特定のモデルがアクティベートされていないことを意味します。
             ?: (if (status == 403 && accountLogin != null) ModelError.AccountPlanNotAllowed(accountLogin, err?.message.orEmpty().take(200)) else null)
             ?: ModelAccessErrors.of(status, body, model) ?: when {
             status == 401 -> ModelError.Auth()
@@ -219,8 +219,8 @@ class ResponsesModel(
 private fun JsonObject.str(k: String): String? = (this[k] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
 
 /**
- * 读 Responses 的事件流:`response.output_text.delta` 是逐段文字,`response.output_item.done` 是做完的一项
- * (消息、工具调用、思考),`response.completed` / `response.incomplete` 收尾,`response.failed` / `error` 是失败。
+ * は応答のイベント ストリームを読み取ります。`response.output_text.delta` は段落ごとのテキスト、`response.output_item.done` は完了したアイテムです
+ * (メッセージ、ツール呼び出し、思考)、`response.completed` / `response.incomplete` 終了、`response.failed` / `error` は失敗です。
  */
 private class ResponsesStream(
     private val onText: (String) -> Unit,
@@ -235,7 +235,7 @@ private class ResponsesStream(
     fun accept(data: String) {
         if (data == "[DONE]") return
         val root = try { json.parseToJsonElement(data) as? JsonObject } catch (e: Exception) { null }
-            ?: throw ModelError.BadResponse("流式响应不是合法 JSON")
+            ?: throw ModelError.BadResponse("ストリーミング応答が正しいJSONではありません")
         when (root.str("type")) {
             "response.output_text.delta" -> root.str("delta")?.takeIf { it.isNotEmpty() }?.let {
                 visible.append(it)
@@ -258,10 +258,10 @@ private class ResponsesStream(
         return errorOf(code, message, e?.str("param")) ?: ModelError.BadResponse(listOfNotNull(code, message.take(200)).joinToString(" "))
     }
 
-    /** 服务端没按流式回、直接给了整个 response 对象。 */
+    /** サーバーは応答をストリーミングせず、応答オブジェクト全体を直接送信しました。 */
     fun fromBody(text: String): ModelReply {
         val root = try { json.parseToJsonElement(text) as? JsonObject } catch (e: Exception) { null }
-            ?: throw ModelError.BadResponse("返回内容不是合法 JSON")
+            ?: throw ModelError.BadResponse("返信内容が正しいJSONではありません")
         (root["error"] as? JsonObject)?.let { throw failure(it) }
         final = root
         incomplete = root.str("status") == "incomplete"
@@ -269,7 +269,7 @@ private class ResponsesStream(
     }
 
     fun finish(): ModelReply {
-        // 没等到 response.completed / response.incomplete 是连接中途被断开
+        // は、接続が途中で切断されたため、response.completed / response.incomplete を待機しませんでした。 再生用の
         val response = final ?: throw ModelError.StreamCut()
         val output = items.ifEmpty { (response["output"] as? JsonArray)?.filterIsInstance<JsonObject>().orEmpty() }
         val reasoning = mutableListOf<JsonObject>()
@@ -281,7 +281,7 @@ private class ResponsesStream(
             when (item.str("type")) {
                 "reasoning" -> {
                     (item["summary"] as? JsonArray)?.forEach { s -> (s as? JsonObject)?.str("text")?.let(thinking::append) }
-                    // 回放用:去掉只在服务端有意义的编号和状态,留下加密的思考
+                    // : サーバー側でのみ意味のある番号とステータスを削除し、暗号化の考慮事項を残します。
                     if (item["encrypted_content"] != null) reasoning += JsonObject(item - "id" - "status")
                 }
                 "message" -> (item["content"] as? JsonArray)?.forEach { c ->
@@ -292,8 +292,8 @@ private class ResponsesStream(
                     }
                 }
                 "function_call" -> {
-                    val id = item.str("call_id") ?: throw ModelError.BadResponse("工具调用缺少编号")
-                    val name = item.str("name") ?: throw ModelError.BadResponse("工具调用缺少名称")
+                    val id = item.str("call_id") ?: throw ModelError.BadResponse("ツール呼び出しにIDがありません")
+                    val name = item.str("name") ?: throw ModelError.BadResponse("ツール呼び出しに名前がありません")
                     calls += Part.ToolCall(id, name, item.str("arguments")?.ifEmpty { null } ?: "{}")
                 }
             }

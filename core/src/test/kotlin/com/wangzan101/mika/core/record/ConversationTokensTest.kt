@@ -16,7 +16,7 @@ class ConversationTokensTest {
         assertEquals(32_700, t.tokens)
         assertEquals(2, t.turns)
         assertFalse(t.partial)
-        // 和「查看过程」顶上那一行同一个数
+        // は「プロセスの表示」の一番上の行と同じ番号です
         assertEquals(all.getValue("b").tokens, ConversationTokens.turn(all["b"]))
     }
 

@@ -20,7 +20,7 @@ class CapsulePreviewTest {
         runCurrent()
         source.emit(Frame("1"))
         runCurrent()
-        // 200 毫秒内来的三张只留最后一张
+        // 200 ミリ秒以内に 3 枚の写真が送信され、最後の 1 枚だけが残っています。
         source.emit(Frame("2"))
         source.emit(Frame("3"))
         source.emit(Frame("4"))
@@ -42,7 +42,7 @@ class CapsulePreviewTest {
         source.emit(first)
         advanceTimeBy(300)
         runCurrent()
-        // 同一张、内容一样的新拷贝:都不推
+        // 同じ内容の同じ写真の新しいコピー: 推奨されません
         source.emit(first)
         advanceTimeBy(300)
         runCurrent()

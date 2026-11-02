@@ -58,8 +58,8 @@ import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 
 /**
- * 对话页里长按的一条消息:[key] 认是哪一条(「选择文字」记的就是它),[from] 是谁说的,[text] 是复制、引用用的纯文字
- * (回答去掉了 Markdown 符号,用户的话去掉了附件、屏幕、引用那几行),[bounds] 是它在窗口里的位置和大小,[lifted] 画抬起的那一张。
+ * 会話ページで長押しされたメッセージ: [key] それはどのメッセージに属しますか (「テキストの選択」で記録されます)、[from]、[text] はコピーおよび引用用のプレーン テキストであると誰が言いましたか
+ * (答えはマークダウン記号を削除し、ユーザーの言葉は添付ファイル、画面、および引用行を削除します)、[bounds] はウィンドウ内での位置とサイズ、[lifted] は画像が上がったものです。
  */
 internal class MessageTarget(
     val key: String,
@@ -69,16 +69,16 @@ internal class MessageTarget(
     val lifted: @Composable () -> Unit,
 )
 
-/** 对话页给消息的长按菜单:[selecting] 是此刻处在「选择文字」里的那一条,[open] 弹出菜单。 */
+/** 会話ページ上のメッセージの長押しメニュー: [selecting] は、現在「テキストの選択」の [open] ポップアップ メニューにあるものです。 */
 internal class MessageMenuHost(val selecting: String?, val open: (MessageTarget) -> Unit)
 
-/** 没有时(单独测某个部件)消息照旧长按就选中文字。 */
+/** メッセージがない場合 (コンポーネントを個別にテストしている場合)、長押しするとテキストが選択されたままになります。 */
 internal val LocalMessageMenu = compositionLocalOf<MessageMenuHost?> { null }
 
 /**
- * 一条消息的文字部分:长按(振一下)弹出复制 / 引用 / 选择文字的菜单;选了「选择文字」的那条换回系统的长按选中([selectTag] 标在选区上)。
- * 文字里的链接照旧点开(点击由里面的文字先处理)。文件卡片、「查看过程」不包在里面。[text] 为空时不弹菜单。
- * [modifier] 是这条消息自己的底(背景、宽度、内边距),抬起的那张按它的位置和大小摆;外边距放在外面。
+ * メッセージのテキスト部分: 長押し (振動) すると、コピー/引用/テキストの選択メニューが表示されます。 「テキストの選択」を選択すると、システムの長押し選択に戻ります (選択上に [selectTag] がマークされます)。
+ * テキスト内のリンクはまだクリックされています (クリックは最初に内部のテキストによって処理されます)。ファイルカードと「ビュープロセス」は含まれません。 [text] が空の場合、メニューはポップアップしません。
+ * [modifier] は、このメッセージの下部 (背景、幅、パディング) です。持ち上げられたものは、その位置とサイズに従って配置されます。余白は外側に配置されます。 ウィンドウ内の
  */
 @Composable
 internal fun MessageArea(
@@ -97,9 +97,9 @@ internal fun MessageArea(
     }
     val haptic = LocalHapticFeedback.current
     val label = stringResource(R.string.chat_message_actions)
-    // 在窗口里的位置和大小(不裁掉滚出列表的部分);只在回调里读,不引起重组
+    // の位置とサイズ (リストからロールアウトされる部分は切り取られません)。コールバックでのみ読み取るため、再編成は発生しません
     val bounds = remember { mutableStateOf(Rect.Zero) }
-    // 手势一直用最新的这一份(流式回答时会不停重组),不因重组重启、丢掉按到一半的长按
+    // のジェスチャは常に最新のものを使用し (回答のストリーミング中に常に再編成されます)、再編成によって再起動されたり、途中で長押しが失われることはありません。
     val open by rememberUpdatedState({ host.open(MessageTarget(key, from, text, bounds.value, lifted)) })
     Box(
         Modifier
@@ -107,7 +107,7 @@ internal fun MessageArea(
             .then(modifier)
             .pointerInput(Unit) {
                 detectTapGestures(onLongPress = {
-                    // 和系统里长按一样振一下
+                    // はシステム内で長押しのように振動します。
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     open()
                 })
@@ -118,8 +118,8 @@ internal fun MessageArea(
 }
 
 /**
- * 长按一条消息后的菜单(和侧栏里长按对话同一个样子,见 [LongPressMenu]):那条消息抬起,下面是复制、引用、选择文字;
- * 一条已答完的回答还能「从这里分支」,用户自己的话能「从这里重新问」(见 [onBranch]、[onBranchRetry])。用户自己的话靠右,菜单也靠右。
+ * メッセージを長押しした後のメニュー (サイドバーの長押しダイアログと同じ、[LongPressMenu] を参照): メッセージが表示され、テキストのコピー、引用、選択が行われます。
+ * 完成した回答は「ここから分岐」することもでき、ユーザーは自分の言葉で「ここから質問し直す」こともできます ([onBranch]、[onBranchRetry] を参照)。ユーザー自身の言葉が右側にあり、メニューも右側にあります。
  */
 @Composable
 internal fun MessageMenu(
@@ -151,7 +151,7 @@ internal fun MessageMenu(
     )
 }
 
-/** 菜单开着时后面那层:安卓 12 起按出现的进度模糊([MenuBlur]),无障碍也只读菜单。菜单没开时什么也不加。 */
+/** メニューが開いているときの背後のレイヤー: Android 12 以降、表示される進行状況はぼやけて表示され ([MenuBlur])、メニューはアクセス可能で読み取りのみ可能です。メニューを開いていない場合は何も追加されません。 */
 internal fun Modifier.behindMenu(open: Boolean, progress: () -> Float): Modifier =
     if (!open) this else this
         .then(
@@ -162,18 +162,18 @@ internal fun Modifier.behindMenu(open: Boolean, progress: () -> Float): Modifier
         )
         .clearAndSetSemantics {}
 
-/** 把消息的纯文字放进剪贴板,提示一句「已复制」。 */
+/** メッセージのプレーン テキストをクリップボードに置き、「コピーされました」というプロンプトを表示します。 */
 internal fun copyMessage(context: Context, text: String) {
     context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Mika", text))
     Toast.makeText(context, context.getString(R.string.chat_copied), Toast.LENGTH_SHORT).show()
 }
 
-/** 引用怎么念给读屏:「引用 Mika:……」「引用你的话:……」。 */
+/** スクリーン リーダーに引用を読み上げる方法: 「Mika を引用:...」「あなたを引用:...」。 */
 @Composable
 private fun quoteDescription(q: QuoteMessage.Quote): String =
     stringResource(if (q.from == QuoteMessage.From.Mika) R.string.chat_quoting_mika else R.string.chat_quoting_you, q.text)
 
-/** 输入框上方待发的引用:左边一道竖线,引的内容最多两行,右边 × 去掉。 */
+/** 入力ボックスの上に送信する見積書：左側に縦線、見積内容は2行まで、右側の×を消します。 */
 @Composable
 internal fun QuoteChip(quote: QuoteMessage.Quote, onRemove: () -> Unit, modifier: Modifier = Modifier) {
     val c = MikaTheme.colors
@@ -200,7 +200,7 @@ internal fun QuoteChip(quote: QuoteMessage.Quote, onRemove: () -> Unit, modifier
     }
 }
 
-/** 用户的话里引的那条:气泡上方一小块淡色,最多两行。 */
+/** ユーザーの言葉で引用されているもの: バブルの上にある明るい色の小さな領域 (最大 2 行)。 */
 @Composable
 internal fun SentQuote(quote: QuoteMessage.Quote, maxWidth: Dp) {
     val c = MikaTheme.colors

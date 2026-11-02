@@ -25,7 +25,7 @@ import com.wangzan101.mika.core.uistate.lastSnapshot
 
 private fun timeoutProp() = int("Time limit, 1000-$READ_SCRIPT_MAX_TIMEOUT_MS ms (default $READ_SCRIPT_DEFAULT_TIMEOUT_MS).", 1000, READ_SCRIPT_MAX_TIMEOUT_MS)
 
-/** 读脚本(读数据脚本、站点命令)跑在端口上;结果来自网页,交给模型时套不可信标记,也作为观察交给核查。 */
+/** 読み取りスクリプト (データ読み取りスクリプト、サイト コマンド) がポート上で実行されます。結果は Web ページから取得され、モデルに送信されると信頼できないとしてマークされ、観察として検証のためにも送信されます。 */
 private suspend fun readScript(ctx: ToolContext, code: String, args: JsonObject?, timeoutMs: Int, what: String): ToolExecution {
     val r = try {
         ctx.web!!.evaluate(code, timeoutMs.toLong(), args)
@@ -47,10 +47,10 @@ private suspend fun readScript(ctx: ToolContext, code: String, args: JsonObject?
     }
 }
 
-/** 读数据脚本:在当前页面的读取世界里只读地跑(真实 DOM、同源 GET);要动页面走动作工具。 */
+/** データ読み取りスクリプト: 現在のページの読み取り環境で読み取り専用で実行します (実際の DOM、同一オリジン GET)。ページを移動するには、アクション ツールを使用します。 */
 internal object EvaluateJs : WebTool {
     override val verb = Verb.EvaluateJs
-    override val label = "读取网页数据"
+    override val label = "Webページデータを読み取る"
     override val risk = Risk.Read
     override val def = ToolDef("web_evaluate_js",
         Prompts.tool("web_evaluate_js", "result_max" to EVAL_RESULT_MAX_CHARS, "default_seconds" to READ_SCRIPT_DEFAULT_TIMEOUT_MS / 1000),
@@ -64,17 +64,17 @@ internal object EvaluateJs : WebTool {
         val script = a.str("script", max = EVAL_SCRIPT_MAX_CHARS)!!
         PageScriptProtocol.codeProblem(script)?.let { throw ArgError("script", it) }
         val timeout = a.int("timeoutMs", 1000, READ_SCRIPT_MAX_TIMEOUT_MS) ?: READ_SCRIPT_DEFAULT_TIMEOUT_MS
-        return readScript(ctx, script, null, timeout, "网页数据脚本的结果")
+        return readScript(ctx, script, null, timeout, "Webページデータスクリプトの結果")
     }
 }
 
 /**
- * 站点命令:当前站点知识里声明的 `scripts/<name>.js`,在读取世界里只读地跑,参数按声明校验。
- * 只有内置知识里有站点命令时才提供;只认当前页面所属站点的命令。
+ * サイト コマンド: 現在のサイト ナレッジで宣言された `scripts/<name>.js` は、読み取りワールドで読み取り専用で実行され、パラメーターは宣言どおりに検証されます。
+ * は、組み込みナレッジにサイト コマンドがある場合にのみ提供されます。現在のページが属しているサイトのコマンドのみが認識されます。
  */
 internal object RunSiteCommand : WebTool {
     override val verb = Verb.SiteCommand
-    override val label = "运行站点命令"
+    override val label = "サイトコマンドを実行"
     override val risk = Risk.Read
     override fun available(ctx: ToolContext) = ctx.web != null && ctx.config.skills?.hasSiteCommands() == true
     override val def = ToolDef("web_run_site_command",
@@ -104,10 +104,10 @@ internal object RunSiteCommand : WebTool {
                 if (commands.isEmpty()) "$host has no site commands; read the page with web_read_page or web_evaluate_js."
                 else "$host has no command '$name'. Its commands: ${commands.joinToString { it.decl.name }}.")
         SiteCommandFile.checkArgs(command.decl, args)?.let { throw ArgError("args", it) }
-        return readScript(ctx, command.body, args, timeout, "站点命令 ${command.site}/${command.decl.name} 的结果")
+        return readScript(ctx, command.body, args, timeout, "サイトコマンド ${command.site}/${command.decl.name} の結果")
     }
 
-    /** 当前标签的网址:按标签列表,读不到时用最近一次读屏的。 */
+    /** 現在のタグの URL: タグ リストに従って、読み取れない場合は、最新の画面読み取りが使用されます。 */
     private suspend fun currentUrl(ctx: ToolContext): String? {
         val tabs = try { ctx.web!!.tabs() } catch (e: CancellationException) { throw e } catch (e: Exception) { emptyList() }
         return tabs.firstOrNull { it.current }?.url?.takeIf { it.isNotBlank() } ?: ctx.lastSnapshot?.web?.url

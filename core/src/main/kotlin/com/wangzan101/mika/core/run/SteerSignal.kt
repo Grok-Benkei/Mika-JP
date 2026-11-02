@@ -10,20 +10,20 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.coroutineContext
 
 /**
- * 本次运行里「有用户插话还没交给模型」的信号([RunInbox] 给出),装在运行的协程上下文里。
- * 撤掉也什么都不丢的调用(纯等待、动作之前的停留与间隔、只问看图模型)经 [waitOrSteer] 包起来,插话一到就提前结束,
- * 让模型马上读到这句话;已经开始的动作不受它影响。
+ * この実行では、「ユーザーが中断しましたが、モデルに引き渡されていません」という信号 ([RunInbox] によって与えられる) が、実行中のコルーチン コンテキストにインストールされます。
+ * 呼び出し (アクション前の純粋な待機、一時停止、間隔、画像モデルの表示を要求するだけ) は [waitOrSteer] によってラップされ、割り込みが到着するとすぐに早期終了します。
+ * により、モデルはこの文をすぐに読み上げることができます。すでに開始されているアクションは影響を受けません。
  */
 class SteerSignal internal constructor(internal val pending: StateFlow<Boolean>) : AbstractCoroutineContextElement(SteerSignal) {
     companion object Key : CoroutineContext.Key<SteerSignal>
 }
 
-/** 撤掉的调用给模型的错误码:这次什么也没做(等待被截断、动作之前的停留没走完),先读用户的新话。 */
+/** モデルへのキャンセルされた呼び出しのエラー コード: 今回は何も行われず (待機が切断され、アクション前の一時停止が完了しませんでした)、ユーザーのニュースが最初に読み取られました。 */
 const val SKIPPED_FOR_NEW_MESSAGE = "skipped_for_new_message"
 
 /**
- * 跑一段撤掉也什么都不丢的 [block]:用户插话已在等或在它进行中到达,就撤掉它、返回 null;否则返回它的结果。
- * 不在运行里(没有 [SteerSignal])时照常跑完。
+ * しばらく走った後に外しても何も失われません。 [block]: ユーザーの介入がすでに待機中であるか、進行中に到着した場合は、それを削除して null を返します。それ以外の場合は、その結果を返します。
+ * が実行されていない場合 ([SteerSignal] がない場合)、通常どおり実行されます。
  */
 suspend fun <T : Any> waitOrSteer(block: suspend () -> T): T? {
     val pending = coroutineContext[SteerSignal]?.pending ?: return block()

@@ -19,29 +19,29 @@ import kotlinx.serialization.json.contentOrNull
 enum class NoteKind { added, updated, forgot, pending }
 
 /**
- * 结果卡片下的一行。只带种类和编号,不带记忆内容:对话文件是明文,内容每次从加密的记忆里现取([text])。
- * [undoToken] 交给 [MemoryStore.undo];[pendingId] 是待批准的做法(「好」= approve,「不要」= 撤销或删除)。
+ * 結果カードの下の行。タイプと番号のみが含まれ、メモリ内容は含まれません。会話ファイルはプレーン テキストであり、内容は毎回暗号化されたメモリからフェッチされます ([text])。
+ * [undoToken] は [MemoryStore.undo] に引き継がれます。 [pendingId] は承認待ちです (「OK」 = 承認、「しない」 = 取り消しまたは削除)。
  */
 data class MemoryNote(val kind: NoteKind, val memoryId: String, val undoToken: String?, val pendingId: String?) {
-    /** [item] 是 [memoryId] 此刻的那条;已经不在了(删掉、清空)时写「一条已删除的记忆」。 */
+    /** [item] は現時点では [memoryId] です。それがなくなった（削除された、クリアされた）場合は、「削除されたメモリ」と書きます。 */
     fun text(item: MemoryItem?): String {
         val content = item?.content ?: DELETED
         return when (kind) {
-            NoteKind.added -> "记住了:$content"
-            NoteKind.updated -> "更新了:$content" + (item?.replaces?.let { "(原来:$it)" } ?: "")
-            NoteKind.forgot -> if (item == null) "忘掉了一条记忆" else "忘掉了:$content"
-            NoteKind.pending -> "要我以后都这样做吗?$content"
+            NoteKind.added -> "覚えました:$content"
+            NoteKind.updated -> "更新しました:$content" + (item?.replaces?.let { "（前は:$it）" } ?: "")
+            NoteKind.forgot -> if (item == null) "1件のメモリを忘れました" else "忘れました:$content"
+            NoteKind.pending -> "今後もこのようにしますか？$content"
         }
     }
 
     companion object {
-        const val DELETED = "一条已删除的记忆"
+        const val DELETED = "削除済みのメモリ"
     }
 }
 
 /**
- * 任务结束后的一次单独调用(轻量模型,不带工具):只看用户本次说的话和相关的已有记忆,给出增改删。
- * 模型给的每一条都由代码再校验一遍;模型出错或回复不合格时什么也不做,不影响任务结局。
+ * タスク後の別の呼び出し (軽量モデル、ツールなし): 今回ユーザーが言ったことと関連する既存の記憶のみを確認し、追加、変更、削除を提供します。
+ * モデルで指定されたすべての項目は、コードによって再度チェックされます。モデルがエラーを起こした場合、または応答が不適格だった場合、何も行われず、タスクの結果は影響を受けません。
  */
 class MemoryExtractor(private val model: ChatModel) {
     suspend fun extract(utterances: List<String>, related: List<MemoryItem>, store: MemoryStore, source: (String) -> MemorySource): List<Change> {
@@ -72,7 +72,7 @@ class MemoryExtractor(private val model: ChatModel) {
             }
             "update" -> {
                 val t = target ?: return null
-                // 一次性参数不能把长期偏好改掉
+                // 1 回限りのパラメータでは長期的な設定を変更できません
                 if (ONE_OFF.containsMatchIn(quote)) return null
                 val content = str("content")?.takeIf(::fromUser) ?: return null
                 store.update(t.id, content, keywords.takeIf { it.isNotEmpty() }, source(quote)).getOrNull()
@@ -87,12 +87,12 @@ class MemoryExtractor(private val model: ChatModel) {
     }
 
     private fun request(utterances: List<String>, labels: Map<String, MemoryItem>) = buildString {
-        appendLine("用户本次说的话:")
+        appendLine("ユーザーが今回言ったこと:")
         utterances.filter { it.isNotBlank() }.forEachIndexed { i, u -> appendLine("${i + 1}. $u") }
         appendLine()
-        if (labels.isEmpty()) append("已有的相关记忆:无")
+        if (labels.isEmpty()) append("関連する既存のメモリ:なし")
         else {
-            appendLine("已有的相关记忆:")
+            appendLine("関連する既存のメモリ:")
             labels.forEach { (label, m) -> appendLine("$label [${m.kind.name}] ${m.content}") }
         }
     }.trimEnd()
@@ -100,16 +100,17 @@ class MemoryExtractor(private val model: ChatModel) {
     companion object {
         const val MAX_OPS = 5
         const val MAX_RELATED = 10
-        private val FORGET = Regex("忘|别记|删|不用记|forget", RegexOption.IGNORE_CASE)
-        private val ONE_OFF = Regex("这次|这一次|今天先|this time", RegexOption.IGNORE_CASE)
+        // ユーザーの言葉の照合用データ:日本語を正とし、中国語の旧表現もデータとして保持する
+        private val FORGET = Regex("忘|覚えない|削除|删除|消して|别记|不用记|forget", RegexOption.IGNORE_CASE)
+        private val ONE_OFF = Regex("今回|今日は|この回|这次|这一次|今天先|this time", RegexOption.IGNORE_CASE)
 
         val PROMPT: String by lazy { Prompts.role("memory_extract") }
 
-        /** 与这次说的话相关的已有记忆(待批准的也给,免得重复提出同一条做法)。 */
+        /** 今回話された内容に関連する既存の記憶（同じアプローチを繰り返さないように承認待ちの記憶も表示されます）。 */
         fun related(utterances: List<String>, items: List<MemoryItem>): List<MemoryItem> =
             MemoryIndex(items).search(utterances.joinToString("\n"), MAX_RELATED, includePending = true).map { it.first }
 
-        /** 变更翻成结果卡片下的提示行。 */
+        /** 結果カードの下のプロンプト ラインを変更します。 */
         fun notes(changes: List<Change>): List<MemoryNote> = changes.map { c ->
             when (c) {
                 is Change.Added ->
@@ -122,7 +123,7 @@ class MemoryExtractor(private val model: ChatModel) {
             }
         }
 
-        /** 回复里第一个能读的 JSON 对象(见 [ModelJson]);不合格返回 null。 */
+        /** 応答内の最初の読み取り可能な JSON オブジェクト ([ModelJson] を参照)。修飾されていない場合は null を返します。 */
         internal fun parse(text: String): List<JsonObject>? {
             val obj = ModelJson.firstObject(text) ?: return null
             return (obj.field("ops", "operations") as? JsonArray)?.mapNotNull { it as? JsonObject }

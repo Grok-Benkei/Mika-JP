@@ -5,20 +5,20 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import com.wangzan101.mika.core.workspace.SandboxPaths
 
-/** 技能脚本清单(`scripts/manifest.json`)里的一项;[file] 是技能目录下的相对路径。 */
+/** はスキル スクリプト リスト (`scripts/manifest.json`) の項目です。 [file] は、スキル ディレクトリ内の相対パスです。 */
 @Serializable
 data class ScriptEntry(val file: String, val runnable: Boolean, val needs: List<String> = emptyList(), val network: Boolean = false, val reason: String? = null)
 
 /**
- * 技能目录下 `scripts/manifest.json`:`[{file, runnable, needs, network, reason?}]`,[ScriptEntry.file] 是技能目录下的相对路径。
- * run_bundled_script 与 knowledge_read、skill_read 都以它为准。
+ * はスキルディレクトリにあります。 `scripts/manifest.json`:`[{file, runnable, needs, network, reason?}]`、[ScriptEntry.file]はスキルディレクトリ内の相対パスです。
+ * run_bundled_script、knowledge_read、skill_read はすべてこれに基づいています。
  */
 object ScriptManifest {
-    const val NEEDS_NETWORK = "needs network access: the user can turn on \"Allow scripts to go online\" (允许脚本联网) in Mika's settings"
+    const val NEEDS_NETWORK = "ネットワーク接続が必要です。Mikaの設定で「スクリプトのネット接続を許可」を有効にできます"
     private val json = Json { ignoreUnknownKeys = true }
     private val INTERPRETERS = mapOf("py" to "/usr/bin/python3", "mjs" to "/usr/bin/node", "js" to "/usr/bin/node", "sh" to "/bin/sh")
 
-    /** 读不懂时为空;路径不是技能目录里的相对路径的项丢掉。 */
+    /** は、読み取れない場合は空です。パスがスキルディレクトリ内の相対パスではないアイテムは破棄されます。 */
     fun parse(text: String): List<ScriptEntry> = try {
         json.decodeFromString<List<ScriptEntry>>(text).filter { safe(it.file) }
     } catch (e: SerializationException) {
@@ -27,10 +27,10 @@ object ScriptManifest {
         emptyList()
     }
 
-    /** 用绝对路径:不受工作区里同名文件或 PATH 的影响。 */
+    /** は絶対パスを使用します。ワークスペースまたは PATH 内の同じ名前のファイルの影響を受けません。 現時点で */
     fun interpreterFor(file: String): String? = INTERPRETERS[file.substringAfterLast('.', "").lowercase()]
 
-    /** 此刻能不能跑,不能时给出原因:标为不可运行的用它自己的原因;需要联网而联网关着的,提示去设置里打开。 */
+    /** が実行できるかどうか、実行できない場合はその理由を示します。動作不能としてマークされている場合は、独自の理由を使用します。インターネットに接続する必要があるがネットワークがオフになっている場合は、設定でインターネットを開くように求められます。 */
     fun effectiveRunnable(e: ScriptEntry, networkAllowed: Boolean): Pair<Boolean, String?> = when {
         !e.runnable -> false to (e.reason ?: "cannot be run for now")
         interpreterFor(e.file) == null -> false to "unsupported script type"

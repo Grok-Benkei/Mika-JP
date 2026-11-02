@@ -6,10 +6,10 @@ import android.os.ParcelFileDescriptor
 import androidx.core.content.FileProvider
 
 /**
- * 对话页附件用的 content:// 地址(见 res/xml/attach_files.xml),不对外导出,只在用到时临时授权:
- * - camera/:系统相机拍的照片写到这里(拍照时授权相机 App 写这一个文件),发送时再复制进对话工作区;
- * - viewing/:点开已发出的照片、文件时从工作区复制出来的一份,交给 App 里的查看页(或用户选的别的 App)只读打开。
- * 工作区本身不开放。除 camera/ 外只读;不许删、不许插入。
+ * ダイアログ ページの添付ファイルに使用される content:// アドレス (res/xml/attach_files.xml を参照) は外部にはエクスポートされず、使用時に一時的にのみ許可されます。
+ * - カメラ/: システム カメラで撮影された写真がここに書き込まれ (写真撮影時にカメラ アプリにこのファイルの書き込みを許可します)、送信時に会話ワークスペースにコピーします。
+ * - 表示/: 送信された写真またはファイルをクリックすると、コピーがワークスペースからコピーされ、アプリ (またはユーザーが選択した他のアプリ) の表示ページに渡されて、読み取り専用で開きます。
+ * ワークスペース自体が開いていません。 Camera/ を除き、これは読み取り専用です。削除や挿入は許可されません。
  */
 class AttachFilesProvider : FileProvider() {
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? {
@@ -24,7 +24,7 @@ class AttachFilesProvider : FileProvider() {
     override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?): Int = 0
 
     companion object {
-        /** 和 attach_files.xml 里的 name 一致:地址的第一段。 */
+        /** は、attach_files.xml 内の名前 (アドレスの最初のセグメント) と一致します。 */
         const val CAMERA = "camera"
 
         fun authority(packageName: String) = "$packageName.attachfiles"

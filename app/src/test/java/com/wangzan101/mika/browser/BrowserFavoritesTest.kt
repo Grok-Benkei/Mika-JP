@@ -54,7 +54,7 @@ class BrowserFavoritesTest {
         f.remove("example.com")
         f.remove("news.example.org")
         assertEquals(FavoriteEdits(listOf("docs.example.net"), setOf("example.com", "example.org")), BrowserFavorites(tmp.root).edits.value)
-        // 再加回来:不再隐藏
+        // が再び表示されます: 非表示ではなくなりました
         f.add("shop.example.com")
         assertEquals(setOf("example.org"), f.edits.value.hidden)
         assertTrue(BrowserFavorites.contains(BrowserFavorites.combine(f.edits.value, registry), "example.com"))

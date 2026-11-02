@@ -22,9 +22,9 @@ import com.wangzan101.mika.core.run.RunSpec
 import java.util.UUID
 
 /**
- * 电脑交来的任务的出入口:经 [TaskService] 开始(和对话界面同一条路,来源沿用已有的远程 MCP 权限策略;CLI 与 MCP 都由这里接入),状态读任务自己的([TaskRun.state]),
- * 这里只记电脑给的编号对应哪个对话、原话,以及任务收尾时的终态(任务对象收尾后就不在了)。
- * 只认这里登记过的编号,手机上发起的任务看不到也动不了。
+ * コンピュータによって引き渡されたタスクの入口と出口: [TaskService] (対話インターフェイスと同じパス、ソースは既存のリモート MCP 許可ポリシーに従います。CLI と MCP の両方はここからアクセスされます) から始まり、ステータス読み取りタスク自体 ([TaskRun.state])、
+ * ここでは、コンピューターによって与えられた番号がどのダイアログ、元の単語、タスク終了時の最終状態に対応するかを記録するだけです (終了後はタスク オブジェクトは存在しません)。
+ * はここに登録された番号のみを認識します。携帯電話で開始されたタスクは表示または移動できません。
  */
 class RemoteTaskHub(
     private val context: Context,
@@ -127,7 +127,7 @@ class RemoteTaskHub(
     @Synchronized fun attach(id: String, source: RunEventBus): AutoCloseable? =
         buses[RunId(id)]?.let { sink -> source.subscribe(sink) }
 
-    /** 任务收尾(含排队时被取消、服务被系统停掉):记下终态,之后状态都从这里读。 */
+    /** タスクの終了 (キューイング中にキャンセルされたこと、システムによってサービスが停止されたことを含む): 最終状態を書き留め、その後のすべての状態をここから読み取ります。 サービス開始前に */
     @Synchronized fun ended(id: String, end: TaskState, steers: List<SteerNote>) {
         require(end is TaskState.Terminal)
         val result = unsaved[id] ?: (end to remoteSteers(steers, finished = true))

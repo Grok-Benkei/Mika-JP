@@ -15,5 +15,5 @@ internal fun mem(
     createdAt = 0L, updatedAt = 0L,
 )
 
-/** 互不相关的填充条目,让检索的 IDF 接近真实规模。 */
+/** 無関係なパディング エントリにより、取得された IDF が実際のスケールに近くなります。 */
 internal fun distractors(n: Int) = (1..n).map { mem("无关事实第${it}条:用户周${it % 7}去健身房锻炼身体") }

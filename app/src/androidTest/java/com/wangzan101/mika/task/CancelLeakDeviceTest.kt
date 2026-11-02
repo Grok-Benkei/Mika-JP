@@ -18,8 +18,8 @@ import org.junit.runner.RunWith
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * 真机测试:任务刚开始建虚拟屏或网页显示就被取消,反复 20 次,收尾后系统里不留 Mika 的显示。
- * 取消的时机错开,落在建屏前后的不同位置。需要内置助手在运行、Mika 无障碍服务已开启。
+ * 実機テスト: 仮想画面または Web ページ表示を構築するタスクが開始するとすぐにキャンセルされ、20 回繰り返され、終了後にシステムにミカ ディスプレイが残されませんでした。
+ * キャンセルのタイミングがずらされており、画面構築の前後で異なる位置にあります。内蔵アシスタントを実行し、Mika アクセシビリティ サービスをオンにする必要があります。
  */
 @RunWith(AndroidJUnit4::class)
 class CancelLeakDeviceTest {
@@ -53,7 +53,7 @@ class CancelLeakDeviceTest {
             val model = models[i]
             TaskService.start(context, "测试任务 $i")
             assertEquals(1, model.awaitCall().number)
-            // 轮流建虚拟屏、网页显示
+            // は交代で仮想画面と Web ページ表示を構築します
             if (i % 2 == 0) model.feed("phone_launch_app", """{"package":"$SETTINGS"}""")
             else model.feed("web_navigate", """{"url":"https://example.com/"}""")
             Thread.sleep((i / 2 % 5) * 40L)

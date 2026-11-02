@@ -12,32 +12,32 @@ import android.util.Log
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * 内置助手里盯着主屏的那一份:Agent 的动作前后一小段时间里,主屏最上面换了哪些任务([MainScreenLog])。
- * App 不是从自己在 Mika 屏上的页面、而是从后台(服务、通知的跳转、系统的选择器)打开另一个 App 时,系统把它放到主屏;
- * Mika 一侧据这份记录认出来、挪回去。
+ * ホーム画面を見つめる組み込みアシスタントの部分: エージェントのアクションの前後の短期間で、ホーム画面の上部でタスクが変更されました ([MainScreenLog])。
+ * アプリが、Mika 画面上の独自のページからではなく、バックグラウンド (サービス、通知ジャンプ、システム セレクター) から別のアプリを開くと、システムはそのアプリをホーム画面に配置します。
+ * ミカはこの記録を認識し、元に戻りました。
  *
- * 任务一变就看一次:向系统登记任务栈的监听(ITaskStackListener,shell 有管理任务的权限),
- * 监听只当「变了」的信号用,不解析参数(各版本的方法顺序不同),收到就重看一遍任务列表;
- * 登记不上时退回在盯着的那段时间里每 [POLL_MS] 看一次。查询时([arrivals])再当场看一次,不漏最后的样子。
- * 不在盯着的时候不看任务列表。
+ * タスクが変更されたときに一度確認します。タスク スタック リスナーをシステムに登録します (ITaskStackListener、シェルにはタスクを管理する権限があります)。
+ * は「変更された」信号のみを監視し、パラメーターを解析しません (各バージョンのメソッドの順序は異なります)。受け取ったら、タスクリストをもう一度読んでください。
+ * が登録に失敗した場合、スターリング期間中 [POLL_MS] ごとに 1 回返されて表示されます。 ([arrivals]) をクエリするときは、最終的な外観を見逃さないように、その場でもう一度見てください。
+ * 見つめていないときはタスクリストを見ないでください。
  */
 internal class MainScreenWatch(
     private val taskManager: () -> Any,
-    /** 此刻所有屏上的任务,按最近使用排。 */
+    /** 現時点で画面上のすべてのタスクは、最近の使用状況に従って配置されています。 */
     private val tasks: () -> List<MainScreenLog.Task>,
 ) {
     private val log = MainScreenLog()
     private val thread = HandlerThread("mika-main-watch").apply { start() }
     private val handler = Handler(thread.looper)
-    /** 盯到什么时候(uptimeMillis)。 */
+    /** いつまで見るか (uptimeMillis)。 */
     @Volatile private var until = 0L
-    /** 任务栈监听登记上了为 true,登记不上为 false,还没试过为 null。 */
+    /** タスクスタックモニターが登録されている場合はtrue、登録されていない場合はfalse、未試行の場合はnullとなります。 */
     @Volatile private var listening: Boolean? = null
     private val queued = AtomicBoolean(false)
     private val polling = AtomicBoolean(false)
     private val signal = StackSignal()
 
-    /** 从现在起盯 [windowMs];返回此刻主屏最上面的任务(没有为 -1)。 */
+    /** 今から[windowMs]を見つめてください現時点でのメイン画面の一番上のタスクに戻ります (そうでない場合は -1)。 */
     fun watch(windowMs: Int): Int {
         val now = SystemClock.uptimeMillis()
         val top = synchronized(log) {
@@ -51,8 +51,8 @@ internal class MainScreenWatch(
     }
 
     /**
-     * [since] 之后主屏冒到最上面的任务,先后排;每条另带此刻它在哪块屏(不在了为 -1),和这份记录是靠监听还是轮询得来的。
-     * 字段见 [toBundle]。
+     * [since] その後、メイン画面に上部のタスクが次々と表示されます。それぞれは、現在どの画面にあるか (そうでない場合は -1)、およびこのレコードがモニタリングまたはポーリングによって取得されたかどうかも示します。
+     * フィールドは、[toBundle] を参照してください。
      */
     fun arrivals(since: Long): Bundle = synchronized(log) {
         val now = SystemClock.uptimeMillis()
@@ -79,7 +79,7 @@ internal class MainScreenWatch(
         synchronized(log) { scanLocked(now, record = true) }
     }
 
-    /** 任务栈变了:合并一下再看,一连串变化只看一次。 */
+    /** タスク スタックが変更されました。タスク スタックをマージして再度表示し、一連の変更を 1 回だけ表示します。 */
     private fun onSignal() {
         if (SystemClock.uptimeMillis() >= until) return
         if (queued.compareAndSet(false, true)) handler.postDelayed({ queued.set(false); scan() }, COALESCE_MS)
@@ -106,8 +106,8 @@ internal class MainScreenWatch(
     }
 
     /**
-     * 系统按 ITaskStackListener 的接口回调过来的 Binder。只认「来了一次回调」,不读参数;
-     * 这些回调都是单向的,不用回话。描述符照接口的名字填,系统那边按它包装。
+     * システムは ITaskStackListener インターフェイスを通じてバインダーをコールバックします。 「コールバックが来た」ことのみを認識し、パラメータを読み取りません。
+     * これらのコールバックは一方向であり、応答は必要ありません。記述子はインターフェイスの名前に従って入力され、システムはそれに従ってパッケージ化します。
      */
     private inner class StackSignal : Binder() {
         init { attachInterface(null, DESCRIPTOR) }
@@ -126,7 +126,7 @@ internal class MainScreenWatch(
         private const val DESCRIPTOR = "android.app.ITaskStackListener"
         const val POLL_MS = 100L
         private const val COALESCE_MS = 30L
-        /** 窗口过了之后再查,仍当场看一次:Mika 那边判完要一点时间。 */
+        /** 期限が過ぎた後に再度確認し、その場で確認します。ミカが判断を完了するまでに時間がかかります。 */
         private const val GRACE_MS = 2_000L
         private const val MAX_WINDOW_MS = 30_000
 
@@ -141,7 +141,7 @@ internal class MainScreenWatch(
         const val KEY_NOW = "now"
         const val KEY_LISTENING = "listening"
 
-        /** 一组记录打成平行的数组(Bundle 里没有对象列表);[now] 是任务此刻在哪块屏。 */
+        /** は、並列配列に編成されたレコードのセットです (バンドルにはオブジェクト リストはありません)。 [now] は、タスクが現在どの画面にあるかを示します。 */
         fun toBundle(list: List<MainScreenLog.Arrival>, now: (Int) -> Int, listening: Boolean): Bundle = Bundle().apply {
             putIntArray(KEY_TASK, list.map { it.taskId }.toIntArray())
             putStringArray(KEY_PACKAGE, list.map { it.packageName }.toTypedArray())

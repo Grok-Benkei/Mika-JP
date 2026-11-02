@@ -84,7 +84,7 @@
     </plurals>
     <string name="models_used_by">%1$s として使用中</string>
 
-    <!-- 用 ChatGPT 登录 -->
+    <!-- ChatGPT でログイン -->
     <string name="chatgpt_use_plan_title">ChatGPT のプランを使う</string>
     <string name="chatgpt_use_plan_body">このアプリの対象となる AI リクエストを、ChatGPT のプランまたはクレジット残高に含まれる利用枠で処理します。ChatGPT Plus と Pro で使えます。Mika 自体は無料で、Mika から料金は一切かかりません。</string>
     <string name="chatgpt_continue">ChatGPT で続ける</string>

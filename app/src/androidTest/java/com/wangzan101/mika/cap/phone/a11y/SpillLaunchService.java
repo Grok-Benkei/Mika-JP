@@ -8,8 +8,8 @@ import android.os.IBinder;
 import android.view.Display;
 
 /**
- * 在单独的进程里打开 App 的启动页,打开就停。
- * 测试 APK 的组件运行在测试包自己的进程里、不带 Kotlin 标准库,所以用 Java 写。
+ * アプリの起動ページを別のプロセスで開き、開いたら停止します。
+ * テスト APK のコンポーネントは、テスト パッケージ独自のプロセスで実行され、Kotlin 標準ライブラリが含まれていないため、Java で書かれています。
  */
 public class SpillLaunchService extends Service {
     @Override
@@ -23,8 +23,8 @@ public class SpillLaunchService extends Service {
         String dialog = intent != null ? intent.getStringExtra(SpillTestActivity.EXTRA_DIALOG) : null;
         String component = auth != null ? auth : dialog;
         if (component != null) {
-            // 对话框样式或整屏的登录页:落在用户主屏。测试包自己在 Mika 的屏上有页面,
-            // 不指定屏时系统也会把它放到那边;后台进程在主屏上没有页面时,系统按默认放到主屏,这里照那样指定主屏。
+            // ダイアログ スタイルまたは全画面ログイン ページ: ユーザーのホーム画面に表示されます。テストパッケージ自体はミカの画面上にページがあり、
+            // 画面が指定されていない場合、システムは画面もそこに配置します。バックグラウンドプロセスのメイン画面にページがない場合、システムはデフォルトでそのページをメイン画面に配置します。ここではメイン画面をこのように指定します。
             Intent launch = new Intent().setComponent(new ComponentName(getPackageName(), component))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(launch, ActivityOptions.makeBasic().setLaunchDisplayId(Display.DEFAULT_DISPLAY).toBundle());

@@ -26,10 +26,10 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * 一个标签的读脚本(见 [ReadScriptProtocol]):在主框架的读取世界里跑,一次一个。
- * 读取世界建一次、留着用(state 跨调用保留),页面换了文档它就没了,下次再建(结果里 fresh=true)。
- * 兜底:跑着时脚本发出任何网络请求、主框架要跳转(先 `Page.stopLoading`)都让这次以错误结束。
- * 到时限先让脚本之后的 sleep 失败;连这都等不到回应(同步死循环占着页面)才打断执行。
+ * タグ読み取りスクリプト ([ReadScriptProtocol] を参照): メイン フレームの読み取りワールドで一度に 1 つずつ実行されます。
+ * はワールドを読み取って一度構築し、使用できるように保持します (状態は呼び出し間で保持されます)。ページを切り替えて文書を変更すると、文書は失われます。次回もビルドされます (結果では fresh=true)。
+ * 結論: 実行中にスクリプトによって発行されたネットワーク リクエスト、またはメイン フレーム ジャンプ (最初の `Page.stopLoading`) はエラーで終了します。
+ * 制限時間に達したときにスクリプトが失敗した後にスリープさせます。これでも、実行を中断する前に応答を待つことはできません (同期の無限ループがページを占有します)。
  */
 class ReadScriptRunner(val session: CdpSession, private val sessionId: String? = null) {
     private val lock = Mutex()
@@ -38,7 +38,7 @@ class ReadScriptRunner(val session: CdpSession, private val sessionId: String? =
 
     private class World(val frameId: String, val context: Int, val origin: String?, val fresh: Boolean)
 
-    /** 连接断了抛 [CdpConnectionClosedException](由调用方判断是不是标签崩了)。 */
+    /** は、接続 [CdpConnectionClosedException] が切断されたときにスローされます (ラベルが折りたたまれているかどうかを判断するのは呼び出し側です)。 */
     suspend fun run(code: String, args: JsonObject?, timeoutMs: Long): EvalJs = lock.withLock {
         coroutineScope {
             val outcome = CompletableDeferred<EvalJs>()
@@ -46,7 +46,7 @@ class ReadScriptRunner(val session: CdpSession, private val sessionId: String? =
             val answered = AtomicBoolean(false)
             var world: World? = null
 
-            // 先订阅再动手:事件流不重放
+            // まずサブスクライブしてから実行してください: イベント ストリームが再生されません
             launch(start = CoroutineStart.UNDISPATCHED) {
                 session.events.collect { e ->
                     if (e.sessionId != sessionId) return@collect
@@ -55,7 +55,7 @@ class ReadScriptRunner(val session: CdpSession, private val sessionId: String? =
                     when (e.method) {
                         "Runtime.executionContextDestroyed" -> if ((p["executionContextId"] as? JsonPrimitive)?.intOrNull == w.context) gone(outcome)
                         "Runtime.executionContextsCleared" -> gone(outcome)
-                        // 不开 Runtime 时没有上下文销毁的事件:主框架换了文档,世界就没了
+                        // ランタイムが有効になっていない場合、コンテキスト破棄イベントはありません。メイン フレームがドキュメントを変更し、世界は消滅します。
                         "Page.frameNavigated" -> if (mainFrameNavigated(p, w.frameId)) gone(outcome)
                         "Network.requestWillBeSent" -> if (running.get()) ReadScriptProtocol.requestViolation(p)?.let {
                             outcome.complete(EvalJs.Failed(BLOCKED_NETWORK, it))
@@ -121,7 +121,7 @@ class ReadScriptRunner(val session: CdpSession, private val sessionId: String? =
         outcome.complete(EvalJs.Failed(NAVIGATED, "the page loaded a new document while the script ran, so the script stopped and its state is gone; read the new page"))
     }
 
-    /** 脚本没跑完就收尾:先让它之后的 sleep 失败;这都等不到回应时它在跑同步死循环,才打断。 */
+    /** スクリプトは完了する前に終了します。まず後続のスリープを失敗させます。応答まで待機せず、同期無限ループを実行してから中断します。 */
     private suspend fun stop(ctx: Int) {
         val answeredStop = try {
             session.send("Runtime.evaluate", buildJsonObject { put("expression", ReadScriptProtocol.STOP); put("contextId", ctx) }, sessionId, STEP_TIMEOUT_MS)
@@ -134,10 +134,10 @@ class ReadScriptRunner(val session: CdpSession, private val sessionId: String? =
         if (!answeredStop) runCatching { session.send("Runtime.terminateExecution", JsonObject(emptyMap()), sessionId, STEP_TIMEOUT_MS) }
     }
 
-    /** 留着的读取世界还在就用它,不在(或第一次)就建一个并装上前置脚本。 */
+    /** がワールドの読み取りに残っている場合は、それを使用してください。そうでない場合 (または初めての場合)、ビルドして事前スクリプトをインストールします。 */
     private suspend fun ensureWorld(): World {
-        // 不开 Runtime:开着它时页面能察觉到调试器(有的网站因此一直重载);隔离世界、求值都不需要它
-        // 兜底要看的事件:跳转请求、网络请求(已开着的再开一次无妨)
+        // はランタイムを有効にしません。有効にすると、ページはデバッガーを検出できます (一部の Web サイトはこのため常にリロードされます)。世界の分離や評価には必要ありません。
+        // チェックすべきこと: ジャンプ リクエスト、ネットワーク リクエスト (すでに開いている場合は再度開いても問題ありません)
         session.send("Page.enable", JsonObject(emptyMap()), sessionId, STEP_TIMEOUT_MS)
         session.send("Network.enable", JsonObject(emptyMap()), sessionId, STEP_TIMEOUT_MS)
         val frameId = session.send("Page.getFrameTree", JsonObject(emptyMap()), sessionId, STEP_TIMEOUT_MS)["frameTree"]
@@ -147,7 +147,7 @@ class ReadScriptRunner(val session: CdpSession, private val sessionId: String? =
         context = null
         val ctx = session.send("Page.createIsolatedWorld", buildJsonObject {
             put("frameId", frameId); put("worldName", worldName)
-            // 协议里的参数名就是这么拼的
+            // プロトコルのパラメーター名の綴りは次のとおりです。
             put("grantUniveralAccess", false)
         }, sessionId, STEP_TIMEOUT_MS)["executionContextId"]?.jsonPrimitive?.intOrNull
             ?: throw CdpException(0, "no execution context", "Page.createIsolatedWorld")
@@ -160,7 +160,7 @@ class ReadScriptRunner(val session: CdpSession, private val sessionId: String? =
         return World(frameId, ctx, origin, fresh = true)
     }
 
-    /** 读取世界装好了时为页面的源;世界没了或没装为 null。 */
+    /** は、ワールドのインストール時にページのソースを読み取ります。ワールドがなくなった場合、またはインストールされていない場合は null になります。 */
     private suspend fun probe(ctx: Int): String? = try {
         val r = session.send("Runtime.evaluate", buildJsonObject {
             put("expression", ReadScriptProtocol.PROBE); put("contextId", ctx); put("returnByValue", true)

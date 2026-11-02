@@ -123,7 +123,7 @@ class McpClientTest {
                 McpAnnotations(openWorldHint = true)))
         }
         val tools = toolDispatcher(FakeScreen(), mcpServers = listOf(McpConnection(endpoint)))
-        // 不花钱的对外调用:无人值守也直接做(只记审批),不在判定时就调服务端
+        // 無料の外部通話: 監視なしで直接実行 (承認の記録のみ)、判断できない場合はサーバーを呼び出します
         val decision = ConfirmDecision(tools, null, provenance = RunProvenance(RunOrigin.Trigger, Attendance.Unattended))
             .judge("mcp_demo__send", buildJsonObject {}, Origin.Model(1))
         assertEquals(Decision.Clear, decision)

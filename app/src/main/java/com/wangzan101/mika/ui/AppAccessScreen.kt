@@ -26,7 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** 分类名只在界面上出现,core 里不存中文;分类本身是 AI 判断的用途,不改变权限。 */
+/** カテゴリ名はインターフェイスにのみ表示され、コアには中国語は含まれません。カテゴリ自体はAI判定のためのものであり、権限を変更するものではありません。 */
 @Composable
 private fun AppCategory.title(): String = stringResource(
     when (this) {
@@ -41,18 +41,14 @@ private fun AppCategory.title(): String = stringResource(
     },
 )
 
-/** 要显示给用户的失败:界面语言的一句话,后面可以带上原始说明方便排查。 */
+/** ユーザーに表示される障害: インターフェイス言語の文章。トラブルシューティングを容易にするために元の説明に従うことができます。 */
 private class Failure(val message: Int, val detail: String? = null)
 
 /**
- * 分类时让模型用界面的语言写理由:同一个应用换语言后旧理由仍是旧语言,这没关系,下次分类会覆盖。
- * 中文按文字体系分,和资源目录(values-zh / values-b+zh+Hant)一致。
+ * 分類するときに、モデルにインターフェイスの言語で理由を記述させます。同じアプリケーションの言語を変更した後でも、古い理由は古い言語のままです。これは問題ではありません。次の分類は上書きされます。
+ * 中国語は、リソース ディレクトリ (values-zh / value-b+zh+Hant) と一致する書記体系に従って分割されます。
  */
-private fun classifierLanguage(locale: java.util.Locale): String = when {
-    locale.language != "zh" -> "English"
-    locale.script == "Hant" || locale.country in setOf("TW", "HK", "MO") -> "Traditional Chinese"
-    else -> "Simplified Chinese"
-}
+private fun classifierLanguage(locale: java.util.Locale): String = "Japanese"
 
 @Composable
 fun AppAccessScreen(onBack: () -> Unit, classifyApps: Boolean = true) {
@@ -70,7 +66,7 @@ fun AppAccessScreen(onBack: () -> Unit, classifyApps: Boolean = true) {
     var editing by remember { mutableStateOf<String?>(null) }
     DisposableEffect(store) { val protection = store.protectUi(); onDispose { protection.close() } }
 
-    // 推荐只含还在允许范围内的金融应用:已经禁用的不再重复出现。
+    // は、許容範囲内にある金融アプリケーションのみを推奨します。無効化されたアプリケーションは再び表示されません。
     val recommended = apps.filter { (pkg, _) ->
         state.classifications[pkg]?.category == AppCategory.Finance && pkg !in state.blocked
     }
@@ -111,7 +107,7 @@ fun AppAccessScreen(onBack: () -> Unit, classifyApps: Boolean = true) {
             busy = false
         }
     }
-    // 打开页面只读取本机应用清单,不把任何内容发给模型。分类要用户点刷新并确认后才做。
+    // がページを開くと、ネイティブ アプリケーション リストを読み取るだけで、コンテンツはモデルに送信されません。分類するには、ユーザーが「更新」をクリックして確認する必要があります。
     LaunchedEffect(Unit) {
         try {
             loadApps()

@@ -27,12 +27,12 @@ import com.wangzan101.mika.core.uistate.lastOrSnapshot
 import com.wangzan101.mika.core.uistate.screen
 import com.wangzan101.mika.core.uistate.session
 
-/** 按界面实际内容推进，直到找到目标或内容停止变化。 */
+/** ターゲットが見つかるか、内容の変化が止まるまで、インターフェースの実際の内容に従って進みます。 */
 internal object PhoneFind : PhoneTool {
     override val verb = Verb.PhoneFind
     override val risk = Risk.Write
     override val composite = true
-    override val label = "滚动查找"
+    override val label = "スクロールして探す"
     override val def = ToolDef("phone_find", Prompts.tool("phone_find"), mapOf(
         "text" to str("Text or accessibility description to find."),
         "resourceId" to str("Full or partial Android resource ID."),
@@ -88,11 +88,11 @@ internal object PhoneFind : PhoneTool {
     }
 }
 
-/** 按无障碍事件醒来，避免固定间隔反复读屏。 */
+/** アクセシビリティ イベントに従ってウェイクアップし、一定の間隔で繰り返し画面が読み取られるのを防ぎます。 */
 internal object PhoneWait : PhoneTool {
     override val verb = Verb.WaitFor
     override val risk = Risk.Read
-    override val label = "等待界面条件"
+    override val label = "画面条件を待つ"
     override val yieldsToSteer = true
     override val def = ToolDef("phone_wait", Prompts.tool("phone_wait"), mapOf(
         "condition" to str("appear, disappear, activity, or stable.", listOf("appear", "disappear", "activity", "stable")),
@@ -113,7 +113,7 @@ internal object PhoneWait : PhoneTool {
 internal object PhoneEventTool : PhoneTool {
     override val verb = Verb.PhoneEvent
     override val risk = Risk.Read
-    override val label = "等待界面事件"
+    override val label = "画面イベントを待つ"
     override val yieldsToSteer = true
     override val def = ToolDef("phone_event", Prompts.tool("phone_event"), mapOf(
         "kind" to str("window, content, notification, or any.", listOf("window", "content", "notification", "any")),
@@ -149,11 +149,11 @@ internal object PhoneEventTool : PhoneTool {
     }
 }
 
-/** 结构化读取当前可见窗口，保留列表行和表单字段的父子关系。 */
+/** 現在表示されているウィンドウの構造化読み取りにより、リスト行とフォーム フィールド間の親子関係が保持されます。 */
 internal object PhoneExtract : PhoneTool {
     override val verb = Verb.PhoneExtract
     override val risk = Risk.Read
-    override val label = "提取界面数据"
+    override val label = "画面データを抽出"
     override val def = ToolDef("phone_extract", Prompts.tool("phone_extract"), mapOf(
         "mode" to str("text, list, or form.", listOf("text", "list", "form")),
         "maxItems" to int("Maximum records, 1-200 (default 100).", 1, 200),
@@ -211,12 +211,12 @@ internal object PhoneExtract : PhoneTool {
     }
 }
 
-/** 查顶层弹窗；指定按钮文字时才点击，避免猜测弹窗用途。 */
+/** 最上位のポップアップ ウィンドウを確認します。ポップアップ ウィンドウの目的の推測を避けるために、ボタンのテキストが指定されている場合にのみクリックしてください。 */
 internal object PhoneDialog : PhoneTool {
     override val verb = Verb.PhoneDialog
     override val risk = Risk.Write
     override val composite = true
-    override val label = "检查弹窗"
+    override val label = "ダイアログを確認"
     override val def = ToolDef("phone_dialog", Prompts.tool("phone_dialog"), mapOf(
         "buttonText" to str("Optional exact visible button label to dismiss the dialog."),
     ))
@@ -271,11 +271,11 @@ internal object PhoneDialog : PhoneTool {
     private fun containsDialog(node: UiTreeNode): Boolean = node.role.contains("Dialog", true) || node.children.any(::containsDialog)
 }
 
-/** 单指路径或双指缩放，所有坐标均为 0-999。 */
+/** 1 本指のパスまたは 2 本指のズーム。すべての座標は 0 ～ 999 です。 */
 internal object PhoneGesture : PhoneTool {
     override val verb = Verb.PhoneGesture
     override val risk = Risk.Write
-    override val label = "多点手势"
+    override val label = "マルチタッチジェスチャ"
     override val showsScreenAfter = true
     override val reportsEffect = true
     override val logged = true
@@ -307,14 +307,14 @@ internal object PhoneGesture : PhoneTool {
     }
 }
 
-/** Android shell 身份命令；与沙箱进程的命令入口分开。 */
+/** Android シェル ID コマンド。サンドボックスプロセスのコマンド入力とは別のものです。 */
 internal object PhoneCommand : PhoneTool {
-    /** 连着失败这么多次就提醒别再换着写法试。 */
+    /** 何度も連続で失敗したので、他の書き方を試してはいけないと思い知らされました。 */
     private const val REPEATED_FAILURES = 2
     override val verb = Verb.PhoneCommand
     override val risk = Risk.Write
     override val offScreen = true
-    override val label = "系统命令"
+    override val label = "システムコマンド"
     override val def = ToolDef("phone_system_command", Prompts.tool("phone_system_command"), mapOf(
         "command" to str("Android shell command. MIKA_DISPLAY_ID is the current task's virtual display ID."),
     ), listOf("command"))
@@ -323,7 +323,7 @@ internal object PhoneCommand : PhoneTool {
         val command = a.str("command", max = 4_000)!!
         val phone = ctx.phone
         val purpose = CommandSteer.purpose(command)
-        // 已提醒过还在用 shell 点、打字、按键、启动,或用 shell 分享文字:不执行,只说该用哪个工具
+        // は、まだシェルを使用してクリック、入力、キーの押し、開始、またはテキストの共有にシェルを使用している場合は、実行せずに、どのツールを使用するかを指示するだけであることを注意してください。
         if (CommandSteer.refuses(purpose, phone.commandSteered)) return ToolExecution(buildJsonObject {
             put("ok", false); put("error", "use_phone_tool")
             put("hint", Feedback.format("system_command.refused", "use" to Feedback[purpose!!.feedbackKey]))
@@ -331,7 +331,7 @@ internal object PhoneCommand : PhoneTool {
         val result = ctx.screen.systemCommand(command) ?: return fail("no_app_open")
         phone.commandFailures = if (result.exitCode == 0) 0 else phone.commandFailures + 1
         if (purpose != null) phone.commandSteered = true
-        // 模仿专门工具的命令、连着失败的命令:第一次提醒换回专门工具,照样执行
+        // 特殊ツールのコマンドを模倣し、失敗したコマンドを続行します。最初のプロンプトは特殊ツールに戻り、通常どおり実行されます。
         val hints = listOfNotNull(
             purpose?.let { Feedback[it.feedbackKey] },
             Feedback["system_command.failed_again"].takeIf { phone.commandFailures >= REPEATED_FAILURES },

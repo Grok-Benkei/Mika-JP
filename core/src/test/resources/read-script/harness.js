@@ -1,27 +1,27 @@
-// 读脚本前置脚本的测试台:用一套极简的假 DOM(只有测试用到的接口)装上前置脚本,逐条跑用例,把结果按 JSON 打印出来。
-// 用法:node harness.js <前置脚本> <用例 JSON>;用例为 [{name, code, args?, resultChars?, page?}]。
+// スクリプト読み取りプレスクリプト テスト ベンチ: 一連の最小限の偽 DOM (テストに使用されるインターフェイスのみ) を使用してプレスクリプトをインストールし、ユース ケースを 1 つずつ実行し、結果を JSON として出力します。
+// 使用法: ノード harness.js <プレスクリプト> <ユースケース JSON>;使用例は [{name, code, args?, resultChars?, page?}] です。
 'use strict';
 const fs = require('fs');
 const prelude = fs.readFileSync(process.argv[2], 'utf8');
 const cases = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
 const write = process.stdout.write.bind(process.stdout);
 const stringify = JSON.stringify;
-// 浏览器原生的查找方法把选择器变成字符串时不经页面里的全局 String,假 DOM 也先存一份
+// ブラウザーのネイティブ検索メソッドがセレクターを文字列に変換するとき、ページ内のグローバル文字列を通過せず、偽の DOM も最初にコピーを保存します。
 const asString = String;
 
 const log = { mutations: 0, clicks: 0, navigations: 0, pageCode: 0, requests: [] };
 
-// 假 DOM 的一套接口。同源 iframe 里的节点在浏览器里属于那个框架自己的一套接口(instanceof 认不出主框架的类,方法也是另一份),
-// 所以做成函数:主文档和 iframe 里的文档各用一套
+// 偽の DOM 用のインターフェイスのセット。同一オリジンの iframe 内のノードは、ブラウザ内のそのフレーム独自のインターフェイス セットに属します (instanceof はメイン フレームのクラスを認識せず、メソッドも別のものです)。
+// したがって、メインドキュメント用に 1 つのセットと iframe 内のドキュメント用に 1 つのセットという関数が作成されます。
 const makeDom = () => {
   class EventTarget {}
   class Node extends EventTarget {
     constructor() { super(); this._kids = []; this._attrs = {}; this.parentNode = null; this._text = null; }
-    // 和浏览器一样只有 Node 上一个 getter,对哪种节点都给对的值
+    // ブラウザと同様に、ノードにはゲッターが 1 つだけあり、どのノードにも正しい値を与えます。
     get nodeType() { return this._nodeType; }
     get parentNode() { return this._parent; }
     set parentNode(p) { this._parent = p; }
-    // 元素的 _text 是它唯一的子文本节点(textarea 里的字就在这里;_cdata 时是 CDATA 段)。字换了就换上一个新节点,旧的脱离文档、字留着
+    // 要素の _text は、その唯一の子テキスト ノードです (textarea 内の単語がここにあります。_cdata は CDATA セクションです)。単語が変更された場合は、新しいノードに置き換えます。古い単語は文書から削除され、単語は残ります。
     get childNodes() { return new NodeList(this._text && this._nodeType === 1 ? [this._textNode()] : this._kids); }
     get firstChild() { return this.childNodes[0] || null; }
     _textNode() {
@@ -37,7 +37,7 @@ const makeDom = () => {
     _all() { const out = []; for (const k of this._kids) { out.push(k); out.push(...k._all()); } return out; }
     _match(sel) { return this._all().filter((e) => e._is(sel)); }
   }
-  // 和浏览器一样,查找方法在 Element、Document、DocumentFragment 上,不在 Node 上;选择器参数和浏览器一样先变成字符串
+  // ブラウザと同様に、検索方法はノードではなく要素、ドキュメント、ドキュメントフラグメントに基づいています。まずセレクターパラメータがブラウザのような文字列に変更されます。
   const finders = {
     querySelectorAll(sel) { return new NodeList(this._match(asString(sel))); },
     querySelector(sel) { return this._match(asString(sel))[0] || null; },
@@ -60,18 +60,18 @@ const makeDom = () => {
     setAttribute(n, v) { log.mutations++; this._attrs[n] = String(v); }
     hasAttribute(n) { return n in this._attrs; }
     closest(sel) { for (let n = this; n && n._nodeType === 1; n = n.parentNode) if (n._is(asString(sel))) return n; return null; }
-    // 同一个属性一直是同一个属性节点(和浏览器一样)
+    // 同じ属性は常に同じ属性ノードです (ブラウザと同じ)
     _attrNode(n) { const m = this._attrNodes || (this._attrNodes = {}); return m[n] || (m[n] = new Attr(this, n)); }
     click() { log.clicks++; }
     focus() { log.mutations++; }
-    // 在页面文档里复制:和浏览器一样经构造器(自定义元素会跑页面代码)
+    // ページドキュメントにコピー: ブラウザーと同様にコンストラクターを通過します (カスタム要素がページコードを実行します)。
     cloneNode(deep) {
       const C = this.constructor;
       const c = new C(this.tagName.toLowerCase(), Object.assign({}, this._attrs), this._text);
       if (deep) for (const k of this._kids) { const kc = k.cloneNode(true); c._kids.push(kc); kc.parentNode = c; }
       return c;
     }
-    // 复制进不属于任何窗口的空文档:不经构造器
+    // どのウィンドウにも属さない空のドキュメントにコピーします: コンストラクターなし
     _copy(deep) {
       const c = Object.create(Object.getPrototypeOf(this));
       Object.assign(c, { _kids: [], _attrs: Object.assign({}, this._attrs), parentNode: null, _text: this._text, _nodeType: 1, tagName: this.tagName });
@@ -90,11 +90,11 @@ const makeDom = () => {
   }
   Object.assign(Element.prototype, finders);
   class HTMLElement extends Element {
-    // 不排版时浏览器给的就是子孙的文字;排版出来的(_shown)给的是写出来的字
+    // タイプセットが完了していない場合、ブラウザには子孫のテキストが表示されます。タイプセット (_shown) されると、書かれた単語が表示されます。
     get innerText() { return this._shown != null ? this._shown : this.textContent; }
     get outerText() { return this.innerText; }
   }
-  // 下面几个属性也按子孙的文字算
+  // 以下の属性も子孫のテキストに従って計算されます。
   class HTMLAnchorElement extends HTMLElement {
     get text() { return this.textContent; }
   }
@@ -107,7 +107,7 @@ const makeDom = () => {
     get value() { return this.textContent; }
     get defaultValue() { return this.textContent; }
   }
-  // 选中第几项(_selected)是页面此刻的状态,复制时不带过去
+  // 選択された項目 (_selected) は、ページの現在のステータスです。コピーしてもコピーされません。
   class HTMLSelectElement extends HTMLElement {
     get options() { return new NodeList(this._match('option')); }
     get selectedIndex() { return this._selected != null ? this._selected : this.options.length ? 0 : -1; }
@@ -131,7 +131,7 @@ const makeDom = () => {
   class HTMLIFrameElement extends HTMLElement {
     get contentDocument() { return this._doc || null; }
   }
-  // template 的子节点在 content(一个 DocumentFragment)里:querySelectorAll 找不进去,innerHTML 照样写出来;深复制时一起复制
+  // テンプレートの子ノードはコンテンツ (DocumentFragment) 内にあります。querySelectorAll が見つかりません。innerHTML はまだ書き出されています。ディープコピー中に一緒にコピーされる
   class HTMLTemplateElement extends HTMLElement {
     constructor(...a) { super(...a); this._content = new DocumentFragment(); }
     get content() { return this._content; }
@@ -148,7 +148,7 @@ const makeDom = () => {
       return c;
     }
   }
-  // 和浏览器一样 substringData 在 CharacterData 上
+  // CharacterData のブラウザの substringData と同じ
   class CharacterData extends Node {
     get data() { return this._data; }
     get nodeValue() { return this.data; }
@@ -159,11 +159,11 @@ const makeDom = () => {
     constructor(owner) { super(); this._nodeType = 3; this.parentNode = owner; this._data = owner._text; }
     get wholeText() { return this.data; }
   }
-  // XML 页面里的 CDATA 段:也是文本节点
+  // CDATA セグメント: テキスト ノードでもあります
   class CDATASection extends Text {
     constructor(owner) { super(owner); this._nodeType = 4; }
   }
-  // 属性删掉以后属性节点脱离元素:ownerElement 为 null,值留在节点上(_kept)
+  // 属性が削除された後、属性ノードは要素から分離されます。ownerElement は null で、値はノード (_kept) に残ります。
   class Attr extends Node {
     constructor(owner, name) { super(); this._nodeType = 2; this._owner = owner; this._name = name; }
     get name() { return this._name; }
@@ -208,7 +208,7 @@ const makeDom = () => {
   return { EventTarget, Node, Element, HTMLElement, HTMLAnchorElement, HTMLOptionElement, HTMLOutputElement, HTMLSelectElement, HTMLInputElement, HTMLTextAreaElement, HTMLIFrameElement, HTMLTemplateElement, CharacterData, Text, Attr, NamedNodeMap, NodeList, DocumentFragment, ShadowRoot, Document };
 };
 const { EventTarget, Node, Element, HTMLElement, HTMLAnchorElement, HTMLOptionElement, HTMLOutputElement, HTMLSelectElement, HTMLInputElement, HTMLTextAreaElement, HTMLIFrameElement, HTMLTemplateElement, CharacterData, Text, Attr, NamedNodeMap, NodeList, DocumentFragment, ShadowRoot, Document } = makeDom();
-// 页面自己定义的自定义元素:构造时跑页面代码
+// ページによって定義されたカスタム要素: 構築中にページ コードを実行します
 class XCard extends HTMLElement { constructor(...a) { super(...a); log.pageCode++; } }
 
 const doc = new Document();
@@ -226,9 +226,9 @@ add(form, new HTMLInputElement('input', { type: 'number', name: 'otp', autocompl
 add(form, new HTMLTextAreaElement('textarea', { name: 'code', autocomplete: 'one-time-code' }, 'otp-in-textarea'));
 const note = add(form, new HTMLTextAreaElement('textarea', { name: 'note' }, 'leave at door'));
 add(form, new XCard('x-card', {}, 'card'));
-// template 里的隐藏字段:不在文档树上,innerHTML 照样写出来
+// テンプレートの非表示フィールド: ドキュメント ツリーにはなく、innerHTML は引き続き書き出されます。
 add(add(form, new HTMLTemplateElement('template'))._content, new HTMLInputElement('input', { type: 'hidden', name: 'tpl', value: 'tpl-secret' }));
-// 同源 iframe:里面的文档用另一套接口;密码框里是用户打的字(值,不是属性);它是 XML 页面,textarea 里的字是 CDATA 段
+// 同じソース iframe: 内部のドキュメントは別のインターフェイス セットを使用します。パスワード ボックスには、ユーザーが入力した単語 (属性ではなく値) が含まれます。これは XML ページであり、テキストエリア内の単語は CDATA セグメントです。
 const frame = makeDom();
 const frameDoc = new frame.Document();
 const frameBody = new frame.HTMLElement('body');
@@ -239,15 +239,15 @@ add(frameForm, new frame.HTMLInputElement('input', { type: 'hidden', name: 'csrf
 add(frameForm, new frame.HTMLInputElement('input', { type: 'text', name: 'q', value: 'frame-q' }));
 add(frameForm, new frame.HTMLTextAreaElement('textarea', { autocomplete: 'one-time-code' }, 'frame-otp'))._cdata = true;
 add(body, new HTMLIFrameElement('iframe'))._doc = frameDoc;
-// 开放的 shadow root:里面的节点不在文档树上
+// オープン シャドウ ルート: 内部のノードはドキュメント ツリーにありません
 const host = add(body, new HTMLElement('div'));
 host._shadow = new ShadowRoot(host);
 add(host._shadow, new HTMLInputElement('input', { type: 'password', value: 'shadow-default' }));
 add(host._shadow, new HTMLInputElement('input', { type: 'hidden', value: 'shadow-token' }));
 const shadowCode = add(host._shadow, new HTMLTextAreaElement('textarea', { autocomplete: 'one-time-code' }, 'shadow-otp'));
-// SVG 里也有叫 template 的元素:它没有 content,子节点就在文档树上
+// SVG にはテンプレートと呼ばれる要素もあります。これにはコンテンツはなく、子ノードはドキュメント ツリー上にあります。
 add(add(add(body, new Element('svg')), new Element('template')), new Element('circle'));
-// 链接、选项里的秘密 textarea(页面脚本放进去的):a、option 的 text 一类按子孙的文字算;页面选中的是第二项
+// リンクとオプションの秘密のテキストエリア (ページ スクリプトによって挿入):オプションのテキストは子孫テキストとしてカウントされます。ページ上で 2 番目の項目が選択されています
 const link = add(body, new HTMLAnchorElement('a'));
 add(link, new HTMLElement('span', {}, 'Link '));
 add(link, new HTMLTextAreaElement('textarea', { autocomplete: 'one-time-code' }, 'otp-in-link'));
@@ -257,13 +257,13 @@ const option = add(select, new HTMLOptionElement('option'));
 add(option, new HTMLElement('span', {}, 'Card '));
 add(option, new HTMLTextAreaElement('textarea', { autocomplete: 'cc-number' }, '4111-in-option'));
 select._selected = 1;
-// 排版出来的元素:innerText 是写出来的字,不含 textarea 里的字;选项除外,它按自己的 text 写出来
+// 植字要素: innerText は、テキスト領域内の単語を除く、書かれた単語です。オプション以外は本文通りに記述します
 select._shown = 'One\nCard 4111-in-option';
 const shown = add(body, new HTMLElement('p'));
 add(shown, new HTMLElement('span', {}, 'Code: '));
 add(shown, new HTMLTextAreaElement('textarea', { autocomplete: 'one-time-code' }, 'otp-in-p'));
 shown._shown = 'Code: ';
-// option 带 value 属性时 value 是属性;output 的 value、defaultValue 按子孙的文字算
+// オプションに value 属性がある場合、value は属性です。出力の値とdefaultValueは、子孫のテキストに従って計算されます。
 const select2 = add(body, new HTMLSelectElement('select'));
 const valued = add(select2, new HTMLOptionElement('option', { value: 'v-attr' }));
 add(valued, new HTMLElement('span', {}, 'Pick '));
@@ -272,21 +272,21 @@ const output = add(body, new HTMLOutputElement('output'));
 add(output, new HTMLElement('span', {}, 'Out '));
 add(output, new HTMLTextAreaElement('textarea', { autocomplete: 'one-time-code' }, 'otp-in-output'));
 
-// 用例的 page:跑之前页面自己做的事(浏览器里是页面脚本),返回跑完后怎么还原
+// ユースケース ページ: 実行前にページが実行していたこと (ブラウザーのページ スクリプト)、戻った後に復元する方法
 const pageActions = {
-  // 「显示密码」:读取世界建起之后把密码框改成 text
+  // 「パスワードを表示」: ワールドを読み取った後、パスワード ボックスをテキストに変更します。
   showPassword: () => { pw._attrs.type = 'text'; return () => { pw._attrs.type = 'password'; }; },
-  // 把打进去的字写回 textarea 的初始值:换上一个新的文本节点,旧的脱离文档
+  // 入力された単語を textarea の初期値に戻します。新しいテキスト ノードに置き換えられ、古いテキスト ノードはドキュメントから削除されます。
   typeBack: () => { const old = shadowCode._text; shadowCode._text = 'otp-typed'; shadowCode._textNode(); return () => { shadowCode._text = old; shadowCode._textNode(); }; },
-  // 删掉密码框的 value 属性
+  // パスワードボックスの値属性を削除します
   dropValue: () => {
     const a = pw._attrNode('value');
     a._kept = pw._attrs.value; a._owner = null; delete pw._attrs.value; delete pw._attrNodes.value;
     return () => { pw._attrs.value = a._kept; };
   },
-  // 页面取消选中:selectedIndex 为 -1
+  // ページはチェックされていません: selectedIndex は -1 です
   unselect: () => { select._selected = -1; return () => { select._selected = 1; }; },
-  // 框后来才变成秘密:加上 autocomplete、改成密码框,把字写进模型拿着的那个节点,再换掉字、删掉 value 属性(节点脱离文档)
+  // ボックスは後に秘密になりました。オートコンプリートを追加し、パスワード ボックスに変更し、モデルが保持するノードに単語を書き込み、単語を置き換え、値属性を削除します (ノードはドキュメントの外にあります)。
   lateSecret: () => {
     const n = note._textNode(), a = query._attrNode('value'), text = note._text, value = query._attrs.value;
     note._attrs.autocomplete = 'one-time-code'; n._data = 'late-otp'; note._text = 'later'; note._textNode();
@@ -295,7 +295,7 @@ const pageActions = {
     return () => { delete note._attrs.autocomplete; note._text = text; note._textNode(); query._attrs.type = 'text'; query._attrs.value = value; };
   },
 };
-// 页面上的节点此刻的样子(属性、值、文字,含 template 的内容、shadow root、iframe 里的文档):读完和读之前一比,就知道原件有没有被改过
+// ページ上のノードが現時点でどのように見えるか (属性、値、テキスト、テンプレート コンテンツ、シャドウ ルート、iframe 内のドキュメントを含む): 読み取り後と読み取り前を比較すると、オリジナルが変更されているかどうかがわかります。
 const pageState = () => {
   const out = [];
   const walk = (n) => {
@@ -316,7 +316,7 @@ const location = new Location();
 Object.defineProperty(location, 'toString', { value: function () { return this.href; } });
 Object.defineProperty(location, 'valueOf', { value: function () { return this; } });
 
-// 会发请求的页面接口:真的被调到就记一笔
+// はリクエストを送信するページ インターフェイスです。実際に転送された場合は記録されます。
 class XMLHttpRequest { constructor() { log.requests.push({ via: 'xhr' }); } open(m, u) { log.requests.push({ via: 'xhr', method: m, url: u }); } send() {} }
 class WebSocket { constructor(u) { log.requests.push({ via: 'ws', url: u }); } }
 class EventSource { constructor(u) { log.requests.push({ via: 'sse', url: u }); } }
@@ -331,13 +331,13 @@ Object.assign(globalThis, {
   open() { log.navigations++; },
   fetch: async (url, opts) => {
     log.requests.push({ url, method: opts && opts.method, credentials: opts && opts.credentials, redirect: opts && opts.redirect });
-    // 不跟随跳转时浏览器给的是 opaqueredirect 响应
+    // ジャンプに従わない場合、ブラウザは opaqueredirect 応答を返します。
     if (url.endsWith('/moved')) return { type: 'opaqueredirect', status: 0, ok: false, url: '', body: null, headers: new Headers() };
     return new Response(stringify({ items: [1, 2], token: 'abc' }), { headers: { 'content-type': 'application/json' } });
   },
 });
 
-// Node 自带的 navigator 只有 getter:换成假的
+// ノードに付属するナビゲーターにはゲッターしかありません。偽のナビゲーターに置き換えてください。
 Object.defineProperty(globalThis, 'navigator', { value: navigator, configurable: true, writable: true });
 
 (0, eval)(prelude);

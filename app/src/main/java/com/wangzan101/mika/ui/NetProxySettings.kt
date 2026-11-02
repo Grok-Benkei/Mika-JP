@@ -25,20 +25,20 @@ import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 
 /**
- * 设置 › 网络代理 的文案(纯函数,便于测试)。地址只写协议、主机、端口,不带账号密码(这一行随时看得到)。
- * 只在设置首页这一处改;文件与计算环境页那一行只是引过来看。
+ * 設定 › ネットワーク プロキシのコピーライティング (純粋な機能、テストが簡単)。アドレスにはプロトコル、ホスト、ポートのみが含まれ、アカウントとパスワードは含まれません (この行はいつでも表示されます)。
+ * は設定のホームページのみを変更しました。ファイルとコンピューティング環境のページの行は引用されているだけです。
  */
 object NetProxyCopy {
     val TITLE: String get() = tr(R.string.net_proxy)
     val HINT: String get() = tr(R.string.net_proxy_hint)
     val INVALID: String get() = tr(R.string.net_proxy_invalid)
 
-    /** 设置首页那一行右边:没设写「未设置」,设了写地址。 */
+    /** ホームページ行の右側を設定します。「未設定」は設定されていませんが、アドレスは設定されています。 */
     fun value(proxy: String): String = NetProxyStore.display(proxy).ifEmpty { tr(R.string.settings_not_set) }
 
     /**
-     * 那一行下面的说明:平时说它管哪些连接;只给容器用的写法、浏览器用不上时照实说。
-     * [browser] 为空表示还没查出浏览器这边的情况。
+     * 行の下の説明: 通常、どの接続を制御するかを示します。コンテナ専用に書かれている場合、ブラウザがそれを使用できない場合は、正直に言ってください。
+     * [browser] 空の場合はブラウザ側の状況がまだ見つかっていないことを意味します。
      */
     fun subtitle(proxy: String, browser: WebProxy.Mode?): String {
         val address = ProxyAddress.parse(proxy)
@@ -51,7 +51,7 @@ object NetProxyCopy {
     }
 }
 
-/** 改网络代理:一个输入框,空着表示不用;写得不对时就地说怎么写,不存。 */
+/** ネットワーク プロキシを変更します: 入力ボックス。空のままにすることは、それを使用しないことを意味します。何かが間違って書かれている場合は、その書き方を教えてくれますが、それは保存されません。 */
 @Composable
 fun NetProxyDialog(initial: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var text by remember { mutableStateOf(initial) }

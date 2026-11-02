@@ -39,7 +39,7 @@ import kotlin.concurrent.thread
 class McpServerStoreTest {
     @get:Rule val tmp = TemporaryFolder()
 
-    /** 只反转字节;用来确认 secret 文件不是明文。 */
+    /** バイトを反転するだけ; secret ファイルが平文でないことを確認するために使う。 */
     private class ReverseCipher : KeyCipher {
         override fun encrypt(plain: ByteArray) = plain.reversedArray()
         override fun decrypt(data: ByteArray) = data.reversedArray()
@@ -78,7 +78,7 @@ class McpServerStoreTest {
     @Test fun rejectsUnsafeUrls() {
         val s = store()
         assertTrue(s.add("x", "http://example.com/mcp").isFailure)
-        assertTrue(s.add("x", "http://localhost:1234/mcp").isFailure) // 需要显式 allowLocalHttp
+        assertTrue(s.add("x", "http://localhost:1234/mcp").isFailure) // 明示的な allowLocalHttp が必要
         assertTrue(s.add("x", "https://user:pw@example.com/mcp").isFailure)
         assertTrue(s.add("x", "http://169.254.169.254/mcp").isFailure)
         assertTrue(s.add("x", "https://169.254.169.254/mcp").isFailure)
@@ -95,7 +95,7 @@ class McpServerStoreTest {
             s.update(it.copy(allowLocalHttp = true)).getOrThrow()
         }
         assertEquals(true, ok.allowLocalHttp)
-        // 改成 http 的本地地址后可以通过
+        // http のローカルアドレスに変えれば通せる
         assertEquals(null, s.validate(ok.copy(url = "http://localhost:1/mcp")))
     }
 
@@ -123,7 +123,7 @@ class McpServerStoreTest {
         }
     }
 
-    /** 假的 stdio server:只回答 initialize 和 tools/list,用来验证 store 的启动与接入。 */
+    /** 偽の stdio サーバー: ストアの起動とアクセスを確認するために使用される初期化とツール/リストのみを回答します。 */
     private fun stdioLauncher(): McpStdioLauncher = McpStdioLauncher { _, _ ->
         val toServer = PipedOutputStream()
         val fromClient = PipedInputStream(toServer)
@@ -186,7 +186,7 @@ class McpServerStoreTest {
         connections.close()
     }
 
-    /** 不回话的 stdio server:握手一直等不到回答。 */
+    /** stdio サーバーが応答しません: ハンドシェイクは応答を待つことができません。 */
     private fun silentProcess(): McpStdioProcess {
         val toServer = PipedOutputStream()
         val fromClient = PipedInputStream(toServer, 1 shl 16)
@@ -205,7 +205,7 @@ class McpServerStoreTest {
         }
     }
 
-    /** 像沙箱那样:进程活着时拿着树的租约,关掉时交还;被独占的收回时停进程、记进 [revokes]。命令是 silent 的不回话。 */
+    /** はサンドボックスのようなものです。プロセスは、ツリーが生きているときはツリーのリースを保持し、シャットダウンされるとそれを返します。排他的に回復されると、プロセスが停止され、[revokes] に記録されます。コマンドは沈黙しており、応答しません。 */
     private fun leasingLauncher(tree: SandboxTree, closes: AtomicInteger, revokes: AtomicInteger = AtomicInteger()): McpStdioLauncher {
         val inner = stdioLauncher()
         return McpStdioLauncher { ws, argv ->
@@ -221,7 +221,7 @@ class McpServerStoreTest {
         }
     }
 
-    /** 任务收尾关它的 ResourceScope(TaskRun 的 finally,含取消、失败):连上的 server 关掉,沙箱的许可放掉,独占的不再被挡。 */
+    /** タスクが終了し、ResourceScope が閉じます (TaskRun は最終的に、キャンセルと失敗を含みます)。接続されたサーバーはシャットダウンされ、サンドボックスのアクセス許可が解放され、排他的アクセス許可はブロックされなくなります。 */
     @Test fun taskScopeCloseClosesConnectionsAndFreesThePermit() = runBlocking {
         val tree = SandboxTree()
         val closes = AtomicInteger()
@@ -230,17 +230,17 @@ class McpServerStoreTest {
         val resources = ResourceScope()
         val connections = s.connectionsFor(resources, workspace = "ws")
         assertEquals(1, connections.connections.size)
-        // 任务里还开着:普通的独占要用时收回租约(停进程),不会等上整个任务
+        // はタスク内でまだ開いています。通常の排他は、使用されるとリースを取り戻し (プロセスを停止し)、タスク全体を待機しません。
         resources.close()
         assertEquals(1, closes.get())
-        connections.close() // 收尾里再关一次不重复
+        connections.close() // 最後に繰り返さずにもう一度閉じます
         assertEquals(1, closes.get())
         withTimeout(5_000) { tree.exclusive { } }
-        // 任务早就结束:没有租约,独占的直接拿到,不调收回
+        // タスクはずっと前に終了しました。リースはありません。専用のリースは直接取得され、転送されません。
         assertEquals(1, closes.get())
     }
 
-    /** 任务开着时换运行环境:独占的收回租约,停掉 server,不等任务结束。 */
+    /** タスクが開いているときに実行環境を変更します。リースを独占的に取り戻し、サーバーを停止し、タスクが終了するのを待ちます。 */
     @Test fun exclusiveStopsALongLivedServerInsteadOfWaiting() = runBlocking {
         val tree = SandboxTree()
         val closes = AtomicInteger()
@@ -254,7 +254,7 @@ class McpServerStoreTest {
         resources.close()
     }
 
-    /** 任务被取消在连接中途:已经连上的也关掉、许可放掉。 */
+    /** 接続の途中でタスクがキャンセルされました。接続されているものも閉じられ、権限が解放されます。 */
     @Test fun cancelDuringConnectClosesWhatConnected() = runBlocking {
         val tree = SandboxTree()
         val closes = AtomicInteger()
@@ -263,14 +263,14 @@ class McpServerStoreTest {
         s.add(McpServerConfig(name = "silent", url = "", transport = "stdio", command = "silent")).getOrThrow()
         val resources = ResourceScope()
         val job = launch(Dispatchers.IO) { s.connectionsFor(resources, workspace = "ws") }
-        withTimeout(5_000) { while (s.health.value[ok.id] == null) delay(20) } // 回话的那个先连上
+        withTimeout(5_000) { while (s.health.value[ok.id] == null) delay(20) } // 返信した方が先に繋がります。
         job.cancelAndJoin()
         resources.close()
-        assertEquals(2, closes.get()) // 连上的那个关掉,连到一半的那个也关掉
+        assertEquals(2, closes.get()) // 接続されている方の電源をオフにし、途中で接続されている方の電源もオフにします。
         withTimeout(5_000) { tree.exclusive { } }
     }
 
-    /** 一个慢 server 不拖住任务开头:到总时限就跳过它(关掉)、记成失败,连上的照常用。 */
+    /** サーバーが遅いからといってタスクの開始が遅れることはありません。合計時間制限に達するとタスクはスキップ（オフ）され、失敗として記録され、接続されているサーバーは通常どおり使用されます。 */
     @Test fun slowServerIsSkippedAfterTheBudget() = runBlocking {
         val fast = MockWebServer().also { it.start() }
         try {
@@ -290,7 +290,7 @@ class McpServerStoreTest {
             assertFalse(s.health.value.getValue(cs.id).ok)
             assertTrue(s.health.value.getValue(cs.id).message.orEmpty().contains("skipped"))
             assertTrue(s.health.value.getValue(cf.id).ok)
-            assertEquals(1, closes.get()) // 跳过的那个进程已经关掉
+            assertEquals(1, closes.get()) // スキップされたプロセスはシャットダウンされました
             withTimeout(5_000) { tree.exclusive { } }
             connections.close()
         } finally {

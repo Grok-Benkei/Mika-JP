@@ -19,9 +19,9 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 /**
- * 整份记忆加密成 `memory/memory.bin`(AES-GCM,密钥由调用方给,正式用 `KeystoreKeyCipher("mika-memory")`)。
- * 写临时文件后原子改名,文件要么是完整密文要么不变。
- * 解不开(密钥丢了)或内容坏了:不覆盖,改名另存,从空开始,[brokenNotice] 给界面提示用。
+ * はメモリ全体を `memory/memory.bin` に暗号化します (AES-GCM、キーは呼び出し元によって与えられ、正式には `KeystoreKeyCipher("mika-memory")` として使用されます)。
+ * 一時ファイルの書き込み後、名前はアトミックに変更され、ファイルは完全に暗号化されるか、変更されません。
+ * のロックを解除できない (キーが紛失している) か、コンテンツが破損しています。上書きせず、名前を変更して保存し、最初から開始してください。[brokenNotice] はインターフェイス プロンプトに使用されます。
  */
 class EncryptedMemoryFile(
     dir: File,
@@ -35,19 +35,19 @@ class EncryptedMemoryFile(
     private val serializer = ListSerializer(MemoryItem.serializer())
 
     private val _brokenNotice = MutableStateFlow<String?>(null)
-    /** 另存的坏文件名;null = 没出过问题。 */
+    /** 保存されたファイル名が正しくありません。 null = 問題ありません。 IO 障害のため、 */
     val brokenNotice: StateFlow<String?> = _brokenNotice.asStateFlow()
 
     @Synchronized
     override fun load(): List<MemoryItem> {
         if (!file.exists()) return emptyList()
-        val bytes = file.readBytes() // 读不了是 IO 故障,照常抛出,不当作坏文件处理
+        val bytes = file.readBytes() // を読み取ることができません。通常どおりスローされ、不良ファイルとして扱われません。
         return try {
             json.decodeFromString(serializer, cipher.decrypt(bytes).toString(Charsets.UTF_8))
         } catch (e: Exception) {
-            // 密钥库一时不可用(没解锁、繁忙)不等于文件坏了:抛出,下次再读,绝不另存
+            // キーストアが一時的に利用できない (ロックが解除されていない、ビジー状態) ということは、ファイルが壊れていることを意味するわけではありません。スローされ、次回もう一度読み取られ、別の名前で保存されません。
             if (e is UserNotAuthenticatedException || e is KeyStoreException || e is ProviderException) throw e
-            // 密钥失效、认证失败、截断、JSON 坏:都另存,别让下一次写入盖掉
+            // キーの無効化、認証の失敗、切り捨て、JSON の不正: それらをすべて個別に保存し、次の書き込みで上書きしないようにしてください
             moveAside()
             emptyList()
         }
@@ -57,12 +57,12 @@ class EncryptedMemoryFile(
     override fun save(items: List<MemoryItem>) {
         memDir.mkdirs()
         val bytes = cipher.encrypt(json.encodeToString(serializer, items).toByteArray(Charsets.UTF_8))
-        // 先落到磁盘再改名:断电时不会留下改了名却是空的文件
+        // まずディスクにドロップしてから名前を変更します。電源をオフにしても、名前が変更された空のファイルは残りません。
         FileOutputStream(tmp).use { it.write(bytes); it.fd.sync() }
         Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
     }
 
-    /** 「全部清除」:删记忆文件(含另存的坏文件)。密钥重建由调用方删别名后做。 */
+    /** 「すべてクリア」: メモリ ファイル (保存された不良ファイルを含む) を削除します。キーの再構築は、エイリアスを削除した後、呼び出し元によって行われます。 */
     @Synchronized
     fun wipe() {
         memDir.listFiles()?.forEach { it.delete() }

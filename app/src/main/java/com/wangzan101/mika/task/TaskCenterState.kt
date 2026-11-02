@@ -11,24 +11,24 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * 任务进行中用户在同一对话里插的话:[Pending] 刚发出、还没送到任务,[Received] 任务的收件箱已收下(下一步就处理),
- * [Joined] 已交给当前任务的模型,[Next] 任务已收尾、作为下一件事,[Cancelled] 停止或当前任务收尾时没用上的远程插话,[Withdrawn] 用户已撤回。
+ * ユーザーは、タスクの進行中に同じ会話に単語を挿入しました。[Pending] が送信されたばかりで、タスクはまだ送信されていません。 [Received] タスクの受信箱が受け入れられました (次のステップで処理されます)。
+ * [Joined] モデルは現在のタスク [Next] に引き継がれました。 次のタスクとしてタスクが終了しました。 [Cancelled] 停止または現在のタスクの終了時に使用されなかったリモート割り込み [Withdrawn] ユーザーが退会しました。
  */
 enum class SteerState { Pending, Received, Joined, Next, Cancelled, Withdrawn }
 
-/** 还没交给模型的插话(任务就此收尾时作为下一件事,停止时作废)。 */
+/** まだモデルに引き継がれていない介入（タスクが完了すると次のものとみなされ、停止すると無効になります）。 */
 val SteerState.unconsumed: Boolean get() = this == SteerState.Pending || this == SteerState.Received
 
 /**
- * [interrupted] 是这句插话撤掉的那段回复里用户已经看到的字;[finished] 是这句插话交给模型之前、已经说完显示出来的回复。
- * 两者都显示在插话上方;没有时为 null。
+ * [interrupted] は、中断が削除された返信でユーザーがすでに見た単語です。 [finished] は、割り込みがモデルに引き渡される前に完了し、表示された応答です。
+ * 両方とも差し込み図の上に表示されます。そうでない場合は null。
  */
 data class SteerNote(
     val id: String, val text: String, val state: SteerState, val interrupted: String? = null, val finished: String? = null,
     val remote: Boolean = false,
 )
 
-/** 电脑只看到自己追加的消息去向,不带手机上插的话或正文;远程插话撤不回(`RunInbox.withdrawSteer`),[SteerState.Withdrawn] 只为穷举,按没用上报。 */
+/** コンピューターは、携帯電話に挿入された単語やテキストを表示せず、独自に追加されたメッセージの宛先のみを認識します。リモート割り込みは元に戻すことができません (`RunInbox.withdrawSteer`)。[SteerState.Withdrawn] は単なる疲労のため、役に立たないものとして報告します。 */
 internal fun remoteSteers(notes: List<SteerNote>, finished: Boolean = false): List<RemoteSteer> = notes.filter { it.remote }.map {
     RemoteSteer(it.id, when (it.state) {
         SteerState.Pending, SteerState.Received -> if (finished) "not_applied" else "received"
@@ -38,8 +38,8 @@ internal fun remoteSteers(notes: List<SteerNote>, finished: Boolean = false): Li
 }
 
 /**
- * 运行事件里插话交给模型的先后:`reply_interrupted`([interrupted])或 `reply_finished_before_steer`([finished])先到,
- * 紧接着这一批插话逐句 `steer_received`,那段字只挂到其中第一句上([joined])。
+ * 実行イベントでは、モデルへの中断と配信の順序: `reply_interrupted` ([interrupted]) または `reply_finished_before_steer` ([finished]) が最初になります。
+ * の後にはこの一連の中断 `steer_received` が続き、その段落は最初の文 ([joined]) にのみリンクされています。
  */
 class SteerJoin {
     @Volatile private var cut: String? = null
@@ -49,7 +49,7 @@ class SteerJoin {
 
     fun finished(text: String) { done = text }
 
-    /** [id] 这句已交给模型:标成 [SteerState.Joined],有刚记下的那段字就挂上(用过即清)。 */
+    /** [id] この文はモデルに与えられました。[SteerState.Joined] とマークし、メモしたばかりの単語を切ります (使用すると消えます)。 */
     fun joined(notes: List<SteerNote>, id: String): List<SteerNote> {
         val c = cut.also { cut = null }
         val d = done.also { done = null }
@@ -59,7 +59,7 @@ class SteerJoin {
     }
 }
 
-/** 进程内 TaskCenter 的展示状态，由 App 容器持有，Service 只是写入它的宿主。 */
+/** プロセス内の TaskCenter の表示ステータスは App コンテナーによって保持され、サービスはそのホストにのみ書き込みます。 */
 class TaskCenterState {
     val shownLock = Any()
     @Volatile var shownRun: TaskRun? = null
@@ -96,13 +96,13 @@ class TaskCenterState {
     val endedRunId: StateFlow<String?> = _endedRunId.asStateFlow()
     val _endedRunIds = MutableStateFlow<Map<String, String?>>(emptyMap())
     val endedRunIds: StateFlow<Map<String, String?>> = _endedRunIds.asStateFlow()
-    /** 显示中的任务到此刻的活动(实际做过的事,来自运行事件)。 */
+    /** は、現時点までのタスクのアクティビティ (実行中のイベントから実際に完了) を表示します。 */
     val _activities = MutableStateFlow<List<RunEvent.Activity>>(emptyList())
     val activities: StateFlow<List<RunEvent.Activity>> = _activities.asStateFlow()
-    /** 显示中的任务收到的插话和它们的去向。 */
+    /** タスクによって受信された割り込みと、その割り込みがどこに送信されたかを表示します。 */
     val _steers = MutableStateFlow<List<SteerNote>>(emptyList())
     val steers: StateFlow<List<SteerNote>> = _steers.asStateFlow()
-    /** 停止之后正在写交代的那几次运行(运行编号);写好记进对话、或写不成,就拿掉。 */
+    /** 停止後に命令が書き込まれているいくつかの実行 (実行番号)。書き込んだ後にダイアログに記録するか、書き込めない場合は削除してください。 */
     val _summarizing = MutableStateFlow<Set<String>>(emptySet())
     val summarizing: StateFlow<Set<String>> = _summarizing.asStateFlow()
     val _frames = MutableStateFlow<Bitmap?>(null)

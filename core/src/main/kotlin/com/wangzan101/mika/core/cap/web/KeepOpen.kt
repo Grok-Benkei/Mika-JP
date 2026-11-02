@@ -17,7 +17,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * 留下的那一页为什么关了;[wire] 记进对话。到时间、内存不够被系统收回、渲染进程崩了、用户关的、留了另一页、Mika 退出了。
+ * ページが閉じたままになっているのはなぜですか。 [wire] が会話に記録されます。時間が経過するとメモリが不足し、システムがメモリを再利用し、レンダリング プロセスがクラッシュし、ユーザーがメモリを閉じて別のページを離れ、ミカは終了します。
  */
 enum class KeptPageClose(val wire: String) {
     Expired("expired"), Memory("memory"), Crashed("crashed"), User("user"), Replaced("replaced"), AppExit("app_exit");
@@ -27,16 +27,16 @@ enum class KeptPageClose(val wire: String) {
     }
 }
 
-/** 任务结束后留下的那一页至多留几个小时(到时自动关)。 */
+/** タスク完了後に残されたページは最長でも数時間保持されます（その時点で自動的に閉じられます）。 */
 const val KEEP_OPEN_HOURS = 2
 
 /**
- * 任务结束时默认关掉这个任务的全部网页;要页面在回答之后接着运行(接着播放、挂着、等它自己走完)时,用它把当前这一页留下。
- * 只是记下「结束时留下」,此刻什么也不动;全局只留一页,留新的会关掉旧的;撤销用 keep=false。
+ * タスクが終了すると、このタスクのすべての Web ページがデフォルトで閉じられます。応答後にページを実行し続けたい場合 (その後、再生、停止し、自動的に終了するのを待ちます)、これを使用して現在のページを終了します。
+ * 「完了したら保持する」と書き留めるだけで、現時点では何も移動されません。グローバルに残るのは 1 ページだけであり、新しいページを保持すると古いページが閉じられます。元に戻すには keep=false を使用します。
  */
 internal object KeepOpen : WebTool {
     override val verb = Verb.KeepOpen
-    override val label = "保持网页开着"
+    override val label = "Webページを開いたままにする"
     override val risk = Risk.Write
     override val logged = true
     override val def = ToolDef("web_keep_open",

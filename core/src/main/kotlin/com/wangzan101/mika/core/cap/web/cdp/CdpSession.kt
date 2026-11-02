@@ -28,25 +28,25 @@ import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
-/** 协议事件。[sessionId] 非空表示来自扁平化附着的子会话(`Target.setAutoAttach` 且 `flatten=true`)。 */
+/** プロトコル イベント。空でない [sessionId] は、フラット アタッチメント (`Target.setAutoAttach` および `flatten=true`) からのサブセッションを示します。 */
 data class CdpEvent(val method: String, val params: JsonObject, val sessionId: String? = null)
 
-/** 对端对某个调用回了 error 对象。 */
+/** ピアは特定の呼び出しに対してエラー オブジェクトを返しました。 */
 class CdpException(val code: Int, val errorMessage: String, val method: String, val data: String? = null) :
     RuntimeException("$method failed ($code): $errorMessage" + (data?.let { " — $it" } ?: ""))
 
 class CdpTimeoutException(val method: String, val timeoutMs: Long) : IOException("$method timed out after ${timeoutMs}ms")
 
-/** 连接已断或已关闭;断开时还没回的调用都以它失败。 */
+/** 接続が切断されたか閉じられました。切断時に返されなかった通話は失敗します。 */
 class CdpConnectionClosedException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
 /**
- * 一条 DevTools WebSocket 上的 JSON-RPC 会话。一个读协程负责收包:按 id 交还响应,其余作为事件发出;
- * 发送在 IO 线程上,写帧串行。同一条连接可以带多个扁平化子会话,用 sessionId 区分。
+ * DevTools WebSocket を介した JSON-RPC セッション。読み取りコルーチンはパケットの受信を担当します。ID による応答を返し、残りをイベントとして送信します。
+ * は IO スレッドで送信され、フレームをシリアルに書き込みます。同じ接続に、sessionId によって区別される複数のフラット サブセッションを含めることができます。
  *
- * 事件流不重放,没有订阅者时事件直接丢弃;缓冲 [eventBuffer] 条,订阅者跟不上时丢最旧的,
- * 读协程从不因事件阻塞(否则响应也会被卡住)。需要完整事件序列的订阅者要及时消费,
- * 并在发出触发事件的命令前就开始订阅。
+ * イベント ストリームは再生されず、サブスクライバーがいない場合、イベントは直接破棄されます。 [eventBuffer] アイテムはバッファリングされ、サブスクライバーが追いつかない場合は最も古いアイテムが破棄されます。
+ * 読み取りコルーチンは、イベントによってブロックされることはありません (そうしないと、応答も停止します)。完全なイベント シーケンスを必要とするサブスクライバーは、それを時間内に消費する必要があります。
+ * を実行し、イベントをトリガーするコマンドを発行する前にサブスクリプションを開始します。
  */
 class CdpSession(
     private val ws: WebSocketConnection,
@@ -63,12 +63,12 @@ class CdpSession(
     val events: SharedFlow<CdpEvent> = _events.asSharedFlow()
 
     /**
-     * Input 域(鼠标、拖放)坐标与 CSS 像素之比:发出去的坐标 = CSS 像素 × 它。
-     * 平时为 1;视口仿真带缩放(桌面宽度的页面缩进手机视图)时,Input 按缩放前的视图坐标解释,由设仿真的一方改掉。
+     * 入力フィールド (マウス、ドラッグ アンド ドロップ) の座標と CSS ピクセルの比率: 送信された座標 = CSS ピクセル × それ。
+     * は通常 1 です。ビューポート シミュレーションがズームされると (デスクトップの幅のページが携帯電話のビューにインデントされます)、入力はズーム前のビューの座標に従って解釈され、シミュレーションを設定する側によって変更されます。
      */
     @Volatile var inputScale: Double = 1.0
 
-    /** 上一次鼠标事件落在哪(CSS 像素);还没发过为 null。下一次移动从这里沿轨迹过去。 */
+    /** 最後のマウス イベントが到達した場所 (CSS ピクセル)。まだ送信されておらず、null です。次の動きはここからの軌道をたどります。 */
     @Volatile var pointer: Pair<Double, Double>? = null
 
     private val _closed = MutableStateFlow(false)
@@ -86,7 +86,7 @@ class CdpSession(
         val id = nextId.getAndIncrement()
         val p = Pending(method, CompletableDeferred())
         pending[id] = p
-        // 读协程先置 closeError 再清空 pending:这里放进去之后再查一次,就不会漏掉
+        // 読み取りコルーチンは、最初に closeError を設定し、次に保留をクリアします。これをここに配置して、見逃さないように再度確認します。
         closeError?.let {
             pending.remove(id)
             throw CdpConnectionClosedException(it.message ?: "closed", it.cause)
@@ -98,7 +98,7 @@ class CdpSession(
             if (sessionId != null) put("sessionId", JsonPrimitive(sessionId))
         }.toString()
         try {
-            // 写也有上限:对端不读、缓冲写满时到点断开连接,不让调用方一直卡在写上
+            // 書き込みにも上限があります。呼び出し側が書き込み中にスタックするのを防ぐために、接続が切断されるとピアは読み取りを行わず、バッファーがいっぱいになります。
             withStreamDeadline(timeoutMs, method, open = { Closeable { ws.abort() } }, closeOnCancel = false) { ws.sendText(msg) }
         } catch (e: IOException) {
             pending.remove(id)
@@ -112,12 +112,12 @@ class CdpSession(
         }
     }
 
-    /** 发关闭帧并断开;未完成的调用立即失败。 */
+    /** はクローズ フレームを送信して切断します。未処理の呼び出しはすぐに失敗します。 */
     override fun close() {
         if (closeError != null) return
         shutdown(CdpConnectionClosedException("CDP session closed"))
         runCatching { ws.sendClose() }
-        // 给对端一点时间回关闭帧,然后硬断
+        // ピアにフレームを閉じる時間を与えてから、ハード ブレークします。
         scope.launch {
             withTimeoutOrNull(CLOSE_GRACE_MS) { reader.join() }
             ws.abort()
@@ -186,7 +186,7 @@ class CdpSession(
         private val EMPTY = JsonObject(emptyMap())
         private val json = Json { ignoreUnknownKeys = true }
 
-        /** 打开传输、做 WebSocket 握手,返回会话。[path] 取自目标的 webSocketDebuggerUrl。超时抛 [CdpTimeoutException]。 */
+        /** は送信を開始し、WebSocket ハンドシェイクを実行して、セッションに戻ります。 [path] は、ターゲットの webSocketDebuggerUrl から取得されます。タイムアウト後に [CdpTimeoutException] をスローします。 */
         suspend fun connect(
             transport: CdpTransport,
             endpoint: String,
@@ -196,7 +196,7 @@ class CdpSession(
             eventBuffer: Int = DEFAULT_EVENT_BUFFER,
             handshakeTimeoutMs: Long = CdpDiscovery.DEFAULT_TIMEOUT_MS,
         ): CdpSession {
-            // 握手至多 [handshakeTimeoutMs]:到点关掉流,卡住的握手随之失败
+            // ハンドシェイクは最大 [handshakeTimeoutMs]: ストリームはこの時点でオフになり、スタック ハンドシェイクは失敗します。
             val ws = withStreamDeadline(handshakeTimeoutMs, "WebSocket handshake $path", open = { transport.open(endpoint) }) { s ->
                 WebSocketConnection.connect(s, path, host, maxMessageBytes)
             }

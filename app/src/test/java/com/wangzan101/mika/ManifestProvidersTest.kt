@@ -7,7 +7,7 @@ import org.w3c.dom.Element
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 
-/** 清单里会让进程一启动就崩的配置,在电脑上先拦住(真机才会暴露的那一类)。 */
+/** プロセスが開始されるとすぐにクラッシュするリスト内の構成は、最初にコンピューター上でブロックする必要があります (実マシンでのみ公開される種類)。 */
 class ManifestProvidersTest {
 
     private val androidNs = "http://schemas.android.com/apk/res/android"
@@ -29,7 +29,7 @@ class ManifestProvidersTest {
             if (!isFileProvider) continue
             fileProviders++
             val name = p.getAttributeNS(androidNs, "name")
-            // FileProvider.attachInfo 在 grantUriPermissions 不为 true 时抛 SecurityException,进程起不来
+            // GrantUriPermissions が true でない場合、FileProvider.attachInfo は SecurityException をスローし、プロセスを開始できません。
             assertEquals("$name grantUriPermissions", "true", p.getAttributeNS(androidNs, "grantUriPermissions"))
             assertEquals("$name exported", "false", p.getAttributeNS(androidNs, "exported"))
         }
@@ -43,13 +43,13 @@ class ManifestProvidersTest {
         val providers = doc.getElementsByTagName("provider")
         val p = (0 until providers.length).map { providers.item(it) as Element }
             .single { it.getAttributeNS(androidNs, "name") == ".shell.HelperHandoffProvider" }
-        // shell 要能调到它;普通 App 没有这个权限,连 provider 都拿不到
+        // シェルはそれを調整できる必要があります。通常のアプリにはこの権限がなく、プロバイダーを取得することさえできません。
         assertEquals("true", p.getAttributeNS(androidNs, "exported"))
         assertEquals("android.permission.INTERACT_ACROSS_USERS_FULL", p.getAttributeNS(androidNs, "permission"))
         assertEquals("\${applicationId}.helper", p.getAttributeNS(androidNs, "authorities"))
     }
 
-    /** 电脑连接的服务对外开放只为让 adb shell 起它:普通 App 没有这个权限,起不了、也开关不了 USB 方式。 */
+    /** コンピューター接続サービスは、adb シェルが開始できるようにするためだけに外部に公開されています。通常のアプリにはこの権限がないため、USB モードを開始したり切り替えたりすることはできません。 */
     @Test
     fun computerAccessServiceIsOnlyStartableWithShellLevelPermission() {
         val doc = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
@@ -60,11 +60,11 @@ class ManifestProvidersTest {
         assertEquals("true", s.getAttributeNS(androidNs, "exported"))
         assertEquals("android.permission.INTERACT_ACROSS_USERS_FULL", s.getAttributeNS(androidNs, "permission"))
         assertEquals("specialUse", s.getAttributeNS(androidNs, "foregroundServiceType"))
-        // 没有 intent-filter:只能按组件名显式起
+        // にはインテントフィルターがありません。コンポーネント名によってのみ明示的に開始できます。
         assertEquals(0, s.getElementsByTagName("intent-filter").length)
     }
 
-    /** 清单里登记的组件都按全名找得到类(搬了代码的入口留着同名的薄壳)。 */
+    /** リストに登録されているすべてのコンポーネントは、クラスごとにフルネームで検索できます (コードが移動されたエントリは、同じ名前の薄いシェルのままです)。 */
     @Test
     fun everyComponentClassExists() {
         val doc = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
@@ -81,8 +81,8 @@ class ManifestProvidersTest {
     }
 
     /**
-     * 测试 APK 清单里的页面、服务运行在测试包自己的进程里,那里没有 Kotlin 标准库(和 App 重复的依赖不打进测试 APK):
-     * 每个都要有同名的 Java 源文件。类名对不上、或写成 Kotlin,真机上一打开就崩,读屏只读到一块空屏。
+     * テスト APK リストのページとサービスは、テスト パッケージ独自のプロセスで実行され、そこには Kotlin 標準ライブラリはありません (アプリとの重複した依存関係はテスト APK に含まれません)。
+     * それぞれに同じ名前の Java ソース ファイルが必要です。クラス名が一致していなかったり、Kotlinと書かれていると、実機を開いた瞬間にクラッシュしてしまい、画面を読み込むと真っ白な画面しか読み込まれません。
      */
     @Test
     fun testApkComponentsAreJavaClassesWithMatchingNames() {
@@ -100,8 +100,8 @@ class ManifestProvidersTest {
     }
 
     /**
-     * 拍照附件走系统相机:声明用到相机、但不是必需(没有相机的设备照常安装)。这条声明不能删:
-     * 有的系统按 APK 特征给应用分类,没有它时 Mika 可能被当成游戏、限制刷新率。
+     * カメラ アクセサリはシステム カメラを使用します。カメラが使用されると記載されていますが、必要ありません (カメラのないデバイスは通常どおりインストールできます)。このステートメントは削除できません:
+     * 一部のシステムは、APK の特性に従ってアプリケーションを分類します。これがないと、Mika がゲームとして扱われ、リフレッシュ レートが制限される可能性があります。
      */
     @Test
     fun cameraIsDeclaredAsOptionalFeature() {
@@ -115,8 +115,8 @@ class ManifestProvidersTest {
     }
 
     /**
-     * 兼容性自检的测试页对外开放只为让内置助手(shell)开它:调用方必须持有 INTERACT_ACROSS_USERS_FULL,普通 App 打不开;
-     * 没有 intent-filter,只能按组件名开;单独一个任务、不进最近任务。助手认的类名和清单一致。
+     * 互換性セルフテストのテスト ページは、組み込みアシスタント (シェル) が開くためにのみ公開されています。呼び出し元は INTERACT_ACROSS_USERS_FULL を保持する必要があり、通常のアプリでは開くことができません。
+     * にはインテント フィルターがなく、コンポーネント名でのみ開くことができます。単一のタスクは最近のタスクには入力されません。アシスタントによって認識されたクラス名はリストと一致します。
      */
     @Test
     fun selfCheckTargetIsOnlyStartableWithShellLevelPermission() {
@@ -134,7 +134,7 @@ class ManifestProvidersTest {
         assertEquals("", a.getAttributeNS(androidNs, "taskAffinity"))
     }
 
-    /** 内置助手进程按这个全名启动。 */
+    /** 組み込みヘルパー プロセスは、このフルネームで開始されます。 */
     @Test
     fun helperEntryClassExists() {
         val c = Class.forName(com.wangzan101.mika.core.shell.HelperHandoff.HELPER_CLASS, false, javaClass.classLoader)
