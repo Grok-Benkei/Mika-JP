@@ -1,5 +1,7 @@
 package com.wangzan101.mika.takeover
 
+import com.wangzan101.mika.ui.appString
+import com.wangzan101.mika.R
 import org.junit.Rule
 import com.wangzan101.mika.ChineseUi
 import com.wangzan101.mika.DeviceTaskState
@@ -120,14 +122,14 @@ class TakeoverTest {
 
         model.feed("hand_to_user", """{"reason":"captcha","message":"请完成页面上的验证"}""")
         assertEquals(TaskState.WaitingTakeover("captcha", "请完成页面上的验证"), awaitState { it is TaskState.WaitingTakeover })
-        assertEquals("需要你处理:验证码", pollUntil(5_000) { attentionTitle() })
-        assertEquals(listOf("我来处理", "跳过", "取消任务"), pollUntil(5_000) { attentionActions() })
+        assertEquals(appString(R.string.takeover_title_reason, appString(R.string.takeover_reason_captcha)), pollUntil(5_000) { attentionTitle() })
+        assertEquals(listOf(appString(R.string.action_take_over), appString(R.string.action_skip), appString(R.string.action_cancel_task)), pollUntil(5_000) { attentionActions() })
 
         // 「私が処理します」: ホーム画面の上部に設定されており、音を出すことができます。この動きは意図的なものであり、ユーザーが持ち去ったものとはみなされません。
-        tapAttentionAction("我来处理", TaskService.ACTION_TAKE_OVER)
+        tapAttentionAction(appString(R.string.action_take_over), TaskService.ACTION_TAKE_OVER)
         assertEquals(settingsTask, pollUntil(5_000) { shell.topTaskId(Display.DEFAULT_DISPLAY).takeIf { it == settingsTask } })
         assertEquals(priorAudio, pollUntil(5_000) { shell.getAudioMode(SETTINGS)?.takeIf { it == priorAudio } })
-        assertEquals(listOf("处理好了", "我自己做完了", "取消任务"),
+        assertEquals(listOf(appString(R.string.action_hand_back), appString(R.string.action_finished_myself), appString(R.string.action_cancel_task)),
             pollUntil(5_000) { attentionActions()?.takeIf { it.size == 3 } })
         Thread.sleep(1_500) // 「削除された」ポーリングを少なくとも 2 ラウンド実行させます
         assertTrue(DeviceTaskState.state.value.toString(), DeviceTaskState.state.value is TaskState.WaitingTakeover)
@@ -200,8 +202,8 @@ class TakeoverTest {
     @Test
     fun skipButtonPresent() {
         requestTakeover()
-        assertEquals(listOf("我来处理", "跳过", "取消任务"), attentionActions())
-        tapAttentionAction("跳过", TaskService.ACTION_SKIP)
+        assertEquals(listOf(appString(R.string.action_take_over), appString(R.string.action_skip), appString(R.string.action_cancel_task)), attentionActions())
+        tapAttentionAction(appString(R.string.action_skip), TaskService.ACTION_SKIP)
         val text = lastToolResult(model.awaitCall().messages)
         assertTrue(text, "\"outcome\":\"skipped\"" in text && "\"reason\":\"takeover_skipped\"" in text)
         // は引き継がれておらず、アプリは常に仮想画面上にあります。
@@ -211,7 +213,7 @@ class TakeoverTest {
     @Test
     fun handBackReportsInputCount() {
         requestTakeover()
-        tapAttentionAction("我来处理", TaskService.ACTION_TAKE_OVER)
+        tapAttentionAction(appString(R.string.action_take_over), TaskService.ACTION_TAKE_OVER)
         assertEquals(settingsTask, pollUntil(5_000) { shell.topTaskId(Display.DEFAULT_DISPLAY).takeIf { it == settingsTask } })
         assertEquals(Takeover.Stage.HandedOver, pollUntil(5_000) { DeviceTaskState.takeoverStage.value.takeIf { it == Takeover.Stage.HandedOver } })
 

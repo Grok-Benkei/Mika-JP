@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-// About ページのビルド番号: 現在のコミットの短いハッシュ。 git がない場合 (ソース パッケージからコンパイルする場合など)、dev を書き込みます。
+// バージョン情報に現在のコミットの短いハッシュを表示する。Gitを利用できないソース配布物では dev とする。
 val gitHash: String = runCatching {
     providers.exec { commandLine("git", "rev-parse", "--short=7", "HEAD") }.standardOutput.asText.get().trim()
 }.getOrNull()?.takeIf { it.isNotEmpty() } ?: "dev"
@@ -26,22 +26,21 @@ android {
         applicationId = "jp.studioyebisu.mika"
         minSdk = 30
         targetSdk = 35
-        versionCode = 36
-        versionName = "0.1.33-jp.3"
+        versionCode = 37
+        versionName = "0.1.33-jp.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "GIT_HASH", "\"$gitHash\"")
-        // 「バージョン情報」ページのバージョン番号の後のベータ マーク。正式版がリリースされたら false に変更します
+        // 正式版に移行したら、バージョン番号の後ろに付けるベータ表示を無効にする。
         buildConfigField("boolean", "BETA", "true")
     }
 
-    // サンドボックス プログラムには arm64 バージョン (jniLibs/arm64-v8a) のみがあります。 APK は ABI に限定されません。他のデバイスは通常どおりインストールでき、「このデバイスはサンドボックスをサポートしていません」と表示されます。
-    // サンドボックス プログラムは、nativeLibraryDir から直接実行する必要があり、インストール中にディスクを取得する必要があります。
+    // サンドボックスの実行プログラムは arm64-v8a のみ。他のABIでもuniversal APKを利用できるが、サンドボックスは利用できない。
+    // nativeLibraryDir から直接実行するため、インストール時にネイティブライブラリをファイルへ展開する。
     packaging { jniLibs { useLegacyPackaging = true } }
 
-    // は、アーキテクチャに従って別のパッケージ (perf、release) をリリースします。完全なアーキテクチャ パッケージに加えて、arm64-v8a ネイティブ ライブラリのみを含む小さなパッケージもあります。
-    // 2 つのパッケージ コード、リソース、バージョン番号、および署名は、lib/ 下の他のアーキテクチャを除いて同じです。それぞれは完全な APK であり、一緒にインストールされる分割パッケージではありません。
-    // 製品: app-universal-<タイプ>.apk、app-arm64-v8a-<タイプ>.apk。分割はすべてのビルド タイプに有効です。
-    // したがって、このビルドに perf/release パッケージが必要な場合にのみ開かれます。デバッグ パッケージが個別にビルドされた場合、製品は依然として app-debug.apk です。
+    // perf/releaseでは、全ABIを含むuniversal APKと、小さいarm64-v8a APKを作る。
+    // コード・リソース・バージョン・署名は共通で、他ABIの lib/ だけが異なる。どちらも単独でインストールできる完全なAPK。
+    // 出力名は app-universal-<タイプ>.apk と app-arm64-v8a-<タイプ>.apk。debug単独ビルドでは従来の app-debug.apk を作る。
     splits {
         abi {
             isEnable = gradle.startParameter.taskNames.any { Regex("(?i)(perf|release)").containsMatchIn(it) }
@@ -50,7 +49,7 @@ android {
             isUniversalApk = true
         }
     }
-    // に付属の実行環境 (assets/runtime/rootfs.tar.xz、tools/sandbox/build-runtime.py によって生成) はすでに xz になっており、再度押す必要はありません。
+    // 同梱実行環境は tools/sandbox/build-runtime.py でxz圧縮済みのため、APK内で再圧縮しない。
     androidResources { noCompress += "xz" }
 
     compileOptions {
@@ -58,7 +57,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    // 評価タスク セット (ウェアハウス ルート ディレクトリ eval/tasks) がテスト パッケージのアセットに入力され、実機評価ランナーがそこから質問を読み取ります。
+    // リポジトリ直下の eval/tasks をテストAPKへ同梱し、実機評価ランナーから読み取る。
     sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("eval/tasks"))
 
     if (releaseSigningReady) {
@@ -74,13 +73,13 @@ android {
         getByName("release") {
             if (releaseSigningReady) signingConfig = signingConfigs.getByName("publicRelease")
         }
-        // は、実機の受け入れ時に並行してインストールされ、リリース バージョンとユーザー データが保持されます。デフォルトのビルド ID は変更されません。
+        // devInstall指定時は、通常版と別IDで並行インストールし、通常版のデータを保持する。
         if (providers.gradleProperty("devInstall").isPresent) getByName("debug") {
             applicationIdSuffix = ".dev"
             resValue("string", "app_name", "Mika Dev")
         }
-        // 流暢性をチェックするために使用されるパッケージ: リリース バージョンのようにデバッグ可能ではありません (デバッグ パッケージはプリコンパイルされておらず、インターフェイスは数倍遅く、感触はカウントされません)。
-        // は、デバッグ パッケージを直接上書きしてデータを保持できるネイティブ デバッグ署名を使用します。パフォーマンスツールでサンプリングできます。 ./gradlew :app:assemblePerf
+        // 操作の滑らかさを確認するperf版は、releaseと同じくデバッグ不可で、性能測定を許可する。
+        // debugと同じ署名でデータを保った更新ができる。公開用署名のreleaseとは別物。./gradlew :app:assemblePerf
         create("perf") {
             initWith(getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
@@ -115,14 +114,14 @@ dependencies {
     implementation(libs.commonmark)
     implementation(libs.commonmark.ext.gfm.tables)
     implementation(libs.commonmark.ext.gfm.strikethrough)
-    // どちらの認識モデルも APK とともにインストールされます。最初の使用は Play Services のダウンロードに依存しません。
+    // 両方のOCRモデルをAPKに同梱し、初回利用時のPlay Servicesからのダウンロードを不要にする。
     implementation(libs.mlkit.text.recognition)
     implementation(libs.mlkit.text.recognition.japanese)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
-    // サンドボックス パス コントラクト (コアの testFixtures): AndroidSandbox は JVM と実マシンの両方で同じセットを実行します
+    // coreのサンドボックス共通契約テストを、JVMと実機のAndroidSandboxでも利用する。
     testImplementation(testFixtures(project(":core")))
     androidTestImplementation(testFixtures(project(":core")))
 
@@ -136,7 +135,7 @@ dependencies {
     androidTestImplementation(libs.junit)
 }
 
-// LicensesTest は、ウェアハウスのライセンス/THIRD_PARTY_NOTICES.md を読み取ります。テストの増分判定に参加させます。
+// LicensesTest等が参照するリポジトリ内の資料を、テストの更新判定に含める。
 tasks.withType<Test>().configureEach {
     inputs.file(rootProject.file("licenses/THIRD_PARTY_NOTICES.md")).withPropertyName("thirdPartyNotices")
     inputs.dir(rootProject.file("optional/china")).withPropertyName("optionalChinaFixtures")

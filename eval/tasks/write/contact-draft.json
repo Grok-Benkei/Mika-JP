@@ -1,6 +1,6 @@
 {
   "id": "contact-draft",
-  "goal": "在手机自带的联系人里新建一个联系人,名字写「Mika评测-{run}-联系人」,电话等其他项都不填,保存",
+  "goal": "スマホ標準の連絡先で「Mika評価-{run}-連絡先」を新規作成し、電話番号など他の項目は空欄のまま保存して",
   "apps": [
     "{app:contacts}"
   ],
@@ -14,11 +14,11 @@
     {
       "type": "screen_has",
       "packageName": "{app:contacts}",
-      "text": "Mika评测-{run}-联系人"
+      "text": "Mika評価-{run}-連絡先"
     }
   ],
   "maxSteps": 30,
   "timeoutSec": 420,
-  "marker": "Mika评测-{run}-联系人",
-  "note": "手机自带的 App 不钉包名,跑的时候按安卓标准 Intent 找这台手机上的"
+  "marker": "Mika評価-{run}-連絡先",
+  "note": "スマホ標準アプリはパッケージ名を固定せず、実行時にAndroid標準Intentから端末内の対応アプリを探す。"
 }

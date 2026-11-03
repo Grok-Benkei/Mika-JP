@@ -79,10 +79,10 @@ class DeskTest(unittest.TestCase):
             self.assertEqual([SNAPSHOT], overview["tasks"])
             self.assertIn("task_steer", overview["capabilities"])
             self.assertEqual({}, overview["device"])
-            self.assertEqual((200, SNAPSHOT), request(url, {"action": "run", "goal": "中文任务"}))
+            self.assertEqual((200, SNAPSHOT), request(url, {"action": "run", "goal": "日本語のタスク"}))
             self.assertEqual((200, SNAPSHOT), request(url, {"action": "status", "task_id": "t1"}))
             for action in ["answer", "steer", "cancel"]:
-                fields = {} if action == "cancel" else {"text": "补充"}
+                fields = {} if action == "cancel" else {"text": "追加"}
                 code, receipt = request(url, {"action": action, "task_id": "t1", **fields})
                 self.assertEqual(200, code)
                 self.assertTrue(receipt["accepted"])

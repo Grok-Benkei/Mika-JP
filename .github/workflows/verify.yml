@@ -29,8 +29,8 @@ jobs:
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
       - name: 配布ソース作成ツール
         run: python3 -m unittest discover -s tools/release -p 'test_*.py'
-      - name: JVM・CLI・Androidビルド
-        run: bash ./gradlew --no-daemon --console=plain --max-workers=4 --continue :core:test :app:testDebugUnitTest :core:cliTest -PmikaPython=python3 :app:assembleDebug
+      - name: JVM・CLI・Android本体と画面テストのビルド
+        run: bash ./gradlew --no-daemon --console=plain --max-workers=4 --continue :core:test :app:testDebugUnitTest :core:cliTest -PmikaPython=python3 :app:assembleDebug :app:assembleDebugAndroidTest
       - name: 検査結果
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

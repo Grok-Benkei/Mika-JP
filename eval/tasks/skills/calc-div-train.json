@@ -1,6 +1,6 @@
 {
   "id": "calc-div-train",
-  "goal": "用手机自带的计算器算 7425 除以 33,告诉我结果",
+  "goal": "スマホ標準の電卓で7425÷33を計算し、結果を教えて",
   "apps": [
     "{app:calculator}"
   ],
@@ -22,6 +22,6 @@
   ],
   "maxSteps": 20,
   "timeoutSec": 420,
-  "note": "手机自带的 App 不钉包名,跑的时候按安卓标准 Intent 找这台手机上的",
+  "note": "スマホ標準アプリはパッケージ名を固定せず、実行時にAndroid標準Intentから端末内の対応アプリを探す。",
   "split": "train"
 }

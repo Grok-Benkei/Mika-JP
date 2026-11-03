@@ -18,7 +18,7 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
 /**
- * ルートは `<dir>/<首个包名>/<id>.json` として保存されます。 [max] を超える場合は、最長で無駄なルートを削除します。
+ * ルートは `<dir>/<最初のパッケージ名>/<id>.json` として保存されます。 [max] を超える場合は、最長で無駄なルートを削除します。
  * 読み込めないファイルは直接削除します（開発期間中に形式が変わるため互換性がありません）。製品パスは [shared] を使用し、プロセス全体に対して 1 つのインスタンスと 1 つのロックを使用します。
  */
 class FileRouteStore(

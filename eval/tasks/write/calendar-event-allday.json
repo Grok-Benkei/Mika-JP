@@ -1,6 +1,6 @@
 {
   "id": "calendar-event-allday",
-  "goal": "在手机自带的日历里新建一个今天的全天日程,标题写「Mika评测-{run}-全天」,不要邀请任何人",
+  "goal": "スマホ標準のカレンダーに今日の終日予定を作り、タイトルを「Mika評価-{run}-終日」にして。誰も招待しないで",
   "apps": [
     "{app:calendar}"
   ],
@@ -14,11 +14,11 @@
     {
       "type": "screen_has",
       "packageName": "{app:calendar}",
-      "text": "Mika评测-{run}-全天"
+      "text": "Mika評価-{run}-終日"
     }
   ],
   "maxSteps": 30,
   "timeoutSec": 420,
-  "marker": "Mika评测-{run}-全天",
-  "note": "手机自带的 App 不钉包名,跑的时候按安卓标准 Intent 找这台手机上的"
+  "marker": "Mika評価-{run}-終日",
+  "note": "スマホ標準アプリはパッケージ名を固定せず、実行時にAndroid標準Intentから端末内の対応アプリを探す。"
 }

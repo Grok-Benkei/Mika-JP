@@ -6,7 +6,7 @@ package com.wangzan101.mika.core.cap.web
  * ```
  * [Web page I'm viewing in Mika's browser. It is attached to this task as your current web tab.]
  * タイトル: ノイズキャンセリングヘッドフォン - 検索結果
- * URL: https://shop.example.com/s?k=降噪耳机
+ * URL: https://shop.example.com/s?k=ノイズキャンセリングイヤホン
  * Selected text:
  * |インイヤーノイズキャンセリングヘッドフォン B2 Pro
  * [End of page]

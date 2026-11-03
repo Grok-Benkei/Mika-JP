@@ -3,15 +3,15 @@
     <string name="language_title">言語</string>
     <string name="language_system">システムに合わせる</string>
     <string name="language_system_detail">このアプリは日本語専用です。システムの言語にかかわらず日本語で表示します</string>
-    <string name="language_simplified_chinese" translatable="false">简体中文</string>
-    <string name="language_traditional_chinese" translatable="false">繁體中文</string>
-    <string name="language_english" translatable="false">English</string>
+    <string name="language_simplified_chinese" translatable="false">中国語（簡体字）</string>
+    <string name="language_traditional_chinese" translatable="false">中国語（繁体字）</string>
+    <string name="language_english" translatable="false">英語</string>
     <string name="language_japanese" translatable="false">日本語</string>
-    <string name="language_korean" translatable="false">한국어</string>
-    <string name="language_spanish" translatable="false">Español</string>
-    <string name="language_portuguese" translatable="false">Português</string>
-    <string name="language_russian" translatable="false">Русский</string>
-    <string name="language_indonesian" translatable="false">Bahasa Indonesia</string>
+    <string name="language_korean" translatable="false">韓国語</string>
+    <string name="language_spanish" translatable="false">スペイン語</string>
+    <string name="language_portuguese" translatable="false">ポルトガル語</string>
+    <string name="language_russian" translatable="false">ロシア語</string>
+    <string name="language_indonesian" translatable="false">インドネシア語</string>
     <string name="settings_basic">基本</string>
     <string name="settings_model">モデル</string>
     <string name="settings_not_set">未設定</string>
@@ -150,15 +150,15 @@
     <string name="mcp_servers_transport_stdio">ローカルプロセス</string>
     <string name="mcp_servers_command">コマンド(実行ファイルと引数)</string>
     <string name="mcp_servers_stdio_help">Linux サンドボックス内で実行します。先にサーバーをインストールしてください。</string>
-    <string name="mcp_servers_legacy_sse">旧版 HTTP+SSE 伝送を使う(2024-11-05)</string>
+    <string name="mcp_servers_legacy_sse">旧形式のHTTP+SSEで接続する（2024-11-05）</string>
     <string name="mcp_servers_use_oauth">OAuth 2.1 でサインイン</string>
     <string name="mcp_servers_sign_in">サインイン</string>
     <string name="mcp_servers_signing_in">ブラウザでのサインインを待っています…</string>
     <string name="mcp_servers_sign_in_ok">サインインしました。「保存してテスト」でツールを確認してください。</string>
-    <string name="mcp_servers_sign_in_failed">サインインに失敗:%1$s</string>
+    <string name="mcp_servers_sign_in_failed">サインインに失敗: %1$s</string>
     <string name="mcp_servers_run_failed">MCP サーバーに接続できません:%1$s</string>
     <string name="mcp_servers_status_ok">利用可能 · %1$d 個のツール</string>
-    <string name="mcp_servers_status_fail">接続に失敗:%1$s</string>
+    <string name="mcp_servers_status_fail">接続に失敗: %1$s</string>
     <string name="mcp_servers_refresh_all">すべてテスト</string>
     <string name="mcp_servers_allowlist">許可するツール(カンマ区切り、空欄はすべて)</string>
 </resources>

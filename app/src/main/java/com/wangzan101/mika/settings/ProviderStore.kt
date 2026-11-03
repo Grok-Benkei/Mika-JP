@@ -271,7 +271,7 @@ class ProviderStore(
     private val cipher: KeyCipher,
     private val usage: UsageSink = UsageSink { _, _ -> },
     private val newId: () -> String = { UUID.randomUUID().toString() },
-    /** はモデル サービスのユーザー エージェントに送信されます。アプリは `Mika/<版本>` に送信されます。 */
+    /** モデルサービスに送る User-Agent。アプリは `Mika/<バージョン>` を送信する。 */
     private val userAgent: String = "Mika",
     /** 列モデル: 各リクエストによって伝送されるインターフェイス タイプ、アドレス、キー、ヘッダー。 */
     private val modelLister: suspend (ProviderConfig.Kind, String, String?, Map<String, String>) -> ModelListResult = ::listAvailable,

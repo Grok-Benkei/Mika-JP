@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import com.wangzan101.mika.ChineseUi
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
@@ -104,13 +105,13 @@ class ChatAttachmentsTest {
         compose.onNodeWithText("租房合同.pdf").assertIsDisplayed()
         compose.onNodeWithText("1.2 MB").assertIsDisplayed()
         compose.onNodeWithContentDescription(AttachCopy.remove("a.jpg")).assertIsDisplayed()
-        compose.onNodeWithContentDescription("发送").assertIsEnabled().performClick()
+        compose.onNodeWithContentDescription(appString(R.string.chat_send)).assertIsEnabled().performClick()
         assertEquals(1, sent)
     }
 
     @Test fun sendIsOffWithNothingToSend() {
         composer()
-        compose.onNodeWithContentDescription("发送").assertIsNotEnabled()
+        compose.onNodeWithContentDescription(appString(R.string.chat_send)).assertIsNotEnabled()
     }
 
     @Test fun removingFromTheTrayCallsBack() {

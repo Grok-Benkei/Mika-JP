@@ -24,9 +24,9 @@ data class SiteCommand(val site: String, val decl: SiteCommandDecl, val body: St
  * サイト コマンド: サイト ナレッジ ディレクトリ (scripts/manifest.json にないディレクトリ) 内の `scripts/<name>.js` は、現在のページの読み取りワールドで読み取り専用で実行されます。
  * ファイルはブロック コメントで始まります。最初の行は [MARK] で、その後はコメントの終わりまで 1 行につき 1 行ずつ続きます。
  * - `name: list_results`
- * - `description: 列出当前结果页上的条目`
- * - `arg: limit integer - 最多几条`
- * - `arg: query string required - 只要标题里有这段字的`
+ * - `description: 現在の検索結果ページの項目を一覧表示`
+ * - `arg: limit integer - 最大件数`
+ * - `arg: query string required - タイトルに含める検索語`
  * - `returns: [{title, url}]`
  *
  * 名はファイル名と同じです。 arg には、「name type [required] [- description]」のように複数行を含めることができます。ヘッダーの後には非同期関数の本体があり、パラメーターは `args` にあります。

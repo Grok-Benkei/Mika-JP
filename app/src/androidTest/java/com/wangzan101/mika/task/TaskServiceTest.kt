@@ -275,9 +275,9 @@ class TaskServiceTest {
         val store = com.wangzan101.mika.chat.ConversationStore.shared(context)
         // まず「キャンセル」と書いてください、説明を待つのはやめてください
         val placeholder = pollUntil(5_000) { store.turns(conversation).lastOrNull { it.runId == runId } }!!
-        assertEquals("cancelled" to "已取消", placeholder.status to placeholder.outcome)
+        assertEquals("cancelled" to com.wangzan101.mika.core.agent.Conversation.CANCELLED_OUTCOME, placeholder.status to placeholder.outcome)
         gate.countDown()
-        val turn = pollUntil(15_000) { store.turns(conversation).lastOrNull { it.runId == runId && it.outcome != "已取消" } }!!
+        val turn = pollUntil(15_000) { store.turns(conversation).lastOrNull { it.runId == runId && it.outcome != com.wangzan101.mika.core.agent.Conversation.CANCELLED_OUTCOME } }!!
         assertEquals("停止前打开了设置,还没看任何页面。", turn.outcome)
         assertEquals("cancelled", turn.status)
         assertEquals(1, asked.get())
@@ -297,8 +297,8 @@ class TaskServiceTest {
         val secondRun = pollUntil(5_000) { DeviceTaskState.run(second)?.runId?.value }!!
         TaskService.cancel(context)
         assertEquals(TaskState.Cancelled, awaitState { !it.running() })
-        val plain = pollUntil(20_000) { store.turns(second).lastOrNull { it.runId == secondRun && it.outcome != "已取消" } }!!
-        assertTrue(plain.outcome, plain.outcome.startsWith("已经停下,停止前做了这些:"))
+        val plain = pollUntil(20_000) { store.turns(second).lastOrNull { it.runId == secondRun && it.outcome != com.wangzan101.mika.core.agent.Conversation.CANCELLED_OUTCOME } }!!
+        assertTrue(plain.outcome, plain.outcome.startsWith("停止しました。停止前の状況:"))
         assertEquals(1, model.summaryRequests.get())
     }
 

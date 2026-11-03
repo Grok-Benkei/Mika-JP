@@ -53,11 +53,11 @@ import com.wangzan101.mika.core.cap.phone.OperatingPace
 /**
  * 実機評価: [TaskService] の実パスを通じてタスクセットを 1 つずつ実行し、スコアを付けて概要を書き込みます。パラメータが明示的に渡された場合にのみ実行されます。
  *
- * `-e evalRun <名前> [-e evalSet <assets 目录或 id 前缀>] [-e evalPriceIn <100万あたりの入力トークン単価> -e evalPriceOut <出力単価>
+ * `-e evalRun <名前> [-e evalSet <assets ディレクトリまたは ID の接頭辞>] [-e evalPriceIn <100万あたりの入力トークン単価> -e evalPriceOut <出力単価>
  *  [-e evalPriceCached <キャッシュされた単価>]] [-e evalOnTakeover cancel|wait] [-e evalAllowIrreversible true] [-e evalFlags none|<key=on,…>]
  *  [-e evalChannel web|app] [-e evalSplit tune|holdout]`
  *
- * の質問は、テスト パッケージ アセットのカテゴリ ディレクトリ (warehouse eval/tasks/<category>/)、Web ページの質問ディレクトリ web、および喫煙質問ディレクトリ eval-smoke から取得されます。 evalSet が渡されない場合、スモークの質問を除くすべての質問が実行されます。
+ * の質問は、テスト パッケージ アセットのカテゴリ ディレクトリ (リポジトリの eval/tasks/<category>/)、Web ページの質問ディレクトリ web、およびスモークテストのディレクトリ eval-smoke から取得されます。 evalSet が渡されない場合、スモークの質問を除くすべての質問が実行されます。
  * evalSplit では、この質問プールのみを実行できます (質問のパーティションに従って、すべてを渡して実行しないでください)。ホールドアウト プールの結果は、リリースの決定にのみ使用され、プロンプトの言葉や知識を調整するためには使用されません。
  * evalChannel が与えられ、各質問のチャネルが Web ページまたはアプリになるように強制され (ターゲットの前に「Web ページを使用する」/「アプリを使用する」を追加します)、2 つのルートを比較します。
  * メイン モデルは設定で構成されています (最初に LiveRunTest#configureProvider を使用します)。
@@ -149,11 +149,11 @@ class EvalRunTest {
         for (t in tasks) {
             // は機器を変更するか、元に戻せない操作で問題が発生します。レベルは自動的に拒否され、接続されていない場合は実行されません。不可逆型は明示的に解放する必要がある
             if (t.category in GATED && testTasks.evalHooks.autoDecideConfirmation == null) {
-                skipped += t.id to "评测器不跑 ${t.category.wire()} 类题(确认关卡自动拒绝没有接上)"
+                skipped += t.id to "評価の自動拒否が未設定のため ${t.category.wire()} のタスクをスキップしました"
                 continue
             }
             if (t.category == EvalCategory.Irreversible && !allowIrreversible) {
-                skipped += t.id to "不可逆类题默认不跑(要跑须传 evalAllowIrreversible=true)"
+                skipped += t.id to "取り消せない操作のタスクは既定でスキップします（実行には evalAllowIrreversible=true が必要です）"
                 continue
             }
             val unmet = t.requires.map(probes::requirementMet).filter { !it.first }.map { it.second }
@@ -162,7 +162,7 @@ class EvalRunTest {
                 continue
             }
             if (variants && t.variants.isEmpty()) {
-                skipped += t.id to "回放评测只跑带变体的题"
+                skipped += t.id to "リプレイ評価はバリエーションのあるタスクだけを実行します"
                 continue
             }
             runnable += t
@@ -210,7 +210,7 @@ class EvalRunTest {
             var bad: String? = null
             for ((name, probe) in t.probesBefore) {
                 val v = runCatching { probes.run(probe) }.getOrNull()
-                if (v.isNullOrBlank() || v == "null") { bad = "探针 $probe 读不到"; break }
+                if (v.isNullOrBlank() || v == "null") { bad = "プローブ $probe の結果を読み取れません"; break }
                 before[name] = v
             }
             if (bad != null) t to bad else EvalTasks.substitute(t, run, before) to null
@@ -218,7 +218,7 @@ class EvalRunTest {
         val tasks = prepared.filter { it.second == null }.map { it.first }
         testTasks.evalHooks.autoAnswer = { prompt, _ -> tasks.firstNotNullOfOrNull { t -> t.answers.entries.firstOrNull { it.key in prompt }?.value } }
         testTasks.evalHooks.maxSteps = tasks.mapNotNull { it.maxSteps }.maxOrNull()
-        if (!waitFor(BUSY_WAIT_MS) { !DeviceTaskState.busy.value }) return group.map { it to harness("上一组任务一直没有收尾") }
+        if (!waitFor(BUSY_WAIT_MS) { !DeviceTaskState.busy.value }) return group.map { it to harness("前のグループのタスクが終了していません") }
 
         class Live(val task: EvalTask, val conversation: String, var run: TaskRun? = null, var t0: Long = 0, var tookOver: Boolean = false,
                    var timedOut: Boolean = false, var end: TaskState? = null, var wallMs: Long = 0, var failed: String? = null)
@@ -226,7 +226,7 @@ class EvalRunTest {
         for (l in live) {
             l.t0 = System.currentTimeMillis()
             TaskService.start(context, l.task.goal, l.conversation)
-            if (!waitFor(START_WAIT_MS) { DeviceTaskState.run(l.conversation) != null }) l.failed = "任务没有开始" else l.run = DeviceTaskState.run(l.conversation)
+            if (!waitFor(START_WAIT_MS) { DeviceTaskState.run(l.conversation) != null }) l.failed = "タスクが開始されませんでした" else l.run = DeviceTaskState.run(l.conversation)
         }
         while (live.any { it.run != null && it.end == null && it.failed == null }) {
             for (l in live) {
@@ -240,7 +240,7 @@ class EvalRunTest {
                 val timeoutMs = (l.task.timeoutSec ?: DEFAULT_TIMEOUT_SEC) * 1000L
                 val elapsed = System.currentTimeMillis() - l.t0
                 if (!l.timedOut && elapsed > timeoutMs) { l.timedOut = true; r.cancel() }
-                if (l.timedOut && elapsed > timeoutMs + BUSY_WAIT_MS) l.failed = "超时取消后任务一直没有收尾"
+                if (l.timedOut && elapsed > timeoutMs + BUSY_WAIT_MS) l.failed = "タイムアウトでキャンセルした後もタスクが終了しません"
                 // は、最後の仕上げが完了した後 (走行記録がオフになった後) にのみ登録オフィスから削除されました。
                 if (DeviceTaskState.run(l.conversation) == null) {
                     l.end = r.state.value
@@ -259,7 +259,7 @@ class EvalRunTest {
             val observed = observe(task, l.end!!, events, record != null, l.timedOut, l.tookOver, l.wallMs, probes, record?.id.orEmpty())
             // が失敗し、途中でアプリを占有している別の質問に遭遇しました: 単一の列が互いに干渉しています
             val interfered = observed.outcome != "succeeded" && events.any { it is RunEvent.ToolResult && "app_in_use_by_other_task" in it.resultJson }
-            results += task to if (interfered) observed.copy(failReason = Scoring.INTERFERENCE_PREFIX + "同组另一题占着要用的 App") else observed
+            results += task to if (interfered) observed.copy(failReason = Scoring.INTERFERENCE_PREFIX + "同じグループの別タスクが対象のアプリを使用しています") else observed
         }
         return results
     }
@@ -290,7 +290,7 @@ class EvalRunTest {
         val use = runCatching { (Json.parseToJsonElement(File(ext, "eval/$treated/skill-use.json").readText()) as JsonObject).mapValues { (it.value as JsonPrimitive).content.toInt() } }
             .getOrDefault(emptyMap())
         File(ext, "eval/$treated/compare.md").writeText(
-            "# 对比 $base → $treated\n\n" + EvalReport.compare(b.map { it.first }, t.map { it.first }, use, b.map { it.second }, t.map { it.second }),
+            "# 比較 $base → $treated\n\n" + EvalReport.compare(b.map { it.first }, t.map { it.first }, use, b.map { it.second }, t.map { it.second }),
         )
     }
 
@@ -300,21 +300,21 @@ class EvalRunTest {
         val before = mutableMapOf<String, String>()
         for ((name, probe) in t.probesBefore) {
             val v = runCatching { probes.run(probe) }.getOrNull()
-            if (v.isNullOrBlank() || v == "null") return t to harness("探针 $probe 读不到")
+            if (v.isNullOrBlank() || v == "null") return t to harness("プローブ $probe の結果を読み取れません")
             before[name] = v
         }
         val task = EvalTasks.substitute(t, run, before)
         testTasks.evalHooks.autoAnswer = { prompt, _ -> task.answers.entries.firstOrNull { it.key in prompt }?.value }
         testTasks.evalHooks.maxSteps = task.maxSteps
 
-        if (!waitFor(BUSY_WAIT_MS) { !DeviceTaskState.busy.value }) return task to harness("上一个任务一直没有收尾")
+        if (!waitFor(BUSY_WAIT_MS) { !DeviceTaskState.busy.value }) return task to harness("前のタスクが終了していません")
         val prevConversation = DeviceTaskState.conversationId.value
         val t0 = System.currentTimeMillis()
         TaskService.start(context, task.goal, conversation)
         // 新しい会話が開かれると、番号が変わり、リクエストが受け入れられたことを示します。次に同じ会話が実行されると、サービスはビジー状態になります。
         val started = if (conversation == null) waitFor(START_WAIT_MS) { DeviceTaskState.conversationId.value != prevConversation }
             else waitFor(START_WAIT_MS) { DeviceTaskState.busy.value && DeviceTaskState.conversationId.value == conversation }
-        if (!started) return task to harness("任务没有开始")
+        if (!started) return task to harness("タスクが開始されませんでした")
         val timeoutMs = (task.timeoutSec ?: DEFAULT_TIMEOUT_SEC) * 1000L
         var tookOver = false
         var timedOut = false
@@ -330,7 +330,7 @@ class EvalRunTest {
                 TaskService.cancel(context)
             }
             if (timedOut && System.currentTimeMillis() - t0 > timeoutMs + BUSY_WAIT_MS) {
-                return task to harness("超时取消后任务一直没有收尾")
+                return task to harness("タイムアウトでキャンセルした後もタスクが終了しません")
             }
             Thread.sleep(POLL_MS)
         }
@@ -431,7 +431,7 @@ class EvalRunTest {
             failReason = when {
                 timedOut -> null
                 end is TaskState.Failed -> Scoring.failReason(end)
-                !hasRecord -> Scoring.HARNESS_PREFIX + "找不到这次运行的记录"
+                !hasRecord -> Scoring.HARNESS_PREFIX + "今回の実行記録が見つかりません"
                 else -> null
             },
         )

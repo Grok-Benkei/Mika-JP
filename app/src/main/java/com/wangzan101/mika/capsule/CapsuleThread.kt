@@ -168,13 +168,14 @@ object CapsuleThreads {
     fun places(acts: List<RunEvent.Activity>, appLabel: (String) -> String): List<String> =
         acts.mapNotNull { a ->
             val t = a.target?.trim().orEmpty()
+            val sitePrefix = SITE_PREFIXES.firstOrNull { t.startsWith(it) }
             when {
-                t.startsWith(SITE_PREFIX) -> t.removePrefix(SITE_PREFIX).trim().ifEmpty { null }
+                sitePrefix != null -> t.removePrefix(sitePrefix).trim().ifEmpty { null }
                 PACKAGE_NAME_RE.matches(t) -> appLabel(t)
                 else -> null
             }
         }.distinct()
 
-    /** 実行レコードの Web ページ上のオブジェクトは、「Web サイト <ドメイン名>」として書き込まれます。 */
-    private const val SITE_PREFIX = "网站 "
+    /** 日本語版のサイト記録と、旧バージョンの中国語の接頭辞を読み取る。 */
+    private val SITE_PREFIXES = listOf("ウェブサイト ", "网站 ")
 }

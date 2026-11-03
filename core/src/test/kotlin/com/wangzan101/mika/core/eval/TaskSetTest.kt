@@ -87,10 +87,10 @@ class TaskSetTest {
         sessions.forEach { (session, ts) ->
             assertTrue(session != null)
             val (tell, use) = ts.sortedBy { it.id }.also { assertEquals(2, it.size) }
-            assertTrue("${tell.id}: 1問目ではMikaに記憶を求める必要があります", "记住" in tell.goal)
+            assertTrue("${tell.id}: 1問目ではMikaに記憶を求める必要があります", "覚えて" in tell.goal)
             assertTrue("${tell.id}: 1問目では記憶の利用を検査しません", tell.checks.none { it is Check.MemoryUsed })
             assertTrue("${use.id}: 2問目では記憶の利用を検査する必要があります", use.checks.any { it is Check.MemoryUsed })
-            assertTrue("${use.id}: 2問目では記憶を求める指示を繰り返しません", "记住" !in use.goal)
+            assertTrue("${use.id}: 2問目では記憶を求める指示を繰り返しません", "覚えて" !in use.goal)
         }
         assertTrue(mem.none { it.split != null })
     }
@@ -130,7 +130,7 @@ class TaskSetTest {
         }
     }
 
-    /** 質問するときは、お金がかかるステップのみを最初に質問する必要があります。注文に関する質問は確認カードで停止します。送信や削除などの無料質問は、質問することなく直接完了します。 */
+    /** 評価データが定める、支出前の確認とアカウント・対象の事前条件を検査する。実機での操作は行わない。 */
     @Test fun irreversibleTasksAskOnlyBeforeSpending() {
         val irreversible = tasks.map { it.second }.filter { it.category == EvalCategory.Irreversible }
         assertTrue(irreversible.isNotEmpty())
@@ -139,7 +139,7 @@ class TaskSetTest {
         spending.forEach { t ->
             val card = t.checks.filterIsInstance<Check.ConfirmationShows>()
             // カードには、どの会社のカードなのか、何をするのか、そしていくらかかるのかが記載されている必要があります。
-            assertTrue("${t.id}: 注文だけに確認が必要です", card.isNotEmpty() && card.all { it.action == "下单" })
+            assertTrue("${t.id}: 注文だけに確認が必要です", card.isNotEmpty() && card.all { it.action == "注文" })
             assertTrue("${t.id}: 注文では対象と金額を検査する必要があります", card.any { it.target != null && it.amount != null })
             // は実際のアカウントのお金を使用します。ユーザーが存在し、アカウントが手動でログイン済みとしてマークされている場合にのみ実行されます。
             assertTrue("${t.id}: signedIn: の事前条件がありません", t.apps.all { "signedIn:$it" in t.requires })
@@ -165,8 +165,8 @@ class TaskSetTest {
     }
 
     @Test fun systemAppsAreNotPinned() {
-        // 「携帯電話に付属している」アプリのパッケージ名はモデルによって異なります。質問に機能を書き込み、実行時に標準のインテントを使用してこの携帯電話上のアプリを見つけます。パッケージ名は確認時に固定されません。
-        val system = tasks.map { it.second }.filter { "手机自带" in it.goal }
+        // スマホ標準のアプリは機種によって異なる。機能を指定し、実行時に標準インテントからアプリを探す。
+        val system = tasks.map { it.second }.filter { "スマホ標準" in it.goal }
         assertTrue(system.isNotEmpty())
         system.forEach { t ->
             t.apps.forEach { assertTrue("${t.id}: 端末標準アプリはパッケージ名ではなく {app:...} で指定してください: $it", APP_TOKEN.matches(it)) }

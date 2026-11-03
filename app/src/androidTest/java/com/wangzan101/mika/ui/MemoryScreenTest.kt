@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import com.wangzan101.mika.ChineseUi
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -47,19 +48,19 @@ class MemoryScreenTest {
 
     @Test fun addEditDeleteRoundTrip() {
         show()
-        compose.onNodeWithText("手写一条").performClick()
+        compose.onNodeWithText(appString(R.string.memory_add)).performClick()
         compose.onNodeWithTag("memory-content").performTextInput("用户住在张江")
         compose.onNodeWithTag("memory-save").performClick()
         // 線をクリックすると操作パネルが立ち上がり、「変更」を選択
         compose.onNodeWithText("用户住在张江").performClick()
-        compose.onNodeWithText("改一改").performClick()
+        compose.onNodeWithText(appString(R.string.edit_it)).performClick()
         compose.onNodeWithTag("memory-content").performTextClearance()
         compose.onNodeWithTag("memory-content").performTextInput("用户住在张江高科")
         compose.onNodeWithTag("memory-save").performClick()
         compose.waitForIdle()
         assertEquals("用户住在张江高科", store.items.value.single().content)
         compose.onNodeWithText("用户住在张江高科").performClick()
-        compose.onNodeWithText("删除").performClick()
+        compose.onNodeWithText(appString(R.string.confirm_delete)).performClick()
         compose.waitForIdle()
         assertTrue(store.items.value.isEmpty())
     }
@@ -68,11 +69,11 @@ class MemoryScreenTest {
         store.add(MemoryKind.procedure, "点外卖先比价", emptyList(), MemorySource("user_said", "以后点外卖先比价", atMs = 1)).getOrThrow()
         show()
         compose.onNodeWithTag("segment-Pending").performClick()
-        compose.onNodeWithText("好").performClick()
+        compose.onNodeWithText(appString(R.string.ok_yes)).performClick()
         compose.waitForIdle()
         assertEquals(MemoryStatus.active, store.items.value.single().status)
         // は承認後に「確認待ち」から取得され、メモリリストに表示されます。
-        compose.onNodeWithText("没有等你确认的东西").assertExists()
+        compose.onNodeWithText(appString(R.string.memory_nothing_pending)).assertExists()
         compose.onNodeWithTag("segment-Memories").performClick()
         assertEquals(1, compose.onAllNodesWithTag("memory-row").fetchSemanticsNodes().size)
     }

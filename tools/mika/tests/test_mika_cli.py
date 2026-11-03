@@ -155,7 +155,7 @@ else:
         return executable, env, config, lambda: [json.loads(line) for line in log.read_text().splitlines()]
 
     def test_submit_unicode_from_stdin_once_without_mcp(self):
-        text = '查询版本\n保留 "引号"、$符号和 emoji 👋'
+        text = 'バージョンを確認\n"引用符"、$記号、絵文字 👋 を保持'
         with api() as server:
             result, body = self.invoke("task", "run", "--goal-file", "-", server=server, stdin=text)
             self.assertEqual(0, result.returncode)
@@ -164,7 +164,7 @@ else:
 
     def test_unicode_is_utf8_even_when_the_console_code_page_is_not(self):
         # Windows pipes default to the locale code page; the CLI must not depend on it.
-        text = "查询电量 👋"
+        text = "バッテリー残量を確認 👋"
         reply = (201, {**SNAPSHOT, "goal": text}, {})
         with api(lambda method, path, body: reply if method == "POST" else None) as server:
             result, body = self.invoke("task", "run", "--goal-file", "-", server=server, stdin=text,
@@ -221,7 +221,7 @@ else:
             self.assertEqual("t1", body["error"]["task_id"])
 
     def test_steer_sends_unicode_once_and_returns_message_id(self):
-        text = '补充要求\n只读，不发送 "消息" 👋'
+        text = '追加の依頼\n読み取りのみで、"メッセージ" を送信しない 👋'
         ack = {"task_id": "t1", "message_id": "s1", "accepted": True}
         for file_input in [False, True]:
             with self.subTest(file_input=file_input), api(lambda method, path, body: (202, ack, {}) if path.endswith("/steer") else None) as server:

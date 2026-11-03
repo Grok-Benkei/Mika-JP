@@ -1,6 +1,6 @@
 {
   "id": "web-github-notifications",
-  "goal": "用网页看一下我 GitHub 上有几条未读通知",
+  "goal": "ウェブで私のGitHubの未読通知が何件あるか調べて",
   "apps": [],
   "category": "read",
   "partition": "tune",
@@ -16,5 +16,5 @@
   ],
   "maxSteps": 20,
   "timeoutSec": 300,
-  "note": "需要事先在设置「网站登录」里登录 GitHub;Agent 不该再要求登录"
+  "note": "設定のサイトログインで、事前にGitHubへログインしておく。エージェントは再ログインを要求しない。"
 }

@@ -62,7 +62,7 @@ object LeakedToolMarkup {
 
     /**
      * はストリーミングで一般的です。マークは開始されたばかりです (`<｜`、`<｜｜DSML`、`<｜｜DSML｜｜ invoke name="pho`)。
-     * は、垂直バーで始まり、DSML の最初の数文字が続くハーフマークのみを認識し、通常のテキストとは一致しません (`a<b 这段讲 DSML` はカウントされません)。
+     * は、垂直バーで始まり、DSML の最初の数文字が続くハーフマークのみを認識し、通常のテキストとは一致しません (`a<b この文はDSMLの説明` はカウントされません)。
      */
     private val PARTIAL_TAIL = Regex("^/?" + B + "{1,2}\\s*(?:D(?:S(?:M(?:L.*)?)?)?)?$", RegexOption.DOT_MATCHES_ALL)
 

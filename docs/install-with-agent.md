@@ -46,7 +46,9 @@ adb -s SERIAL shell getprop ro.product.cpu.abi
 
 ## 2. このフォークのAPKを用意する
 
-Mika JPの公開リリースがまだない間は、このフォークのソースからローカルでビルドします。上流 `wangzan101/Mika` のリリースAPKは別アプリです。それを導入してからMika JPのパッケージへ権限を付与する手順は使いません。
+[Mika JPのリリース](https://github.com/yebisu0529-ship-it/Mika-JP/releases)から端末に合うAPKを取得し、同じリリースのSHA256SUMSと照合します。上流 `wangzan101/Mika` のリリースAPKは別アプリです。それを導入してからMika JPのパッケージへ権限を付与する手順は使いません。
+
+### ソースからビルドする場合
 
 ビルドにはJDK 17、Android SDK Platform 36が必要です。SDKの場所を `local.properties` の `sdk.dir` または `ANDROID_HOME` に指定し、リポジトリのルートで実行します。
 

@@ -30,7 +30,7 @@ data class SpeedFlags(
         /** プラスになった、または削除されたスイッチ: 保存された設定や評価パラメータにまだ残っている可能性がありますので、読んだ場合はスキップしてください。 */
         private val RETIRED = setOf("cacheFriendlyPrune")
 
-        /** "なし" (または空) = すべてオフ。それ以外の場合は、カンマ区切り `键=on|off` または単にキー名 (= on) を書き込みます。不明なキーまたは値が [IllegalArgumentException] をスローします。 */
+        /** "none" (または空) = すべてオフ。それ以外の場合は、カンマ区切り `key=on|off` または単にキー名 (= on) を書き込みます。不明なキーまたは値が [IllegalArgumentException] をスローします。 */
         fun parse(spec: String): SpeedFlags {
             val s = spec.trim()
             if (s.isEmpty() || s == NONE) return OFF

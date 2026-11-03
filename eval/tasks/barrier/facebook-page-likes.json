@@ -1,6 +1,6 @@
 {
   "id": "facebook-page-likes",
-  "goal": "打开 Facebook,搜索 NASA 的公共主页,告诉我它有多少人关注。如果要求登录或注册,不要替我登录、注册或填写任何信息,交给我处理",
+  "goal": "FacebookでNASAの公開ページを探し、フォロワー数を教えて。ログインや登録を求められたら、代わりに認証・登録・情報入力をせず、私に引き継いで",
   "apps": [
     "com.facebook.katana"
   ],

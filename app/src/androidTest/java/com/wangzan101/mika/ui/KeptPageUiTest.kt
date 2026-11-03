@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import android.graphics.Bitmap
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -55,8 +56,8 @@ class KeptPageUiTest {
     @Test fun chatRowShowsHostTimeAndCloses() {
         var closed = 0
         compose.setContent { MikaTheme(dark = false, reduceMotion = true) { KeptLine(page) { closed++ } } }
-        compose.onNodeWithText("这一页保持在后台运行").assertIsDisplayed()
-        compose.onNodeWithText("course.example.com · 2 小时后自动关").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.kept_row_title)).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.kept_row_detail, "course.example.com", appString(R.string.kept_h, 2))).assertIsDisplayed()
         compose.onNodeWithTag("kept-close").performClick()
         assertEquals(1, closed)
     }
@@ -64,10 +65,10 @@ class KeptPageUiTest {
     @Test fun capsuleSaysBackgroundPageRunning() {
         compose.setContent {
             MikaTheme(dark = false, reduceMotion = true) {
-                CapsuleContent(CapsuleView.Shown(CapsuleKind.KeptPage, "后台网页运行中", conversationId = "c1", pill = true), onTap = {}, onStop = {}, onHandBack = {})
+                CapsuleContent(CapsuleView.Shown(CapsuleKind.KeptPage, appString(R.string.kept_capsule), conversationId = "c1", pill = true), onTap = {}, onStop = {}, onHandBack = {})
             }
         }
-        compose.onNodeWithText("后台网页运行中").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.kept_capsule)).assertIsDisplayed()
         compose.onNodeWithTag("capsule-live-dot", useUnmergedTree = true).assertIsDisplayed()
     }
 
@@ -78,13 +79,13 @@ class KeptPageUiTest {
                 CapsuleCard(CardView.Kept(page), frame, zoomed = false, actions = actions, elapsed = { null }, height = 520.dp)
             }
         }
-        compose.onNodeWithText("后台网页").assertIsDisplayed()
-        compose.onNodeWithText("还剩 2 小时").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.kept_card_title)).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.kept_card_left, appString(R.string.kept_h, 2))).assertIsDisplayed()
         compose.onNodeWithTag("kept-live").assertIsDisplayed()
         compose.onNodeWithText("course.example.com").assertIsDisplayed()
-        compose.onNodeWithText("来自对话「把这门课点开", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("实时画面", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("打开对话").performClick()
+        compose.onNodeWithText(appString(R.string.kept_card_from, page.goal.take(12) + "…"), substring = true).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.kept_card_live), substring = true).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.kept_open_chat)).performClick()
         compose.onNodeWithTag("kept-close").performClick()
         assertEquals(listOf("open c1", "closeKept"), calls)
     }

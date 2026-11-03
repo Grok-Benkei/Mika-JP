@@ -69,7 +69,7 @@ private enum class AboutSheet { Update, Changelog, Feedback, Group, Diagnostics 
 
 /**
  * ミカについて: トップアイコン、名前、一文紹介、バージョン (ベータタグ、ビルド番号)。以下の 3 つのグループ - 更新の確認とレコードの更新、
- * 著者に連絡してフィードバックを送り、著者、オープンソース ウェアハウスおよび使用手順に従ってください。データ説明の段落。一番下のライセンスと作者。
+ * 著者に連絡してフィードバックを送り、著者、オープンソース リポジトリおよび使用手順に従ってください。データ説明の段落。一番下のライセンスと作者。
  * の外部リンクは [onOpenUrl] (システム ブラウザ) に渡されます。手動チェックの結果は、結果が到着する ([UpdateState.manualRounds] が変更される) までプロンプトされません。
  * [diagnostics] 診断情報を書き込みます (フィードバック パネルの [診断情報のコピー] をクリックしてプレビューを開くと、バックグラウンド スレッドで呼び出されます)。
  */
@@ -139,6 +139,11 @@ fun AboutScreen(
         ) {
             Icon(MikaIcons.Shield, null, Modifier.padding(top = 1.dp).size(18.dp), tint = c.ok)
             Text(AboutCopy.DATA_NOTE, style = MikaType.Caption, color = c.ink2)
+        }
+
+        GroupCard {
+            ListRow(MikaIcons.Shield, AboutCopy.USAGE_TITLE, AboutCopy.USAGE_NOTE, first = true,
+                onClick = { onOpenUrl(MikaLinks.DISCLAIMER) }) { ExternalMark() }
         }
 
         Column(Modifier.fillMaxWidth().padding(top = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {

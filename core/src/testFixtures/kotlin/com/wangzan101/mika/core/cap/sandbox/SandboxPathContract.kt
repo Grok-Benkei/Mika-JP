@@ -62,9 +62,9 @@ abstract class SandboxPathContract {
     }
 
     @Test fun saveOutputStaysInWorkspace() {
-        val path = sb.saveOutput(workspace, "完整输出")
+        val path = sb.saveOutput(workspace, "出力全文")
         assertTrue(path, path.startsWith("/workspace/.mika/out-"))
-        assertEquals("完整输出", sb.hostPath(workspace, path, forWrite = false)!!.readText())
+        assertEquals("出力全文", sb.hostPath(workspace, path, forWrite = false)!!.readText())
         // .mika は外部を指すリンクに置き換えられます: 書き込まれず、例外がスローされました
         val out = freshOutside()
         val mika = File(wsRoot(), ".mika")

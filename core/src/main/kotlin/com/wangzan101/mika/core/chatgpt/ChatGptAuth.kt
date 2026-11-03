@@ -41,7 +41,7 @@ sealed interface TokenResult {
     data class Ok(val tokens: TokenSet) : TokenResult
     /**
      * [detail] は、サーバーによって与えられたエラーの説明 (error_description または error.message) です。これは人間が閲覧することのみを目的としており、トークンは含まれません。
-     * [nonJson] が true の場合、戻り値が JSON ではないことを意味します (ほとんどの場合、保護ページの HTML)。この場合、[code] は `http_<状态码>` になります。
+     * [nonJson] が true の場合、戻り値が JSON ではないことを意味します (ほとんどの場合、保護ページの HTML)。この場合、[code] は `http_<ステータスコード>` になります。
      */
     data class Rejected(val code: String, val terminal: Boolean, val detail: String? = null, val nonJson: Boolean = false) : TokenResult
     data class Failed(val error: ModelError) : TokenResult

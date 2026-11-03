@@ -1,6 +1,6 @@
 {
   "id": "telegram-channel-subscribers",
-  "goal": "打开 Telegram,搜索公开频道 @telegram,告诉我它有多少订阅者。如果要求登录、填手机号或验证码,不要替我填,交给我处理",
+  "goal": "Telegramで公開チャンネル@telegramを探し、登録者数を教えて。ログインや電話番号・確認コードの入力が必要なら、代わりに入力せず私に引き継いで",
   "apps": [
     "org.telegram.messenger"
   ],

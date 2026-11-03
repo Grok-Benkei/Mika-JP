@@ -92,9 +92,10 @@ class SkillScriptsDeviceTest {
         assertTrue(meta.toString(), meta.s("output")!!.contains("\"pages\": 2"))
     }
 
-    @Test fun authScriptIsUnavailable() {
+    /** 同梱されていないスクリプトを実行しない。認証不可の判定自体はcoreの独立したfixtureで検査する。 */
+    @Test fun unbundledScriptIsUnavailable() {
+        assertTrue(sb.scriptManifest("sites/github.com").none { it.file == "scripts/api.mjs" })
         val r = runScript("sites/github.com", "scripts/api.mjs", "GET", "/user")
         assertEquals(r.toString(), "script_unavailable", r.s("error"))
-        assertTrue(r.toString(), r.s("message")!!.contains("需要账号授权,Mika 暂不支持"))
     }
 }

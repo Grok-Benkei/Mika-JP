@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import com.wangzan101.mika.ChineseUi
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -93,7 +94,7 @@ class ModelSetupScreenTest {
         compose.onNodeWithText(ModelSetupCopy.SAVE_UNTESTED_TITLE).assertIsDisplayed()
         compose.onNodeWithText(ModelSetupCopy.SAVE_UNTESTED_BODY).assertIsDisplayed()
         // キャンセル: 何も保存されませんでした
-        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithText(appString(R.string.cancel)).performClick()
         assertTrue(calls.isEmpty())
         // 確認: 保存
         compose.onNodeWithTag("setup-save-untested").performScrollTo().performClick()
@@ -105,7 +106,7 @@ class ModelSetupScreenTest {
         show(connected())
         compose.onNodeWithTag("context-main").assertDoesNotExist()
         compose.onNodeWithText(ModelsCopy.PROVIDERS).assertIsDisplayed()
-        compose.onNodeWithText("已连接 · 2 个模型 · 主模型、轻量模型在用").assertIsDisplayed()
+        compose.onNodeWithText(listOf(appString(R.string.phone_connected), appPlural(R.plurals.models_count, 2), appString(R.string.models_used_by, appString(R.string.role_main) + appString(R.string.list_sep) + appString(R.string.role_light))).joinToString(" · ")).assertIsDisplayed()
         // 軽量カードには、「メイン モデルを使用」の下にメイン モデルの名前が記載されているため、メイン モデル カードでのみ見つけることができます。
         compose.onNodeWithTag("role-main").assertTextContains("deepseek-chat", substring = true)
         // フォームは閉じられており、入り口が残っています
@@ -160,12 +161,12 @@ class ModelSetupScreenTest {
         }
         open.performScrollTo().performClick()
         trigger.assertTextContains("600000")
-        compose.onNodeWithText("重置").performScrollTo().performClick()
+        compose.onNodeWithText(appString(R.string.reset)).performScrollTo().performClick()
         preview.assertTextContains("18000", substring = true)
-        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithText(appString(R.string.cancel)).performClick()
         assertEquals(ModelContextSettings(1_000_000, 600_000), store.provider(provider.id)!!.contextSettings["m"])
         open.performScrollTo().performClick()
-        compose.onNodeWithText("重置").performScrollTo().performClick()
+        compose.onNodeWithText(appString(R.string.reset)).performScrollTo().performClick()
         save.performClick()
         compose.runOnIdle { assertEquals(null, store.provider(provider.id)!!.contextSettings["m"]) }
     }

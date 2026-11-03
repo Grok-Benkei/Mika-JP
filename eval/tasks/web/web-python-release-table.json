@@ -1,6 +1,6 @@
 {
   "id": "web-python-release-table",
-  "goal": "打开 Python 官网下载页(https://www.python.org/downloads/),把「Active Python Releases」表格里至少三个版本的维护状态和停止支持日期列出来",
+  "goal": "Pythonの公式ダウンロードページ（https://www.python.org/downloads/）を開き、「Active Python Releases」の表から3版以上の保守状態とサポート終了日を挙げて",
   "apps": [],
   "category": "read",
   "partition": "holdout",
@@ -19,5 +19,5 @@
   ],
   "maxSteps": 20,
   "timeoutSec": 360,
-  "note": "桌面版页面上的表格读数;版本号、日期都要在读屏里"
+  "note": "デスクトップ版の表を読む。バージョンと日付は画面読み取りを根拠にする。"
 }

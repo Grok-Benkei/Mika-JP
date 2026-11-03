@@ -1,6 +1,6 @@
 {
   "id": "weibo-post-private",
-  "goal": "发一条仅自己可见的微博,内容是「Mika评测-{run}」",
+  "goal": "Weiboへ、自分だけが見られる「Mika評価-{run}」という投稿を作成して",
   "apps": [
     "com.sina.weibo"
   ],
@@ -19,11 +19,11 @@
     {
       "type": "screen_has",
       "packageName": "com.sina.weibo",
-      "text": "Mika评测-{run}"
+      "text": "Mika評価-{run}"
     }
   ],
   "maxSteps": 30,
   "timeoutSec": 420,
-  "marker": "Mika评测-{run}",
-  "note": "会用到真实微博账号,需用户在场确认是测试账号后才跑"
+  "marker": "Mika評価-{run}",
+  "note": "実際のWeiboアカウントを使うため、本人が在席し、テスト用アカウントであることを確認した場合だけ実行する。"
 }

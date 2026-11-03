@@ -1,5 +1,7 @@
 package com.wangzan101.mika.cap.web
 
+import com.wangzan101.mika.ui.appString
+import com.wangzan101.mika.R
 import com.wangzan101.mika.ChineseUi
 import android.os.SystemClock
 import android.view.Display
@@ -176,7 +178,7 @@ class WebTakeoverTest {
         val login = DeviceSupport.pollUntil(5_000) { WebHandover.session.value?.tab }
         assertNotNull(login)
         DeviceSupport.pollUntil(5_000) { buttons(login!!).takeIf { it.isNotEmpty() } }
-        assertEquals(listOf("完成"), buttons(login!!).map { it.text.toString() })
+        assertEquals(listOf(appString(R.string.action_hand_back)), buttons(login!!).map { it.text.toString() })
         DeviceSupport.pollUntil(5_000) { WebHandover.session.value?.url }
         // button() はメインスレッドで取得されます。クリックして別のメインスレッド呼び出しを開始します (ネストできません)
         val doneButton = buttons(login).single()

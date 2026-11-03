@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import com.wangzan101.mika.ChineseUi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.assertIsDisplayed
@@ -49,25 +50,25 @@ class WebSitesSectionTest {
     fun logoutOneSiteWarnsItMayPersist() {
         show()
         compose.awaitOne("shop.example.com").performClick()
-        compose.clickInDialog("退出这个网站")
+        compose.clickInDialog(appString(R.string.web_sign_out_site))
         assertEquals(listOf("logout shop.example.com"), calls)
-        compose.onNodeWithText("已退出 shop.example.com。$WEB_LOGOUT_PARTIAL").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.web_signed_out, "shop.example.com", WEB_LOGOUT_PARTIAL)).assertIsDisplayed()
     }
 
     @Test
     fun openLoginFromTheSiteDialog() {
         show()
         compose.awaitOne("news.example.org").performClick()
-        compose.clickInDialog("打开登录")
+        compose.clickInDialog(appString(R.string.web_open_login))
         assertEquals(listOf("open news.example.org"), calls)
     }
 
     @Test
     fun logoutAllNeedsConfirmation() {
         show()
-        compose.awaitOne("全部退出并清除网页数据").performClick()
+        compose.awaitOne(appString(R.string.web_logout_all_title)).performClick()
         assertEquals(emptyList<String>(), calls)
-        compose.clickInDialog("全部退出")
+        compose.clickInDialog(appString(R.string.web_logout_all))
         assertEquals(listOf("all"), calls)
     }
 }

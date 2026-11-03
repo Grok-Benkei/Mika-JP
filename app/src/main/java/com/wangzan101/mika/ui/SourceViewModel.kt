@@ -47,8 +47,7 @@ class SourceViewModel(
     fun screen(id: Int): File? = runId?.let { store.screen(it, id) }
 }
 
-private fun evidencePlace(place: String, appLabel: (String) -> String): String = when {
-    place.startsWith("网站 ") -> place.removePrefix("网站 ")
+private fun evidencePlace(place: String, appLabel: (String) -> String): String = recordedSiteHost(place) ?: when {
     place.startsWith("http://") || place.startsWith("https://") -> runCatching { java.net.URI(place).host }.getOrNull() ?: place
     com.wangzan101.mika.core.tool.PACKAGE_NAME_RE.matches(place) -> appLabel(place)
     else -> place

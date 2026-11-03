@@ -1,6 +1,6 @@
 {
   "id": "files-new-folder",
-  "goal": "在手机自带的文件管理里,在内部存储的根目录新建一个文件夹,名字叫「Mika评测-{run}-文件夹」",
+  "goal": "スマホ標準のファイル管理で、内部ストレージのルートに「Mika評価-{run}-フォルダー」を作成して",
   "apps": [
     "{app:files}"
   ],
@@ -12,12 +12,12 @@
     {
       "type": "probe_equals",
       "probe": "storage_root",
-      "expected": "Mika评测-{run}-文件夹",
+      "expected": "Mika評価-{run}-フォルダー",
       "contains": true
     }
   ],
   "maxSteps": 30,
   "timeoutSec": 420,
-  "marker": "Mika评测-{run}-文件夹",
-  "note": "手机自带的 App 不钉包名,跑的时候按安卓标准 Intent 找这台手机上的"
+  "marker": "Mika評価-{run}-フォルダー",
+  "note": "スマホ標準アプリはパッケージ名を固定せず、実行時にAndroid標準Intentから端末内の対応アプリを探す。"
 }

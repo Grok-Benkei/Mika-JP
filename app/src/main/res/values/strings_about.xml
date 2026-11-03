@@ -7,7 +7,7 @@
     <string name="about_up_to_date">最新です</string>
     <string name="about_up_to_date_toast">最新バージョンです</string>
     <string name="about_offline">リリース情報を取得できません</string>
-    <string name="about_offline_toast">リリースが未公開か、GitHubに接続できません。日本語版のリポジトリで確認できます。</string>
+    <string name="about_offline_toast">更新情報を取得できませんでした。GitHub への接続を確認するか、日本語版のリリース一覧で確認してください。</string>
     <string name="about_changelog">リリースノート</string>
     <string name="about_changelog_sub">各バージョンの変更点</string>
     <string name="about_changelog_empty">リリースノートはまだありません。オンラインで「アップデートを確認」をタップしてください。</string>
@@ -35,9 +35,11 @@
     <string name="about_guide">日本語ガイド</string>
     <string name="about_guide_sub">導入方法、日本向けの設定、公式版との違い</string>
     <string name="about_data_note">チャットや読み取った画面は、選択したモデルプロバイダーに送られます。音声認識は選択した認識サービスを使います。Mika専用のサーバーはありません。更新確認はこの日本語版のGitHubに接続します。</string>
-    <string name="about_license_link">Apache-2.0 ライセンス</string>
+    <string name="about_usage_title">上級者向け・個人運用のOSS</string>
+    <string name="about_usage_note">権限設定とAIの自動操作を理解し、自分の端末・アカウントで、ご自身の判断と責任で利用してください。本アプリは現状のまま無保証で提供します。法令で認められる範囲で、開発者・貢献者は、利用または利用不能により生じた損害・損失について一切の責任を負いません。タップして免責事項を確認できます。</string>
+    <string name="about_license_link">ライセンスと著作権表示</string>
     <string name="about_author">原作: Wang Zan · 日本向け調整: Studio Yebisu</string>
-    <string name="about_license_title">Apache-2.0 ライセンス</string>
+    <string name="about_license_title">ライセンスと著作権表示</string>
     <string name="about_update_download">GitHub からダウンロード</string>
     <string name="about_update_download_in_app">アップデートをダウンロード</string>
     <string name="about_update_downloading">ダウンロード中…</string>
@@ -51,7 +53,7 @@
     <string name="about_update_error">ダウンロードまたはインストールが完了しませんでした。しばらくしてからもう一度お試しください。</string>
     <string name="about_update_bad_file">ダウンロードしたパッケージが不完全か、リリースと一致しません。削除しましたので、もう一度ダウンロードしてください。</string>
     <string name="about_update_not_newer">ダウンロードしたパッケージは、インストール済みの Mika より新しくありません。削除しました。</string>
-    <string name="about_update_bad_signer">このパッケージはインストール済みの Mika と署名が異なるため、上書きできません。削除しました。自分でビルドした Mika の場合は、先にアンインストールしてから公式版をインストールしてください。</string>
+    <string name="about_update_bad_signer">インストール済みの Mika と署名が異なるため、上書きできません。ダウンロードしたファイルを削除しました。端末のアプリは削除せず、日本語版の導入ガイドでデータへの影響と移行方法を確認してください。</string>
     <string name="about_update_later">あとで</string>
     <string name="about_no_browser">リンクを開けるブラウザがありません</string>
     <string name="about_version">バージョン %1$s</string>

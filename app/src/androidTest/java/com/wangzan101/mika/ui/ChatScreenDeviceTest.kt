@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import com.wangzan101.mika.ChineseUi
 import com.wangzan101.mika.DeviceTaskState
 import android.app.UiAutomation
@@ -153,29 +154,30 @@ class ChatScreenDeviceTest {
         assertNotNull(pollUntil(5_000) { DeviceTaskState.frames.value })
         // が実行されている場合、行の現在の進行状況が下の垂直線にリストされます。アクションはモデル独自の言葉を使用し、参照する場所を読み取りおよび書き込みます (読み取りのためにモデルの目的を書き込まないでください)。
         // は現在、モデルの 3 回目の呼び出しを待機しています。進捗ラインには「処理中」と表示されます。最後のステップ「設定の表示」が現在のステップです。
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("正在处理").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("看了设置").assertExists()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText(appString(R.string.chat_working)).fetchSemanticsNodes().isNotEmpty() }
+        val settingsName = context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(SETTINGS, 0)).toString()
+        compose.onNodeWithText(appString(R.string.step_viewed, settingsName)).assertExists()
         compose.onNodeWithText(ChatCopy.BACKGROUND_NOTE).assertExists()
         compose.onNodeWithText("先打开系统设置").assertExists()
         compose.onNodeWithText(ChatCopy.placeholder(ComposerMode.Busy, hasHistory = true)).assertExists()
         assertTrue(vm.ui.value.pip.visible)
         shot("03-running-collapsed")
 
-        compose.onNodeWithContentDescription("Mika 的虚拟屏").performClick()
+        compose.onNodeWithContentDescription(appString(R.string.pip_screen)).performClick()
         compose.waitForIdle()
         assertTrue(vm.ui.value.pip.expanded)
         shot("04-running-expanded")
-        compose.onNodeWithContentDescription("收起").performClick()
+        compose.onNodeWithContentDescription(appString(R.string.collapse)).performClick()
         compose.waitForIdle()
 
         // 小さなウィンドウは通常、右下隅 (入力フィールドの上) にあります。それを上に投げて左に移動すると、左上隅に吸い込まれるはずです。
         val d = context.resources.displayMetrics.density
-        val pip = compose.onNodeWithContentDescription("Mika 的虚拟屏").fetchSemanticsNode().boundsInWindow
+        val pip = compose.onNodeWithContentDescription(appString(R.string.pip_screen)).fetchSemanticsNode().boundsInWindow
         val x = pip.center.x
         val y = pip.center.y
         sh("input swipe ${x.toInt()} ${y.toInt()} ${(x - 250 * d).toInt()} ${(y - 300 * d).toInt()} 120")
         compose.waitForIdle()
-        val moved = compose.onNodeWithContentDescription("Mika 的虚拟屏").fetchSemanticsNode().boundsInWindow
+        val moved = compose.onNodeWithContentDescription(appString(R.string.pip_screen)).fetchSemanticsNode().boundsInWindow
         assertTrue("pip did not move up-left: $pip -> $moved", moved.center.x < x && moved.center.y < y)
         shot("05-dragged")
 
@@ -183,18 +185,18 @@ class ChatScreenDeviceTest {
         awaitState { it is TaskState.WaitingTakeover }
         compose.waitForIdle()
         assertTrue(vm.ui.value.pip.expanded)
-        compose.onNodeWithText("需要你处理:验证码").assertExists()
-        compose.onNodeWithText("已暂停").assertExists()
+        compose.onNodeWithText(appString(R.string.takeover_title_reason, appString(R.string.takeover_reason_captcha))).assertExists()
+        compose.onNodeWithText(appString(R.string.chat_paused)).assertExists()
         shot("06-takeover")
 
         // 拡張された小さなウィンドウとマスクが会話中のカードを覆います。最初にカードを折り、次にカードのボタンをクリックします。
-        compose.onNodeWithContentDescription("收起").performClick()
+        compose.onNodeWithContentDescription(appString(R.string.collapse)).performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("取消任务").performClick()
+        compose.onNodeWithText(appString(R.string.action_cancel_task)).performClick()
         awaitState { it == TaskState.Cancelled }
         // 停止後に追加された命令 (スクリプト モデルは書き込まれません。レコードを押して直接入力します) は、「停止」の下にリストされます。
-        compose.onNodeWithText("已停止。").assertExists()
-        compose.waitUntil(15_000) { compose.onAllNodesWithText("已经停下,停止前做了这些:", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(appString(R.string.chat_stopped)).assertExists()
+        compose.waitUntil(15_000) { compose.onAllNodesWithText("停止しました。停止前の状況:", substring = true).fetchSemanticsNodes().isNotEmpty() }
         shot("06b-stopped-summary")
 
         // 次に、新しいタスクを開始します。サービスはまだ前のタスクを終了している可能性があり、インターフェイスはタスクを引き渡す前に終了するまで待つ必要があります。
@@ -205,19 +207,19 @@ class ChatScreenDeviceTest {
         model.answer("脚本演示:电池信息在「设置 › 电池」里。")
         awaitState { it is TaskState.Succeeded }
         compose.waitForIdle()
-        compose.onNodeWithText("来源", substring = true).assertExists()
+        compose.onNodeWithText(appString(R.string.source_label), substring = true).assertExists()
         // キャンセルされた質問と完了した質問にはそれぞれ「閲覧処理」がございます
-        assertEquals(2, compose.onAllNodesWithText("查看过程").fetchSemanticsNodes().size)
+        assertEquals(2, compose.onAllNodesWithText(appString(R.string.chat_view_process)).fetchSemanticsNodes().size)
         shot("07-done")
 
         // サイドバー: 会話ページ (サイド スライド) に戻り、最初にサイドバーを開きます。 5 つの入り口と最近の会話
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
         compose.waitForIdle()
         compose.onNodeWithTag("drawer").assertIsDisplayed()
-        compose.onNodeWithText("定时任务").assertIsDisplayed()
-        compose.onNodeWithText("记忆与技能").assertIsDisplayed()
-        compose.onNodeWithText("浏览器").assertIsDisplayed()
-        compose.onNodeWithText("最近").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.drawer_plans)).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.memory_and_skills)).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.drawer_browser)).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.drawer_recent)).assertIsDisplayed()
         shot("08-drawer")
     }
 
@@ -226,7 +228,7 @@ class ChatScreenDeviceTest {
     fun attachButtonHiddenOnlyWhenSandboxUnsupported() {
         val unsupported = SandboxState.get(context).status.value is SandboxStatus.Unsupported
         compose.waitForIdle()
-        val nodes = compose.onAllNodesWithContentDescription("添加附件").fetchSemanticsNodes()
+        val nodes = compose.onAllNodesWithContentDescription(appString(R.string.attach_add)).fetchSemanticsNodes()
         assertEquals("sandbox unsupported=$unsupported", !unsupported, nodes.isNotEmpty())
     }
 
@@ -283,13 +285,13 @@ class ChatScreenDeviceTest {
             val second = vm.ui.value.conversationId
             assertTrue(first != second)
 
-            compose.onNodeWithContentDescription("菜单").performClick()
+            compose.onNodeWithContentDescription(appString(R.string.chat_menu)).performClick()
             compose.waitForIdle()
             // 「進行中」は、セグメントのタイトルと、別の会話の行の下にある小さな文字の両方です。位置によって個別に認識されます - タイトルが上部にあり、行が下にあります (タイトルと小さな文字は、クリック可能なノードに結合されています)
             val inDrawer = hasAnyAncestor(hasTestTag("drawer"))
-            val other = compose.onNode(hasText("第一个任务") and hasText("进行中") and inDrawer)
+            val other = compose.onNode(hasText("第一个任务") and hasText(appString(R.string.drawer_running)) and inDrawer)
             other.assertIsDisplayed()
-            val header = compose.onNode(hasText("进行中") and !hasText("第一个任务") and inDrawer)
+            val header = compose.onNode(hasText(appString(R.string.drawer_running)) and !hasText("第一个任务") and inDrawer)
             header.assertIsDisplayed()
             val headerTop = header.fetchSemanticsNode().boundsInWindow.top
             val otherTop = other.fetchSemanticsNode().boundsInWindow.top

@@ -81,7 +81,7 @@ class DeskUpdatesTest(unittest.TestCase):
 
                 with browser_desk(respond) as (page, _):
                     expect(page.locator("#connection-line")).to_have_text('オンライン')
-                    page.locator("#goal").fill("核对本周清单")
+                    page.locator("#goal").fill("今週の一覧を確認する")
                     page.locator("#submit-goal").click()
                     expect(page.locator("#pending-run")).to_be_visible()
                     page.reload()
@@ -269,7 +269,7 @@ class DeskUpdatesTest(unittest.TestCase):
             expect(page.locator(".turn #process-content")).to_contain_text('タスクに反映済み')
             page.once("dialog", lambda d: d.accept())
             page.get_by_role("button", name='このタスクをキャンセル').click()
-            expect(page.locator("#notice")).to_contain_text("已送出取消请求")
+            expect(page.locator("#notice")).to_contain_text("キャンセルを依頼しました。")
             expect(page.locator(".state[data-tone]")).to_have_text('実行中')
             task.update(status="cancelled")
             page.locator("#connection-details summary").click()
@@ -438,9 +438,9 @@ class DeskUpdatesTest(unittest.TestCase):
                 page.locator("#new-chat").click()
                 page.locator("#goal").fill("uncertain")
                 page.locator("#submit-goal").click()
-                expect(page.locator("#error")).to_contain_text("操作可能已到达手机")
+                expect(page.locator("#error")).to_contain_text("操作がスマホに届いている可能性があります。")
                 expect(page.locator("#threads")).to_contain_text("uncertain", timeout=12000)
-                expect(page.locator("#error")).to_contain_text("操作可能已到达手机")
+                expect(page.locator("#error")).to_contain_text("操作がスマホに届いている可能性があります。")
                 self.assertEqual(["new task", "uncertain"], [b["goal"] for _, b in mutations(phone)])
             finally:
                 release.set()

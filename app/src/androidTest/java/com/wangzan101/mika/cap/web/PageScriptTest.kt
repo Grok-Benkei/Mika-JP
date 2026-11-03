@@ -162,7 +162,7 @@ class PageScriptTest {
     fun crossOriginFrameListedAsFrame() = runBlocking<Unit> {
         open("frames.html")
         val frame = pollTree { it.els().firstOrNull { e -> e.str("r") == "frame" } }
-        assertEquals("内嵌页面:fixtures2.androidplatform.net", frame.str("n"))
+        assertEquals("埋め込みページ:fixtures2.androidplatform.net", frame.str("n"))
     }
 
     @Test
@@ -171,7 +171,7 @@ class PageScriptTest {
         val raw = page.tree()
         assertFalse(raw.contains("secret123"))
         assertFalse("role override must not expose the value", raw.contains("hunter22"))
-        assertEquals("密码：已填 9 位", byId("pw")!!.str("n"))
+        assertEquals("密码：入力済み 9 桁", byId("pw")!!.str("n"))
         assertEquals(FieldValue.Password(9), page.fieldValue(refOf("pw")))
         js("document.getElementById('pw').focus()")
         assertEquals(FieldValue.Password(9), page.fieldValue(null))
@@ -335,11 +335,11 @@ class PageScriptTest {
         val raw = page.tree()
         assertFalse(raw.contains("card-secret-6"))
         assertFalse(raw.contains("otp-secret-4"))
-        assertEquals("已填 13 位", byId("card")!!.str("n"))
-        assertEquals("已填 12 位", byId("otp")!!.str("n"))
+        assertEquals("入力済み 13 桁", byId("card")!!.str("n"))
+        assertEquals("入力済み 12 桁", byId("otp")!!.str("n"))
         // テキストエリア内の単語はその値です。名前、閲覧ページ、概要は含まれません (周囲のラベルには他の単語はありません)。
         assertFalse(raw.contains("otp-area-secret-9"))
-        assertEquals("已填 17 位", byId("otparea")!!.str("n"))
+        assertEquals("入力済み 17 桁", byId("otparea")!!.str("n"))
         val read = page.readPage(12_000, 0, scroll = false)
         assertTrue(read, read.contains("正文一段"))
         assertFalse(read, read.contains("otp-area-secret-9"))

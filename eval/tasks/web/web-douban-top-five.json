@@ -1,6 +1,6 @@
 {
   "id": "web-douban-top-five",
-  "goal": "用网页打开豆瓣电影 Top250(https://movie.douban.com/top250),告诉我排名前五的电影名和评分。只看,不要登录、不要标记想看",
+  "goal": "ウェブで豆瓣映画Top250（https://movie.douban.com/top250）を開き、上位5作品の題名と評価を教えて。閲覧だけにして、ログインや「見たい」への登録はしないで",
   "apps": [],
   "category": "read",
   "partition": "tune",
@@ -15,5 +15,5 @@
   ],
   "maxSteps": 20,
   "timeoutSec": 360,
-  "note": "表格/列表读数:片名和评分都要在读到的页面里出现过"
+  "note": "表・一覧の読み取り。作品名と評価の両方が取得したページ内に存在する必要がある。"
 }

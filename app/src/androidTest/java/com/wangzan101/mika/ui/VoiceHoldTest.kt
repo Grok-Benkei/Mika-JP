@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import android.Manifest
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
@@ -142,11 +143,11 @@ class VoiceHoldTest {
         }
         failWith(SpeechFailure.MicUnavailable)
         waitTag("voice-toast")
-        compose.onNodeWithText("麦克风用不了，可能正被别的 App 占着").assertExists()
+        compose.onNodeWithText(appString(R.string.voice_mic_unavailable)).assertExists()
         assertEquals(0, compose.onAllNodesWithTag("voice-sheet").fetchSemanticsNodes().size)
         failWith(SpeechFailure.AudioError)
         waitTag("voice-sheet")
-        compose.onNodeWithText("麦克风还是用不了").assertExists()
+        compose.onNodeWithText(appString(R.string.voice_mic_blocked_title)).assertExists()
     }
 
     @Test fun slidingUpCancels() {

@@ -4,6 +4,8 @@
 
 会話、ウェブ閲覧、ファイル処理、アプリの操作に使えます。AIの接続先はユーザーが選びます。画面やファイルの内容を扱うため、最初は読み取りだけの依頼で動作を確認してください。
 
+**上級者向け・個人運用を想定したOSSです。** 権限設定やAIの自動操作を理解し、自分の端末・アカウントで、導入から実行結果の確認までご自身の判断と責任で利用してください。本アプリは現状のまま無保証で提供します。法令で認められる範囲で、開発者・貢献者は、利用または利用不能により生じた損害・損失について一切の責任を負いません。詳しくは[利用上の注意・免責事項](docs/disclaimer.md)を確認してください。
+
 ## 日本向けの変更
 
 - 画面、案内、エラーの表示言語と既定リソースを日本語に固定。
@@ -33,11 +35,11 @@ Mika JPはGalaxy専用のアプリではなく、以下の条件を満たすAndr
 
 **今回の実機検証環境**: Galaxy S26 Ultra（SM-S948Q、Android 17 / SDK 37 / arm64）で、互換性チェック12項目の正常通過、日本語表示・日本語OCR、表示構成、およびChatGPTログイン後の日本語応答を確認しています。Galaxy固有の制限や設定項目は[日本語の導入ガイド](docs/setup-guide.ja.md)と[日本向け調整の記録](docs/JAPAN_TUNING.md)に分けて記載しています。
 
-開発版のアプリ名は **Mika JP**、アプリIDは **jp.studioyebisu.mika** です。公式Mikaと別にインストールでき、公式版の会話や設定を消しません。公式版から認証情報や会話を自動でコピーする機能はありません。
+このフォークのアプリ名は **Mika JP**、アプリIDは **jp.studioyebisu.mika** です。原作Mikaと別にインストールでき、原作の会話や設定を消しません。原作から認証情報や会話を自動でコピーする機能はありません。
 
-このフォークのリリースAPKがまだ公開されていない場合は、以下のビルド手順を使います。上流MikaのAPKは日本語調整版ではありません。
+公開APKは[Mika JPのリリースページ](https://github.com/yebisu0529-ship-it/Mika-JP/releases)から入手できます。端末に合うAPKと同じリリースのSHA256SUMSを確認してください。上流MikaのAPKは日本語調整版ではありません。ソースから試す場合は、以下のビルド手順を使います。
 
-公開候補の変更点は[変更履歴](CHANGELOG.md)、配布物と署名の準備は[公開手順](docs/release.md)にまとめています。公開APKを入手するときは、このフォークのリリースページとSHA256SUMSを確認してください。
+各版の変更点は[変更履歴](CHANGELOG.md)、配布物と署名の確認方法は[公開手順](docs/release.md)にまとめています。
 
 ## ビルド
 
@@ -81,13 +83,13 @@ OpenAI、Anthropic、Gemini、OpenRouter、OpenCode Go、xAI、Mistral、Groq、
 
 調整した範囲、互換性、確認方法は[日本向け調整の記録](docs/JAPAN_TUNING.md)にまとめています。確認できた段階と未確認の機能を区別して記録します。
 
-上流の[元のREADME](README.upstream.md)と多言語ドキュメントは記録として残しています。このフォークの導入手順は[日本語ガイド](docs/setup-guide.ja.md)が正本です。元のパッケージ名を使う上流用の導入コマンドと取り違えないでください。
+原作の出典は[上流資料の参考ページ](README.upstream.md)にまとめています。旧言語別URLは日本語の正本への案内として残しています。このフォークの導入手順は[日本語ガイド](docs/setup-guide.ja.md)が正本です。元のパッケージ名を使う上流用の導入コマンドと取り違えないでください。
 
 ## ライセンスと原作
 
 原作: [Mika / Wang Zan](https://github.com/wangzan101/Mika)。日本向け調整: Studio Yebisu。
 
-[Apache-2.0](LICENSE)、[NOTICE](NOTICE)、[第三者コンポーネント](licenses/THIRD_PARTY_NOTICES.md)を引き継いでいます。原作の著作権表示や第三者の権利は変更しません。
+[Apache-2.0原文](LICENSE)と[日本語の参考要約](LICENSE.ja.md)、[NOTICE](NOTICE)、[第三者コンポーネント](licenses/THIRD_PARTY_NOTICES.md)を参照してください。原作の著作権表示や第三者の権利は変更しません。
 
 [不具合・提案](https://github.com/yebisu0529-ship-it/Mika-JP/issues) · [Studio Yebisu](https://x.com/studio_yebisu)
 

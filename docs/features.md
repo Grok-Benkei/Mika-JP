@@ -103,7 +103,7 @@ CLIとスキル、またはMCPからタスクを渡し、進捗、質問、結�
 - ターミナルやスクリプトから使う場合は、CLIを導入します。
 - MCP対応クライアントでは、MCPサーバーとして登録します。
 
-選択方法は[PCからの利用](computer.md)、導入は[CLIとスキル](computer-install.md)または[MCP](mcp.md)を参照してください。PCのAIアシスタントとスマホへの導入を進める場合は[専用ガイド](install-with-agent.md)を使います。このフォークに公開リリースがない間はローカルでビルドし、上流MikaのAPKと取り違えないでください。
+選択方法は[PCからの利用](computer.md)、導入は[CLIとスキル](computer-install.md)または[MCP](mcp.md)を参照してください。PCのAIアシスタントとスマホへの導入を進める場合は[専用ガイド](install-with-agent.md)を使います。公開APKは[Mika JPのリリース](https://github.com/yebisu0529-ship-it/Mika-JP/releases)から取得し、上流MikaのAPKと区別してください。
 
 ## 必要な環境
 

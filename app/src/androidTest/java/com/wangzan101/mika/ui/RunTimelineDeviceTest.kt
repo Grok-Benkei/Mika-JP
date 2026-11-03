@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import com.wangzan101.mika.ChineseUi
 import com.wangzan101.mika.DeviceTaskState
 import android.content.Context
@@ -76,19 +77,19 @@ class RunTimelineDeviceTest {
         assertNotNull(pollUntil(15_000) { DeviceTaskState.state.value as? TaskState.Succeeded })
         assertNotNull(pollUntil(15_000) { DeviceTaskState.busy.value.takeIf { !it } })
 
-        compose.waitUntil(10_000) { compose.onAllNodesWithText("查看过程").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("查看过程").performClick()
-        compose.waitUntil(10_000) { compose.onAllNodesWithText("第 1 步").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) { compose.onAllNodesWithText(appString(R.string.chat_view_process)).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(appString(R.string.chat_view_process)).performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithText(appString(R.string.step_number, 1)).fetchSemanticsNodes().isNotEmpty() }
 
-        compose.onNodeWithText("共 3 步").assertExists()
-        for (n in 1..3) compose.onNodeWithText("第 $n 步").assertExists()
-        compose.onNodeWithText("第 4 步").assertDoesNotExist()
-        compose.onNodeWithText("办成了").assertExists()
+        compose.onNodeWithText(appPlural(R.plurals.timeline_total_steps, 3)).assertExists()
+        for (n in 1..3) compose.onNodeWithText(appString(R.string.step_number, n)).assertExists()
+        compose.onNodeWithText(appString(R.string.step_number, 4)).assertDoesNotExist()
+        compose.onNodeWithText(appString(R.string.outcome_succeeded)).assertExists()
 
-        compose.onAllNodesWithText("看当时的画面")[0].performClick()
+        compose.onAllNodesWithText(appString(R.string.timeline_show_screen))[0].performClick()
         compose.waitUntil(10_000) {
-            compose.onAllNodes(hasContentDescription("的画面", substring = true)).fetchSemanticsNodes().size == 1
+            compose.onAllNodes(hasContentDescription("の画面", substring = true)).fetchSemanticsNodes().size == 1
         }
-        compose.onAllNodes(hasText("收起画面")).fetchSemanticsNodes().let { assertTrue(it.size == 1) }
+        compose.onAllNodes(hasText(appString(R.string.timeline_hide_screen))).fetchSemanticsNodes().let { assertTrue(it.size == 1) }
     }
 }

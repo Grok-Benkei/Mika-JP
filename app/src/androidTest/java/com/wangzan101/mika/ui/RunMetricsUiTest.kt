@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import com.wangzan101.mika.ChineseUi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.assertIsDisplayed
@@ -31,7 +32,7 @@ class RunMetricsUiTest {
         compose.onNodeWithText(RunMetricsCopy.summaryLine(m)).assertIsDisplayed()
         compose.onNodeWithTag("run-metrics-summary").performClick()
         compose.onNodeWithText(RunMetricsCopy.MODEL).assertIsDisplayed()
-        compose.onNodeWithText("9 步").assertIsDisplayed()
+        compose.onNodeWithText(appPlural(R.plurals.chat_steps_n, 9)).assertIsDisplayed()
     }
 
     @Test fun statsPageShowsAggregatesAndExports() {
@@ -43,8 +44,8 @@ class RunMetricsUiTest {
         var copied = 0
         compose.setContent { MikaTheme { RunStatsContent(stats, 1, { range = it }, onCopy = { copied++ }, onShare = {}, onBack = {}) } }
         compose.onNodeWithText(RunMetricsCopy.STATS_TITLE).assertIsDisplayed()
-        compose.onNodeWithText("50%（1/2）").assertExists()
-        compose.onNodeWithText("20 秒").assertExists()
+        compose.onNodeWithText(appString(R.string.metrics_success_value, "50%", 1, 2)).assertExists()
+        compose.onNodeWithText(appString(R.string.duration_seconds_decimal, "20")).assertExists()
         compose.onNodeWithTag("run-stats-range-100").performClick()
         assertEquals(2, range)
         compose.onNodeWithTag("run-stats-copy").performScrollTo().performClick()

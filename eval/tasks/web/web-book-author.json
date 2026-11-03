@@ -1,6 +1,6 @@
 {
   "id": "web-book-author",
-  "goal": "查一下《红楼梦》的作者是谁",
+  "goal": "『紅楼夢』の作者を調べて",
   "apps": [],
   "category": "read",
   "partition": "holdout",

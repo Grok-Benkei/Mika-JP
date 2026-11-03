@@ -1,6 +1,6 @@
 {
   "id": "web-zhihu-nickname",
-  "goal": "用网页看一下我知乎账号的昵称是什么",
+  "goal": "ウェブで、私の知乎アカウントの表示名を調べて",
   "apps": [],
   "category": "read",
   "partition": "tune",
@@ -16,5 +16,5 @@
   ],
   "maxSteps": 20,
   "timeoutSec": 300,
-  "note": "需要事先在设置「网站登录」里登录知乎"
+  "note": "事前に設定のサイトログインから知乎へログインしておく。"
 }
