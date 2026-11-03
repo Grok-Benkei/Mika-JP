@@ -21,7 +21,7 @@ class RemoteSteerInboxTest {
         assertTrue(inbox.closeUnlessSteered())
         assertEquals(InputReceipt.Closed, inbox.steerCurrent("late", "more"))
         assertTrue(inbox.handoffUnconsumed().isEmpty())
-        // 手机原有的续聊行为不变。
+        // 携帯電話の元のチャット再開動作は変更されません。
         assertEquals(InputReceipt.NextTask, inbox.send(RunInput.Steer("next", "next task")))
     }
 

@@ -32,7 +32,7 @@ import com.wangzan101.mika.task.TaskService
 import com.wangzan101.mika.voice.SpeechChoice
 import com.wangzan101.mika.voice.SystemSpeech
 
-/** 引导页的输入:由系统状态加上引导页自己记的几项(用户确认过的、跳过的、回头重做的)组成。引导页和诊断信息共用这一份。 */
+/** ブート ページの入力: システム ステータスと、ブート ページに記録されたいくつかの項目 (ユーザーによって確認、スキップ、およびやり直し) で構成されます。ブート ページと診断情報はこれを共有します。 */
 fun SystemStatus.setupInputs(
     discovery: PairingDiscovery,
     repair: Boolean,
@@ -53,8 +53,8 @@ fun SystemStatus.setupInputs(
 )
 
 /**
- * 从 App 里各处现成的状态收一份 [DiagnosticsSnapshot]:系统状态、内置助手、自动恢复、模型配置、运行记录、检查更新。
- * 要读盘(运行记录),在后台线程调。[setup] 是引导页此刻的输入;不在引导页时按系统状态现建一份(没有用户确认过的步骤)。
+ * は、アプリ [DiagnosticsSnapshot] の既製ステータスのコピーを収集します: システム ステータス、組み込みアシスタント、自動回復、モデル構成、実行記録、更新のチェック。
+ * はディスク (実行中のレコード) を読み取り、バックグラウンド スレッドで呼び出す必要があります。 [setup] はブート ページの現在の入力です。ブート ページが使用できない場合は、システム ステータスに従って新しいコピーを作成します (ユーザーによって確認される手順はありません)。
  */
 object DiagnosticsCollector {
     private const val RECENT_RUNS = 3
@@ -104,7 +104,7 @@ object DiagnosticsCollector {
         )
     }
 
-    /** 内置助手连着时问它每份别的用户的判定,再数能打开的另一份有几个(只数,不列包名);问不到为 null。 */
+    /** の組み込みアシスタントは、各コピーに対するユーザーの判断を継続的に求め、他のコピーをいくつ開くことができるかを数えます (パッケージ名のリストはなく、数えるだけです)。要求されない場合は null になります。 */
     private fun appCopies(app: MikaApp, phone: PhoneServices): String? = runCatching {
         val shell = phone.hub.shell.value ?: return null
         val summary = shell.appCopyUsers()?.getString(ShellService.KEY_COPY_SUMMARY) ?: return null
@@ -132,7 +132,7 @@ object DiagnosticsCollector {
     private fun channel(context: Context, id: String): Int? =
         runCatching { context.getSystemService(NotificationManager::class.java).getNotificationChannel(id)?.importance }.getOrNull()
 
-    /** 只看状况,不为了诊断去读钥匙。 */
+    /** は状態を確認するだけで、診断のためのキーを読み取りません。 */
     private fun adbKey(context: Context): String? = runCatching {
         val src = AndroidAdb.identities(context)
         src.state.name + (src.problem?.let { " ($it)" } ?: "")
@@ -159,7 +159,7 @@ object DiagnosticsCollector {
         )
     }
 
-    /** 语音转文字:选择、手机自带识别的能力和记号、手机上登记的识别服务(组件名、开不开放、要的权限)。 */
+    /** 音声テキスト変換: 選択、携帯電話の内蔵認識機能とマーク、携帯電話に登録されている認識サービス (コンポーネント名、開くかどうか、必要な権限)。 */
     private fun speech(app: MikaApp): DiagnosticsSnapshot.Speech? = runCatching {
         val settings = app.speech
         val cap = SystemSpeech.capability(app, settings.systemSilent.value)
@@ -182,7 +182,7 @@ object DiagnosticsCollector {
         )
     }.getOrNull()
 
-    /** 最近几次运行:结局和步数取小结,模型取概要;目标、回答、失败原话都不取。 */
+    /** の最後の数回の実行: 終了とステップ数が要約され、モデルが要約されます。目標、答え、失敗の元の言葉は取り上げられません。 */
     private fun runs(app: MikaApp): List<DiagnosticsSnapshot.Run> = runCatching {
         val store = RunStore(app)
         val models = store.list().take(RECENT_RUNS * 2).associate { it.id to it.model }

@@ -1,1 +1,1 @@
-List apps installed for the current user as package + label. Use an exact returned package with phone_launch_app. An app also installed in another user or profile (such as an app clone or a work profile) gets one more entry per copy, with the same package, a label naming the copy, and user: pass that user to phone_launch_app to open that copy.
+現在のユーザーにインストールされたアプリを、パッケージとラベルで列挙する。返された正確なパッケージを phone_launch_app で使う。別のユーザーやプロファイルにもインストールされたアプリ（複製アプリや仕事用プロファイルなど）については、複製ごとに1件追加され、同じパッケージ、複製を示すラベル、user を持つ。その user を phone_launch_app に渡すと、その複製が開く。

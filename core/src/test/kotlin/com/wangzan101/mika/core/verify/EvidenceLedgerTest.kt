@@ -24,7 +24,7 @@ class EvidenceLedgerTest {
     private fun reply(s: String) = ModelReply(listOf(Part.Text(s)), StopReason.EndTurn, null)
     private fun filler(i: Int) = "当前网页:https://news.example.com/$i\n" + "无关的新闻正文。".repeat(700)
 
-    /** 两个词条页读在前面,后面又读了很多页:旧的「最近 3 屏」窗口里已经没有它们。 */
+    /** 2 つのエントリ ページが前に読み取られ、多くのページが後ろに読み取られます。これらのページは、古い「最後の 3 画面」ウィンドウには表示されなくなりました。 */
     private fun ledger(): EvidenceLedger = EvidenceLedger().apply {
         add(2, ObsKind.Read, "https://wiki.example.com/长江", 1, "网页正文(https://wiki.example.com/长江)\n长江全长 6300 公里,是亚洲第一长河")
         add(4, ObsKind.Read, "https://wiki.example.com/黄河", 2, "网页正文(https://wiki.example.com/黄河)\n黄河全长 5464 公里")
@@ -35,11 +35,11 @@ class EvidenceLedgerTest {
         val l = ledger()
         val chosen = l.forAnswer(goal, answer)
         assertTrue(chosen.any { "6300" in it.text } && chosen.any { "5464" in it.text })
-        // 选中的按读到的先后排;不沾边的只有最近读的一条
+        // 選択された項目は、読み取られた順序で並べられます。関連性のない項目は、最近読まれた項目のみです。
         assertEquals(chosen.sortedBy { it.step }, chosen)
         assertEquals(listOf(2, 4, 24), chosen.map { it.step })
         assertEquals(true, Grounding.check(goal, answer, chosen.map { it.text }).found)
-        // 交给核查模型的是节选:总字数有上限,含有回答事实的行都在
+        // 検証モデルに記載されているのは抜粋です。総文字数には上限があり、事実に対する回答を含むすべての行は
         val shown = Verifier.excerpts(goal, answer, chosen, EvidenceLedger.EXCERPT_CHARS)
         assertTrue(shown.sumOf { it.text.length } <= EvidenceLedger.EXCERPT_CHARS)
         assertTrue(shown.any { "长江全长 6300 公里" in it.text } && shown.any { "黄河全长 5464 公里" in it.text })
@@ -51,11 +51,11 @@ class EvidenceLedgerTest {
         val v = Verifier(m, null).verify(goal, criteria, answer, e)
         assertEquals(Verdict.Pass, v.verdict)
         val body = (m.requests.single().single().parts.single() as Part.Text).text
-        // 带来处:第几步、哪种来源、哪个网址
+        // の取得元: どのステップ、どのソース、どの Web サイトか
         assertTrue(body, "\"step\":2" in body && "\"kind\":\"read\"" in body && "wiki.example.com" in body)
     }
 
-    // 账本只证得了读到过的:回答里没读到过的数,账本挑多少都证不了
+    // 家計簿は読んだことだけを証明するものです。どれだけ帳簿を選んでも、答えの中にある読んでいない数字は証明できません。
     @Test fun ledgerCannotVouchForWhatWasNeverRead() = runTest {
         val wrong = "长江更长:长江 6397 公里,黄河 5464 公里\n依据: 「长江全长 6397 公里」「黄河全长 5464 公里」"
         val l = ledger()
@@ -68,7 +68,7 @@ class EvidenceLedgerTest {
         assertFalse(Checks.grounded(wrong, l.forAnswer(goal, wrong).map { it.text }, 2, goal))
     }
 
-    // 助手自己打进输入框的字(回显)不给回答作证
+    // アシスタントが入力ボックスに入力した言葉 (エコー) は、答えの証拠を提供しません。
     @Test fun typedEchoCannotVouch() = runTest {
         val l = EvidenceLedger().apply {
             noteTyped("长江 6300 公里")
@@ -79,7 +79,7 @@ class EvidenceLedgerTest {
         assertEquals(Verdict.CannotVerify, v.verdict)
     }
 
-    // 进账前脱敏:Key、一次性验证码不留原文,也就证不了
+    // 入金前の感度解除：キーとワンタイム認証コードの原本が残っていない場合、認証されません。
     @Test fun secretsAndCodesAreRedactedBeforeTheyEnter() {
         val key = "sk-" + "a".repeat(30)
         val l = EvidenceLedger().apply { add(1, ObsKind.Read, null, 1, "短信:您的验证码 482913,5 分钟内有效\n密钥 $key") }
@@ -93,13 +93,13 @@ class EvidenceLedgerTest {
         val l = EvidenceLedger(capChars = 10_000)
         for (i in 1..5) l.add(i, ObsKind.Read, null, i.toLong(), "第${i}屏\n" + "字".repeat(3_000))
         assertEquals(listOf(3, 4, 5), l.all.map { it.step })
-        // 同样的原文只留最近一次,来处跟着更新
+        // 同じオリジナルのテキストの最新バージョンのみが保持され、それに応じて更新されます。
         l.add(9, ObsKind.Read, null, 9, "第4屏\n" + "字".repeat(3_000))
         assertEquals(listOf(3, 5, 9), l.all.map { it.step })
         assertEquals(9L, l.all.last().atMs)
     }
 
-    // 评测的核对和核查兜底从同一份记录、同一个挑法拿证据:两边对同一个回答的看法一致
+    // 評価の検証と検証は、同じ記録と同じ質問方法に基づいており、同じ回答に対して双方が同じ見解を持っています。
     @Test fun evalAndVerifierReadTheSameLedger() {
         fun page(step: Int, url: String, text: String) =
             RunEvent.ToolResult(step.toLong(), step, "web_read_page", """{"ok":true,"url":"$url","text":"$text"}""", null, null)
@@ -117,7 +117,7 @@ class EvidenceLedgerTest {
         }
     }
 
-    // ---------- 值属于哪个东西:核查模型判,代码保证它看得到来处 ----------
+    // ---------- 値は何に属しますか: モデルの判断をチェックし、コードが値の由来を確認できることを確認してください ----------
 
     private val shopGoal = "华为手环 9 卖多少钱"
     private fun shop(): EvidenceLedger = EvidenceLedger().apply {
@@ -128,14 +128,14 @@ class EvidenceLedgerTest {
     private val shopPass = """{"checks": [{"criterion": "回答给出华为手环 9 的售价", "status": "met", "quote": "¥299"}], "verdict": "pass", "reason": "有"}"""
     private val shopUnmet = """{"checks": [{"criterion": "回答给出华为手环 9 的售价", "status": "unmet", "quote": "¥299"}], "verdict": "fail", "reason": "¥299 是小米手环 9 那一页的"}"""
 
-    /** 交给核查模型的账本条目(JSON)。 */
+    /** 台帳エントリ (JSON) が検証モデルに渡されます。 */
     private fun shownLedger(m: FakeModel) = (m.requests.single().single().parts.first() as Part.Text).text
         .let { kotlinx.serialization.json.Json.parseToJsonElement(it.substring(it.indexOf('{'))) }
         .let { (it as kotlinx.serialization.json.JsonObject)["ledger"] as kotlinx.serialization.json.JsonArray }
         .map { e -> (e as kotlinx.serialization.json.JsonObject).mapValues { (it.value as kotlinx.serialization.json.JsonPrimitive).content } }
 
-    // 反例:A 页的 ¥299 说成 B 的价格。代码只核字面(¥299 确实读到过),属于谁由核查模型判:
-    // 它拿到两页各自的来处(网址、标题、第几步)和价格那一行,提示词说清了这条规则
+    // 反例: ページ A の 299 円は B の価格であると言われています。コードは文字通りに検証されるだけであり (私が実際に読んだのは 299 円)、コードが誰に属するかは検証モデルによって決定されます。
+    // 2 つのページそれぞれのソース (Web サイト、タイトル、ステップ) と価格行を取得します。プロンプトの単語はこのルールを明確に説明しています。
     @Test fun valueFromAnotherPageIsTheModelsCallWithProvenance() = runTest {
         val wrong = "华为手环 9 售价 ¥299。\n依据:「¥299」"
         assertEquals(true, Grounding.check(shopGoal, wrong, shop().forAnswer(shopGoal, wrong).map { it.text }).found)
@@ -145,10 +145,10 @@ class EvidenceLedgerTest {
         val shown = shownLedger(m)
         val a = shown.single { it["where"] == "https://shop.example.com/a" }
         assertEquals("小米手环 9", a["title"]); assertEquals("2", a["step"]); assertTrue(a["text"]!!, "小米手环 9\n售价 ¥299" in a["text"]!!)
-        // 后来读的那一页(回答说的那个东西)也在
+        // 後で読んだページ（回答に記載されているもの）もあります
         assertTrue(shown.toString(), shown.any { it["title"] == "华为手环 9" && "¥399" in it["text"]!! })
-        assertTrue(Verifier.PROMPT, "值要属于回答说的那个东西" in Verifier.PROMPT && "where、title" in Verifier.PROMPT && "同一页上另一行" in Verifier.PROMPT)
-        // 对的回答:代码和模型都放过
+        assertTrue(Verifier.PROMPT, "値と対象を対応付ける" in Verifier.PROMPT && "whereやtitle" in Verifier.PROMPT && "同じ一覧の別行" in Verifier.PROMPT)
+        // の正解: コードとモデルの両方を手放す
         val right = "华为手环 9 售价 ¥399。\n依据:「¥399」"
         val ok = Verifier(FakeModel(reply(shopPass.replace("299", "399"))), null).verify(shopGoal, shopCriteria, right,
             Evidence(freshOf("网页标题:华为手环 9\n售价 ¥399"), null, shop(), emptyList(), protected = false))
@@ -156,9 +156,9 @@ class EvidenceLedgerTest {
         assertTrue(Checks.grounded(right, shop().forAnswer(shopGoal, right).map { it.text }, 1, shopGoal))
     }
 
-    // ---------- 必须看的条目 ----------
+    // ---------- 必読事項 ----------
 
-    // 后来读到的同一页可能和回答矛盾:那一页最近的一次一定交给核查器
+    // 後で読まれる同じページは答えと矛盾する可能性があります: そのページの最新のものは検証者に渡されている必要があります
     @Test fun latestReadOfTheAnswersPlaceIsAlwaysIncluded() {
         val l = EvidenceLedger().apply {
             add(2, ObsKind.Read, "https://shop.example.com/b", 1, "网页标题:华为手环 9\n售价 ¥299")
@@ -170,35 +170,35 @@ class EvidenceLedgerTest {
         assertEquals(listOf(2, 21, 24), chosen.map { it.step })
     }
 
-    // ---------- 输入框回显按控件认 ----------
+    // ---------- 入力ボックスエコープレスコントロール認識 ----------
 
     @Test fun echoIsJudgedByTheFieldNotTheText() {
         val l = EvidenceLedger().apply {
             noteTyped("长江长度")
-            // 输入框有焦点:框里的字和以它开头的联想行都不算
+            // 入力ボックスにフォーカスがあります。ボックス内の単語と、それから始まる関連行はカウントされません。
             add(3, ObsKind.Read, "com.example.search", 1, "长江长度\n长江长度是 6300 公里\n长江长度和黄河比", inputs = listOf("长江长度"), focused = "长江长度")
-            // 结果页:框里的字不算,和搜索词一样的结果标题照样算
+            // 結果ページ: ボックス内の単語はカウントされませんが、検索語と同じ結果タイトルはカウントされます。
             add(5, ObsKind.Read, "com.example.search", 2, "长江长度\n长江长度\n全长 6211 公里", inputs = listOf("长江长度"))
         }
         val texts = l.forAnswer("长江有多长", "长江长度 6211 公里").associate { it.step to it.text }
         assertFalse(texts.toString(), texts[3].orEmpty().contains("6300"))
         assertEquals("长江长度\n全长 6211 公里", texts[5])
-        // 只有框里有的数,证不了
+        // ボックス内の番号のみが確認できません
         assertFalse(Grounding.check("长江有多长", "长江长 6300 公里", l.forAnswer("长江有多长", "长江长 6300 公里").map { it.text }).found == true)
     }
 
-    // ---------- 脱敏 ----------
+    // ---------- 減感作 ----------
 
     @Test fun codesNearCodeWordsAreMaskedInEitherDirection() {
         for (raw in listOf("验证码 4 8 2 9 1 3,5 分钟内有效", "482913 是您的登录验证码", "短信 code: 4829", "Your OTP is 7712-3390")) {
             val t = Redactor.evidence(raw)
             assertFalse(t, Regex("\\d(?:[ \\-]?\\d){3,}").containsMatchIn(t))
         }
-        // 和这类词不沾边的数照常
+        // そんな言葉とは関係ない数字は相変わらず
         assertEquals("售价 ¥2026,库存 1288 件", Redactor.evidence("售价 ¥2026,库存 1288 件"))
     }
 
-    // 接管时用户自己填进输入框的字不进账;助手打的照常
+    // 引き継ぎ時に、ユーザー自身が入力ボックスに入力した単語はアカウントに入力されません。アシスタントはいつものようにタイプします。
     @Test fun fieldsFilledByTheUserDuringTakeoverAreNotKept() {
         val l = EvidenceLedger().apply {
             noteTyped("北京")
@@ -208,7 +208,7 @@ class EvidenceLedgerTest {
         assertEquals("手机号\n北京\n已登录", l.all.single().text)
     }
 
-    // ---------- 助手自己写的东西不作证 ----------
+    // ---------- アシスタントは自分が書いた内容を証言していない ----------
 
     @Test fun agentAuthoredOutputCannotVouch() {
         fun reply(step: Int, tool: String, args: String) = RunEvent.ModelReply(step.toLong(), step, "", tool, args, null, null, null)
@@ -224,9 +224,9 @@ class EvidenceLedgerTest {
         assertTrue(texts, "/workspace/out/a.txt" in texts)
     }
 
-    // ---------- 值属于哪个东西(续):交给核查模型的节选留着名字和值的那几行 ----------
+    // ---------- 値は何に属しますか (続き): 検証モデルに与えられた抜粋に名前と値の数行を残します ----------
 
-    // 原生 App 里同一个包名先后两页:来处里有第几步,两页各自的名字和价格都在
+    // ネイティブ アプリの同じパッケージ名に 2 つのページがあります。ステップはどこにあり、各ページの名前と価格が表示されます。
     @Test fun nativeAppPagesAcrossStepsKeepTheirSteps() = runTest {
         val l = EvidenceLedger().apply {
             add(5, ObsKind.Read, "com.example.shop", 1, "当前 App:com.example.shop\n小米手环 9\n售价 ¥299")
@@ -241,17 +241,17 @@ class EvidenceLedgerTest {
         assertTrue(shown.toString(), shown.any { it["step"] == "7" && "华为手环 9\n售价 ¥399" in it["text"]!! })
     }
 
-    // 一屏上两行、按城市列的天气:长页面只给节选时,对上的值连同它前后的名字一起留下
+    // 1 画面に 2 行、都市ごとの列がある天気: 長いページで抜粋のみが提供されている場合、上記の値はその前後の名前とともに残されます。
     @Test fun excerptKeepsTheRowAroundEachValue() {
         val rows = (1..300).joinToString("\n") { "无关的一行 $it" }
         val page = "网页正文\n$rows\n小米手环 9\n¥299\n华为手环 9\n¥399\n$rows"
         val e = obs(3, ObsKind.Read, "https://shop.example.com/list", page)
         val shown = Verifier.excerpts("小米手环 9 和华为手环 9 各多少钱", "华为手环 9 ¥299\n依据:「¥299」", listOf(e), 2_000).single().text
-        assertTrue(shown, shown.length < 2_000 && "小米手环 9\n¥299\n华为手环 9" in shown && "[省略" in shown)
+        assertTrue(shown, shown.length < 2_000 && "小米手环 9\n¥299\n华为手环 9" in shown && "行を省略]" in shown)
         val cities = "明天\n北京 小雨 12℃/9℃\n上海 阴 23℃/17℃\n广州 多云 30℃/20℃\n" + rows
         val c = Verifier.excerpts("北京、上海、广州明天的最高气温", "北京:最高 23℃\n依据:城市列表", listOf(e.copy(text = cities)), 2_000).single().text
         assertTrue(c, "北京 小雨 12℃/9℃\n上海 阴 23℃/17℃" in c)
-        // 每城一页时,页面自己的标题交给核查模型
+        // 各都市にページがある場合、ページ独自のタイトルを検証モデルに引き継ぐ
         val l = EvidenceLedger().apply {
             add(2, ObsKind.Read, "https://weather.example.com/bj", 1, "25日(明天) 小雨 12℃/9℃", title = "北京天气预报")
             add(4, ObsKind.Read, "https://weather.example.com/sh", 2, "25日(明天) 阴 23℃/17℃", title = "上海天气预报")
@@ -260,7 +260,7 @@ class EvidenceLedgerTest {
         assertEquals(listOf("北京天气预报", "上海天气预报"), chosen.map { it.title })
     }
 
-    // 一条也不丢:含有回答事实的条目很多、很长时,每条缩短,但每条都在,对上的行都在
+    // どれも失わないでください。事実への回答を含む多くの長い項目がある場合、各項目は短縮されますが、各項目は存在し、対応する行はすべて存在します。
     @Test fun excerptsNeverDropAnEntryWithAClaim() {
         val entries = (1..20).map { i -> obs(i, ObsKind.Read, "https://x.example.com/$i", "字".repeat(3_000) + "\n价格 ${1000 + i} 元\n" + "字".repeat(3_000)) }
         val answer = (1..20).joinToString(",") { "${1000 + it} 元" }
@@ -270,14 +270,14 @@ class EvidenceLedgerTest {
         for (i in 1..20) assertTrue(shown[i - 1].text, "价格 ${1000 + i} 元" in shown[i - 1].text)
     }
 
-    // 不认识的单位各算一种:¥5 + $3 = 8 不算数
+    // 不明なユニットはそれぞれ 1 種類としてカウントされます: ¥5 + $3 = 8 はカウントされません
     @Test fun unknownUnitsAreTheirOwnDimension() {
         val a = "一共 8:¥5 + $3 = 8\n依据:「¥5」「$3」"
         assertFalse(Grounding.check("", a, listOf("门票 ¥5", "饮料 $3")).found == true)
         assertTrue(Grounding.check("", "一共 ¥8:¥5 + ¥3 = ¥8\n依据:「门票 ¥5」「饮料 ¥3」", listOf("门票 ¥5", "饮料 ¥3")).found == true)
     }
 
-    // 码的遮挡不碰带单位、年份、货币的数
+    // コードのブロックは、単位、年、通貨の数値には影響しません。
     @Test fun codeMaskingSparesQuantities() {
         assertEquals("短信:2026 年 10 月账单 ¥1288,共 3000 元", Redactor.evidence("短信:2026 年 10 月账单 ¥1288,共 3000 元"))
         assertFalse(Redactor.evidence("短信验证码 7712").contains("7712"))

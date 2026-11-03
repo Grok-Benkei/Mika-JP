@@ -92,16 +92,16 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** 用户确认做好的几步,转屏、进后台后还在。 */
+/** ユーザーは、画面を回転してバックグラウンドに入った後もステップが残っていることを確認しました。 */
 private val StepSetSaver = Saver<Set<SetupStep>, String>(
     save = { set -> set.joinToString(",") { it.name } },
     restore = { s -> s.split(',').mapNotNull { n -> SetupStep.entries.firstOrNull { it.name == n } }.toSet() },
 )
 
 /**
- * 「设置手机操作」引导页:接上实时状态。每一步按系统开关自动打勾,读不到或读不准时用户点「我已经打开了,下一步」;
- * 点清单里前面的某一步可以回去重做。停在配对一步时开始找配对窗口:无障碍开着就由 Mika 自己读配对码,否则发带输入框的通知。
- * [repair] 是从设置页「重新配对」进来的。
+ * 「携帯電話の操作を設定する」ガイド ページ: リアルタイム ステータスに接続します。各ステップでシステム スイッチを押すと、ボックスが自動的にチェックされます。読めない場合、または時間通りに読めない場合、ユーザーは「すでに開いています。次のステップ」をクリックします。
+ * リスト内の前のステップをクリックして戻ってやり直します。ペアリングのステップで停止したら、ペアリング ウィンドウを探し始めます。アクセシビリティがオンになっている場合、ミカは自分でペアリング コードを読み取ります。そうでない場合は、入力ボックスを含む通知が送信されます。 設定ページの「再ペアリング」から
+ * [repair]が入ります。
  */
 @Composable
 fun PhoneSetupScreen(status: SystemStatus, repair: Boolean, onFix: (Fix) -> Unit, onboarding: Boolean = false, onClose: () -> Unit) {
@@ -125,7 +125,7 @@ fun PhoneSetupScreen(status: SystemStatus, repair: Boolean, onFix: (Fix) -> Unit
 
     val inputs = status.setupInputs(discovery, repairing, accessibilitySkipped, confirmed, revisit, stalledMs, usbAsked)
     val view = PhoneSetupFlow.view(inputs)
-    // 停在同一处没有进展时计时,换了地方从头算;到了时限就不用再数
+    // 同じ場所でタイマーが止まり、何も進んでいない場合は、場所を変更すると最初からカウントされます。制限時間に達した場合、再度カウントする必要はありません。
     val stallPoint = PhoneSetupFlow.stallPoint(view)
     LaunchedEffect(stallPoint) {
         stalledMs = 0L
@@ -136,24 +136,24 @@ fun PhoneSetupScreen(status: SystemStatus, repair: Boolean, onFix: (Fix) -> Unit
             stalledMs = SystemClock.elapsedRealtime() - start
         }
     }
-    // 「改用电脑启动」出现过就留着,不因为又开始连接而收回
+    // 「代わりにコンピューターの使用を開始します」が表示された場合は、接続が再び開始されるため、そのまま保持し、元に戻さないでください。
     LaunchedEffect(view.usbFallback) { if (view.usbFallback) usbAsked = true }
-    // 回去重做的那一步:读到它从关着变成开着,就自动回到原来的步骤,不用再点
+    // 戻ってそのステップをやり直します。オフからオンに変更されると、自動的に元のステップに戻ります。再度クリックする必要はありません。
     val revisitDetected = revisit?.let { PhoneSetupFlow.detected(it, inputs) }
     var revisitSawOff by rememberSaveable(revisit) { mutableStateOf(false) }
     LaunchedEffect(revisit, revisitDetected) {
         if (revisitDetected == false) revisitSawOff = true
         else if (revisitDetected == true && revisitSawOff) revisit = null
     }
-    // 开始连接或已经成功:以助手为准,不再停在回头的那一步
+    // 接続が開始されたか、成功しました。アシスタントに従い、振り返るステップで停止しないでください。
     LaunchedEffect(view.phase) { if (view.phase == SetupPhase.Working || view.phase == SetupPhase.Success) revisit = null }
-    // 到了配对一步:开始找配对窗口;通知没允许就在这时请求(配对码要填在通知里)。
-    // 「配对」通知被关掉要去系统设置里开,不自动跳过去,页面上给按钮
+    // はペアリング ステップに達しました。ペアリング ウィンドウを探し始めます。通知で許可されていない場合は、この時点でリクエストしてください (通知にはペアリング コードを入力する必要があります)。
+    // 「ペアリング」通知がオフになっています。システム設定でオンにする必要があります。自動的にジャンプしない場合は、ページ上のボタンを押してください。
     LaunchedEffect(view.current) {
         if (view.current == SetupStep.PairingCode) pairing.begin()
     }
-    // 停在配对一步时离开引导页,多半是自己切去系统设置打开配对窗口(不一定点「去无线调试」):从这时起再看 10 分钟,
-    // 免得引导页放久了,读配对码、弹填码通知都已经停了
+    // は、ペアリング手順で停止するとブート ページを離れます。おそらく、システム設定に移動してペアリング ウィンドウを開きます ([ワイヤレス デバッグに移動] をクリックする必要はありません)。この時点からさらに 10 分間様子を見てください。
+    // ブートページが長時間開いたままになるのを防ぐため、ペアリングコードの読み取りとコードの入力に関する通知を停止しました。
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
         if (view.current == SetupStep.PairingCode) pairing.begin()
     }
@@ -165,7 +165,7 @@ fun PhoneSetupScreen(status: SystemStatus, repair: Boolean, onFix: (Fix) -> Unit
         }
     }
     LaunchedEffect(view.phase) { if (view.phase == SetupPhase.Success) phone.setupPrompt.clear() }
-    // 打开引导页时把「用电脑启动」的脚本备好(助手不在时带新口令)
+    // ブート ページを開くときに「コンピューターで開始」スクリプトを準備します (アシスタントが使用できない場合は、新しいパスワードを入力します)。 診断情報は、
     LaunchedEffect(Unit) { phone.shellManager.usbScript.refresh() }
     val usbCommand = remember { phone.shellManager.usbScript.command() }
 
@@ -219,23 +219,23 @@ fun PhoneSetupScreen(status: SystemStatus, repair: Boolean, onFix: (Fix) -> Unit
         onAskUsb = { usbAsked = true },
         onCopyUsbCommand = copyUsbCommand,
     )
-    // 卡在哪一步都能把诊断信息发给作者:用的是引导页此刻的输入,用户确认过的步骤也在里面
+    // カードのどのステップでも作成者に送信できます。ガイド ページの時点での入力が使用され、ユーザーが確認したステップも含まれます。
     if (diagnosticsOpen) {
         DiagnosticsSheet(load = { Diagnostics.render(DiagnosticsCollector.collect(context, status, inputs)) }, onDismiss = { diagnosticsOpen = false })
     }
 }
 
 /**
- * 不带状态的引导页,便于测试。步骤是一张编号清单:做完的打勾,当前一步亮起并带按钮,后面的变灰。
- * 读开关的几步都有 [onConfirmStep](「我已经打开了,下一步」);做完的步骤可以点,[onRevisit] 回去重做,传 null 是回到原来的步骤。
- * [onboarding] 为真时是首次上手的最后一步,底部多一排分页点。[onSubmit] 收到的码已经校验过是 6 位数字。
- * 配对一步通知发不出来时([SetupView.needsNotifications]),先修通知是主按钮:[onAllowNotifications] 或 [onOpenPairingChannel]。
- * [onDiagnostics] 不为空时底部总有「复制诊断信息」,失败时出错的那一步里也有一个。
- * 除了成功,哪个阶段底部都有「稍后再说」,返回也总能离开:不把用户困在这一页。
- * [scanning] 为真时连接一步说明正在本机找端口;连不上时 [onConnectPort] 收用户填的无线调试端口(已校验 1–65535)。
- * [usbCommand] 不为空时才有「改用电脑启动」:平时不出现,只在无线调试一步有一行「找不到无线调试?」([onAskUsb]);
- * [SetupView.usbFallback] 为真时,在当前这一步里给一张卡片,是一句说明、命令和复制按钮([onCopyUsbCommand])。
- * [SetupPhase.Unavailable] 时这个环境设置不了手机操作:只有一张说明卡片和「知道了」,不列步骤。
+ * テストを容易にするためのステータスのないブート ページ。ステップは番号付きのリストです。完了したステップにはチェックマークが付き、現在のステップはボタンで点灯し、その後のステップはグレー表示になります。
+ * には、スイッチを読み取るいくつかのステップのための [onConfirmStep] (「開いた、次のステップ」) があります。完了したステップ [onRevisit] をクリックすると、戻ってやり直すことができます。null を渡すと、元のステップに戻ることになります。
+ * [onboarding] が true の場合、これは初めて開始するための最後のステップであり、下部に追加のページング ポイントの行が表示されます。 [onSubmit] 受信したコードは 6 桁の数字であることが確認されました。
+ * ワンステップペアリング通知を送信できない場合 ([SetupView.needsNotifications])、最初の通知はメインボタン: [onAllowNotifications] または [onOpenPairingChannel] です。
+ * [onDiagnostics] 空でない場合は常に下部に「診断情報のコピー」があり、失敗した場合はエラー ステップにもあります。
+ * 成功に加えて、各ステージの下部には「後で話します」というメッセージが表示され、戻ってきたらいつでも終了できます。ユーザーはこのページに閉じ込められることはありません。
+ * [scanning] が true の場合、接続ステップはマシンがポートを探していることを示します。接続できない場合、[onConnectPort] はユーザーが入力したワイヤレス デバッグ ポートを受け取ります (検証済み 1–65535)。
+ * [usbCommand] は、空でない場合は「代わりにコンピューターの使用を開始します」が表示されます。通常は表示されません。ワイヤレス デバッグのステップでのみ「ワイヤレス デバッグが見つかりませんか?」という行が表示されます。 ([onAskUsb]);
+ * [SetupView.usbFallback] が true の場合、現在のステップでカードが指定されます。これは、説明、コマンド、およびコピー ボタン ([onCopyUsbCommand]) です。
+ * [SetupPhase.Unavailable] この環境は携帯電話の操作用にセットアップできません。説明カードと「わかりました」のみがあり、手順は記載されていません。
  */
 @Composable
 fun PhoneSetupContent(
@@ -269,7 +269,7 @@ fun PhoneSetupContent(
             TopBar(PhoneSetupCopy.BAR_TITLE, MikaIcons.Back, onClose, stringResource(R.string.back))
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                 if (view.phase == SetupPhase.Unavailable) {
-                    // 这个环境没有能起助手的路:只说明,不列走不通的步骤
+                    // この環境ではアシスタントになる方法はありません。説明のみで、機能しない手順はありません。
                     GroupCard {
                         Column(Modifier.padding(16.dp).testTag("setup-unavailable")) {
                             Text(PhoneSetupCopy.UNAVAILABLE, style = MikaType.Body, fontWeight = FontWeight.SemiBold, color = c.ink)
@@ -328,7 +328,7 @@ fun PhoneSetupContent(
                         Modifier.fillMaxWidth().testTag("setup-done"),
                     )
                     SetupPhase.Unavailable -> MikaButton(stringResource(R.string.ok_got_it), onClose, Modifier.fillMaxWidth().testTag("setup-got-it"))
-                    // 正在连接、连不上时也能先离开,之后在设置里接着弄
+                    // は接続中ですが接続できません。最初に終了してから設定を続行することができます。
                     SetupPhase.Guide, SetupPhase.Working, SetupPhase.Failed -> MikaButton(
                         PhoneSetupCopy.LATER, onClose, Modifier.fillMaxWidth().testTag("setup-later"),
                         kind = ButtonKind.Text, size = ButtonSize.Medium,
@@ -346,8 +346,8 @@ fun PhoneSetupContent(
 }
 
 /**
- * 另一条路:用电脑经 USB 数据线起助手。放在当前这一步里,和这一步的其他提示一样是一块浅色底:标题、一句说明、命令和复制按钮。
- * 助手本来就是这样起的([HelperRestart.UsbCommand])时,标题说「再运行一次」。
+ * 別の方法: コンピューターを使用し、USB データ ケーブル経由でアシスタントを起動します。現在のステップに配置され、このステップの他のプロンプトと同じ明るい色の背景 (タイトル、説明、コマンド、コピー ボタン) が表示されます。
+ * アシスタントが最初にこのように開始されたとき ([HelperRestart.UsbCommand])、タイトルには「もう一度実行する」と表示されていました。
  */
 @Composable
 private fun UsbStartCard(restart: HelperRestart, command: String, onCopy: () -> Unit) {
@@ -435,15 +435,15 @@ private fun CurrentStepBody(
             Text(fc.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MikaTheme.colors.bad)
             Text(fc.body, Modifier.padding(top = 2.dp), fontSize = 13.sp, lineHeight = 18.sp, color = MikaTheme.colors.ink2)
         }
-        // 要再运行 USB 命令时,下面的卡片里就有命令和复制按钮,不再重复一个
+        // USB コマンドを再度実行する場合は、下のカードにコマンド ボタンとコピー ボタンがあるため、ボタンを繰り返す必要はありません。
         if (f.fix != BuiltinShellFix.RunUsbCommand || !view.usbFallback) {
             PillButton(PhoneSetupCopy.fixLabel(f.fix), primary = true, tag = "setup-fix") { onFailureFix(f.fix) }
         }
-        // 自动找不到端口:让用户照着「无线调试」页面填
+        // は自動的にポートを見つけることができません。「ワイヤレス デバッグ」ページに従って情報を入力するようにユーザーに依頼します。
         if (step == SetupStep.Connect && f.reason == BuiltinShellFailure.ConnectFailed) onConnectPort?.let { ConnectPort(it) }
         if (view.phase == SetupPhase.Failed) onDiagnostics?.let { LinkText(PhoneSetupCopy.DIAGNOSTICS, "setup-diagnostics-failed", it) }
     }
-    // 没成功时最可能的原因在前面哪一步:说清楚,给回去的按钮
+    // 失敗の原因として最も考えられるステップはどれですか: それを明確にして、「戻る」ボタンを押してください
     view.suspect?.let { s ->
         Text(
             PhoneSetupCopy.suspect(s),
@@ -453,7 +453,7 @@ private fun CurrentStepBody(
         )
         PillButton(PhoneSetupCopy.goBackTo(s.step), primary = view.failure == null, tag = "setup-suspect-back") { onRevisit(s.step) }
     }
-    // 没有无障碍时配对码只能填在通知里:通知发不出来就先修它,这是这一步的主按钮
+    // バリアがない場合、ペアリング コードは通知にのみ入力できます。通知を送信できない場合は、まずそれを修正してください。これがこのステップのメインボタンです。
     val fixNotificationsFirst = step == SetupStep.PairingCode && view.needsNotifications && !view.autoRead
     if (step == SetupStep.PairingCode) {
         when (view.notifyIssue) {
@@ -465,7 +465,7 @@ private fun CurrentStepBody(
                 Text(PhoneSetupCopy.PAIRING_CHANNEL_OFF, Modifier.padding(top = 8.dp), fontSize = 13.sp, lineHeight = 18.sp, color = MikaTheme.colors.warn)
                 PillButton(PhoneSetupCopy.OPEN_PAIRING_CHANNEL, primary = fixNotificationsFirst, tag = "setup-notify-fix") { onOpenPairingChannel() }
             }
-            // 不弹出也能下拉去填:只提醒,不抢主按钮;无障碍开着时用不上通知,不提
+            // ポップアップを表示せずに、プルダウンしてテキストを入力することもできます。メイン ボタンをつかまずに、リマインダーのみを表示します。バリアがオンになったときに通知は必要なく、言及もされません。
             PairingNotifyIssue.NotHeadsUp -> if (!view.autoRead) {
                 Text(
                     PhoneSetupCopy.PAIRING_LOWERED,
@@ -489,14 +489,14 @@ private fun CurrentStepBody(
         if (view.autoRead) AutoReadHint() else NotifyGuide()
         if (view.portFound && !view.autoRead) Text(PhoneSetupCopy.PORT_FOUND, Modifier.padding(top = 8.dp), fontSize = 13.sp, color = MikaTheme.colors.ok)
     }
-    // 无障碍一步推荐跳过:配对后 Mika 自己打开,也不会被「受限制的设置」拦住
+    // バリアフリーのための推奨スキップステップ: ペアリング後、ミカは自分で開くことができ、「制限付き設定」によってブロックされません。
     val a11y = step == SetupStep.Accessibility
     if (a11y) PillButton(PhoneSetupCopy.ACCESSIBILITY_SKIP, primary = true, tag = "setup-skip-a11y", onClick = onSkipAccessibility)
     if (view.failure == null && copy.action != null) {
         PillButton(copy.action, primary = !a11y && !fixNotificationsFirst, tag = "setup-action") { onStepAction(step) }
     }
     if (a11y && view.showAppInfo) PillButton(PhoneSetupCopy.APP_INFO, primary = false, tag = "setup-app-info", onClick = onAppInfo)
-    // 读到的开关只是参考:用户说打开了就往下走,哪一步都不会卡死
+    // で読んだスイッチは参考用です。ユーザーは、一度オンにすると下がり、どのステップでも動かなくなると述べています。
     if (step in PhoneSetupFlow.CONFIRMABLE) PillButton(PhoneSetupCopy.TURNED_ON_NEXT, primary = false, tag = "setup-confirm") { onConfirmStep(step) }
     if (step == SetupStep.PairingCode) ManualCode(askPort = !view.portFound, onSubmit = onSubmit)
     if (view.revisiting) LinkText(PhoneSetupCopy.REVISIT_BACK, "setup-revisit-back") { onRevisit(null) }
@@ -510,7 +510,7 @@ private fun LinkText(text: String, tag: String?, onClick: () -> Unit) {
     )
 }
 
-/** 无障碍开着:去系统设置前说一句,Mika 会自己读配对码。 */
+/** は問題なくオンになります。システム設定に進む前に、Mika が自動的にペアリング コードを読み取ります。 */
 @Composable
 private fun AutoReadHint() {
     val c = MikaTheme.colors
@@ -524,7 +524,7 @@ private fun AutoReadHint() {
     }
 }
 
-/** 无障碍没开:用三行编号小图示说清楚配对码怎么填进通知,不用离开配对窗口。 */
+/** アクセシビリティがオンになっていません: 小さな 3 行の番号付きアイコンを使用して、ペアリング ウィンドウを離れることなく通知にペアリング コードを入力する方法を説明します。 */
 @Composable
 private fun NotifyGuide() {
     val c = MikaTheme.colors
@@ -546,7 +546,7 @@ private fun NotifyGuide() {
     }
 }
 
-/** 通知没弹出来时的兜底:在 App 里直接填码(找不到配对窗口时连带填端口)。 */
+/** 通知がポップアップしない場合の対処法: アプリにコードを直接入力します (ペアリング ウィンドウが見つからない場合はポートを入力します)。 */
 @Composable
 private fun ManualCode(askPort: Boolean, onSubmit: (String, Int?) -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
@@ -584,7 +584,7 @@ private fun ManualCode(askPort: Boolean, onSubmit: (String, Int?) -> Unit) {
     }
 }
 
-/** 用户填的无线调试端口:可能整段粘了「IP 地址和端口」(取最后一个冒号后面)、带空格或全角数字;不在 1–65535 为 null。 */
+/** ユーザーが入力したワイヤレス デバッグ ポート: 「IP アドレスとポート」は、スペースまたは全角数字を使用してセクション全体 (最後のコロンの後に取得) に貼り付けることができます。 1 ～ 65535 でない場合は、null になります。 */
 internal object ConnectPortInput {
     fun parse(text: String): Int? {
         val tail = text.substringAfterLast(':').substringAfterLast('：')
@@ -593,7 +593,7 @@ internal object ConnectPortInput {
     }
 }
 
-/** 连不上时的兜底:填「无线调试」页面上的端口,点「连接」。 */
+/** が接続できない場合の注意事項: [ワイヤレス デバッグ] ページでポートを入力し、[接続] をクリックします。 */
 @Composable
 private fun ConnectPort(onConnect: (Int) -> Unit) {
     var port by rememberSaveable { mutableStateOf("") }
@@ -631,9 +631,9 @@ private fun PillButton(text: String, primary: Boolean, tag: String? = null, onCl
     )
 }
 
-// ---------- 设置页「高级」 ----------
+// ---------- 設定ページ「詳細設定」 ----------
 
-/** 「高级」分组里内置助手的三行:状态、重新配对、解除配对(要确认)。没配对过时不能解除。 */
+/** 「詳細」グループには、ステータス、再ペアリング、ペアリング解除 (要確認) の 3 行の組み込みアシスタントがあります。ペアリングされていない場合はキャンセルできません。 */
 @Composable
 fun PhoneHelperSection(status: BuiltinShellStatus, onRepair: () -> Unit, onUnpair: () -> Unit, usbDebugging: Boolean = true) {
     var confirming by remember { mutableStateOf(false) }
@@ -662,9 +662,9 @@ fun PhoneHelperSection(status: BuiltinShellStatus, onRepair: () -> Unit, onUnpai
     }
 }
 
-// ---------- 对话页 ----------
+// ---------- ダイアログページ ----------
 
-/** 任务要用手机而手机操作没准备好时,任务卡片下面的一行。 */
+/** タスクに携帯電話の使用が必要で、携帯電話の操作の準備ができていない場合、タスク カードの下の行。 */
 @Composable
 fun PhoneSetupLine(onOpen: () -> Unit) {
     val shape = MikaShapes.Card

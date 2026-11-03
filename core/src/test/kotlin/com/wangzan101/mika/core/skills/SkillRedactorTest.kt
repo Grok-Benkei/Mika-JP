@@ -8,6 +8,30 @@ import com.wangzan101.mika.core.testing.TOOLS
 import com.wangzan101.mika.core.tool.Verb
 
 class SkillRedactorTest {
+    @Test fun japaneseYenAmountsAreRedactedAfterFullWidthNormalization() {
+        for ((raw, normalized) in listOf(
+            "5円" to "5円",
+            "５円" to "5円",
+            "￥５" to "¥5",
+            "１，２３４円" to "1234円",
+            "３万円" to "3万円",
+            "２億円" to "2億円",
+        )) {
+            val literals = SkillRedactor.literals("価格: $raw", emptyList())
+            assertTrue(raw, normalized in literals)
+            assertEquals(raw, "価格: ${SkillRedactor.PLACEHOLDER}", SkillRedactor.redact("価格: $raw", literals))
+            assertEquals(raw, "価格: ${SkillRedactor.PLACEHOLDER}", SkillRedactor.scrubNumbers("価格: $raw", emptySet()))
+        }
+    }
+
+    @Test fun yenMatchingDoesNotTurnIdentifiersOrDatesIntoAmounts() {
+        val text = "ID A7B、日付 7/8、手順 5、識別子 SKU9円"
+        assertTrue(SkillRedactor.literals(text, emptyList()).isEmpty())
+        assertEquals(text, SkillRedactor.scrubNumbers(text, emptySet()))
+        assertEquals("ID 12306、日付 2026/1/9、価格 ${SkillRedactor.PLACEHOLDER}",
+            SkillRedactor.scrubNumbers("ID 12306、日付 2026/1/9、価格 5円", setOf("12306", "2026")))
+    }
+
     @Test fun literalsFromQuotesDigitsAmountsAndCriteria() {
         val lits = SkillRedactor.literals(
             "给『老妈』发「明天回家吃饭」,顺便转 5元,订单 2024 号",
@@ -15,23 +39,23 @@ class SkillRedactorTest {
         )
         assertEquals(setOf("老妈", "明天回家吃饭", "5元", "2024", "家人群"), lits)
         assertTrue(SkillRedactor.literals("打开微信看看", emptyList()).isEmpty())
-        assertFalse("5" in SkillRedactor.literals("买 5 个", emptyList())) // 单个数字不算
-        assertEquals(setOf("老妈"), SkillRedactor.literals("给「妈」和「老妈」各发一条", emptyList())) // 一个字的不换
-        assertEquals("给<参数>发", SkillRedactor.redact("给老妈发", setOf("老妈", "妈")))
+        assertFalse("5" in SkillRedactor.literals("买 5 个", emptyList())) // の単一の番号はカウントされません
+        assertEquals(setOf("老妈"), SkillRedactor.literals("给「妈」和「老妈」各发一条", emptyList())) // 一言も変えないでください
+        assertEquals("给<パラメータ>发", SkillRedactor.redact("给老妈发", setOf("老妈", "妈")))
     }
 
     @Test fun nfkcAndNumberScrub() {
-        assertEquals("单号<参数>,价格<参数>,打开铁路12306", SkillRedactor.scrubNumbers("单号２０２４１０２３，价格35元，打开铁路12306", setOf("12306")))
+        assertEquals("单号<パラメータ>,价格<パラメータ>,打开铁路12306", SkillRedactor.scrubNumbers("单号２０２４１０２３，价格35元，打开铁路12306", setOf("12306")))
         val front = "---\napps: [com.a1b2]\nlearned_from: run-2024\n---\nlearned_from: 2024"
-        assertEquals("---\napps: [com.a1b2]\nlearned_from: run-2024\n---\nlearned_from: <参数>", SkillRedactor.scrubNumbers(front, emptySet()))
-        assertEquals("共<参数>,电话 <参数>,编号<参数>", SkillRedactor.scrubNumbers("共1,234元,电话 138 0013 8000,编号一三八零零一三八零零零", emptySet()))
+        assertEquals("---\napps: [com.a1b2]\nlearned_from: run-2024\n---\nlearned_from: <パラメータ>", SkillRedactor.scrubNumbers(front, emptySet()))
+        assertEquals("共<パラメータ>,电话 <パラメータ>,编号<パラメータ>", SkillRedactor.scrubNumbers("共1,234元,电话 138 0013 8000,编号一三八零零一三八零零零", emptySet()))
         assertEquals(setOf("王小明:明天见", "王小明", "明天见", "2024"), SkillRedactor.textLiterals(listOf(" 王小明:明天见 ", "2024")))
     }
 
     @Test fun redactLongestFirstAndWholeDigitRuns() {
         val md = "打开 12306,给老妈发 明天回家吃饭,第 12 个"
         val out = SkillRedactor.redact(md, setOf("12", "老妈", "明天回家", "明天回家吃饭"))
-        assertEquals("打开 12306,给<参数>发 <参数>,第 <参数> 个", out)
+        assertEquals("打开 12306,给<パラメータ>发 <パラメータ>,第 <パラメータ> 个", out)
     }
 }
 

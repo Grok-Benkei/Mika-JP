@@ -1,21 +1,21 @@
-# Gmail 搜索语法
+# Gmailの検索構文
 
-可以输入顶部搜索框，也可以编码后放在地址的 `#search/` 之后。多个条件用空格隔开，要同时满足。
+上部の検索欄へ入力する。ウェブ版ではURLエンコードして#search/の後へ付ける方法もある。空白で区切った条件は同時に満たすものを探す。
 
-| 想查什么 | 写法 |
+| 条件 | 構文 |
 |---|---|
-| 位置 | `in:inbox`、`in:sent`、`in:drafts`、`in:trash`；`in:anywhere` 连垃圾邮件和已删除也查 |
-| 状态 | `is:unread`、`is:starred`、`is:important` |
-| 标签与分类 | `label:work`、`category:promotions`、`category:social` |
-| 发件人、收件人、抄送 | `from:alice@example.com`、`to:`、`cc:` |
-| 主题 | `subject:invoice` |
-| 附件 | `has:attachment`；`filename:pdf` 按附件名或类型 |
-| 大小 | `larger:5M`、`smaller:1M` |
-| 相对时间 | `newer_than:7d`、`older_than:30d`；单位 d 天、m 月、y 年 |
-| 绝对日期 | `after:2026/02/01`、`before:2026/03/01` |
-| 任一满足 | `from:alice OR from:bob` |
-| 排除 | `-from:noreply@` |
-| 分组 | `(from:alice OR from:bob) subject:meeting` |
-| 整句 | `"exact phrase"` |
+| 場所 | in:inbox、in:sent、in:drafts、in:trash。in:anywhereは迷惑メールとゴミ箱も含む |
+| 状態 | is:unread、is:starred、is:important |
+| ラベル・カテゴリ | label:work、category:promotions、category:social |
+| 送信者・宛先・CC | from:alice@example.com、to:、cc: |
+| 件名 | subject:invoice |
+| 添付 | has:attachment、filename:pdf |
+| サイズ | larger:5M、smaller:1M |
+| 相対期間 | newer_than:7d、older_than:30d。dは日、mは月、yは年 |
+| 日付 | after:2026/02/01、before:2026/03/01 |
+| いずれか | from:alice OR from:bob |
+| 除外 | -from:noreply@ |
+| グループ | (from:alice OR from:bob) subject:meeting |
+| 完全な語句 | "exact phrase" |
 
-例：最近一天的未读邮件，排除促销分类：`is:unread newer_than:1d -category:promotions`
+例: 最近1日の未読メールからプロモーションを除外する場合はis:unread newer_than:1d -category:promotions。日付・期間の境界は実際の検索結果で確認する。

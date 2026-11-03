@@ -6,90 +6,106 @@ import com.wangzan101.mika.core.model.ModelError
 import com.wangzan101.mika.core.tool.Outcome
 
 /**
- * 停止规则:任务什么时候、以什么结局结束(放弃、守卫叫停、模型出错、没给出回答、步数用完)。办完不在这里:
- * 不带工具调用的回复就是回答,由循环核对后交出。纯函数;结局里给用户看的说明不发给模型。
+ * 停止規則:タスクがいつ、どの結末で終わるか(諦め、保護による停止、モデルエラー、回答なし、ステップ上限)。
+ * 完了はここでは扱わない:ツール呼び出しのない応答が回答であり、ループが照合して渡す。純粋関数。
+ * 結末でユーザーに見せる説明はモデルへは送らない。
  */
 internal object StopRules {
-    /** 一个动作执行完之后:放弃了就按它结束;否则守卫([stop],屏幕守卫或不动屏幕的工具的守卫)叫停了就停。都没有为 null,接着做。 */
+    /** アクション実行後:諦めた場合はそのまま終え、それ以外は保護([stop])が停止したら止める。どちらでもなければ null で続行する。 */
     fun afterAction(outcome: Outcome?, stop: GuardVerdict?): TaskState? = when (outcome) {
-        is Outcome.Failure -> TaskState.Failed(outcome.message, FailKind.GaveUp)
+        is Outcome.Failure -> gaveUp(outcome.message)
         else -> stop?.let(::guard)
     }
 
-    /** 步数用完后的最后一轮调了工具(只给了 end_not_done):放弃按它结束,否则算步数用完。 */
+    /** ステップ上限後の最終ターンでツールが呼ばれた場合(end_not_done のみ提供):諦めた場合はそのまま終え、それ以外はステップ上限とする。 */
     fun afterFinalTurn(outcome: Outcome?, maxSteps: Int): TaskState = when (outcome) {
-        is Outcome.Failure -> TaskState.Failed(outcome.message, FailKind.GaveUp)
+        is Outcome.Failure -> gaveUp(outcome.message)
         else -> stepLimit(maxSteps)
     }
 
-    fun stepLimit(maxSteps: Int) = TaskState.Failed("已达到 $maxSteps 步上限,任务没有完成。", FailKind.StepLimit)
+    fun stepLimit(maxSteps: Int) = TaskState.Failed("操作回数の上限（$maxSteps 回）に達したため、タスクは未完了です。", FailKind.StepLimit)
 
-    /** 提醒过一次,模型仍然回了空话(或又被输出上限截断)。 */
-    fun noAnswer() = TaskState.Failed("模型停止了操作,没有给出回答。", FailKind.Model)
+    private fun gaveUp(message: String) = TaskState.Failed(
+        if (ReplyLanguage.mismatch(message) == null) message
+        else "タスクは未完了です。モデルから日本語で理由の説明が得られませんでした。",
+        FailKind.GaveUp,
+    )
 
-    /** 退回过一次,模型的工具调用又以文字形式回来了(见 [LeakedToolCall]):不把原样的标记当回答交出。 */
-    fun toolCallAsText() = TaskState.Failed("模型的工具调用没有被服务端识别,原样作为文字返回了,没能执行。", FailKind.Model)
+    /** 1回通知してもモデルが空の応答を返した(または出力上限で切れた)。 */
+    fun noAnswer() = TaskState.Failed("モデルが操作を終了しましたが、回答を返しませんでした。", FailKind.Model)
 
-    /** 模型调用失败(重试过仍不行,或重试也没用)。 */
+    /** 1回差し戻してもモデルのツール呼び出しが文章として返ってきた場合([LeakedToolCall] 参照):元のマークアップを回答として渡さない。 */
+    fun toolCallAsText() = TaskState.Failed("モデルのツール呼び出しがサーバーに認識されず、テキストとして返されたため実行できませんでした。", FailKind.Model)
+
+    /** 日本語への書き直しを1回求めてもモデルが日本語で回答しなかった場合:外国語の回答をそのまま渡さず、日本語で正直に失敗を伝える。翻訳を捏造しない。 */
+    fun languageNotJapanese(mismatch: ReplyLanguage.Mismatch, facts: ReviewFacts): TaskState.Failed =
+        TaskState.Failed(
+            "モデルが日本語で回答しませんでした（回答は${mismatch.answer.display}でした）。日本語の回答が得られなかったため、結果の説明を表示できません。" +
+                if (facts.acted || facts.outward) "操作の成否はこの表示上の問題だけでは判断できません。画面や履歴で実際の結果を確認し、同じ操作を繰り返さないでください。"
+                else "操作はまだ開始していません。",
+            FailKind.Model,
+        )
+
+    /** モデル呼び出しの失敗(再試行しても直らない、または再試行しても無駄な場合)。 */
     fun modelFailed(e: Throwable): TaskState.Failed =
         if (e is ModelError) TaskState.Failed(userReason(e), FailKind.Model)
-        else TaskState.Failed("模型调用异常:${e.message ?: e::class.simpleName}", FailKind.Model)
+        else TaskState.Failed("モデルの呼び出しに失敗しました: ${e.message ?: e::class.simpleName}", FailKind.Model)
 
     fun guard(v: GuardVerdict): TaskState.Failed {
         val why = when (v.code) {
-            "repeating_action" -> "同一个操作反复执行仍没有效果"
-            "no_progress" -> "操作多次后画面一直没有变化"
-            "read_loop" -> "页面没有变化,反复读也读不出要找的内容"
-            "too_many_failures" -> "操作连续失败"
-            "sandbox_loop" -> "同一条命令原样重复仍然失败"
-            else -> "触发了操作保护"
+            "repeating_action" -> "同じ操作を繰り返しても進展がありません"
+            "no_progress" -> "操作後も画面が変わりません"
+            "read_loop" -> "同じ画面を読み直しても必要な内容が見つかりません"
+            "too_many_failures" -> "操作が続けて失敗しました"
+            "sandbox_loop" -> "同じコマンドを繰り返しても失敗します"
+            else -> "操作の保護機能が作動しました"
         }
-        return TaskState.Failed("已安全停止(${v.code}):$why。", FailKind.Guard)
+        return TaskState.Failed("操作を停止しました（${v.code}）: $why。", FailKind.Guard)
     }
 }
 
 internal fun userReason(e: ModelError): String = when (e) {
-    is ModelError.Auth -> "模型服务拒绝了请求:API Key 无效或没有权限。请在设置里检查 API Key 是否填写正确、是否有权使用该模型。"
-    is ModelError.QuotaExceeded -> "模型账户额度已用完,请检查服务商账户的余额或套餐。"
+    is ModelError.Auth -> "モデルサービスが認証を拒否しました。「設定 › モデル」でAPIキーとモデルの利用権限を確認してください。"
+    is ModelError.QuotaExceeded -> "モデルサービスの利用上限に達しました。プロバイダーの残高やプランを確認してください。"
     is ModelError.ModelNotFound -> {
-        // 404 不一定是模型名不对(地址不对,或网关、中转服务说的别的情况):有原话时照原话说,不断定模型不存在
-        val check = if (e.model.isEmpty()) "请到设置 › 模型检查模型名和 Base URL 是否正确。"
-            else "去设置 › 模型,检查模型名(要填完整的模型 ID,比如 Gemini 的模型名类似 gemini-flash-latest)或改用对应的预设。"
+        // 404 はモデル名の誤りとは限らない(アドレス誤り、ゲートウェイや中継サービスの別事情):原文がある場合はそのまま伝え、モデルが存在しないと断定しない
+        val check = if (e.model.isEmpty()) "「設定 › モデル」でモデル名とBase URLを確認してください。"
+            else "「設定 › モデル」で正式なモデルIDを確認するか、プロバイダーのプリセットを選び直してください。"
         when {
             e.detail.isNotEmpty() ->
-                (if (e.model.isEmpty()) "" else "调用模型「${e.model}」时") +
-                    "服务端回复：${quoted(e.detail)}。可能是模型名不对，或者服务那边暂时不可用。$check"
-            e.model.isEmpty() -> "找不到该模型,$check"
-            else -> "模型「${e.model}」在这个服务商那里不存在。$check"
+                (if (e.model.isEmpty()) "" else "モデル「${e.model}」の呼び出し時に、") +
+                    "サーバーから次の応答がありました: ${quoted(e.detail)}。モデル名またはサービスの状態を確認してください。$check"
+            e.model.isEmpty() -> "モデルが見つかりません。$check"
+            else -> "このプロバイダーではモデル「${e.model}」が見つかりません。$check"
         }
     }
     is ModelError.ModelNotAvailable ->
-        "模型「${e.model.ifEmpty { "当前模型" }}」这个账号没开通或没权限用。去设置 › 模型换一个模型，或到服务商后台开通。"
+        "このアカウントではモデル「${e.model.ifEmpty { "選択中のモデル" }}」を利用できません。「設定 › モデル」で別のモデルを選ぶか、プロバイダーの利用権限を確認してください。"
     is ModelError.ToolsUnsupported ->
-        "模型「${e.model.ifEmpty { "当前模型" }}」不支持调用工具,Mika 干活要靠工具。去设置 › 模型换一个会调用工具的模型。"
-    is ModelError.ContextTooLong -> "对话内容超出了模型的上下文长度,请换用上下文更长的模型,或把任务拆小一些。"
-    is ModelError.ContentRefused -> "模型拒绝处理该内容,请调整任务描述或换一个模型。"
-    is ModelError.RateLimited -> "模型服务限流,重试后仍然请求太频繁。请稍后再试,或检查账户的调用频率限制。"
-    is ModelError.Network -> "连接模型服务失败,重试后仍然不通。请检查网络和 Base URL。"
+        "モデル「${e.model.ifEmpty { "選択中のモデル" }}」はツール呼び出しに対応していません。Mikaの操作には必要なため、「設定 › モデル」で対応モデルを選んでください。"
+    is ModelError.ContextTooLong -> "モデルのコンテキスト長を超えました。より長いコンテキストに対応するモデルを選ぶか、タスクを分けてください。"
+    is ModelError.ContentRefused -> "モデルがこの内容の処理を拒否しました。依頼内容を見直すか、別のモデルを選んでください。"
+    is ModelError.RateLimited -> "モデルサービスの呼び出し頻度制限に達し、再試行でも解消しませんでした。時間をおくか、アカウントの制限を確認してください。"
+    is ModelError.Network -> "再試行してもモデルサービスに接続できませんでした。ネットワークとBase URLを確認してください。"
     is ModelError.Proxy -> when (e.failure) {
         ProxyFailure.Unreachable ->
-            "连不上网络代理,或代理没有转发这个请求,重试后仍然不通。请检查代理是否开着、设置 › 网络代理 里的地址和端口是否正确;不需要代理时把它清空。"
-        ProxyFailure.AuthFailed -> "网络代理拒绝了账号或密码(HTTP 407)。请在设置 › 网络代理 里检查代理地址中的用户名和密码。"
+            "再試行してもプロキシ経由で接続できませんでした。「設定 › ネットワークプロキシ」で接続先と動作状態を確認してください。プロキシを使わない場合は設定を空にしてください。"
+        ProxyFailure.AuthFailed -> "プロキシが認証を拒否しました（HTTP 407）。「設定 › ネットワークプロキシ」で認証設定を確認してください。"
     }
-    is ModelError.Server -> "模型服务出错(HTTP ${e.status}),请稍后再试。"
+    is ModelError.Server -> "モデルサービスでエラーが発生しました（HTTP ${e.status}）。時間をおいて再試行してください。"
     is ModelError.StreamCut ->
-        "模型的回复还没传完,连接就在上游被断开了,重试后仍然如此。常见原因是网络不稳,或中转服务、网关的空闲超时太短(模型长时间思考时容易碰上)。请稍后再试。"
-    is ModelError.BadResponse -> "${e.message}。请检查 Base URL 和接口类型是否匹配。"
+        "モデルの応答を受信し終わる前に接続が切れ、再試行でも解消しませんでした。ネットワークや中継サービスのタイムアウトを確認し、時間をおいて再試行してください。"
+    is ModelError.BadResponse -> "${e.message}。Base URLとAPIの種類が一致しているか確認してください。"
     is ModelError.ChatGptLimitReached ->
-        "ChatGPT 额度用完了,稍后再试。用量可以在 ChatGPT 设置 › 用量(chatgpt.com/settings/usage)查看;Plus 每 5 小时的额度和其他用 ChatGPT 登录的 App 共用。也可以先换一个模型。"
+        "ChatGPTの利用上限に達しました。時間をおくか、別のモデルを選んでください。利用状況はChatGPT側の設定で確認できます。"
     is ModelError.ChatGptNotEligible ->
-        "这个账号不能在其他 App 里用 ChatGPT 额度(需要 Plus 或 Pro,并且所在地区和账号设置允许)。${if (e.detail.isEmpty()) "" else "服务端说明:${quoted(e.detail)}。"}可以换一个模型。"
-    is ModelError.SignInExpired -> "${e.account} 登录已失效,请在设置 › 模型里重新用 ${e.account} 登录。"
+        "このアカウントでは、MikaからChatGPTを利用できません。${if (e.detail.isEmpty()) "" else "サーバーの説明: ${quoted(e.detail)}。"}アカウントの利用条件を確認するか、別のプロバイダーを選んでください。"
+    is ModelError.SignInExpired -> "${e.account}のログインが失効しました。「設定 › モデル」で${e.account}に再ログインしてください。"
     is ModelError.AccountPlanNotAllowed ->
-        "你的 ${e.account} 订阅档位不能用这个接口(HTTP 403)。${if (e.detail.isEmpty()) "" else "服务端说明:${quoted(e.detail)}。"}可以改用 ${e.account} 的 API Key,或在设置 › 模型里换一个模型。"
+        "現在の${e.account}アカウントでは、このAPIを利用できません（HTTP 403）。${if (e.detail.isEmpty()) "" else "サーバーの説明: ${quoted(e.detail)}。"}契約と利用権限を確認するか、「設定 › モデル」で別の接続方法を選んでください。"
 }
 
-/** 引在句中的服务端原话:去掉末尾一个句号(原话自带的),由引它的句子补上自己的「。」;省略号(截短的「…」、「...」)不动。 */
+/** 文中に引用するサーバー原文:末尾の句点(原文由来)を取り、引用文側で「。」を補う。省略記号(短縮の「…」「...」)は触らない。 */
 private fun quoted(detail: String): String =
     when {
         detail.endsWith("..") -> detail

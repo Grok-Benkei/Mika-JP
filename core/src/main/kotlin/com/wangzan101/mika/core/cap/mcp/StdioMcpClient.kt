@@ -24,25 +24,25 @@ import java.io.Reader
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
-/** 一条长驻的 stdio 进程;由宿主(手机的 Linux 沙箱)启动,不是 App 直接 exec。 */
+/** は永続的な stdio プロセスです。これはホスト (携帯電話の Linux サンドボックス) によって開始され、アプリによって直接実行されるわけではありません。 */
 interface McpStdioProcess : Closeable {
     val stdin: OutputStream
     val stdout: InputStream
     val stderr: InputStream
 }
 
-/** 启动 stdio server;[workspace] 是沙箱里的对话工作区,命令在沙箱里跑。 */
+/** は stdio サーバーを開始します。 [workspace] はサンドボックス内の会話ワークスペースであり、コマンドはサンドボックス内で実行されます。 */
 fun interface McpStdioLauncher {
     suspend fun launch(workspace: String, argv: List<String>): McpStdioProcess
 }
 
 /**
- * MCP 的 stdio 传输(换行分隔的 JSON-RPC):stdin 写请求,stdout 读响应,stderr 只读不解析。
+ * MCP の stdio 送信 (改行区切りの JSON-RPC): stdin 書き込み要求、stdout 読み取り応答、stderr 読み取り専用で解析されません。
  *
- * 进程必须在 Linux 沙箱里启动,而不是 App 进程直接 exec:stdio server 是用户装的第三方程序,
- * 不应该拿到 App 私有目录(令牌、对话)的读取权限。这里的 [McpStdioLauncher] 由 App 的沙箱实现。
+ * プロセスは、アプリ プロセスを直接実行するのではなく、Linux サンドボックスで開始する必要があります。stdio サーバーはユーザーによってインストールされるサードパーティ プログラムです。
+ * には、アプリのプライベート ディレクトリ (トークン、会話) への読み取り権限があってはなりません。ここの [McpStdioLauncher] は、アプリのサンドボックスによって実装されます。
  *
- * 和别的传输一样:目录在连接时冻结,`tools/call` 不自动重试,关闭时杀掉整条进程树。
+ * は他の転送と同じです。接続時にディレクトリがフリーズされ、`tools/call` は自動的に再試行されず、シャットダウン時にプロセス ツリー全体が強制終了されます。
  */
 class StdioMcpEndpoint private constructor(
     override val serverId: String,
@@ -142,8 +142,8 @@ class StdioMcpEndpoint private constructor(
         private val json = Json { ignoreUnknownKeys = true }
 
         /**
-         * 启动并完成 initialize / tools/list 等握手。命令按 argv 直接执行(不经过 shell),
-         * 由 [launcher] 在沙箱里启动;[workspace] 是沙箱里的对话 ID。
+         * は、initialize/tools/list などのハンドシェイクを開始し、完了します。コマンドは argv に従って (シェルを経由せずに) 直接実行されます。
+         * は [launcher] によってサンドボックスで開始されます。 [workspace] は、サンドボックス内の会話 ID です。
          */
         suspend fun connect(
             serverId: String,
@@ -271,7 +271,7 @@ class StdioMcpEndpoint private constructor(
             }
         }
 
-        /** 读一行,最多 [MAX_LINE_CHARS];超过就报错,避免恶意 server 用一条超长行撑爆内存。 */
+        /** は [MAX_LINE_CHARS] までの 1 行を読み取ります。それを超えると、悪意のあるサーバーが非常に長い行でメモリを圧迫するのを防ぐために、エラーが報告されます。 */
         private fun readLine(reader: Reader): String? {
             val out = StringBuilder()
             var any = false
@@ -290,8 +290,8 @@ class StdioMcpEndpoint private constructor(
 }
 
 /**
- * 把命令字符串拆成 argv:支持单/双引号与反斜杠转义,不做变量展开,也不经过 shell。
- * 引号没闭合时抛 [McpClientException]。
+ * コマンド文字列を argv に分割します。変数展開やシェルを経由せずに、一重引用符/二重引用符とバックスラッシュのエスケープをサポートします。 引用符が閉じられていない場合、
+ * は [McpClientException] をスローします。
  */
 fun parseStdioCommand(line: String): List<String> {
     val out = mutableListOf<String>()

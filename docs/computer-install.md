@@ -1,73 +1,75 @@
-# 电脑端 CLI / Skill：安装、升级和卸载
+# PC用CLIとスキルの導入
 
-[English](computer-install.en.md) · [连接与任务命令](cli.md) · [MCP 配置](mcp.md)
+[PCからの利用](computer.md) · [接続とタスクコマンド](cli.md) · [MCPでの接続](mcp.md)
 
-从电脑使用 Mika 的总入口是[从电脑使用 Mika](computer.md)：在那里选好用 CLI + Skill 还是 MCP、经 USB 还是 Wi-Fi / VPN 连接。这一页只讲 CLI 和 Skill 怎么装、怎么升级和卸载；用 MCP 客户端的不用看本文，按 [MCP 指南](mcp.md)配置。
+コマンドとスキルを使えるAIエージェントにはスキルを、ターミナルやスクリプトから使う場合はCLIを導入します。スキルにはCLIスクリプトが付属するため、両方を入れる必要はありません。MCPを使う場合は、このページを省略して[MCPガイド](mcp.md)へ進めます。
 
-Agent 想走固定的最短路径：见 [Agent 快速路径](agent-quickstart.md)。
+スマホ側の前提は[Mika JPの導入](setup-guide.ja.md)を参照してください。PC用ツールの導入や更新で、スマホのAPKは変更されません。Mika JPとPC用ツールには、このフォークの同じソース版を使ってください。上流のリリースAPK・スキルをMika JPの代わりに導入しないでください。
 
-## 开始之前
+<a id="cli安装"></a>
+<a id="cli-install"></a>
 
-- 让能执行命令、支持 Skill 的电脑 Agent 用 Mika：装 [Skill](#skill安装)，它自带 CLI 脚本，不必另装 CLI。
-- 在终端或脚本里派任务：装 [CLI](#cli安装)，使用 `mika` 命令。
+## CLIの導入
 
-手机端的前提：装好 APK（[Releases](https://github.com/wangzan101/Mika/releases/latest)）、打开过一次 Mika、配好模型。**只让 Mika 聊天、上网和处理文件时，可以不开无障碍、不启动手机助手，安卓 11 也能用**；要操作手机 App，才需要按[设置指南](setup-guide.md)完成手机操作设置（安卓 12+）。电脑端工具的安装和升级不会安装或更新手机上的 APK。
-
-下文的 `<tag>` 指 [最新 release](https://github.com/wangzan101/Mika/releases/latest) 的版本标签（页面标题里的 `v0.1.x`）。电脑端和手机上的 APK 尽量用同一个版本。
-
-## CLI：安装
-
-需要 Python 3.10+、Git 和 pipx；ADB 连接还需要 Android platform-tools。安装：
+Python 3.10以降とpipxが必要です。ADB接続にはAndroid platform-toolsも必要です。このフォークをチェックアウトしたディレクトリのルートから実行します。
 
 ```bash
-pipx install 'git+https://github.com/wangzan101/Mika.git@<tag>#subdirectory=tools/mika'
+pipx install ./tools/mika
 mika --version
 ```
 
-pipx 里的包名是 `mika-phone-cli`，命令是 `mika`。CLI 有自己的版本号，和 APK 版本不同。已有仓库检出时，也可以在仓库根目录 `pipx install ./tools/mika`，或者不安装、直接运行 `python3 tools/mika/scripts/mika_cli.py`（Windows 用 `py -3`）。
+pipxのパッケージ名は `mika-phone-cli`、コマンド名は `mika` です。CLIとAPKには別々のバージョン番号があります。同じ番号であることより、同じソース版から導入していることを確認してください。
 
-## CLI：升级、回退和卸载
-
-升级换成新的 `<tag>`，回退换成原来的 `<tag>`，用 `--force` 覆盖安装：
+インストールせずに、リポジトリのスクリプトを直接使うこともできます。
 
 ```bash
-pipx install --force 'git+https://github.com/wangzan101/Mika.git@<tag>#subdirectory=tools/mika'
+python3 tools/mika/scripts/mika_cli.py --version
 ```
 
-`pipx upgrade` 不会切换到别的 tag，换版本时用上面的命令。卸载：
+Windowsでは `python3` を `py -3` に置き換えます。
+
+## CLIの更新・以前の版への変更・削除
+
+目的のソース版を別の作業ディレクトリに用意し、そのルートから次を実行します。未保存の変更がある作業ディレクトリを、更新のために破棄しないでください。
+
+```bash
+pipx install --force ./tools/mika
+```
+
+ローカルソースから導入したCLIの更新には、この手順を使います。`pipx upgrade` だけで別のソース版へ切り替わるとは限りません。削除する場合は次を使います。
 
 ```bash
 pipx uninstall mika-phone-cli
 ```
 
-## Skill：安装
+<a id="skill安装"></a>
+<a id="skill-install"></a>
 
-Skill 就是仓库里的 `tools/mika` 文件夹：`SKILL.md` 告诉 Agent 怎么用，`scripts/mika_cli.py` 是自带的 CLI，只依赖 Python 3.10+（ADB 连接另需 platform-tools）。
+## スキルの導入
 
-1. 在 [最新 release](https://github.com/wangzan101/Mika/releases/latest) 下载 **Source code (zip)** 并解压。
-2. 把其中**整个** `tools/mika` 文件夹复制到你的 Agent 的技能目录（位置见该 Agent 自己的说明）。结果应该是 `<技能目录>/mika/SKILL.md`，不要多嵌套一层 `mika`。
-3. 检查自带脚本能运行：
+スキルは、このフォークの `tools/mika` フォルダー全体です。`SKILL.md` がエージェント向けの説明、`scripts/mika_cli.py` が同梱CLIです。Python 3.10以降で実行でき、ADB接続時にはplatform-toolsも使います。
+
+1. Mika JPと同じソース版の `tools/mika` を用意します。
+2. フォルダー全体を、使用するエージェントのスキルディレクトリへコピーします。保存先は、そのエージェントの案内に従います。結果は `<スキルディレクトリ>/mika/SKILL.md` となり、さらに `mika` が入れ子にならないようにします。
+3. 次のコマンドで同梱CLIの起動を確認します。
 
    ```bash
-   python3 <技能目录>/mika/scripts/mika_cli.py --version   # Windows 用 py -3 代替 python3
+   python3 <スキルディレクトリ>/mika/scripts/mika_cli.py --version
    ```
 
-4. 重开 Agent 会话，确认它能看到名为 `mika` 的 Skill。
+4. エージェントの新しいセッションを開き、`mika` スキルが認識されることを確認します。
 
-电脑上已有 `mika` 命令时，Skill 会优先用它；更新 Skill 不会更新全局 CLI，两者各自维护。
+PCに `mika` コマンドがすでにある場合、スキルはそちらを優先します。スキルの更新では、別にインストールしたCLIは更新されません。
 
-## Skill：升级、回退和卸载
+## スキルの更新・以前の版への変更・削除
 
-- **升级或回退**：把旧的 `mika` 文件夹移到技能目录之外备份，再复制目标版本的整个 `tools/mika` 文件夹，不要在旧文件夹上合并复制。
-- **卸载**：只删除技能目录里的 `mika` 文件夹。
+古い `mika` フォルダーをスキルディレクトリの外へ退避し、目的の版の `tools/mika` 全体をコピーします。古いフォルダーへ上書きで混ぜないでください。削除するときは、対象の `mika` フォルダーだけを削除します。変更後はエージェントの新しいセッションを開いてください。
 
-改完都要重开 Agent 会话。
+## 接続を確認する
 
-## 装好之后：连接检查
+スキルだけを導入した場合は、以下の `mika` を `python3 <スキルディレクトリ>/mika/scripts/mika_cli.py` に置き換えます。Windowsでは `py -3` を使います。
 
-只装了 Skill 时，下面的 `mika` 换成 `python3 <技能目录>/mika/scripts/mika_cli.py`（Windows 用 `py -3`）。
-
-经 USB 或已连接的无线 ADB：
+USB、またはPCと接続済みの無線ADBで確認します。`connect` はスマホのコンピューターアクセスを有効にする操作です。PCから利用する目的で実行してください。
 
 ```bash
 mika devices --json
@@ -75,21 +77,23 @@ mika connect --device SERIAL --json
 mika doctor --device SERIAL --json
 ```
 
-直接经 Wi-Fi／私有网络（先在手机的 设置 › 连接电脑 里开启网络访问）：
+Wi-Fi・プライベートVPNで直接接続する場合は、先にスマホでネットワークアクセスを有効にします。
 
 ```bash
 mika --url http://PHONE:8765 --token-file /path/to/private-token-file doctor --json
 ```
 
-**`connect` 和 `doctor` 成功不等于任务做成。** 它们只说明接口连得上、能读到设备状态；`doctor` 把模型配置记为 unverified，也不说明 Agent 已加载 Skill。要验证真实任务，用 `mika task run` 派一个简单任务，再用 `mika task wait` 看到 `done` 并核对结果，见[任务命令](cli.md#任务命令)。
+トークンファイルにはトークンだけを保存し、チャットやログへ貼り付けないでください。詳しくは[接続方法](cli.md#接続)を参照してください。
 
-| 现象 | 处理 |
+`connect` や `doctor` の成功は、実際のタスクが完了した証拠にはなりません。`doctor` はモデル設定を未検証として報告し、エージェントがスキルを読み込んだことも確認しません。タスクの動作確認が必要な場合は、承認された単純な依頼を `task run` で開始し、`task wait` と実際の結果を確認します。[タスクコマンド](cli.md#任务命令)を参照してください。
+
+| 表示 | 対処 |
 | --- | --- |
-| `incompatible_api` | 手机上的 APK 太旧，不带任务 API v1，更新 APK。 |
-| `stale_connection` | 手机重启过，重新运行 `connect`。 |
-| `device_selection` | 不止一台手机在线，用 `mika devices` 查到序列号后加 `--device SERIAL`。 |
-| `connection_info` | 读不到 Mika 的连接信息（手机锁着、还没打开过 Mika 等）：解锁手机、打开一次 Mika 后再运行 `connect`。 |
-| `adb` / `adb_unavailable` | 确认 adb 在 PATH 里、手机在 `adb devices` 里显示为 `device`，在手机上打开一次 Mika 后再运行 `connect`。 |
-| Agent 看不到 Skill | 检查是否多嵌套了一层文件夹、`scripts/` 是否一起复制，然后重开会话。 |
+| `incompatible_api` | スマホにタスクAPI v1がありません。対応するMika JPのAPKへ更新します。 |
+| `stale_connection` | スマホの再起動などで接続情報が古くなっています。`connect` を再実行します。 |
+| `device_selection` | 複数の端末があります。`mika devices` で確認し、`--device SERIAL` を指定します。 |
+| `connection_info` | 端末をロック解除し、Mika JPを一度開いてから `connect` を実行します。 |
+| `adb` / `adb_unavailable` | adbがPATHにあり、`adb devices` に対象が `device` と出ることを確認します。 |
+| エージェントにスキルが表示されない | フォルダーの入れ子、`SKILL.md` と `scripts/` の有無を確認し、新しいセッションを開きます。 |
 
-卸载电脑端工具不会删除手机数据，也不会关闭手机上的电脑连接。要停止远程访问，在手机的 设置 › 连接电脑 里关闭对应开关。
+PC用ツールを削除しても、スマホのデータやコンピューターアクセス設定は変わりません。アクセスを止める場合は、スマホの「設定 › コンピューターに接続」で該当する接続を無効にします。

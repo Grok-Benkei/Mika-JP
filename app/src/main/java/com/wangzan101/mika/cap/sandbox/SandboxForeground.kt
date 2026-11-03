@@ -20,8 +20,8 @@ import kotlinx.coroutines.launch
 import com.wangzan101.mika.sandbox.SandboxService
 
 /**
- * 运行环境准备期间的前台服务(类型 dataSync,安卓要求长时间后台工作有前台服务)。
- * 只显示一条低优先级的「Mika 正在准备」,准备完就撤掉;不发结果通知。准备本身在 [RuntimePreparer] 里。
+ * 実行環境の準備中のフォアグラウンド サービス (タイプ dataSync、Android は長期的なバックグラウンド作業のためにフォアグラウンド サービスを必要とします)。
+ * は、優先度の低いメッセージ「Mika が準備中です」のみを表示し、準備後に削除します。結果通知は送信されません。準備自体は[RuntimePreparer]にあります。
  */
 open class SandboxForeground : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -36,7 +36,7 @@ open class SandboxForeground : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // startForegroundService 之后必须尽快进入前台
+        // startForegroundService 後、できるだけ早くフォアグラウンドに入らなければなりません
         startForeground(ID, notification(null), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         if (watcher?.isActive == true) return START_NOT_STICKY
         watcher = scope.launch {
@@ -71,7 +71,7 @@ open class SandboxForeground : Service() {
         private const val CHANNEL = "runtime_prepare"
         private const val ID = 20
 
-        /** 进入前台、等 [RuntimePreparer] 当前的准备结束。只由 [RuntimePreparer] 调用。 */
+        /** はフロントデスクに入り、[RuntimePreparer] の現在の準備が終了するのを待ちます。 [RuntimePreparer] によってのみ呼び出されます。 */
         internal fun start(context: Context) {
             context.startForegroundService(Intent(context, SandboxService::class.java))
         }

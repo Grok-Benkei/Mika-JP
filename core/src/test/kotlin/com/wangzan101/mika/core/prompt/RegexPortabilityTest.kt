@@ -5,12 +5,12 @@ import org.junit.Test
 import java.io.File
 
 /**
- * 安卓的正则引擎比电脑上的 Java 严:没转义的 `{`、`}`(不是 {n}、{n,m} 这类次数)在电脑上能编译,
- * 装到手机上一加载就抛错。这里扫源码里所有写死的正则字面量,把这一类挡在电脑上。
+ * Android の通常のエンジンは、コンピューター上では Java よりも厳密です。エスケープされていない `{` および `}` ({n}、{n,m} 回ではありません) はコンピューター上でコンパイルできます。
+ * は、電話機にロードされるとすぐにエラーをスローします。ここでは、ソース コード内のすべてのハードコーディングされた通常のリテラルをスキャンし、コンピューター上でこのカテゴリをブロックします。
  */
 class RegexPortabilityTest {
     private val roots = listOf(File("src/main/kotlin"), File("../app/src/main/java"))
-    // 只看紧跟在调用括号后的那个字面量;三引号原样,普通字符串按 Kotlin 转义还原
+    // は、呼び出し括弧の直後に続くリテラルのみを調べます。三重引用符はそのまま残り、Kotlin エスケープによって通常の文字列が復元されます。
     private val call = Regex("""(?:Regex|Pattern\.compile)\(\s*(\"\"\"[\s\S]*?\"\"\"|"(?:[^"\\]|\\.)*")""")
     private val toRegex = Regex("""("(?:[^"\\]|\\.)*")\.toRegex\(""")
 
@@ -27,7 +27,7 @@ class RegexPortabilityTest {
                 }.toList()
             }
         }
-        assertTrue("正则里有没转义的花括号,安卓上会编译失败:\n" + offenders.joinToString("\n"), offenders.isEmpty())
+        assertTrue("正規表現に未エスケープの波括弧があり、Androidではコンパイルに失敗します:\n" + offenders.joinToString("\n"), offenders.isEmpty())
     }
 
     @Test
@@ -42,7 +42,7 @@ class RegexPortabilityTest {
         if (lit.startsWith("\"\"\"")) lit.removeSurrounding("\"\"\"")
         else lit.removeSurrounding("\"").replace("\\\\", "\u0000").replace("\\\"", "\"").replace("\u0000", "\\")
 
-    /** 去掉转义的花括号、\p{…} 这类属性、[…] 字符组和 {n}/{n,}/{n,m} 次数后,还剩花括号就算。 */
+    /** エスケープされた中括弧、\p{…}、[…] 文字グループ、{n}/{n,}/{n,m} 回などの属性を削除した後、中括弧はそのままにしておきます。 */
     private fun hasBareBrace(pattern: String): Boolean {
         var p = pattern.replace(Regex("""\\[pP]\{[A-Za-z_=]+\}"""), "")
         p = p.replace(Regex("""\\[{}\\]"""), "")

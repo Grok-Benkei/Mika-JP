@@ -5,7 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.io.File
 
-/** web_script 的「不读值的输入框」和读屏脚本 page.js 是同一条规则:两边的 autocomplete 清单要一致。 */
+/** web_script の「読み取り不可能な値入力ボックス」と画面読み上げスクリプト page.js には同じルールがあります。つまり、両側のオートコンプリート リストが一貫している必要があります。 */
 class PageScriptSecretRuleTest {
     private val pageJs = File("src/main/assets/web/page.js").readText()
 

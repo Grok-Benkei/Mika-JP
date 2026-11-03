@@ -9,19 +9,19 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /**
- * 对话适配器以外也要照同一套说法报错的地方(比如语音转文字)用:发一个请求,把 HTTP 状态和报错内容转成 [ModelError]。
- * 映射本身从各适配器原样搬来,适配器改成调这里,避免两份各改各的。
+ * 会話アダプターに加えて、エラー (音声からテキストへなど) を報告するために同じメソッドが使用されます。HTTP ステータスとエラー内容を [ModelError] に変換するリクエストを送信します。
+ * マッピング自体は各アダプターからそのまま移動し、2 つのコピーを変更しないように、ここでアダプターを変更します。
  */
 object ModelHttp {
     class Reply(val status: Int, val retryAfter: String?, val body: String) {
         val ok: Boolean get() = status in 200..299
     }
 
-    /** 发出请求并读完回复;网络失败抛 [ModelError.Network],取消协程会取消请求。 */
+    /** はリクエストを送信し、応答を読み取ります。ネットワークに障害が発生すると、[ModelError.Network] がスローされます。コルーチンをキャンセルするとリクエストもキャンセルされます。 */
     suspend fun send(http: OkHttpClient, request: Request): Reply =
         HttpSupport.execute(http, request).let { Reply(it.status, it.retryAfter, it.body) }
 
-    /** OpenAI 兼容接口(对话、转写同一套)的错误映射。[model] 是请求的模型名。 */
+    /** OpenAI 互換インターフェイス (同じ一連のダイアログと音訳) のマッピングが正しくありません。 [model] は、要求されたモデル名です。 */
     fun openAiError(status: Int, retryAfter: String?, body: String, model: String): ModelError =
         ModelAccessErrors.of(status, body, model) ?: when {
             status == 401 -> ModelError.Auth()
@@ -36,7 +36,7 @@ object ModelHttp {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** Gemini 原生接口的错误映射。 */
+    /** Gemini ネイティブ インターフェイスのマッピングが正しくありません。 */
     fun geminiError(status: Int, retryAfter: String?, body: String, model: String): ModelError {
         val err = try { json.parseToJsonElement(body).jsonObject["error"] as? JsonObject } catch (e: Exception) { null }
         val st = (err?.get("status") as? JsonPrimitive)?.contentOrNull.orEmpty()
@@ -45,7 +45,7 @@ object ModelHttp {
         ModelAccessErrors.of(status, body, model)?.let { return it }
         return when {
             status == 401 || status == 403 -> ModelError.Auth()
-            // 这个模型额度为零的 429 上面已认成用不了;其余 429 按可重试限流处理(其限流与额度文案混用,无法可靠区分)
+            // クォータがゼロの 429 モデルは使用不可能とみなされています。残りの 429 は、再試行可能な現在の制限として扱われます (現在の制限とクォータ コピーが混在しており、確実に区別できません)。
             status == 429 || st == "RESOURCE_EXHAUSTED" -> ModelError.RateLimited(HttpSupport.retryAfterMs(retryAfter))
             status == 404 -> ModelError.ModelNotFound(model, ModelAccessErrors.jsonDetail(body))
             status == 413 || (status == 400 && lower.contains("token") &&

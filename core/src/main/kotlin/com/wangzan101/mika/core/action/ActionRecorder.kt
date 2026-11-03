@@ -10,8 +10,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import com.wangzan101.mika.core.tool.Verb
 
 /**
- * 动作的运行记录:工具结果、确认关卡、画面。截图编号在这里统一发(循环自己存的画面也从这里取号)。
- * 记录失败不影响任务。[saveScreen] 为 null 时子步画面不存(编号也不发)。
+ * アクション実行記録: ツールの結果、確認レベル、および画面。スクリーンショット番号はここに一律に送信されます (ループ時に保存するスクリーンショットにもここに番号が付けられます)。
+ * 記録の失敗はタスクには影響しません。 [saveScreen]がnullの場合、サブステップ画面は保存されません(番号は送信されません)。
  */
 class ActionRecorder(
     private val sink: RunSink,
@@ -32,7 +32,7 @@ class ActionRecorder(
         } catch (x: CancellationException) {
             throw x
         } catch (x: Throwable) {
-            // 记录失败不影响任务
+            // 記録の失敗はタスクに影響しません
         }
     }
 
@@ -40,15 +40,15 @@ class ActionRecorder(
         event(RunEvent.Confirmation(clock(), hit.action.name, RunEvent.clip(Redactor.text(hit.matched)), null, null, decision))
 
     /**
-     * 最近一次改了状态的动作(界面上改东西、对外、不可逆,或沙箱里的写操作;报了失败、也没说界面变了的不算)执行之前证据账本的位置;
-     * 之后没有重新读过,回答交出前要另请核查(见 AnswerReview)。还没有这样的动作为 null。
+     * 状態を変更した最後のアクション (インターフェイス上での変更、外部操作、不可逆操作、またはサンドボックスでの書き込み操作。失敗が報告され、インターフェイスの変更は報告されません) が実行される前の証拠台帳の場所。 それ以来、
+     * は再度読み取られていません。回答を送信する前にもう一度確認してください (AnswerReview を参照)。 null に対するそのようなアクションはまだありません。
      */
     var lastChangeMark: Int? = null
         private set
 
     fun noteChange(ledgerMark: Int) { lastChangeMark = ledgerMark }
 
-    /** 本任务里放行了几个对外或不可逆的动作(发送、提交、下单、删除……);回答交出前据此决定要不要请核查模型。 */
+    /** このタスクでは、いくつかの外部アクションまたは取り消し不能なアクション (送信、送信、注文、削除など) が可能です。回答を送信する前に、これに基づいてモデルをチェックするかどうかを決定してください。 */
     var outwardActs = 0
         private set
 
@@ -58,19 +58,19 @@ class ActionRecorder(
             risk.level.name, risk.payment, decision))
     }
 
-    /** 一次调用的结果;[content] 是交给模型(或调用方)的那份,[extra] 是只进运行记录的字段。 */
+    /** は呼び出しの結果です。 [content] はモデル (または呼び出し元) に渡されるもので、[extra] は走行記録のみを入力するフィールドです。 */
     fun result(
         step: Int, tool: String, verb: Verb?, content: JsonObject, extra: JsonObject, changed: Boolean?, shotId: Int?, durationMs: Long,
         source: String, callId: String, waitMs: Long = 0,
     ) {
-        // 用户的回答可能是验证码一类,不进运行记录
+        // ユーザーの回答は検証コードである可能性があり、実行記録には入力されません。
         val shown = if (verb == Verb.AskUser && content.containsKey("answer")) JsonObject(content + ("answer" to JsonPrimitive(HIDDEN_ANSWER))) else content
         val recorded = Redactor.result(verb, shown).let { if (extra.isEmpty()) it else JsonObject(it + extra) }
         event(RunEvent.ToolResult(clock(), step, tool, RunEvent.clipResult(Redactor.text(recorded.toString())), changed, shotId, durationMs,
             waitMs = waitMs, source = source, callId = callId))
     }
 
-    /** 当场存一张子步画面,返回截图编号;不存画面时为 null。 */
+    /** サブステップ画面をその場で保存し、スクリーンショット番号を返します。画面が保存されていない場合は null になります。 */
     fun saveFrame(png: ByteArray): Int? {
         val save = saveScreen ?: return null
         val id = nextShot()
@@ -85,6 +85,6 @@ class ActionRecorder(
     }
 
     private companion object {
-        const val HIDDEN_ANSWER = "(用户的回答,不记录)"
+        const val HIDDEN_ANSWER = "（ユーザーの回答は記録しません）"
     }
 }

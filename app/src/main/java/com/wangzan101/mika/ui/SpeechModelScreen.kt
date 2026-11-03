@@ -49,24 +49,24 @@ import com.wangzan101.mika.voice.SystemSpeech
 import com.wangzan101.mika.voice.DoubaoCredentials
 import com.wangzan101.mika.voice.DoubaoProtocol
 
-/** 选择页上的动作。 */
+/** ページ上のアクションを選択します。 */
 class SpeechPickActions(
-    /** 「手机自带」或「不用」:当场生效并返回。 */
+    /** 「携帯電話に同梱」または「不要」：その場で有効となり返却されます。 */
     val pick: (SpeechChoice) -> Unit = {},
-    /** (服务商 id, 模型名):先试转,通了才选上并返回;列表里点的和手填的都走这里。 */
+    /** (サービスプロバイダー ID、モデル名): 最初に転送を試し、転送が完了したら選択して戻ります。リスト内でクリックされたものと手動で入力されたものの両方がここに表示されます。 */
     val pickModel: (String, String) -> Unit = { _, _ -> },
-    /** 进豆包流式识别的设置页。 */
+    /** ビーンバッグストリーミング認識の設定ページに入ります。 */
     val openDoubao: () -> Unit = {},
-    /** (API Key, App ID, Access Token, 计费方式):加密存下凭据并选用;不联网。 */
+    /** (API キー、アプリ ID、アクセス トークン、請求方法): 資格情報を暗号化して選択します。インターネットに接続されていません。 */
     val saveDoubao: (String, String, String, String) -> Unit = { _, _, _, _ -> },
-    /** 沿用已存的凭据,换成这种计费方式并选用。 */
+    /** 保存した認証情報を使用し、この請求方法に切り替えて選択します。 */
     val useDoubao: (String) -> Unit = {},
     val clearDoubao: () -> Unit = {},
 )
 
 /**
- * 设置 › 模型 › 语音转文字:自己带一个模型状态,可以从别处(例如输入框的「还不能语音输入」)直接进入。
- * 选好(手机自带、不用、试转通过的服务商模型)后回到进来的那一页。
+ * 設定 › モデル › 音声テキスト変換: モデルのステータスを自分で取得し、他の場所から直接入力できます (入力ボックスの「音声入力はまだ利用できません」など)。
+ * (電話機に付属しており、使用されておらず、トライアル転送に合格したサービス プロバイダー モデル) を選択した後、入力したページに戻ります。
  */
 @Composable
 fun SpeechModelScreen(store: ProviderStore, onBack: () -> Unit) {
@@ -74,7 +74,7 @@ fun SpeechModelScreen(store: ProviderStore, onBack: () -> Unit) {
     val context = LocalContext.current
     val settings = (context.applicationContext as? MikaApp)?.speech
     var doubaoConfigured by remember { mutableStateOf(settings?.hasDoubaoCredentials == true) }
-    // 豆包的设置页叠在这一页上面;返回键先关它
+    // Doubao の設定ページはこのページに積み重ねられています。戻るボタンを押して最初に閉じてください
     var doubaoOpen by remember { mutableStateOf(false) }
     val vm = remember {
         ModelSetupViewModel(
@@ -93,7 +93,7 @@ fun SpeechModelScreen(store: ProviderStore, onBack: () -> Unit) {
         pick = { vm.pickSpeech(it); onBack() },
         pickModel = { pid, model -> vm.pickSpeechModel(pid, model, onPicked = onBack) },
         openDoubao = { doubaoOpen = true },
-        // 存好后回到语音转文字页,看得到它已选上
+        // 保存後、音声テキスト変換ページに戻り、選択されていることを確認します。
         saveDoubao = { key, appId, token, resource ->
             checkNotNull(settings).saveDoubao(DoubaoCredentials(key, appId, token), resource)
             doubaoConfigured = true
@@ -116,15 +116,15 @@ fun SpeechModelScreen(store: ProviderStore, onBack: () -> Unit) {
     }
 }
 
-/** 不带状态的选择页,便于测试:顶上一段说明,「手机自带」「不用」,下面按服务商分组单选。 */
+/** ステータスのない選択ページ。テストに便利です。上部の段落には「電話機に付属」と「必要ありません」と記載されており、以下は単一選択用にサービス プロバイダーごとにグループ化されています。 */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SpeechModelContent(ui: ModelSetupUi, probe: Map<String, String>, actions: SpeechPickActions, onBack: () -> Unit, doubaoConfigured: Boolean = false) {
     val c = MikaTheme.colors
     val system = ui.systemSpeech
     val choice = ui.speech
-    // 没选过时有手机自带就是在用它,所以「没选过」也把它标成选中
-    // 记成不响应时不标选中;行仍可点,重新选它就清掉记号再试
+    // 選択していないときは、付属の携帯電話を持っていてそれを使用していたので、選択しなくても選択済みにしていました。
+    // は、応答なしとしてマークされている場合はマークされません。線はまだクリックできるので、再度選択してマークをクリアし、もう一度試してください。
     val systemSelected = system.usable && (choice == SpeechChoice.System || choice == SpeechChoice.Auto)
     Page(tr(R.string.role_speech), onBack) {
         Text(
@@ -155,12 +155,15 @@ fun SpeechModelContent(ui: ModelSetupUi, probe: Map<String, String>, actions: Sp
                 subtitle = tr(R.string.speech_off_note),
             )
         }
-        DoubaoRow(choice, doubaoConfigured, actions)
+        var showOtherRegions by remember { mutableStateOf(false) }
+        Text(tr(R.string.models_other_regions), Modifier.padding(vertical = 10.dp)
+            .clickable { showOtherRegions = !showOtherRegions }.testTag("speech-other-regions"), color = c.accent)
+        if (showOtherRegions || doubaoConfigured || choice is SpeechChoice.Doubao) DoubaoRow(choice, doubaoConfigured, actions)
         SpeechOptions.groups(ui.providers).forEach { g ->
             val p = g.provider
             val testing = ui.speechTesting == p.id
             GroupLabel(ModelsCopy.providerName(p))
-            // 手填选上的模型不在列表里,也补一行标成选中,让人看得出现在用的是哪个
+            // 手動で選択したモデルはリストに含まれていないため、現在どのモデルが使用されているかがわかるように、線が追加されて選択済みとしてマークされます。
             val picked = (choice as? SpeechChoice.Provider)?.takeIf { it.providerId == p.id }?.model
             val rows = if (picked != null && picked !in g.models) g.models + picked else g.models
             GroupCard {
@@ -171,14 +174,14 @@ fun SpeechModelContent(ui: ModelSetupUi, probe: Map<String, String>, actions: Sp
                         trailing = { CapabilityTag(tr(R.string.speech_tag_speech)) },
                     )
                 }
-                // 列表里没有的(列表不全、或这家不给列表)手填
+                // リストにない（リストが不完全、または当社がリストを提供していない）手動で記入
                 Box(Modifier.testTag("speech-manual-${p.name}")) {
                     ManualModel(p, if (testing) ListState.Running else null, first = rows.isEmpty()) { actions.pickModel(p.id, it) }
                 }
             }
             when {
                 probe[p.id] != null -> {
-                    // 列表长时原因落在屏幕外,点了像没反应:出来时滚到看得见
+                    // リストが画面外に出て長すぎるため、クリックしても反応がありません。リストが出たら、表示されるまでスクロールしてください。
                     val why = probe.getValue(p.id)
                     val into = remember { BringIntoViewRequester() }
                     LaunchedEffect(why) { into.bringIntoView() }
@@ -192,8 +195,8 @@ fun SpeechModelContent(ui: ModelSetupUi, probe: Map<String, String>, actions: Sp
 }
 
 /**
- * 「边说边转的语音服务」一组:只有一行。没存凭据时点它进设置页;存了以后点圆圈就用它,右边「设置」进去改凭据或删掉。
- * 凭据和聊天服务商分开存,不列模型、不试转。
+ * 「音声転送サービス」グループ: 1 行のみ。認証情報が保存されていない場合は、認証情報をクリックして設定ページに入ります。保存後、円をクリックして使用し、右側の「設定」に移動して資格情報を変更または削除します。
+ * 資格情報はチャット サービス プロバイダーとは別に保存され、モデルはリストされず、トライアル転送は行われません。
  */
 @Composable
 private fun DoubaoRow(choice: SpeechChoice, configured: Boolean, actions: SpeechPickActions) {
@@ -229,8 +232,8 @@ private fun planName(resource: String): Int =
     if (resource == DoubaoProtocol.CONCURRENT) R.string.speech_doubao_concurrent else R.string.speech_doubao_duration
 
 /**
- * 豆包流式识别的设置页:填凭据(新版控制台的 API Key,或旧版的 App ID + Access Token)、选计费方式。
- * 保存不联网;已存的凭据不回填,输入框也不进可恢复的状态。只改计费方式、不重填凭据时沿用已存的凭据。
+ * Beanbao ストリーミング識別設定ページ: 認証情報 (新しいバージョンのコンソールの API キー、または古いバージョンのアプリ ID + アクセス トークン) を入力し、請求方法を選択します。
+ * はインターネットに接続せずに保存されます。保存された資格情報はバックフィルされず、入力ボックスは回復可能な状態になりません。請求方法のみを変更し、認証情報を再入力しない場合は、既存の認証情報が使用されます。 修復アクションは、
  */
 @Composable
 fun DoubaoSetupPage(choice: SpeechChoice, configured: Boolean, actions: SpeechPickActions, onBack: () -> Unit) {

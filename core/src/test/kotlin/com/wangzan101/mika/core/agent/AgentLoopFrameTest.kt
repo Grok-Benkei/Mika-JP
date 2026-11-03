@@ -12,7 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import com.wangzan101.mika.core.assembly.toolDispatcher
 
-/** 能看图的主模型:动作后自动附图;历史里的画面在裁剪线之前换成可回看的占位。 */
+/** 画像を表示できる主なモデル: 画像はアクション後に自動的に添付されます。履歴内の写真は、カットラインの前に表示できるプレースホルダーに置き換えられます。 */
 class AgentLoopFrameTest {
     private var seq = 0
     private fun call(name: String, args: String = "{}") = Part.ToolCall("f${++seq}", name, args)
@@ -27,13 +27,13 @@ class AgentLoopFrameTest {
         val msgs = m.requests[2]
         val at = msgs.indexOfFirst { it.parts.any { p -> p is Part.ToolResult && p.callId == tap.id } }
         assertEquals(Role.Tool, msgs[at].role)
-        // 图紧跟在工具结果后面,用和 observe 一样的用户消息(各家接口的调用/结果配对不受影响)
+        // グラフは、観察と同じユーザー メッセージを使用して、ツールの結果に従います (各インターフェイスの呼び出しと結果のペアは影響を受けません)。
         val frame = msgs[at + 1]
         assertEquals(Role.User, frame.role)
         val img = frame.parts.filterIsInstance<Part.Image>().single()
         assertEquals(2, img.screenshotId)
         assertTrue("\"screenshotId\":2" in (msgs[at].parts.single() as Part.ToolResult).content)
-        // 发过的画面不再换成占位:裁剪线越过前 5 次往返之后,那几张也原样留着(请求的开头不变,缓存照样命中)
+        // 送信された画像はプレースホルダーに置き換えられなくなりました。トリミング ラインが最初の 5 往復を横切った後、それらの画像はそのまま残されます (リクエストの先頭は変更されず、キャッシュはヒットしたままです)。
         assertEquals(listOf<Int?>(1, 2), images(msgs).map { it.screenshotId })
         assertEquals((1..6).toList(), images(m.requests[6]).map { it.screenshotId })
         val seventh = m.requests[7]

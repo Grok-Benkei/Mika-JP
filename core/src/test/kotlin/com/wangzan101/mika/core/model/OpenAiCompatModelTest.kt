@@ -60,8 +60,8 @@ class OpenAiCompatModelTest {
     }
 
     /**
-     * 非流式请求写明 `stream:false`、要一份 JSON;流式请求要 SSE。省掉 `stream` 时有的兼容端点(本地、局域网上的
-     * 自建服务一类)照样回 SSE,客户端按 JSON 解析就只看到 `data: …`。
+     * 非ストリーミング リクエストは `stream:false` を示し、JSON が必要です。ストリーミング要求には SSE が必要です。 `stream` 互換エンドポイント (ローカル、LAN) を省略します。
+     * 自己構築サービス) は引き続き SSE に戻り、クライアントは JSON に従って解析するときに `data: …` のみを認識します。
      */
     @Test fun nonStreamRequestAsksForJsonInsteadOfEvents() = runTest {
         server.enqueue(ok("""{"choices":[{"finish_reason":"stop","message":{"content":"ok"}}]}"""))
@@ -71,7 +71,7 @@ class OpenAiCompatModelTest {
         assertEquals("application/json", req.getHeader("Accept"))
     }
 
-    /** 服务端不听 `stream:false`、照样回 SSE 时:按流读完再拼,不当成坏 JSON。 */
+    /** サーバーが `stream:false` をリッスンせず、依然として SSE に戻る場合、ストリームに従って読み取り、綴りを行うと、不正な JSON にはならないはずです。 */
     @Test fun readsEventStreamReplyToANonStreamRequest() = runTest {
         val events = listOf(
             """{"choices":[{"delta":{"content":"先看"}}]}""",
@@ -87,7 +87,7 @@ class OpenAiCompatModelTest {
         assertEquals(StopReason.ToolUse, r.stopReason)
     }
 
-    /** 整份回复已经收全,只是没发 `[DONE]`:照常说完,不当成流提前断了。 */
+    /** 応答全体を受信しましたが、送信されていません。 `[DONE]`: 通常どおり終了します。ストリームが早く中断されるべきではありません。 */
     @Test fun eventStreamWithoutDoneStillFinishes() = runTest {
         server.enqueue(
             MockResponse().setHeader("Content-Type", "text/event-stream")
@@ -98,7 +98,7 @@ class OpenAiCompatModelTest {
         assertEquals(StopReason.EndTurn, r.stopReason)
     }
 
-    /** 没有参数的工具,有的适配器给 `""`:当成 `{}`,免得调用方按 JSON 解析失败。 */
+    /** はパラメータのないツールです。一部のアダプターは、呼び出し元が JSON に従って解析できないのを防ぐために、`""`: を `{}` として扱います。 */
     @Test fun blankToolCallArgumentsBecomeEmptyObject() = runTest {
         server.enqueue(ok("""{"choices":[{"finish_reason":"tool_calls","message":{"content":null,"tool_calls":[{"id":"c1","type":"function","function":{"name":"get_time","arguments":""}}]}}]}"""))
         val r = model().complete("s", user, tools)
@@ -146,18 +146,18 @@ class OpenAiCompatModelTest {
         val rl = errorFor(MockResponse().setResponseCode(429).setHeader("retry-after", "2")) as ModelError.RateLimited
         assertEquals(2000L, rl.retryAfterMs)
         assertTrue(errorFor(MockResponse().setResponseCode(429).setBody("""{"error":{"message":"Rate limit reached, limit: 60"}}""")) is ModelError.RateLimited)
-        // 这个模型额度为零(Gemini 的 OpenAI 兼容入口回数组):换模型才行
+        // このモデルには割り当てがありません (Gemini の OpenAI 互換エントリ配列)。モデルを変更するだけです。
         val zero = errorFor(MockResponse().setResponseCode(429).setBody("""[{"error":{"code":429,"message":"Quota exceeded for metric: free_tier_requests, limit: 0","status":"RESOURCE_EXHAUSTED"}}]"""))
         assertTrue(zero is ModelError.ModelNotAvailable)
         assertTrue(errorFor(MockResponse().setResponseCode(400).setBody("context_length_exceeded")) is ModelError.ContextTooLong)
         assertTrue(errorFor(MockResponse().setResponseCode(400).setBody("exceeds the maximum context")) is ModelError.ContextTooLong)
         assertEquals("m", (errorFor(MockResponse().setResponseCode(404)) as ModelError.ModelNotFound).model)
-        // 网关回的 404 不一定是模型名不对:带上它 JSON 里的原话;HTML 页不当原话
+        // ゲートウェイによって返された 404 は、必ずしもモデル名が間違っているわけではありません。元の単語を JSON に含めてください。 HTML ページには元の単語が含まれていません。
         val gateway = errorFor(MockResponse().setResponseCode(404).setBody("""{"error":{"type":"not_found_error","message":"none of group/rpa's models is ready"}}""")) as ModelError.ModelNotFound
         assertEquals("none of group/rpa's models is ready", gateway.detail)
         assertEquals("", (errorFor(MockResponse().setResponseCode(404).setBody("<html><body>404 Not Found</body></html>")) as ModelError.ModelNotFound).detail)
         assertEquals(503, (errorFor(MockResponse().setResponseCode(503)) as ModelError.Server).status)
-        // 这个账号没开通这个模型:不当成 Key 或请求的问题
+        // このアカウントはこのモデルをアクティベートしていません: これはキーまたはリクエストの問題ではありません
         val na = errorFor(MockResponse().setResponseCode(400).setBody("""{"code":"InvalidParameter","message":"The product is not activated."}""")) as ModelError.ModelNotAvailable
         assertEquals("m", na.model)
         assertEquals("The product is not activated.", na.detail)
@@ -197,7 +197,7 @@ class OpenAiCompatModelTest {
     private val endpoint get() = server.url("/v1/chat/completions").toString()
     private fun texts(parts: List<Part>) = parts.map { if (it is Part.Thinking) it.text else it }
 
-    /** 任何地址收到的 reasoning_content:带工具的请求原样放回同一个字段;别处来的思考不发;不带工具不回传。 */
+    /** Reasoning_content: 任意のアドレスで受信されたツールを含むリクエストは、そのまま同じフィールドに返されます。他の場所からの思考は送信されません。ツールのないリクエストは返送されません。 */
     @Test fun reasoningContentReceivedHereIsReplayedWithTools() = runTest {
         val m = model()
         server.enqueue(ok("""{"choices":[{"finish_reason":"tool_calls","message":{"content":null,"reasoning_content":"先找入口","tool_calls":[{"id":"c1","type":"function","function":{"name":"phone_tap","arguments":"{}"}}]}}]}"""))
@@ -208,7 +208,7 @@ class OpenAiCompatModelTest {
         val history = user + listOf(
             Message(Role.Assistant, first.parts, Author.Mika),
             Message(Role.Tool, listOf(Part.ToolResult("c1", "done", false)), Author.Mika),
-            // 来历不明的(别的适配器给的、旧版本存下的)不发
+            // 不明なソース (他のアダプターによって提供されたもの、古いバージョンから保存されたもの) は送信されません。
             Message(Role.Assistant, listOf(Part.Thinking("别处想的"), Part.Text("已打开")), Author.Mika),
             Message(Role.User, listOf(Part.Text("再看一下")), Author.User),
         )
@@ -226,7 +226,7 @@ class OpenAiCompatModelTest {
         assertFalse("reasoning_content" in body()["messages"]!!.jsonArray[2].jsonObject)
     }
 
-    /** 思考在 `reasoning` 字段里收到的,放回 `reasoning`(不改成 reasoning_content)。 */
+    /** の思考は `reasoning` フィールドで受信され、(reasoning_content に変更せずに) `reasoning` に戻されます。 */
     @Test fun reasoningFieldIsReplayedUnderItsOwnName() = runTest {
         val m = model()
         server.enqueue(ok("""{"choices":[{"finish_reason":"tool_calls","message":{"content":"","reasoning":"想想","tool_calls":[{"id":"c1","type":"function","function":{"name":"phone_tap","arguments":"{}"}}]}}]}"""))
@@ -241,7 +241,7 @@ class OpenAiCompatModelTest {
         assertFalse("reasoning_content" in assistant)
     }
 
-    /** 另一个地址收到的思考(换了服务商)不发给这一家:它可能不认这个字段。 */
+    /** 別のアドレス (変更されたサービスプロバイダー) から受信した考えは、このアドレスには送信されません。このフィールドは認識されない可能性があります。 */
     @Test fun reasoningReceivedFromAnotherEndpointIsNotSent() = runTest {
         val elsewhere = Part.Thinking("那边想的", ReasoningVia.ReasoningContent.tag("https://other.example/v1/chat/completions"))
         server.enqueue(ok("""{"choices":[{"finish_reason":"stop","message":{"content":"ok"}}]}"""))
@@ -249,14 +249,14 @@ class OpenAiCompatModelTest {
         val assistant = body()["messages"]!!.jsonArray[2].jsonObject
         assertFalse("reasoning_content" in assistant)
         assertFalse("reasoning" in assistant)
-        // 同一个地址收到的就发
+        // 同じアドレスで受信した場合は送信します
         val here = Part.Thinking("这边想的", ReasoningVia.ReasoningContent.tag(endpoint))
         server.enqueue(ok("""{"choices":[{"finish_reason":"stop","message":{"content":"ok"}}]}"""))
         model().complete("s", user + Message(Role.Assistant, listOf(here, Part.Text("next")), Author.Mika), tools)
         assertEquals("这边想的", body()["messages"]!!.jsonArray[2].jsonObject["reasoning_content"]!!.jsonPrimitive.content)
     }
 
-    /** 模型列表写明了思考字段的,来历不明的思考(旧版本存下的历史)也按它回传。 */
+    /** のモデルリストは思考領域を示しており、それに応じて出所不明の思考（旧バージョンで保存されていた履歴）も返されます。 */
     @Test fun modelsListedWithReasoningContentFieldReplayItWithTools() = runTest {
         val m = OpenAiCompatModel(server.url("/v1").toString().trimEnd('/'), "k", "kimi-k3", caps(), OkHttpClient(), "reasoning_content")
         server.enqueue(ok("""{"choices":[{"finish_reason":"stop","message":{"content":"ok"}}]}"""))
@@ -265,7 +265,7 @@ class OpenAiCompatModelTest {
         assertEquals("先想", body()["messages"]!!.jsonArray[2].jsonObject["reasoning_content"]!!.jsonPrimitive.content)
     }
 
-    /** `content` 是分块数组:文字块是回答、thinking 块是思考;回放时整条按分块放回,思考块在前。 */
+    /** `content` はブロック配列です。テキスト ブロックは答えであり、思考ブロックは思考です。再生中、作品全体がブロックに戻され、思考ブロックが前に置かれます。 */
     @Test fun chunkedContentIsParsedAndReplayedAsChunks() = runTest {
         val m = model()
         server.enqueue(ok("""{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":[{"type":"thinking","thinking":[{"type":"text","text":"先想"},{"type":"text","text":"再想"}]},{"type":"text","text":"答案"}]}}]}"""))
@@ -284,7 +284,7 @@ class OpenAiCompatModelTest {
     @Test fun readsPromptCacheHitTokens() = runTest {
         server.enqueue(ok("""{"choices":[{"finish_reason":"stop","message":{"content":"hi"}}],"usage":{"prompt_tokens":900,"completion_tokens":10,"prompt_cache_hit_tokens":640,"prompt_cache_miss_tokens":260}}"""))
         assertEquals(Usage(900, 10, 640), model().complete("sys", user, emptyList()).usage)
-        // 缺 prompt_tokens 时用命中 + 未命中之和
+        // プロンプトトークンが欠落している場合、ヒットとミスの合計が使用されます
         server.enqueue(ok("""{"choices":[{"finish_reason":"stop","message":{"content":"hi"}}],"usage":{"completion_tokens":10,"prompt_cache_hit_tokens":640,"prompt_cache_miss_tokens":260}}"""))
         assertEquals(Usage(900, 10, 640), model().complete("sys", user, emptyList()).usage)
     }
@@ -299,7 +299,7 @@ class OpenAiCompatModelTest {
     @Test fun readsReasoningTokensDetails() = runTest {
         server.enqueue(ok("""{"choices":[{"finish_reason":"stop","message":{"content":"hi"}}],"usage":{"prompt_tokens":500,"completion_tokens":70,"completion_tokens_details":{"reasoning_tokens":64}}}"""))
         assertEquals(Usage(500, 70, 0, reasoningTokens = 64), model().complete("sys", user, emptyList()).usage)
-        // 报得比输出还多的按输出截
+        // レポートが出力以上の場合は、出力ボタンを押してください。
         server.enqueue(ok("""{"choices":[{"finish_reason":"stop","message":{"content":"hi"}}],"usage":{"prompt_tokens":500,"completion_tokens":7,"completion_tokens_details":{"reasoning_tokens":64}}}"""))
         assertEquals(Usage(500, 7, 0, reasoningTokens = 7), model().complete("sys", user, emptyList()).usage)
     }
@@ -311,7 +311,7 @@ class OpenAiCompatModelTest {
         assertEquals(Usage(900, 1, 900), model().complete("sys", user, emptyList()).usage)
     }
 
-    // 显式缓存:系统提示词和最后一条能标的消息上带 cache_control;前面的消息原样,两次请求的开头逐字相同
+    // 明示的キャッシュ: システム プロンプト ワードとマークできる最後のメッセージは、cache_control でマークされます。前のメッセージは変更されておらず、2 つのリクエストの先頭は単語ごとに同じです
     @Test fun explicitCachingMarksSystemAndLastMessage() = runTest {
         val m = OpenAiCompatModel(server.url("/v1").toString().trimEnd('/'), "k", "m",
             Capabilities(true, true, 32000, false, promptCaching = PromptCaching.Explicit), OkHttpClient())
@@ -333,7 +333,7 @@ class OpenAiCompatModelTest {
         assertEquals("屏幕", first[3]["content"]!!.jsonArray.single().jsonObject["text"]!!.jsonPrimitive.content)
         assertEquals("tool", first[3]["role"]!!.jsonPrimitive.content)
 
-        // 下一步:多了一轮;标记挪到新的最后一条,之前那条恢复原样(服务端按内容找开头,标记本身不算内容)
+        // 次のステップ: もう 1 ラウンド。マークは新しい最後のマークに移動され、前のマークは元の状態に復元されます (サーバーは内容に従って先頭を見つけます。マーク自体はカウントされません)
         m.complete("SYS", history + Message(Role.Assistant, listOf(Part.ToolCall("c2", "phone_tap", "{}")), Author.Mika) +
             Message(Role.Tool, listOf(Part.ToolResult("c2", "点了", false)), Author.Mika), emptyList())
         val second = body()["messages"]!!.jsonArray.map { it.jsonObject }
@@ -359,7 +359,7 @@ class OpenAiCompatModelTest {
         assertFalse(body().containsKey("reasoning_effort"))
     }
 
-    // 插话打断后:半截回复是一条只有文字的 assistant 消息,不带调用和思考字段;后面两条 user 消息各自原样发出
+    // が中断した後: 半分の応答は、呼び出しフィールドと思考フィールドを含まない、テキストのみのアシスタント メッセージです。次の 2 つのユーザー メッセージはそのまま送信されます。
     @Test fun interruptedReplyIsAPlainAssistantMessageBeforeTheSteer() = runTest {
         server.enqueue(ok("""{"choices":[{"finish_reason":"stop","message":{"content":"好"}}]}"""))
         model().complete("s", InterruptedHistory.messages, emptyList())

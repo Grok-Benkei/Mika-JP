@@ -17,9 +17,9 @@ class ApprovalPolicyTest {
     @Test fun everyOriginAndAttendance() {
         for (origin in RunOrigin.entries) for (attendance in Attendance.entries) for (level in ActionRisk.entries) {
             val run = RunProvenance(origin, attendance)
-            // 不花钱的:谁发起、人在不在都直接做
+            // お金はかかりません。その人がいるかどうかに関係なく、始めた人が直接実行します。
             assertEquals("$origin $attendance $level", Approval.Allow, ApprovalPolicy.decide(Risk(level), run))
-            // 花钱的:只有手机上发起、人在场时问;问不到的(渠道、定时、MCP、子任务、无人值守)不做
+            // お金を使う: 携帯電話でのみ開始し、誰かがいるときに尋ねます。尋ねられないことは何もしないでください（チャネル、タイミング、MCP、サブタスク、無人）
             val expected = if (origin == RunOrigin.Ui && attendance != Attendance.Unattended) Approval.Ask else Approval.Deny
             assertEquals("$origin $attendance $level payment", expected, ApprovalPolicy.decide(Risk(level, payment = true), run))
         }

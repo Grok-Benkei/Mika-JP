@@ -38,7 +38,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** 电脑连接页中的主屏准备设置。新凭据不进可恢复状态,不显示旧凭据;编辑时禁止截屏。 */
+/** コンピューター接続ページのホーム画面準備設定。新しい資格情報は回復可能な状態にはならず、古い資格情報は表示されません。編集中のスクリーンショットは禁止です。 */
 @Composable
 fun DeviceAccessSection(settings: DeviceAccessSettings) {
     val config by settings.config.collectAsState()

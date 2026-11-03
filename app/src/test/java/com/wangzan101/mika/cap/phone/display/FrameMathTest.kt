@@ -16,7 +16,7 @@ class FrameMathTest {
     }
 
     @Test fun darkThemeWithTextIsNotBlack() {
-        // 黑底上有一行白字
+        // 黒い背景に白い文字の行があります
         assertFalse(FrameMath.isBlack(w, h) { _, y -> if (y in 300..340) white else black })
         assertFalse(FrameMath.isBlack(w, h) { _, _ -> 0xff202020.toInt() })
     }
@@ -29,7 +29,7 @@ class FrameMathTest {
 
     @Test fun cursorBlinkDoesNotDiffer() {
         val a = FrameMath.lumaGrid(w, h) { _, _ -> white }
-        // 2 像素宽的光标
+        // 2 ピクセル幅のカーソル
         val b = FrameMath.lumaGrid(w, h) { x, y -> if (x in 100..101 && y in 200..240) black else white }
         assertFalse(FrameMath.differs(a, b))
         assertFalse(FrameMath.differs(a, null))

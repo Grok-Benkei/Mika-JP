@@ -36,7 +36,7 @@ class MemoryStoreTest {
     @Test fun limitEnforced() {
         val s = store(limit = 2)
         s.add(MemoryKind.fact, "一", emptyList(), said).getOrThrow()
-        s.add(MemoryKind.procedure, "二", emptyList(), said).getOrThrow() // pending 也算
+        s.add(MemoryKind.procedure, "二", emptyList(), said).getOrThrow() // 保留もカウントされます
         assertEquals("memory_full", rejectCode(s.add(MemoryKind.fact, "三", emptyList(), said)))
         assertEquals(2, s.items.value.size)
     }
@@ -69,7 +69,7 @@ class MemoryStoreTest {
         assertEquals(2_000L, upd.item.updatedAt)
         assertTrue(s.undo(upd.undoToken))
         assertEquals(listOf(added.item), s.items.value)
-        assertFalse(s.undo(upd.undoToken)) // 令牌用过即失效
+        assertFalse(s.undo(upd.undoToken)) // トークンは使用後に無効になります
         assertEquals("not_found", rejectCode(s.update("nope", "x", null, null)))
     }
 
@@ -104,7 +104,7 @@ class MemoryStoreTest {
         val p = s.add(MemoryKind.procedure, "点外卖先比价", emptyList(), said).getOrThrow()
         assertTrue(s.approve(p.item.id))
         assertEquals(MemoryStatus.active, s.items.value.single().status)
-        assertFalse(s.approve(p.item.id)) // 已生效
+        assertFalse(s.approve(p.item.id)) // が発効しました
         assertFalse(s.approve("nope"))
         s.setPinned(p.item.id, true)
         assertTrue(s.items.value.single().pinned)
@@ -137,10 +137,10 @@ class MemoryStoreTest {
         s.undo(f.undoToken); assertEquals(7, p.saves)
         s.clearAll(); assertEquals(8, p.saves)
         assertEquals(s.items.value, p.stored)
-        // 被拒的写入不落盘
+        // 拒否された書き込みはディスクに書き込まれません
         s.add(MemoryKind.fact, "", emptyList(), said)
         assertEquals(8, p.saves)
-        // 重开时从落盘内容读回
+        // 再起動時にダウンロードしたコンテンツを読み戻す
         val p2 = FakePersistence()
         val s1 = store(p2)
         s1.add(MemoryKind.fact, "甲", emptyList(), said)
@@ -152,7 +152,7 @@ class MemoryStoreTest {
         val a = s.add(MemoryKind.fact, "甲", emptyList(), said).getOrThrow()
         s.clearAll()
         assertTrue(s.items.value.isEmpty())
-        assertFalse(s.undo(a.undoToken)) // 清除后不能撤销回来
+        assertFalse(s.undo(a.undoToken)) // はクリア後に元に戻すことはできません。
     }
 
     @Test fun updatedProcedureNeedsApprovalAgain() {
@@ -171,13 +171,13 @@ class MemoryStoreTest {
         val a = s.add(MemoryKind.fact, "甲", emptyList(), said).getOrThrow()
         val first = s.update(a.item.id, "乙", null, null).getOrThrow()
         val second = s.update(a.item.id, "丙", null, null).getOrThrow()
-        assertFalse(s.undo(first.undoToken)) // 之后又改过,不能把「丙」抹掉
+        assertFalse(s.undo(first.undoToken)) // は後から変更されており、「C」は消去できません。
         assertEquals("丙", s.items.value.single().content)
         assertTrue(s.undo(second.undoToken))
         assertEquals("乙", s.items.value.single().content)
         val third = s.update(a.item.id, "丁", null, null).getOrThrow()
         s.forget(a.item.id).getOrThrow()
-        assertFalse(s.undo(third.undoToken)) // 已忘掉的不会被更新撤销悄悄复活
+        assertFalse(s.undo(third.undoToken)) // 忘れられたアイテムはアップデートによって取り消されず、静かに復活します
         assertTrue(s.items.value.isEmpty())
     }
 
@@ -188,7 +188,7 @@ class MemoryStoreTest {
         now = 9_000L
         s.markUsed(listOf(a.item.id))
         s.setPinned(a.item.id, true)
-        assertTrue(s.undo(upd.undoToken)) // 用过、置顶不算又被改过
+        assertTrue(s.undo(upd.undoToken)) // 使用、固定、カウントおよび変更されていない
         val cur = s.items.value.single()
         assertEquals("甲", cur.content)
         assertEquals(1, cur.useCount)
@@ -207,11 +207,11 @@ class MemoryStoreTest {
         val s = MemoryStore(p, clock = { now }, ids = { "id${++seq}" })
         assertFalse(s.available)
         assertTrue(s.items.value.isEmpty())
-        assertEquals("unavailable", rejectCode(s.add(MemoryKind.fact, "新的", emptyList(), said))) // 第二次读也失败
+        assertEquals("unavailable", rejectCode(s.add(MemoryKind.fact, "新的", emptyList(), said))) // 2 回目の読み取りも失敗しました
         assertEquals(0, p.saves)
         s.markUsed(listOf("old"))
         assertEquals(0, p.saves)
-        // 第三次读到了:原有的还在,新的加在后面
+        // 3 度目に読みます。元のものがまだ残っており、新しいものが最後に追加されています。
         assertTrue(s.add(MemoryKind.fact, "新的", emptyList(), said).isSuccess)
         assertTrue(s.available)
         assertEquals(listOf("原有的记忆", "新的"), p.stored.map { it.content })

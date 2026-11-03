@@ -6,34 +6,34 @@ import com.wangzan101.mika.core.observation.PlaceKind
 import com.wangzan101.mika.core.prompt.Feedback
 import com.wangzan101.mika.core.tool.Verb
 
-/** 一个工具结果之后要按它找的参考资料。 */
+/** ツールの結果が表示されたら、ツールが検索する参照マテリアルをクリックする必要があります。 */
 internal sealed interface KnowledgeLookup {
-    /** 前台 App 的资料。 */
+    /** フロントエンド アプリ情報。 */
     data class App(val pkg: String) : KnowledgeLookup
-    /** 网站的资料;[host] 已小写、去掉 www.,每个站点只在第一次进入时找。 */
+    /** ウェブサイト情報; [host] は小文字になり、www になります。は削除されました。各サイトは初回アクセス時にのみ表示されます。 */
     data class Site(val host: String) : KnowledgeLookup
 }
 
 /**
- * 一个工具结果之后跟什么:附图配哪句说明、到了哪里要找哪份参考资料。纯函数。
+ * ツールの結果に続くもの: 添付された画像にどの説明を付けるか、どこに行ってもどの参考資料を探すか。純粋な機能。
  */
 internal object NoticePolicy {
-    /** 在网页上看界面、读页、打开网页:到了那个站点。 */
+    /** Web ページのインターフェイスを表示し、ページを読み、Web ページを開きます。サイトに到着しました。 */
     private val SITE_RESULT_VERBS = setOf(Verb.Observe, Verb.ListElements, Verb.Navigate, Verb.ReadPage)
 
-    /** 结果附的图配的说明;[offScreen] 为 true 表示是不动屏幕的工具读到的图片文件,不是屏幕画面。 */
+    /** の結果には、画像の説明が付いています。 [offScreen] が true の場合、それは画面イメージではなく、画面を移動しないツールによって読み取られたイメージ ファイルであることを意味します。 */
     fun imageNote(verb: Verb?, offScreen: Boolean): String = when {
-        // 回看补发的图放在这里,对裁剪来说就是新图
+        // 再発行された写真を確認して、ここに置きます。トリミング用の新規画像です。
         verb == Verb.ViewPastScreens -> Feedback["recalled_note"]
         offScreen -> Feedback["file_image_note"]
         verb in DIAGNOSTIC_VERBS -> Feedback["screenshot_note"]
-        // 动作成功后自动附的画面;只有它是最新的,更早的画面会被换成可回看的占位
+        // アクションが成功した後に画面が自動的に接続されます。最新のもののみです。以前の画面は、戻って表示できるプレースホルダーに置き換えられます。
         else -> Feedback["action_frame_note"]
     }
 
     /**
-     * 到了 [place] 之后要找的参考资料:看了一个 App 的界面就找这个 App 的;在网页上看界面、读页、打开网页就按域名找这个站点的。
-     * 同一个站点是否已找过由调用方记。[ok] 是这次调用成没成。
+     * [place] に到着したら探す必要がある参考資料: アプリのインターフェイスを探し、このアプリを探します。インターフェイスを見て、ページを読み、Web ページを開いて、ドメイン名でこのサイトを探します。
+     * 同じサイトが以前に見つかったかどうかは、発信者によって記録されます。 [ok] は、呼び出しが成功したかどうかを示します。
      */
     fun knowledgeAfter(verb: Verb?, place: Place?, ok: Boolean): List<KnowledgeLookup> = when {
         place == null -> emptyList()

@@ -15,16 +15,16 @@ import com.wangzan101.mika.core.gate.ConfirmationRequest
 import com.wangzan101.mika.core.risk.IrrevAction
 
 /**
- * 确认卡片和通知上的文字。字段都是模型写的:只当纯文本用(不解析任何标记);
- * 换行、行分隔符压成空格,去掉控制字符、零宽字符和文字方向控制符;
- * 字段里的「·」和冒号换成别的符号,拼不出假的「· 金额:」一类字段。
+ * カードと通知のテキストを確認します。フィールドはモデルによって書き込まれます。フィールドはプレーン テキストとしてのみ使用できます (タグは解析されません)。
+ * 改行と行区切り文字はスペースに押し込まれ、制御文字、ゼロ幅文字、およびテキスト方向制御文字は削除されます。
+ * フィールド内の「・」とコロンを他の記号に置き換えると、偽の「・Amount:」フィールドをスペルアウトできなくなります。
  */
 object ConfirmationCopy {
-    /** 收起时那一行里内容显示的字数。 */
+    /** 折りたたまれたときにその行に表示される単語の数。 */
     const val CONTENT_MAX = 60
-    /** 展开的卡片和通知里内容最多显示的字数(和申报时的上限一致)。 */
+    /** 拡張カードおよび通知に表示できる最大文字数（宣言時の上限と同じ）。 */
     const val DETAIL_MAX = 200
-    /** 确认卡片上的说明:只有花钱的操作要你同意,每次只同意这一次。 */
+    /** 確認カードの指示: お金を使う操作に同意する必要があるのは、一度に 1 回だけです。 */
     val NOTE: String get() = tr(R.string.confirm_note)
 
     fun actionLabel(action: IrrevAction): String = when (action) {
@@ -38,10 +38,10 @@ object ConfirmationCopy {
 
     fun title(r: ConfirmationRequest) = tr(R.string.confirm_title, actionLabel(r.action))
 
-    /** 收起的一行:「在 <App 名> · 对象:<对谁> · 内容:<前 60 字> · 金额:<多少>」;空的字段不写。 */
+    /** は行を折りたたみます: "<App 名> · オブジェクト: <誰に> · 内容: <最初の 60 単語> · 金額: <いくら>";空のフィールドを書き込まないでください。 */
     fun body(r: ConfirmationRequest, appName: String): String = fields(r, appName, CONTENT_MAX).joinToString(" · ")
 
-    /** 展开的卡片和通知大字:一行一个字段,内容显示完整(最多 200 字)。 */
+    /** 拡張されたカードと通知の大きな文字: フィールドごとに 1 行、内容が完全に表示されます (最大 200 ワード)。 */
     fun detail(r: ConfirmationRequest, appName: String): String = fields(r, appName, DETAIL_MAX).joinToString("\n")
 
     private fun fields(r: ConfirmationRequest, appName: String, contentMax: Int): List<String> {
@@ -63,12 +63,12 @@ object ConfirmationCopy {
         .trim()
 }
 
-/** 确认关卡的醒目通知:和接管同一个高优先级频道,按钮「同意」「不同意」。 */
+/** レベルの目を引く通知を確認します: 引き継ぎと同じ高優先チャネルであり、ボタンは「同意する」と「同意しない」です。 */
 object ConfirmationNotifier {
-    /** 通知按钮和卡片按钮带上它,服务据此丢掉点在旧通知、旧卡片上的回答。 */
+    /** 通知ボタンとカード ボタンを使用すると、古い通知と古いカードでクリックされた回答がサービスによって破棄されます。 */
     const val EXTRA_REQUEST = "confirmation_request"
 
-    /** App 的显示名;读不到(没装、包不可见)时用包名。 */
+    /** アプリの表示名。パッケージ名を読み取れない場合（インストールされていない場合、パッケージが表示されない場合）には、パッケージ名を使用してください。 */
     fun appLabel(context: Context, packageName: String): String = try {
         val pm = context.packageManager
         pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString().ifBlank { packageName }
@@ -76,19 +76,19 @@ object ConfirmationNotifier {
         packageName
     }
 
-    /** 每次申报一个编号:循环每次申报都新建一个等待状态,同一进程里的服务和界面拿到的是同一个对象。 */
+    /** は毎回番号を宣言します。ループが宣言されるたびに新しい待機状態が作成され、同じプロセス内のサービスとインターフェイスは同じオブジェクトを取得します。 */
     fun requestKey(state: TaskState.WaitingConfirmation): Int = System.identityHashCode(state)
 
-    /** 按钮 Intent 的 data:每次申报、每个按钮各不相同,系统不会把旧通知上的按钮换成新申报的。 */
+    /** ボタン インテントデータ: 各通知と各ボタンは異なります。システムは古い通知のボタンを新しい通知に置き換えません。 */
     fun intentData(key: Int, approve: Boolean) = "mika-confirm://request/$key/" + if (approve) "approve" else "decline"
 
     fun build(
         context: Context, channel: String, state: TaskState.WaitingConfirmation, service: Class<*>, approveAction: String, declineAction: String,
         contentIntent: PendingIntent,
-        /** 几个任务同时等确认时各用一段请求码,按钮再带上 [runExtra] 标明是哪个任务的。 */
+        /** 複数のタスクが同時に確認を待機している場合、それぞれがリクエスト コードを使用し、どのタスクであるかを示すボタンに [runExtra] が追加されます。 */
         codeOffset: Int = 0,
         runExtra: Pair<String, String>? = null,
-        /** 照发但不响、不弹横幅(悬浮胶囊正在显示时),见 [alertQuietly]。 */
+        /** は引き続きメッセージを送信しますが、音は鳴らず、バナーもポップアップしません (中断されたカプセルが表示されている場合)。[alertQuietly] を参照してください。 */
         quiet: Boolean = false,
     ): Notification {
         val r = state.request
@@ -102,11 +102,11 @@ object ConfirmationNotifier {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_CANCEL_CURRENT,
             )
             return Notification.Action.Builder(null, context.getString(title), pi).apply {
-                // 锁屏上点「同意」要先解锁
+                // まずロック画面で「同意する」をクリックしてロックを解除します
                 if (approve && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setAuthenticationRequired(true)
             }.build()
         }
-        // 锁屏上只露出要同意哪一类操作,对象和内容解锁后才看得到
+        // ロック画面には同意する操作の種類のみが表示されます。オブジェクトとコンテンツはロックを解除した後にのみ表示されます
         val public = Notification.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(ConfirmationCopy.title(r))

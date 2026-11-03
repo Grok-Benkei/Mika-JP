@@ -53,8 +53,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
- * 已保存的定时任务:分「进行中」「已停用」两段,每条三行(做什么、什么时候与下次、上次结果),右边开关。
- * 点一行升起操作面板(看对话、立即执行、改时间、删除)。页面只读账本,修改后让调度器重新布置系统闹钟。
+ * 保存されたスケジュールされたタスク: 「進行中」と「無効」の 2 つのセクションに分かれており、それぞれに 3 行 (何をするか、いつ、次回、最後の結果) があり、右側にスイッチがあります。
+ * 行をクリックすると操作パネル（ダイアログ表示、即時実行、時刻変更、削除）が表示されます。このページは台帳を読み取るだけで、変更後にスケジューラがシステムのアラーム クロックを再配置できるようにします。
  */
 @Composable
 fun PlansScreen(context: Context, onBack: () -> Unit, onOpenConversation: (String) -> Unit) {
@@ -65,7 +65,7 @@ fun PlansScreen(context: Context, onBack: () -> Unit, onOpenConversation: (Strin
     var acting by remember { mutableStateOf<TriggerDefinition?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var segment by rememberSaveable { mutableIntStateOf(0) }
-    // 从系统设置回来时重读:刚开了权限,提示就该消失
+    // システム設定から戻ったときに再読み込みします。権限が有効になるとすぐにプロンプトが表示されなくなります。
     var exact by remember { mutableStateOf(TriggerRuntime.canScheduleExactly(context)) }
     LifecycleResumeEffect(Unit) {
         exact = TriggerRuntime.canScheduleExactly(context)
@@ -170,7 +170,7 @@ private fun PlanRow(plan: TriggerDefinition, last: TriggerWindow?, first: Boolea
     val subtitle = plan.conditionGoal?.let { tr(R.string.plans_condition, it, when_) } ?: when_
     val c = MikaTheme.colors
     val delivered = last?.state == TriggerWindowState.Delivered
-    // 一次性的任务做完后不能再打开;循环的和从没跑过的可以
+    // ワンタイムタスクは完了後に再度開くことはできません。周期的なものと一度も実行されていないものは可能です。
     val canToggle = plan.enabled || plan.intervalMs != null || plan.calendarTime != null || last == null
     ListRow(
         null, plan.reminderText ?: plan.goal, subtitle, first = first,

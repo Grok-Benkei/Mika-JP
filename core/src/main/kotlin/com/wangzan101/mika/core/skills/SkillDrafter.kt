@@ -25,41 +25,41 @@ import com.wangzan101.mika.core.tool.Verb
 import com.wangzan101.mika.core.net.UrlHost
 
 /**
- * 起草技能的全部输入:[events] 是这次运行的事件,[toolNames] 是 Mika 当前的工具名,
- * [tools] 按名字查工具做的动作。
+ * 製図スキルのすべての入力: [events] はこの実行のイベント、[toolNames] はミカの現在のツール名、
+ * [tools] 名前による検索ツールによって実行されるアクション。
  */
-/** [answer] 是交给用户的最终回答,[sources] 是代码找到的回答来源(见 [AnswerSource])。 */
+/** [answer] はユーザーに与えられる最終回答であり、[sources] はコードによって見つかった回答ソースです ([AnswerSource] を参照)。 */
 data class DraftInput(
     val runId: String, val goal: String, val answer: String, val sources: List<AnswerSource>, val events: List<RunEvent>,
     val toolNames: Set<String>, val tools: ToolIndex,
 )
 
-/** 做事的动作(手机、网页、沙箱);读屏、查技能、收尾这类不算步数。 */
+/** 物事を行うためのアクション (携帯電話、Web ページ、サンドボックス)。画面の読み取り、スキルの確認、フィニッシュなどは歩数としてカウントされません。 */
 private val ACTION_VERBS = setOf(Verb.Tap, Verb.Scroll, Verb.Swipe, Verb.TypeText, Verb.ClearText, Verb.Back, Verb.PressKey, Verb.LaunchApp, Verb.ShareText,
     Verb.Navigate, Verb.Upload, Verb.Tabs, Verb.RunCommand, Verb.RunBundledScript, Verb.WriteFile, Verb.ShareFile)
 
-/** 什么时候值得起草;开关与评测模式由调用方判断。 */
+/** をドラフトする価値があるとき。切り替えモードと評価モードは呼び出し側の裁量に任されます。 */
 object Eligibility {
     const val MIN_ACTIONS = 5
 
-    /** null = 可以起草;否则是不起草的原因。[done]:这次运行算办成了([com.wangzan101.mika.core.agent.LearnGate])。 */
+    /** null = ドラフト可能。それ以外の場合は、ドラフトしない理由になります。 [done]: この操作は完了しました ([com.wangzan101.mika.core.agent.LearnGate])。 */
     fun check(events: List<RunEvent>, followedPersonalSkill: String?, tools: ToolIndex, done: Boolean): String? {
         val ended = events.filterIsInstance<RunEvent.TaskEnded>().lastOrNull()
         return when {
             ended?.outcome != "succeeded" -> "not_succeeded"
             !done -> "not_done"
-            // 这次用户已经让 Mika 照他的意思写下了技能,不再另起一份草稿
+            // 今回、ユーザーはミカに自分の希望に従ってスキルを書き留めるように依頼し、新たなドラフトを開始することはありません。
             events.any { it is RunEvent.ToolResult && tools.verb(it.tool) == Verb.SkillSave && it.resultJson.contains("\"ok\":true") } -> "skill_saved"
-            // 出错的动作不算步数(结果可能被截短,按原文判)
+            // 間違ったアクションはステップとしてカウントされません（結果は切り捨てられる可能性があります。元のテキストを参照してください）
             events.count { it is RunEvent.ToolResult && tools.verb(it.tool) in ACTION_VERBS && !it.resultJson.contains("\"ok\":false") } < MIN_ACTIONS -> "too_few_actions"
             else -> interrupted(events) ?: "followed_personal_skill".takeIf { followedPersonalSkill != null }
         }
     }
 
-    /** 这次的经过有一段不是 Mika 自己走的(跳过了接管、用户自己办完、不同意确认),从它学不到东西:返回原因,否则 null。 */
+    /** このプロセスには、Mika が自分で実行しなかった部分 (テイクオーバーのスキップ、ユーザーによる完了、確認への同意なし) があり、そこから何も学べません。理由を返します。それ以外の場合は null を返します。 */
     fun interrupted(events: List<RunEvent>): String? = when {
         events.any { it is RunEvent.Takeover && it.outcome == "skipped" } -> "takeover_skipped"
-        // 用户自己办完的:那段路线 Mika 没走过
+        // ユーザーが自分で完了しました: ミカはそのルートを歩いたことはありません
         events.any { it is RunEvent.Takeover && it.outcome == "user_finished" } -> "takeover_user_finished"
         events.any { it is RunEvent.Confirmation && it.decision in DECLINED } -> "confirmation_declined"
         else -> null
@@ -69,15 +69,15 @@ object Eligibility {
 }
 
 /**
- * 动作清单的一行:只有工具、目标元素名字、所在 App 或网站([where],网站写成「网站 主机名」)、是否生效、错误码。
- * [typed]:这一步是输入文字。
+ * 1 行のアクション リスト: ツール、ターゲット要素名、アプリまたは Web サイト ([where]、Web サイトは「Web サイトのホスト名」と記述されます)、有効かどうか、およびエラー コードのみ。
+ * [typed]: このステップではテキストを入力します。
  */
 data class ActionLine(
     val step: Int, val tool: String, val target: String?, val where: String?, val changed: Boolean?, val error: String?,
     val typed: Boolean = false,
 )
 
-/** 从运行事件里取精简的动作清单。不取屏幕全文;`type_text` 的文字不取(渲染成 `<输入内容>`)。 */
+/** 実行中のイベントから合理化されたアクション リストを取得します。画面の全テキストは取得されません。 `type_text` のテキストはフェッチされません (`<输入内容>` にレンダリングされます)。 */
 object ActionDigest {
     private val ELEMENT = Regex("\"ref\":\"(@e\\d+)\",\"role\":\"[^\"]*\",\"name\":(\"(?:[^\"\\\\]|\\\\.)*\")")
     private val CURRENT_APP = Regex("\"currentApp\":\"([^\"]+)\"")
@@ -87,7 +87,7 @@ object ActionDigest {
     fun of(events: List<RunEvent>, tools: ToolIndex, maxLines: Int = 60): List<ActionLine> {
         val args = HashMap<Int, JsonObject>()
         var names = emptyMap<String, String>()
-        // 手机上在哪个 App、网页上在哪个站点;onWeb 是此刻在哪一边
+        // 携帯電話にはどのアプリがあり、Web ページにはどのサイトがありますか?今のところonWebはどちら側ですか?
         var app: String? = null
         var site: String? = null
         var onWeb = false
@@ -102,14 +102,14 @@ object ActionDigest {
                     else -> Unit
                 }
                 is RunEvent.ToolResult -> {
-                    // 读屏结果可能被截短成不完整的 JSON,逐个元素按文本取 ref→名字,只用来给目标命名
+                    // 画面読み取り結果が不完全な JSON に切り詰められる可能性があります。 ref→name は各要素のテキストから取得され、ターゲットに名前を付けるためにのみ使用されます。
                     val verb = tools.verb(e.tool)
                     if (verb in READS) {
                         names = ELEMENT.findAll(e.resultJson).associate { m -> m.groupValues[1] to unquote(m.groupValues[2]) }
                         CURRENT_APP.find(e.resultJson)?.let { app = it.groupValues[1]; onWeb = false }
                         CURRENT_SITE.find(e.resultJson)?.let { site = it.groupValues[1]; onWeb = true }
                     } else {
-                        // 动作结果里带的 screen 也报在哪
+                        // アクション結果に含まれる画面もどこに報告されますか?
                         CURRENT_SITE.find(e.resultJson)?.let { site = it.groupValues[1]; onWeb = true }
                             ?: CURRENT_APP.find(e.resultJson)?.let { app = it.groupValues[1]; onWeb = false }
                     }
@@ -119,19 +119,19 @@ object ActionDigest {
                     if (verb == Verb.LaunchApp || verb == Verb.ShareText) arg("package")?.let { app = it; onWeb = false }
                     if (verb == Verb.Navigate) arg("url")?.let(UrlHost::of)?.let { site = it; onWeb = true }
                     val target = when (verb) {
-                        // 只记分享给了哪个 App,不记文字:可能带个人信息
+                        // はテキストではなく、共有されたアプリのみを記憶します。個人情報が含まれる可能性があります。
                         Verb.LaunchApp, Verb.ShareText -> arg("package")
                         Verb.PressKey -> arg("key") ?: arg("keys")
-                        // 只记站点,不记网址:查询串里可能有个人信息
+                        // サイトのみを記憶し、URL は記憶しません。クエリ文字列に個人情報が含まれる可能性があります。
                         Verb.Navigate -> arg("url")?.let(UrlHost::of)
                         Verb.Tabs -> arg("action")
-                        // 命令、路径、上传的文件可能带个人信息:不记
+                        // コマンド、パス、アップロードされたファイルには個人情報が含まれている可能性があります: 覚えていないでください
                         Verb.RunCommand, Verb.RunBundledScript, Verb.WriteFile, Verb.ShareFile, Verb.Upload -> null
                         else -> arg("ref")?.let { names[it] }?.takeIf { it.isNotBlank() }
                     }
                     val result = parse(e.resultJson)
                     val error = (result?.get("error") as? JsonPrimitive)?.contentOrNull
-                    val where = if (onWeb) site?.let { "网站 $it" } else app
+                    val where = if (onWeb) site?.let { "ウェブサイト $it" } else app
                     out += ActionLine(e.step, e.tool, target, where, e.changed, error, typed = verb == Verb.TypeText)
                 }
                 else -> Unit
@@ -140,18 +140,18 @@ object ActionDigest {
         return out
     }
 
-    /** 目标不取自读屏的动作。 */
+    /** 画面を読み取るアクションからターゲットが取得されません。 */
 
     fun render(lines: List<ActionLine>): String = lines.joinToString("\n") { l ->
         buildString {
             append(l.step).append(". ").append(l.tool)
             l.target?.let { append(" 「").append(it).append("」") }
-            if (l.typed) append(" 输入 <输入内容>")
-            l.where?.let { append(" 在 ").append(it) }
+            if (l.typed) append(" 入力 <入力内容>")
+            l.where?.let { append(" 場所: ").append(it) }
             when {
-                l.error != null -> append(" 出错:").append(l.error)
-                l.changed == true -> append(" 生效")
-                l.changed == false -> append(" 画面没变")
+                l.error != null -> append(" エラー:").append(l.error)
+                l.changed == true -> append(" 操作を反映")
+                l.changed == false -> append(" 画面に変化なし")
             }
         }
     }
@@ -171,25 +171,25 @@ object ActionDigest {
 
 sealed interface DraftResult {
     /**
-     * [isUpdateOf]:模型判为已有个人技能的同一类事,作为它的更新起草;
-     * [replacesPending]:判为一份待确认草稿的同一类事,是那份草稿的编号——存回原处换掉它,不另起一份。
+     * [isUpdateOf]: モデルは既に個人スキルを備えている同種のものとして判断され、その更新としてドラフトされます。
+     * [replacesPending]: 確定草案と判断されるのはその草案の番号と同じで、新規作成せずに元の場所に保存して置き換えます。
      */
     data class Draft(val skill: PersonalSkill, val isUpdateOf: String?, val replacesPending: String? = null) : DraftResult
     data class Dropped(val reason: String) : DraftResult
 }
 
 /**
- * 一次单独的模型调用(不带工具)把办成的任务写成技能草稿,再由代码校验;不过就丢弃,不打扰用户。
- * 发给模型的是目标、最终回答、回答的来源(哪一步在哪儿读的)和动作清单;目标里的值、输入的文字换成占位,不含读到的原文。
- * 另列出已有的个人技能(连同待确认的草稿):这次的事和哪份是同一类事,由模型在头部写 `updates: <名字>` 说明,代码只核对名字确有其事。
+ * 1 回のモデル呼び出し (ツールなし) で、完了したタスクがスキルドラフトに書き込まれ、コードによって検証されます。ただし、ユーザーの邪魔をせずに破棄されます。
+ * は、ターゲット、最終回答、回答のソース (どのステップがどこで読み取られたか)、およびアクション リストをモデルに送信します。ターゲット内の値と入力テキストは、読み取られた元のテキストを除き、プレースホルダーに置き換えられます。
+ * にも既存の個人スキルが記載されています（ドラフトと併せて確認）：今回はどれと同じタイプのものです。モデルは先頭に`updates: <名字>`を書き込みます。コードは、名前が true であることのみをチェックします。
  */
 class SkillDrafter(private val model: ChatModel) {
     suspend fun draft(input: DraftInput, existing: PersonalSkills, catalog: GuideCatalog): DraftResult {
-        // 这一次的值(目标里引号内的、这次输入的文字、数字)换成占位,技能下次换个对象也用得上;
-        // 回答和屏上的字照原样给、照原样收:里面的页面、按钮名字正是做法本身
+        // 今回の値（ターゲット内の引用符内に今回入力した文字列と数字）がプレースホルダーに置き換えられ、次回ターゲットを変更する際にスキルを使用できるようになります。
+        // 画面上の答えや言葉はそのまま授受され、中のページやボタン名はまさにメソッドそのものです。
         val literals = SkillRedactor.literals(input.goal, emptyList()) + SkillRedactor.textLiterals(typedTexts(input.events, input.tools))
         val keepDigits = catalogDigits(catalog)
-        // 已有技能的名字照原样给(换了数字就对不上了);它们是用户自己的技能,不是这一次的值
+        // 既存のスキル名はそのまま記載しています（変更すると番号が不一致になります）。それらはユーザー自身のスキルであり、今回の価値観ではありません。
         val request = SkillRedactor.scrubNumbers(SkillRedactor.redact(request(input), literals), keepDigits) + "\n" + existingSkills(existing)
         val reply = try {
             model.complete(PROMPT, listOf(Message(Role.User, listOf(Part.Text(request)), Author.Mika)), emptyList())
@@ -199,9 +199,9 @@ class SkillDrafter(private val model: ChatModel) {
             return DraftResult.Dropped("model_error")
         }
         val redacted = SkillRedactor.redact(stripFence(reply.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }), literals)
-        // 先按原样查一遍:草稿里写了密码、卡号这类东西,说明起草走偏了,数字换掉也不收
+        // まずはそのまま確認してください、下書きにパスワードやカード番号などが書かれているということは、下書きが迷走しており、番号を書き換えても受け付けられません。
         if (SensitiveFilter.hit(redacted) != null) return DraftResult.Dropped("sensitive")
-        // 要更新哪份在换数字之前取:技能名里的数字是名字的一部分
+        // どのコピーを更新しますか?数字を変更する前に取得してください。スキル名の数字は名前の一部です。
         val updates = (FrontMatter.parse(redacted).first["updates"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
         val md = PersonalSkills.withoutField(SkillRedactor.scrubNumbers(redacted, keepDigits), "updates")
 
@@ -209,16 +209,16 @@ class SkillDrafter(private val model: ChatModel) {
         val meta = FrontMatter.parse(md).first
         val name = meta["name"] as String
 
-        // 模型指的是一份待确认的草稿:换掉那份(它若是某份已有技能的更新,新草稿接着更新那份);
-        // 指的是已收下的(在用、试用或停用的):作为它的更新。名字对不上的(没有这份、是内置技能)不算,当作新的一份
+        // モデルは、確認されるドラフトを参照します。そのドラフトを置き換えます (既存のスキルの更新である場合、新しいドラフトはそのドラフトを更新します)。
+        // は、更新として受け入れられた (使用中、試用中、または非アクティブ化された) ものを指します。名前が一致しない場合（コピーが存在せず、組み込みスキルである場合）、カウントされず、新しいコピーとして扱われます。
         val pending = updates?.let { u -> existing.drafts().entries.firstOrNull { it.value.name == u } }
         val updateOf = if (pending != null) pending.value.replacesDraftOf else updates?.takeIf { existing.get(it) != null }
-        // 新起草的不能顶掉内置技能、已有个人技能或草稿;更新草稿一律用被更新那份的名字(收下时覆盖它,头部名字要对得上)
+        // 新しくドラフトされたものは、組み込みスキル、既存の個人スキル、またはドラフトを上書きできません。ドラフトを更新するときは、常に更新されるドラフトの名前を使用します (承認するときに上書きします。ヘッダー名は一致する必要があります)。
         if (pending == null && updateOf == null &&
             (existing.get(name) != null || existing.pending().any { it.name == name } || catalog.items.any { it.name == name }))
             return DraftResult.Dropped("name_taken")
         val finalName = pending?.value?.name ?: updateOf ?: name
-        // 出自哪次运行由代码写:请求里的数字都换成了占位,模型抄不出真的运行编号
+        // がどの実行に由来するかはコードで記述されます。リクエスト内の数値はプレースホルダーに置き換えられ、モデルは実際の実行番号をコピーできません。
         val finalMd = PersonalSkills.withField(PersonalSkills.withName(md, finalName), "learned_from", input.runId)
 
         val skill = PersonalSkill(
@@ -229,17 +229,17 @@ class SkillDrafter(private val model: ChatModel) {
         return DraftResult.Draft(skill, updateOf, pending?.key)
     }
 
-    /** 已有的个人技能(已收下的在前,待确认的草稿在后,各按名字排),每份一行:名字、显示名、描述。 */
+    /** 既存の個人スキル (最初に承認されたもの、最後に確認されるドラフト、名前順に配置)、コピーごとに 1 行: 名前、表示名、説明。 */
     private fun existingSkills(existing: PersonalSkills): String {
         val lines = (existing.list().sortedBy { it.name } + existing.pending().sortedBy { it.name }).map { s ->
             val meta = FrontMatter.parse(s.markdown).first
             "- ${s.name}(${meta["display"] as? String ?: s.name}):${meta["description"] as? String ?: ""}"
         }
-        return "已有的个人技能(含待用户确认的草稿):" + if (lines.isEmpty()) "无" else "\n" + lines.joinToString("\n")
+        return "保存済みの個人スキル（確認待ちの下書きを含む）:" + if (lines.isEmpty()) "なし" else "\n" + lines.joinToString("\n")
     }
 
 
-    /** 这次 type_text 输入的文字(密码框的已在记录里换成 ***)。 */
+    /** Type_text は今回入力したテキストです (レコード内のパスワード ボックスは *** に置き換えられています)。 */
     private fun typedTexts(events: List<RunEvent>, tools: ToolIndex): List<String> = events.filterIsInstance<RunEvent.ModelReply>()
         .filter { tools.verb(it.tool) == Verb.TypeText }
         .mapNotNull { e ->
@@ -247,26 +247,26 @@ class SkillDrafter(private val model: ChatModel) {
             (o?.get("text") as? JsonPrimitive)?.contentOrNull?.takeIf { it != "***" }
         }
 
-    /** 内置技能名字、显示名、别名里自带的数字(如铁路 App 的名字),草稿里保留。 */
+    /** 組み込みスキル名、表示名、およびエイリアスの番号 (鉄道アプリの名前など) はドラフトに保持されます。 */
     private fun catalogDigits(catalog: GuideCatalog): Set<String> =
         catalog.items.filter { it.kind != PERSONAL_KIND }.flatMap { listOf(it.name, it.display) + it.aliases }
             .flatMap { Regex("\\d{2,}").findAll(SkillRedactor.norm(it)).map { m -> m.value }.toList() }.toSet()
 
     private fun request(input: DraftInput): String = buildString {
-        appendLine("运行编号:${input.runId}")
-        appendLine("目标:${input.goal}")
-        appendLine("最终回答:${input.answer}")
+        appendLine("実行ID:${input.runId}")
+        appendLine("目標:${input.goal}")
+        appendLine("最終回答:${input.answer}")
         if (input.sources.isNotEmpty()) {
-            appendLine("回答的来源:")
-            input.sources.forEach { s -> appendLine("- 第 ${s.step} 步 ${s.kind} ${s.place.orEmpty()}" + s.title?.let { "「$it」" }.orEmpty()) }
+            appendLine("回答の出典:")
+            input.sources.forEach { s -> appendLine("- ステップ ${s.step} ${s.kind} ${s.place.orEmpty()}" + s.title?.let { "「$it」" }.orEmpty()) }
         }
-        appendLine("动作清单:")
+        appendLine("操作一覧:")
         appendLine(ActionDigest.render(ActionDigest.of(input.events, input.tools)))
-        append("可用工具:").append(input.toolNames.sorted().joinToString(", "))
+        append("利用可能なツール:").append(input.toolNames.sorted().joinToString(", "))
     }
 
     companion object {
-        /** 模型回复外面包着的代码块围栏去掉。 */
+        /** モデル応答を囲むコード ブロック フェンスが削除されます。 */
         fun stripFence(text: String): String {
             val t = text.trim()
             if (!t.startsWith("```")) return t
@@ -276,9 +276,9 @@ class SkillDrafter(private val model: ChatModel) {
         const val MAX_CHARS = 4000
 
         /**
-         * 技能文档的格式与安全校验(起草的草稿、用户改过再收下的全文都过这一关);通过返回 null,否则返回原因:
-         * 名字合法、有描述、五个小节齐全、不超过 [MAX_CHARS] 字、反引号里的工具名都在 [toolNames] 里、敏感过滤不命中;
-         * 提到跑技能脚本的工具([scriptTool])时,文中的脚本路径至少有一个、且都得是 [runnableScripts](清单里标为可运行的)里的。
+         * スキルドキュメントの形式とセキュリティ検証 (作成された草案とユーザーによって改訂され承認された全文はすべてこのレベルに合格します)。 null を返す場合は、それ以外の場合は理由を返します。
+         * には正式な名前、説明、5 つの完全なセクションがあり、文字数は [MAX_CHARS] 以下で、バックティック内のツール名はすべて [toolNames] であり、機密フィルタリングはヒットしません。
+         * スキル スクリプトを実行するツール ([scriptTool]) について言及する場合、記事内に少なくとも 1 つのスクリプト パスが必要であり、そのすべてが [runnableScripts] (リストで実行可能としてマークされている) に存在する必要があります。
          */
         fun validate(md: String, toolNames: Set<String>, scriptTool: String?, runnableScripts: Set<String> = emptySet()): String? {
             val (meta, body) = FrontMatter.parse(md)
@@ -286,7 +286,8 @@ class SkillDrafter(private val model: ChatModel) {
             if (name == null || !PersonalSkills.NAME.matches(name)) return "invalid_name"
             if ((meta["description"] as? String).isNullOrBlank()) return "missing_description"
             val headings = body.lines().filter { it.startsWith("## ") }
-            if (SECTIONS.any { s -> headings.none { it.removePrefix("## ").trim().startsWith(s) } }) return "missing_section"
+            fun hasSections(sections: List<String>) = sections.all { s -> headings.any { it.removePrefix("## ").trim().startsWith(s) } }
+            if (!hasSections(SECTIONS) && !hasSections(LEGACY_SECTIONS)) return "missing_section"
             if (md.length > MAX_CHARS) return "too_long"
             if (TOOL_MENTION.findAll(md).any { it.groupValues[1] !in toolNames }) return "unknown_tool"
             if (scriptTool != null && TOOL_MENTION.findAll(md).any { it.groupValues[1] == scriptTool }) {
@@ -297,10 +298,11 @@ class SkillDrafter(private val model: ChatModel) {
             if (SensitiveFilter.hit(md) != null) return "sensitive"
             return null
         }
-        val SECTIONS = listOf("入口", "步骤", "容易出错的地方", "怎样算办成", "什么时候停下交给用户")
-        /** 反引号里形如工具名的标识符。 */
+        val SECTIONS = listOf("開始条件", "手順", "注意点", "完了の確認", "ユーザーに引き継ぐ条件")
+        private val LEGACY_SECTIONS = listOf("入口", "步骤", "容易出错的地方", "怎样算办成", "什么时候停下交给用户")
+        /** バックティックで囲まれたツール名の形式の識別子。 */
         private val TOOL_MENTION = Regex("`([a-z][a-z0-9_]*)`")
-        /** 文中的技能脚本路径,如 `scripts/extract_pdf.py` 或 `skills/documents/scripts/extract_pdf.py`。 */
+        /** 記事内のスキル スクリプト パス (`scripts/extract_pdf.py` や `skills/documents/scripts/extract_pdf.py` など)。 */
         private val SCRIPT_PATH = Regex("[A-Za-z0-9_./-]*scripts/[A-Za-z0-9_./-]+\\.(?:py|mjs|js|sh)(?![A-Za-z0-9_])")
 
         val PROMPT: String by lazy { Prompts.role("skill_draft") }

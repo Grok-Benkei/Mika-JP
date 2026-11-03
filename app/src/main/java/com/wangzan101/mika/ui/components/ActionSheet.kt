@@ -16,12 +16,12 @@ import androidx.compose.ui.unit.dp
 import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 
-/** 操作面板里的一项;[destructive] 为真时文字用出错红。 */
+/** は操作パネルの項目です。 [destructive] が true の場合、テキストはエラー赤色になります。 */
 class SheetAction(val label: String, val destructive: Boolean = false, val onClick: () -> Unit)
 
 /**
- * 点一行后从底部升起的操作面板:顶上一行说明是在对什么操作,下面每项一行。
- * 点任何一项都会先执行它、再关掉面板。
+ * 行をクリックすると下から立ち上がる操作パネル。上の行はどのような操作が行われているかを説明し、下の行は項目ごとに 1 行あります。
+ * 項目をクリックすると、最初にその項目が実行されてからパネルが閉じます。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

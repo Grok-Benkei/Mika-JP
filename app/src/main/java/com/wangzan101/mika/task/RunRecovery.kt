@@ -19,7 +19,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** 恢复时要告诉定时触发的几件事;产品里转给 [TriggerRuntime]。 */
+/** は、復元時のタイミング トリガーについていくつかのことを伝える必要があります。製品内の [TriggerRuntime] に転送します。 */
 interface TriggerOutcomes {
     fun interrupted(key: String, reason: String)
     fun delivered(key: String)
@@ -27,13 +27,13 @@ interface TriggerOutcomes {
 }
 
 /**
- * 对「中断了的运行」的善后:补送已有的回复、状态不明的不重发、否则告知「运行中断」并写进对话。
- * 两个入口:进程重启后的 [recover](App 启动和任务服务启动都会调,进程里只做一次,后到的什么都不做;
- * App 先于进程里任何服务起来,所以第一次调用时不会有本进程新开的运行被误判),
- * 以及任务服务被销毁、进程还在时的 [settleInterrupted]。**从不从中间续跑**:屏幕状态回不去。
+ * 「操作中断」の余波: 既存の応答を再送信します。ステータスが不明な場合は再送信しません。それ以外の場合は「操作中断」を通知し、会話に書き込みます。
+ * 2 つの入り口: プロセス再起動後の [recover] (アプリの起動とタスク サービスの起動の両方が調整されます。プロセス内で 1 回だけ実行され、その後は何も行われません。
+ * アプリはプロセス内のどのサービスよりも前に起動するため、このプロセスの新しい実行が初めて呼び出されたときに誤って判断されることはありません)、
+ * および [settleInterrupted] (タスク サービスが破棄され、プロセスがまだ存在する場合)。 **途中からは絶対に実行しないでください**: 画面の状態は復元できません。
  *
- * 「已告知」不另设字段,看送达账本:没有回复的运行记着 `interrupted:<运行>` 的提示,状态不明或送达失败的记着对应的提示;
- * 有记录就不再处理。回复送达了的运行直接转为 Ended。所以两个入口、多次调用都只告知一次。
+ * 「通知済み」に個別のフィールドはありません。配送台帳を参照してください: 応答がない場合、`interrupted:<运行>` のプロンプトが記録されます。ステータスが不明な場合、または配信が失敗した場合は、対応するプロンプトが記録されます。
+ * が記録されている場合は処理されません。応答が配信された実行は、直接「終了」に変換されます。したがって、入口と複数の呼び出しの両方で 1 回だけ通知されます。
  */
 class RunRecovery(
     private val store: RunStore,
@@ -46,7 +46,7 @@ class RunRecovery(
     private val done = AtomicBoolean(false)
     private val lock = Mutex()
 
-    /** 标记在这里同步做完(之后新开的运行不会被碰);善后在 [scope] 里慢慢做。返回这次标为中断的运行,不是第一次调用则为空。 */
+    /** マークはここで同期的に完了します (新しく開かれた実行には影響しません)。その後の処理は [scope] でゆっくりと行われます。中断としてマークされた実行を返します。最初の呼び出しでない場合は、空になります。 */
     fun recover(live: Set<RunId> = emptySet()): List<StoredRun> {
         if (!done.compareAndSet(false, true)) return emptyList()
         val interrupted = store.interruptUnfinished(live)
@@ -55,8 +55,8 @@ class RunRecovery(
     }
 
     /**
-     * 把所有中断了、还没告知过的运行善后一次。任务服务被销毁时当场调(进程还在,用户不必等到下次启动才知道),
-     * 启动时的 [recover] 也会扫一遍,接住当场没做完就被杀的。
+     * 中断され、まだ通知されていないすべての操作をクリーンアップします。タスク サービスが破棄されると、その場で呼び出されます (プロセスはまだ存在しており、ユーザーは次の起動まで待つ必要はありません)。
+     * [recover] も起動時にスキャンされ、終了する前にその場で殺された人を捕まえます。
      */
     fun settleInterrupted() {
         scope.launch {

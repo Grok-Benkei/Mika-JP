@@ -3,9 +3,9 @@ package com.wangzan101.mika.core.adb
 import java.math.BigInteger
 
 /**
- * edwards25519 上的点运算(扩展齐次坐标 X:Y:Z:T,x=X/Z、y=Y/Z、xy=T/Z),公式与编码按 RFC 8032 §5.1。
- * 只给配对时的 SPAKE2 用:每次配对只做几次标量乘,BigInteger 足够快;不追求常数时间,
- * 因为私钥是一次性的,配对码在局域网对话框里本来就可见。
+ * edwards25519 の点演算 (拡張同次座標 X:Y:Z:T、x=X/Z、y=Y/Z、xy=T/Z)、式とエンコードは RFC 8032 §5.1 に従っています。
+ * はペアリング中の SPAKE2 にのみ使用されます。ペアリングごとに数回のスカラー乗算のみが実行され、BigInteger は十分に高速です。一定の時間を追求するのではなく、
+ * 秘密キーは 1 回限り使用できるため、ペアリング コードは [LAN] ダイアログ ボックスにすでに表示されています。
  */
 internal class EdPoint private constructor(
     private val x: BigInteger,
@@ -40,13 +40,13 @@ internal class EdPoint private constructor(
         return acc
     }
 
-    /** 仿射坐标 (x, y),都在 [0, p) 内。 */
+    /** アフィン座標 (x, y)、すべて [0, p) 内にあります。 */
     fun affine(): Pair<BigInteger, BigInteger> {
         val zi = z.mod(P).modInverse(P)
         return (x * zi).mod(P) to (y * zi).mod(P)
     }
 
-    /** 32 字节:y 小端,最高位放 x 的奇偶。 */
+    /** 32 バイト: y はリトルエンディアンで、最上位ビットは x のパリティを保持します。 */
     fun encode(): ByteArray {
         val zi = z.mod(P).modInverse(P)
         val ax = x * zi % P
@@ -62,10 +62,10 @@ internal class EdPoint private constructor(
     override fun hashCode(): Int = encode().contentHashCode()
 
     companion object {
-        // 不用 BigInteger.TWO:安卓 13 才有这个字段,安卓 12 上类一加载就抛 NoSuchFieldError,配对时整个进程崩掉
+        // は BigInteger.TWO を使用しません。Android 13 にはこのフィールドのみがあります。 Android 12 では、クラスが読み込まれるとすぐに NoSuchFieldError がスローされ、ペアリング中にプロセス全体がクラッシュします。
         private val TWO = BigInteger.valueOf(2)
         val P: BigInteger = TWO.pow(255) - BigInteger.valueOf(19)
-        /** 素数阶子群的阶。 */
+        /** 素数次数サブグループの次数。 */
         val L: BigInteger = TWO.pow(252) + BigInteger("27742317777372353535851937790883648493")
         private val D: BigInteger = (BigInteger.valueOf(-121665) * BigInteger.valueOf(121666).modInverse(P)).mod(P)
         private val D2 = D * TWO % P
@@ -77,7 +77,7 @@ internal class EdPoint private constructor(
             decode(hex("5866666666666666666666666666666666666666666666666666666666666666")),
         )
 
-        /** RFC 8032 §5.1.3;不在曲线上或编码不规范时返回 null。 */
+        /** RFC 8032 §5.1.3;曲線上にない場合、またはエンコーディングが標準化されていない場合は、null を返します。 */
         fun decode(bytes: ByteArray): EdPoint? {
             if (bytes.size != 32) return null
             val raw = bytes.copyOf()

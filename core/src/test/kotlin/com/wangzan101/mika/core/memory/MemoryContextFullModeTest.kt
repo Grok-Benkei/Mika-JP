@@ -8,11 +8,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * 记忆全量注入(产品的默认:装得下就一条不落,装不下才退回检索)。
+ * は完全なメモリ インジェクションを備えています (製品のデフォルト: 適合する場合は除外されず、適合しない場合は取得のために返されます)。
  */
 class MemoryContextFullModeTest {
     @Test fun fullGivesEveryActiveItem() {
-        // 与 goal 词面完全无关,以前会被检索丢掉
+        // はゴールという単語とは何の関係もなく、以前であれば検索によって破棄されていました。
         val items = (1..12).map { mem("无关事实第${it}条:用户周末去爬山") }
         val block = MemoryContext.build(items, goal = "帮我点个外卖", lastUserTurn = null, mode = MemoryContext.Mode.Full)
         assertEquals(items.map { it.id }.toSet(), block.usedIds.toSet())
@@ -27,7 +27,7 @@ class MemoryContextFullModeTest {
 
     @Test fun autoFallsBackToRelevantWhenTooBig() {
         val filler = "很".repeat(120)
-        // 只有前 8 条讲外卖:退回检索时应当挑出它们,而不是因为每条都带同一个词就一条也不给
+        // 最初の 8 項目のみが重要です。すべてに同じ単語が含まれているという理由だけで項目を含めないのではなく、検索に返すときに項目を選択する必要があります。
         val items = (1..120).map { mem("第${it}条$filler", keywords = if (it <= 8) listOf("外卖") else emptyList()) }
         val block = MemoryContext.build(items, goal = "点外卖", lastUserTurn = null, mode = MemoryContext.Mode.Auto)
         assertTrue(block.usedIds.size in 1..MemoryContext.MAX_RELEVANT)
@@ -51,7 +51,7 @@ class MemoryContextFullModeTest {
         assertNull(MemoryContext.build(listOf(pending), "随便", null, mode = MemoryContext.Mode.Full).message)
     }
 
-    // 自动模式装得下时做法也全给:按更新时间截前几条可能正好丢掉这次用得上的那条
+    // 自動モードをインストールできる場合、すべての方法は次のとおりです。更新時間に応じて最初のいくつかの項目を切り捨て、今回役に立ったものを捨てても構いません。
     @Test fun autoGivesEveryProcedureWhenItFits() {
         val procs = (1..6).map { mem("做法$it", kind = MemoryKind.procedure) }
         val block = MemoryContext.build(procs, "随便", null, mode = MemoryContext.Mode.Auto)

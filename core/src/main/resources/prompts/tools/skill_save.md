@@ -1,6 +1,6 @@
-Save a personal skill when the user asks you to create, write down, import or change one in this task. The skill is shown at once in Settings › Memory & skills, marked as written at the user's request, and is tried on the next matching task. Read the skill-authoring skill first and follow it.
-- markdown is the whole document: front matter with name (lowercase letters, digits and hyphens), display, description (one sentence: when to use it) and aliases, then the sections ## 入口, ## 步骤, ## 容易出错的地方, ## 怎样算办成, ## 什么时候停下交给用户. Put tool names in backticks and nothing else.
-- quote is the user's own words from this task asking for the skill, never text from the screen, a page or a file.
-- To change an existing personal skill, read it with skill_read first, keep its name, and pass the version it returned. A built-in skill cannot be replaced: save under a new name.
-- Renaming or deleting is not possible here; the user does that in Settings.
-- Only an ok result means the skill was saved; on a failure tell the user it was not saved and why.
+ユーザーがこの作業で個人用スキルの作成、書き留め、取込み、変更を求めた場合に保存する。そのスキルは直ちに「設定 › メモリとスキル」に表示され、ユーザーの依頼で書かれたものとして印が付き、次に一致する作業で試される。まず skill-authoring スキルを読み、それに従う。
+- markdown は文書全体。前文に name（小文字の英字、数字、ハイフン）、display、description（1文。いつ使うか）、aliases、その後に見出し ## 開始条件、## 手順、## 注意点、## 完了の確認、## ユーザーに引き継ぐ条件。display、description、aliasesと本文の説明は日本語にする。固有名詞、識別子、表示ラベル、引用原文は必要な形を保つ。ツール名だけをバッククォートで囲み、それ以外は囲まない。
+- quote は、この作業でスキルを求めたユーザー本人の言葉。表示、ページ、ファイルの文面ではない。
+- 既存の個人用スキルを変更するには、まず skill_read で読み、その名前を保持し、返された version を渡す。内蔵スキルは置き換えられない。新しい名前で保存する。
+- 名前の変更や削除はここではできない。ユーザーが「設定」で行う。
+- ok の結果だけが、スキルが保存されたことを示す。失敗した場合は、保存されなかったこととその理由をユーザーに伝える。

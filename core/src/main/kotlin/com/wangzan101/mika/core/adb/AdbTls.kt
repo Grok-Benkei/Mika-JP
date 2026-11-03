@@ -12,14 +12,14 @@ import javax.net.ssl.SSLSocket
 import javax.net.ssl.X509ExtendedKeyManager
 import javax.net.ssl.X509ExtendedTrustManager
 
-/** TLS 导出密钥(RFC 8446 §7.5)。JDK 没有公开接口,由平台提供:Android 上是 `SSLSockets.exportKeyingMaterial`。 */
+/** TLS エクスポート キー (RFC 8446 §7.5)。 JDK にはパブリック インターフェイスがなく、Android 上の `SSLSockets.exportKeyingMaterial` プラットフォームによって提供されます。 */
 fun interface KeyingMaterialExporter {
     fun export(socket: SSLSocket, label: String, length: Int): ByteArray
 }
 
 /**
- * adb 用的 TLS 1.3:双方都出示自签名证书,互不校验证书链。
- * 配对时身份由 SPAKE2 绑定到导出密钥上;连接时由设备比对我们证书里的公钥。只连本机回环地址。
+ * adb は TLS 1.3 を使用します: 双方が自己署名証明書を提示し、互いの証明書チェーンを検証しません。 ペアリングの際、
+ * の ID は SPAKE2 によってエクスポートされたキーにバインドされます。接続時に、デバイスは証明書内の公開キーを比較します。ローカル ループバック アドレスにのみ接続してください。
  */
 class AdbTls(
     val identity: AdbIdentity,
@@ -32,7 +32,7 @@ class AdbTls(
         ctx
     }
 
-    /** 新建 TCP 连接并完成 TLS 握手(客户端)。 */
+    /** 新しい TCP 接続を作成し、TLS ハンドシェイク (クライアント) を完了します。 */
     fun connect(host: String, port: Int, timeoutMs: Int): SSLSocket {
         val plain = Socket()
         try {
@@ -46,7 +46,7 @@ class AdbTls(
         return wrap(plain, host, port, client = true)
     }
 
-    /** 在已有连接上做 TLS 握手;[client] = false 只给测试里的假服务端用。 */
+    /** は既存の接続で TLS ハンドシェイクを実行します。 [client] = false は、テストの偽サーバーにのみ使用されます。 */
     fun wrap(plain: Socket, host: String, port: Int, client: Boolean): SSLSocket {
         val s = context.socketFactory.createSocket(plain, host, port, true) as SSLSocket
         try {

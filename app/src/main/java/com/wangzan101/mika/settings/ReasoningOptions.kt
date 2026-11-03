@@ -3,19 +3,19 @@ package com.wangzan101.mika.settings
 import com.wangzan101.mika.core.model.ListedModel
 
 /**
- * 思考档位。服务商列表写明档位的模型,四种协议(Chat Completions、Messages、generateContent、Responses)都照它给
- * (Anthropic 列表逐项写明每个模型支持的档位和思考方式,见 ModelCatalog);
- * 没写明时只有 Responses 一族给通用手动档位(带提示,实际支持情况以服务端为准),
- * 其余协议不猜:各模型认的档位和写法不一样,猜错了每次请求都被拒。
+ * 歯車について考える。サービス プロバイダーのリストはストールのモデルを指定し、4 つのプロトコル (チャット完了、メッセージ、生成コンテンツ、および応答) はすべてそれに応じて指定されます。
+ * (人間リストは、各モデルでサポートされているギアと思考方法を項目ごとに指定します。ModelCatalog を参照)。
+ * 指定しない場合、Responses ファミリのみがユニバーサル マニュアル ギアを提供します (プロンプト付き。実際のサポート状況はサーバーによって異なります)。
+ * 他のプロトコルについては推測しないでください。各モデルは異なるギアと書き込み方法を認識します。推測が間違っている場合、すべてのリクエストは拒否されます。
  */
 data class ReasoningOptions(val levels: List<String>, val fromProvider: Boolean) {
     companion object {
-        // 列表没说明档位时供手动选择,不声称每个模型都支持;界面会说明,默认始终不指定。
+        // ギア リストは、ギアを手動で選択できることを示すものではなく、すべてのモデルがギアをサポートしているとも主張しません。インターフェイスで説明されますが、デフォルトが指定されることはありません。
         private val manualLevels = listOf("none", "minimal", "low", "medium", "high", "xhigh", "max")
 
         fun of(config: ProviderConfig, listed: ListedModel?): ReasoningOptions? {
             listed?.reasoningEfforts?.let { return ReasoningOptions(it, fromProvider = true) }
-            // 仍返回空选项,使已保存的旧档位能在界面恢复默认。
+            // は依然として空のオプションを返すため、古い保存されたギアをインターフェイスでデフォルトに復元できます。
             if (listed?.reasoning == false) return ReasoningOptions(emptyList(), fromProvider = true)
             return when (ProviderStore.adapterFor(config, listed?.endpoint).first) {
                 ProviderConfig.Kind.OpenAiResponses, ProviderConfig.Kind.ChatGpt, ProviderConfig.Kind.Xai ->

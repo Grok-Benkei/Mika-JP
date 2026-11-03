@@ -8,19 +8,19 @@ import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.model.Role
 
 /**
- * 让视觉模型看图回答一个问题。只在设置里有能看图的模型时才建;
- * 调用方负责不把受保护页面、付款页的画面传进来。
+ * ビジュアル モデルに写真を見て質問に答えてもらいます。設定で表示できるモデルがある場合にのみビルドしてください。
+ * 呼び出し元には、保護されたページと支払いページを渡さなかった責任があります。
  */
 class VisionService(private val model: ChatModel, val ops: ImageOps) {
-    /** 这个模型的看图定位准度验证过;没验证时 find_visually 对只靠看图框出来的点要求另有佐证。 */
+    /** このモデルの画像位置精度は検証されています。検証されていない場合、find_visually には、画像フレームを確認することによってのみ決定できるポイント要件を裏付ける追加の証拠があります。 */
     val groundingVerified: Boolean get() = model.capabilities.groundingVerified
 
-    /** 不带工具的一次调用;失败抛 [ModelError]。 */
+    /** はツールを使用しない呼び出しです。失敗すると [ModelError] がスローされます。 */
     suspend fun ask(system: String, text: String, images: List<ByteArray>): String {
         val parts = listOf(Part.Text(text)) + images.map { ModelImage.part(it, ops) }
         val reply = model.complete(system, listOf(Message(Role.User, parts, Author.Mika)), emptyList())
         val answer = reply.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }
-        if (answer.isBlank()) throw ModelError.BadResponse("视觉模型没有给出回答")
+        if (answer.isBlank()) throw ModelError.BadResponse("画像認識モデルが回答を返しませんでした")
         return answer
     }
 }

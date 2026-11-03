@@ -8,6 +8,7 @@ import com.wangzan101.mika.core.uistate.ScreenSnapshot
 import com.wangzan101.mika.core.uistate.ScreenState
 import com.wangzan101.mika.core.uistate.Verification
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonObject
@@ -19,7 +20,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import com.wangzan101.mika.core.assembly.toolDispatcher
 
-/** 端口核实到的事实(变化、被切走、重定位、回读、防截屏、诊断)要原样交给模型。 */
+/** ポートで検証した事実（変更、切り取り、再配置、リードバック、アンチスクリーンショット、診断）をそのままモデルに引き継ぐ必要があります。 */
 class ToolDispatcherAccuracyTest {
     private fun call(name: String, args: String = "{}") = Part.ToolCall("c1", name, args)
     private fun JsonObject.s(k: String) = this[k]!!.jsonPrimitive.content
@@ -34,10 +35,10 @@ class ToolDispatcherAccuracyTest {
         assertFalse(r.content.b("changed"))
         assertEquals("no_effect", r.content.effect().s("kind"))
         val h = r.content.s("hint")
-        // 只说看到的事实,不暗示「没点中」;不要原样再来,换个做法
-        assertFalse(h, "missed" in h)
-        assertTrue(h, "do not repeat" in h.lowercase() && "another way" in h)
-        // 没变就不算「屏幕过时」
+        // は、見たとおりの事実のみを述べており、「的外れ」を示唆するものではありません。そのまま繰り返さず、別のアプローチを試してください
+        assertFalse(h, "的外れ" in h)
+        assertTrue(h, "同じ内容を繰り返さない" in h && "別の方法を試す" in h)
+        // 変わらなければ「古い画面」とはみなされません
         assertNull(r.content["interfaceStale"])
     }
 
@@ -46,14 +47,14 @@ class ToolDispatcherAccuracyTest {
         val r = toolDispatcher(s).execute(call("phone_tap", """{"x":1,"y":1}"""))
         assertEquals(true, r.changed); assertTrue(r.content.b("changed"))
         assertEquals("small_change", r.content.effect().s("kind"))
-        assertTrue(r.content.s("hint"), "Check" in r.content.s("hint"))
-        // 动作之后没带回屏幕:模型手里那一屏已过时
+        assertTrue(r.content.s("hint"), "意図したとおりになったか確認する" in r.content.s("hint"))
+        // はアクション後に画面を元に戻せませんでした: モデルの手の画面は古いです
         assertTrue(r.content.b("interfaceStale"))
     }
 
     @Test fun portWithoutVerificationGetsChangedFromTheEffect() = runTest {
         val r = toolDispatcher(FakeScreen()).execute(call("phone_back"))
-        // 端口没说变没变:按前后两屏判,两屏一样就是没变
+        // ポートは、変更されたかどうかを示しません。前面と背面の画面から判断すると、2 つの画面は同じですが、変更されていません。
         assertEquals(false, r.changed); assertNull(r.content["changed"])
         assertEquals("no_effect", r.content.effect().s("kind"))
     }
@@ -61,7 +62,7 @@ class ToolDispatcherAccuracyTest {
     @Test fun unchangedBackHasBackSpecificHint() = runTest {
         val s = FakeScreen().apply { result = ActionResult.Ok(changed = false) }
         val r = toolDispatcher(s).execute(call("phone_back"))
-        assertTrue(r.content.s("hint"), "back or close control" in r.content.s("hint"))
+        assertTrue(r.content.s("hint"), "戻る操作を繰り返さない" in r.content.s("hint") && "ページ自体の戻るまたは閉じる操作" in r.content.s("hint"))
     }
 
     @Test fun appSwitchAndRelocationAreSurfaced() = runTest {
@@ -90,7 +91,7 @@ class ToolDispatcherAccuracyTest {
         assertEquals("com.share", r.content.s("app_switched"))
         assertTrue(r.content.b("opened_by_target"))
         val h = r.content.s("hint")
-        assertTrue(h, "opened by" in h && "interruption" !in h)
+        assertTrue(h, "この作業が扱っているアプリによって開かれた" in h && "作業の一部であればそこで続ける" in h && "割り込み" !in h)
     }
 
     @Test fun appInUseByUserHasExplanation() = runTest {
@@ -139,7 +140,7 @@ class ToolDispatcherAccuracyTest {
 
         val prot = toolDispatcher(FlagScreen(false, true), visionEnabled = true).execute(call("phone_observe"))
         assertTrue(prot.content.b("protected")); assertTrue("hand_to_user" in prot.content.s("hint"))
-        assertNull(prot.image) // 黑屏图不给模型
+        assertNull(prot.image) // 黒い画面の画像にはモデルがありません
     }
 
     @Test fun screenshotOfProtectedPage() = runTest {
@@ -167,8 +168,17 @@ class ToolDispatcherAccuracyTest {
 
     @Test fun scrollDescriptionSaysPlainlyWhichWayIsWhich() {
         val spec = toolDispatcher(FakeScreen()).definitions().single { it.name == "phone_scroll" }
-        val text = spec.description + spec.parametersJsonSchema
-        assertTrue(text, "further down" in text && "finger" in text)
+        val text = spec.description
+        assertTrue(text, "direction=down はさらに下の内容を表示する" in text && "指が上へ移動する" in text)
+        assertTrue(text, "up はさらに上の内容を表示する" in text && "指が下へ移動する" in text)
+    }
+
+    @Test fun progressNoteMetadataRequiresJapaneseRegardlessOfInputLanguage() {
+        val spec = toolDispatcher(FakeScreen()).definitions().single { it.name == "phone_scroll" }
+        val reason = Json.parseToJsonElement(spec.parametersJsonSchema).jsonObject["properties"]!!.jsonObject["reason"]!!.jsonObject["description"]!!.jsonPrimitive.content
+        assertTrue(reason, "日本語で短く" in reason && "ステップの説明として表示" in reason)
+        assertTrue(reason, "入力言語にかかわらず日本語" in reason)
+        assertFalse(reason, "user's language" in reason)
     }
 
     @Test fun scrollResultSaysFingerDirectionAndEndWhenNothingMoved() = runTest {
@@ -180,8 +190,8 @@ class ToolDispatcherAccuracyTest {
             .execute(call("phone_scroll", """{"direction":"up"}""")).content
         assertEquals("down", stuck.s("fingerMoved"))
         assertTrue(stuck.b("atEnd"))
-        // 先确认方向再下「到头了」的结论;不用点击的「可能没点中」说法
-        assertTrue(stuck.s("hint"), "direction" in stuck.s("hint") && "missed" !in stuck.s("hint"))
+        // 「これで終わり」という結論を出す前に、まず方向性を確認してください。 「クリックしなかった可能性があります」という文をクリックする必要はありません。
+        assertTrue(stuck.s("hint"), "方向を確認する" in stuck.s("hint") && "down はさらに下" in stuck.s("hint") && "up はさらに上" in stuck.s("hint") && "的外れ" !in stuck.s("hint"))
     }
 
     private class EmptyScreen : ScreenPort by FakeScreen() {
@@ -189,7 +199,7 @@ class ToolDispatcherAccuracyTest {
         override suspend fun checkScreen() = ScreenCheck(ScreenState.BLANK, null, false, cause = "no window")
     }
 
-    /** 有 App 窗口,只是根节点读不到:不是空屏,不该叫它 phone_launch_app。 */
+    /** にはアプリ ウィンドウがありますが、ルート ノードを読み取ることができません。これは空白の画面ではなく、phone_launch_app という名前にするべきではありません。 */
     private class UnreadableScreen : ScreenPort by FakeScreen() {
         override suspend fun snapshot() = ScreenSnapshot("p1", null, emptyList(), 1080, 2400, hasWindow = true)
         override suspend fun checkScreen() = ScreenCheck(ScreenState.BLANK, null, false, cause = "unreadable window")
@@ -199,7 +209,7 @@ class ToolDispatcherAccuracyTest {
         val d = toolDispatcher(UnreadableScreen())
         for (tool in listOf("phone_observe", "phone_diagnose")) {
             val h = d.execute(call(tool)).content["hint"]?.jsonPrimitive?.content.orEmpty()
-            assertFalse("$tool: $h", "screen is empty" in h)
+            assertFalse("$tool: $h", "表示は空" in h)
         }
     }
 
@@ -207,7 +217,7 @@ class ToolDispatcherAccuracyTest {
         val d = toolDispatcher(EmptyScreen())
         for (tool in listOf("phone_observe", "phone_diagnose")) {
             val h = d.execute(call(tool)).content.s("hint")
-            assertTrue("$tool: $h", "empty" in h && "phone_launch_app" in h)
+            assertTrue("$tool: $h", "表示は空" in h && "phone_launch_app" in h && "障害ではない" in h)
         }
     }
 }

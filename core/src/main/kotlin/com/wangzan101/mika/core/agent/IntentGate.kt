@@ -8,7 +8,7 @@ import com.wangzan101.mika.core.model.Role
 import com.wangzan101.mika.core.prompt.Prompts
 import kotlinx.coroutines.CancellationException
 
-/** 只在准备调用本轮第一个工具时，独立判断用户是在讨论，还是要读取或操作。 */
+/** は、このラウンドの最初のツールを呼び出す準備をしているときに、ユーザーが議論しているか、読んでいるか、操作しているかを単独で判断するだけです。 */
 internal class IntentGate(private val judge: ChatModel, private val fallback: ChatModel? = null) {
     enum class Intent { Discuss, Read, Act }
 

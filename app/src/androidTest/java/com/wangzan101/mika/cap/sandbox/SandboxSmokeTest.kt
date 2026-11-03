@@ -15,8 +15,8 @@ import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 /**
- * 沙箱原生程序真机冒烟:启动器自检、PRoot 下跑 busybox 与 shell 管道。
- * 决定「nativeLibraryDir 里的 PRoot + 载入器」方案在真机上能否成立。根文件系统用随 APK 自带的那份。
+ * サンドボックス ネイティブ プログラムは実マシン上で動作します: ランチャーのセルフテスト、PRoot の下でビジーボックスとシェル パイプを実行します。
+ * は、「NativeLibraryDir 内の PRoot + ローダー」ソリューションを実マシン上で確立できるかどうかを決定します。ルート ファイル システムには、APK に付属しているものを使用します。
  */
 @RunWith(AndroidJUnit4::class)
 class SandboxSmokeTest {
@@ -57,7 +57,7 @@ class SandboxSmokeTest {
             put("TMPDIR", "/tmp")
         }
         val p = pb.start()
-        // 另起线程读输出,否则命令卡住时 readText 会一直阻塞,超时判断就失效了
+        // 新しいスレッドを開始して出力を読み取ります。そうしないと、コマンドがスタックしたときに readText が常にブロックされ、タイムアウト判定が無効になります。
         var out = ""
         val reader = thread { out = p.inputStream.bufferedReader().readText() }
         if (!p.waitFor(60, TimeUnit.SECONDS)) {
@@ -78,10 +78,10 @@ class SandboxSmokeTest {
 
         internal fun lib(name: String) = File(nativeLibDir, name).absolutePath
 
-        /** 自己解根文件系统的设备测试用这套目录,跟真正装好的沙箱(files/sandbox)分开:测试不删也不改它。 */
+        /** このディレクトリのセットは、実際にインストールされたサンドボックス (ファイル/サンドボックス) とは別の、ルート ファイル システムのデバイス テストに使用されます。テストでは削除または変更されません。 */
         internal val testDirs get() = SandboxDirs(File(context.filesDir, "sandbox-test"), File(context.cacheDir, "proot-tmp-test"), File(nativeLibDir), AndroidFdSys.gate, SandboxOwner.of(context).sandboxTree)
 
-        /** 准备 [testDirs]:解好根文件系统,建好要绑定的目录(技能目录缺了 PRoot 会往输出里写警告)。 */
+        /** 準備 [testDirs]: ルート ファイル システムのロックを解除し、バインドするディレクトリを作成します (スキル ディレクトリが見つからない場合、PRoot は出力に警告を書き込みます)。 */
         internal fun prepareTestSandbox(): SandboxDirs = testDirs.also {
             it.skills.mkdirs()
             it.tmp.mkdirs()
@@ -97,7 +97,7 @@ class SandboxSmokeTest {
             ensureRootfs(rootfs)
         }
 
-        /** 把随 APK 自带的运行环境解到 [dest](不联网);同一版本已解好的不重做。[dest] 不能是装好的沙箱。 */
+        /** APK に付属する実行環境のロックを [dest] に解除します (インターネットに接続されていません)。同じバージョンはすでに解決されているため、やり直す必要はありません。 [dest] をインストール済みのサンドボックスにすることはできません。 */
         internal fun ensureRootfs(dest: File) {
             check(dest.canonicalPath != SandboxDirs(context).rootfs.canonicalPath) { "tests must not unpack over the installed sandbox" }
             val marker = File(dest, ".smoke-ready")

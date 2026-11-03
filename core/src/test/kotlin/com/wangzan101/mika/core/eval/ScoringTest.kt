@@ -33,7 +33,7 @@ class ScoringTest {
         assertTrue(ok.passed)
         assertFalse(ok.falseSuccess)
         assertNull(ok.failureClass)
-        // 做不成的题却报成功,也是假成功
+        // 解決できない質問に対して成功を報告することも、誤った成功となります。
         val claimed = Scoring.score(task(Expect.Failed, emptyList(), EvalCategory.Impossible), obs("succeeded", "办好了"))
         assertTrue(claimed.falseSuccess)
     }
@@ -48,17 +48,17 @@ class ScoringTest {
     }
 
     @Test fun judgedOutcomeDecidesReportedSuccess() {
-        // 回答如实说没办成:判的结局记成 not_possible,和如实放弃一样;做不成的题因此通过,不再是假成功
+        // 正直に答えて、失敗したと言います。判定の結果は not_possible として記録されます。これは、正直に諦めることと同じです。したがって、完了できない質問は合格となり、誤った成功ではなくなります。
         val impossible = task(Expect.Failed, emptyList(), EvalCategory.Impossible)
         val honest = Scoring.score(impossible, obs("succeeded", "没有这个菜单").copy(judged = "not_possible"))
         assertTrue(honest.passed)
         assertFalse(honest.falseSuccess)
-        // 只办了一部分:没办成,但也不是假成功
+        // はその一部のみを実行しました。成功しませんでしたが、誤った成功ではありませんでした。
         val partial = Scoring.score(task(Expect.Succeeded), obs("succeeded", "只看了两条").copy(judged = "partial"))
         assertFalse(partial.passed)
         assertFalse(partial.falseSuccess)
         assertEquals(listOf("outcome_is", "0:answer_contains"), partial.failedChecks)
-        // 判下来办成了、没判成或没判过:照交出时的结局
+        // 評決が可決される、評決が可決されない、または評決が可決されない場合、結果は言い渡されたときと同じになります。
         assertTrue(Scoring.score(impossible, obs("succeeded", "办好了").copy(judged = "done")).falseSuccess)
         assertTrue(Scoring.score(impossible, obs("succeeded", "办好了").copy(judged = "unknown")).falseSuccess)
         assertTrue(Scoring.score(task(Expect.Succeeded), obs("succeeded", "版本 14").copy(judged = "done")).passed)
@@ -69,7 +69,7 @@ class ScoringTest {
     }
 
     @Test fun expectFailedNeedsAgentToGiveUpItself() {
-        // 只有 Agent 自己如实说做不成才算;撞步上限、被守卫停下都只是没做完
+        // エージェントがそれができないという真実を語った場合にのみカウントされます。歩数の制限に達したり、警備員に止められたりした場合は、まだ歩き終えていないことを意味します。
         val t = task(Expect.Failed, emptyList(), EvalCategory.Impossible)
         val stepLimit = Scoring.score(t, obs("failed", "已达到 25 步上限", Scoring.failReason(TaskState.Failed("已达到 25 步上限,任务没有完成。", FailKind.StepLimit))))
         assertFalse(stepLimit.passed)
@@ -126,7 +126,7 @@ class ScoringTest {
     @Test fun failReasonComesFromFailureKindNotAgentText() {
         val impossible = task(Expect.Failed, emptyList(), EvalCategory.Impossible)
         fun reason(text: String, kind: FailKind) = Scoring.failReason(TaskState.Failed(text, kind))
-        // Agent 如实放弃时说的话里带「模型」「额度」也不能被当成模型出错
+        // エージェントが正直に諦める際に「モデル」や「ノルマ」を含む言葉はモデルとは言えず、間違いを犯します。
         val gaveUp = reason("这个手机型号的设置里没有该菜单,额度相关选项也没有", FailKind.GaveUp)
         assertTrue(Scoring.score(impossible, obs("failed", failReason = gaveUp)).passed)
         val read = task(Expect.Succeeded)
@@ -140,7 +140,7 @@ class ScoringTest {
 
     @Test fun oldVerificationFailureIsVerifierReject() {
         val read = task(Expect.Succeeded)
-        // 旧记录里核查退回到底的失败原因:未满足的标准里带「模型」二字也不能当成模型出错
+        // 古いレコードの返品の検証に失敗した理由: 満たされていない規格にある「モデル」という単語はモデル エラーとみなされません。
         val reason = "核查未通过:回答包含模型名称且来自屏幕"
         assertEquals(FailureClass.verifier_reject, Scoring.initialClass(read, obs("failed", failReason = reason)))
     }
@@ -153,7 +153,7 @@ class ScoringTest {
         assertTrue(md, "- t:com.other" in md)
     }
 
-    // 并行评测里两题互相抢 App 导致的失败单列一类,不算评测器问题也不算 Agent 的错
+    // 並行評価では、2 つの競合するアプリによって引き起こされた障害が別のカテゴリにリストされます。これは評価者の問題またはエージェントの過失とはみなされません。
     @Test fun interferenceIsItsOwnClass() {
         val o = obs("failed", failReason = Scoring.INTERFERENCE_PREFIX + "另一个任务占着 App")
         assertEquals(FailureClass.interference, Scoring.score(task(Expect.Succeeded), o).failureClass)

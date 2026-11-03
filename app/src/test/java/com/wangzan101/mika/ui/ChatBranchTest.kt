@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 长按哪一条消息能分支:只有已答完的回答,且这个对话没有任务在跑。 */
+/** 長押しすると分岐できるメッセージ: 完了した回答のみがあり、この会話では実行中のタスクはありません。 */
 class ChatBranchTest {
     private fun exchange(status: ExchangeStatus) = Exchange("问", emptyList(), status, live = false)
 
@@ -55,7 +55,7 @@ class ChatBranchTest {
         assertNull(retryableTurn(listOf(exchange(ExchangeStatus.Done("答", null)).copy(goal = " ")), "u0", blocked = false))
     }
 
-    /** 这一轮还没结束时用户的话也不能重新问:菜单不显示,和点了之后的判断一致。 */
+    /** このラウンドが終了する前にユーザーが再度質問できない場合: メニューは表示されません。これは、クリック後の判断と一致します。 */
     @Test fun unfinishedTurnsCannotRetry() {
         listOf(
             ExchangeStatus.Working, ExchangeStatus.WaitingUnlock, ExchangeStatus.Queued("排队"),
@@ -69,7 +69,7 @@ class ChatBranchTest {
         assertEquals(0, retryableTurn(listOf(exchange(ExchangeStatus.Cancelled())), "u0", blocked = false))
     }
 
-    /** 菜单用的键判断和动作用的轮次判断是同一个:能显示就能做,不能做就不显示。 */
+    /** メニューのキー判定とアクションのターン判定は同じで、表示できる場合は可能、できない場合は表示できません。 */
     @Test fun menuAndActionAgree() {
         val statuses = listOf(ExchangeStatus.Done("答", null), ExchangeStatus.Working, ExchangeStatus.Queued("排队"), ExchangeStatus.Cancelled())
         for (status in statuses) for (blocked in listOf(true, false)) for (goal in listOf("问", " ")) {

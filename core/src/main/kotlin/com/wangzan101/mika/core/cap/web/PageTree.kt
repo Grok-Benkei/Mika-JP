@@ -15,12 +15,12 @@ import kotlin.math.roundToInt
 import com.wangzan101.mika.core.uistate.WebInfo
 
 /**
- * 页面脚本输出 → ScreenSnapshot。输入形如
- * `{"els":[{"r":"button","n":"搜索","x":120,"y":40,"w":80,"h":32,"id":"go","c":1,"e":0,"s":0}],"vw":412,"vh":915,"dpr":2.625,"trunc":false,"mut":17}`,
- * 坐标为 CSS 像素。center 换成 WebView 像素(优先按 viewportW / vw 换算,其次 dpr),夹在视口内;bounds 按视口归一到 0–999,和手机同一坐标系。
- * 另有可选标记:`ph`=name 是输入框的提示语(placeholder)而不是已填内容,`f`=有输入焦点;文件选择控件的 `r` 为 "file"。
- * ref 按数组位置编号:坏掉的条目也占一个号,和页面脚本里的编号表对得上。
- * 坏输入给空列表,不抛异常:读屏失败不该让整个回合崩掉。
+ * ページのスクリプト出力 → ScreenSnapshot。入力は次の形式です
+ * `{"els":[{"r":"button","n":"搜索","x":120,"y":40,"w":80,"h":32,"id":"go","c":1,"e":0,"s":0}],"vw":412,"vh":915,"dpr":2.625,"trunc":false,"mut":17}`、
+ * 座標は CSS ピクセルです。中心は WebView ピクセル (最初に viewportW / vw によって変換され、次に dpr によって変換) に置き換えられ、ビューポート内にクランプされます。境界は、携帯電話と同じ座標系であるビューポートに従って 0 ～ 999 に正規化されます。
+ * にはオプションのタグもあります。 `ph`=name は、入力されたコンテンツではなく入力ボックスのプロンプト (プレースホルダー) であり、`f`= は入力フォーカスがあります。ファイル選択コントロールの`r`は「ファイル」です。
+ * ref 配列位置による番号付け: 壊れたエントリも、ページ スクリプトの番号付けテーブルと一致する番号を占めます。
+ * 空のリストへの不正な入力、例外はスローされません: 画面読み取りの失敗によりラウンド全体がクラッシュすることはありません。
  */
 object PageTree {
     fun parse(json: String, viewportW: Int, viewportH: Int, snapshotId: String, info: WebInfo): ScreenSnapshot {
@@ -67,7 +67,7 @@ object PageTree {
         )
     }
 
-    /** 页面给的数可能是巨大值或无穷:先夹住再取整,别让取整溢出、中心点算到天边。 */
+    /** ページに示されている数値は、巨大な値または無限である可能性があります。最初に固定してから四捨五入してください。丸めがオーバーフローして中心点が地平線に達しないようにしてください。 */
     private fun px(css: Double?, scale: Double): Int = ((css ?: 0.0) * scale).coerceIn(-PX_LIMIT, PX_LIMIT).roundToInt()
 
     private const val PX_LIMIT = 1e6
@@ -78,7 +78,7 @@ object PageTree {
 
     private fun JsonObject.str(key: String): String? = (get(key) as? JsonPrimitive)?.takeIf { it.isString }?.content
 
-    /** 0/1 与 true/false 都认。 */
+    /** 0/1、true/falseを認識します。 */
     private fun JsonObject?.flag(key: String): Boolean {
         val p = this?.get(key) as? JsonPrimitive ?: return false
         return p.booleanOrNull ?: ((p.intOrNull ?: 0) != 0)

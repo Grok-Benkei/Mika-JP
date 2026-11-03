@@ -14,13 +14,13 @@ import org.junit.Test
 import com.wangzan101.mika.core.assembly.toolDispatcher
 
 /**
- * 运行记录里记下本任务提示词的版本:每组都展开时发给模型的系统提示词加工具定义的摘要,
- * 和这次实际展开了哪几组无关(只有手机时,展开了手机一组后看到的就是它)。
+ * このタスクのプロンプト ワードのバージョンを実行記録に書き留めます。モデルに送信されるシステム プロンプト ワードと、各グループが展開されるときにツール定義の概要を加えます。
+ * は、今回実際にどのグループが展開されるかには関係ありません (携帯電話のみがある場合は、携帯電話のグループを展開した後に表示されるものです)。 OAuth 暗黙的認証により
  */
 class PromptVersionRecordTest {
     private suspend fun run(tools: ToolDispatcher): Pair<String, String> {
         val events = mutableListOf<RunEvent>()
-        val m = fakeModel("main") { call("phone_observe"); answer("好了") }
+        val m = fakeModel("main") { call("phone_observe"); answer("完了しました") }
         AgentLoop(m, tools, SystemPrompt.identity(), sink = object : RunSink {
             override fun event(e: RunEvent) { events += e }
         }).run("t")

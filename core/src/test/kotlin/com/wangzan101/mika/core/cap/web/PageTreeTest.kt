@@ -42,7 +42,7 @@ class PageTreeTest {
     }
 
     @Test fun cssToDevicePixelsAndNormalizedBounds() {
-        // 中心 (206,457) CSS 像素
+        // センター (206,457) CSS ピクセル
         val s = PageTree.parse(page("""{"r":"button","n":"中","x":196,"y":447,"w":20,"h":20,"c":1}"""), vw, vh, "w1-2", info)
         assertEquals(vw, s.width); assertEquals(vh, s.height)
         val e = s.elements.single()
@@ -93,11 +93,11 @@ class PageTreeTest {
     }
 
     @Test fun scalePrefersViewportOverDpr() {
-        // dpr 写错(页面缩放过)时按实际视口宽度换算
+        // dpr が正しく記述されていない場合 (ページがズームされている場合)、実際のビューポート幅に従って変換されます。 vw がない場合、
         val json = """{"els":[{"r":"button","n":"中","x":196,"y":447,"w":20,"h":20}],"vw":412,"vh":915,"dpr":1,"trunc":false}"""
         val e = PageTree.parse(json, vw, vh, "w1-9", info).elements.single()
         assertTrue("cx=${e.centerX}", abs(e.centerX - 541) <= 2)
-        // 没有 vw 时退回 dpr
+        // は dpr を返します
         val noVw = """{"els":[{"r":"button","n":"中","x":196,"y":447,"w":20,"h":20}],"dpr":2.625}"""
         assertTrue(abs(PageTree.parse(noVw, vw, vh, "w1-10", info).elements.single().centerX - 541) <= 2)
     }

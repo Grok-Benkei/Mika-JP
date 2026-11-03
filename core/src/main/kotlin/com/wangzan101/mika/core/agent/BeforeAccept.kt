@@ -1,8 +1,8 @@
 package com.wangzan101.mika.core.agent
 
 /**
- * 一段不带调用的回复被当作最终回答收下之前的那一刻(接缝):外部在这里还能插一句,例如任务进行中用户又发来的话。
- * [Accept] 照常收下(再去核对);[Continue] 不收,把 [note] 作为一条提醒交给模型,任务接着做。
+ * 電話なしの返信が最終的な回答として受け入れられる直前 (継ぎ目): タスクの進行中に、外部からユーザーからの別のメッセージなどの文をここに挿入することもできます。 通常どおり
+ * [Accept] を受け入れます (もう一度確認してください)。 [Continue] は受け入れず、リマインダーとして [note] をモデルに与え、タスクを続行します。
  */
 sealed interface BeforeAccept {
     data object Accept : BeforeAccept

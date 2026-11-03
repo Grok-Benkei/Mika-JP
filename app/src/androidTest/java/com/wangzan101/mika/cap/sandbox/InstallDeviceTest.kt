@@ -15,7 +15,7 @@ import org.junit.BeforeClass
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 真安装(解自带的运行环境,不联网);装好后在沙箱里跑 Python、Node 与 `mika`。 */
+/** の実際のインストール (組み込みのオペレーティング環境のロックを解除し、インターネットに接続されていません);インストール後、サンドボックスで Python、Node、`mika` を実行します。 */
 @RunWith(AndroidJUnit4::class)
 class InstallDeviceTest {
     private val sb = AndroidSandbox(context, SandboxState.get(context))
@@ -30,11 +30,11 @@ class InstallDeviceTest {
         sh("node -e 'console.log(2+2)'").let { assertEquals(it.output, 0, it.exitCode); assertEquals("4", it.output.trim()) }
         sh("mika info").let { r ->
             assertEquals(r.output, 0, r.exitCode)
-            Json.parseToJsonElement(r.output.trim()).jsonObject // 是 JSON 对象
+            Json.parseToJsonElement(r.output.trim()).jsonObject // は JSON オブジェクトです
         }
     }
 
-    /** 装的是自带的 Alpine;包都在 apk 的数据库里,数据库与文件一致(apk-tools 3 在 PRoot 下写不进数据库,所以用 3.22 的 apk-tools 2)。 */
+    /** は独自の Alpine とともにインストールされます。パッケージはすべて apk データベース内にあり、データベースはファイルと一致しています (apk-tools 3 は PRoot ではデータベースに書き込むことができないため、apk-tools 2 の 3.22 が使用されます)。 */
     @Test
     fun pinnedReleaseAndPackagesRecorded() {
         sh("cat /etc/alpine-release").let { assertEquals(it.output, BundledRuntime.VERSION.substringBefore('-'), it.output.trim()) }
@@ -43,8 +43,8 @@ class InstallDeviceTest {
             assertEquals(r.output, 0, r.exitCode)
             assertEquals(r.output, SANDBOX_PACKAGES.toSet(), r.output.lines().filter(String::isNotBlank).toSet())
         }
-        // 联网关着时 apk 会在标准错误抱怨读不到软件源缓存,只看标准输出
-        // 解包器不带扩展属性(设计如此),所以只差扩展属性的条目(代码 x)不算;内容、权限、属主有差仍然算
+        // インターネットがオフになっている場合、APK はソフトウェア ソース キャッシュを読み取れないという標準エラーを報告し、標準出力のみを読み取ります。
+        // アンパッカーには拡張属性がない (これは設計です)。そのため、拡張属性のみを持つエントリ (コード x) はカウントされません。コンテンツ、権限、所有者の違いは引き続きカウントされます
         sh("apk audit --system 2>/dev/null").let { r ->
             assertEquals(r.output, 0, r.exitCode)
             val drift = r.output.lines().map(String::trim).filter { it.isNotEmpty() && !it.startsWith("x ") }

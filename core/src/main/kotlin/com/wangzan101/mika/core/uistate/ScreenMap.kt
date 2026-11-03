@@ -8,8 +8,8 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * OCR 与无障碍树的空间关联。原始 tree / visibleText 仍是依据；这里不改节点，也不推断图标的含义。
- * 只关联确实落在可操作节点内的文字，重叠控件无法确定归属时不输出关联。
+ * アクセシビリティ ツリーとの OCR 空間関連。元のツリー/visibleText が引き続き基礎となります。ここではノードは変更されず、アイコンの意味は推測されません。
+ * は、操作可能なノード内に実際に収まるテキストのみを関連付け、重複するコントロールがその所有権を決定できない場合は関連付けを出力しません。
  */
 internal object ScreenMap {
     private data class PositionedNode(val path: String, val node: UiTreeNode, val layer: Int) {
@@ -30,13 +30,13 @@ internal object ScreenMap {
 
         val linked = linkedMapOf<String, Pair<PositionedNode, MutableList<Int>>>()
         ocr.forEachIndexed { index, line ->
-            // 上层窗口遮住的下层控件，即使坐标重合也不是这行可见文字的主人。
+            // 上のウィンドウで覆われている下のコントロールは、座標が重なっている場合でも、この表示テキスト行の所有者ではありません。
             val topLayer = nodes.asSequence().filter { containsMost(it.node.bounds, line.bounds) }.maxOfOrNull { it.layer }
                 ?: return@forEachIndexed
             val candidates = controls.filter { it.layer == topLayer && containsMost(it.node.bounds, line.bounds) }
                 .sortedWith(compareBy<PositionedNode> { it.area }.thenByDescending { it.path.count { c -> c == '/' } })
             val best = candidates.firstOrNull() ?: return@forEachIndexed
-            // 不相关的两个控件覆盖同一行且大小相近时，不把文字武断地挂到其中一个上。
+            // 無関係な 2 つのコントロールが同じ行をカバーしており、サイズが類似している場合、テキストはそれらのいずれかに任意に添付されません。
             if (candidates.drop(1).any { other -> other.area <= best.area * 12 / 10 &&
                     !isAncestor(other.path, best.path) && !isAncestor(best.path, other.path) }) return@forEachIndexed
             linked.getOrPut(best.path) { best to mutableListOf() }.second += index

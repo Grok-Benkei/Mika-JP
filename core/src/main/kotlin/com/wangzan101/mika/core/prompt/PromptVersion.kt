@@ -3,7 +3,7 @@ package com.wangzan101.mika.core.prompt
 import com.wangzan101.mika.core.model.ToolSpec
 import java.security.MessageDigest
 
-/** 本任务提示词的版本:系统提示词加工具定义的摘要,写进运行记录;对比评测时据此区分提示词版本。 */
+/** このタスクのプロンプトのバージョン: システムプロンプトとツール定義の要約で、実行記録に書き込む; 比較評価の際にこれでプロンプトのバージョンを区別する。 */
 object PromptVersion {
     fun of(system: String, tools: List<ToolSpec>): String {
         val text = system + tools.joinToString("") { "\n\n" + it.name + "\n" + it.description + "\n" + it.parametersJsonSchema }

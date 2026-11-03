@@ -4,15 +4,15 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 /**
- * 改名前的工具名 → 现在的名字,按规则从登记的工具生成(不手写对照表):
- * 能力的工具名是 `<能力>_<其余>`;几块屏都有的动词以前只有一个不带前缀的名字(`tap`),现在每块屏一个;
- * 只有一块屏有的,以前的名字是 [formerPrefix] 里那个能力的旧前缀加其余(手机没有前缀,`launch_app`;网页是 `browser_`);
- * 其余部分也改过的写在 [renamed] 里(现在的名字 → 以前的名字);
- * [retired] 是去掉了、没有替代工具的旧名(旧名 → 现在该怎么做的说法),改写成那句说法。
- * [moved] 是不按上面规则、整个换了名字的(旧名 → 现在的名字;一个拆成几个的有几个)。
+ * 名前変更前のツール名 → ルールに従って登録されたツールから生成された現在の名前 (手書きの比較表なし):
+ * 機能のツール名は `<能力>_<其余>` です。複数の画面に存在する動詞には、以前は接頭辞のない 1 つの名前 (`tap`) しかありませんでしたが、現在は各画面に 1 つあります。
+ * には画面が 1 つしかありません。以前の名前は、[formerPrefix] の機能の古いプレフィックスに残りを加えたものでした (携帯電話にはプレフィックス `launch_app` はありません。Web ページは `browser_` です)。
+ * の残りの部分も変更され、[renamed] (現在の名前→以前の名前) に書き込まれます。
+ * [retired] は削除された古い名前で、代替ツールはありません (古い名前→今後どうするか) をその文に書き換えました。
+ * [moved] は上記のルールに従わず、名前全体を変更しました (旧名→現在の名前、1 つが複数に分かれています)。
  *
- * 只用于读旧东西:存下的经验路线、运行记录的显示、载入上下文的个人技能与做法、模型调用旧名时的提示。
- * 调用旧名的工具不会被悄悄换成新名执行。
+ * は、保存されたエクスペリエンス ルート、ランニング記録の表示、コンテキストを読み込む個人のスキルと実践、モデルが古い名前を呼び出したときのプロンプトなど、古いものを読み取るためにのみ使用されます。
+ * 古い名前を呼び出しているツールは、実行時に新しい名前に自動的に置き換えられません。
  */
 class LegacyNames(
     private val index: ToolIndex,
@@ -27,14 +27,14 @@ class LegacyNames(
         val infos = index.names.mapNotNull { index[it] }
         val out = LinkedHashMap<String, MutableList<String>>()
         for (t in infos) {
-            // 新增的手机命令没有无前缀的历史名称。
+            // 新しい携帯電話コマンドには、接頭辞のない歴史的な名前がありません。
             if (t.verb in setOf(Verb.Query, Verb.Collect, Verb.PhoneRun, Verb.PhoneFind, Verb.PhoneExtract,
                     Verb.PhoneDialog, Verb.PhoneEvent, Verb.PhoneGesture, Verb.PhoneCommand)) continue
             val cap = t.capability ?: continue
             val prefix = formerPrefix[cap] ?: continue
             if (!t.name.startsWith("${cap}_")) continue
             val rest = t.name.removePrefix("${cap}_")
-            // 别的屏也有同一个动词、同样的其余部分:以前是一个不带前缀的共用名字
+            // 他の画面にも同じ動詞と同じ休符があります。以前は接頭辞のない一般的な名前でした
             val shared = infos.any { o -> o !== t && o.capability != cap && o.capability in formerPrefix && o.verb == t.verb && o.name == "${o.capability}_$rest" }
             val old = renamed[t.name] ?: if (shared) rest else prefix + rest
             if (old != t.name && old !in index.names) out.getOrPut(old) { mutableListOf() } += t.name
@@ -43,13 +43,13 @@ class LegacyNames(
         table = out
     }
 
-    /** 旧名对应的现在的名字(几块屏都有的动词有几个);不是旧名为空。 */
+    /** 古い名前は現在の名前に対応します (複数の画面に動詞がいくつあるか)。古い名前は空ではありません。 */
     fun replacements(old: String): List<String> =
         table[old].orEmpty()
 
     /**
-     * 模型调用旧名 [old] 时该提示的新名:一个拆成知识、技能两个的,按参数里的 kind(或 name 的 `kind:` 前缀)挑出对应的那个,
-     * 看不出来时两个都给。
+     * モデルが古い名前 [old] を呼び出すときに表示される新しい名前。1 つは知識とスキルの 2 つの部分に分かれています。パラメータの種類（または名前の `kind:` プレフィックス）に応じて、対応するものを選択します。
+     * 区別できない場合は、両方を入力してください。 削除され、代替ツールがない古い名前
      */
     fun replacements(old: String, args: JsonObject): List<String> {
         val all = replacements(old)
@@ -65,24 +65,24 @@ class LegacyNames(
 
     private fun JsonObject.text(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
-    /** 去掉了、没有替代工具的旧名现在该怎么做;不是这种旧名为 null。 */
+    /** をどうするか。 null なのは古い名前ではありません。 */
     fun retiredAs(old: String): String? = retired[old]
 
-    /** 按名字一一登记的旧名。 */
+    /** 古い名前が1つずつ登録されています。 */
     val names: Set<String> get() = table.keys
 
-    /** 旧名在 [accept] 里的那个新名(例如只认能记进路线的);不是旧名、或没有合适的为 null。 */
+    /** は、[accept] の古い名前の新しい名前です (たとえば、ルートに記録できるもののみ)。古い名前でない場合、または適切な名前がない場合は、null になります。 */
     fun resolve(old: String, accept: (String) -> Boolean = { true }): String? = replacements(old).firstOrNull(accept)
 
     /**
-     * 文字里提到的旧工具名换成现在的:带下划线的旧名(`launch_app`、`browser_navigate`)在哪都换;
-     * 本身是英文词的(`tap`、`back`)只换反引号里的。几块屏都有的写成「`phone_tap` / `web_tap`」。
+     * 本文中に記載されている古いツール名は現在のものに置き換えられます。下線付きの古い名前 (`launch_app`、`browser_navigate`) はすべて置き換えられます。
+     * 自体は英語です(`tap`、`back`)。バッククォート内の単語を置き換えるだけです。いくつかの画面では「`phone_tap` / `web_tap`」と表記されています。
      */
     fun rewrite(text: String): String = renamedIn(retiredIn(text))
 
     /**
-     * 去掉了的旧名换成现在该怎么做的那句话,连同前面「调用 / call」这个动作一起换:反引号里的在哪都换;
-     * 不带反引号的(本身可能是英文词)只在它是工具名的位置换:紧跟在「调用 / call」后面,或夹在中文里。
+     * 削除された古い名前を、以前の「通話 / 通話」アクションとともに、これから何をするかを示す文に置き換えます。 バッククォート内のすべてを置き換えます。 バッククォートのない
+     * (英語の単語である可能性があります) は、ツール名である場所 (「call/call」の直後、または中国語で挟まれた場合) のみ置換されます。
      */
     private fun retiredIn(text: String): String {
         var out = text

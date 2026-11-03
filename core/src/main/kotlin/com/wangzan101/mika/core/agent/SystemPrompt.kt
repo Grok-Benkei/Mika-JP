@@ -5,10 +5,10 @@ import com.wangzan101.mika.core.capability.PromptSections
 import com.wangzan101.mika.core.prompt.Prompts
 
 /**
- * 系统提示词:P0 身份(prompts/system/identity.md)、P1 通用准则(system/principles.md,不点名工具),
- * 接通用工具的总规则(capabilities/general.md,通用工具一直都在),再接核心自己与各能力给的段落。
- * 段落只在那组工具出现在本任务发给模型的工具列表里时才有:说明和工具出自同一个判断。
- * 任务开始时拼一次,任务内一字不变。
+ * システム プロンプト ワード: P0 アイデンティティ (prompts/system/identity.md)、P1 一般原則 (system/principles.md、命名ツールなし)、
+ * 一般ツールの一般規則 (capabilities/general.md、一般ツールは常に存在します) に接続し、コア自体と各機能で指定された段落に接続します。
+ * 段落は、このタスクのモデルに送信されるツール リストにそのツール セットが表示される場合にのみ存在します。指示とツールは同じ判断に基づいています。
+ * はタスクの開始時に一度綴られますが、タスク内のすべての単語は変更されません。
  */
 object SystemPrompt {
     fun identity(): String = listOf(Prompts.system("identity"), Prompts.system("principles"), read(GENERAL)).joinToString("\n\n")
@@ -17,14 +17,14 @@ object SystemPrompt {
 
     private const val GENERAL = "general"
 
-    /** 一段能力说明。 */
+    /** 機能の説明。 */
     internal fun read(name: String): String = Prompts.capability(name)
 }
 
 /**
- * 核心自己的段落,排在各能力之前:用到才展开的几组从哪个入口进(groups,只列本任务给了入口的;展开后照旧留着,系统提示词少变);
- * 有两块以上的屏时怎么选、怎么在两块屏之间配合(channels);有屏展开后交给用户、下单发送前的核对(handover);
- * 动作结果自带屏幕时怎么读它(inline-screen);一次多步(batch)。
+ * コア自身の段落は、各機能の前にランク付けされます。使用前に展開されるグループに入るためにどの入り口が使用されるか (グループ、このタスクによって与えられる入り口のみがリストされます。拡張後も保持され、システム プロンプト ワードはほとんど変更されません)。
+ * 画面が 3 つ以上ある場合の選択方法、2 つの画面 (チャンネル) 間で連携する方法;画面を展開してユーザーに引き渡した後、注文して発送する前（引き渡し）。
+ * 独自の画面 (インライン画面) がある場合のアクション結果の読み取り方法。一度に複数のステップ (バッチ)。
  */
 internal object CoreSections : PromptSections {
     override fun sections(env: PromptEnv): List<String> = listOfNotNull(

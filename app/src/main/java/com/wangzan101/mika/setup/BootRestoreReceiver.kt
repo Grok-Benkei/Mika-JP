@@ -6,16 +6,16 @@ import android.content.Context
 import android.content.Intent
 import android.app.AlarmManager
 
-/** 开机广播的入口:清单里登记的是这个全名;实现在手机能力里。 */
+/** ブート ブロードキャスト エントリ: フルネームがリストに登録されます。それは携帯電話の機能に実装されています。 */
 class BootRestoreReceiver : BootRestoreHandler() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_TIME_CHANGED ||
             intent.action == AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED ||
             intent.action == Intent.ACTION_TIMEZONE_CHANGED) TriggerRuntime.rearm(context)
-        // 换了时区:跟随设备时区的当地时间计划立刻按新时区重算(内部会重新布置闹钟),显式钉了其他时区的不动
+        // はタイム ゾーンを変更しました。デバイスのタイム ゾーンに従うローカル タイム プランは、新しいタイム ゾーンに従って直ちに再計算され (目覚まし時計は内部的に再配置されます)、他のタイム ゾーンは明示的に固定されます。
         if (intent.action == Intent.ACTION_TIMEZONE_CHANGED) TriggerRuntime.syncTimeZone(context)
-        // 开机时局域网那种电脑连接开着就重新监听(USB 那种不跨重启:换了开机编号,这里已按关着算,上次的连接信息也清掉)
+        // は、起動時に LAN コンピュータ接続が開いている場合に監視を再開します (USB タイプは再起動しません。ブート番号を変更した後、ここでオフになり、最後の接続情報もクリアされます)。
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) (context.applicationContext as com.wangzan101.mika.MikaApp).mcp.ensureRunning()
     }
 }

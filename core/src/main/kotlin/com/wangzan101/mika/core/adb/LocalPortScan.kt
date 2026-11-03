@@ -16,10 +16,10 @@ import java.nio.channels.SocketChannel
 import java.util.TreeSet
 import java.util.concurrent.ConcurrentHashMap
 
-/** 连接端口的一个候选:本机的哪个地址、哪个端口。 */
+/** 接続ポートの候補: ローカル マシンのアドレスとポート。 */
 data class AdbEndpoint(val host: String, val port: Int)
 
-/** Mika 自己在本机开着的监听端口(如登录回调):扫端口时跳过,免得连到自己。 */
+/** このマシン上でミカ自身のリスニング ポートが開かれました (ログイン コールバックなど)。ポートをスキャンするときにスキップして、自分への接続を回避します。 */
 object OwnListeningPorts {
     private val ports = ConcurrentHashMap.newKeySet<Int>()
     fun add(port: Int) { ports += port }
@@ -27,24 +27,24 @@ object OwnListeningPorts {
     fun snapshot(): Set<Int> = ports.toSet()
 }
 
-/** 扫本机端口的底层动作;测试里换成假的。 */
+/** は、ローカル ポートの基礎となるアクションをスキャンします。テストでは偽物に置き換えてください。 */
 interface LocalPortScanner {
-    /** [host] 上 [ports] 里哪些能建立 TCP 连接(升序),跳过 [skip];[budgetMs] 用完就停,已找到的照给。 */
+    /** [host] [ports] のうちどれが TCP 接続を確立できるか (昇順)、[skip] はスキップします。 [budgetMs] は使用後に停止し、見つかったものはアップロードされます。 */
     suspend fun openPorts(host: String, ports: IntRange, skip: Set<Int>, budgetMs: Long): List<Int>
 
-    /** 发 CNXN、对方回 STLS 才算无线调试的 adbd(别的服务、自己连自己都不会回 STLS)。 */
+    /** は CNXN を送信し、相手はワイヤレス デバッグ adbd とみなされるように STLS を返します (他のサービスは STLS 自体に応答することさえありません)。 */
     fun speaksAdbTls(host: String, port: Int, timeoutMs: Int): Boolean
 }
 
-/** 一次本机扫描的结果:几个端口开着、几个像 adbd(诊断信息只记个数)。 */
+/** ローカル スキャンの結果: いくつかのポートが開いており、いくつかは adbd に似ています (診断情報には番号のみが記録されます)。 */
 data class ScanResult(val endpoints: List<AdbEndpoint>, val open: Int, val adb: Int)
 
 /**
- * 找连接端口的最后一招:前面几个来源都没给出能连上的端口时,扫本机自己的地址。
- * 无线调试的 adbd 监听一个系统随手分配的端口,落在临时端口范围里([range],读不到就用 [FALLBACK_RANGE])。
- * 按 [hosts] 的顺序一个地址一个地址扫(先 127.0.0.1,再本机 Wi-Fi 地址;adbd 可能只绑其中一个),
- * 每个开着的端口发 CNXN 看回不回 STLS;一个地址上有像 adbd 的就不再扫下一个。只扫本机,不碰别的设备。
- * 扫描和核对合计不超过 [budgetMs]。
+ * 接続ポートを見つけるための最後の手段: 前のソースで接続可能なポートが提供されない場合は、マシン自体のアドレスをスキャンします。
+ * ワイヤレス デバッグ adbd は、一時ポート範囲 ([range]、読み取れない場合は、[FALLBACK_RANGE]) に該当する、システムによってランダムに割り当てられたポートを監視します。
+ * [hosts] の順序でアドレスごとにスキャンします (最初は 127.0.0.1、次にローカル Wi-Fi アドレス。adbd はそのうちの 1 つだけをバインドします)。
+ * 開いている各ポートは CNXN を送信しますが、STLS を読み取ることはできません。アドレスに adbd のようなものがある場合、次のアドレスはスキャンされません。このマシンのみをスキャンし、他のデバイスには触れないでください。
+ * のスキャンと検証の合計が [budgetMs] を超えないこと。
  */
 class LocalPortScan(
     private val scanner: LocalPortScanner,
@@ -55,7 +55,7 @@ class LocalPortScan(
     private val probeTimeoutMs: Int = 1_000,
     private val now: () -> Long = System::currentTimeMillis,
 ) {
-    /** 扫一遍;[skip] 是前面来源已经试过的端口。 */
+    /** をスキャンします。 [skip] は、前のソースによって試行されたポートです。 */
     suspend fun scan(skip: Set<Int>): ScanResult {
         val deadline = now() + budgetMs
         val ports = range()
@@ -77,11 +77,11 @@ class LocalPortScan(
     }
 
     companion object {
-        /** 读不到系统的临时端口范围时扫这一段(覆盖各版本常见的设置)。 */
+        /** システムの一時ポート範囲を読み取れない場合は、このセクションを参照してください (各バージョンの共通設定をカバーしています)。 */
         val FALLBACK_RANGE = 30_000..65_535
 
         /**
-         * 解析 `/proc/sys/net/ipv4/ip_local_port_range`(两个数,空白分隔)。读不到、格式不对或范围不合理时用 [FALLBACK_RANGE]。
+         * は、`/proc/sys/net/ipv4/ip_local_port_range` (空白で区切られた 2 つの数字) を解析します。読み込めない場合、形式が間違っている場合、範囲が無理な場合は、[FALLBACK_RANGE] を使用してください。
          */
         fun parseRange(text: String?): IntRange {
             val nums = text?.trim()?.split(Regex("\\s+"))?.mapNotNull { it.toIntOrNull() } ?: return FALLBACK_RANGE
@@ -93,8 +93,8 @@ class LocalPortScan(
 }
 
 /**
- * 真实的扫描:java.nio 非阻塞连接,同时最多 [concurrency] 个在连,每个最多等 [connectTimeoutMs]。
- * 本机地址连不上的端口会马上被拒,整段扫下来几秒钟。在 IO 线程上跑,协程取消时停下。
+ * 実際のスキャン: java.nio 非ブロッキング接続、同時に最大 [concurrency] の接続、それぞれが最大 [connectTimeoutMs] 待機できます。
+ * ローカル アドレスに接続できないポートはすぐに拒否されます。セクション全体を数秒間スキャンします。 IO スレッドで実行され、コルーチンがキャンセルされると停止します。
  */
 class NioPortScanner(
     private val concurrency: Int = 200,
@@ -153,7 +153,7 @@ class NioPortScanner(
         return open.toList()
     }
 
-    /** 扫临时端口范围时,系统可能恰好给这条连接分到同一个本地端口,于是自己连上了自己。 */
+    /** 一時的なポート範囲をスキャンするときに、システムがたまたま同じローカル ポートをこの接続に割り当てる可能性があるため、システム自体が接続します。 */
     private fun selfConnected(ch: SocketChannel, port: Int): Boolean = runCatching {
         val s = ch.socket()
         s.localPort == port && s.localAddress == s.inetAddress

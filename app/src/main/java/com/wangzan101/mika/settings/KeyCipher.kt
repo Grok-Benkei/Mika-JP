@@ -13,7 +13,7 @@ interface KeyCipher {
     fun decrypt(data: ByteArray): ByteArray
 }
 
-/** AES/GCM,输出为 12 字节 IV + 密文(含认证标签)。IV 由 Cipher 随机生成。 */
+/** AES/GCM、出力は 12 バイト IV + 暗号文 (認証ラベルを含む) です。 IV は Cipher によってランダムに生成されます。 */
 class AesGcmKeyCipher(private val key: () -> SecretKey) : KeyCipher {
     override fun encrypt(plain: ByteArray): ByteArray {
         val c = Cipher.getInstance(TRANSFORMATION).apply { init(Cipher.ENCRYPT_MODE, key()) }
@@ -36,7 +36,7 @@ class AesGcmKeyCipher(private val key: () -> SecretKey) : KeyCipher {
     }
 }
 
-/** 密钥存在 Android 密钥库里,不出硬件/系统保护区,卸载即失效。 */
+/** キーは Android キーストアに存在しますが、ハードウェア/システムの保護領域から出ずにアンインストールしないと無効になります。 */
 fun KeystoreKeyCipher(alias: String = "mika-provider-keys"): KeyCipher = AesGcmKeyCipher {
     val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
     (ks.getKey(alias, null) as? SecretKey) ?: KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").run {

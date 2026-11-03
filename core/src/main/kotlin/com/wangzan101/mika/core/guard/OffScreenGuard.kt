@@ -3,17 +3,17 @@ package com.wangzan101.mika.core.guard
 import com.wangzan101.mika.core.model.Part
 import kotlinx.serialization.json.JsonObject
 
-/** 不动屏幕的工具(沙箱一类)的守卫,每个任务一份;屏幕守卫不看这些工具。 */
+/** 画面を移動しないツール (サンドボックスなど) のガード (タスクごとに 1 つ)。スクリーン ガードはこれらのツールを参照しません。 */
 interface OffScreenGuard {
-    /** 叫停的结论;没叫停为 null。 */
+    /** やめる、という結論。停止していない場合は null です。 */
     val stop: GuardVerdict?
 
-    /** 这类工具的额度用完时代替执行的结果;没用完为 null。 */
+    /** このタイプのツールのクォータが使い果たされた場合の置換実行の結果。使い果たされていない場合は null になります。 */
     fun exhausted(tool: String): JsonObject?
 
-    /** 执行前按剩下的额度调整调用;不用调整原样返回。 */
+    /** が呼び出されます。調整せずにそのまま戻します。 */
     fun capTimeout(call: Part.ToolCall, args: JsonObject): Part.ToolCall
 
-    /** 执行后的结论。 */
+    /** 実行後の結論。 */
     fun result(tool: String, args: JsonObject, content: JsonObject): List<GuardVerdict>
 }

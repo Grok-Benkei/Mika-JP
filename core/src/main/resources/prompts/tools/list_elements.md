@@ -1,1 +1,1 @@
-List what is on this screen as text, without a screenshot. Each element comes with a ref (@eN); to act on one, pass its ref together with the snapshotId of this list. Positions use the same 0-999 grid as {{tap}}. When an action answers ref_expired, the screen has moved on: call {{observe}} or {{list_elements}} again and use the new refs.
+画像なしに、現在の表示にあるものを文面として列挙する。各要素には ref（@eN）が付く。要素に対して操作するには、その ref をこの一覧の snapshotId と一緒に渡す。位置は {{tap}} と同じ 0-999 の目盛りを使う。操作が ref_expired を返した場合は、状態が進んでいる。{{observe}} または {{list_elements}} を再度呼び、新しい ref を使う。

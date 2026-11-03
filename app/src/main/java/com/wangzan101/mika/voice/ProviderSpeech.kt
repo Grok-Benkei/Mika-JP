@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** 录音器的最小接口:[PcmRecorder] 实现它,测试换成假的。 */
+/** レコーダーの最小インターフェイス: [PcmRecorder] これを実装し、テストを偽のものに置き換えます。 */
 interface Recorder {
     val level: StateFlow<Float>
     fun start(): Boolean
@@ -20,10 +20,10 @@ interface Recorder {
 }
 
 /**
- * 服务商那条路:按着时录音、只发 [SpeechEvent.Level];松开后发 [SpeechEvent.Converting],
- * 把整段录音交给 [transcribe](WAV 进、文字出,失败抛 [ModelError]),给出 Final 或 Failed(Provider)。
- * 构造时就开始录;录音不足 [MIN_MS] 当没听清,不去调服务商。
- * 转写最多等 [timeoutMs](默认 [TRANSCRIBE_TIMEOUT_MS]),超时当网络不通给 Failed(Network),界面不会一直转圈。
+ * サービス プロバイダーのメソッド: 押すと、録音は [SpeechEvent.Level] のみを送信します。解放されると、[SpeechEvent.Converting] が送信されます。
+ * は、録音全体を [transcribe] に渡し (WAV 入力、テキスト出力、失敗時に [ModelError] をスロー)、最終または失敗 (プロバイダー) を与えます。
+ * 構築時に記録を開始します。録音が不十分な場合 [MIN_MS] はっきりと聞こえない場合は、サービスプロバイダーに電話しないでください。
+ * は [timeoutMs] (デフォルトは [TRANSCRIBE_TIMEOUT_MS]) まで転写できます。ネットワークが利用できない場合、タイムアウトが発生すると「Failed (Network)」が表示され、インターフェイスは回転し続けません。
  */
 class ProviderSpeech(
     private val recorder: Recorder,
@@ -52,7 +52,7 @@ class ProviderSpeech(
         if (released || out.finished || out.cancelled) return
         released = true
         levels?.cancel()
-        // stop 会等读循环退出(短暂阻塞),放到后台线程,别卡住主线程
+        // stop は、読み取りループが終了する (一時的にブロックされる) まで待機し、それをバックグラウンド スレッドに置きます。メインスレッドをブロックしないでください。
         work = scope.launch {
             val pcm = recorder.stop()
             if (pcm.size < Wav.RATE * MIN_MS / 1000) {
@@ -61,8 +61,8 @@ class ProviderSpeech(
             }
             out.send(SpeechEvent.Converting)
             val wav = Wav.encode(pcm)
-            // 连接一直不回(客户端只有很长的读超时、没有整体超时):到点就不等了。
-            // 出错在超时块里面就接住,原样的错误交出去(不跨协程边界,不会被换成拷贝)
+            // 接続は戻りません (クライアントには長い読み取りタイムアウトがあるだけで、全体的なタイムアウトはありません)。ポイントに到達するまで待機しません。
+            // タイムアウトブロックでエラーが発生した場合はキャッチされ、エラーはそのまま引き継がれます（コルーチンの境界を越えず、コピーに置き換えられません）
             val result = withTimeoutOrNull(timeoutMs) {
                 try {
                     SpeechEvent.Final(transcribe(wav))
@@ -87,10 +87,10 @@ class ProviderSpeech(
     }
 
     companion object {
-        /** 比这短的录音多半是误触,直接当没听清。 */
+        /** これより短い録音は、誤ってトリガーされたことが原因である可能性が高いため、はっきりと聞こえなかったものとして扱ってください。 */
         const val MIN_MS = 500
 
-        /** 松开后等服务商转写的上限;一段最多 60 秒的录音,正常几秒内转好。 */
+        /** は、緩めた後にサービス プロバイダーが転記するまでの待機時間の上限です。最大 60 秒の録音は、通常、数秒以内に書き起こされます。 */
         const val TRANSCRIBE_TIMEOUT_MS = 30_000L
     }
 }

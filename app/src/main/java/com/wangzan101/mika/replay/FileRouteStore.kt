@@ -18,12 +18,12 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
 /**
- * 路线存成 `<dir>/<首个包名>/<id>.json`;超过 [max] 条时删最久没用的。
- * 读不了的文件直接删掉(开发期格式变了不做兼容)。产品路径用 [shared],全进程一个实例、一把锁。
+ * ルートは `<dir>/<首个包名>/<id>.json` として保存されます。 [max] を超える場合は、最長で無駄なルートを削除します。
+ * 読み込めないファイルは直接削除します（開発期間中に形式が変わるため互換性がありません）。製品パスは [shared] を使用し、プロセス全体に対して 1 つのインスタンスと 1 つのロックを使用します。
  */
 class FileRouteStore(
     private val dir: File, private val max: Int = 200,
-    /** 改名前记下的路线读出时把旧工具名换成现在的。 */
+    /** 名前変更前に記録したルートを読み出す際に、旧ツール名を現在のツール名に置き換えます。 */
     private val legacy: LegacyNames = legacyNames(), private val tools: ToolIndex = knownTools(),
 ) : RouteStore {
     init { require(max > 0) { "max must be positive" } }
@@ -64,9 +64,9 @@ class FileRouteStore(
         f.parentFile?.mkdirs()
         val tmp = File(f.parentFile, "${f.name}.tmp")
         FileOutputStream(tmp).use { out -> out.write(bytes); out.fd.sync() }
-        // 原子替换:旧文件在新文件就位前一直完好
+        // アトミック置換: 新しいファイルが配置されるまで、古いファイルはそのまま残ります。
         Files.move(tmp.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-        // 同 id 换了首个包名:旧位置的那份删掉
+        // は同じ ID を持つ最初のパッケージ名を変更しました: 古い場所にあるコピーを削除します
         existing.filter { it.second.id == r.id && it.first.absoluteFile != f.absoluteFile }.forEach { it.first.delete() }
         val kept = existing.filter { it.second.id != r.id } + (f to r)
         kept.sortedBy { it.second.lastUsedMs }.take((kept.size - max).coerceAtLeast(0)).forEach { it.first.delete() }
@@ -91,7 +91,7 @@ class FileRouteStore(
         dir.listFiles()?.filter { it.isDirectory && it.list()?.isEmpty() == true }?.forEach { it.delete() }
     }
 
-    /** 给出进程里那一份的 Application。 */
+    /** はプロセス中のアプリケーションを示します。 */
     interface Owner {
         val routes: FileRouteStore
     }
@@ -102,10 +102,10 @@ class FileRouteStore(
         private val UNSAFE = Regex("[^A-Za-z0-9._-]")
         private fun safe(s: String) = UNSAFE.replace(s, "_").ifEmpty { "_" }.let { if (it == "." || it == "..") "_" else it }
 
-        /** 产品里的那份(App 建):files/routes 下。 */
+        /** 製品 (ビルド済みアプリ) のコピー: ファイル/ルート。 */
         fun create(context: Context): FileRouteStore = FileRouteStore(File(context.applicationContext.filesDir, DIR))
 
-        /** App 内共用的那份(经 [Owner] 给出;任务结束记录、设置页清除都用它):全进程一个实例、一把锁。 */
+        /** アプリ内で共有される共有 ([Owner] によって指定されます。タスク終了レコードと設定ページのクリアに使用されます): プロセス全体に対して 1 つのインスタンスと 1 つのロック。 */
         fun shared(context: Context): FileRouteStore = (context.applicationContext as? Owner)?.routes
             ?: error("the Application (${context.applicationContext.javaClass.name}) must implement FileRouteStore.Owner to give the route store")
     }

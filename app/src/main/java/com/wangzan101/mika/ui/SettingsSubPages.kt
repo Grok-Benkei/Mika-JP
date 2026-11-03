@@ -50,9 +50,9 @@ import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 import com.wangzan101.mika.core.cap.phone.OperatingPace
 
-// ---------- 手机操作 ----------
+// ---------- 携帯電話操作 ----------
 
-/** 设置 › 手机操作:权限与配对的状态,以及重新配对、解除配对。点哪一项的处理方式和从前一样,交给 [onProblem]。 */
+/** 設定 › 携帯電話の操作: 権限とペアリング ステータス、再ペアリングとペアリング解除。どの項目をクリックするかという処理方法はこれまでと同様で、[onProblem]に引き継がれます。 */
 @Composable
 fun PhoneOpsScreen(
     status: SystemStatus,
@@ -73,7 +73,7 @@ fun PhoneOpsScreen(
                 MikaIcons.Hand, stringResource(R.string.settings_a11y), stringResource(R.string.settings_a11y_sub), first = true,
                 onClick = check.problems.firstOrNull { it is Problem.Accessibility }?.let { { onProblem(it) } },
             ) { RowValue(a11yText, a11yTone) }
-            // 安卓 12 以下手机功能不可用,不列这一行(系统版本那一行已说明)
+            // Android 12 以下の携帯電話機能は利用できないため、この行には記載されていません（システムバージョン行については説明済みです）
             if (status.sdkInt >= Prerequisites.MIN_SDK) {
                 val helper = status.builtinShell
                 val (hText, hTone) = PhoneSetupCopy.statusValue(helper)
@@ -138,11 +138,11 @@ fun PhoneOpsScreen(
     }
 }
 
-// ---------- 通知 ----------
+// ---------- 注意事項 ----------
 
 /**
- * 设置 › 通知:只看状态、去系统里改。顶上是 App 通知总开关,下面三个任务通知频道各一行(什么时候发 + 现在会不会弹出),
- * 点哪一行都由 [onFix] 打开对应的系统设置页(总开关没开时先请求权限或打开应用通知页)。
+ * 設定 › 通知: ステータスを表示し、システム内で変更するだけです。一番上はアプリ通知のメインスイッチで、次の 3 つのタスク通知チャネルにはそれぞれ 1 行が表示されます (いつ送信されるか、今ポップアップするか)。
+ * がどの行をクリックしても、[onFix] は対応するシステム設定ページを開きます (メインスイッチがオンになっていない場合は、最初に許可を要求するか、アプリケーション通知ページを開きます)。
  */
 @Composable
 fun NotificationsScreen(status: SystemStatus, onFix: (Fix) -> Unit, onBack: () -> Unit) {
@@ -181,14 +181,14 @@ private fun ChannelRowItem(title: String, whenText: String, row: ChannelRow, fix
     }
 }
 
-// ---------- 干活时 ----------
+// ---------- 仕事中 ----------
 
-/** 并行任务的设置:用户设的上限 [max](1–3),和设备此刻允许的 [limit]。 */
+/** 並列タスク設定: ユーザーによって設定された上限 [max] (1 ～ 3)、および現時点でデバイスによって許可されている [limit]。 */
 data class ParallelSetting(val max: Int, val limit: ParallelLimit)
 
 /**
- * 设置 › 干活时:屏幕常亮、被操作的 App 静音(默认都开,可以关);[parallel] 不为空(实验开关打开了)时多一行同时进行的任务数。
- * 下面一组是操作节奏:快 / 标准(默认) / 像人,选了下一个任务起生效。
+ * 設定 › 作業中: 画面は常にオンになり、操作されているアプリはミュートになります (両方ともデフォルトでオンになっており、オフにすることができます)。 [parallel] が空でない場合 (実験スイッチがオンになっている場合)、同時に実行されるタスクの数に応じて 1 行追加されます。
+ * 次のグループは動作リズムです: 速い / 標準 (デフォルト) / 人間的で、次のタスクを選択した後に有効になります。
  */
 @Composable
 fun DuringWorkScreen(
@@ -213,7 +213,7 @@ fun DuringWorkScreen(
                 MikaIcons.Clock, stringResource(R.string.settings_step_limit),
                 stepLimit?.let { trPlural(R.plurals.chat_steps_n, it) }
                     ?: stringResource(R.string.settings_step_limit_off),
-                // 当前是自己填的数时,输入框里带着它
+                // 現在の番号を自分で入力すると、入力ボックスに入力されます
                 onClick = { customLimit = stepLimit?.takeIf { it !in STEP_LIMIT_PRESETS }?.toString().orEmpty(); editingLimit = true },
             )
             parallel?.let { ParallelRow(it, onParallelMax) }
@@ -225,7 +225,7 @@ fun DuringWorkScreen(
             onPick = { onStepLimit(it); editingLimit = false },
             onDismiss = { editingLimit = false },
         )
-        // 允许 Mika 改自己的设置:默认关,打开后任务里才有 settings_list、settings_set
+        // を使用すると、Mika は自分の設定を変更できます。デフォルトではオフになっており、オンにした後はタスク内で settings_list と settings_set のみが見つかります。
         GroupCard {
             ListRow(
                 MikaIcons.Spark, stringResource(R.string.settings_self_config),
@@ -246,7 +246,7 @@ fun DuringWorkScreen(
     }
 }
 
-/** 步数上限的几个现成选项;别的数在输入框里填。 */
+/** ステップ数の上限に関するいくつかの既製のオプション。入力ボックスに他の数値を入力します。 */
 private val STEP_LIMIT_PRESETS = listOf(30, 60, 120, 240)
 
 @Composable
@@ -306,7 +306,7 @@ private fun paceDetail(p: OperatingPace): String = stringResource(
     },
 )
 
-/** 同时进行几个任务:设备不支持时灰掉、写明原因,上限固定为 1。 */
+/** は複数のタスクを同時に実行します。デバイスがサポートしていない場合はグレー表示され、理由が書き込まれ、上限は 1 に固定されます。 */
 @Composable
 private fun ParallelRow(p: ParallelSetting, onMax: (Int) -> Unit) {
     val supported = p.limit.reason == null
@@ -331,14 +331,14 @@ private fun ParallelRow(p: ParallelSetting, onMax: (Int) -> Unit) {
     }
 }
 
-// ---------- 悬浮胶囊 ----------
+// ---------- サスペンションカプセル ----------
 
-/** 设置 › 悬浮胶囊的文字。 */
+/** 設定 › 中断されたカプセルのテキスト。 */
 object CapsuleSettingsCopy {
     val TITLE: String get() = tr(R.string.capsule_settings_title)
     val SUBTITLE: String get() = tr(R.string.capsule_settings_sub)
     val FOOTNOTE: String get() = tr(R.string.capsule_settings_foot)
-    /** 系统可能关掉后台的 App,胶囊跟着不见:请用户在系统设置里放行。 */
+    /** システムがバックグラウンド アプリを閉じ、カプセルが消える場合があります。ユーザーがシステム設定で許可できるようにしてください。 */
     val BACKGROUND: String get() = tr(R.string.capsule_settings_background)
 
     fun label(mode: CapsuleMode): String = when (mode) {
@@ -354,7 +354,7 @@ object CapsuleSettingsCopy {
     }
 }
 
-/** 设置 › 悬浮胶囊:关闭 / 有任务时显示(默认) / 一直显示,选了当场生效。 */
+/** 設定 › サスペンション カプセル: オフ / タスクがあるときに表示 (デフォルト) / 常に表示。選択するとその場で有効になります。 */
 @Composable
 fun CapsuleScreen(mode: CapsuleMode, onMode: (CapsuleMode) -> Unit, onBack: () -> Unit) {
     PageScaffold(CapsuleSettingsCopy.TITLE, onBack) {
@@ -371,15 +371,15 @@ fun CapsuleScreen(mode: CapsuleMode, onMode: (CapsuleMode) -> Unit, onBack: () -
     }
 }
 
-/** 设置 › 语言:跟随系统、简体中文、繁體中文、English;选了马上换,界面跟着重建。 */
+/** 設定 › 言語: システムに従い、簡体字中国語、繁体字中国語、英語。選択後すぐに変更すると、それに応じてインターフェースが再構築されます。 */
 @Composable
 fun LanguageScreen(language: AppLanguage, onLanguage: (AppLanguage) -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current
     val flags = remember { FeatureFlags.get(context) }
-    // 跟着设置走:任务里改了外观,这页也对得上
+    // 設定に従ってください: タスクの外観が変更されており、このページも適切です。
     val themeMode by remember(flags) { flags.themeModeChanges() }.collectAsState(flags.themeMode())
     PageScaffold(stringResource(R.string.appearance_title), onBack) {
-        // 语言和外观放在同一页:都是「界面长什么样」
+        // 言語と外観は同じページに配置されます。両方とも「インターフェイスがどのように見えるか」です。
         GroupLabel(stringResource(R.string.appearance_group))
         GroupCard {
             ThemeMode.entries.forEachIndexed { idx, m ->
@@ -387,7 +387,7 @@ fun LanguageScreen(language: AppLanguage, onLanguage: (AppLanguage) -> Unit, onB
                     appearanceLabel(m), selected = m == themeMode, first = idx == 0,
                     subtitle = if (m == ThemeMode.System) stringResource(R.string.appearance_system_detail) else null,
                     onClick = {
-                        // 界面跟着设置当场换颜色,不重建,页面和滚动位置都不丢
+                        // インターフェースは再構築せずに、設定に従ってその場で色が変わり、ページやスクロール位置が失われません。
                         if (m != themeMode) flags.setThemeMode(m)
                     },
                 )
@@ -395,17 +395,16 @@ fun LanguageScreen(language: AppLanguage, onLanguage: (AppLanguage) -> Unit, onB
         }
         GroupLabel(stringResource(R.string.language_title))
         GroupCard {
-            AppLanguage.entries.forEachIndexed { i, l ->
-                RadioRow(
-                    languageLabel(l), selected = l == language, onClick = { if (l != language) onLanguage(l) },
-                    subtitle = if (l == AppLanguage.System) stringResource(R.string.language_system_detail) else null, first = i == 0,
-                )
-            }
+            // 日本語専用: 動かない言語選択は提示しない
+            RadioRow(
+                languageLabel(AppLanguage.Japanese), selected = true, onClick = {}, enabled = false,
+                subtitle = stringResource(R.string.language_system_detail), first = true,
+            )
         }
     }
 }
 
-/** 语言的名字:每种语言总用它自己的写法(日本語、Español…),「跟随系统」按当前语言写。 */
+/** 言語名: 各言語は常に独自の記述方法 (日本語、スペイン語など) を使用します。「システムに従う」は現在の言語に従って記述されます。 */
 @Composable
 fun languageLabel(l: AppLanguage): String = stringResource(
     when (l) {
@@ -422,23 +421,23 @@ fun languageLabel(l: AppLanguage): String = stringResource(
     },
 )
 
-// ---------- 隐私与数据 ----------
+// ---------- プライバシーとデータ ----------
 
-/** 设置 › 网站登录。 */
+/** 設定 › ウェブサイトへのログイン。 */
 @Composable
 fun WebSitesScreen(state: WebSitesState, onBack: () -> Unit) {
     PageScaffold(stringResource(R.string.settings_web_logins), onBack) { WebSitesSection(state, labeled = false) }
 }
 
-// ---------- 高级 ----------
+// ---------- 上級 ----------
 
-/** 设置 › 文件与计算环境:允许脚本联网、网络代理、已用空间(按对话清理工作区)、重置运行环境。 */
+/** 設定 › ファイルとコンピューティング環境: スクリプト ネットワーク、ネットワーク プロキシ、使用済みスペース (ダイアログによるワークスペースのクリーンアップ)、実行環境のリセットを許可します。 */
 @Composable
 fun SandboxScreen(onBack: () -> Unit) {
     PageScaffold(stringResource(R.string.settings_sandbox), onBack) { AdvancedSettings() }
 }
 
-/** 设置 › 记住的操作路线:[count] 条,可以全部清除(先确认);[count] 为空表示还没读出来。 */
+/** 設定 › 記憶された操作ルート: [count]、すべてクリア可能 (最初に確認); [count] は空です。これはまだ読み込まれていないことを意味します。 */
 @Composable
 fun RoutesScreen(count: Int?, onClear: () -> Unit, onBack: () -> Unit) {
     var confirmClear by remember { mutableStateOf(false) }
@@ -466,7 +465,7 @@ fun RoutesScreen(count: Int?, onClear: () -> Unit, onBack: () -> Unit) {
     }
 }
 
-/** 设置 › 恢复与修复:手机操作的几个授权开关,下面是兼容性自检的入口。 */
+/** 設定 › 回復と修復: 携帯電話の操作にはいくつかの認証スイッチがあります。以下は互換性セルフチェックへの入り口です。 */
 @Composable
 fun RecoveryScreen(onBack: () -> Unit, onOpenSelfCheck: () -> Unit = {}) {
     PageScaffold(stringResource(R.string.settings_recovery), onBack) {
@@ -480,7 +479,7 @@ fun RecoveryScreen(onBack: () -> Unit, onOpenSelfCheck: () -> Unit = {}) {
     }
 }
 
-/** 外观的当前说法(设置页和这一行都用)。 */
+/** 外観の現在のステートメント (設定ページとこの行の両方で使用されます)。 */
 fun appearanceLabel(mode: ThemeMode): String = tr(
     when (mode) {
         ThemeMode.System -> R.string.appearance_system

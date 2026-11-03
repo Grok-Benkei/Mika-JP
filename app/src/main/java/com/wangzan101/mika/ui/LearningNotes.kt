@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 
-/** 结果卡片下的小字:记住了什么、学会或停用了哪项技能,各带按钮。 */
+/** 結果カードの下に小さい文字: 何を覚えたか、どのスキルを学習または無効化したか、それぞれにボタンが付いています。 */
 internal fun LazyListScope.learningNotes(index: Int, ex: Exchange, vm: ChatViewModel) {
     val runId = ex.runId ?: return
     if (ex.memoryNotes.isEmpty() && ex.skillNotes.isEmpty()) return

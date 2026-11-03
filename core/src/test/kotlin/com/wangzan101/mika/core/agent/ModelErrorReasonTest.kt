@@ -7,32 +7,32 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ModelErrorReasonTest {
-    /** 找不到模型:知道模型名时说清是哪个、去哪改、模型名大概长什么样;不知道时退回一般的说法。 */
+    /** モデルが見つかりません。モデル名がわかっている場合は、それがどのモデルであるか、どこを変更するか、およびモデル名がどのようになるかを述べてください。分からない場合は、一般的な説明に戻ってください。 */
     @Test fun modelNotFoundNamesTheModel() {
         assertEquals(
-            "模型「gemini」在这个服务商那里不存在。去设置 › 模型,检查模型名(要填完整的模型 ID,比如 Gemini 的模型名类似 gemini-flash-latest)或改用对应的预设。",
+            "このプロバイダーではモデル「gemini」が見つかりません。「設定 › モデル」で正式なモデルIDを確認するか、プロバイダーのプリセットを選び直してください。",
             StopRules.modelFailed(ModelError.ModelNotFound("gemini")).reason,
         )
-        assertEquals("找不到该模型,请到设置 › 模型检查模型名和 Base URL 是否正确。", StopRules.modelFailed(ModelError.ModelNotFound()).reason)
-        assertEquals("找不到模型「gemini」", ModelError.ModelNotFound("gemini").message)
+        assertEquals("モデルが見つかりません。「設定 › モデル」でモデル名とBase URLを確認してください。", StopRules.modelFailed(ModelError.ModelNotFound()).reason)
+        assertEquals("モデル「gemini」が見つかりません", ModelError.ModelNotFound("gemini").message)
     }
 
-    /** 404 也可能是网关、中转服务在说别的:有原话时照原话说、不断定模型不存在,句末的点不重复;没有原话时和上面一样。 */
+    /** 404 ゲートウェイまたはリレー サービスが別のことを言っている可能性もあります。元の単語がある場合は、元の単語が使用され、モデルが存在しないとは判断されず、文末のポイントは繰り返されません。原語がない場合も同様です。 */
     @Test fun modelNotFoundCarriesWhatTheServerSaid() {
         assertEquals(
-            "调用模型「group/rpa」时服务端回复：none of group/rpa's models is ready。可能是模型名不对，或者服务那边暂时不可用。" +
-                "去设置 › 模型,检查模型名(要填完整的模型 ID,比如 Gemini 的模型名类似 gemini-flash-latest)或改用对应的预设。",
+            "モデル「group/rpa」の呼び出し時に、サーバーから次の応答がありました: none of group/rpa's models is ready。モデル名またはサービスの状態を確認してください。" +
+                "「設定 › モデル」で正式なモデルIDを確認するか、プロバイダーのプリセットを選び直してください。",
             StopRules.modelFailed(ModelError.ModelNotFound("group/rpa", "none of group/rpa's models is ready")).reason,
         )
         assertEquals(
-            "服务端回复：The model `x` does not exist。可能是模型名不对，或者服务那边暂时不可用。请到设置 › 模型检查模型名和 Base URL 是否正确。",
+            "サーバーから次の応答がありました: The model `x` does not exist。モデル名またはサービスの状態を確認してください。「設定 › モデル」でモデル名とBase URLを確認してください。",
             StopRules.modelFailed(ModelError.ModelNotFound("", "The model `x` does not exist.")).reason,
         )
         val said = StopRules.modelFailed(ModelError.ModelNotFound("m", "gone")).reason
-        assertFalse(said.contains("不存在"))
+        assertFalse(said.contains("見つかりません"))
     }
 
-    /** 引在句中的服务端原话,三种带原话的失败都只去掉末尾一个句号;截短的省略号不动。 */
+    /** は文中にサーバーのオリジナルの言葉を引用しています。元の単語の 3 つの失敗例では、末尾のピリオドのみが削除されています。切り取られた楕円は変更されません。 */
     @Test fun quotedServerTextDropsOneTrailingPeriod() {
         fun reasons(detail: String) = listOf(
             StopRules.modelFailed(ModelError.ModelNotFound("m", detail)).reason,
@@ -46,25 +46,25 @@ class ModelErrorReasonTest {
         reasons("Wait...").forEach { assertTrue(it, it.contains("Wait...。")) }
     }
 
-    /** 这个账号用不了的模型、不支持工具的模型:说清是哪个、去哪换,或到服务商后台开通。 */
+    /** このアカウントはモデルを使用できないか、ツールをサポートしていません。モデルがどれであるか、どこを変更するかを指示するか、サービス プロバイダーのバックエンドにアクセスしてアクティブ化してください。 */
     @Test fun modelNotAvailableNamesTheModel() {
         assertEquals(
-            "模型「qwen-max」这个账号没开通或没权限用。去设置 › 模型换一个模型，或到服务商后台开通。",
+            "このアカウントではモデル「qwen-max」を利用できません。「設定 › モデル」で別のモデルを選ぶか、プロバイダーの利用権限を確認してください。",
             StopRules.modelFailed(ModelError.ModelNotAvailable("qwen-max", "not activated")).reason,
         )
         assertEquals(
-            "模型「gemma」不支持调用工具,Mika 干活要靠工具。去设置 › 模型换一个会调用工具的模型。",
+            "モデル「gemma」はツール呼び出しに対応していません。Mikaの操作には必要なため、「設定 › モデル」で対応モデルを選んでください。",
             StopRules.modelFailed(ModelError.ToolsUnsupported("gemma")).reason,
         )
     }
 
-    /** 断流有自己的说法、不提 Base URL;真的解析不了(格式对不上)才提示检查 Base URL 和接口类型。 */
+    /** には切断に関する独自の説明があり、ベース URL については言及されていません。本当に解析できない場合 (形式が一致しない場合)、ベース URL とインターフェイス タイプを確認するように求められます。 */
     @Test fun streamCutIsNotBlamedOnConfiguration() {
         val cut = StopRules.modelFailed(ModelError.StreamCut()).reason
-        assertTrue(cut.contains("连接就在上游被断开了"))
-        assertTrue(cut.contains("重试后"))
+        assertTrue(cut.contains("接続が切れ"))
+        assertTrue(cut.contains("再試行でも解消しませんでした"))
         assertFalse(cut.contains("Base URL"))
-        assertFalse(cut.contains("接口类型"))
-        assertTrue(StopRules.modelFailed(ModelError.BadResponse("流式响应不是合法 JSON")).reason.contains("请检查 Base URL 和接口类型是否匹配"))
+        assertFalse(cut.contains("APIの種類"))
+        assertTrue(StopRules.modelFailed(ModelError.BadResponse("流式响应不是合法 JSON")).reason.contains("Base URLとAPIの種類が一致しているか確認してください"))
     }
 }

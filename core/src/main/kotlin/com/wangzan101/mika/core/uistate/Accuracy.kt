@@ -3,9 +3,9 @@ package com.wangzan101.mika.core.uistate
 import kotlin.math.hypot
 
 /**
- * 用来在新界面里认出「同一个元素」的特征。[context] 是遍历顺序里它前面最近一个有名字的元素,
- * 防止滚动后别处的同名按钮顶上来被误认。[hint]:名字是输入框的提示语/预置词(会轮换);
- * [inList]:元素在列表容器里(列表项会复用,同一位置可能换成别的条目)。
+ * は、新しいインターフェースにおける「同じ要素」の特徴を認識するために使用されます。 [context] は、走査順序でその前にある最新の名前付き要素です。
+ * は、スクロール後に他の場所にある同じ名前のボタンが誤って認識されるのを防ぎます。 [hint]: 名前は入力ボックスのプロンプト/プリセット単語です (回転します)。
+ * [inList]: 要素はリスト コンテナー内にあります (リスト項目は再利用され、同じ位置が他の項目に置き換えられる可能性があります)。
  */
 data class ElementLocator(
     val role: String,
@@ -19,31 +19,31 @@ data class ElementLocator(
 )
 
 sealed interface Relocation {
-    /** [index] 是新列表里的下标。 */
+    /** [index] は、新しいリストの添字です。 */
     data class Found(val index: Int) : Relocation
-    /** 还在,但上下文变了或挪得太远。 */
+    /** はまだ存在しますが、コンテキストが変更されているか、移動しすぎています。 */
     data object Moved : Relocation
-    /** 没名字也没资源 ID,或有好几个一样的。 */
+    /** には名前やリソース ID がないか、同一のものが複数存在します。 */
     data object Ambiguous : Relocation
-    /** 新界面里没有了。 */
+    /** は新しいインターフェイスでは使用できなくなりました。 */
     data object Gone : Relocation
 }
 
-/** 找回时允许的最大中心偏移:屏幕短边的这个比例。 */
+/** 取得時に許可される最大中心オフセット: 画面の短辺のこの比率。 */
 const val RELOCATE_MAX_SHIFT = 0.15
 
-/** 「还在原地」的偏移上限:屏幕短边的这个比例。 */
+/** 「静止」オフセットの上限: 画面の短辺の比率。 */
 const val SAME_SPOT_SHIFT = 0.02
 
 /**
- * 编号过期后在 [after] 里找 [previous] 的唯一对应者。同时满足才算找到:类型、名字、资源 ID 相同,
- * 且在旧列表 [before] 和新列表里都只有这一个;上下文相同;中心挪动不超过短边的 [RELOCATE_MAX_SHIFT]。
+ * 番号の有効期限が切れたら、[after] で唯一対応する [previous] 番号を見つけます。これは、タイプ、名前、リソース ID が同じという同じ条件が満たされる場合にのみ見つかります。
+ * で、古いリスト [before] と新しいリストにはこれしかありません。コンテキストは同じです。中心の移動は短辺 [RELOCATE_MAX_SHIFT] を超えません。
  *
- * 页面整体没动(见 [stationary])时再放宽两点,应对轮播、倒计时这类只有局部在变的页面:
- * - 上下文变了但元素还在原地,且不在列表容器里(列表项会复用),照样算找到;
- * - 名字变了,但新旧都有同一个资源 ID、类型相同、还在原地且原地只有它,并且名字只差数字和空白
- *   (「跳过 3」→「跳过 2」),或旧名字是输入框轮换的预置词(hint),也算找到。
- *   「关注」→「已关注」、「下一步」→「确认支付」这类换了含义的不算。
+ * ページ全体が動かない場合 ([stationary] を参照)、カルーセルやカウントダウンなど、部分的にのみ変化するページに対処するために 2 つの点を緩和します。
+ * - コンテキストは変更されましたが、要素はまだ所定の位置にあり、リスト コンテナー内にはありません (リスト項目は再利用されます)。要素はまだ見つかります。
+ * - 名前は変更されましたが、新しいものと古いものは同じリソース ID、同じタイプを持ち、依然として同じ場所にあり、それが唯一の場所にあり、名前と名前の唯一の違いは数字とスペースです。
+ *   (「スキップ 3」→「スキップ 2」)、または古い名前が入力ボックス回転のプリセットワード (ヒント) であることも見つかります。
+ *   「フォロー」→「フォロー済み」、「次のステップ」→「支払い確認」等の意味変更はカウントされません。
  */
 fun relocate(previous: ElementLocator, before: List<ElementLocator>, after: List<ElementLocator>, shortSide: Int): Relocation {
     if (previous.name.isBlank() && previous.resourceId.isNullOrBlank()) return Relocation.Ambiguous
@@ -74,8 +74,8 @@ private fun shift(a: ElementLocator, b: ElementLocator) =
     hypot((a.centerX - b.centerX).toDouble(), (a.centerY - b.centerY).toDouble())
 
 /**
- * 页面整体没动:前后都唯一出现的有名元素至少 2 个(开屏页这类页面元素很少),其中八成以上还在原地。
- * 列表滚动、换页时大部分元素都挪了或没了,不满足。
+ * ページは全体としては移動していません。前後にのみ表示される有名な要素が少なくとも 2 つあり (開いているページにはページ要素がほとんどありません)、それらの 80% 以上はまだ残っています。
+ * リストをスクロールしたりページを切り替えたりすると、ほとんどの要素が移動したり消えたりしますが、満足のいくものではありません。
  */
 internal fun stationary(before: List<ElementLocator>, after: List<ElementLocator>, spot: Double): Boolean {
     fun key(e: ElementLocator) = Triple(e.role, e.name, e.resourceId)
@@ -91,23 +91,23 @@ internal fun stationary(before: List<ElementLocator>, after: List<ElementLocator
     return shared >= 2 && inPlace >= shared * 0.8
 }
 
-/** 输入框读写。[read] 返回用户可见的实际文字(显示提示语时为空串),读不出(密码框、节点已不在)为 null。 */
+/** 入力ボックスの読み取りと書き込み。 [read] は、ユーザーに表示される実際のテキスト (プロンプトが表示されるときは空の文字列) を返し、それが読めない場合 (パスワード ボックスとノードが存在しない場合) は null を返します。 */
 interface TextField {
     fun read(): String?
     fun write(text: String): Boolean
 }
 
-/** 比较前去掉所有空白:输入框可能自动给号码分组加空格。 */
+/** 比較する前にすべての空白スペースを削除します。入力ボックスにより、番号グループにスペースが自動的に追加される場合があります。 */
 private fun normText(s: String) = s.filterNot { it.isWhitespace() }
 
 /**
- * 写入 [text] 并读回核对,不一致重试,最多 [attempts] 次;[settle] 在每次写入后等输入框更新。
- * 只认「写入后读到的文字恰好是目标」;写入前就已经是目标时先清空,清不掉就无法区分写没写进去,返回 UNKNOWN。
- * 空串表示清空,读回为空即 MATCH。
- * 有的输入框对无障碍一直报同一段文字(如提示语),读回永远对不上:每次读回都和写入前一样、
- * 至少有一次写入成功、而 [reacted] 说界面在输入后出现了含所输文字的新文字(联想词等)时,
- * App 其实收到了输入,返回 UNKNOWN 而不是 MISMATCH。
- * [secret](密码框)只写一次、不重试、不读回:密码框读不回原文,重试只会把同一段字又往框里写一遍。
+ * は [text] を書き込み、検証のためにそれを読み取ります。矛盾がある場合は、最大 [attempts] 回再試行します。 [settle] は、書き込みのたびに入力ボックスが更新されるのを待ちます。
+ * は「書き込み後に読み取られたテキストがたまたまターゲットである」ことのみを認識します。書き込む前にすでにターゲットになっている場合は、最初にそれをクリアする必要があります。クリアできない場合は、書き込まれているかどうか区別できなくなり、UNKNOWNが返されます。
+ * 空の文字列はクリアを意味し、空として読み戻すことは MATCH を意味します。
+ * 一部の入力ボックスは、アクセシビリティのために常に同じテキスト (プロンプトなど) を報告し、読み戻しは決して一致しません。読み戻されるたびに、書き込み前と同じになります。
+ * が少なくとも 1 回書き込みに成功し、[reacted] が入力したテキスト (連想語など) を含む新しいテキストが入力後にインターフェイスに表示されると言う場合、
+ * アプリは実際に入力を受け取り、MISMATCH ではなく UNKNOWN を返しました。
+ * [secret] (パスワード ボックス) は 1 回だけ書き込み、再試行も読み取りも行いません。パスワード ボックスは元のテキストを読み取ることができず、再試行しても同じ段落がボックスに再度書き込まれるだけです。
  */
 suspend fun typeAndVerify(
     field: TextField,
@@ -123,7 +123,7 @@ suspend fun typeAndVerify(
     }
     val want = normText(text)
     var baseline = field.read() ?: run {
-        // 读不出也照常写一次,但无法核对
+        // 読み込めない場合は通常通り一度書き込みますが検証できません。
         field.write(text)
         return Verification.UNKNOWN
     }

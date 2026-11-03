@@ -50,7 +50,7 @@ class AgentLoopMemoryTest {
         val msgs = model.requests.first().withoutRuntime().map { it.text() }
         assertTrue(msgs[0].startsWith(Conversation.HEADER))
         assertTrue(msgs[1].startsWith("Memories about the user"))
-        // 记忆总量装得下就全量注入:与本次任务词面无关的「公司在张江」也在(以前会被 BM25 检索丢掉)
+        // 入るだけメモリを注入：このタスクの文言とは関係のない「会社は張江にあります」も存在します（過去のBM25検索で失われます）
         assertTrue(msgs[1].contains("用户点外卖不要香菜"))
         assertTrue(msgs[1].contains("张江"))
         assertEquals("帮我点个外卖", msgs[2])
@@ -79,7 +79,7 @@ class AgentLoopMemoryTest {
         assertEquals(listOf(ids), events.filterIsInstance<RunEvent.MemoryUsed>().map { it.ids })
     }
 
-    // 浏览器页上问:页面说明里的标题、网址、选中的字是网页上的,不算用户说的话;记忆的引文出自它们时不收
+    // ブラウザー ページに関する質問: ページ説明内のタイトル、URL、および選択された単語は Web ページからのものであり、ユーザーの発言はカウントされません。記憶された引用は、そこから引用された場合には含まれません。
     @Test fun pageDescriptionIsNotTheUserWords() {
         val s = store()
         val said = UserUtterances()
@@ -97,22 +97,22 @@ class AgentLoopMemoryTest {
         assertEquals(listOf("这一页的地址对不对"), said.all)
     }
 
-    // 浏览器页上插话带着新选中的字:只收插话里打的字,页面说明不收
+    // ブラウザ ページのコメントには新しく選択された単語が含まれています。コメントに入力された単語のみが受け入れられ、ページの説明は受け入れられません。
     @Test fun pageSteerAddsOnlyTheTypedWords() = runBlocking {
         assertEquals(listOf("这一页的地址对不对", "改成这个"), saidWithPageSteer("改成这个"))
     }
 
-    // 插话只选了字、没打字:这一句什么也不收
+    // は単語を選択しただけで、挿入するときに入力しませんでした。この文には何も含まれていません。
     @Test fun selectionOnlySteerAddsNothing() = runBlocking {
         assertEquals(listOf("这一页的地址对不对"), saidWithPageSteer(""))
     }
 
-    // 浏览器页上回答追问也一样:回答带着页面说明和选中的字时只收打的字
+    // ブラウザ ページでのフォローアップの質問に回答する場合も同様です。ページの説明と選択した単語で回答する場合、入力された単語のみが含まれます。
     @Test fun pageAnswerAddsOnlyTheTypedWords() = runBlocking {
         val s = store()
         val said = UserUtterances()
         val page = AttachedPage.Page("https://shop.example.com/address", "收货地址是幸福路 8 号 - 地址管理")
-        val ask = ModelReply(listOf(Part.ToolCall("q1", "ask_user", """{"prompt":"用哪个地址?"}""")), StopReason.ToolUse, null)
+        val ask = ModelReply(listOf(Part.ToolCall("q1", "ask_user", """{"prompt":"どの住所を使いますか？"}""")), StopReason.ToolUse, null)
         val loop = AgentLoop(FakeModel(ask, finishReply, finishReply), toolDispatcher(FakeScreen(), memory = s, utterances = said, web = FakeWebPort()), "B", memory = s)
         val run = async { loop.run(AttachedPage.compose(page, "这一页的地址对不对")) }
         withTimeout(5_000) { loop.state.first { it is TaskState.WaitingInput } }
@@ -121,7 +121,7 @@ class AgentLoopMemoryTest {
         assertEquals(listOf("这一页的地址对不对", "就这个"), said.all)
     }
 
-    /** 在浏览器页上开局,插话带着新选中的字和 [words];返回这次记下的用户的话。 */
+    /** はブラウザ ページで開始され、新しく選択された単語と [words] で中断されます。今回録音したユーザーの言葉を返します。 */
     private suspend fun saidWithPageSteer(words: String): List<String> {
         val s = store()
         val said = UserUtterances()
@@ -132,7 +132,7 @@ class AgentLoopMemoryTest {
         return said.all
     }
 
-    // 引了 Mika 的回答:引的那段是 Mika 说的,记忆的引文不认,只收用户打的字
+    // はミカの回答を引用しました: 引用された段落はミカによって発言されました。記憶された引用は認識されず、ユーザーが入力した単語のみが受け入れられます。
     @Test fun quotedReplyIsNotTheUserWords() {
         val s = store()
         val said = UserUtterances()
@@ -149,7 +149,7 @@ class AgentLoopMemoryTest {
         assertEquals(listOf("这个地址对不对"), said.all)
     }
 
-    // 引了自己说过的话:对话页引的是他当时打的字,连那段一起收,记忆的引文照样认
+    // は彼の発言を引用しました: ダイアログ ページの引用は、彼が当時入力したものです。その段落を一緒に含めましたが、記憶した引用は依然として認識されています。
     @Test fun ownQuoteIsTheUserWords() {
         val s = store()
         val said = UserUtterances()
@@ -163,7 +163,7 @@ class AgentLoopMemoryTest {
         assertEquals(listOf("我家猫叫团子\n这个记一下"), said.all)
     }
 
-    // 带了附件:附件那几行是 App 写的路径和大小,不收
+    // が添付ファイルを持ち込んだ: 添付ファイル内の行はアプリによって書き込まれたパスとサイズであり、それらは含まれていません。
     @Test fun attachmentLinesAreNotTheUserWords() {
         val s = store()
         val said = UserUtterances()
@@ -174,7 +174,7 @@ class AgentLoopMemoryTest {
         assertEquals(listOf("总结一下"), said.all)
     }
 
-    // 插话引了 Mika 的回答:只收插话里打的字
+    // が割り込んでミカの答えを引き出しました: 割り込みで入力された単語のみが受け入れられます
     @Test fun quotedSteerAddsOnlyTheTypedWords() = runBlocking {
         val s = store()
         val said = UserUtterances()
@@ -184,11 +184,11 @@ class AgentLoopMemoryTest {
         assertEquals(listOf("帮我下单", "换成这个"), said.all)
     }
 
-    // 回答追问时引了 Mika 的回答:也只收打的字
+    // は、フォローアップの質問に答えるときにミカの答えを引用しました: 入力された単語のみが含まれます。
     @Test fun quotedAnswerAddsOnlyTheTypedWords() = runBlocking {
         val s = store()
         val said = UserUtterances()
-        val ask = ModelReply(listOf(Part.ToolCall("q1", "ask_user", """{"prompt":"送到哪个地址?"}""")), StopReason.ToolUse, null)
+        val ask = ModelReply(listOf(Part.ToolCall("q1", "ask_user", """{"prompt":"どの住所に送りますか？"}""")), StopReason.ToolUse, null)
         val loop = AgentLoop(FakeModel(ask, finishReply, finishReply), toolDispatcher(FakeScreen(), memory = s, utterances = said), "B", memory = s)
         val run = async { loop.run("帮我下单") }
         withTimeout(5_000) { loop.state.first { it is TaskState.WaitingInput } }
@@ -208,7 +208,7 @@ class AgentLoopMemoryTest {
     }
 
     private companion object {
-        /** 用户引的 Mika 之前的一句回答。 */
+        /** ユーザーは、Mika の以前の回答を引用しました。 */
         const val MIKA_ADDRESS = "你常用的收货地址是幸福路 8 号"
     }
 }

@@ -14,13 +14,13 @@ import kotlinx.serialization.json.put
 import kotlin.math.roundToInt
 
 /**
- * 给执行入口(不可逆判定、运行记录、路线)看的一次调用的目标:按哪一屏判、@vN 换成什么坐标、端口编号是什么、
- * 写操作前的目标元素与锚点。都按调用所属那块屏的读屏状态([session])看;只读,不执行任何动作。
+ * 実行入口の呼び出し対象(不可逆判定、操作記録、経路)：どの画面を判定するか、@vNをどの座標に変更するか、ポート番号は何か、
+ * 書き込み操作前のターゲット要素とアンカーポイント。すべては、通話が属する画面の画面読み取りステータス ([session]) に従って表示されます。これは読み取り専用であり、アクションは実行されません。
  */
 internal class GateView {
     fun snapshotFor(session: ScreenSession, args: JsonObject): ScreenSnapshot? {
         val id = args.argStr("snapshotId")
-        // 旧一屏的编号仍在最新一屏:动作落在最新一屏里的它,按最新一屏判(编号相同,snapshotId 照模型给的)
+        // 古い画面の番号が最新の画面に残っています: アクションが最新の画面に該当する場合、最新の画面に従って判断されます (番号は同じで、snapshotId はモデルによって与えられます)
         val ref = args.argStr("ref")
         val stabilizer = session.stabilizer
         if (stabilizer != null && id != null && ref != null && !LOCATED_REF.matches(ref)) {
@@ -41,9 +41,9 @@ internal class GateView {
     }
 
     /**
-     * 点 @vN 时换成它登记的坐标,连同找的是什么(target)、原文(text)、视觉模型看到的字(seen),按坐标点击来判;
-     * 往 @vN 上打字、清空时同样换成坐标,其余参数(回车)照留。
-     * 其余原样返回(不认识的 @vN 执行时会是 ref_expired,不会点下去)。
+     * @vNをクリックすると登録された座標に変更され、探しているもの（ターゲット）、元のテキスト（テキスト）、ビジュアルモデルで見られる単語（見られた）とともに、座標をクリックして判断します。
+     * @vN を入力してクリアすると、座標にも変更され、他のパラメーター (入力) はそのまま残ります。
+     * 残りをそのまま返します（認識しない @vN は実行時に ref_expired となりクリックされません）。
      */
     fun gateArgs(session: ScreenSession, verb: Verb?, args: JsonObject): JsonObject {
         val ref = locatedRef(verb, args) ?: return args
@@ -59,8 +59,8 @@ internal class GateView {
     }
 
     /**
-     * 登记过的 @vN,或看过 describe 之后带 target 的坐标点击(不带 target 的会被参数校验退回)。
-     * 这类点击由大小模型分工交主模型做(见 [com.wangzan101.mika.core.action.ConfirmDecision.mayBeIrreversible])。
+     * @vN を登録、または説明を表示した後、ターゲットのある座標をクリックします (ターゲットのない座標はパラメータ検証によって返されます)。
+     * このタイプのクリックは、大小のモデルとメイン モデルの分業によって行われます ([com.wangzan101.mika.core.action.ConfirmDecision.mayBeIrreversible] を参照)。
      */
     fun visionSourced(session: ScreenSession, verb: Verb?, args: JsonObject): Boolean {
         if (verb != Verb.Tap) return false
@@ -75,7 +75,7 @@ internal class GateView {
         return session.locatedInfo[ref.first]?.seen?.takeIf { it.isNotBlank() }
     }
 
-    /** 点击,和往一点上打字、清空接受 @vN。 */
+    /** クリックして入力し、クリアして @vN を受け入れます。 */
     private fun locatedRef(verb: Verb?, args: JsonObject): Pair<String, String>? {
         if (verb != Verb.Tap && verb != Verb.TypeText && verb != Verb.ClearText) return null
         val ref = args.argStr("ref")?.takeIf(LOCATED_REF::matches) ?: return null
@@ -83,14 +83,14 @@ internal class GateView {
         return ref to sid
     }
 
-    /** 路线用:写操作执行前从当时的读屏取的目标元素、锚点和那一屏。 */
+    /** ルートは、ターゲット要素、アンカー ポイント、および書き込み操作が実行される前に現在の読み取り画面から取得された画面を使用します。 */
     class Capture(val target: Selector?, val before: Anchors, val snapshot: ScreenSnapshot?)
     var capture: Capture? = null
 
     fun anchorsAfter(after: ScreenSnapshot): Anchors? = capture?.let { RouteAnchors.after(it.snapshot, after) }
 
     fun captureTarget(session: ScreenSession, verb: Verb, o: JsonObject): Capture {
-        // @vN 按登记的坐标认
+        // @vN 登録された座標による識別
         val checked = gateArgs(session, verb, o)
         val ref = checked.argStr("ref")
         val own = snapshotFor(session, checked)
@@ -104,7 +104,7 @@ internal class GateView {
         val el = when {
             ref != null -> own?.elements?.firstOrNull { it.ref == ref }
             verb == Verb.Tap && x != null && y != null -> s?.let { RouteAnchors.elementAt(it, x, y) }
-            // 输入、清空作用在有焦点的输入框
+            // 入力とフォーカスされた入力ボックスの効果をクリア
             verb == Verb.TypeText || verb == Verb.ClearText -> s?.elements?.firstOrNull { it.focused && it.editable }
             else -> null
         }

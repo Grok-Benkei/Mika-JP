@@ -18,15 +18,15 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * 真机测试:Mika 屏上的页面经另一个进程里的服务打开另一个 App(和从后台打开一样),系统把它放到主屏;
- * 点的那一下的结果要报 opened、它要被挪回 Mika 的屏,主屏最上面回到原来那个。
- * 打开哪个 App 由仪器参数 spillTarget 指定(默认系统设置);它已经有任务时不跑(挪过来再随屏销毁会丢掉那个任务)。
- * 装了两份的 App 会先问打开哪一个:那个问题不挪、留在主屏,报 picker、onUserScreen,任务等用户选;
- * 仪器参数 pickOption 给了时测试当用户在主屏上选(或 back 关掉),再看选出来的被挪回 Mika 的屏、报开的是哪一份。
+ * 実機テスト: ミカ画面上のページは、別のプロセスのサービスを通じて別のアプリを開き (バックグラウンドから開くのと同じ)、システムはそれをホーム画面に配置します。
+ * をクリックした結果は、開いたことが報告され、Mika の画面に戻り、メイン画面の上部が元の画面に戻ります。
+ * どのアプリを開くかは、機器パラメータ SpilTarget (デフォルトのシステム設定) によって指定されます。すでにタスクがある場合は実行されません（タスクを上に移動して画面で破棄すると、そのタスクが失われます）。
+ * インストールされているアプリが 2 つある場合、どちらを最初に開くかを尋ねられます。質問は移動されず、ホーム画面に残り、ユーザーはピッカー、onUserScreen、タスクなどを選択できます。
+ * 機器パラメータ pickOption が指定されている場合、ユーザーがメイン画面で選択したとき (または元の画面に戻ったとき) をテストし、どれが Mega 画面に戻り、どれがレポートされるかを確認します。
  */
 @RunWith(AndroidJUnit4::class)
 class MainScreenSpillDeviceTest {
-    // 和任务里一样,屏的尺寸、密度同主屏:挪过来的页面不必因尺寸变了重建(系统的选择框重建时会自己关掉)
+    // はタスク内と同じで、画面のサイズと密度はメイン画面と同じです。移動されたページはサイズ変更により再構築する必要はありません (システム選択ボックスは再構築時に自動的に閉じられます)。
     private val agent = run {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
         val m = android.util.DisplayMetrics().also {
@@ -43,15 +43,15 @@ class MainScreenSpillDeviceTest {
 
     @After
     fun tearDown() {
-        // 没挪回来时,把留在主屏上的那个挪到 Mika 的屏,随屏一起销毁
+        // が戻らない場合は、メイン画面に残っているものをミカの画面に移動し、画面ごと破壊します。
         val main = shell.topTaskId(Display.DEFAULT_DISPLAY)
-        // 中途失败、问题还留在主屏上:按返回关掉它
+        // が途中で失敗し、問題がホーム画面に残ります。Return キーを押して閉じます。
         screen.userPick.value?.let { p -> if (main >= 0 && shell.packageOfTask(main) == p.packageName) sh("input keyevent 4") }
         if (main >= 0 && shell.packageOfTask(main) == target) shell.moveTask(main, agent.display.displayId)
         agent.release()
     }
 
-    /** 仪器参数 allowExisting=true 时也跑(那个任务会被挪过来、随屏关掉,和从最近任务里划掉一样)。 */
+    /** は、機器パラメーターallowExisting=true の場合にも実行されます (そのタスクは、最近のタスクに取り消し線を引くのと同じように、画面上に移動して閉じられます)。 */
     private fun noTaskYet() {
         if (InstrumentationRegistry.getArguments().getString("allowExisting") == "true") return
         assumeFalse("$target already has a task",
@@ -66,7 +66,7 @@ class MainScreenSpillDeviceTest {
         return s!!
     }
 
-    /** 对照:不经 Mika 的动作、直接往 Mika 的屏上注入一下点按,开出来的落在主屏(这就是要修的现象)。 */
+    /** コントロール: ミカのアクションなしで、ミカの画面に直接クリックを入力すると、結果がホーム画面に落ちます (これは修復が必要な現象です)。 */
     @Test
     fun withoutTheWatchTheLaunchLandsOnTheMainScreen() = runBlocking<Unit> {
         noTaskYet()
@@ -101,13 +101,13 @@ class MainScreenSpillDeviceTest {
             assertEquals("main screen top did not come back", mainBefore, pollUntil(3_000) { shell.topTaskId(Display.DEFAULT_DISPLAY).takeIf { it == mainBefore } })
             return@runBlocking
         }
-        // 系统在用户屏上问打开哪一个:不挪、不重开,留在主屏等用户选
+        // システムは、ユーザー画面でどれを開くかを尋ねます。移動したり再度開いたりせず、ホーム画面に留まり、ユーザーが選択するまで待ちます。
         assertTrue("question was moved: $opened", !opened.pulledBack && opened.onUserScreen)
         val chooserTask = shell.topTaskId(Display.DEFAULT_DISPLAY)
         assertEquals("question is not on the main screen", opened.packageName, shell.packageOfTask(chooserTask))
         assertNotNull("run is not waiting for the user", screen.userPick.value)
         assertEquals("Mika's screen changed", SpillTestActivity::class.java.name, shell.topActivity(vd))
-        // 仪器参数 pickOption=<第几个,从 0 起> 或 back:这时测试当用户,在主屏上点那个选项(或按返回关掉问题)
+        // 機器パラメータ pickOption=<数値、0 から始まる> または戻る: ユーザーとしてテストする場合、メイン画面でそのオプションをクリックします (または Return キーを押して質問を閉じます)
         val pick = InstrumentationRegistry.getArguments().getString("pickOption") ?: return@runBlocking
         if (pick == "back") sh("input keyevent 4")
         else {
@@ -121,7 +121,7 @@ class MainScreenSpillDeviceTest {
             sh("input tap ${option!!.centerX} ${option.centerY}")
         }
         val settled = screen.awaitUserPick()
-        // 选出来的要用户亲手处理:这时测试当用户点了继续
+        // 選択した項目はユーザーが処理する必要があります: この時点で、ユーザーが [続行] をクリックすると、テストが実行されます。
         if (settled is AndroidScreen.PickResult.NeedsUser) screen.afterUserStep(settled)
         val after = screen.snapshot()
         val top = shell.topTaskId(vd)

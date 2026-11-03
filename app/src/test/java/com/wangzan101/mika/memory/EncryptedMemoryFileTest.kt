@@ -44,7 +44,7 @@ class EncryptedMemoryFileTest {
     private fun brokenFiles() = memDir().listFiles { f -> f.name.startsWith("memory.bin.broken-") }.orEmpty().toList()
 
     @Test fun roundTrip() {
-        assertEquals(emptyList<MemoryItem>(), file().load()) // 没有文件 = 空,不算坏
+        assertEquals(emptyList<MemoryItem>(), file().load()) // ファイルなし = 空、悪くない
         file().save(items)
         val f = file()
         assertEquals(items, f.load())
@@ -70,7 +70,7 @@ class EncryptedMemoryFileTest {
         assertArrayEquals(original, broken.readBytes())
         assertFalse(bin.exists())
         assertEquals(broken.name, f.brokenNotice.value)
-        // 之后的写入不碰另存的文件
+        // 以降の書き込みは保存されたファイルには影響しません
         f.save(items.take(1))
         assertArrayEquals(original, broken.readBytes())
         assertEquals(items.take(1), file(other).load())
@@ -111,7 +111,7 @@ class EncryptedMemoryFileTest {
 
     @Test fun wipeRemovesFile() {
         file().save(items)
-        file(KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()).load() // 产生一份另存
+        file(KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()).load() // は保存を生成します
         file().save(items)
         val f = file()
         f.wipe()

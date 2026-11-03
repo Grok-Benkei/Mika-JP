@@ -8,24 +8,24 @@ import java.net.InetAddress
 import java.net.UnknownHostException
 
 /**
- * 下载能取哪些地址:先过 [WebUrlPolicy.checkNavigable](与 web_navigate 同一条规则),再不许本机、局域网与保留地址。
- * 下载是 App 自己在后台发请求,页面借它就能摸到手机所在局域网里的设备,所以比打开网页更严。
- * 每一次跳转、每一次域名解析都按这条规则查([guardedDns] 挡住解析到内网的域名)。
+ * からダウンロードできるアドレス: まず [WebUrlPolicy.checkNavigable] (web_navigate と同じルール) に移動します。その後、ローカル、LAN、および予約されたアドレスは許可されません。
+ * をダウンロードするとき、アプリ自体がバックグラウンドでリクエストを送信し、ページはそれを使用して電話が配置されているローカル エリア ネットワーク内のデバイスにアクセスできるため、Web ページを開くよりも厳格です。
+ * すべてのジャンプとすべてのドメイン名解決は、このルールに従ってチェックされます ([guardedDns] は、イントラネットに解決されるドメイン名をブロックします)。
  */
 object DownloadAddressPolicy {
-    /** 不能取的原因;能取为 null。 */
+    /** が取れない理由; null として受け取ることができます。 */
     fun refusal(url: String): String? {
         WebUrlPolicy.checkNavigable(url)?.let { return it }
         val host = url.toHttpUrlOrNull()?.host ?: return "not a web address"
         return if (blockedHost(host)) "local or private network address" else null
     }
 
-    /** 本机或局域网的名字,或字面上就是内网/保留的 IP。普通域名要等解析后由 [guardedDns] 判。 */
+    /** このマシンまたは LAN の名前、または文字通りイントラネット/予約済み IP。通常のドメイン名は解決後、[guardedDns] によって決定されます。 */
     fun blockedHost(host: String): Boolean {
         val h = host.trim().trimEnd('.').lowercase().removePrefix("[").removeSuffix("]")
         if (h.isEmpty() || h == "localhost" || LOCAL_SUFFIXES.any { h.endsWith(it) }) return true
         if (!IPV4.matches(h) && ':' !in h) return false
-        // 字面 IP:getByName 不查 DNS
+        // リテラル IP:getByName は DNS をチェックしません
         val a = runCatching { InetAddress.getByName(h) }.getOrNull() ?: return true
         return blockedAddress(a)
     }
@@ -37,7 +37,7 @@ object DownloadAddressPolicy {
             is Inet4Address -> blockedV4(b)
             is Inet6Address -> {
                 val u0 = b[0].toInt() and 0xff
-                // fc00::/7 唯一本地;::ffff:a.b.c.d 与 64:ff9b::/96 内嵌的 IPv4 按 IPv4 判
+                // fc00::/7 固有のローカル;::ffff:a.b.c.d および 64:ff9b::/96 埋め込み IPv4 が IPv4 によって判断される
                 (u0 and 0xfe) == 0xfc ||
                     (b.copyOfRange(0, 10).all { it == 0.toByte() } && b[10] == 0xff.toByte() && b[11] == 0xff.toByte() && blockedV4(b.copyOfRange(12, 16))) ||
                     (b.copyOfRange(0, 12).contentEquals(NAT64) && blockedV4(b.copyOfRange(12, 16)))
@@ -54,7 +54,7 @@ object DownloadAddressPolicy {
             (o0 == 192 && o1 == 168) || (o0 == 192 && o1 == 0 && (b[2].toInt() and 0xff) == 0) || (o0 == 198 && o1 in 18..19)
     }
 
-    /** 解析到的地址里有一个是内网/保留地址就整个拒绝([BlockedAddress])。 */
+    /** 解決されたアドレスの 1 つがイントラネット/予約アドレスである場合、アドレス全体が拒否されます ([BlockedAddress])。 */
     fun guardedDns(delegate: Dns = Dns.SYSTEM): Dns = object : Dns {
         override fun lookup(hostname: String): List<InetAddress> {
             if (blockedHost(hostname)) throw BlockedAddress(hostname)

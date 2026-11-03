@@ -10,7 +10,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 双击还是单击、截下的屏幕发进哪个对话、带屏幕的话在列表里怎么称呼。 */
+/** ダブルクリックまたはシングルクリック、スクリーンショットをどの会話に送信するか、画面がある場合はリスト内でどのように呼び出すか。 */
 class ScreenSendTest {
     @get:Rule val texts = ChineseTexts()
 
@@ -18,7 +18,7 @@ class ScreenSendTest {
         val t = DoubleTap(300)
         assertEquals(DoubleTap.Tap.First, t.tap(1_000))
         assertEquals(DoubleTap.Tap.Double, t.tap(1_250))
-        // 双击之后到时也不再算单击
+        // ダブルクリックはシングルクリックとしてカウントされなくなりました。
         assertFalse(t.settle(1_400))
     }
 
@@ -27,7 +27,7 @@ class ScreenSendTest {
         assertEquals(DoubleTap.Tap.First, t.tap(1_000))
         assertFalse(t.settle(1_200))
         assertTrue(t.settle(1_300))
-        assertFalse("只算一次", t.settle(1_400))
+        assertFalse("1 回だけ数える", t.settle(1_400))
     }
 
     @Test fun lateSecondTapStartsOver() {
@@ -53,11 +53,11 @@ class ScreenSendTest {
         val done = run("b", "c2", TaskState.Succeeded("好"), CapsuleKind.Done)
         assertEquals("c1", CapsuleCards.conversationOf(CapsuleCards.of(listOf(running), null)!!))
         assertEquals("c2", CapsuleCards.conversationOf(CapsuleCards.of(listOf(done), null)!!))
-        // 空闲卡片:接着最近的对话;选了新对话时由调用方新开
+        // アイドル カード: 最新の会話を継続します。新しい会話が選択されると、発信者によって会話が開かれます
         assertEquals("c9", CapsuleCards.conversationOf(CardView.Chat("c9", title = "t")))
         assertNull(CapsuleCards.conversationOf(CardView.Chat("c9", fresh = true)))
         assertNull(CapsuleCards.conversationOf(CardView.Chat(null)))
-        // 好几件事时卡片只说排在最前的那件,屏幕发给它所在的对话
+        // 複数の内容がある場合、カードには一番上のものだけが表示され、画面はそれが参加している会話に送信します。
         val several = CapsuleCards.of(listOf(running, done))!!
         assertEquals(CardInputKind.Steer, CapsuleCards.input(several)?.kind)
         assertEquals("c1", CapsuleCards.conversationOf(several))

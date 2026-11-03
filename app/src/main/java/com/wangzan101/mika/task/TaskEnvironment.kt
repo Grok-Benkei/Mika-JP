@@ -10,33 +10,33 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 
 /**
- * 任务从 App 拿的:模型从哪来、评测钩子、显示中的任务此刻有没有屏幕画面。整个进程一份,由 App 给出;
- * 测试换掉里面的模型来源与钩子。
+ * タスクはアプリから取得されます。モデルの取得元、評価フック、表示されているタスクに現時点で画面イメージがあるかどうかがわかります。プロセス全体のコピーがアプリによって提供されます。
+ * は、モデルのソースと内部のフックを置き換えるテストを行います。
  */
 class TaskEnvironment {
-    /** 显示中的任务的虚拟屏编号;没有任务、或还没建过屏(用到系统命令、事件工具或第一次打开 App 时才建)时为 -1。 */
+    /** 表示されているタスクの仮想スクリーン番号。タスクがない場合、または画面がまだ作成されていない場合（システムコマンド、イベントツール、またはアプリを初めて開いたときに作成されます）の場合は-1です。 */
     val agentDisplayId = MutableStateFlow(-1)
-    /** 显示中的任务已经在虚拟屏上打开过 App(屏建好了不算:只跑系统命令时屏是空的)。 */
+    /** によって表示されているタスクは、仮想画面上ですでにアプリを開いています (画面の構築後はカウントされません。システム コマンドを実行しているだけの場合、画面は空です)。 */
     val agentAppShown = MutableStateFlow(false)
-    /** 显示中的任务正在用内置浏览器(画中画要显示网页画面)。 */
+    /** 表示されているタスクは内蔵ブラウザを使用しています (ピクチャーインピクチャーで Web ページを表示する必要があります)。 */
     val webScreenOpen = MutableStateFlow(false)
-    /** 画中画有画面可看:虚拟屏上打开过 App,或在用内置浏览器。只建了空屏的任务不算。 */
+    /** ピクチャーインピクチャーで表示する画像があります。仮想画面上でアプリが開かれているか、内蔵ブラウザーが使用されています。空白の画面を作成するだけのタスクはカウントされません。 */
     val previewOpen: Flow<Boolean> = combine(agentAppShown, webScreenOpen) { app, web -> app || web }
 
-    // 三个工厂的 ModelSession 是这次调用属于的对话(ModelSession.of(对话 id)):同一段对话里建的模型都给同一个,
-    // 服务商要会话号的就照它路由、复用缓存
+    // 3 つのファクトリの ModelSession は、この呼び出しが属する会話 (ModelSession.of(conversation id)) です。同じ会話で構築されたモデルはすべて同じものに与えられます。
+    // サービスプロバイダーがセッション番号を必要とする場合は、それに応じてルーティングとキャッシュを行うだけです。
 
-    /** 主模型来自设置里的模型配置;测试可换成脚本模型。 */
+    /** のメイン モデルは、設定のモデル構成から取得されます。テストはスクリプト モデルに置き換えることができます。 */
     @Volatile var modelFactory: (Context, ModelSession) -> ChatModel? = defaultModelFactory
-    /** 轻量模型(列成功标准等);为空时由主模型兼任。测试换主模型时一并换掉,免得调到设置里的真模型。 */
+    /** 軽量モデル (成功基準などのリスト);空の場合、メイン モデルがモデルとして機能します。メインモデルをテストする場合は、設定で実際のモデルに合わせることを避けるために、メインモデルも一緒に置き換えてください。 */
     @Volatile var lightModelFactory: (Context, ModelSession) -> ChatModel? = defaultLightModelFactory
-    /** 视觉模型(核查时看截图);设置里没有能看图的模型时为空。 */
+    /** ビジュアル モデル (チェックする際はスクリーンショットを参照してください)。設定で表示できるモデルがない場合は空です。 */
     @Volatile var visionModelFactory: (Context, ModelSession) -> ChatModel? = defaultVisionModelFactory
 
-    /** 评测跑器用的钩子;产品里全是默认值。 */
+    /** 実行中のマシンを評価するために使用されるフック。すべての製品にはデフォルト値があります。 */
     val evalHooks = EvalHooks()
 
-    /** 给出进程里那一份的 Application。 */
+    /** はプロセス中のアプリケーションを示します。 */
     interface Owner {
         val tasks: TaskEnvironment
     }

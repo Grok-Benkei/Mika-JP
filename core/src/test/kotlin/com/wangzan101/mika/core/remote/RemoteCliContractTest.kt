@@ -9,12 +9,12 @@ import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
-/** 运行真实 Python CLI,连真实 Kotlin HTTP 服务。与纯 JVM 测试分开由 :core:cliTest 运行。 */
+/** は、実際の Kotlin HTTP サービスに接続された実際の Python CLI を実行します。純粋な JVM テストとは別に :core:cliTest によって実行されます。 */
 class RemoteCliContractTest {
     @Test fun realCliCompletesLifecycleOverThePlainApiOnly() {
         val tasks = FakeRemoteTasks()
         val host = RemoteHost(tasks, { "contract-test-token" }, 0, false, "test")
-        // 自己起监听、记下 CLI 请求过的路径,核对它一次也没走 MCP。
+        // は自身で監視を開始し、CLI で要求されたパスを記録し、MCP を一度も経由せずに確認しました。
         val paths = java.util.Collections.synchronizedList(mutableListOf<String>())
         val server = MiniHttpServer(RemoteHost.bindAddress(false, 0), { req -> paths += req.path; host.handle(req) })
         val directory = Files.createTempDirectory("mika-cli-contract").toFile()
@@ -26,7 +26,7 @@ class RemoteCliContractTest {
             fun cli(vararg args: String, exit: Int = 0): JsonObject {
                 val process = ProcessBuilder(listOf(System.getProperty("mika.python", "python3"), script,
                     "--url", "http://127.0.0.1:${server.port}", "--token-file", token.absolutePath, "--json") + args)
-                    // stderr 是给人看的进度,stdout 只有 JSON:分开读,口令两边都不许出现
+                    // stderr は人々が見ることができる進行状況であり、stdout は JSON のみであり、個別に読み取られ、パスワードのどちらの側も表示することは許可されません。
                     .directory(directory).redirectError(errors).start()
                 if (!process.waitFor(10, TimeUnit.SECONDS)) {
                     process.destroyForcibly()

@@ -11,7 +11,7 @@ class SensitiveFilterTest {
         assertEquals("password", SensitiveFilter.hit("支付密码是123456"))
         assertNotNull(SensitiveFilter.hit("门禁口令:8866"))
         assertNotNull(SensitiveFilter.hit("123456是我的密码"))
-        assertNull(SensitiveFilter.hit("用户忘了密码时会找客服")) // 只有关键词,不带数字字母串
+        assertNull(SensitiveFilter.hit("用户忘了密码时会找客服")) // にはキーワードのみがあり、英数字の文字列はありません
     }
 
     @Test fun verificationCodeHit() {
@@ -26,8 +26,8 @@ class SensitiveFilterTest {
     }
 
     @Test fun idFormatWithBadDateOrCheckDigitNotId() {
-        assertNotEquals("id_number", SensitiveFilter.hit("单号 440308199001011234")) // 校验位不对
-        assertNotEquals("id_number", SensitiveFilter.hit("单号 110105194913310021")) // 13 月
+        assertNotEquals("id_number", SensitiveFilter.hit("单号 440308199001011234")) // チェックデジットが間違っています
+        assertNotEquals("id_number", SensitiveFilter.hit("单号 110105194913310021")) // 13ヶ月
     }
 
     @Test fun fullWidthAndSpacedDigitsHit() {
@@ -45,7 +45,7 @@ class SensitiveFilterTest {
     @Test fun luhnCardHit() {
         assertEquals("card_number", SensitiveFilter.hit("卡号 4111111111111111"))
         assertEquals("card_number", SensitiveFilter.hit("卡号 4111 1111 1111 1111"))
-        assertEquals("card_number", SensitiveFilter.hit("卡号6222020200112233446")) // 19 位,过 Luhn
+        assertEquals("card_number", SensitiveFilter.hit("卡号6222020200112233446")) // 19 ビット、Luhn に合格
     }
 
     @Test fun nonLuhnLongNumberNotHit() {
@@ -56,7 +56,7 @@ class SensitiveFilterTest {
         assertNull(SensitiveFilter.hit("我手机号 13800138000"))
         assertNull(SensitiveFilter.hit("寄到浦东张江路 100 号"))
         assertNull(SensitiveFilter.hit("用户的妈妈在微信里备注为『老妈』,生日 1960-05-01"))
-        assertNull(SensitiveFilter.hit("用户把便签置顶 pinned 了 2024 年的计划")) // pin 要整词
+        assertNull(SensitiveFilter.hit("用户把便签置顶 pinned 了 2024 年的计划")) // ピンにはワード全体が必要です
     }
 
     @Test fun apiKeyHit() {

@@ -18,12 +18,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 
 /**
- * 配对时借 Mika 的无障碍服务读出系统配对窗口上的配对码,读到就直接配对,用户不用去通知里填。
- * 只在 [PairingCoordinator] 开着的这段时间里跑,只看系统设置的窗口;读到的码不写日志。
- * 无障碍没开就什么也不做,配对照样走通知。
+ * をペアリングするときは、Mika のアクセシビリティ サービスを使用して、システムのペアリング ウィンドウにあるペアリング コードを読み取ります。それを読んだ後は、ユーザーが通知に記入する必要がなく、直接ペアリングされます。
+ * は、[PairingCoordinator] がオンになっている期間中にのみ実行され、システム設定ウィンドウのみを表示します。読み取ったコードはログに書き込まれません。
+ * アクセシビリティがオンになっていない場合、何も行われず、マッチング時に通知が送信されます。
  */
 internal object PairingCodeReader {
-    /** 窗口内容常常分几次刷出来,等它稳一下再读。 */
+    /** ウィンドウの内容は頻繁に数回更新されるため、安定するまで待ってから読み取ります。 */
     private const val SETTLE_MS = 300L
     private const val MAX_NODES = 400
 
@@ -49,7 +49,7 @@ internal object PairingCodeReader {
         }
     }
 
-    /** 每个系统设置窗口各读一次:配对码和端口要在同一个窗口里(配对窗口下面那页也有一个「IP:端口」)。 */
+    /** 各システム設定ウィンドウを 1 回読み取ります。ペアリング コードとポートは同じウィンドウ内にある必要があります (ペアリング ウィンドウの下のページにも「IP:ポート」があります)。 */
     private fun readings(service: ScreenAccessibility, settings: String): List<PairingScreenReading> =
         service.windowsOn(Display.DEFAULT_DISPLAY).mapNotNull { w ->
             val root = runCatching { w.root }.getOrNull() ?: return@mapNotNull null

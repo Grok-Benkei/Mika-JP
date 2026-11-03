@@ -4,12 +4,12 @@ import com.wangzan101.mika.core.workspace.WorkspaceFileGate
 import java.io.File
 
 /**
- * PRoot 里能看到的 /dev。不绑整个 /dev:`/dev/socket/`(比如 dnsproxyd,经它能让系统替沙箱做域名解析)
- * 和 binder 设备(`/dev/binder`、`/dev/hwbinder`、`/dev/vndbinder`,经系统服务能把数据带出去)
- * 都能绕过断网,所以只绑下面这些字符设备;`/dev/fd`、`/dev/stdin` 等在根文件系统里建成指向 /proc 的符号链接。
+ * PROot に表示されます。 /dev:`/dev/socket/` 全体をバインドしないでください (システムがサンドボックスのドメイン名解決を実行できるようにする dnsproxyd など)
+ * およびバインダー デバイス (`/dev/binder`、`/dev/hwbinder`、`/dev/vndbinder`、システム サービスを通じてデータを持ち出すことができます)
+ * はネットワーク切断をバイパスできるため、次のキャラクター デバイスのみがバインドされます。 `/dev/fd`、`/dev/stdin` などは、ルート ファイル システムの /proc を指すシンボリック リンクを作成します。
  */
 object ProotDevices {
-    /** 宿主上存在才绑;同一路径绑到沙箱里同一位置。 */
+    /** は、ホスト上に存在する場合にのみバインドされます。同じパスはサンドボックス内の同じ場所にバインドされます。 */
     val DEVICE_BINDS = listOf(
         "/dev/null",
         "/dev/zero",
@@ -20,7 +20,7 @@ object ProotDevices {
         "/dev/pts",
     )
 
-    /** 根文件系统 /dev 里的符号链接:名字 → 目标。 */
+    /** ルート ファイル システム /dev のシンボリック リンク: 名前 → ターゲット。 */
     val DEV_SYMLINKS = linkedMapOf(
         "fd" to "/proc/self/fd",
         "stdin" to "/proc/self/fd/0",
@@ -28,11 +28,11 @@ object ProotDevices {
         "stderr" to "/proc/self/fd/2",
     )
 
-    /** PRoot 的 `-b` 参数(只含宿主上存在的设备)。 */
+    /** PRoot の `-b` パラメータ (ホスト上に存在するデバイスのみが含まれます)。 */
     fun bindArgs(exists: (String) -> Boolean = { File(it).exists() }): List<String> =
         DEVICE_BINDS.filter(exists).flatMap { listOf("-b", it) }
 
-    /** 在根文件系统里建 /dev 目录和 [DEV_SYMLINKS];已是对的不动。经关口:dev 被换成链接时不会建到外面去。 */
+    /** /dev ディレクトリと [DEV_SYMLINKS] を作成するのは正しいです。ルートファイルシステム内。 link:dev を置き換えると、外部にはビルドされません。 */
     fun prepareRootfsDev(rootfs: File, gate: WorkspaceFileGate) {
         for ((name, target) in DEV_SYMLINKS) gate.symlink(rootfs, "dev/$name", target)
     }

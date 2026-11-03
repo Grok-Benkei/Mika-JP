@@ -45,7 +45,7 @@ class ToolDispatcherVisionTest {
         assertEquals("unknown_tool", toolDispatcher(LocScreen()).execute(call("phone_find_visually", """{"target":"x"}""")).content.s("error"))
         val withVision = dispatcher(LocScreen()).definitions().map { it.name }
         assertTrue("phone_find_visually" in withVision); assertTrue("phone_describe" in withVision)
-        // 看图模型和主模型能不能看图是两回事:screenshot 仍只跟着主模型
+        // 写真を表示するためのモデルと、メイン モデルが写真を表示できるかどうかは 2 つの別のことです。スクリーンショットは依然としてメイン モデルにのみ従います。
         assertFalse("phone_screenshot" in withVision)
     }
 
@@ -66,14 +66,14 @@ class ToolDispatcherVisionTest {
         val d = dispatcher(s)
         val r = d.tapRef(d.locateWlan())
         assertEquals(r.toString(), "true", r.s("ok"))
-        // 登记的是 0–999 坐标,按屏幕像素点(M1 的坐标点击,带动作后核实)
+        // は、画面のピクセルに従って 0 ～ 999 の座標を登録します (アクション後に M1 の座標をクリックして確認します)。
         assertEquals(listOf("540,312"), s.taps)
         assertEquals("true", r.s("changed"))
         assertEquals("WLAN", r.s("located"))
     }
 
     @Test fun unbackedPointOnAnEmptyTreeIsTappableAndSaysSo() = runTest {
-        // 定位准度没验证过的看图模型,树里什么都没有:点照样能点,结果说明它没佐证、要看效果
+        // 映像視聴モデルの測位精度は未検証です。ツリーには何もありませんが、まだクリックできます。結果は、裏付けとなる証拠はなく、効果に依存していることを示しています。
         val model = com.wangzan101.mika.core.agent.FakeModel(
             *listOf("""{"bbox_2d":[0,880,1000,940],"seen":"输入框"}""", "是").map {
                 com.wangzan101.mika.core.model.ModelReply(listOf(Part.Text(it)), com.wangzan101.mika.core.model.StopReason.EndTurn, null)
@@ -99,7 +99,7 @@ class ToolDispatcherVisionTest {
         s.show(FRAME_A)
         assertEquals("ref_expired", d.tapRef(ref.first to "loc_other").s("error"))
         assertTrue(s.taps.isEmpty())
-        // 画面变了的 @v 也不能拿来往那一点上打字
+        // 画面が @v に変更され、その点で入力することができなくなりました。
         s.show(FRAME_B)
         assertEquals("ref_expired", d.execute(call("phone_type_text", """{"text":"a","ref":"${ref.first}","snapshotId":"${ref.second}"}""")).content.s("error"))
         assertTrue(s.taps.isEmpty())
@@ -110,14 +110,14 @@ class ToolDispatcherVisionTest {
         val d = dispatcher(s)
         val ref = d.locateWlan()
         d.execute(call("phone_list_elements"))
-        assertEquals("读屏不清空", "true", d.tapRef(ref).s("ok"))
+        assertEquals("画面の読み取りでは内容を消去しません", "true", d.tapRef(ref).s("ok"))
         val again = d.locateWlan()
         d.execute(call("phone_back"))
         assertEquals("ref_expired", d.tapRef(again).s("error"))
         assertEquals(listOf("540,312", "phone_back"), s.taps)
     }
 
-    // 复审小项:换算像素按此刻的一屏,不按模型上次读的
+    // レビュー項目: モデルの最後に読み取られたものではなく、現在の画面に従ってピクセルを変換します。
     @Test fun tapVRefUsesFreshScreenSize() = runTest {
         val s = LocScreen(listOf(wlan))
         val d = dispatcher(s)
@@ -135,7 +135,7 @@ class ToolDispatcherVisionTest {
         val r = d.execute(call("phone_tap", """{"x":500,"y":130}""")).content
         assertEquals("invalid_arguments", r.s("error")); assertTrue(r.s("message"), "target" in r.s("message"))
         assertEquals("true", d.execute(call("phone_tap", """{"x":500,"y":130,"target":"WLAN"}""")).content.s("ok"))
-        // 写操作之后恢复普通的坐标点击
+        // は書き込み操作後に通常の座標クリックを復元します
         assertEquals("true", d.execute(call("phone_tap", """{"x":500,"y":130}""")).content.s("ok"))
         val vs = Json.parseToJsonElement("""{"x":1,"y":1,"target":"x"}""").jsonObject
         assertFalse(d.interfaces.actionTarget(d.declared("phone_tap"), vs).bySight)
@@ -162,7 +162,7 @@ class ToolDispatcherVisionTest {
         val g = d.interfaces.actionTarget(d.declared("phone_tap"), args).args
         assertEquals(listOf("500", "130", "WLAN", "WLAN"), listOf(g.s("x"), g.s("y"), g.s("target"), g.s("text")))
         assertTrue(d.interfaces.actionTarget(d.declared("phone_tap"), args).bySight)
-        // 别的点击、不认识的 @v 原样交回
+        // その他のクリック、不明なもの @v そのまま返す
         val e = Json.parseToJsonElement("""{"ref":"@e1","snapshotId":"s"}""").jsonObject
         assertEquals(e, d.interfaces.actionTarget(d.declared("phone_tap"), e).args)
         val gone = Json.parseToJsonElement("""{"ref":"@v9","snapshotId":"loc_x"}""").jsonObject

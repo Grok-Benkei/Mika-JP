@@ -13,25 +13,25 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /**
- * 用 xAI / Grok 订阅登录,再直接调 xAI 自己的 Responses 接口(`https://api.x.ai/v1/responses`)。
+ * xAI / Grok サブスクリプションを使用してログインし、xAI 独自の応答インターフェイス (`https://api.x.ai/v1/responses`) を直接調整します。
  *
- * 客户端身份复用 xAI 官方命令行工具的公开登录入口(公开 client_id,不是 xAI 给 Mika 注册的应用)。xAI 可能不支持这种用法,
- * 有账号被限制的风险;界面在登录前写明,不点就不发生。发现文档里的地址必须是 https 且主机是 [HOST],
- * 对不上就拒绝,不去连。刷新令牌走同一家的令牌端点。
+ * クライアント ID の再利用 xAI 公式コマンド ライン ツールのパブリック ログイン入口 (パブリック client_id、Mika 用に xAI によって登録されたアプリケーションではありません)。 xAI はこの使用法をサポートしていない可能性があります。
+ * アカウントが制限されるリスクがあります。インターフェイスにはログイン前にこれが表示されますが、それをクリックしない限り表示されません。ドキュメント内のアドレスは https である必要があり、ホストは [HOST] であることがわかります。
+ * が一致しない場合は、拒否して接続しないでください。リフレッシュ トークンは同じトークン エンドポイントを通過します。
  */
 class XaiAuth(
     private val http: OkHttpClient,
     private val issuer: String = ISSUER,
     private val clientId: String = CLIENT_ID,
-    /** 令牌、发现、设备码端点允许的主机。默认只有 auth.x.ai。测试里换成本机。 */
+    /** トークン、ディスカバリー、デバイス コード エンドポイントがホストを許可しました。デフォルトでは auth.x.ai のみがあります。テスト中は、ローカル マシンに切り替えます。 */
     private val issuerHosts: Set<String> = setOf(HOST),
-    /** 给用户打开的验证页允许的主机。 */
+    /** は、ユーザーが開いた検証ページで許可されたホストを示します。 */
     private val verifyHosts: Set<String> = setOf(HOST, "accounts.x.ai"),
     private val now: () -> Long = System::currentTimeMillis,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** 读 OIDC 发现文档,只留下主机核对过的设备码和令牌地址。 */
+    /** は OIDC 検出ドキュメントを読み取り、ホストによって検証されたデバイス コードとトークン アドレスのみを残します。 */
     suspend fun discover(): XaiEndpoints {
         val docUrl = OauthUrls.check(issuer.trimEnd('/') + "/.well-known/openid-configuration", issuerHosts)
         val raw = get(docUrl.toString())
@@ -81,7 +81,7 @@ class XaiAuth(
         )
     }
 
-    /** 用刷新令牌换一组新的。地址按登录时记下的签发方,主机仍要在允许名单里。 */
+    /** リフレッシュ トークンを新しいセットと交換します。このアドレスはログイン時に記録された発行者であり、ホストはまだ許可リストに含まれている必要があります。 */
     suspend fun refresh(session: AccountSession): OauthTokenResult {
         if (session.refreshToken.isEmpty()) return OauthTokenResult.Rejected("no_refresh_token", terminal = true)
         val issuer = session.issuer.ifBlank { this.issuer }.trimEnd('/')
@@ -130,7 +130,7 @@ class XaiAuth(
         return copy(verificationUri = verify, verificationUriComplete = complete)
     }
 
-    /** 给人看的身份:优先用 userinfo;失败就从 ID 令牌的声明里读(只用于显示,不拿它做授权)。读不到就留空。 */
+    /** 他の人に示される ID: 最初に userinfo を使用します。失敗した場合は、ID トークンのステートメントから読み取ります (表示のみに使用され、承認には使用されません)。読み取れない場合は空白のままにしてください。 */
     private suspend fun identity(userinfoUrl: String?, tokens: OauthTokens): Pair<String, String> {
         if (userinfoUrl != null) {
             val raw = try {
@@ -168,16 +168,16 @@ class XaiAuth(
         const val PROVIDER = "xai"
         const val HOST = "auth.x.ai"
         const val ISSUER = "https://auth.x.ai"
-        /** xAI 官方命令行工具的公开客户端。不是给 Mika 注册的,复用有风险,见界面上的说明。 */
+        /** xAI 公式コマンドラインツールのパブリッククライアント。ミカさんは登録されていません。再利用にはリスクが伴います。インターフェースの説明を参照してください。 */
         const val CLIENT_ID = "b1a00492-073a-47ea-816f-4c329264a828"
         const val SCOPE_CLI = "grok-cli:access"
         const val SCOPE_API = "api:access"
         const val SCOPES = "openid profile email offline_access $SCOPE_CLI $SCOPE_API"
-        /** 订阅登录调用的接口根:xAI 自己的 Responses,不转成别的协议。 */
+        /** サブスクリプション ログイン呼び出しのインターフェイス ルート: xAI 独自の応答。他のプロトコルには変換されません。 */
         const val API_BASE = "https://api.x.ai/v1"
         private const val FALLBACK_VERIFY = "https://accounts.x.ai/oauth2/device"
 
-        /** ID 令牌中间一段的声明,解不开就空。不验签:只用来显示邮箱。 */
+        /** ID はトークンの途中にあるステートメントです。デコードできない場合は空になります。署名検証なし: 電子メール アドレスを表示するためにのみ使用されます。 */
         fun idClaims(idToken: String?): Pair<String, String> {
             val payload = idToken?.split('.')?.getOrNull(1) ?: return "" to ""
             val bytes = runCatching {

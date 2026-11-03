@@ -15,14 +15,14 @@ import com.wangzan101.mika.i18n.AppLanguage
 import kotlinx.coroutines.flow.Flow
 import java.util.Locale
 
-/** 手机上登记的一个识别服务,见 [SystemSpeech.services]。[component] 是「包名/类名」的短写。 */
+/** 携帯電話に登録された識別サービス。[SystemSpeech.services] を参照。 [component] は「パッケージ名/クラス名」の略称です。 */
 data class RecognizerService(val component: String, val open: Boolean, val permission: String?)
 
-/** 手机自带识别:能力检测、错误码怎么归类、识别用的语言。 */
+/** 携帯電話には、能力検出、エラー コードの分類方法、識別に使用される言語といった識別機能が組み込まれています。 */
 object SystemSpeech {
     /**
-     * 安卓 11 起要在清单里声明查询 RecognitionService,否则这里永远是不可用。
-     * [silent] 是之前试过、服务不响应的记号(见 [SpeechSettings.systemSilent]):系统只能说有没有,理不理要试了才知道。
+     * Android 11 以降、クエリ RecognitionService はマニフェストで宣言する必要があります。宣言しないと、ここで使用できなくなります。
+     * [silent] は、サービスが以前に試行した後に応答しなかったことを示します ([SpeechSettings.systemSilent] を参照)。システムは、サービスが利用可能かどうかしか判断できず、試してみるまでわかりません。
      */
     fun capability(context: Context, silent: Boolean = false): SystemCapability {
         val onDevice = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
@@ -32,8 +32,8 @@ object SystemSpeech {
     }
 
     /**
-     * 识别服务的错误码归到哪种失败;null 表示「这一段没听到话」(没匹配上、没开口),按着时重开、松开后照已有的给结果。
-     * 列表外的码(服务端错误、语言不支持等)按服务出了问题处理。
+     * は、サービスのエラー コードがどの種類の障害に属するかを識別します。 null は、「このセクションでは単語が聞こえなかった」ことを意味します (一致も開始もありません)。押すと再起動し、放すと結果は以前と同じになります。
+     * リスト外のコード (サーバーエラー、サポートされていない言語など) はサービスの問題として処理されます。
      */
     fun failureOf(code: Int): SpeechFailure? = when (code) {
         SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> null
@@ -46,7 +46,7 @@ object SystemSpeech {
         else -> SpeechFailure.Unavailable(SpeechEngineSpec.Why.SystemGone)
     }
 
-    /** 一个错误码到了之后怎么办:重开、按已听到的收尾、报失败。 */
+    /** エラー コードが届いた後の対処法: 再起動し、聞こえた最後を押して、失敗を報告します。 */
     sealed interface Outcome {
         data object Retry : Outcome
         data object Finish : Outcome
@@ -54,8 +54,8 @@ object SystemSpeech {
     }
 
     /**
-     * [holding] 是手还按着,[heard] 是已经听到过字。已经听到的字不丢:松开后、或按着时中途出错,都按听到的收尾。
-     * 松开后有的服务在 stopListening 之后报 ERROR_CLIENT,什么都没听到时那是没听清,不是麦克风坏了。
+     * [holding] は手がまだ押していることを意味し、[heard] は言葉が聞こえたことを意味します。聞いた単語を失わないでください。単語を放した後、または押しているときに間違えた場合は、聞いた単語で終了してください。
+     * がリリースされた後、一部のサービスは stopListening 後に ERROR_CLIENT を報告します。何も聞こえない場合は、音がはっきりと聞こえていないことを意味します。マイクが壊れているわけではありません。
      */
     fun afterError(code: Int, holding: Boolean, heard: Boolean): Outcome {
         val failure = failureOf(code)
@@ -68,23 +68,23 @@ object SystemSpeech {
     }
 
     /**
-     * 开始听之后 [SystemSpeechSession.NO_RESPONSE_MS] 内识别服务一个回调都没给时怎么办。
-     * [answered] 是这个识别器之前回过话(说明服务是好的,只是这一段卡住了):按已听到的收尾,什么都没听到就是没听清。
-     * 从没回过话就是这台手机的识别服务不理第三方 App 的请求,再等也不会有字,报 [SpeechEngineSpec.Why.SystemNoResponse]。
+     * がリッスンを開始した後、[SystemSpeechSession.NO_RESPONSE_MS] の認識サービスがコールバックを与えない場合はどうすればよいですか。
+     * [answered] この認識エンジンは以前に応答しました (サービスは良好ですが、このセクションが行き詰まっていることを示しています): 聞こえた音声の最後を押してください。何も聞こえない場合は、はっきりと聞こえなかっただけです。
+     * は応答しませんでした。これは、この携帯電話の識別サービスがサードパーティ アプリの要求を無視することを意味します。これ以上待たないと、メッセージは表示されなくなります。 [SpeechEngineSpec.Why.SystemNoResponse] をレポートします。
      */
     fun afterSilence(answered: Boolean): Outcome =
         if (answered) Outcome.Finish else Outcome.Fail(SpeechFailure.Unavailable(SpeechEngineSpec.Why.SystemNoResponse))
 
     /**
-     * 松开后再等 [SystemSpeechSession.FINAL_WAIT_MS] 仍没有最终结果时怎么收。
-     * 和 [afterSilence] 一样:回过话按已听到的收尾,从没回过话就是不响应。
-     * 不能因为没回过话就什么也不做,否则悬浮胶囊会停在「转文字…」。
+     * 手を放して待ちます。 [SystemSpeechSession.FINAL_WAIT_MS] 最終結果がまだない場合に閉じる方法。
+     * は [afterSilence] と同じです。返信すると、聞いた内容で終了します。返信しない場合は、応答がないことを意味します。
+     * 返信がないからといって何もすることはできません。返信しないと、サスペンション カプセルが「テキストを変換...」で停止します。
      */
     fun afterReleaseWait(answered: Boolean): Outcome = afterSilence(answered)
 
     /**
-     * 手机上登记的识别服务(声明了 RecognitionService 的组件)。[RecognizerService.open] 是它对别的 App 开放(exported);
-     * [RecognizerService.permission] 是绑定它要的权限。给诊断信息和 [attempts] 用。
+     * 携帯電話に登録された認識サービス (RecognitionService のコンポーネントが宣言されています)。 [RecognizerService.open] は、他のアプリに対してオープン (エクスポート) されていることを意味します。
+     * [RecognizerService.permission] は、バインドするために必要な権限です。診断情報および [attempts] については。
      */
     fun services(context: Context): List<RecognizerService> = runCatching {
         context.packageManager.queryIntentServices(Intent(RecognitionService.SERVICE_INTERFACE), 0).map { r ->
@@ -94,9 +94,9 @@ object SystemSpeech {
     }.getOrDefault(emptyList())
 
     /**
-     * 一次会话依次去试的识别服务,null 是系统默认的那个(不点名,由系统挑)。
-     * 之前点名试过、回了话的([remembered],还在手机上)排最前;默认的一个回调都不给时,再点名试其余的,对别的 App 开放的先试。
-     * 手机上只有一个服务时它就是默认的,不再点名重试;最多试 [MAX_ATTEMPTS] 个,免得按着的人干等。
+     * 識別サービスは 1 つのセッションで次々に試行されます。null はシステムのデフォルトのサービスです (名前は付けられておらず、システムによって選択されています)。
+     * 、以前に発信して応答したもの ([remembered]、まだ電話中) が最初にランクされます。デフォルトのコールバックが指定されていない場合は、他のコールバックが呼び出されて最初に試行され、他のアプリで開かれているコールバックが最初に試行されます。
+     * 電話機にサービスが 1 つだけある場合、それがデフォルトのサービスとなり、名前を付けて再試行する必要はありません。最大でも [MAX_ATTEMPTS] を試すことができるため、ボタンを押す人を待つ必要はありません。
      */
     fun attempts(services: List<RecognizerService>, remembered: String?): List<String?> {
         val known = remembered?.takeIf { r -> services.any { it.component == r } }
@@ -105,33 +105,26 @@ object SystemSpeech {
         return (listOfNotNull(known) + listOf(null) + others).take(MAX_ATTEMPTS)
     }
 
-    /** 一次会话最多试几个识别服务(含默认的)。 */
+    /** 1 つのセッションで最大複数の識別サービス (デフォルトのサービスを含む) を試行できます。 */
     const val MAX_ATTEMPTS = 3
 
-    /** 本机识别说这个语言用不了(没装语言包等):换成联网识别再试。 */
+    /** ローカル認識で、この言語は使用できないと言われます (言語パックがインストールされていないなど): ネットワーク認識に変更して再試行してください。 */
     internal fun languageMissing(code: Int) = code == ERROR_LANGUAGE_NOT_SUPPORTED || code == ERROR_LANGUAGE_UNAVAILABLE
 
-    /** App 语言对应的识别语言(BCP-47);跟随系统时用系统的语言。选的语言和系统语言相同时(中文除外)沿用系统的地区。 */
-    fun speechTag(language: AppLanguage, system: Locale = Locale.getDefault()): String = when {
-        language == AppLanguage.System -> languageRegion(system)
-        // 中文按选的简繁定地区,不跟系统
-        language.language == "zh" -> language.speechTag!!
-        // 系统也是这种语言时用系统的地区(英式英语、墨西哥西班牙语…),否则用这种语言最常见的地区
-        AppLanguage.modernCode(system.language) == language.language -> languageRegion(system)
-        else -> language.speechTag!!
-    }
+    /** 音声認識の言語。日本語専用フォークでは常に ja-JP。引数は互換のために残す。 */
+    fun speechTag(language: AppLanguage, system: Locale = Locale.getDefault()): String = "ja-JP"
 
     /**
-     * 只留「语言-地区」:系统语言常带文字子标签(zh-Hans-CN),识别服务普遍只认 zh-CN 这样的写法,
-     * 多一段就可能当成不支持的语言。扩展、变体也一并去掉。
+     * は「言語領域」のみを残します。システム言語にはテキスト サブタグ (zh-Hans-CN) が含まれることが多く、認識サービスは通常 zh-CN のみを認識します。
+     * は 1 段落を超える場合、サポートされていない言語とみなされます。拡張機能とバリアントも削除されます。
      */
     private fun languageRegion(locale: Locale): String =
         Locale.Builder().setLanguage(locale.language).setRegion(locale.country).build().toLanguageTag()
 
-    /** 转写接口要的 ISO-639-1 语言代码。 */
+    /** は、インターフェイスに必要な ISO-639-1 言語コードを転写します。 */
     fun isoCode(tag: String): String = Locale.forLanguageTag(tag).language
 
-    // 安卓 12 起才有的错误码;写成数值,低版本收不到也不影响
+    // は、Android 12 以降でのみ利用可能なエラー コードです。数値として書かれています。下位バージョンが受信できない場合は影響を受けません。
     private const val ERROR_TOO_MANY_REQUESTS = 10
     private const val ERROR_SERVER_DISCONNECTED = 11
     private const val ERROR_LANGUAGE_NOT_SUPPORTED = 12
@@ -139,12 +132,12 @@ object SystemSpeech {
 }
 
 /**
- * 手机自带识别的一次会话。[SpeechRecognizer] 只能在主线程建和调,所以这里所有对它的操作都投到主线程。
- * 按着期间识别服务自己结束一段(出最终结果或「没听到」)就立刻重开,各段由 [Segments] 拼起来;
- * 松开后 stopListening,最多等 [FINAL_WAIT_MS] 拿最终结果,等不到就用最后一次中间结果。
- * 每次 startListening 后 [NO_RESPONSE_MS] 内服务一个回调都没有:手还按着、[attempts] 里还有没试的服务,就换下一个去听;
- * 都试过了按 [SystemSpeech.afterSilence] 收尾。从没回过话时调 [onNoResponse],回过话时调一次 [onAnswered] 并带上回话的服务
- * (null 是系统默认的):设置据此数连着几次不响应,够了才记下,也记住点名试通的那个。
+ * 携帯電話自体によって認識されるセッション。 [SpeechRecognizer] はメインスレッドでのみ作成および調整できるため、ここでのすべての操作はメインスレッドにキャストされます。
+ * 期間識別サービスを押すと、セクションが自動的に終了し (最終結果が表示されるか、「聞こえませんでした」)、すぐに再開されます。各セクションは [Segments] によってまとめられます。
+ * が解放された後に StopListening を実行し、最終結果を取得するまで最大 [FINAL_WAIT_MS] まで待機します。取得できない場合は、最後の中間結果を使用します。
+ * 各 startListening の後、[NO_RESPONSE_MS] のサービスに対するコールバックはありません。手が押されたままで、[attempts] には未試行のサービスがあるため、次のサービスに変更してリッスンします。
+ * は試行されましたが、[SystemSpeech.afterSilence] で終了しました。電話に出なかった場合は、[onNoResponse] にダイヤルしてください。電話に出たら [onAnswered] を 1 回ダイヤルし、コールバック サービスを開始します。
+ * (null はシステムのデフォルト): この数値に従って、応答しない回数を設定します。十分に理解してから録音してください。試してみようと名付けた名前も覚えておいてください。
  */
 class SystemSpeechSession(
     context: Context,
@@ -152,7 +145,7 @@ class SystemSpeechSession(
     private val languageTag: String,
     private val onNoResponse: () -> Unit = {},
     private val onAnswered: (String?) -> Unit = {},
-    /** 依次去试的识别服务,见 [SystemSpeech.attempts];null 是系统默认的。 */
+    /** で識別サービスを順番に試行するには、[SystemSpeech.attempts] を参照してください。 null はシステムのデフォルトです。 */
     private val attempts: List<String?> = listOf(null),
 ) : SpeechSession {
     private val context = context.applicationContext
@@ -162,26 +155,26 @@ class SystemSpeechSession(
     override val events: Flow<SpeechEvent> = out.flow
     override val live = true
 
-    // 下面这些只在主线程读写
+    // 以下はメインスレッドでのみ読み書きされます
     private var recognizer: SpeechRecognizer? = null
     private var usingOnDevice = false
-    /** 正在试 [attempts] 里的第几个。 */
+    /** は [attempts] の番号を試行しています。 */
     private var attempt = 0
     private var holding = true
     private val restarts = Restarts()
     private var restartPending = false
-    /** 当前识别器回过话没有(任何回调都算)。 */
+    /** 現在の認識機能が応答しませんでした (コールバック数はありません)。 このセッションでは、 */
     private var answered = false
-    /** 这次会话已经报过 [onAnswered];每次会话只报一次,免得每个音量回调都写设置。 */
+    /** がすでに報告されています。 [onAnswered] は、ボリューム コールバックごとに設定を書き込む必要がないように、セッションごとに 1 回だけ報告されます。 */
     private var reported = false
-    /** 这次会话已经因为不响应记过一次。松开后的等待和静默计时可能先后到,不能记成两次。 */
+    /** このセッションは、無応答によりすでに 1 回減点されています。解除後の待機や無音のタイミングが連続して発生する場合があり、2度録画することはできません。 */
     private var notedSilent = false
-    // 松开后再等 [FINAL_WAIT_MS]。回过话按已听到的收尾;一个回调都没有也要结束,不能停在「转文字…」
+    // を解放し、[FINAL_WAIT_MS] を待ちます。返信したら、聞いたとおりに終了します。コールバックがない場合でも終了する必要があり、「テキストに変換...」で停止することはできません。
     private val timeout = Runnable { concludeRelease() }
     private val silence = Runnable {
         if (done()) return@Runnable
         if (!answered && holding && attempt + 1 < attempts.size) {
-            // 这个服务一个回调都没给:手还按着,换下一个服务接着听
+            // このサービスはコールバックを 1 つも返しませんでした。手を押し続けたまま、次のサービスに切り替えてリッスンを続けます。
             attempt++
             open(preferOnDevice = false)
             return@Runnable
@@ -189,7 +182,7 @@ class SystemSpeechSession(
         concludeSilence()
     }
 
-    /** 静默到点、且不再换下一个服务:按有没有回过话收尾。不响应同一次会话只记一次。 */
+    /** は最後まで沈黙し、次のサービスに移行せず、応答があるかどうかに応じて終了します。同じセッションに応答しないことは 1 回だけ記録されます。 */
     private fun concludeSilence() {
         if (done()) return
         when (val o = SystemSpeech.afterSilence(answered)) {
@@ -206,7 +199,7 @@ class SystemSpeechSession(
         if (holding) listen() else concludeRelease()
     }
 
-    /** 松开后的等待到点,或重开时发现手指已经离开:一定结束这次会话。 */
+    /** 指を離した後の待ち時間が経過した場合、または指を再度開いたときに指が離れていることに気付いた場合は、このセッションを終了する必要があります。 */
     private fun concludeRelease() {
         if (done()) return
         when (val o = SystemSpeech.afterReleaseWait(answered)) {
@@ -228,20 +221,20 @@ class SystemSpeechSession(
         if (!holding || done()) return@onMain
         holding = false
         if (restartPending) {
-            // 上一段已经结束、还没重开:没有在听的,直接按已听到的收尾
+            // 前のセグメントは終了し、まだ再開されていません。聞いていない場合は、聞いた終了ボタンを押してください。
             finish(SpeechEvent.Final(segments.full()))
             return@onMain
         }
         try {
             recognizer?.stopListening()
         } finally {
-            // stopListening 里同步回调可能已经结束会话,也可能拆掉了等待;没结束就一定再排上
+            // stopListening の同期コールバックによってセッションが終了したか、待機が削除された可能性があります。まだ終わっていない場合は、再度キューに入れる必要があります。
             if (!done()) main.postDelayed(timeout, FINAL_WAIT_MS)
         }
     }
 
     override fun cancel() {
-        // 先关事件出口(任何线程都立刻生效),再到主线程收拾识别器
+        // まずイベント出口を閉じて (どのスレッドもすぐに有効になります)、次にメインスレッドが認識機能をクリーンアップします。
         if (!out.cancel()) return
         onMain {
             recognizer?.cancel()
@@ -260,7 +253,7 @@ class SystemSpeechSession(
             null
         }
         usingOnDevice = r != null
-        // 点名的服务用它;没点名(或名字认不出)交给系统默认的
+        // 点呼サービスに使用します。点呼が行われない場合 (または名前が認識できない場合)、システムのデフォルト サービスに任せられます。
         val named = attempts.getOrNull(attempt)?.let(ComponentName::unflattenFromString)
         val rec = r ?: runCatching { SpeechRecognizer.createSpeechRecognizer(context, named) }.getOrNull()
         if (rec == null) {
@@ -279,7 +272,7 @@ class SystemSpeechSession(
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageTag)
             putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
-            // 联网识别时:手机有本机识别能力就请服务尽量离线识别
+            // インターネット上で識別する場合：携帯電話にローカル識別機能がある場合は、可能な限りオフラインで識別するようサービスに依頼してください。
             if (!usingOnDevice && onDevice) putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
         }
         main.removeCallbacks(silence)
@@ -297,7 +290,7 @@ class SystemSpeechSession(
         teardown()
     }
 
-    /** 按着时这一段空了:按 [Restarts] 决定隔多久重开,或者不再重开、按已听到的收尾。重开总是投到主线程稍后做,不在回调里直接开。 */
+    /** を押すと、このセクションは空になります。[Restarts] を押して、再起動にかかる時間を決定するか、再起動しないかを決定し、聞こえたエンディングを押します。再起動は常にメインスレッドで行われ、コールバックで直接開始されることはありません。 */
     private fun emptySegment() {
         when (val d = restarts.onEmpty(android.os.SystemClock.elapsedRealtime())) {
             Restarts.Decision.GiveUp -> finish(SpeechEvent.Final(segments.full()))
@@ -308,7 +301,7 @@ class SystemSpeechSession(
         }
     }
 
-    /** 服务回了话:这一段不算没响应。 */
+    /** サービスは次のように応答しました: この期間は応答なしとみなされません。 */
     private fun heard() {
         answered = true
         main.removeCallbacks(silence)
@@ -325,7 +318,7 @@ class SystemSpeechSession(
         restartPending = false
         val rec = recognizer
         recognizer = null
-        // 先摘掉再 destroy:destroy 里可能同步回调 onError,这时不能再换引擎,否则会在失败处理里嵌套重开
+        // 最初に削除してから、destroy:destroy が onError を同期的にコールバックする可能性があります。現時点では、エンジンを変更することはできません。変更しない場合、エンジンはネストされ、障害処理で再起動されます。
         usingOnDevice = false
         rec?.let { runCatching { it.destroy() } }
     }
@@ -347,7 +340,7 @@ class SystemSpeechSession(
         override fun onRmsChanged(rmsdB: Float) {
             heard()
             if (done()) return
-            // 识别服务给的大致在 -2..10 dB,压到 0..1 画波形
+            // 識別サービスでは、およそ -2..10 dB が得られ、圧力は 0..1 に減らされて波形が描画されます。
             out.send(SpeechEvent.Level(((rmsdB + 2f) / 12f).coerceIn(0f, 1f)))
         }
 
@@ -366,7 +359,7 @@ class SystemSpeechSession(
             val text = firstText(results)
             segments.segmentDone(text)
             if (holding) {
-                // 识别服务觉得一句说完了,但手还按着:接着听下一段
+                // 識別サービスは 1 つの文が終了したように感じますが、手がまだ押されています: 次の段落を聞き続けます
                 if (text.isBlank()) {
                     emptySegment()
                 } else {
@@ -387,7 +380,7 @@ class SystemSpeechSession(
             if (usingOnDevice && SystemSpeech.languageMissing(error) && segments.full().isEmpty()) {
                 open(preferOnDevice = false)
                 if (!holding && !done()) {
-                    // 已经松开了:新识别器只收尾,等待上限重新算
+                    // がリリースされました: 新しい識別子は終了したばかりで、上限が再計算されるのを待っています。
                     recognizer?.stopListening()
                     main.postDelayed(timeout, FINAL_WAIT_MS)
                 }
@@ -401,18 +394,18 @@ class SystemSpeechSession(
         }
     }
 
-    // 放在所有属性之后:onMain 在主线程上是当场执行,open 用到的 listener 等属性此时都已初始化
+    // はすべての属性の後に配置されます。onMain はメインスレッド上でその場で実行され、open で使用されるリスナーなどの属性はこの時点で初期化されます。
     init {
         onMain { open(onDevice && attempts.firstOrNull() == null) }
     }
 
     companion object {
-        /** 松开后等最终结果的上限。 */
+        /** 解放後は最終結果の上限まで待ちます。 */
         const val FINAL_WAIT_MS = 2_000L
 
         /**
-         * 开始听之后等识别服务第一个回调(通常是 onReadyForSpeech,正常几百毫秒内到)的上限。
-         * 留出识别服务进程冷启动的时间;超过就当这一段没响应。
+         * リッスン開始後の認識サービスの最初のコールバック (通常は onReadyForSpeech、通常は数百ミリ秒以内) を待機する上限。
+         * サービス プロセスのコールド スタートを識別する時間を確保してください。この期間を超えると応答なしとみなされます。
          */
         const val NO_RESPONSE_MS = 3_000L
     }

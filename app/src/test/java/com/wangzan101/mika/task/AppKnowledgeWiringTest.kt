@@ -28,7 +28,7 @@ class AppKnowledgeWiringTest {
     @get:Rule val texts = ChineseTexts()
 
     @get:Rule val tmp = TemporaryFolder()
-    private val knowledge = KnowledgeStore(KnowledgeStore.loadBundled())
+    private val knowledge = KnowledgeStore(com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.entries())
     private val facts = "- 首页顶部的搜索框进入搜索页,结果分商品和用户两个标签。"
     private val more = "$facts\n- 「我的」页里的「我发布的」列出自己挂出的商品。"
     private val unreviewed = TaskState.Succeeded("已查看", verified = false, reviewed = false)
@@ -51,18 +51,18 @@ class AppKnowledgeWiringTest {
 
     private var seq = 0
     private fun learning(files: AppKnowledgeFiles, model: TextModel, learn: Boolean = true) = RunLearning(MemorySwitches(learnSkills = learn), null, MapSkills(),
-        GuideCatalog.loadBundled(), null, null, { "d${++seq}" }, appDrafter = AppKnowledgeDrafter(model), appDrafts = files)
+        com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog(), null, null, { "d${++seq}" }, appDrafter = AppKnowledgeDrafter(model), appDrafts = files)
 
     @Test fun draftRequiresApprovalThenDoneTrialVerifies() = runBlocking {
         val files = AppKnowledgeFiles(tmp.root)
         val learning = learning(files, TextModel(facts))
         val notes = learning.learn(aftermath(runEvents()))
         assertEquals(AppKnowledgeStage.Draft, files.all().single().stage)
-        assertEquals("Mika 记下了几条关于闲鱼的知识，等你确认", notes.skillNotes.single().text)
+        assertEquals("Mika が Xianyu についてのメモを作りました。ご確認ください", notes.skillNotes.single().text)
         assertTrue(files.notes().isEmpty())
         files.approve(files.all().single().id)
         assertTrue(files.notes().getValue("xianyu").trial)
-        // 判下来办成、没跑核查:试用转正式
+        // 判決は完了したが査察は行われなかった：公判から公判へ
         learning.learn(aftermath(runEvents(trial = true, steps = 1)))
         assertEquals(AppKnowledgeStage.Verified, files.all().single().stage)
     }
@@ -74,13 +74,13 @@ class AppKnowledgeWiringTest {
         val first = files.all().single()
         assertTrue(first.lesson)
         files.approve(first.id)
-        // 再来一次:对在用的那份起草修订
+        // 再度: 使用中のリビジョンをドラフトする
         val notes = learning(files, TextModel(more)).learn(aftermath(runEvents()))
-        assertEquals("Mika 修订了闲鱼的知识，等你确认", notes.skillNotes.single().text)
+        assertEquals("Mika が Xianyu についてのメモを改訂しました。ご確認ください", notes.skillNotes.single().text)
         val ui = SkillsUi.of(MapSkills(), files).appKnowledge.single { it.stage == AppKnowledgeStage.Draft }
         assertTrue(ui.revision)
         assertEquals(listOf("+ - 「我的」页里的「我发布的」列出自己挂出的商品。"), ui.changedLines)
-        // 已有一份待确认的:不再请模型
+        // には確認すべきモデルがすでにあります: これ以上のモデルは要求されません
         val idle = TextModel()
         learning(files, idle).learn(aftermath(runEvents()))
         assertTrue(idle.requests.isEmpty())

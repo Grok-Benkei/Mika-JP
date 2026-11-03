@@ -4,9 +4,9 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * 一条观察是哪一类:[Read] 读到的界面或页面(App 的界面状态、网页正文、网页脚本与网络响应);[Output] 命令与脚本的输出、文件内容与路径;
- * [Reply] 别的 AI 的回答(子任务、外部服务);[UserSaid] 用户给的(对提问的回答、记忆);[Attachment] 用户或工具给的文件、图片;
- * [Fact] 工具结果里的事实(打开了哪个 App、网址与标题)。核心只按这几类处理,不认识具体能力。
+ * 観測値はどのカテゴリに属しますか: [Read] 読み取られたインターフェイスまたはページ (アプリのインターフェイスのステータス、Web ページのテキスト、Web ページのスクリプト、およびネットワーク応答)。 [Output] コマンドとスクリプト、ファイルの内容とパスの出力。
+ * [Reply] 他の AI (サブタスク、外部サービス) からの回答。 [UserSaid] ユーザーによって提供されます (質問への回答、記憶)。 [Attachment] ユーザーまたはツールによって提供されたファイルと写真。
+ * [Fact] ツール結果の事実 (どのアプリが開かれたか、URL とタイトル)。コアはこれらのカテゴリーに従ってのみ扱われ、特定の能力は認められません。
  */
 enum class ObsKind(val wire: String) {
     Read("read"), Output("output"), Reply("reply"), UserSaid("user_said"), Attachment("attachment"), Fact("fact");
@@ -17,10 +17,10 @@ enum class ObsKind(val wire: String) {
     }
 }
 
-/** 观察的出处可信到什么程度。[Untrusted]:网页、渠道里的话、别的 AI 的回答,只当数据,不当指令。 */
+/** 観測情報のソースはどの程度まで信頼できるか。 [Untrusted]: Web ページ、プラットフォーム、その他の AI 応答上の単語は、指示ではなくデータとしてのみ扱われる必要があります。 */
 enum class Trust { Trusted, Untrusted }
 
-/** 一个地方是什么:App、站点、网页、命令、文件。 */
+/** 場所とは: アプリ、サイト、Web ページ、コマンド、ファイル。 */
 @Serializable
 enum class PlaceKind(val wire: String) {
     @SerialName("app") App("app"),
@@ -31,7 +31,7 @@ enum class PlaceKind(val wire: String) {
 }
 
 /**
- * 在哪里:App(包名)、站点(主机名)、网页(网址)、命令、文件。[name] 是这个地方的原样写法;核查、来源按它对上回答里提到的 App 或网址。
+ * の場所: アプリ (パッケージ名)、サイト (ホスト名)、Web ページ (Web アドレス)、コマンド、ファイル。 [name] はこの場所のオリジナルの文章です。検証とソースを確認するには、上記の回答に記載されているアプリまたは URL をクリックしてください。
  */
 @Serializable
 data class Place(val kind: PlaceKind, val name: String) {
@@ -44,18 +44,18 @@ data class Place(val kind: PlaceKind, val name: String) {
     }
 }
 
-/** 一次读取时界面上输入框里的字([names],去掉空白后比)和有输入焦点的那个([focused]);核对时据此分辨助手自己打进去的字。 */
+/** 一度読み取ると、インターフェイス上の入力ボックス内の単語 ([names]、空白を削除した後) と入力フォーカスのある単語 ([focused])。チェックする際、アシスタントが入力した単語はこれに基づいて区別されます。 */
 data class InputHints(val names: List<String>, val focused: String? = null)
 
 /**
- * 带出处的一条观察:核心消费的唯一单位。能力在工具结果里给出([com.wangzan101.mika.core.tool.ToolExecution.observations]),
- * 证据账本按它记,核查、回答来源、运行记录、评测都读它。
+ * 原点を伴う観測値: コア消費の唯一の単位。機能はツールの結果 ([com.wangzan101.mika.core.tool.ToolExecution.observations]) に示されています。
+ * 証拠台帳に基づいて記録され、検証、回答元、操作記録、評価がすべて読み込まれます。
  *
- * - [source] 是给出它的能力的 id(phone、web、sandbox……;核心自己的为 core);[place] 是在哪里读的;[title] 是那一页自己的标题。
- * - [media] 是同一时刻存下的画面编号(可视化模块给的;没有为空)。
- * - [trust]:不可信的(网页、别的 AI 的回答)只当数据。[authored] 是助手自己写的东西(跑的命令):原样出现在 [text] 里的行是回显,不算读到的。
- * - [inputs]:读界面时输入框里的字(见 [InputHints]);不知道为 null。
- * - [id]、[step]、[atMs] 由账本进账时填:本任务里第几条(从 1 起)、第几步、什么时候。能力造它时不用填。
+ * - [source] は、その機能 (電話、Web、サンドボックス...; コアはコア) を与える ID です。ここで、[place] が読み取られます。 [title] はそのページのタイトルです。
+ * ～ [media] は、同時に保存される画面番号です (空でない場合は視覚化モジュールによって与えられます)。
+ * - [trust]: 信頼できないもの (Web ページ、その他の AI 回答) はデータとしてのみ扱われます。 [authored] はアシスタント (コマンド実行) によって書き込まれたものです。[text] に表示される行はエコーされ、読み取られません。
+ * - [inputs]: インターフェイスを読み取る際の入力ボックス内の単語 ([InputHints] を参照)。不明な場合は null。
+ * - [id]、[step]、[atMs] 台帳から入力する場合、このタスクのどの項目 (1 から開始)、どのステップ、いつを記入します。作成時に能力を記入する必要はありません。
  */
 data class Observation(
     val kind: ObsKind,
@@ -71,12 +71,12 @@ data class Observation(
     val atMs: Long = 0,
     val id: Int = 0,
 ) {
-    /** 在哪里的原样写法;没有为 null。 */
+    /** はそのまま書かれています。 nullではありません。 */
     val where: String? get() = place?.name
 
-    /** 按它是什么样的东西分(裁剪、界面上的说法按它定,不按工具)。 */
+    /** は、それがどのようなものであるかによって分類されます (切削条件と界面条件は工具ではなくそれによって決まります)。 */
     val form: ObsForm get() = when (kind) {
-        // 读界面状态时总带着输入框(可能一个也没有);读整页、脚本结果、网络响应时没有
+        // インターフェイスのステータスを読み取るときに、常に入力ボックスがあります (おそらく何もありません)。ページ全体、スクリプトの結果、ネットワーク応答を読み取るときに入力ボックスはありません。
         ObsKind.Read -> if (inputs != null) ObsForm.Interface else ObsForm.Page
         ObsKind.Output -> if (place?.kind == PlaceKind.File) ObsForm.File else ObsForm.Command
         ObsKind.Reply -> ObsForm.Reply
@@ -86,20 +86,20 @@ data class Observation(
     }
 }
 
-/** 一次工具结果里读到的一条观察:账本里的编号和它的形态(裁剪据此决定怎么缩短、缩短后指回哪条)。 */
+/** ツールで読み取られた観察結果: 元帳内の番号とその形状 (クリッパーは、それを短縮する方法と、短縮後にどの項目を指すかを決定します)。 */
 @Serializable data class ReadTag(val obsId: Int, val form: ObsForm)
 
-/** 这条观察在工具结果里的标记。 */
+/** ツール結果におけるこの観察のマーク。 */
 val Observation.tag: ReadTag get() = ReadTag(id, form)
 
-/** 观察的形态:界面状态、页面内容、命令输出、文件、图片、回复、用户说的、事实。 */
+/** 観察形式: インターフェイスのステータス、ページのコンテンツ、コマンド出力、ファイル、画像、応答、ユーザーのステートメント、事実。 */
 @Serializable enum class ObsForm { Interface, Page, Command, File, Image, Reply, UserSaid, Fact }
 
-/** 核心自己(不是哪个能力)给出的观察的出处。 */
+/** コア自体によって与えられる観測のソース (どの能力ではない)。 */
 const val CORE_SOURCE = "core"
 
 /**
- * 核查前「再看一眼」:能力此刻的样子([observations],界面状态、网页正文的开头……)和同一时刻的画面([image],要附图时才有)。
- * [protected]:此刻的页面受系统防截屏保护,看不到画面。由能力定义怎么看(见 Capability.freshLook)。
+ * 検証の前に「もう一度見てください」: 現時点での機能 ([observations]、インターフェイスのステータス、Web ページのテキストの先頭など) と、同時に表示される画面 ([image]、接続されている場合のみ利用可能)。
+ * [protected]: 現時点では、ページはシステムのスクリーンショット防止保護によって保護されており、画面は表示されません。見た目は機能によって定義されます (Capability.freshLook を参照)。
  */
 class Look(val observations: List<Observation>, val image: ByteArray? = null, val protected: Boolean = false)

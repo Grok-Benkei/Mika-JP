@@ -3,25 +3,25 @@ package com.wangzan101.mika.core.record
 import kotlinx.serialization.Serializable
 
 /**
- * 一次运行的小结,全部由运行记录里的事件算出(纯函数,见 [of]),落盘后不随事件清理而丢(见 [RunMetricsStore])。
- * 时间都从 [RunEvent.TaskStarted] 算起:之前的准备(载入知识、连手机)不计。
+ * 実行の概要はすべて、実行レコード内のイベントから計算され (純粋関数、[of] を参照)、配置後のイベント クリーニングによって失われることはありません ([RunMetricsStore] を参照)。
+ * 時間は [RunEvent.TaskStarted] から計算されます。事前の準備 (知識のロード、携帯電話への接続) は含まれません。
  *
- * - [totalMs]:开始到 [RunEvent.TaskEnded];没结束的([ended] 为 false)到最后一个事件。
- * - [firstFeedbackMs]:开始到用户第一次看到这次运行的实际进展——最早一条真执行了的模型回复到手([RunEvent.ModelReply.repliedAtMs],
- *   旧记录用它的 [RunEvent.atMs]):这时界面显示它的进度说明、要做的事或回答;或最早一条活动(回放不经模型时,第一步做完)。
- *   改派掉的轻量模型回复不算(用户看不到);回答逐段显示时第一段字会更早,没记录,不算。两样都没有为 null。
- * - [modelCalls]:模型回复事件数,即主循环的请求次数(含改派掉的轻量模型回复,[lightCalls] 是其中轻量模型的);
- *   [callsWithoutUsage] 是其中服务商没报用量的。token 是这些回复的用量之和([inputTokens] 含 [cachedTokens])。
- * - [allCalls] 等:运行期间经计量的全部请求([RunEvent.ModelCalls]:另含旁路调用和失败重试的每一次);旧记录为 null。
- * - [modelMs]:各次回复的请求耗时之和(最后一次请求发出到收完);之前失败的请求和退避另记在 [retryWaitMs]。
- * - [observeMs] / [actMs]:顶层工具调用(模型直接调的、回放的)的执行耗时,按执行入口给活动定的种类分:风险为只读的是读
- *   (读屏、读网页、列元素、截图、查资料……),其余是操作(点、输入、滑、打开 App……)。一批动作、页面脚本的外层调用里,
- *   子步中的读计入读、其余计入操作,不重复计;没有活动的控制类调用(等待、问用户、请确认、交给用户、说做不成)不算读也不算操作。
- *   [uiWaitMs] 是等界面的时间:单个工具里端口等界面稳定的部分(端口能报时才有,仍算在那次读或操作里),
- *   加上一批动作里各步做完后按条件等界面的时间——后者和单独调等待工具一样不算操作,落在 [otherMs] 里。
- * - [otherMs]:总时长减模型、读、操作,剩下的是等用户、重试退避、控制类调用、核查与其他开销。
- * - [steps]:主循环走到第几轮(真执行了的回复里最大的步号);[observeCalls] / [actCalls] 是读、操作各做了几次(含子步)。
- * - [outcome]:[RunEvent.TaskEnded.outcome],没结束为 unfinished;[failKind] 是失败的类别;[judged] 是交出回答后另判的结局。
+ * - [totalMs]: [RunEvent.TaskEnded] に始まります。最後のイベントまで終了しません ([ended] が false)。
+ * - [firstFeedbackMs]: 最初から、ユーザーがこの実行の実際の進行状況を初めて確認するまで、実際に実行された最も古いモデルが返されます ([RunEvent.ModelReply.repliedAtMs]、
+ *   (古いレコードは [RunEvent.atMs] を使用します): この時点で、インターフェイスには進行状況の説明、やるべきこと、または回答が表示されます。または最初のアクティビティ (モデルを経由せずに再生する場合、最初のステップは完了します)。
+ *   再割り当てされた軽量モデルの応答はカウントされません (ユーザーはそれを見ることができません)。返信を段落ごとに表示する場合は、最初の段落の方が早くなり、記録されないためカウントされません。どちらも null ではありません。
+ * - [modelCalls]: モデル応答イベントの数、つまりメイン ループ内のリクエストの数 (ディスパッチされた軽量モデルからの応答を含みます。そのうち [lightCalls] は軽量モデルです)。
+ *   [callsWithoutUsage] は、サービスプロバイダーが使用状況を報告しなかったものです。トークンは、これらの応答の使用量の合計です ([inputTokens] には [cachedTokens] が含まれます)。
+ * - [allCalls] など: 実行中のすべての従量制リクエスト ([RunEvent.ModelCalls]: および各バイパス呼び出しと失敗した再試行)。古いレコードは null です。
+ * - [modelMs]: 各応答リクエストに必要な時間の合計 (最後に送信されたリクエストから受信されるまで)。以前に失敗したリクエストとバックオフは、[retryWaitMs] に個別に記録されます。
+ * - [observeMs] / [actMs]: トップレベルのツール呼び出し (モデルの直接調整と再生) の実行時間は、実行エントリによって指定されたアクティビティのタイプに応じて分割されます: リスクは読み取り専用です
+ *   (画面を読み取る、Web ページを読み取る、要素をリストする、スクリーンショットを撮る、情報を確認する...)、残りは操作 (クリック、入力、スライド、アプリを開く...) です。アクションとページ スクリプトのバッチの外部呼び出しでは、
+ *   サブステップの読み取りは読み取りとしてカウントされ、残りは操作としてカウントされ、繰り返しカウントされません。アクティビティのないコントロール クラスの呼び出し (待機している、ユーザーに確認してください、ユーザーに渡して、実行できないと言う) は、読み取りまたは操作としてカウントされません。
+ *   [uiWaitMs] は、インターフェイスを待機する時間です。単一ツールのポートなどのインターフェイスの安定した部分 (ポートがレポートできる場合のみ、その読み取りまたは操作でカウントされます)。
+ *   に、アクションのバッチの各ステップが完了した後、条件に従ってインターフェイスを待機する時間を加えます。後者は、待機ツールを個別に調整するなどの操作としてカウントされず、[otherMs] に分類されます。
+ * - [otherMs]: 合計時間からモデル、読み取り、操作を差し引いた時間で、残りの時間はユーザーの待機、バックオフの再試行、制御クラスの呼び出し、検証、その他のオーバーヘッドです。
+ * - [steps]: メイン ループが進むラウンド (実際に実行される応答内の最大ステップ番号)。 [observeCalls] / [actCalls] は、読み取りと操作が実行された回数 (サブステップを含む) を指します。
+ * - [outcome]: [RunEvent.TaskEnded.outcome]、未完了は未完了です。 [failKind] は障害カテゴリです。 [judged]は答えを提出した後に判定されるエンディングです。
  */
 @Serializable
 data class RunMetrics(
@@ -54,15 +54,15 @@ data class RunMetrics(
 ) {
     val otherMs: Long get() = (totalMs - modelMs - observeMs - actMs).coerceAtLeast(0)
 
-    /** 输入加输出(缓存命中含在输入里)。 */
+    /** 入力と出力 (キャッシュ ヒットは入力に含まれます)。 */
     val tokens: Long get() = inputTokens + outputTokens
 
-    /** 办成了:报了成功(含没能核实的),交出回答后也没判成只办了一部分或办不到。 */
+    /** Completed: 申請は成功しました(検証できなかったものも含む)。回答を提出した後、一部しか完了していないか、完了できなかったと判断されませんでした。 */
     val succeeded: Boolean get() = outcome in SUCCESS && judged !in NOT_DONE
 
     /**
-     * 按事件顺序累计;[build] 随时可调。运行记录的写线程用它边写边算,不必在收尾时重读整份记录。
-     * 只留每个工具结果的几项数字,不留原文。
+     * はイベントのシーケンスに従って蓄積されます。 [build] はいつでも調整できます。レコードを実行する書き込みスレッドは、最後にレコード全体を再読み込みすることなく、書き込み時にそれを使用して計算します。
+     * は各ツールの結果の一部のみを保持し、元のテキストは保持しません。
      */
     class Builder(private val runId: String = "") {
         private class Tool(val step: Int, val source: String, val callId: String?, val durationMs: Long, val waitMs: Long)
@@ -84,7 +84,7 @@ data class RunMetrics(
         private var steps = 0
         private var judged: String? = null
         private val tools = mutableListOf<Tool>()
-        /** (来源, 步, 调用 id) → 活动种类(observe / act)。 */
+        /** (ソース、ステップ、コール ID) → アクティビティ タイプ (観察 / 動作)。 開始イベントがない場合 (記録は開始されているが実行されていない場合)、 */
         private val kinds = HashMap<Triple<String, Int, String?>, String>()
 
         fun add(e: RunEvent) {
@@ -121,7 +121,7 @@ data class RunMetrics(
             if (firstFeedback == null || at < firstFeedback!!) firstFeedback = at
         }
 
-        /** 没有开始事件(记录开了却没跑起来)时为 null。 */
+        /** は null になります。 */
         fun build(): RunMetrics? {
             val start = started ?: return null
             val end = ended
@@ -132,13 +132,13 @@ data class RunMetrics(
             for (t in top) {
                 val kind = kindOf(t)
                 val inner = nested.filter { it.step == t.step }
-                // 外层调用的耗时已含子步:子步里的读计入读,余下的算操作
+                // 外部呼び出しの消費時間にはすでにサブステップが含まれています。サブステップの読み取りは読み取りに含まれており、残りの計算操作も含まれています。
                 val innerObserve = inner.filter { kindOf(it) == OBSERVE }.sumOf { it.durationMs }.coerceAtMost(t.durationMs)
                 when {
                     kind == OBSERVE -> observe += t.durationMs
-                    // 外层调用记的 waitMs 是子步之后按条件等界面的时间,不在子步里,也不算操作
+                    // 外層呼び出しに記録される waitMs は、サブステップ後の条件に従ってインターフェイスを待機する時間です。これはサブステップに含まれないため、操作としてカウントされません。
                     inner.isNotEmpty() -> { observe += innerObserve; act += (t.durationMs - innerObserve - t.waitMs).coerceAtLeast(0) }
-                    // 为节奏补的停留(waitMs)算等待,不算操作
+                    // リズムに追加されたポーズ（waitMs）は操作ではなく待機としてカウントされます
                     kind != null -> act += (t.durationMs - t.waitMs).coerceAtLeast(0)
                     else -> Unit
                 }
@@ -181,19 +181,19 @@ data class RunMetrics(
         private const val OBSERVE = "observe"
         private const val ACT = "act"
         private const val ROLE_LIGHT = "light"
-        /** 包在外层调用里的子步:一批动作里的一步、页面脚本里的一个动作。 */
+        /** 外部呼び出しに含まれるサブステップ: アクションのバッチ内のステップ、ページ スクリプト内のアクション。 */
         private val NESTED = setOf("batch", "script")
         private val SUCCESS = setOf("succeeded", "unverified")
         private val NOT_DONE = setOf("partial", "not_possible")
 
-        /** 一次运行的小结;没有开始事件时为 null。 */
+        /** 実行の概要。開始イベントがない場合は null。 */
         fun of(events: List<RunEvent>, runId: String = ""): RunMetrics? = Builder(runId).apply { events.forEach(::add) }.build()
     }
 }
 
 /**
- * 多次运行的汇总([of]):办成率、用时与第一次反馈的中位数、平均来回次数与 token,以及时间的去向(各项之和占总时长之和)。
- * 第一次反馈只在有这一项的运行里取中位数;一次都没有为 null。
+ * 複数の実行の概要 ([of]): 完了率、かかった時間と最初のフィードバックの中央値、ラウンドトリップとトークンの平均数、および時間の方向 (各項目の合計が合計時間を占めます)。
+ * 最初のフィードバックは、この項目の実行の中央値のみを取得します。一度でも null になりません。
  */
 data class RunStats(
     val runs: Int,
@@ -225,7 +225,7 @@ data class RunStats(
             otherMs = runs.sumOf { it.otherMs },
         )
 
-        /** 中位数;偶数个取中间两个的平均(向下取整)。空表为 null。 */
+        /** 中央値;偶数の場合は、中央の 2 つの平均値を取得します (切り捨て)。空のテーブルは null です。 */
         fun median(xs: List<Long>): Long? {
             if (xs.isEmpty()) return null
             val s = xs.sorted()

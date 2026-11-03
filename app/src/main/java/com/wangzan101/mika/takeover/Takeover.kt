@@ -13,46 +13,46 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/** 接管要用到的设备能力与 Agent 动作;由任务服务按当前任务实现。任务编号无效时为 -1。 */
+/** は、使用されるデバイスの機能とエージェントのアクションを引き継ぎます。これは、現在のタスクに従ってタスク サービスによって実装されます。タスク番号が無効な場合は-1。 */
 interface TakeoverPort {
-    /** Agent 虚拟屏最上面的任务。 */
+    /** エージェント 仮想画面上の最上位のタスク。 */
     suspend fun agentTopTask(): Int
-    /** launch_app 打开的那个任务与包。 */
+    /** launch_app によって開かれたタスクとパッケージ。 */
     suspend fun targetTask(): Int
     fun targetPackage(): String?
     suspend fun packageOf(taskId: Int): String?
-    /** 任务所在的屏;任务已经不在了(页面办完自己关掉了)为 -1。 */
+    /** タスクが配置されている画面。タスクが存在しなくなった (タスクの終了後にページが閉じられた) は -1 です。 */
     suspend fun displayOf(taskId: Int): Int
     suspend fun moveToMain(taskId: Int): Boolean
     suspend fun moveBack(taskId: Int): Boolean
-    /** 开或关该 App 的声音。 */
+    /** アプリのサウンドをオンまたはオフにします。 */
     fun setSound(packageName: String, on: Boolean)
-    /** 开始数用户在主屏上对该包的操作;App 交到用户手上时调用。 */
+    /** は、ホーム画面上のパッケージに対するユーザーの操作のカウントを開始します。アプリがユーザーに引き渡されるときに呼び出されます。 */
     fun watchInput(packageName: String)
-    /** 此刻数到的操作和所在页面;没在数时为 null。 */
+    /** 現時点でカウントされている操作とページ。カウントしない場合は null。 */
     suspend fun handoverActivity(): HandoverActivity?
     fun stopWatching()
-    /** 把接管的结局交还 Agent 循环。 */
+    /** テイクオーバー終了をエージェント ループに返します。 */
     suspend fun resume(result: HandBack)
     fun cancel()
 
     /**
-     * 当前界面是网页时,把当前标签(同一个页面)拿到主屏给用户:成功 true,失败 false;不是网页界面为 null,走挪任务的老路。
-     * [key] 是这次等待的编号,网页接管界面上的按钮带着它。
+     * 現在のインターフェイスが Web ページの場合、現在のラベル (同じページ) をホーム画面に取得してユーザーに与えます。成功した場合は true、失敗した場合は false。 Web インターフェイスが null になる代わりに、タスクを移動する古いパスに従います。
+     * [key] は今回待機している番号で、Web ページ引き継ぎインターフェイスのボタンに付いています。
      */
     suspend fun showWeb(reason: String, key: Int): Boolean? = null
 
-    /** 把网页标签放回后台,返回接管期间的操作次数和页面标题;[loggedIn] 时把当前网站记为「用户登录过」。 */
+    /** は、Web ページのタグをバックグラウンドに戻し、テイクオーバー中に操作数とページ タイトルを返します。 [loggedIn] は、現在の Web サイトを「ユーザーがログイン中」として記録します。 */
     suspend fun returnWeb(loggedIn: Boolean): HandoverActivity? = null
 
-    /** 主屏上的网页界面此刻被占着(设置页的网站登录开着):[showWeb] 失败时据此告诉用户「先把那边弄完」而不是「挪动失败」。 */
+    /** ホーム画面の Web インターフェイスは現在占有されています (設定ページのログイン ページが開いています): [showWeb] 失敗すると、ユーザーは「移動が失敗しました」ではなく「最初にその側を終了する」ように指示されます。 */
     fun webBusy(): Boolean = false
 }
 
 /**
- * 主屏一次只交一个 App 给用户:几个任务同时请求接管时按先后排队,只有排在最前的能「我来处理」。
- * 排队的是各任务的 [Takeover];[changes] 每次进出队都变,任务服务据此重画通知。
- * 排在后面的不计等待时限,排到最前时才开始计时(见 [Takeover.reachedFront])。
+ * ホーム画面では、一度に 1 つのアプリのみがユーザーに配信されます。複数のタスクが同時に引き継がれるように要求された場合、それらは順番にキューに入れられ、一番上にあるタスクだけが「自分で処理」できます。
+ * はタスクごとにキューに入れられます。 [Takeover]; [changes] はキューに出入りするたびに変更され、タスク サービスはそれに応じて通知を再描画します。
+ * 待ち時間制限は後列の場合にはカウントされず、キューが前に到着したときに計時が開始されます ([Takeover.reachedFront] を参照)。
  */
 class TakeoverQueue {
     private val waiting = mutableListOf<Takeover>()
@@ -73,13 +73,13 @@ class TakeoverQueue {
         front?.reachedFront()
     }
 
-    /** 不在队里的(没在等接管)也算最前:它不会挡别人,也不被别人挡。 */
+    /** チーム内にない場合 (引き継ぎを待っていない場合)、それもフロントとみなされます。他の人をブロックすることはなく、他の人にブロックされることもありません。 */
     @Synchronized fun isFirst(owner: Any): Boolean = waiting.indexOfFirst { it === owner } <= 0
 
-    /** [owner] 前面还有几个任务在等用户处理;不在队里为 -1。 */
+    /** [owner] ユーザーの処理を待っているタスクがまだいくつかあります。キューにない場合は -1 です。 */
     @Synchronized fun ahead(owner: Any): Int = waiting.indexOfFirst { it === owner }
 
-    /** 排在 [owner] 后面还有几个任务等用户处理。 */
+    /** は [owner] の後ろにランクされており、ユーザーの処理を待っているタスクがいくつかあります。 */
     @Synchronized fun behind(owner: Any): Int {
         val i = waiting.indexOfFirst { it === owner }
         return if (i < 0) 0 else waiting.size - 1 - i
@@ -87,12 +87,12 @@ class TakeoverQueue {
 }
 
 /**
- * 接管的状态机:Agent 请求接管 → 等待 →「我来处理」把虚拟屏最上面的任务挪到主屏 →
- * 「处理好了」/「我自己做完了」挪回并交还 Agent;「跳过」不处理直接交还(App 在主屏就先挪回);
- * 任何时候都可「取消任务」,取消时 App 留在原处。
- * 没人点「我来处理」时等 [TAKEOVER_WAIT_TIMEOUT_MS] 后交还超时,App 不挪动;接手之后不再计时。
- * 计时跑在 [scope] 上,[now] 量接手时长;测试换成虚拟时间。
- * 给了 [queue] 时和其他任务的接管排队,排在后面的不能「我来处理」。
+ * テイクオーバー用ステートマシン: エージェントがテイクオーバーを要求 → 待機 → 「処理します」 仮想画面の最上位タスクをメイン画面に移動 →
+ * 「処理されました」/「自分で完了しました」 元に戻してエージェントに返します。 「スキップ」して処理せずに直接返します（アプリは最初にホーム画面に戻ります）。
+ * いつでも「タスクをキャンセル」でき、キャンセルしてもアプリはそのまま残ります。
+ * 誰も「処理します」をクリックしないと、[TAKEOVER_WAIT_TIMEOUT_MS] 後にハンドオーバーがタイムアウトになり、アプリは移動しません。引き継ぎ後もタイマーは停止しません。
+ * タイミングは [scope] で実行され、[now] は継続時間を測定します。テストは仮想時間に置き換えられます。
+ * が [queue] に与えられると、他のタスクの引き継ぎとともにキューに入れられます。後ろの人は「私が扱う」ことはできません。
  */
 class Takeover(
     private val port: TakeoverPort,
@@ -106,22 +106,22 @@ class Takeover(
     private val _stage = MutableStateFlow(Stage.None)
     val stage: StateFlow<Stage> = _stage.asStateFlow()
     private val _problem = MutableStateFlow<Problem?>(null)
-    /** 最近一次挪动失败的原因,下一次成功后清空。 */
+    /** 最新の移動が失敗した理由。次の成功でクリアされます。 */
     val problem: StateFlow<Problem?> = _problem.asStateFlow()
 
-    /** App 在用户手上(主屏):这时它不在虚拟屏上是有意的,不算「被用户拿走」。 */
+    /** アプリはユーザーの手元 (ホーム画面) にあります: 現時点では、意図的に仮想画面上にあるわけではないため、「ユーザーによって持ち去られた」とは見なされません。 */
     val handedOver: Boolean get() = _stage.value == Stage.HandedOver
 
     private val mutex = Mutex()
-    /** 当前这次等待,和已经交还的那次;同一个状态在循环往下走之前被再次发布时不能重新进入等待。 */
+    /** 現在の待機時間は、返された待機時間と同じです。サイクルがダウンする前に再度解除すると、同じ状態に戻ることはできません。 */
     @Volatile private var current: TaskState.WaitingTakeover? = null
     @Volatile private var answered: TaskState.WaitingTakeover? = null
-    /** 第几次等待;通知按钮带着它,点到的若是上一次等待遗留的就不算数。 */
+    /** 待機する回数。通知ボタンにはそれが含まれており、クリックされたものが最後に待機した後に残っている場合はカウントされません。 */
     @Volatile var waitKey = 0
         private set
-    /** 交到用户手上的是网页标签(不是挪到主屏的任务)。 */
+    /** は、ユーザーに Web ページのタブを提供します (ホーム画面に移動するタスクではありません)。 */
     private var handedWeb = false
-    /** 挪到主屏的任务和它的包。 */
+    /** は、タスクとそのパッケージをホーム画面に移動します。 */
     private var handed = -1
     private var handedPackage: String? = null
     private var handedAt = 0L
@@ -135,10 +135,10 @@ class Takeover(
                 waitKey++
                 _problem.value = null
                 _stage.value = Stage.Waiting
-                // 排在别的任务的接管后面时先不计时:用户还没空看它
+                // は、他のタスクの引き継ぎの背後でキューに入れられている場合、タイミングが計測されません。ユーザーにはまだそれを確認する時間がありません。
                 if (queue == null || queue.isFirst(this)) armTimer(state)
             }
-            // 等待接管时循环停在那里,不会发布别的状态;发布了别的就是交还后往下走了,或任务结束了
+            // 引き継ぎを待機しているときにループはそこで停止し、他のステータスは解放されません。他のステータスが解放された場合は、ステータスが返されてダウンするか、タスクが終了します。
             else -> {
                 stopTimer()
                 if (_stage.value == Stage.HandedOver) port.stopWatching()
@@ -154,13 +154,13 @@ class Takeover(
         }
     }
 
-    /** 「我来处理」。 */
+    /** 「私が対応します。」 */
     suspend fun handOver(key: Int? = null): Boolean = mutex.withLock {
         if (_stage.value != Stage.Waiting || !keyMatches(key)) return false
         if (queue != null && !queue.isFirst(this)) return false
-        // 先标记再挪:轮询「被挪走」的监视器可能在挪动刚完成时就看到
+        // 最初にマークしてから移動: 「移動済み」をポーリングしているモニターには、移動の完了直後にマークが表示される場合があります。
         _stage.value = Stage.HandedOver
-        // 网页界面:把同一个标签拿到眼前,不挪任务、不动声音
+        // Web インターフェイス: タスクやサウンドを移動せずに、同じラベルを目の前に保持します。
         when (port.showWeb(current?.reason ?: "other", waitKey)) {
             true -> {
                 handedWeb = true
@@ -176,7 +176,7 @@ class Takeover(
             }
             null -> Unit
         }
-        // 挪虚拟屏最上面的任务:App 常把登录、付款页开在另一个任务里
+        // 仮想画面の一番上のタスクを移動します: アプリは別のタスクでログイン ページと支払いページを開くことがよくあります
         val id = port.agentTopTask().takeIf { it >= 0 } ?: port.targetTask()
         if (id >= 0) {
             if (!port.moveToMain(id)) {
@@ -197,18 +197,18 @@ class Takeover(
         true
     }
 
-    /** 「处理好了」:Agent 先读屏核实再继续。 */
+    /** 「処理済み」: エージェントは続行する前に画面を読み取って確認します。 */
     suspend fun handBack(key: Int? = null): Boolean = giveBack(HandBack(HandBackOutcome.complete), key)
 
-    /** 「我自己做完了」:Agent 不再操作,只核实结果并结束。 */
+    /** 「自分で終了しました」: エージェントは動作しなくなり、結果を確認するだけで終了します。 */
     suspend fun finishedMyself(key: Int? = null): Boolean = giveBack(HandBack(HandBackOutcome.complete, userFinished = true), key)
 
-    /** 「跳过」:不处理,告诉 Agent 没有发生交回;App 若在主屏先挪回,挪不回就保持原状。 */
+    /** "スキップ": 処理は行われず、ハンドオーバーが発生していないことをエージェントに伝えます。アプリを最初にホーム画面に戻した場合、戻せない場合は元の状態のままになります。 */
     suspend fun skip(key: Int? = null): Boolean = giveBack(HandBack(HandBackOutcome.skipped), key)
 
     /**
-     * 网页接管界面上按了系统返回键 =「先放着」:标签放回后台,任务回到等待接管(通知还在,可以再点「我来处理」),
-     * 等待照常计时。只在已经接手时有效。
+     * Web ページの引き継ぎインターフェイスでシステムのリターン キーを押します = 「最初に実行」: ラベルがバックグラウンドに戻り、タスクは引き継ぎの待機状態に戻ります (通知はまだ存在します。もう一度「処理します」をクリックできます)。
+     * は通常通り待機します。すでに引き継がれている場合のみ有効です。
      */
     suspend fun putAside(key: Int? = null): Boolean = mutex.withLock {
         if (_stage.value != Stage.HandedOver || !handedWeb || !keyMatches(key)) return false
@@ -219,7 +219,7 @@ class Takeover(
         true
     }
 
-    /** 「取消任务」:App 若在主屏就留在主屏,不从用户眼前抽走;网页标签则放回后台(任务的标签随后关掉)。 */
+    /** 「タスクをキャンセル」: アプリがホーム画面にある場合、アプリはホーム画面に留まり、ユーザーの目から離されません。 Web ページのラベルはバックグラウンドに戻ります (タスク ラベルは閉じられます)。 */
     suspend fun cancel() = mutex.withLock {
         stopTimer()
         if (handedWeb) {
@@ -235,7 +235,7 @@ class Takeover(
         port.cancel()
     }
 
-    /** 没带 key(应用内按钮)总是认;带了的必须是当前这次等待。 */
+    /** キー (アプリケーション内ボタン) が指定されていない場合は、常に認識されます。指定されている場合は、現在の待ち時間でなければなりません。 */
     private fun keyMatches(key: Int?) = key == null || key == waitKey
 
     private suspend fun giveBack(result: HandBack, key: Int?): Boolean = mutex.withLock {
@@ -247,18 +247,18 @@ class Takeover(
         if (from == Stage.None) return false
         var result = given
         if (from == Stage.HandedOver && handedWeb) {
-            // 交回(完成或我自己做完了)都算用户在这个网站上登录过;跳过则不算
+            // 提出物 (完了または自分で行ったもの) は、ユーザーがこの Web サイトにログインしたものとしてカウントされます。スキップはカウントされません。
             val done = result.outcome == HandBackOutcome.complete
             val activity = port.returnWeb(loggedIn = done)
             if (done) result = result.copy(durationMs = now() - handedAt, inputCount = activity?.inputCount, stoppedAt = activity?.stoppedAt)
             handedWeb = false
         } else if (from == Stage.HandedOver) {
-            // 停在哪一页要在挪回之前看:挪回后它就不在主屏了
+            // 戻る前に、現在どのページにいるのかを確認してください。戻ると、そのページはホーム画面に表示されなくなります。
             if (result.outcome == HandBackOutcome.complete) {
                 val activity = port.handoverActivity()
                 result = result.copy(durationMs = now() - handedAt, inputCount = activity?.inputCount, stoppedAt = activity?.stoppedAt)
             }
-            // 交出去的任务可能已经办完自己关掉了(不在了就不用挪);launch_app 的任务若还在主屏也一并挪回
+            // 渡されたタスクは完了し、自動的に閉じられた可能性があります (存在しない場合は移動する必要はありません)。 launch_app タスクがまだホーム画面にある場合は、それも元に戻ります。
             val target = port.targetTask()
             for (id in listOf(handed, target).filter { it >= 0 }.distinct()) {
                 if (port.displayOf(id) == MAIN_DISPLAY && !port.moveBack(id)) {
@@ -280,7 +280,7 @@ class Takeover(
         return true
     }
 
-    /** 前面的接管处理完,轮到这一个:从现在起计等待时限。 */
+    /** 前回の引き継ぎが処理され、今度は今度は引き継ぎの番です。今から待機時間制限が始まります。 */
     internal fun reachedFront() {
         val waiting = current
         if (_stage.value == Stage.Waiting && waiting != null && timer == null) armTimer(waiting)
@@ -291,9 +291,9 @@ class Takeover(
         timer = scope.launch {
             delay(TAKEOVER_WAIT_TIMEOUT_MS)
             mutex.withLock {
-                // 挪到主屏失败退回等待时也照常超时;已经接手或换成了下一次等待就不算
+                // ホーム画面への移動が失敗して待機状態に戻ると、通常どおりタイムアウトになります。引き継がれたり、次の待ち時間に変更された場合はカウントされません。
                 if (_stage.value == Stage.Waiting && current === state) {
-                    timer = null // 交还时不能把正在交还的自己取消掉
+                    timer = null // 返品の際、返品中のセルフをキャンセルすることはできません。
                     giveBackLocked(HandBack(HandBackOutcome.timeout))
                 }
             }
@@ -307,7 +307,7 @@ class Takeover(
 
     companion object {
         private const val MAIN_DISPLAY = 0
-        /** 等用户点「我来处理」的时限;接手之后不计时。 */
+        /** ユーザーが「処理します」をクリックするまでの制限時間。引き継ぎ後は時間制限はありません。 */
         const val TAKEOVER_WAIT_TIMEOUT_MS = 15 * 60_000L
     }
 }

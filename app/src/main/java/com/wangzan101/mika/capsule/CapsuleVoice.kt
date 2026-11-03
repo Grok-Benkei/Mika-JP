@@ -73,21 +73,21 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * 悬浮胶囊长按说话:松开时手指落在哪([CapsuleVoice.drop])、发出后胶囊上闪的那句([CapsuleVoice.sent]),
- * 一次说话的会话和界面状态([CapsuleTalk],状态机用和输入栏同一个 [HoldToTalk]),
- * 和按住时浮在胶囊旁边的面板([CapsuleVoicePanel]:说给谁、实时的字、波形,「取消」「改一改」两个落点)。
- * 说完交给谁、怎么发由 [CapsuleController] 定(和双击发屏幕同一套找目标)。
+ * 保留中のカプセルを長押しして発話します。リリースしたときに指が落ちる場所 ([CapsuleVoice.drop])、および発話後にカプセルが点滅する文 ([CapsuleVoice.sent])、
+ * 会話セッションとインターフェイスのステータス ([CapsuleTalk]、ステート マシンは入力フィールドと同じ [HoldToTalk] を使用します)、
+ * と、押すとカプセルの横に浮かぶパネル（[CapsuleVoicePanel]：誰かに伝える、リアルタイムの言葉、波形、「キャンセル」と「変更」の2つのドロップポイント）。
+ * [CapsuleController] は、誰に渡すか、どのように送信するかを決定します (画面をダブルクリックしてターゲットを見つけるのと同じです)。
  */
 object CapsuleVoice {
-    /** 松开时:直接发出、打开卡片接着改、丢掉。 */
+    /** 発売時：直接発送するか、カードを開いて変更するか、破棄してください。 */
     enum class Drop { Send, Edit, Cancel }
 
-    /** 胶囊上闪的那句里最多带几个字。 */
+    /** カプセル上で点滅する文には、せいぜい数単語が含まれます。 */
     private const val SENT_CHARS = 12
 
     /**
-     * 手指在屏幕上的位置 ([x],[y]) 落在哪:两个圆各自外扩 [slopPx] 算命中,其余是发送。
-     * 圆还没排好版(空的)时不算命中,免得面板刚出来那一下误判。
+     * 画面上の指の位置 ([x]、[y]) は、2 つの円がそれぞれ外側に広がります。 [slopPx] がヒットし、残りは送信されます。
+     * パネルが出たばかりの際の誤判定を避けるため、サークルが配置されていない（空）場合は当たりとしてカウントされません。
      */
     fun drop(x: Float, y: Float, cancel: Rect, edit: Rect, slopPx: Int): Drop {
         fun Rect.hit() = !isEmpty && x >= left - slopPx && x <= right + slopPx && y >= top - slopPx && y <= bottom + slopPx
@@ -98,7 +98,7 @@ object CapsuleVoice {
         }
     }
 
-    /** 发出后胶囊上那句:插话、回答还是发出,后面带说的话的前几个字。 */
+    /** カプセルで文を送信した後: 中断、応答または送信し、その後に話された内容の最初の数語を続けます。 */
     fun sent(kind: CardInputKind, text: String): String {
         val head = text.trim().let { if (it.length > SENT_CHARS) it.take(SENT_CHARS) + "…" else it }
         return when (kind) {
@@ -108,7 +108,7 @@ object CapsuleVoice {
         }
     }
 
-    /** 面板顶上那句:说给谁。和卡片输入框交给谁一致;没有输入框(要你接管、同意)或开新对话时是「在听」。 */
+    /** パネル上部の文: 誰かに伝えてください。これは、カード入力ボックスが誰に与えられるかに一致します。新しい会話を開くときに、入力ボックス (承認と同意を要求する) や「聞く」ことはありません。 */
     fun title(card: CardView?): String {
         val input = card?.let(CapsuleCards::input)?.kind ?: return tr(R.string.voice_listening)
         val goal = when (card) {
@@ -125,11 +125,11 @@ object CapsuleVoice {
 }
 
 /**
- * 胶囊上一次说话:开会话([begin])、收事件、按着时推计时、手指移动时算落点([move])、松开([finish])。
- * 用手指按着时([byTouch])落点跟着手指;读屏的「说话」没有手指,只会发出。说完([HoldToTalk.State.Done]、
- * [HoldToTalk.State.Problem])交给 [onResult],连同松开时的落点。手还按着时会话先结束了,结果由 [HoldToTalk] 留着,
- * 等手指离开按那时的落点处理(取消就丢掉、改一改打开卡片、其余发出);读屏没有手指,会话一结束就当「发出」。
- * 松开后在转、手指又按下:旧的那段不要了,重新开始听。只在主线程用。
+ * カプセルが最後に話した時間: 会話を開く ([begin])、イベントを受け取る、押されたときにタイミングを押す、指が動いたときに着地点を計算する ([move])、リリースする ([finish])。
+ * 指で押すと ([byTouch])、着地点は指に追従します。画面を読み上げる「発話」には指はなく、発することしかできません。そう言ってから（[HoldToTalk.State.Done]、
+ * [HoldToTalk.State.Problem]) から [onResult] まで、リリース時の着地点も合わせて指定します。手が押されたままセッションが先に終了し、結果は[HoldToTalk]がキープした。
+ * 指が離れるのを待ち、その時点で着地点を押します（キャンセルする場合は捨て、カードを開くように変更し、残りを送信します）。画面を読み取るときに指が必要なく、セッションが終了するとすぐに画面が「送信」されます。
+ * 放した後、回してもう一度押します。古い部分はもう必要ないので、もう一度聞き始めます。メインスレッドでのみ使用されます。
  */
 internal class CapsuleTalk(
     private val context: Context,
@@ -137,20 +137,20 @@ internal class CapsuleTalk(
     private val scope: CoroutineScope,
     private val onResult: (CapsuleVoice.Drop, HoldToTalk.State) -> Unit,
 ) {
-    /** [begin] 的结果:开始了,或者为什么没开始。 */
+    /** [begin] の結果: 起動した、または起動しなかった理由。 */
     sealed interface Begin {
         data object Started : Begin
         data object NoPermission : Begin
         data class Unavailable(val why: SpeechEngineSpec.Why) : Begin
     }
 
-    // 「太短」从手指按下算:开始听时已经按了 HOLD_MS,状态机只再数剩下的
+    // 「短すぎる」は指の押下からカウントされます: リスニングを開始するときに HOLD_MS が押されており、ステート マシンは残りのもののみをカウントします。
     val hold = HoldToTalk(clock = SystemClock::elapsedRealtime, maxMs = MAX_MS, minMs = MIN_TOTAL_MS - HOLD_MS)
 
-    /** 面板在显示(按着、或松开后在转)。 */
+    /** パネルが表示されています (押したり放したりすると回転します)。 */
     var active by mutableStateOf(false)
         private set
-    /** 已松开(或读屏的「发出」),在等字。 */
+    /** がリリースされ (または画面を読み取って「送信」)、言葉を待っています。 */
     var released by mutableStateOf(false)
         private set
     var byTouch by mutableStateOf(true)
@@ -161,7 +161,7 @@ internal class CapsuleTalk(
     var engine by mutableStateOf("")
         private set
 
-    /** 两个落点在屏幕上的位置,面板排好版后报上来。 */
+    /** パネルが配置された後、画面上の 2 つの着地点の位置が報告されます。 */
     var cancelAt = Rect.Zero
     var editAt = Rect.Zero
 
@@ -171,14 +171,14 @@ internal class CapsuleTalk(
     private var watcher: Job? = null
     private var startedAt = 0L
 
-    /** 能不能用、有没有录音权限:都行才开始听。胶囊不是 Activity,弹不了系统的权限框。 */
+    /** が使用できるかどうか、および録音許可があるかどうか: 動作する場合はリスニングを開始します。カプセルはアクティビティではないため、システムの許可ボックスを開けることができません。 */
     fun begin(title: String, byTouch: Boolean): Begin {
         if (active && !released) return Begin.Started
         val source = voice()
         val spec = source.spec()
         if (spec is SpeechEngineSpec.Unavailable) return Begin.Unavailable(spec.why)
         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return Begin.NoPermission
-        // 上一段松开后还在转(服务商卡住、或自带识别在收尾):用户重新按,上一段不要了;会话由 press 取消
+        // は、前のセグメントを解放した後も回転しています (サービス プロバイダーが停止しているか、組み込みの認識が終了しています)。ユーザーがもう一度押すと、前のセグメントは不要になります。セッションはプレスによってキャンセルされました
         if (active) stop()
         hold.reset()
         val session = source.start()
@@ -196,7 +196,7 @@ internal class CapsuleTalk(
         collector = scope.launch { session.events.collect { hold.onEvent(it) } }
         watcher = scope.launch {
             hold.state.collect { s ->
-                // 读屏没有手指可等:会话自己结束了就当按了「发出」
+                // 画面の読み取りを待つ必要はありません。セッションが自動的に終了したら、「送信」を押すだけです。
                 if (s is HoldToTalk.State.Listening && s.ended && !this@CapsuleTalk.byTouch) finish(CapsuleVoice.Drop.Send)
                 if (s is HoldToTalk.State.Done || s is HoldToTalk.State.Problem) {
                     val d = drop ?: aim
@@ -209,22 +209,22 @@ internal class CapsuleTalk(
         ticker = scope.launch {
             while (active && !released) {
                 delay(TICK_MS)
-                // 到点按此刻的落点收尾(状态机到点也会自己松开,但它不知道落点)
+                // この時点で着地点をクリックして終了します（ステートマシンは着地点に到達すると解放されますが、着地点はわかりません）
                 if (SystemClock.elapsedRealtime() - startedAt >= MAX_MS) finish(aim) else hold.tick()
             }
         }
         return Begin.Started
     }
 
-    /** 手指移到了屏幕上的 ([x],[y])。 */
+    /** 指が画面上の([x],[y])に移動しました。 */
     fun move(x: Float, y: Float, slopPx: Int) {
         if (!active || released || !byTouch) return
         aim = CapsuleVoice.drop(x, y, cancelAt, editAt, slopPx)
-        // 状态机也要知道手指在不在取消上:会话在按着时出错,停在取消上就不提示
+        // ステート マシンは、指がキャンセル ボタン上にあるかどうかも認識する必要があります。セッションが押されるとエラーが発生し、キャンセル ボタン上で停止するとプロンプトが表示されません。
         hold.armCancel(aim == CapsuleVoice.Drop.Cancel)
     }
 
-    /** 松开(或读屏的「发出」):取消就丢掉,否则收尾等字。 */
+    /** リリース（または画面読み上げで「送信」）：キャンセルする場合は破棄し、そうでない場合は「終了」などの文字で終了します。 */
     fun finish(at: CapsuleVoice.Drop) {
         if (!active || released) return
         if (at == CapsuleVoice.Drop.Cancel) {
@@ -238,7 +238,7 @@ internal class CapsuleTalk(
         hold.release()
     }
 
-    /** 这一段不要了(拖到取消、胶囊被拆、触摸被系统收走)。可以重复调。 */
+    /** このセクションは不要になりました (キャンセルされるまでドラッグし、カプセルが削除され、タッチがシステムによって削除されます)。繰り返し調整可能です。 */
     fun abort() {
         stop()
         hold.dispose()
@@ -257,16 +257,16 @@ internal class CapsuleTalk(
     }
 
     companion object {
-        /** 按住不动这么久才算长按(毫秒)。 */
+        /** 長く押し続けると長押し（ミリ秒）とみなされます。 */
         const val HOLD_MS = 400L
-        /** 从手指按下算,不到这么久松开就当没听清。 */
+        /** 指で押した瞬間から、この時間内に指を離すと、はっきり聞こえなかったふりをします。 */
         const val MIN_TOTAL_MS = 500L
         const val MAX_MS = 60_000L
         private const val TICK_MS = 100L
     }
 }
 
-/** 面板和两个圆离胶囊多远、彼此多远;两个圆多大。 */
+/** パネルと 2 つの円はカプセルから、また互いからどのくらい離れていますか。 2つの円の大きさはどれくらいですか。 */
 private val PanelGap = 16.dp
 private val TargetsGap = 18.dp
 private val TargetSize = 62.dp
@@ -280,13 +280,13 @@ private val TargetText = TextStyle(
     fontSize = 12.5.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium,
     shadow = Shadow(Color.Black.copy(alpha = 0.4f), Offset(0f, 1f), 3f),
 )
-/** 背后的 App 稍微压暗,注意力在面板上。 */
+/** の背後にあるアプリはわずかに薄暗くなり、パネルに注目が集まっています。 */
 private const val DIM = 0.28f
 
 /**
- * 按住胶囊说话时整屏的那一层(不接触摸):背后稍微压暗,面板贴着胶囊([anchorTop]..[anchorBottom],屏幕纵坐标)那一边,
- * 放得下就在胶囊上面,否则在下面;两个落点在面板外侧(离胶囊更远),手指拖过去。
- * [insetTop]/[insetBottom] 是状态栏、底部手势条占的高度。两个圆排好版后把屏幕上的位置报给 [talk]。
+ * カプセルを長押しして（タッチせずに）話すときの画面全体のレイヤー: 背面がわずかに暗くなり、パネルはカプセルの側面に近くなります ([anchorTop]..[anchorBottom]、画面の縦軸)。
+ * はカプセルの上部に配置できます。それ以外の場合は、カプセルの下に配置されます。 2 つの着地点はパネルの外側 (カプセルからさらに離れたところ) にあり、それらを指でドラッグします。
+ * [insetTop]/[insetBottom] は、ステータス バーと下部のジェスチャ バーが占める高さです。 2つの円を配置したら、画面上の位置を[talk]に報告します。
  */
 @Composable
 internal fun CapsuleVoicePanel(talk: CapsuleTalk, anchorTop: Int, anchorBottom: Int, insetTop: Int, insetBottom: Int) {
@@ -296,7 +296,7 @@ internal fun CapsuleVoicePanel(talk: CapsuleTalk, anchorTop: Int, anchorBottom: 
     val view = LocalView.current
     val dim by animateFloatAsState(DIM, if (MikaTheme.reduceMotion) snap() else tween(200), label = "voice-dim")
     var below by remember { mutableStateOf(false) }
-    // 圆在屏幕上的位置:窗口内坐标加上窗口在屏幕上的位置
+    // 画面上の円の位置: ウィンドウ内の座標に画面上のウィンドウの位置を加えたもの
     fun Rect.onScreen(): Rect {
         val at = IntArray(2).also(view::getLocationOnScreen)
         return translate(Offset(at[0].toFloat(), at[1].toFloat()))
@@ -319,7 +319,7 @@ internal fun CapsuleVoicePanel(talk: CapsuleTalk, anchorTop: Int, anchorBottom: 
         val total = targets.height + between + panel.height
         val top = insetTop + gap
         val bottom = cons.maxHeight - insetBottom - gap
-        // 胶囊上面放得下就放上面(两个圆在最上),否则放下面(两个圆在最下)
+        // カプセルが収まる場合は上に置きます (2 つの円が上にあります)。収まらない場合は下に置きます (2 つの円が下にあります)。
         val goBelow = anchorTop - gap - total < top
         if (goBelow != below) below = goBelow
         val groupTop = (if (goBelow) anchorBottom + gap else anchorTop - gap - total)
@@ -336,10 +336,10 @@ internal fun CapsuleVoicePanel(talk: CapsuleTalk, anchorTop: Int, anchorBottom: 
     }
 }
 
-/** 「取消」「改一改」两个圆;手指移上去的那个放大、变色。松开后在转时藏起来(位置照样留着,面板不跳)。 */
+/** 「キャンセル」と「変更」の 2 つの円。指を動かすと拡大して色が変わります。放した後、回転しながら非表示にします（位置は保持され、パネルはジャンプしません）。 */
 @Composable
 private fun Targets(talk: CapsuleTalk, show: Boolean, onPlaced: (Rect, Rect) -> Unit) {
-    // 两个圆各自排好版的位置(窗口内坐标);两个都有了才报
+    // 2 つの円の位置 (ウィンドウ内の座標) がそれぞれ配置されます。両方が利用可能な場合にのみレポートします
     val at = remember { arrayOf(Rect.Zero, Rect.Zero) }
     Row(
         Modifier.alpha(if (show) 1f else 0f),
@@ -381,7 +381,7 @@ private fun Target(icon: ImageVector, label: String, hot: Boolean, bad: Boolean,
     }
 }
 
-/** 面板:顶上在录的点、说给谁、用的哪个转文字、用时;中间实时的字;波形;底下松开会怎样。 */
+/** パネル: 上部の録音ポイント、誰に話すか、どのテキストを使用するか、使用した時間を指定します。真ん中のリアルタイムの単語。波形。そしてそれを一番下で放すとどうなるか。 */
 @Composable
 private fun Panel(talk: CapsuleTalk, state: HoldToTalk.State, below: Boolean) {
     val c = MikaTheme.colors
@@ -449,7 +449,7 @@ private fun Panel(talk: CapsuleTalk, state: HoldToTalk.State, below: Boolean) {
                 VoiceWave(listening?.level ?: 0f, flat = cancel, reduceMotion = MikaTheme.reduceMotion, color = if (cancel || edit) c.ink3 else c.accent)
             }
         }
-        // 在转时中间已经写着「转文字…」,底下不再重复
+        // は転送時間の途中ですでに「テキストに変換...」を書き込んでいます。以下では繰り返しません。
         if (converting) return@Column
         val foot = when {
             !talk.byTouch -> stringResource(R.string.capsule_voice_foot_a11y)

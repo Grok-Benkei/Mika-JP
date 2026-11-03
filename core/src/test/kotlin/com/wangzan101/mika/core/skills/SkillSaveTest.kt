@@ -25,7 +25,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SkillSaveTest {
-    private val bundled = GuideCatalog.loadBundled()
+    private val bundled = com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog()
     private val ask = "帮我建一个技能:点咖啡先看优惠券再下单"
 
     private fun md(name: String = "order-coffee", steps: String = "1. 打开咖啡 App\n2. 先看优惠券再下单") = """
@@ -77,7 +77,7 @@ class SkillSaveTest {
         assertEquals(SkillStatus.trial, saved.status)
         assertTrue(saved.createdByUser)
         assertEquals("user", FrontMatter.parse(saved.markdown).first["source"])
-        // 存下就在技能目录里:搜得到、读得到,读到的版本号和存下时给的一致
+        // はスキル ディレクトリに保存されます。検索および読み取りが可能で、読み取られるバージョン番号は保存時に指定されたものと同じです。
         val catalog = GuideCatalog.withPersonal(bundled, s.store)
         assertTrue(catalog.find("点咖啡").any { it.name == "order-coffee" && it.kind == "personal" })
         val read = s.tools.call("skill_read", buildJsonObject { put("name", "personal:order-coffee") })
@@ -89,11 +89,11 @@ class SkillSaveTest {
         val old = personalSkill("order-coffee", description = "点咖啡")
         val s = setup(InMemoryPersonalSkills(old), said = "把点咖啡的技能改一下,先看优惠券")
         val quote = "把点咖啡的技能改一下"
-        // 没读就改:不收,原样不动
+        // 読まずに変更します: 受け入れず、変更しないでください
         val blind = s.tools.call("skill_save", save(md(), quote))
         assertEquals("exists", blind.s("error"))
         assertEquals(old, s.store.get("order-coffee"))
-        // 版本号对不上(中途被改过):不收
+        // バージョン番号が一致しません (途中で変更されました): 受け入れられません
         val stale = s.tools.call("skill_save", save(md(), quote, version = "000000000000"))
         assertEquals("changed_since_read", stale.s("error"))
         val version = s.tools.call("skill_read", buildJsonObject { put("name", "order-coffee") }).s("version")
@@ -122,7 +122,7 @@ class SkillSaveTest {
         assertEquals("missing_description", s.tools.call("skill_save", save(md().replace("description: 用户要点咖啡时用\n", ""))).s("error"))
         val noSection = s.tools.call("skill_save", save(md().replace("## 怎样算办成\n", "")))
         assertEquals("missing_section", noSection.s("error"))
-        assertTrue("## 怎样算办成" in noSection.s("message"))
+        assertTrue("## 完了の確認" in noSection.s("message"))
         assertEquals("too_long", s.tools.call("skill_save", save(md(steps = "1. " + "很长".repeat(SkillDrafter.MAX_CHARS / 2)))).s("error"))
         assertEquals("unknown_tool", s.tools.call("skill_save", save(md(steps = "1. 用 `press_order_button` 下单"))).s("error"))
         assertTrue(s.store.list().isEmpty())
@@ -169,7 +169,7 @@ class SkillSaveTest {
     @Test fun bundledIndexListsTheAuthoringSkill() {
         val s = bundled.items.single { it.kind == "skill" && it.name == "skill-authoring" }
         assertTrue(s.description.isNotBlank())
-        assertTrue(bundled.find("创建技能").any { it.name == "skill-authoring" })
+        assertTrue(bundled.find("スキル").any { it.name == "skill-authoring" })
         assertTrue((bundled.view("skill:skill-authoring") as GuideView.Found).content.contains("skill_save"))
     }
 }

@@ -20,8 +20,8 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
- * 读脚本前置脚本的只读约束,真跑一遍:在 Node 里用一套假 DOM 装上 [ReadScriptProtocol.PRELUDE],
- * 看改页面、点、跳转、任何网络请求、读秘密、改内置对象都被拦下,读照常。机器上没有 Node 时跳过。
+ * 読み取りスクリプトプレスクリプト読み取り専用制約。実際に実行します。偽の DOM のセットを使用して、ノードに [ReadScriptProtocol.PRELUDE] をインストールします。
+ * ページの表示と変更、クリック、ジャンプ、ネットワーク リクエスト、シークレットの読み取り、組み込みオブジェクトの変更はすべてブロックされ、読み取りは正常に行われます。マシン上にノードがない場合はスキップします。
  */
 class ReadScriptEnforcementTest {
     companion object {
@@ -29,7 +29,7 @@ class ReadScriptEnforcementTest {
         private val pages = mutableMapOf<String, String>()
         private lateinit var cache: JsonObject
 
-        /** [page]:跑之前页面自己做的事(harness.js 的 pageActions),跑完还原。 */
+        /** [page]: 前のページで実行したこと (harness.js の pageActions) を実行し、実行後に復元します。 */
         private fun case(name: String, code: String, args: JsonObject? = null, page: String? = null) { cases[name] = code to args; page?.let { pages[name] = it } }
 
         internal fun node(): String? = listOf("node", "/opt/homebrew/bin/node", "/usr/local/bin/node", "/usr/bin/node").firstOrNull { n ->
@@ -72,7 +72,7 @@ class ReadScriptEnforcementTest {
             case("areaText", "const [code, note] = document.querySelectorAll('textarea'); const c = code.firstChild, n = note.firstChild; return [c.data, c.nodeValue, c.textContent, c.wholeText, c.length, c.substringData(0, 3), code.childNodes.length, n.data, n.substringData(0, 5)];")
             case("areaCdata", "const c = document.querySelector('iframe').contentDocument.body.children[0].children[3].firstChild; return [c.nodeType, c.data, c.nodeValue, c.textContent, c.wholeText, c.length];")
             case("areaContainers", "const f = document.querySelector('form'); const b = document.body.textContent; return [f.textContent, f.innerText, b.includes('otp-in-textarea'), b.includes('leave at door'), document.querySelector('div').shadowRoot.textContent, document.querySelector('iframe').contentDocument.body.textContent];")
-            // 拿着子文本节点、value 属性节点先不读,等页面换掉字、删掉属性(节点脱离文档)以后再读
+            // 子テキスト ノードと値属性ノードを保持し、ページが単語を変更して属性を削除し (ノードがドキュメントから分離される)、再度読み取るまでそれらを読み取りません。
             case("holdArea", "state.area = document.querySelector('div').shadowRoot.childNodes[2].firstChild; return 1;")
             case("heldArea", "const n = state.area; return [n.parentNode === null, n.data, n.nodeValue, n.textContent, n.wholeText, n.length, n.substringData(0, 3)];", page = "typeBack")
             case("holdAreaIter", "for (const n of document.querySelector('div').shadowRoot.childNodes[2].childNodes) state.area2 = n; return 1;")
@@ -83,7 +83,7 @@ class ReadScriptEnforcementTest {
             case("areaShown", "const p = document.querySelector('p'), s = document.querySelector('select'); return [p.innerText, p.outerText, p.textContent, s.innerText, s.options[1].innerText];")
             case("areaDesc2", "const s = document.querySelectorAll('select')[1], o = s.options[0], out = document.querySelector('output'); return [s.value, o.value, o.text, o.label, out.value, out.defaultValue];")
             case("noSelection", "const s = document.querySelector('select'); return [s.selectedIndex, s.value];", page = "unselect")
-            // 拿到节点时框还不是秘密的(先读得出),页面随后把框变成秘密、把字写进这个节点,节点再脱离文档
+            // ノードが取得されたとき、ボックスは秘密ではありません (最初に読み取ることができます)。次に、ページはボックスを秘密に変更し、単語をノードに書き込み、その後ノードはドキュメントを離れます。
             case("holdLate", "state.late = document.querySelectorAll('textarea')[1].firstChild; state.lateAttr = document.querySelectorAll('input')[2].attributes.getNamedItem('value'); return [state.late.data, state.lateAttr.value];")
             case("heldLate", "const n = state.late, a = state.lateAttr; return [n.parentNode === null, n.data, n.textContent, a.ownerElement === null, a.value, a.nodeValue];", page = "lateSecret")
             case("frameFields", "const f = document.querySelector('iframe').contentDocument.body.children[0]; return [f.children[0].value, f.children[1].value, f.children[0].selectionEnd, f.children[1].type, f.children[2].value];")
@@ -182,56 +182,56 @@ class ReadScriptEnforcementTest {
         val html = ok("formHtml")
         assertTrue(html, "hunter2" !in html && "tok-123" !in html && "482913" !in html && "otp-in-textarea" !in html && "shoes" in html && "leave at door" in html)
         blocked("byValue", "invalid_selector")
-        // 秘密输入框接口上不在白名单里的属性(能算出值或长度的)也是 ***;照读的只有页面定好的设定,别的元素照常
+        // シークレット入力ボックス インターフェイスのホワイトリストにない属性 (値または長さを計算できる属性) も *** です。ページに設定されている設定のみが読み取られ、他の要素は通常どおり読み込まれます。
         assertEquals("""["***","***","password","otp","INPUT",5]""", ok("fieldProps"))
         assertEquals("""["***","***","***","***","code","leave at door",13,"leave at door"]""", ok("textareas"))
     }
 
     @Test fun framesShadowRootsAndCopiesStayHidden() {
-        // 同源 iframe 里的节点属于那个框架自己的一套接口:按原生 getter 认,值、隐藏字段、量长度的属性照样 ***,普通框照读
+        // の相同 iframe 内のノードは、そのフレームワーク独自のインターフェイスのセットに属します。ネイティブ ゲッターによって認識され、値、隠しフィールド、および長さの属性は依然として同じ *** であり、通常のフレームはそれらをそのまま読み取ります。
         assertEquals("""["***","***","***","hidden","frame-q"]""", ok("frameFields"))
         val frame = ok("frameHtml")
         assertTrue(frame, "tok-frame" !in frame && "frame-q" in frame)
-        // shadow root 的 innerHTML 也打码
+        // シャドウ ルートの innerHTML もコーディングされています
         val shadow = ok("shadowHtml")
         assertTrue(shadow, "shadow-default" !in shadow && "shadow-token" !in shadow && "password" in shadow)
         assertEquals("\"***\"", ok("shadowValue"))
-        // 读取世界建起之后才被改成 text 的密码框:值和 HTML 里都还是 ***(打码看原件,副本上没有这份记录)
+        // は、ワールドの構築後にテキストに変更されたパスワード ボックスを読み取ります。値と HTML は両方とも *** のままです (オリジナルを参照するためのコード。コピーにはそのような記録はありません)
         assertEquals("\"***\"", ok("toggledValue"))
         val toggled = Json.parseToJsonElement(ok("toggledHtml")).jsonPrimitive.content
         assertTrue(toggled, "hunter2" !in toggled && "type=\"text\"" in toggled)
-        // template 里的输入框也打码;SVG 里同名的元素没有内容,读 HTML 照常
+        // テンプレートの入力ボックスもコーディングされています。 SVG 内の同じ名前の要素にはコンテンツがなく、HTML は通常どおり読み取られます。
         val template = ok("templateHtml")
         assertTrue(template, "tpl-secret" !in template && "<template>" in template)
         assertEquals("[true,false,false]", ok("svgTemplate"))
-        // 属性节点:秘密输入框的 value 读出来是 ***,普通框照读
+        // 属性ノード: シークレット入力ボックスの値は *** として読み取られ、通常のボックスは次のように読み取られます。
         assertEquals("""["***",["type=password","value=***"],"shoes"]""", ok("attrNode"))
         assertEquals("""["value","***","frame-q"]""", ok("frameAttr"))
-        // 打码用的副本不建在页面文档里:读 HTML 不会构造页面的自定义元素,原件也不改
+        // コーディングに使用されるコピーはページ ドキュメントに組み込まれません。HTML を読み取ってもページのカスタム要素は構築されず、オリジナルは変更されません。
         val html = listOf("formHtml", "frameHtml", "shadowHtml", "toggledHtml", "templateHtml", "svgTemplate")
         for (n in html) assertEquals(n, 0, r(n).getValue("pageCode").jsonPrimitive.int)
         for (n in html) assertEquals(n, "false", r(n).s("pageChanged"))
     }
 
     @Test fun secretTextareaTextStaysHidden() {
-        // 秘密 textarea 里的字是它的初始值:子文本节点(含 CDATA 段)读出来是 ***;外层元素、shadow root、同源 iframe 里的 textContent,
-        // 没渲染出来的外层元素的 innerText,都在副本上打码再取;普通 textarea 的字照读
+        // シークレット テキストエリア内の単語は初期値です。子テキスト ノード (CDATA セグメントを含む) は *** として読み取られます。外部要素の textContent、シャドウ ルート、および相同な iframe、
+        // レンダリングされない外部要素の innerText は、コピー上でコーディングされてから取得されます。通常のテキストエリアのテキストがそれに応じて読み取られます。
         assertEquals("""["***","***","***","***","***","***",1,"leave at door","leave"]""", ok("areaText"))
         assertEquals("""[4,"***","***","***","***","***"]""", ok("areaCdata"))
         assertEquals("""["***leave at doorcard","***leave at doorcard",false,true,"***","***"]""", ok("areaContainers"))
-        // 拿在手里的子文本节点、value 属性节点:页面换掉字、删掉属性以后节点脱离文档,字还在上面,读出来也是 ***
+        // 手の中の子テキスト ノードと値属性ノード: ページが単語を置き換えて属性を削除した後、ノードはドキュメントから離れますが、単語はまだドキュメント上にあり、*** として読み取られます。
         assertEquals("""[true,"***","***","***","***","***","***"]""", ok("heldArea"))
         assertEquals("""[true,"***","***"]""", ok("heldAreaIter"))
         assertEquals("""[true,"***","***","***"]""", ok("heldAttr"))
-        // 拿到节点时框还不是秘密的:框后来变成秘密、字写进同一个节点、节点脱离文档以后,按那个框算
+        // ノードを取得したとき、フレームは秘密ではありません。フレームは後で秘密になり、単語は同じノードに書き込まれ、ノードがドキュメントから出た後、そのフレームに従って計算されます。
         assertEquals("""["leave at door","shoes"]""", ok("holdLate"))
         assertEquals("""[true,"***","***",true,"***","***"]""", ok("heldLate"))
-        // a、option 的 text 一类按子孙的文字算;select 的 value 按页面上选中的那一项取
+        // オプションのテキストは、子孫のテキストに従って計算されます。 select の値は、ページ上で選択された項目に従って計算されます。
         assertEquals("""["Link ***","Card ***","Card ***","Card ***","Card ***",1,"One"]""", ok("areaDesc"))
-        // option 带 value 属性时 value 是那个属性;output 的 value、defaultValue 也按子孙的文字算;没有选中项时 select 的 value 是空的
+        // オプションに値属性がある場合、値はその属性です。出力の値とdefaultValueも子孫として計算されます。選択された項目がない場合、select の値は空になります。
         assertEquals("""["v-attr","v-attr","Pick ***","Pick ***","Out ***","Out ***"]""", ok("areaDesc2"))
         assertEquals("""[-1,""]""", ok("noSelection"))
-        // 排版出来的元素的 innerText 不含 textarea 里的字,照原样给;选项按自己的 text 写出来,这时在副本上取
+        // typeset 要素の innerText にはテキストエリア内の単語が含まれていないため、そのまま与えられます。オプションはそれ自体のテキストに従って記述され、コピーから取得されます。
         assertEquals("""["Code: ","Code: ","Code: ***","OneCard ***","Card ***"]""", ok("areaShown"))
         for (n in listOf("areaText", "areaCdata", "areaContainers", "heldArea", "heldAreaIter", "heldAttr", "heldLate", "areaDesc", "areaDesc2", "noSelection", "areaShown")) {
             assertEquals(n, 0, r(n).getValue("pageCode").jsonPrimitive.int)
@@ -240,25 +240,25 @@ class ReadScriptEnforcementTest {
     }
 
     @Test fun valueSelectorsAreRefused() {
-        // 转义、命名空间、注释、url(、:has() 里的写法都拦(和 Kotlin 版用同一批);别的选择器照常交给页面
+        // エスケープ、名前空間、コメント、url(、:has() はすべてブロックされます (Kotlin バージョンと同じバッチを使用します)。他のセレクターは通常どおりページに渡されます。
         for (i in SelectorPolicyTest.BY_VALUE.indices) blocked("byValue$i", "invalid_selector")
         for (i in SelectorPolicyTest.NOT_BY_VALUE.indices) assertTrue("notByValue$i: ${r("notByValue$i")}", r("notByValue$i").s("error") != "invalid_selector")
-        // 选择器、属性名不是字符串时只变一次字符串:检查的和交给页面的是同一个,toString 每次给不一样的也没用
+        // セレクターまたは属性名が文字列でない場合、文字列は 1 回だけ変更されます。チェックされたものとページに渡されたものは同じであり、毎回異なる toString 値を指定するのは無駄です。
         blocked("selectorObject", "invalid_selector")
         blocked("selectorArray", "invalid_selector")
-        // 检查时转一次、交给浏览器时再转一次的话,toString 第二次换成按 value 选的就过去了
+        // チェック時に一度転送し、ブラウザに渡す時に再度転送すると、2回目はtoStringをvalueで選択したものに変更して渡します。
         assertEquals("2", ok("selectorFlip"))
         assertEquals("null", ok("attrFlip"))
     }
 
     @Test fun noNetworkAtAll() {
-        // 同源 GET 也不行;别的发请求的路子(XHR、sendBeacon、图片、WebSocket、EventSource)一样报 blocked_network,一个请求也没发出去
+        // 同じソースからの GET は機能しません。リクエストを送信する他の方法 (XHR、sendBeacon、ピクチャ、WebSocket、EventSource) も、blocked_network を報告し、リクエストは送信されません。
         for (n in listOf("post", "body", "crossOrigin", "get", "plainFetch", "xhr", "beacon", "image", "socket", "events")) {
             blocked(n, "blocked_network")
             assertTrue(n, r(n).s("message").orEmpty().contains("web_capture"))
             assertEquals(n, 0, (r(n).getValue("requests") as JsonArray).size)
         }
-        // 读页面已有的东西照常
+        // 通常どおりページ上の既存のコンテンツを読み取ります
         assertEquals("\"test\"", ok("readNavigator"))
     }
 
@@ -273,7 +273,7 @@ class ReadScriptEnforcementTest {
         assertEquals("""["undefined","undefined","undefined","undefined"]""", ok("hiddenGlobals"))
         blocked("stringCode", "read_only")
         assertEquals("script_error", r("patchBuiltin").s("error"))
-        // 全局名改不了:改写 String 能让属性名的检查、秘密输入框的判断失效,之后的读脚本也一样
+        // グローバル名は変更できません。文字列を書き換えると、属性名のチェックやシークレット入力ボックスの判定、その後のスクリプトの読み込みが無効になります。
         assertEquals("script_error", r("rebindGlobal").s("error"))
         assertEquals("""["1","***"]""", ok("afterRebind"))
     }

@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
-	"sort"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -17,7 +15,7 @@ var webFiles embed.FS
 var webPage = template.Must(template.ParseFS(webFiles, "web/page.html"))
 var translations = func() map[string]map[string]string {
 	result := map[string]map[string]string{}
-	for _, lang := range []string{"en", "zh-Hans", "zh-Hant"} {
+	for _, lang := range []string{"ja"} {
 		b, err := webFiles.ReadFile("web/" + lang + ".json")
 		if err != nil {
 			panic(err)
@@ -39,71 +37,13 @@ type pageData struct {
 	Bad, Confirm  bool
 }
 
-func normalizeLanguage(tag string) string {
-	parts := strings.Split(strings.ToLower(strings.ReplaceAll(tag, "_", "-")), "-")
-	if parts[0] == "en" {
-		return "en"
-	}
-	if parts[0] != "zh" {
-		return ""
-	}
-	for _, part := range parts[1:] {
-		if part == "hant" {
-			return "zh-Hant"
-		}
-		if part == "hans" {
-			return "zh-Hans"
-		}
-	}
-	for _, part := range parts[1:] {
-		if part == "tw" || part == "hk" || part == "mo" {
-			return "zh-Hant"
-		}
-	}
-	return "zh-Hans"
-}
-func pageLanguage(r *http.Request) string {
-	if c, err := r.Cookie("mika_language"); err == nil && translations[c.Value] != nil {
-		return c.Value
-	}
-	type choice struct {
-		lang string
-		q    float64
-	}
-	var choices []choice
-	header := r.Header.Get("Accept-Language")
-	if len(header) > 8192 {
-		header = ""
-	}
-	for _, part := range strings.Split(header, ",") {
-		pieces := strings.Split(strings.TrimSpace(part), ";")
-		lang := normalizeLanguage(strings.TrimSpace(pieces[0]))
-		q := 1.0
-		for _, p := range pieces[1:] {
-			p = strings.TrimSpace(p)
-			if strings.HasPrefix(p, "q=") {
-				v, err := strconv.ParseFloat(strings.TrimPrefix(p, "q="), 64)
-				if err != nil || !(v >= 0 && v <= 1) {
-					q = 0
-				} else {
-					q = v
-				}
-			}
-		}
-		if lang != "" && q > 0 {
-			choices = append(choices, choice{lang, q})
-		}
-	}
-	sort.SliceStable(choices, func(i, j int) bool { return choices[i].q > choices[j].q })
-	if len(choices) > 0 {
-		return choices[0].lang
-	}
-	return "en"
-}
+// 日本語版は保存済み言語とブラウザの言語にかかわらず日本語を使う。
+func normalizeLanguage(tag string) string { return "ja" }
+func pageLanguage(r *http.Request) string { return "ja" }
 func (g *gateway) render(w http.ResponseWriter, r *http.Request, status int, message, code string, bad, confirm bool) {
 	lang := pageLanguage(r)
 	data := pageData{Lang: lang, Copy: translations[lang], Message: message, Code: code, Bad: bad, Confirm: confirm}
-	data.Preference = "auto"
+	data.Preference = "ja"
 	if c, err := r.Cookie("mika_language"); err == nil && translations[c.Value] != nil {
 		data.Preference = c.Value
 	}
@@ -151,9 +91,12 @@ func (g *gateway) language(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lang := r.PostForm.Get("lang")
-	if lang != "auto" && translations[lang] == nil {
+	if lang != "auto" && lang != "ja" && lang != "en" && lang != "zh-Hans" && lang != "zh-Hant" {
 		failure(w, 400, "invalid_language")
 		return
+	}
+	if lang != "auto" {
+		lang = "ja"
 	}
 	cookie := &http.Cookie{Name: "mika_language", Value: lang, Path: "/", Secure: strings.HasPrefix(g.base, "https://"), HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 365 * 24 * 60 * 60}
 	if lang == "auto" {

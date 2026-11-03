@@ -27,54 +27,55 @@ import com.wangzan101.mika.ui.components.SubPage
 import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 
-/** 许可证页上第三方组件的数据;与仓库 licenses/THIRD_PARTY_NOTICES.md 的条目一一对应(LicensesTest 核对)。 */
+/** ライセンス ページのサードパーティ コンポーネントに関するデータ。ウェアハウスライセンス/THIRD_PARTY_NOTICES.md のエントリと 1 対 1 で対応します (LicensesTest によってチェックされます)。 */
 object Licenses {
     data class Entry(val name: String, val license: String, val note: String)
 
     const val GPL_SOURCE_OFFER =
-        "PRoot(GPL-2.0-or-later)与 talloc(LGPL-3.0-or-later)以独立程序的形式随 Mika 安装包发布,Mika 不链接它们。" +
-            "它们的完整源码、Mika 打的补丁和编译脚本随每个版本放在 Mika 的发布页,文件名 mika-<版本>-gpl-sources.tar.gz;" +
-            "源码仓库的 tools/sandbox/ 里也有源码地址、校验值、补丁与编译脚本,可以自己重新编译。"
+        "PRoot（GPL-2.0-or-later）とtalloc（LGPL-3.0-or-later）は独立したプログラムとして同梱され、Mika本体とはリンクしません。" +
+            "ソース、チェックサム、パッチ、再ビルド手順はリポジトリのtools/sandbox/に記録しています。正式配布時の対応ソースのアーカイブ名はmika-<version>-gpl-sources.tar.gzです。" +
+            "開発版についても、使用したソースとパッチをこの情報から確認できます。"
 
     const val RUNTIME_NOTE =
-        "运行 Python、Node 等程序用的系统随 Mika 安装包发布,来自 Alpine Linux 3.22,下面逐个列出其中的软件包与许可证。" +
-            "其中 GPL、LGPL、MPL 软件包的源码(Alpine 的构建配方与上游源码)同样放在 mika-<版本>-gpl-sources.tar.gz 里。"
+        "PythonやNodeを実行する環境としてAlpine Linux 3.22を同梱しています。以下に各パッケージとライセンスを表示します。" +
+            "GPL、LGPL、MPLのパッケージのソースとAlpineのビルド情報も対応ソースの対象です。正式配布用のアーカイブ名はmika-<version>-gpl-sources.tar.gzです。"
 
-    /** 自带运行环境里的软件包(assets/runtime/packages.json,由 tools/sandbox/build-runtime.py 生成)。 */
+    /** には、実行環境のソフトウェア パッケージが付属しています (assets/runtime/packages.json、tools/sandbox/build-runtime.py によって生成)。 */
     fun runtimePackages(json: String): List<Entry> =
         Json.parseToJsonElement(json).jsonObject.getValue("packages").jsonArray.map { e ->
             val o = e.jsonObject
             fun f(k: String) = o[k]?.jsonPrimitive?.content.orEmpty()
-            Entry(f("name"), f("license"), "版本 ${f("version")}。${f("url")}")
+            Entry(f("name"), f("license"), "バージョン ${f("version")}。${f("url")}")
         }
 
     val ENTRIES = listOf(
-        Entry("Mika", "Apache-2.0", "Mika 本身,包括运行环境的启动器、其中的 mika 命令与技能脚本。许可证全文见本页顶上。"),
-        Entry("PRoot", "GPL-2.0-or-later", "运行 Python、Node 等程序用的环境,版本 5.4.0,打了一个补丁(PRoot 退出时结束所有子进程)。$GPL_SOURCE_OFFER"),
-        Entry("talloc", "LGPL-3.0-or-later", "版本 2.4.3,未修改,静态链接进 PRoot 程序。可用 tools/sandbox/ 的源码与脚本重新链接。"),
-        Entry("Apache Commons Compress", "Apache-2.0", "首次启动时解包自带的运行环境。Copyright 2002-2025 The Apache Software Foundation."),
-        Entry("Apache Commons Codec", "Apache-2.0", "Apache Commons Compress 的依赖。Copyright 2002-2025 The Apache Software Foundation."),
-        Entry("Apache Commons IO", "Apache-2.0", "Apache Commons Compress 的依赖。Copyright 2002-2025 The Apache Software Foundation."),
-        Entry("Apache Commons Lang", "Apache-2.0", "Apache Commons Compress 的依赖。Copyright 2001-2025 The Apache Software Foundation."),
-        Entry("Kotlin 标准库", "Apache-2.0", "kotlin-stdlib 2.1.20 等,以及 JetBrains annotations 23.0.0。https://kotlinlang.org/"),
-        Entry("kotlinx.coroutines", "Apache-2.0", "版本 1.9.0。https://github.com/Kotlin/kotlinx.coroutines"),
-        Entry("kotlinx.serialization", "Apache-2.0", "版本 1.7.3。https://github.com/Kotlin/kotlinx.serialization"),
-        Entry("OpenTelemetry", "Apache-2.0", "详细 Trace 的 OTLP 消息定义。 https://opentelemetry.io/"),
-        Entry("Protocol Buffers", "BSD-3-Clause", "详细 Trace 的 Protobuf 编码。 https://protobuf.dev/"),
-        Entry("OkHttp", "Apache-2.0", "版本 4.12.0,用于访问模型接口。https://square.github.io/okhttp/"),
-        Entry("Okio", "Apache-2.0", "版本 3.6.0,OkHttp 的依赖。https://github.com/square/okio/"),
-        Entry("AndroidX(含 Jetpack Compose)", "Apache-2.0", "Compose 1.7.6、Material3 1.3.1、Activity 1.9.3、Lifecycle 2.8.3、Core 1.13.1、WebKit 1.12.1 等界面与系统组件库。https://developer.android.com/jetpack/androidx"),
-        Entry("Guava ListenableFuture(由 AndroidX 库引入)", "Apache-2.0", "listenablefuture 1.0。https://github.com/google/guava"),
-        Entry("scrcpy", "Apache-2.0", "以 shell 身份取得系统上下文的做法仿照 scrcpy,相关源文件头部保留出处。"),
-        Entry("Alpine Linux", "各软件包各自的许可证", RUNTIME_NOTE),
-        Entry("XZ for Java", "0BSD", "版本 1.10,首次启动时解压自带的运行环境。https://tukaani.org/xz/java.html"),
-        Entry("commonmark-java", "BSD-2-Clause", "版本 0.30.1(含表格、删除线扩展),把回答里的 Markdown 解析成结构后显示。Copyright (c) 2015, Atlassian Pty Ltd. https://github.com/commonmark/commonmark-java"),
+        Entry("Mika", "Apache-2.0", "原作Mikaと日本向けフォーク。実行環境の起動プログラム、mikaコマンド、スキルのスクリプトを含みます。ライセンス全文はページ上部にあります。"),
+        Entry("PRoot", "GPL-2.0-or-later", "PythonやNodeの実行環境。バージョン5.4.0に、終了時に全子プロセスを終了する上流Mikaのパッチが適用されています。$GPL_SOURCE_OFFER"),
+        Entry("talloc", "LGPL-3.0-or-later", "バージョン2.4.3。未改変でPRootへ静的リンクされています。tools/sandbox/のソースとスクリプトで再リンクできます。"),
+        Entry("Apache Commons Compress", "Apache-2.0", "初回起動時に同梱の実行環境を展開します。Copyright 2002-2025 The Apache Software Foundation."),
+        Entry("Apache Commons Codec", "Apache-2.0", "Apache Commons Compressの依存ライブラリ。Copyright 2002-2025 The Apache Software Foundation."),
+        Entry("Apache Commons IO", "Apache-2.0", "Apache Commons Compressの依存ライブラリ。Copyright 2002-2025 The Apache Software Foundation."),
+        Entry("Apache Commons Lang", "Apache-2.0", "Apache Commons Compressの依存ライブラリ。Copyright 2001-2025 The Apache Software Foundation."),
+        Entry("Kotlin標準ライブラリ", "Apache-2.0", "kotlin-stdlib 2.1.20、JetBrains annotations 23.0.0など。https://kotlinlang.org/"),
+        Entry("kotlinx.coroutines", "Apache-2.0", "バージョン1.9.0。https://github.com/Kotlin/kotlinx.coroutines"),
+        Entry("kotlinx.serialization", "Apache-2.0", "バージョン1.7.3。https://github.com/Kotlin/kotlinx.serialization"),
+        Entry("OpenTelemetry", "Apache-2.0", "トレースのOTLPメッセージ定義。 https://opentelemetry.io/"),
+        Entry("Protocol Buffers", "BSD-3-Clause", "トレースのProtobufエンコード。 https://protobuf.dev/"),
+        Entry("OkHttp", "Apache-2.0", "バージョン4.12.0。モデルのAPIへ接続するHTTPクライアント。https://square.github.io/okhttp/"),
+        Entry("Okio", "Apache-2.0", "バージョン3.6.0。OkHttpの依存ライブラリ。https://github.com/square/okio/"),
+        Entry("AndroidX（Jetpack Composeを含む）", "Apache-2.0", "Compose 1.7.6、Material3 1.3.1、Activity 1.9.3、Lifecycle 2.8.3、Core 1.13.1、WebKit 1.12.1 などのUI・システムコンポーネント。https://developer.android.com/jetpack/androidx"),
+        Entry("Guava ListenableFuture（AndroidX経由）", "Apache-2.0", "listenablefuture 1.0。https://github.com/google/guava"),
+        Entry("Google ML Kit", "ML Kit Terms of Service", "日本語と英数字の端末内OCR。text-recognition-japanese / text-recognition 16.0.1。https://developers.google.com/ml-kit/terms"),
+        Entry("scrcpy", "Apache-2.0", "shellからシステムのContextを得る方法はscrcpyを参考にしています。該当ソースの冒頭に出典を保持しています。"),
+        Entry("Alpine Linux", "各パッケージのライセンス", RUNTIME_NOTE),
+        Entry("XZ for Java", "0BSD", "バージョン1.10。同梱の実行環境の解凍に使います。https://tukaani.org/xz/java.html"),
+        Entry("commonmark-java", "BSD-2-Clause", "バージョン0.30.1。表と取消線の拡張を含み、回答のMarkdown表示に使います。Copyright (c) 2015, Atlassian Pty Ltd. https://github.com/commonmark/commonmark-java"),
     )
 }
 
 /**
- * 许可证页(关于页底部「Apache-2.0 开源许可」进来):先是许可证原文(assets/licenses/Apache-2.0.txt),
- * 下面列出随 Mika 发布的第三方组件,一个组件一行(名称、许可证),说明在行下面;页脚指向完整文本。
+ * ライセンス ページ (バージョン情報ページの下部にある「Apache-2.0 オープン ソース ライセンス」にあります): まず、元のライセンス テキスト (assets/licenses/Apache-2.0.txt)、
+ * Mega とともにリリースされたサードパーティ コンポーネントを以下にリストします。コンポーネント (名前、ライセンス) ごとに 1 行、その行の下に説明が記載されています。フッターは全文を指します。
  */
 @Composable
 fun LicensesScreen(onBack: () -> Unit) {

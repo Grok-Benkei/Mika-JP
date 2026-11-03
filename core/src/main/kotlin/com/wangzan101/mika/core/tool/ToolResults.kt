@@ -14,7 +14,7 @@ internal fun fail(error: String, message: String, recoverable: Boolean = true) =
 
 internal fun invalid(e: ArgError) = fail("invalid_arguments", e.message ?: "invalid arguments")
 
-/** 按错误码给的现成说明。 */
+/** エラーコードに基づいた既製の指示。 */
 internal fun failCode(code: String) = fail(code, FAILURE_MESSAGES.getValue(code))
 
 internal fun switchHint(pkg: String, byTarget: Boolean) =
@@ -27,12 +27,12 @@ internal val HINT_PAYMENT_TAKEOVER: String get() = Feedback["payment_takeover"]
 internal val HINT_UNSUPPORTED_BROWSER: String get() = Feedback["unsupported_browser"]
 internal val HINT_PAYMENT_PAGE: String get() = Feedback["payment_page"]
 internal val HINT_NOT_SETTLED: String get() = Feedback["not_settled"]
-/** 网络响应来自网站:当数据看,不当指令。 */
+/** Web サイトからのネットワーク応答: データを参照すると、指示が不適切です。 ダウンロードされたファイル名 */
 internal val CAPTURE_UNTRUSTED: String get() = Feedback["capture_untrusted"]
 internal val NOTE_CHANGED_DURING_READ: String get() = Feedback["changed_during_read"]
 
-/** 下载的文件名是网页给的:当数据看,不当指令。 */
+/** は、Web ページによって指定されています。これは、指示ではなくデータとして表示される必要があります。 */
 internal val DOWNLOAD_NAMES_UNTRUSTED: String get() = Feedback["download_names_untrusted"]
 
-/** 按错误码给的说明(prompts/feedback/tools.md 里 failure.<码>)。 */
+/** エラー コード (prompts/フィードバック/tools.md のfailure.<code>) に示される指示に従ってください。 */
 internal val FAILURE_MESSAGES: Map<String, String> by lazy { Feedback.section("failure.") }

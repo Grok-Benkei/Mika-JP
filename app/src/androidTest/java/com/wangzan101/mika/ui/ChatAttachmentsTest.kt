@@ -34,14 +34,14 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 对话页的附件:「＋」面板开关、面板里的照片、输入框上方待发的那一排、发出去的消息怎么画。 */
+/** 会話ページへの添付: 「+」パネル スイッチ、パネル内の写真、送信する入力ボックスの上の行、および送信メッセージの描画方法。 */
 @RunWith(AndroidJUnit4::class)
 class ChatAttachmentsTest {
     @get:Rule(order = Int.MIN_VALUE) val chinese = ChineseUi()
 
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
-    /** 假的图:每张都是一块 40×30 的空图,不读手机。 */
+    /** 偽の写真: 各写真は 40×30 の空の写真であり、携帯電話を読み取りません。 */
     private val images = AttachImages { _, _ -> ImageBitmap(40, 30) }
 
     private fun composer(attachments: List<PendingAttachment> = emptyList(), text: String = "", onSend: () -> Unit = {}) = compose.setContent {
@@ -66,7 +66,7 @@ class ChatAttachmentsTest {
         compose.onAllNodesWithTag("panel-body").assertCountEquals(0)
         compose.onNodeWithContentDescription(AttachCopy.ADD).performClick()
         compose.onNodeWithTag("panel-body").assertIsDisplayed()
-        // 再点(这时是 ×)收起
+        // もう一度クリック（今回は×）して閉じます
         compose.onNodeWithContentDescription(AttachCopy.CLOSE).performClick()
         waitGone("panel-body")
         compose.onNodeWithContentDescription(AttachCopy.ADD).assertIsDisplayed()

@@ -17,8 +17,8 @@ import java.io.File
 import com.wangzan101.mika.core.workspace.SandboxTree
 
 /**
- * 一个任务的内置浏览器:自己的一块后台网页显示、一池标签、网页端口与隔离脚本引擎。
- * 每个任务一套(并行时各自的当前标签都挂在自己的显示上照常渲染)。在主线程上建和关。
+ * ワンタスクの組み込みブラウザ: 独自のバックエンド Web ページ表示、タグのプール、Web ポート、および分離されたスクリプト エンジン。
+ * タスクごとに 1 セット (並行して、現在の各ラベルが独自のディスプレイにハングされ、通常どおりレンダリングされます)。メインスレッドをビルドして閉じます。
  */
 class WebStack private constructor(
     private val context: Context,
@@ -26,19 +26,19 @@ class WebStack private constructor(
     val host: WebHost,
     val pool: WebTabPool,
     workspace: Workspace?,
-    /** 任务结束后留下一页时交给它;为 null 时不能留页(web_keep_open 报不可用)。 */
+    /** が渡されます。 null の場合、ページを離れることはできません (web_keep_open は使用不可として報告されます)。 */
     private val keeper: PageKeeper?,
 ) {
     /**
-     * 本对话的工作区:[dir] 是宿主目录(work/<对话>,不存在就建,不要求沙箱已安装);
-     * 下载写进去、上传从里面读,都经 [gate](打开一次、按句柄核实)。
+     * この会話のワークスペース: [dir] はホスト ディレクトリです (work/<conversation>、存在しない場合は作成され、サンドボックスをインストールする必要はありません)。
+     * のダウンロードと書き込み、アップロードと読み取りはすべて [gate] を経由します (一度開いてハンドルで確認します)。
      */
     class Workspace(val dir: File, val gate: WorkspaceFileGate, val tree: SandboxTree)
 
-    // 下载在后台进行;任务结束一并取消,没下完的标 cancelled 并删掉半截文件
+    // のダウンロードはバックグラウンドで実行されます。タスクが完了するとタスクがキャンセルされ、未完了マークが解除されてファイルの半分が削除されます。
     private val transfers = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    /** 下载与上传;没有工作区时为空(两者都报不可用)。 */
+    /** ダウンロードとアップロード;ワークスペースがない場合は空です (両方とも使用不可として報告されます)。 */
     val files: WebFiles? = workspace?.let { w ->
         val downloads = WebDownloads(w.dir, w.gate, w.tree, NetProxy.shared.client(), cookies = { url -> WebTab.cookieManager().getCookie(url) }, scope = transfers)
         WebFiles(context, w.dir, downloads, w.gate, transfers)
@@ -46,22 +46,22 @@ class WebStack private constructor(
 
     val screen: WebScreen = WebScreen(pool, taskId, host, SystemClock::uptimeMillis, files, keptNow = keeper?.let { k -> { k.page.value } })
 
-    /** 留下的那一页记在谁名下(对话、运行记录、原话);任务结束时取。没给时不留页。 */
+    /** 左のページには誰の名前（会話、走行記録、オリジナルの言葉）が記録されています。タスクが終了したらそれを受け取ります。指定されない場合はページを残さないでください。 */
     @Volatile var keepOrigin: (() -> KeptOrigin)? = null
 
     init {
         files?.let { f -> pool.downloadHandler = { tab, url, ua, cd, mime -> onDownload(f, tab, url, ua, cd, mime) } }
     }
 
-    // 页面触发的下载:http(s) 直接取,blob: 让页面脚本读出来,data: 直接解;别的(如 intent:)不理。文件只保存,不打开。
-    // 三种都先问页面链接上给的名字(<a download>):下载监听只带响应头里的名字,blob:/data: 连响应头都没有
+    // ページによってトリガーされるダウンロード: http(s) は直接フェッチされ、blob: はページ スクリプトによって読み取られ、data: は直接デコードされます。その他 (intent: など) は無視されます。ファイルは保存されるだけで、開かれません。
+    // 3 つのタイプはすべて、最初にページ リンクに指定された名前を要求します (<a download>)。ダウンロード モニタリングは応答ヘッダー内の名前のみを取得します。blob:/data: には応答ヘッダーさえありません。
     private fun onDownload(f: WebFiles, tab: WebTab, url: String, ua: String, cd: String?, mime: String?) {
         val d = f.downloads
         val pageName: suspend () -> String? = { screen.downloadName(tab, url) }
         when {
             url.startsWith("http://", true) || url.startsWith("https://", true) -> {
                 val referer = tab.view.url
-                // 自己因 TLS 连不上时改由页面用浏览器的网络栈去取:只给和当前页面同源的地址
+                // TLS が原因で接続できない場合は、ブラウザのネットワーク スタックを使用してページからページを取得します。現在のページと同じオリジンを持つアドレスのみが与えられます。
                 val viaPage: (suspend (Long) -> Pair<ByteArray, String?>?)? = if (!sameOrigin(url, referer)) null else { max ->
                     (screen.readBlob(tab, url, max) as? PageScript.Blob.Ok)?.let { it.bytes to it.mime }
                 }
@@ -80,41 +80,41 @@ class WebStack private constructor(
         }
     }
 
-    /** 两个网址同源(协议、主机、端口都一样);有一个没有为 false。 */
+    /** 2 つの URL は同じオリジンを持っています (プロトコル、ホスト、ポートが同じです)。そのうちの 1 つは誤りです。 */
     private fun sameOrigin(a: String, b: String?): Boolean {
         fun origin(u: String?) = u?.toHttpUrlOrNull()?.let { "${it.scheme}://${it.host}:${it.port}" }
         val x = origin(a) ?: return false
         return x == origin(b)
     }
 
-    /** 正交给用户的标签(接管中);没有为 null。 */
+    /** ユーザーに渡される (引き継がれる) ラベル。そうでない場合は null です。 */
     @Volatile private var handedTab: WebTab? = null
 
-    /** 页面此刻在用户手上(接管中)。 */
+    /** ページは現在ユーザーの手に渡っています (管理下にあります)。 */
     val handedOver: Boolean get() = handedTab != null
 
-    /** 这个任务有没有当前标签(当前标签挂在网页显示上,看得见);只在后台临时标签里读过网页时没有。 */
+    /** このタスクには現在のタグがありますか (現在のタグは Web ページの表示に表示され、表示されます)。 Web ページがバックグラウンドの一時タグでのみ読み取られる場合、このタグは存在しません。 */
     val hasVisibleTab: Boolean get() = pool.current(taskId) != null
 
-    /** 当前标签是借来的、用户看着的那一页(见 [borrow]):它不在网页显示上,画中画不放画面。 */
+    /** 現在のラベルは、ユーザーが見ている借用ページです ([borrow] を参照)。これは Web ページ表示上にはなく、ピクチャ イン ピクチャにはピクチャが表示されません。 */
     val onBorrowedTab: Boolean get() = pool.current(taskId)?.let { pool.isExternal(it.id) } == true
 
-    // ---------- 借来的标签 ----------
+    // ---------- ラベルをお借りしました ----------
 
     /**
-     * 借来用户在浏览器页上看着的标签 [tab],当成这个任务的当前标签(见 [WebTabPool.attachExternal]);生死仍归原来的主人。
-     * 借不进来(已关、崩了)返回 false。主线程。
+     * は、ユーザーがブラウザ ページで見ているラベル [tab] を借用し、それをこのタスクの現在のラベルとして使用します ([WebTabPool.attachExternal] を参照)。生と死は依然として元の所有者に属します。
+     * にアクセスできず (クローズまたはクラッシュ)、false を返します。メインスレッド。
      */
     fun borrow(tab: WebTab): Boolean = pool.attachExternal(taskId, tab).also { if (it) Log.i(TAG, "task $taskId borrowed tab ${tab.id}") }
 
-    /** 还回借来的标签 [tab](任务结束、用户那边不再给了);不是借来的不动。主线程。 */
+    /** 借用したタグ [tab] を返します (タスクは終了し、ユーザーはタグを返却しません)。借りたタグは動かせないものではありません。メインスレッド。 */
     fun giveBack(tab: WebTab) {
         if (pool.detachExternal(tab.id)) Log.i(TAG, "task $taskId returned tab ${tab.id}")
     }
 
     /**
-     * 借来的标签换成了 [next](用户的页面开了或关了弹出的窗口,看得见的成了另一个):原来那个还回去,新的借进来;
-     * 原来那个是当前标签时新的也是。主线程。
+     * 借用したラベルは [next] に置き換えられました (ユーザーのページがポップアップ ウィンドウを開いたり閉じたりすると、表示されているラベルが別のラベルになります)。元のラベルが返され、新しいラベルが借用されます。
+     * 現在のラベルが新しいラベルであることがわかりました。メインスレッド。
      */
     fun swapBorrowed(prev: WebTab, next: WebTab) {
         val wasCurrent = pool.current(taskId) === prev
@@ -123,9 +123,9 @@ class WebStack private constructor(
     }
 
     /**
-     * 用户关掉了借出页面所在的浏览器页,标签交给这个任务([adopt]):还回借的那一份,在池里收下同一个 WebView 当普通标签,
-     * 挂到网页显示上照常运行,页面状态(滚动、表单、单页应用的状态)不丢;任务结束时随别的标签一起关。收不下(已关、崩了)返回 false,
-     * 调用方自己销毁。主线程。
+     * ユーザーが貸与されたページがあるブラウザ ページを閉じると、ラベルには次のタスク ([adopt]) が与えられます。借用したコピーを返し、プール内の同じ WebView を通常のラベルとして受け入れるというタスクです。
+     * は、Web ページ表示にフックされると通常どおり実行され、ページのステータス (スクロール、フォーム、単一ページのアプリケーションのステータス) が失われることはありません。タスクが終了すると他のタグで閉じられます。受け入れられない（クローズ、クラッシュ）場合は false が返されます。
+     * は呼び出し元自身によって破棄されます。メインスレッド。
      */
     fun adopt(tab: WebTab): Boolean {
         val wasCurrent = pool.current(taskId) === tab
@@ -134,24 +134,24 @@ class WebStack private constructor(
     }
 
     /**
-     * 接管:把当前标签锁住,拿到主屏的接管界面里。没有当前标签、或界面打不开时返回 false。
-     * [actions] 把界面上的按钮交给任务(处理好了、我自己做完了、取消、先放着);[currentKey] 是任务此刻的等待编号。
+     * テイクオーバー: 現在のラベルをロックし、ホーム画面のテイクオーバー インターフェイスに表示します。現在のラベルがない場合、またはインターフェイスを開けない場合は false を返します。
+     * [actions] インターフェイス上のボタンをタスクに与えます (処理済み、自分で終了、キャンセル、そのままにしておきます)。 [currentKey] は、現時点でのタスクの待機番号です。
      */
     fun showForTakeover(reason: String, message: String?, waitKey: Int, actions: (WebHandover.Action) -> Unit, currentKey: () -> Int?): Boolean {
         val tab = pool.current(taskId) ?: return false
         pool.lock(tab.id)
-        // 借来的标签本来就在用户眼前(浏览器页):不挪,锁住等用户在那里处理好了交回
+        // 借用したタグはすでにユーザー (ブラウザ ページ) の前にあります。移動せずにロックし、ユーザーがタグを処理して返すのを待ちます。
         val shown = if (pool.isExternal(tab.id)) !tab.destroyed
             else WebHandover.show(context, tab, host, reason, message, waitKey, taskId, actions, currentKey)
         if (shown) handedTab = tab else pool.unlock(tab.id)
-        // 人机验证或访问拦截真把任务拦住了(要交给用户):把任务所在的网站记为碰到过拦截
+        // 人間とコンピューターの検証またはアクセス傍受によりタスクが実際にブロックされます (ユーザーに引き渡される必要があります): タスクが配置されている Web サイトを傍受に遭遇したものとして記録します。
         if (shown && reason in SiteRegistry.CHALLENGE_KINDS) {
             tab.view.url?.takeIf { it.startsWith("http") }?.let(WebUrlPolicy::host)?.let { WebSites.registry(context).challenged(it, reason) }
         }
         return shown
     }
 
-    /** 交回:结束接管界面、标签放回后台并解锁;[loggedIn] 时页面看得出已登录就把网站记为已登录。不在接管中为 null。 */
+    /** ハンドオーバー: 引き継ぎインターフェースを終了し、ラベルをバックグラウンドに戻し、ロックを解除します。 [loggedIn] ログインしていることがページに表示されると、Web サイトはログイン済みとして記録されます。引き継ぎ中でない場合は null です。 */
     fun returnFromTakeover(loggedIn: Boolean): HandoverActivity? {
         val tab = handedTab ?: return null
         handedTab = null
@@ -165,16 +165,16 @@ class WebStack private constructor(
         return r
     }
 
-    /** 借来的标签上用户摸了几下(接管交回时记进结果);由借出的一方给。 */
+    /** ユーザーが借用したタグを数回タッチしました (タグが引き継がれて返されたときに結果が記録されます)。貸し手側から与えられます。 */
     @Volatile var borrowedTouches: ((WebTab) -> Int)? = null
 
     /**
-     * 任务结束:还在接管就先收回,再关掉这个任务的标签和显示。模型用 web_keep_open 标过一页时,那一页连同这块显示交给 [keeper]
-     * 留在后台接着运行(显示就不关了);交不出(那一页已关、崩了)时照常全关。
+     * タスク終了：引き継ぎ途中で引き戻し、このタスクのラベルと表示を消します。モデルが web_keep_open でページをマークすると、そのページとこの表示が [keeper] に渡されます。
+     * はバックグラウンドに留まり、実行を続けます (ディスプレイはオフになりません)。お渡しできない場合（ページが閉じられているか折りたたまれている場合）は、通常通り完全に閉じられます。
      */
     fun close() {
         runCatching { returnFromTakeover(loggedIn = false) }.onFailure { Log.w(TAG, "takeover not returned cleanly", it) }
-        // 先从池里拿出要留的那一页,别的标签关掉时就不会把别的页挂到显示上顶掉它
+        // まず、保持したいページをプールから取り出します。他のタブを閉じても、他のページがディスプレイに引っかからず、押し出されることはありません。
         val kept = runCatching { pool.closeKeeping(taskId, screen.keepMark?.tabId) }.onFailure { Log.w(TAG, "kept page not released", it) }.getOrNull()
         runCatching { pool.close() }
         val handed = kept != null && runCatching { handOff(kept) }.onFailure { Log.w(TAG, "kept page not handed off", it) }.getOrDefault(false)
@@ -184,7 +184,7 @@ class WebStack private constructor(
         transfers.cancel()
     }
 
-    /** 把留下的那一页交给 [keeper];收下了返回 true。 */
+    /** は残りのページを [keeper] に渡します。受け入れた後は true を返します。 */
     private fun handOff(tab: WebTab): Boolean {
         val k = keeper ?: return false
         val origin = keepOrigin?.invoke() ?: return false
@@ -194,7 +194,7 @@ class WebStack private constructor(
     companion object {
         private const val TAG = "MikaWebStack"
 
-        /** 建一套;系统 WebView 不可用等原因建不起来时抛出,调用方就只给手机界面。主线程调用。 */
+        /** セットを構築します。これは、システム WebView が利用できない場合や他の理由で構築できない場合にスローされ、呼び出し元は携帯電話インターフェイスのみを提供します。メインスレッドによって呼び出されます。 */
         fun create(
             context: Context, taskId: String, widthPx: Int, heightPx: Int, densityDpi: Int,
             assetLoaders: List<WebViewAssetLoader> = emptyList(),

@@ -16,10 +16,10 @@ import com.wangzan101.mika.core.assembly.knownTools
 
 enum class TagTone { Ok, Warn, Bad }
 
-/** 时间线上的标签:守卫、核查、确认、接管、障碍的结论。 */
+/** タイムラインのタグ: ガード、検証、確認、乗っ取り、障害の結論。 */
 data class Tag(val text: String, val tone: TagTone)
 
-/** 实际执行入口报出的活动;连续的读取可以合在一行,动作保持逐条可见。 */
+/** は、ポータルによって報告されたアクティビティを実際に実行します。連続した読み取りを 1 行に結合でき、アクションは 1 つずつ表示されたままになります。 */
 data class TimelineActivity(
     val kind: String,
     val label: String,
@@ -29,7 +29,7 @@ data class TimelineActivity(
     val obsIds: List<Int> = emptyList(),
 )
 
-/** 已记录的耗时。批量/脚本的子动作包含在外层工具耗时里，只计一次。 */
+/** 記録された経過時間。バッチ/スクリプトのサブアクションは外部ツールの消費時間に含まれ、1 回だけカウントされます。 */
 data class StepTiming(
     val modelMs: Long? = null,
     val toolMs: Long? = null,
@@ -39,8 +39,8 @@ data class StepTiming(
 }
 
 /**
- * 时间线的一行。[said] 是模型这一步说的话(截到 80 字),[tool] 是工具的中文说法,
- * [detail] 是参数里最能说明对象的那一个(记录里已脱敏,原样显示),[screenshotId] 是这一步存下的画面。
+ * タイムライン内の行。 [said] はモデル ステップでの発言内容 (最大 80 ワード)、[tool] はツールの中国語用語です。
+ * [detail] はオブジェクトを最もよく表すパラメータ (レコードは感度が下げられ、そのまま表示されています)、[screenshotId] はこのステップで保存された画像です。
  */
 data class TimelineStep(
     val step: Int,
@@ -58,23 +58,23 @@ data class TimelineHeader(
     val goal: String,
     val criteria: List<String>,
     val outcome: String,
-    /** 这次运行还没结束:结局、核查、统计都还没写齐,页面按秒接着读(见 [RunTimelineScreen])。 */
+    /** この実行はまだ終了していません。終了、検証、統計はまだ書き込まれておらず、ページは毎秒読み取られ続けます ([RunTimelineScreen] を参照)。 */
     val running: Boolean = false,
     val verdict: String,
     val duration: String?,
     val modelCalls: Int,
-    /** 这次运行的步数上限;不限制或旧记录为 null。 */
+    /** この実行のステップ数の上限。制限なし、または古いレコードの場合は null。 */
     val stepLimit: Int? = null,
-    /** 用了几步(和 [stepLimit] 一起显示);步数用完后的最后一轮收尾记作第上限加一步,不算一步,所以不超过上限。 */
+    /** は何歩歩きましたか ([stepLimit] と一緒に表示されます)。ステップ数を使い切って終了した最終ラウンドは、ステップ数をカウントせず、上限値＋1ステップとして記録されるため、上限を超えることはありません。 */
     val stepsUsed: Int = 0,
     val usedMemory: List<String> = emptyList(),
-    /** 这次运行的小结;记录里没有开始事件时为 null(只显示用时)。 */
+    /** この実行の概要。レコードに開始イベントがない場合は null になります (時間のみが表示されます)。 */
     val metrics: RunMetrics? = null,
 )
 
 sealed interface TimelineUi {
     data object Loading : TimelineUi
-    /** 记录已被清理(只保留最近 30 次)或编号不对。 */
+    /** レコードがクリアされているか（過去 30 回のみ保持）、数値が間違っています。 */
     data object Expired : TimelineUi
     data class Ready(val header: TimelineHeader, val steps: List<TimelineStep>) : TimelineUi
 
@@ -83,14 +83,14 @@ sealed interface TimelineUi {
     }
 }
 
-/** 一次运行的只读时间线。[load] 读盘,要在后台线程调。 */
+/** 1 回の実行の読み取り専用タイムライン。 [load] ディスク読み取りはバックグラウンド スレッドで調整する必要があります。 */
 class RunTimelineViewModel(
     private val store: RunStore, val runId: String,
     private val toolLabels: ToolLabels = ToolLabels(knownTools()),
     private val resolveMemory: (List<String>) -> List<String> = { emptyList() },
     /**
-     * 这次运行的任务此刻还在跑。没有结束记录、任务也不在了(进程被杀、记录写到一半)的运行算已结束,
-     * 页面不为它一直按秒重读。
+     * 今回実行したタスクは現時点でもまだ実行中です。実行中の計算はレコードを終了せずに終了し、タスクは存在しません (プロセスが強制終了され、レコードが途中で書き込まれました)。
+     * ページは毎秒再読み込みされません。
      */
     private val alive: (runId: String) -> Boolean = { false },
 ) {
@@ -109,7 +109,7 @@ class RunTimelineViewModel(
                 ?: events.filterIsInstance<RunEvent.Criteria>().lastOrNull()?.criteria.orEmpty(),
             outcome = outcomeLabel(summary?.outcome ?: ended?.outcome,
                 summary?.judged ?: events.filterIsInstance<RunEvent.OutcomeJudged>().lastOrNull()?.outcome),
-            // 结束事件或结束时间只要有一个就算跑完了;都没有时还要任务真在跑,界面据此决定要不要按秒重读
+            // 終了イベントまたは終了時刻が 1 つある限り、実行は完了します。終了イベントも終了時刻もない場合、タスクはまだ実行中であり、インターフェイスはこれに基づいて秒単位で再読み取りするかどうかを決定します。
             running = ended == null && summary?.endedAtMs == null && alive(runId),
             verdict = verdictLabel(summary?.verdict ?: events.filterIsInstance<RunEvent.Verifier>().lastOrNull()?.verdict),
             duration = endMs?.let { duration(it - startMs) },
@@ -129,7 +129,7 @@ class RunTimelineViewModel(
     companion object {
         const val SAID_MAX = 80
 
-        /** 按步号归组;没有步号的事件(核查、确认、接管、障碍)挂在它之前最近的一步上。 */
+        /** はステップ番号ごとにグループ化されています。ステップ番号のないイベント (検証、確認、引き継ぎ、障害) は、その前の最新のステップにハングされます。 */
         internal fun steps(events: List<RunEvent>, toolLabel: (String) -> String = { it }): List<TimelineStep> {
             val rows = LinkedHashMap<Int, TimelineStep>()
             val modelTimes = mutableMapOf<Int, Long>()
@@ -139,7 +139,7 @@ class RunTimelineViewModel(
             fun at(step: Int) = rows.getOrPut(step) { TimelineStep(step, "", null, null, null, emptyList(), null) }.also { current = step }
             fun tag(t: Tag) { current?.let { s -> rows[s] = rows.getValue(s).let { it.copy(tags = it.tags + t) } } }
             for (e in events) when (e) {
-                // 改派掉的轻量模型回复没执行,不进步骤;调用次数照算
+                // ディスパッチされた軽量モデルの応答は実行されず、ステップには入りません。通話数は引き続きカウントされます。
                 is RunEvent.ModelReply -> {
                     val elapsed = e.latencyMs.coerceAtLeast(0) + e.retryWaitMs.coerceAtLeast(0)
                     if (elapsed > 0) modelTimes[e.step] = modelTimes.getOrDefault(e.step, 0) + elapsed
@@ -187,7 +187,7 @@ class RunTimelineViewModel(
             }
             return rows.values.map { row ->
                 val results = toolTimes[row.step].orEmpty()
-                // do_steps 和复合工具也会记子动作;外层的 durationMs 已包含它们。
+                // do_steps および複合ツールはサブアクションも記憶します。外側のdurationMsにはすでにそれらが含まれています。
                 val outer = results.filter { it.source == "model" && it.durationMs > 0 }
                 val measured = (outer.ifEmpty { results.filter { it.durationMs > 0 } }).sumOf { it.durationMs }
                 row.copy(
@@ -222,7 +222,7 @@ class RunTimelineViewModel(
             return DETAIL_KEYS.firstNotNullOfOrNull { k -> (o[k] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() } }?.let(::clipSaid)
         }
 
-        // 结果可能被截短成不合法的 JSON:ok / error 只按顶层键的写法找(元素文字里的引号是转义过的,不会误中)
+        // 結果が不正な JSON に切り詰められる可能性があります: ok / error はトップレベルのキーの記述方法に従ってのみ検出されます (要素テキスト内の引用符はエスケープされており、誤ってヒットすることはありません)
         private val NOT_OK = Regex(""""ok"\s*:\s*false""")
         private val ERROR = Regex(""""error"\s*:\s*"([a-z_]+)"""")
 
@@ -241,8 +241,8 @@ class RunTimelineViewModel(
         }
 
         /**
-         * 结果里 guard 数组的每一项。完整的 JSON 直接解析;被截短时从 `"guard":[` 往后逐个取出完整的对象,
-         * 截断处那个不完整的丢掉。
+         * 結果のguard配列の各要素。完全なJSONはそのまま解析し、途中で切れている場合は `"guard":[` 以降から完全なオブジェクトを順に取り出す。
+         * 末尾で切れている不完全なオブジェクトは破棄する。
          */
         private fun guardObjects(json: String): List<JsonObject> {
             parse(json)?.let { o -> return (o["guard"] as? JsonArray)?.mapNotNull { it as? JsonObject }.orEmpty() }
@@ -312,7 +312,7 @@ class RunTimelineViewModel(
 
         private fun verdictLabel(verdict: String?) = if (verdict == null) tr(R.string.verify_none) else verifierTag(verdict).text
 
-        /** [judged]:交出回答后判的结局;回答如实说没办成、只办了一部分的按它写。 */
+        /** [judged]: 結果は回答を提出した後に判断されます。回答がまだ完了していないか、部分的にしか完了していないと正直に述べている場合は、それを書いてください。 */
         private fun outcomeLabel(outcome: String?, judged: String?) = when {
             outcome != "succeeded" && outcome != "unverified" -> outcomeLabel(outcome)
             judged == "partial" -> tr(R.string.outcome_partial)

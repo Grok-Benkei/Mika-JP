@@ -52,7 +52,7 @@ class RunRecoveryTest {
 
     private fun run(id: String, phase: RunPhase = RunPhase.Running) = StoredRun(RunId(id), "thread-$id", "目标 $id", phase)
 
-    // 进程被杀后 App 一启动(没有任何服务)就标中断并告知
+    // プロセスが強制終了された後、アプリが (サービスなしで) 開始されるとすぐに、中断されたものとしてマークされ、通知されます。
     @Test fun appStartMarksUnfinishedRunsInterruptedAndTellsUser() = runTest(UnconfinedTestDispatcher()) {
         val rig = Rig(this)
         rig.store.save(run("a"))
@@ -66,13 +66,13 @@ class RunRecoveryTest {
         assertEquals(listOf("interrupted:a"), rig.channel.sent.map { it.id })
     }
 
-    // App 启动和任务服务启动都触发:只告知一次,服务那次什么都不做
+    // アプリの起動とタスク サービスの起動がトリガーされます: 通知されるのは 1 回のみで、その時点ではサービスは何も行いません
     @Test fun secondTriggerDoesNothing() = runTest(UnconfinedTestDispatcher()) {
         val rig = Rig(this)
         rig.store.save(run("a"))
 
         rig.recovery.recover()
-        // 之后又开了新运行,服务随后启动再调一次
+        // 以降、新たな運用が開始され、再度サービスの開始と調整が行われました。
         rig.store.save(run("b", RunPhase.Preparing))
         val second = rig.recovery.recover()
 
@@ -81,7 +81,7 @@ class RunRecoveryTest {
         assertEquals(listOf("interrupted:a"), rig.channel.sent.map { it.id })
     }
 
-    // 回复已存没送达的:补送一次,再被触发也不会重复送
+    // 応答は保存されましたが、配信されていません。これは一度送信され、再度トリガーされても再送信されません。
     @Test fun redeliversSavedReplyOnlyOnce() = runTest(UnconfinedTestDispatcher()) {
         val rig = Rig(this)
         rig.store.save(run("a", RunPhase.Finishing).copy(reply = "结果", deliveryId = "d1"))
@@ -93,7 +93,7 @@ class RunRecoveryTest {
         assertEquals(RunPhase.Ended, rig.store.get(RunId("a"))?.phase)
     }
 
-    // 此刻在跑的运行不能被当成中断
+    // 現在実行中の操作は中断とみなされません。
     @Test fun liveRunsAreNotInterrupted() = runTest(UnconfinedTestDispatcher()) {
         val rig = Rig(this)
         rig.store.save(run("live"))
@@ -106,7 +106,7 @@ class RunRecoveryTest {
         assertEquals(listOf("interrupted:dead"), rig.channel.sent.map { it.id })
     }
 
-    // 任务服务被销毁时标了中断(进程还在):当场告知一次,之后再扫(下次启动)也不重复
+    // タスク サービスが破棄されると、中断としてマークされます (プロセスはまだ存在します)。その場で一度通知され、スキャン後は繰り返されません (次回起動時)。
     @Test fun runInterruptedByServiceDestroyIsToldExactlyOnce() = runTest(UnconfinedTestDispatcher()) {
         val rig = Rig(this)
         rig.store.save(run("a"))
@@ -120,7 +120,7 @@ class RunRecoveryTest {
         assertEquals(RunPhase.Interrupted, rig.store.get(RunId("a"))?.phase)
     }
 
-    // 早就告知过的中断运行不再提示
+    // かなり前に通知されていた中断操作は要求されなくなりました。
     @Test fun alreadyToldRunIsNotToldAgain() = runTest(UnconfinedTestDispatcher()) {
         val rig = Rig(this)
         rig.store.save(run("old", RunPhase.Interrupted))
@@ -134,7 +134,7 @@ class RunRecoveryTest {
         assertTrue(rig.conversations.turns("thread-old").isEmpty())
     }
 
-    // 中断写进对话记录,和失败的轮次同一套状态
+    // 中断は会話レコードに書き込まれます。失敗したラウンドと同じステータス セットです。
     @Test fun interruptionIsWrittenIntoConversation() = runTest(UnconfinedTestDispatcher()) {
         val rig = Rig(this)
         rig.store.save(run("a"))
@@ -147,6 +147,6 @@ class RunRecoveryTest {
         assertEquals(1, turns.size)
         assertEquals("failed", turns.single().status)
         assertEquals("目标 a", turns.single().userText)
-        assertEquals("任务中断了，可以重新发起。", turns.single().outcome)
+        assertEquals("タスクが中断されました。もう一度開始できます。", turns.single().outcome)
     }
 }

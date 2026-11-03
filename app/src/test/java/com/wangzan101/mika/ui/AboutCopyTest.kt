@@ -22,17 +22,15 @@ class AboutCopyTest {
     fun checkRowStates() {
         assertEquals(AboutCopy.CheckValue(null), AboutCopy.checkValue(UpdateState()))
         assertTrue(AboutCopy.checkValue(UpdateState(status = CheckStatus.Checking)).spinner)
-        // 连不上但早先查到过新版:照样提示有新版
+        // は接続できませんが、以前に新しいバージョンを確認しました。それでも、新しいバージョンがあることを示すメッセージが表示されます。
         assertTrue(AboutCopy.checkValue(UpdateState(latest = r020, update = r020, status = CheckStatus.Failed)).dot)
     }
 
-    /** 联系作者面板:中文界面微信码在前;英文界面 X 群聊在前。 */
+    /** 日本語専用: サポートシートは X を先に置く（ui_locale は常に ja）。 */
     @Test
-    fun xGroupFirstOnlyInEnglish() {
-        assertFalse(AboutCopy.X_GROUP_FIRST)
-        UiText.source = ResFileTexts.traditional
-        assertFalse(AboutCopy.X_GROUP_FIRST)
-        UiText.source = ResFileTexts.english
+    fun xGroupFirstInJapaneseOnlyFork() {
+        assertTrue(AboutCopy.X_GROUP_FIRST)
+        UiText.source = ResFileTexts.japaneseQualified
         assertTrue(AboutCopy.X_GROUP_FIRST)
     }
 }

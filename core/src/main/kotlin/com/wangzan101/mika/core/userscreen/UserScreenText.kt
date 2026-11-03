@@ -19,24 +19,24 @@ import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
 /**
- * 用户屏幕上的字从哪来:先用前台 App 的无障碍树;树不够用(和任务读屏同一套判断,[TreeAdequacy])时再认画面上的字(OCR),
- * 只补树里没有的、去掉认错的行。每行带中心点,看不到图的模型也分得清左边右边(聊天里对方和自己的气泡)。
+ * ユーザーの画面上の単語はどこから来たのか: まず、フロントエンド アプリのアクセシビリティ ツリーを使用します。ツリーが十分でない場合 (タスク画面の読み取りと同じ一連の判断、[TreeAdequacy])、画面上の単語を認識 (OCR)、
+ * はツリーにない行のみを追加し、エラーが認められた行を削除します。各行には中心点があり、絵が見えないモデルでも左右（チャットにおける相手と自分の間の泡）を区別することができます。
  */
 object UserScreenText {
-    /** 一屏最多留这么多行、每行这么多字:够看清这一屏,又不把上下文撑大。 */
+    /** 1 つの画面には、最大でこの数の行と、1 行あたりこの数の単語を含めることができます。これは、文脈を圧倒することなく画面を明確に見るのに十分です。 */
     const val MAX_LINES = 120
     const val MAX_CHARS = 200
 
-    /** 树不是明显够用:要再认一遍画面上的字。受保护的页面画面是黑的,不认。 */
+    /** ツリーだけでは明らかに不十分です。画面上の単語をもう一度読む必要があります。保護されたページは画面が真っ暗で認識できません。 */
     fun needsOcr(s: ScreenSnapshot): Boolean = TreeAdequacy.ofTree(s).quality.let { it != TreeQuality.Adequate && it != TreeQuality.Protected }
 
     /**
-     * 屏上的字,从上到下、同一行从左到右。树里有名字的元素(密码框不算)和 [ocr] 里树没有的行合在一起;
-     * [top]/[bottom](0–999)以外是状态栏、导航条那几条,那里认出的字(时间、电量)不要。第二个值是有没有用到认出来的字。
+     * 画面上の文字は、同じ行上で上から下、左から右に配置されます。ツリー内の名前を持つ要素 (パスワード ボックスはカウントされません) は、[ocr] のツリーのない行と結合されます。
+     * [top]/[bottom] (0 ～ 999) の先には、ステータス バーとナビゲーション バーがあります。そこで認識される単語 (時間、バッテリー) は必要ありません。 2 番目の値は、認識された単語が使用されているかどうかです。
      */
     fun lines(s: ScreenSnapshot, ocr: List<VisibleTextLine>?, top: Int = 0, bottom: Int = 999): Pair<List<ScreenLine>, Boolean> {
         val named = s.elements.filter { !it.secret && it.name.isNotBlank() }
-        // 元素的中心是像素,bounds 和认出来的字一样是 0–999:都换成 0–999 再合、再排
+        // 要素の中心はピクセルで、境界は認識された文字と同じです: 0 ～ 999: 0 ～ 999 に置き換え、結合して配置します。
         val tree = named.filterNot { joinsChildren(it, named) }
             .map { ScreenLine(clip(it.name), normalize(it.centerX, s.width), normalize(it.centerY, s.height)) }
         val extra = ocr?.let { VisibleText.missing(s, VisibleText.legible(it)) }.orEmpty()
@@ -49,8 +49,8 @@ object UserScreenText {
     }
 
     /**
-     * [e] 只是把框在它里面的那几段字连起来(一行设置项、一条消息的整块):去掉它的名字里这几段后不剩字。
-     * 这时留里面那几段,各有各的位置;名字里有自己的字时照留。
+     * [e] その中に囲まれたいくつかの段落 (設定項目の行、メッセージのブロック全体) を接続するだけです。名前からこれらのいくつかの段落を削除すると、単語は残りません。
+     * この時点で、それぞれ独自の位置を持つ内側の段落はそのままにしておきます。名前に独自の文字が含まれている場合は、それらも残してください。
      */
     private fun joinsChildren(e: UiElement, all: List<UiElement>): Boolean {
         val inner = all.filter { it !== e && inside(it.bounds, e.bounds) && area(it.bounds) < area(e.bounds) }
@@ -63,7 +63,7 @@ object UserScreenText {
     private fun inside(a: List<Int>, b: List<Int>) = a.size == 4 && b.size == 4 && a[0] >= b[0] && a[1] >= b[1] && a[2] <= b[2] && a[3] <= b[3]
     private fun area(b: List<Int>) = if (b.size == 4) (b[2] - b[0]).toLong() * (b[3] - b[1]) else 0L
 
-    /** 同一行的容差(0–999):中心高低差不到这么多的算同一行,按左右排。 */
+    /** 同列許容値（0～999）：中央の高低差がこれ以下であれば同列とみなし、左右に合わせて配置します。 */
     private const val ROW = 12
 
     private fun clip(t: String): String {
@@ -72,7 +72,7 @@ object UserScreenText {
     }
 }
 
-/** 一屏的说明存成的 JSON(和截图放在一起);读不懂的返回 null。 */
+/** JSON で保存された 1 画面の説明 (スクリーンショットと一緒に)。読み取れない場合は null が返されます。 */
 object UserScreenJson {
     fun encode(s: UserScreen): String = buildJsonObject {
         put("id", s.id); put("takenAt", s.takenAt)

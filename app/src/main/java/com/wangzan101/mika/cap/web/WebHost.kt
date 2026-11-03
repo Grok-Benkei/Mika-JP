@@ -24,22 +24,22 @@ import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.nio.ByteBuffer
 
-/** 网页标签挂在哪里:私有显示上的 Presentation、直接加到该显示的窗口、或不挂窗口(页面可能没完全渲染)。 */
+/** Web ページ タグを掛ける場所: プライベート ディスプレイ上のプレゼンテーション、ディスプレイに直接追加されたウィンドウ、またはウィンドウなし (ページが完全にレンダリングされない可能性があります)。 */
 enum class HostMode { Presentation, WindowManager, Detached }
 
 /**
- * 网页标签的后台宿主:App 自建的私有虚拟显示(不带 PUBLIC 标志,不经 shell 身份的助手),
- * 上面放一个窗口承载当前标签的 WebView。页面因此认为自己可见,定时器、动画帧、懒加载照常运转;
- * 显示的画面进 ImageReader,只给截图和视觉定位用。
+ * Web ページ タグのバックグラウンド ホスト: アプリによって構築されたプライベート仮想ディスプレイ (PUBLIC フラグなし、シェル ID アシスタントなし)、
+ * 現在のラベルをホストしている WebView の上にウィンドウを配置します。したがって、ページはそれ自体が表示されていると見なされ、タイマー、アニメーション フレーム、遅延読み込みが通常どおり実行されます。
+ * によって表示される画面は ImageReader に入り、スクリーンショットと視覚的な位置決めにのみ使用されます。
  *
- * 两块显示:手机版标签挂在与主屏一样大的那块上;桌面版标签挂在桌面视口大小的那块上。每块都只在有标签要用时才建
- * (桌面版是默认,所以建宿主时先建它;建不起来就用手机那块),不白建、白拆显示;
- * 页面按 1 CSS 像素对 1 像素画,截图清楚、坐标不被压缩。同一时间只挂一个视图,[width]、[height]、截图都按它所在的那块。
+ * 2 つのディスプレイ: モバイル バージョンのラベルは、メイン画面と同じサイズのディスプレイに掛けられます。デスクトップ バージョンのラベルは、デスクトップ ビューポートのサイズに応じて付けられます。各ブロックは使用するタグがある場合にのみ作成されます
+ * (デスクトップ バージョンがデフォルトなので、ホストを構築するときに最初に構築します。構築できない場合は、携帯電話バージョンを使用してください)、ディスプレイを無駄に構築または解体しないでください。
+ * ページは 1 CSS ピクセル対 1 ピクセルに従って描画され、スクリーンショットは鮮明で、座標は圧縮されていません。同時にハングできるのは 1 つのビュー ([width]、[height]) のみであり、スクリーンショットはすべて、それらが配置されているブロックをクリックします。
  *
- * 构造、attach/detach、close 都在主线程调用。
+ * の構築、アタッチ/デタッチ、クローズはすべてメイン スレッドで呼び出されます。
  */
 class WebHost(private val context: Context, widthPx: Int, heightPx: Int, densityDpi: Int) : Closeable {
-    /** 一块私有显示及其上的窗口、帧。 */
+    /** プライベート ディスプレイとそのウィンドウとフレーム。 */
     private inner class Layer(val width: Int, val height: Int, dpi: Int, name: String) {
         val reader: ImageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3)
         val virtualDisplay: VirtualDisplay
@@ -48,7 +48,7 @@ class WebHost(private val context: Context, widthPx: Int, heightPx: Int, density
         var presentation: Presentation? = null
         var windowManager: WindowManager? = null
 
-        // pendingImage/copyScheduled/lastCopyAt/scratch 只在帧线程上动;frame 由 frameLock 保护,截图从任意线程读
+        // pendingImage/copyScheduled/lastCopyAt/scratch はフレーム スレッド上でのみ移動します。フレームはframeLockで保護されており、スクリーンショットは任意のスレッドから読み取られます。
         val frameLock = Any()
         var frame: Bitmap? = null
         var pendingImage: Image? = null
@@ -62,7 +62,7 @@ class WebHost(private val context: Context, widthPx: Int, heightPx: Int, density
             try {
                 reader.setOnImageAvailableListener({ r -> onFrame(r) }, frameHandler)
                 val dm = context.getSystemService(DisplayManager::class.java)
-                // flags=0:私有显示,只有本 App 能往上放内容
+                // flags=0: プライベート表示、このアプリのみがコンテンツをアップロードできます
                 vd = dm.createVirtualDisplay(name, width, height, dpi, reader.surface, 0)
                     ?: error("createVirtualDisplay returned null")
                 val display = vd.display
@@ -79,7 +79,7 @@ class WebHost(private val context: Context, widthPx: Int, heightPx: Int, density
                 virtualDisplay = vd
                 container = box
                 mode = chosen
-                // 视图挂在哪个宿主上,从它的父容器就能找回来(换版本时据此换显示)
+                // ビューがどのホストにハングアップしているかは、その親コンテナから取得できます (バージョンを変更すると、それに応じて表示が変更されます)。
                 box.tag = this@WebHost
             } catch (e: Throwable) {
                 reader.setOnImageAvailableListener(null, null)
@@ -132,7 +132,7 @@ class WebHost(private val context: Context, widthPx: Int, heightPx: Int, density
 
         fun copy(): Bitmap? = synchronized(frameLock) { frame?.let { Bitmap.createBitmap(it, 0, 0, width, height) } }
 
-        /** 帧线程已停之后调。 */
+        /** はフレームスレッドが停止した後に調整されます。 */
         fun release() {
             reader.setOnImageAvailableListener(null, null)
             pendingImage?.close()
@@ -148,7 +148,7 @@ class WebHost(private val context: Context, widthPx: Int, heightPx: Int, density
             }
         }
 
-        // 每来一帧只留最新一张,至多每 100 毫秒拷一次;静态页面不再出新帧,压着的最后一帧也会被拷下
+        // フレームごとに最新のフレームのみが保持され、最大 100 ミリ秒ごとにコピーされます。静的ページでは新しいフレームが生成されなくなり、最後に押されたフレームもコピーされます。
         private fun onFrame(r: ImageReader) {
             try {
                 val image = r.acquireLatestImage() ?: return
@@ -170,7 +170,7 @@ class WebHost(private val context: Context, widthPx: Int, heightPx: Int, density
             pendingImage = null
             try {
                 val plane = image.planes[0]
-                // 行尾可能有对齐填充:位图按行跨度分配一次反复用,截图时再裁到显示宽度
+                // 行末に位置合わせパディングがある場合があります。ビットマップは行幅に応じて一度割り当てられ、繰り返し使用され、スクリーンショットを撮るときに表示幅に合わせてトリミングされます。
                 val stridePx = plane.rowStride / plane.pixelStride
                 synchronized(frameLock) {
                     val cur = frame
@@ -180,7 +180,7 @@ class WebHost(private val context: Context, widthPx: Int, heightPx: Int, density
                     val needed = target.byteCount
                     if (src.remaining() >= needed) target.copyPixelsFromBuffer(src)
                     else {
-                        // 最后一行可能不带填充,缓冲比整块位图短:先垫进一块等长的缓冲
+                        // 最後の行にはパディングがない可能性があり、バッファーはビットマップ全体よりも短いです。最初に同じ長さのバッファーをパディングします。
                         val s = scratch?.takeIf { it.capacity() == needed } ?: ByteBuffer.allocateDirect(needed).also { scratch = it }
                         s.clear()
                         s.put(src)
@@ -209,14 +209,14 @@ class WebHost(private val context: Context, widthPx: Int, heightPx: Int, density
     private var desktopFailed = false
     @Volatile private var active: Layer
 
-    /** 当前挂着的那块显示(也就是网页视口)的像素尺寸。 */
+    /** 現在表示されているディスプレイ (つまり、Web ページのビューポート) のピクセル サイズ。 */
     val width: Int get() = active.width
     val height: Int get() = active.height
-    /** 当前挂着的那块显示的 id 与挂法。 */
+    /** 現在表示されている作品のIDと吊り下げ方法。 */
     val displayId: Int get() = active.displayId
     val mode: HostMode get() = active.mode
 
-    /** [close] 之后为 true:不能再往上挂视图。 */
+    /** [close] 以降は、ビューをマウントできなくなります。 */
     @Volatile var closed: Boolean = false
         private set
 
@@ -224,7 +224,7 @@ class WebHost(private val context: Context, widthPx: Int, heightPx: Int, density
         checkMain()
         frameThread = HandlerThread("mika-web-frames").apply { start() }
         frameHandler = Handler(frameThread.looper)
-        // 新标签默认桌面版:先建桌面那块;建不起来再建手机那块,两块都不行就抛出(调用方只给手机界面)
+        // 新しいタブのデフォルトはデスクトップ バージョンです。最初にデスクトップ部分を構築します。構築できない場合は、モバイル部分を構築します。両方の部分が失敗すると、スローされます (呼び出し元はモバイル インターフェイスのみを提供します)。
         active = try {
             desktopLayer() ?: Layer(widthPx, heightPx, densityDpi, PHONE_NAME).also { phone = it }
         } catch (e: Throwable) {
@@ -235,8 +235,8 @@ class WebHost(private val context: Context, widthPx: Int, heightPx: Int, density
     }
 
     /**
-     * 把标签的视图放进宿主窗口,替换已挂的那个。[desktop] 为 true 时挂到桌面视口那块显示上(建不起来就挂手机那块);
-     * 默认按这个标签现在用的版本。
+     * ラベルのビューをホスト ウィンドウに配置し、ハングしたビューを置き換えます。 [desktop] が true の場合、デスクトップ ビューポート ディスプレイにハングします (構築できない場合は、携帯電話にハングします)。
+     * のデフォルトは、このラベルの現在のバージョンです。
      */
     fun attach(tab: WebTab, desktop: Boolean = tab.devtools.wantsDesktopHost(tab.view)) {
         val view = tab.view
@@ -284,12 +284,12 @@ class WebHost(private val context: Context, widthPx: Int, heightPx: Int, density
         }
     }
 
-    /** 显示上的最新一帧(裁到显示宽度的副本),给画中画小窗用;还没有画面时为 null。 */
+    /** 小さなピクチャー・イン・ピクチャー・ウィンドウに使用される、ディスプレイ上の最新のフレーム (ディスプレイの幅に合わせて切り取られたコピー)。画像がまだない場合は null。 */
     fun latestFrame(): Bitmap? = active.copy()
 
     /**
-     * 显示上的最新一帧(至多晚约 100 毫秒);还没有画出过任何一帧时为 null。
-     * PNG 编码要几十毫秒,别在主线程调。
+     * ディスプレイ上の最新のフレーム (最大約 100 ミリ秒後)。フレームがまだ描画されていない場合は null。
+     * PNG エンコードには数十ミリ秒かかるため、メインスレッドで調整しないでください。
      */
     fun latestFramePng(): ByteArray? {
         val bmp = active.copy() ?: return null
@@ -304,7 +304,7 @@ class WebHost(private val context: Context, widthPx: Int, heightPx: Int, density
         checkMain()
         if (closed) return
         closed = true
-        // 先停帧线程,之后才能安全关掉它手里的图和 reader
+        // まずフレーム スレッドを停止すると、画像とリーダーを手に持って安全に閉じることができます
         phone?.reader?.setOnImageAvailableListener(null, null)
         desktop?.reader?.setOnImageAvailableListener(null, null)
         frameThread.quitSafely()
@@ -313,7 +313,7 @@ class WebHost(private val context: Context, widthPx: Int, heightPx: Int, density
         desktop?.release()
     }
 
-    // 不挂窗口时没人给视图排版,手动按显示尺寸量一次
+    // ウィンドウがハングしていない場合、ビューをレイアウトする人はいません。手動で表示サイズを1回押します。
     private fun layoutDetached(l: Layer, view: View) {
         val w = View.MeasureSpec.makeMeasureSpec(l.width, View.MeasureSpec.EXACTLY)
         val h = View.MeasureSpec.makeMeasureSpec(l.height, View.MeasureSpec.EXACTLY)
@@ -330,8 +330,8 @@ class WebHost(private val context: Context, widthPx: Int, heightPx: Int, density
         private const val PHONE_NAME = "mika-web"
 
         /**
-         * 视图所在标签换了手机版/桌面版:它若正挂在某个宿主上,就换到对应大小的那块显示上。不论当初是谁挂上去的。
-         * 不在宿主上(接管中在用户手上、在后台)的不动,下次挂上时按版本挂。主线程调用。
+         * ビューのラベルがモバイル版/デスクトップ版に変更されました。特定のホスト上でハングアップしている場合、対応するサイズの表示に変更されます。最初に誰がそれを立てたかは関係ありません。
+         * がホスト上にない場合 (ユーザーの手にあり、テイクオーバー中にバックグラウンドにある場合)、移動しません。次回ハングアップするときは、バージョンに応じてハングアップします。メインスレッドによって呼び出されます。
          */
         fun followMode(tab: WebTab) {
             val host = (tab.view.parent as? View)?.tag as? WebHost ?: return

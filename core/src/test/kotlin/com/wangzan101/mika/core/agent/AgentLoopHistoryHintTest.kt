@@ -21,7 +21,7 @@ class AgentLoopHistoryHintTest {
     }
 
     private fun firstMessage(prior: List<Turn>, withRecords: Boolean): String {
-        val model = FakeModel(answerReply("好的"))
+        val model = FakeModel(answerReply("承知しました"))
         val tools = toolDispatcher(FakeScreen(), runSpec = RunSpec(RunId("now"), "继续", "thread", priorTurns = prior),
             runRecords = records.takeIf { withRecords })
         runBlocking { AgentLoop(model, tools, "B").run("继续", prior) }
@@ -35,7 +35,7 @@ class AgentLoopHistoryHintTest {
         assertTrue(text.startsWith(Conversation.HEADER))
         assertTrue(text.endsWith(hint))
         assertFalse(firstMessage(prior, withRecords = false).contains(hint))
-        // 之前的轮次都没记过运行:不提
+        // は前のラウンドで記録されていません: 記載されていません
         assertFalse(firstMessage(listOf(Turn("你好", "你好!", "succeeded")), withRecords = true).contains(hint))
     }
 }

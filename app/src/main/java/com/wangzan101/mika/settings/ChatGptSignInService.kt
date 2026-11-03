@@ -22,9 +22,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
- * 用 ChatGPT 登录期间的前台服务:Mika 退到后台、用户在浏览器里登录时撑住进程,系统不冻结它,
- * 本机回调才有人接、换令牌不被耽误。只挂一条安静的通知,上面能「取消」这次登录。
- * 不自己做事:登录跑在 [ChatGptSignIns] 里,这里看着它的 running,登录一结束(成功、失败、取消、超时)就停。
+ * ChatGPT を使用したログイン中のフォアグラウンド サービス: ミカはバックグラウンドに退き、ユーザーはブラウザーでログインするときにプロセスをサポートし、システムはプロセスをフリーズしません。
+ * ローカル コールバックが呼び出された場合にのみ誰かが呼び出しに応答し、トークンの変更は遅延されません。このログインを「キャンセル」できる静かな通知をハングするだけです。
+ * は単独で処理を行いません。ログインは [ChatGptSignIns] で実行され、その実行はここで監視されます。ログインが完了すると（成功、失敗、キャンセル、タイムアウト）すぐに停止します。
  */
 class ChatGptSignInService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -35,7 +35,7 @@ class ChatGptSignInService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         TaskService.ensureChannels(this)
-        // startForegroundService 之后必须尽快进前台,哪怕马上就要停;进不了前台就此停下,登录照常(只是少了这层保护)
+        // ForegroundService を開始した後は、たとえ停止しそうになったとしても、できるだけ早くフォアグラウンドに入る必要があります。フォアグラウンドに入ることができない場合は、停止して通常どおりログインします (この保護層がない場合のみ)。
         val foreground = runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 startForeground(NOTIFICATION_ID, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
@@ -54,7 +54,7 @@ class ChatGptSignInService : Service() {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
-        // 进程没了登录也就没了,不用重建
+        // プロセスが失われ、ログインが失われている場合は、再構築する必要はありません。
         return START_NOT_STICKY
     }
 
@@ -80,10 +80,10 @@ class ChatGptSignInService : Service() {
     companion object {
         private const val TAG = "MikaChatGpt"
         private const val ACTION_CANCEL = "com.wangzan101.mika.chatgpt.CANCEL_SIGN_IN"
-        /** 和任务、电脑连接的通知错开。 */
+        /** タスクとコンピューター接続の通知は時間差で行われます。 */
         private const val NOTIFICATION_ID = 30_002
 
-        /** 登录开始时调(用户刚点了登录,Mika 在前台,可以开前台服务);开不了抛出,由调用方记下。 */
+        /** ログインの開始時に呼び出されます (ユーザーがログインをクリックしたばかりで、Mika がフォアグラウンドにあり、フロントエンド サービスを開くことができます)。開けない場合はスローされ、呼び出し側が記録します。 */
         fun start(context: Context) {
             context.startForegroundService(Intent(context, ChatGptSignInService::class.java))
         }

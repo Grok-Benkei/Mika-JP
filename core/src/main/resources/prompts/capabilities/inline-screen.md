@@ -1,10 +1,2 @@
-- The result of a screen action already includes the screen after the action
-  (`screen`: only elements that appeared, disappeared or changed are listed;
-  anything not listed is unchanged). You do not need to observe after every
-  action. If the target is missing or ambiguous in the elements, request a
-  screenshot or visual location. Observe again when the screen is still
-  changing.
-- On phone, a full screen includes `tree` grouped by window. A differential
-  result includes `treeChanges`: `updated` gives a node path and its new
-  properties (or a full subtree when added), and `removed` gives paths that
-  disappeared. Paths follow window ID and child indexes, such as `w7/0/2`.
+- 表示に対する操作の結果には、操作後の状態がすでに含まれている（`screen`: 現れた要素、消えた要素、変わった要素だけが列挙される。列挙されていないものは変わっていない）。操作のたびに再確認する必要はない。要素の中に対象が見つからない場合やあいまいな場合は、画像による確認や視覚的な位置特定を求める。状態がまだ変わっている場合は、再度確認する。
+- スマートフォンでは、全体の読み取りにウィンドウごとにまとめた `tree` が含まれる。差分の結果には `treeChanges` が含まれる。`updated` はノードのパスと新しい属性（追加された場合はサブツリー全体）を示し、`removed` は消えたパスを示す。パスはウィンドウ ID と子要素の順序に従う。例: `w7/0/2`。

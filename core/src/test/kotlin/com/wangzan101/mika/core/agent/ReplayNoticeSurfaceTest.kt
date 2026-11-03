@@ -18,8 +18,8 @@ import org.junit.Test
 import com.wangzan101.mika.core.assembly.toolDispatcher
 
 /**
- * 经验回放交还时告诉模型的说明,每种结局一条,经真的 AgentLoop 产生,原样写进金样(prompt-surface/feedback-replay.txt)。
- * 金样是在重构前的代码上生成的:说明改由反馈目录拼出后必须一字不差。
+ * は、エクスペリエンス リプレイを返すときに、実際の AgentLoop によって生成され、ゴールド サンプル (prompt-surface/フィードバック-replay.txt) にそのまま書き込まれた、エンディングごとに 1 つの説明をモデルに伝えます。
+ * ゴールド サンプルは、リファクタリング前のコードで生成されました。指示は、フィードバック ディレクトリから入力された後、一字一句正確に入力する必要があります。
  */
 class ReplayNoticeSurfaceTest {
     private var seq = 0
@@ -30,14 +30,14 @@ class ReplayNoticeSurfaceTest {
         override suspend fun tapRef(ref: String, snapshotId: String): ActionResult = ActionResult.Failed("obscured")
     }
 
-    /** 交还时补进对话的说明(带「按以往」的那段文字)。 */
+    /** 戻るときのダイアログ（「過去を押してください」のテキスト）の説明を追加しました。 */
     private fun notice(screen: ScreenPort, route: com.wangzan101.mika.core.replay.Route = Notes.route()): String {
-        val main = FakeModel(text("写好了"))
+        val main = FakeModel(text("保存しました"))
         runBlocking {
             AgentLoop(main, toolDispatcher(screen), "BASE", flags = SpeedFlags(replay = true),
                 routes = RouteMatcher(FakeModel(text("""{"route": 1, "slots": ["今天天气不错"]}""")), MemRoutes(route), null)).run("在备忘录里写今天天气不错")
         }
-        return main.requests.first().flatMap { it.parts }.filterIsInstance<Part.Text>().map { it.text }.single { "following a way that worked before" in it || "earlier way of doing this" in it }
+        return main.requests.first().flatMap { it.parts }.filterIsInstance<Part.Text>().map { it.text }.single { "以前に成功した進め方" in it || "以前の進め方" in it }
     }
 
     @Test fun everyReplayOutcome() {

@@ -80,13 +80,13 @@ class UsageScreenTest {
         compose.onNodeWithTag("usage-chart").assertIsDisplayed()
         compose.onNodeWithTag("usage-rank-provider-p1").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("点一家看它的模型").assertExists()
-        // 图例、服务商排行、胶囊各一处
+        // 凡例、プロバイダーランキング、カプセルが各1か所
         compose.onAllNodesWithText("旧服务商（已删除）").assertCountEquals(3)
         compose.onNodeWithTag("usage-rank-model-p1-chat-large").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("usage-rank-model-old-legacy").assertExists()
         compose.onNodeWithText("有 2 次调用服务商没报用量，没算进去。").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(UsageCopy.NOTE).performScrollTo().assertIsDisplayed()
-        // 不分用途
+        // 用途を区別しない
         compose.onAllNodesWithText("主模型").assertCountEquals(0)
     }
 
@@ -128,7 +128,7 @@ class UsageScreenTest {
         compose.onAllNodesWithTag("usage-missing").assertCountEquals(0)
     }
 
-    /** 点排行里的一家选中它(再点取消),模型排行只列这家的;胶囊和排行是同一个选择,总用量不变。 */
+    /** ランキングで1社をタップして選択し（もう一度タップで解除）、モデルランキングにはその会社だけが並ぶ; カプセルとランキングは同じ選択であり、総使用量は変わらない。 */
     @Test
     fun selectingAProviderNarrowsTheModelRanking() {
         var selected by mutableStateOf<String?>(null)

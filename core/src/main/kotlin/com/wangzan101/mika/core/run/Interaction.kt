@@ -1,12 +1,12 @@
 package com.wangzan101.mika.core.run
 
-/** 提问从 AgentLoop 发出，由当前渠道负责送达；答案仍只从 RunInbox 回来。 */
+/** 質問は AgentLoop から送信され、現在のチャネルによって配信されます。答えは依然として RunInbox からのみ返されます。 */
 interface Interaction {
     suspend fun publish(ask: Delivery.Ask): DeliveryState
     fun resolved(askId: String)
 }
 
-/** 今天的界面与通知由 App 状态订阅显示，发布即视作可见。 */
+/** 今日のインターフェイスと通知は、アプリ ステータスのサブスクリプションによって表示され、公開されると表示されるとみなされます。 */
 object LocalInteraction : Interaction {
     override suspend fun publish(ask: Delivery.Ask) = DeliveryState.Delivered
     override fun resolved(askId: String) = Unit

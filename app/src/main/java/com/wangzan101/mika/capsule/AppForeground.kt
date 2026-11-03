@@ -8,12 +8,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Mika 自己的界面(对话页、网页接管页等任一 Activity)此刻是否看得见:数已经 onStart、还没 onStop 的 Activity。
- * 转屏这类重建时旧的先停、新的再起,中间不算离开前台。由 App 在启动时登记,只在主线程回调。
+ * 現時点では、Mika 自身のインターフェイス (ダイアログ ページ、Web ページ引き継ぎページなどのアクティビティ) が表示されています。onStart があり、まだ onStop がないアクティビティをカウントします。
+ * 画面回転などの再構築を行う場合、古い方が先に停止し、新しい方が再度開始されるため、フロントから抜けた処理としてカウントされません。これはアプリの起動時に登録され、メインスレッドでのみコールバックされます。
  */
 class AppForeground : Application.ActivityLifecycleCallbacks {
     private var started = 0
-    /** 因为重建而停下、新实例还没起来的个数。 */
+    /** 再構築により停止され、新しいインスタンスがまだ開始されていないインスタンスの数。 */
     private var recreating = 0
     private val _visible = MutableStateFlow(false)
     val visible: StateFlow<Boolean> = _visible.asStateFlow()

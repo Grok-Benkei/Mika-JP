@@ -50,8 +50,8 @@ import kotlinx.coroutines.withContext
 import java.util.Locale
 
 /**
- * 设置 › 文件与计算环境 的文案(纯函数,便于测试)。运行环境对用户是看不见的实现细节(产品决定):
- * 字面上只说「脚本」「处理文件」「运行环境」,不出现沙箱、Linux、PRoot、Alpine 等技术名词。
+ * のコピーライティング 設定 › ファイルとコンピューティング環境 (純粋な機能、テストが簡単)。ランタイム環境は、ユーザーには見えない実装の詳細です (製品の決定)。
+ * には、文字通り「スクリプト」、「処理ファイル」、「実行環境」のみが記載されており、サンドボックス、Linux、PRoot、Alpine などの専門用語は含まれていません。
  */
 object SandboxCopy {
     val NETWORK_TITLE: String get() = tr(R.string.sandbox_network)
@@ -67,8 +67,8 @@ object SandboxCopy {
     val CLEAR_ALL_BODY: String get() = tr(R.string.sandbox_usage_clear_all_body)
 
     /**
-     * 代理那一行的说明(代理在 设置 › 网络代理 里改,这里只引过来看):没设是直连;设了写主机和端口
-     * (不带账号密码,这一行随时看得到);联网关着时说要先允许联网才生效。
+     * プロキシ回線の説明 (プロキシは [設定] › [ネットワーク プロキシ] で変更できます。ここでは表示するためにのみ引用しています): 直接接続するように設定されていません。ホストとポートを書き込むように設定されています
+     * (アカウントとパスワードがない場合、この行はいつでも表示されます);インターネットがオフになっている場合、有効にする前にまずインターネットを許可する必要があると表示されます。
      */
     fun proxySub(proxy: String, networkAllowed: Boolean): String = when {
         proxy.isBlank() -> tr(R.string.sandbox_proxy_sub)
@@ -78,7 +78,7 @@ object SandboxCopy {
 
     fun clearBody(w: WorkspaceUsage): String = tr(R.string.sandbox_usage_clear_body, workspaceTitle(w))
 
-    /** 工作区那一行的名字:对话标题;对话已经删了的写明。 */
+    /** ワークスペース内の行の名前: 会話のタイトル。会話が削除されたかどうかを示します。 */
     fun workspaceTitle(w: WorkspaceUsage): String = w.title?.let(ChatCopy::plainTitle)?.takeIf(String::isNotBlank) ?: tr(R.string.sandbox_usage_deleted_chat)
 
     fun usageRows(u: SandboxUsage): List<Pair<String, Long>> = listOf(
@@ -88,7 +88,7 @@ object SandboxCopy {
         tr(R.string.sandbox_usage_workspaces) to u.workspacesTotal,
     )
 
-    /** 字节数按人看得懂的单位写。 */
+    /** バイト数は人間が判読できる単位で書き込まれます。 */
     fun size(bytes: Long): String = when {
         bytes >= 1L shl 30 -> "%.1f GB".format(Locale.ROOT, bytes.toDouble() / (1L shl 30))
         bytes >= 1L shl 20 -> "%.1f MB".format(Locale.ROOT, bytes.toDouble() / (1L shl 20))
@@ -99,7 +99,7 @@ object SandboxCopy {
     val RESET_TITLE: String get() = tr(R.string.sandbox_reset_title)
     val RESET_BODY: String get() = tr(R.string.sandbox_reset_body)
 
-    /** 「重置运行环境」下面的一行:平时说明会怎样,准备中或准备失败时如实说。 */
+    /** 「動作環境をリセットする」の下の行: 通常時に何が起こるかを説明し、準備時または準備が失敗した場合に真実を伝えます。 */
     fun resetSubtitle(s: SandboxStatus): String = when (s) {
         is SandboxStatus.Installing -> tr(R.string.runtime_preparing)
         is SandboxStatus.Broken -> tr(R.string.sandbox_broken, s.reason)
@@ -108,8 +108,8 @@ object SandboxCopy {
 }
 
 /**
- * 接上真实状态的「文件与计算环境」页内容:联网开关读写 [SandboxState];代理读 [NetProxyStore](在设置首页改,这里只显示);
- * 已用空间进页面时在后台读一遍,清理经 [SandboxUsageReader](有任务在跑的对话不清);重置后马上在后台重新准备。
+ * は、「ファイルとコンピューティング環境」ページのコンテンツの実際のステータスに接続されています。ネットワーク スイッチの読み取りおよび書き込み [SandboxState]。プロキシ読み取り [NetProxyStore] (設定ホームページで変更、ここにのみ表示);
+ * ページに入るときにバックグラウンドで使用されているスペースを読み取り、クリーンアップします。 [SandboxUsageReader] (実行中のタスクのダイアログが不明瞭です)。リセット後はすぐにバックグラウンドで再度準備を行ってください。
  */
 @Composable
 fun AdvancedSettings() {
@@ -153,7 +153,7 @@ fun AdvancedSettings() {
     )
 }
 
-/** 不带状态的「文件与计算环境」页内容,便于测试。不支持的设备整组不显示。 */
+/** ステータスのない「ファイルとコンピューティング環境」ページのコンテンツは、テストに便利です。サポートされていないデバイスのグループ全体は表示されません。 */
 @Composable
 fun AdvancedSection(
     status: SandboxStatus,
@@ -161,9 +161,9 @@ fun AdvancedSection(
     isolationIssue: Boolean,
     onNetworkChange: (Boolean) -> Unit,
     onReset: () -> Unit,
-    /** 网络代理(设置 › 网络代理),空串表示不用。 */
+    /** ネットワーク プロキシ (設定 › ネットワーク プロキシ)、空の文字列は使用しないことを意味します。 */
     proxy: String = "",
-    /** 已用空间;还没读出来为 null(这一组先不显示)。 */
+    /** 使用済みスペース。まだ読み取られていない場合は null です (このグループはまだ表示されません)。 */
     usage: SandboxUsage? = null,
     onClearWorkspace: (WorkspaceUsage) -> Unit = {},
     onClearAll: () -> Unit = {},
@@ -178,7 +178,7 @@ fun AdvancedSection(
             MikaSwitch(networkAllowed, onNetworkChange, Modifier.testTag("sandbox-network"))
         }
         Note(SandboxCopy.NETWORK_EXPLAIN, if (networkAllowed) MikaTheme.colors.warn else MikaTheme.colors.ink3)
-        // 代理在设置首页改(Mika 自己的连接也走它);这里的命令只在允许联网时拿到它
+        // エージェントは設定ホームページで変更されます (Mika 自身の接続でもこれを使用します)。ここのコマンドは、インターネットが許可されている場合にのみそれを取得します。
         ListRow(MikaIcons.Globe, SandboxCopy.PROXY_TITLE, SandboxCopy.proxySub(proxy, networkAllowed))
         if (isolationIssue) Note(SandboxCopy.ISOLATION_UNAVAILABLE, MikaTheme.colors.bad)
         ListRow(MikaIcons.Close, tr(R.string.sandbox_reset), SandboxCopy.resetSubtitle(status), titleColor = MikaTheme.colors.bad, tone = TileTone.Bad,
@@ -223,8 +223,8 @@ private fun Note(text: String, color: Color) {
 }
 
 /**
- * 已用空间:合计、运行环境、技能、对话的工作区各占多少;下面按对话列出工作区(大的在前),点一行清掉它(先确认),
- * 有任务在跑的对话写明暂时不能清;最后一行清空所有工作区。
+ * 使用スペース: 動作環境、スキル、会話ワークスペースの合計。ワークスペースは会話ごとに以下にリストされます (大きい順)。行をクリックしてクリアします (最初に確認します)。
+ * タスクが実行中のダイアログは、現時点ではクリアできないことを示しています。最後の行はすべてのワークスペースをクリアします。
  */
 @Composable
 private fun UsageGroup(u: SandboxUsage, onClear: (WorkspaceUsage) -> Unit, onClearAll: () -> Unit) {

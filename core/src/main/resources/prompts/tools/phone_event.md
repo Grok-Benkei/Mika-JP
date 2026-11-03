@@ -1,1 +1,1 @@
-Wait for accessibility window/content events on this task's virtual display, or for device notifications from an optional package. once returns the next event; watch collects multiple events during the timeout without gaps between subscriptions. Returns each event's package and short text. The listener exists only during this call; it does not return past events.
+この作業の仮想表示でのアクセシビリティのウィンドウ／コンテンツイベント、または任意のパッケージからの端末通知を待つ。once は次のイベントを返す。watch は、購読の間に隙間なく、タイムアウトの間に複数のイベントを集める。各イベントのパッケージと短い文面を返す。リスナーはこの呼び出しの間だけ存在し、過去のイベントは返さない。

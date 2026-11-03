@@ -13,7 +13,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 各家模型交回 JSON 的样子不同:一个容忍的读法,读不出再问一次只要 JSON。 */
+/** 各モデルによって返される JSON の外観は異なります。許容できる読み取り値ですが、読み取れない場合は、再度質問して、JSON を要求してください。 */
 class ModelJsonTest {
     private val verdict = """{"checks": [{"criterion": "电量", "status": "met", "quote": "86%"}], "verdict": "pass", "reason": "屏上有"}"""
 
@@ -22,11 +22,11 @@ class ModelJsonTest {
             verdict,
             "```json\n$verdict\n```",
             "好的,核对结果如下:\n$verdict\n以上。",
-            // 对象后面又跟一段带花括号的说明:不能从第一个 { 取到最后一个 }
+            // オブジェクトの後に中括弧で囲まれた説明が続きます。最初の { から最後の } までは取得できません。
             "$verdict\n注:引用格式为 {原文}。",
-            // 前面先有一段不是 JSON 的花括号
+            // の前には、JSON ではない中括弧の段落があります。
             "按 {checks, verdict} 的格式回答:$verdict",
-            // 字符串里的括号不打乱配平
+            // 文字列内の括弧はバランスを崩さない
             """{"checks": [{"criterion": "标题含 } 和 {", "status": "met", "quote": "a}b{"}], "verdict": "pass", "reason": "x"}""",
         )
         for (s in shapes) assertTrue(s, Verifier.parse(s)?.verdict == Verdict.Pass)
@@ -51,9 +51,9 @@ class ModelJsonTest {
         assertEquals(Verdict.Pass, v.verdict)
         assertEquals(2, m.requests.size)
         assertEquals(ModelJson.JSON_ONLY, (m.requests[1].last().parts.single() as Part.Text).text)
-        // 两次都读不出:没能核实,原因照实说
+        // を 2 回読み取ることはできません: 検証に失敗しました、本当のことを言います
         val bad = Verifier(FakeModel(reply("通过"), reply("还是通过")), null).verify("看电量", criteria, "电量 86%\n依据: 「电量 86%」", ev)
         assertEquals(Verdict.CannotVerify, bad.verdict)
-        assertEquals("核查器的回复无法解析", bad.reason)
+        assertEquals("検証モデルの応答を解析できません", bad.reason)
     }
 }

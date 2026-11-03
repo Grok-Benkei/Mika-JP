@@ -24,8 +24,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
- * 设备状态:主屏是否不可操作(熄屏或锁屏),以及 Agent 的 App 任务是否被用户挪到了主屏。
- * 熄屏后系统会丢弃注入的触摸,所以熄屏也按「锁屏」处理。
+ * デバイスのステータス: ホーム画面が操作不能かどうか (画面がオフまたはロックされているかどうか)、およびエージェントのアプリ タスクがユーザーによってホーム画面に移動されたかどうか。
+ * 画面がオフになった後、システムは挿入されたタッチを破棄するため、画面がオフになっているときも画面は「ロック画面」として扱われます。
  */
 class DeviceStateWatcher(
     context: Context,
@@ -39,7 +39,7 @@ class DeviceStateWatcher(
     private val lock = LockState({ LockState.Reading(power.isInteractive, keyguard.isKeyguardLocked) }, scope)
     val locked: StateFlow<Boolean> = lock.locked
 
-    // 只用广播当作「该重新看一眼」的信号,状态本身每次都从系统读,不靠广播顺序推断
+    // はブロードキャストを「もう一度見てみましょう」の信号としてのみ使用します。ステータス自体は毎回システムから読み取られ、ブロードキャスト シーケンスに依存せずに推測されます。
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             lock.refresh()
@@ -57,12 +57,12 @@ class DeviceStateWatcher(
         } else {
             appContext.registerReceiver(receiver, filter)
         }
-        lock.refresh() // 注册前后之间的变化
+        lock.refresh() // 登録前後の変更点
     }
 
     /**
-     * 轮询两块屏最上面的任务:[taskId] 不在虚拟屏最上面、却在主屏最上面,就是被用户挪走了。
-     * 每次「挪走」只发一次,挪回来后再被挪走会再发。查询失败(shell 断开)时跳过这一轮。
+     * は 2 つの画面の一番上のタスクをポーリングします。[taskId] は仮想画面の一番上ではなく、メイン画面の一番上にあります。つまり、ユーザーによって移動されました。
+     * は、「移動」されるたびに 1 回だけ送信され、元に戻された後に再度送信されます。クエリが失敗した場合 (シェルが切断された場合)、このラウンドはスキップされます。
      */
     fun taskMovedAway(displayId: Int, taskId: Int): Flow<Unit> = flow {
         var away = false
@@ -92,10 +92,10 @@ class DeviceStateWatcher(
 }
 
 /**
- * 主屏是否不可操作(熄屏或锁屏)。广播来了重读一次;但解锁时系统先发 USER_PRESENT,
- * [android.app.KeyguardManager.isKeyguardLocked] 要等锁屏界面真的退下去才变,这一刻读到的还是「锁着」,
- * 之后不会再有广播。所以读到「亮着但锁着」时,只要有人在看这份状态,就每 [DeviceStateWatcher.POLL_MS] 再读一次,
- * 直到读到解锁或熄屏;熄屏时不读,等 SCREEN_ON。
+ * メイン画面が操作不能（画面オフまたはロック）になっていませんか？ブロードキャストが来て再び読み取られます。ただし、ロックを解除するとき、システムは最初に USER_PRESENT を送信します。
+ * [android.app.KeyguardManager.isKeyguardLocked] ロック画面インターフェイスが実際に後退して変更されるまで待つ必要があります。この時点ではまだ「ロックされました」と表示されます。
+ * 以降の放送はありません。したがって、「オンだがロックされている」を読み取るときは、誰かがこのステータスを見ている限り、[DeviceStateWatcher.POLL_MS] ごとにもう一度読み取ります。 ロックを解除するか画面をオフにするために読み込むまで、
+ * 。画面がオフのときは読み込まず、SCREEN_ON になるまで待ちます。
  */
 internal class LockState(private val read: () -> Reading, scope: CoroutineScope) {
     data class Reading(val interactive: Boolean, val keyguardLocked: Boolean) {

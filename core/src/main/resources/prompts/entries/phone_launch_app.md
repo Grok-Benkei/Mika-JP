@@ -1,1 +1,1 @@
-Open an installed app on the phone's virtual display by exact package name (cold=true restarts it from its initial screen). From your next call on you also get the tools that read and operate the phone screen (phone_observe, phone_tap, phone_type_text, ...).
+正確なパッケージ名で、スマートフォンの仮想表示にインストール済みアプリを開く（cold=true で初期状態から再起動する）。次の呼び出しからは、スマートフォンの表示を読む・操作する手段（phone_observe、phone_tap、phone_type_text など）も得られる。

@@ -14,18 +14,18 @@ import com.wangzan101.mika.core.tool.FakeScreen
 import java.io.File
 import com.wangzan101.mika.core.assembly.toolDispatcher
 
-/** 随 App 打包的知识与技能:构建期校验在测试里再跑一遍,并核对运行时读到的内容。 */
+/** 標準カタログの生成と、互換検査で明示追加した任意資料の読込みを検証する。 */
 class BundledKnowledgeTest {
-    private val bundled by lazy { KnowledgeStore.loadBundled() }
-    private val catalog by lazy { GuideCatalog.loadBundled() }
+    private val bundled by lazy { OptionalChinaKnowledge.entries() }
+    private val catalog by lazy { OptionalChinaKnowledge.catalog() }
     private val resources = File("src/main/resources")
 
     @Test fun bundledTreesPassValidationAndIndexIsCurrent() {
         val r = KnowledgeIndex.build(resources)
         assertTrue(r.errors.joinToString("\n"), r.errors.isEmpty())
-        assertEquals(mapOf("app" to 23, "site" to 18, "skill" to 6), r.entries.groupingBy { it.kind }.eachCount())
-        // 类路径上的索引就是按当前文件生成的那份
-        assertEquals(r.entries, catalog.rows)
+        assertEquals(mapOf("app" to 13, "site" to 16, "skill" to 6), r.entries.groupingBy { it.kind }.eachCount())
+        // クラスパス上のインデックスは、現在のファイルに基づいて生成されたものです。
+        assertEquals(r.entries, GuideCatalog.loadBundled().rows)
     }
 
     @Test fun sitePaceFollowsTheSiteKnowledge() {
@@ -33,7 +33,7 @@ class BundledKnowledgeTest {
         assertEquals(null, catalog.sitePace("example.com"))
     }
 
-    // App 的 pace 按包名查 App 知识:限制浏览快慢的那几个内置 App 是 careful,别的没有说法
+    // アプリのペース検索パッケージ名によるアプリの知識: 閲覧速度を制限する内蔵アプリは注意、他に説明はありません
     @Test fun appPaceFollowsTheAppKnowledgeByPackage() {
         val careful = listOf("xiaohongshu", "wechat", "douyin", "kuaishou", "weibo", "boss-zhipin", "xianyu")
         val apps = catalog.rows.filter { it.kind == KnowledgeIndex.APP }
@@ -46,7 +46,7 @@ class BundledKnowledgeTest {
     }
 
     @Test fun everyEntryHasABody() {
-        assertEquals(41, bundled.size)
+        assertEquals(54, bundled.size)
         assertTrue(bundled.all { !it.body.isNullOrBlank() && it.body!!.length <= KnowledgeIndex.BODY_LIMIT })
         assertTrue(bundled.map { it.name }.containsAll(listOf("wechat", "xianyu", "android-settings", "zhihu.com", "weixin.sogou.com")))
     }
@@ -55,7 +55,7 @@ class BundledKnowledgeTest {
         val roots = listOf("knowledge/apps", "knowledge/sites", "skills").map { File(resources, it) }
         val others = roots.flatMap { r -> r.walkTopDown().filter { it.isFile && it.extension !in setOf("md", "json") }.toList() }
         assertTrue(others.toString(), others.all { it.parentFile.name == "scripts" && File(it.parentFile, "manifest.json").isFile })
-        // 英文副本不再随 App 打包
+        // 英語版はアプリに同梱されなくなりました
         assertTrue(roots.none { r -> r.walkTopDown().any { it.name.endsWith(".en.md") } })
     }
 
@@ -66,7 +66,7 @@ class BundledKnowledgeTest {
     }
 
     @Test fun longBodyTruncatedWithHint() {
-        // 上限按 token:截后连同截断说明不超过上限,且几乎用满
+        // の上限: 切り捨ておよび切り捨て命令の後、上限を超えず、ほぼいっぱいになります。
         val clipped = clipKnowledge("字".repeat(KNOWLEDGE_BODY_LIMIT * 2))
         assertTrue(clipped.startsWith("字".repeat(KNOWLEDGE_BODY_LIMIT)))
         assertTrue(clipped.endsWith("\n" + KNOWLEDGE_TRUNCATED_HINT))
@@ -75,12 +75,12 @@ class BundledKnowledgeTest {
     }
 
     @Test fun findSkillsMatchesTaskSkill() {
-        val hits = catalog.find("发消息")
+        val hits = catalog.find("メッセージを送る")
         assertTrue(hits.size <= 10)
         assertTrue(hits.any { it.kind == "skill" && it.name == "messaging" })
         assertTrue(catalog.find("微信", kind = "app").all { it.kind == "app" })
-        assertTrue("wechat" in catalog.items.single { it.kind == "skill" && it.name == "messaging" }.apps)
-        assertTrue("zhihu.com" in catalog.items.single { it.kind == "skill" && it.name == "info-research" }.sites)
+        assertTrue("line" in catalog.items.single { it.kind == "skill" && it.name == "messaging" }.apps)
+        assertTrue("yahoo.co.jp" in catalog.items.single { it.kind == "skill" && it.name == "info-research" }.sites)
     }
 
     @Test fun skillViewReturnsAttachment() {
@@ -89,7 +89,7 @@ class BundledKnowledgeTest {
         assertTrue(v.content.isNotBlank() && !v.truncated)
         val app = catalog.view("wechat") as GuideView.Found
         assertEquals("APP.md", app.file)
-        assertTrue(app.content.contains("微信"))
+        assertTrue(app.content.contains("WeChat"))
         assertTrue(app.content.startsWith(UNAVAILABLE_TOOLS_NOTE + "\n"))
         assertFalse(app.content.contains("\n---\n"))
         val site = catalog.view("site:weixin.sogou.com") as GuideView.Found

@@ -20,8 +20,8 @@ import com.wangzan101.mika.ui.theme.MikaIcons
 import com.wangzan101.mika.ui.theme.MikaSpace
 
 /**
- * 子页面的骨架:页面底 + 带返回的顶栏 + 一列可滚动的内容(左右留 [MikaSpace.Page],避开导航栏)。
- * 内容里直接放 [GroupLabel] / [GroupCard] / [FooterNote]。
+ * 子ページの骨格: ページ背景 + 戻る付きのトップバー + スクロール可能なコンテンツ1列（左右に [MikaSpace.Page] を取り、ナビゲーションバーを避ける）。
+ * コンテンツの中に [GroupLabel] / [GroupCard] / [FooterNote] を直接置く。
  */
 @Composable
 fun PageScaffold(

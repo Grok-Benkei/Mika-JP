@@ -12,23 +12,23 @@ import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** 一次动作走完执行入口的结局。 */
+/** ワンアクションで入場完了のエンディング。 */
 sealed interface ActionOutcome {
-    /** 执行前的守卫结论。 */
+    /** 実行前のガード結論。 */
     val before: List<GuardVerdict>
 
     /**
-     * 没有执行。[code]:guard_stopped / guard_warning / confirmation_required / confirmation_mismatch / approval_unavailable / target_unresolved / own_app。
-     * [content] 是交给这次调用方的结果(脚本子步、模型单步照它回;批和回放按 [code] 自己说明)。
+     * は実行されませんでした。 [code]: ガード停止 / ガード_警告 / 確認必須 / 確認不一致 / 承認_利用不可 / ターゲット_未解決 / 独自のアプリ。
+     * [content] が今回呼び出し元に渡される結果です（これに従ってスクリプトサブステップとモデルステップが返されます。バッチと再生は [code] で説明されます）。
      */
     data class Refused(
         val code: String, val content: JsonObject, override val before: List<GuardVerdict>, val hit: Irreversible? = null,
     ) : ActionOutcome
 
     /**
-     * 执行了。[exec] 是最终结果(模型单步可能已换成等用户之后的结果或核查退回);[after] 是执行后的守卫结论
-     * (页面脚本的子步结论排在前面);[content] 是交给模型、也记进运行记录的内容。
-     * [shotId]、[picture]:[Frames.Caller] 时留给调用方存的画面;[seen] 是记路线锚点时动作后读的一屏(没读为 null)。
+     * が実行されました。 [exec] は最終結果です (モデル ステップは、ユーザーの後続の結果または検証の戻りを待つことで置き換えられた可能性があります)。 [after] は実行後のガード結論です
+     * (ページ スクリプトのサブステップの結論が最初にランク付けされます)。 [content]はモデルに引き継がれ走行記録に記録される内容です。
+     * [shotId]、[picture]: [Frames.Caller] は、発信者が保存するために残された画面です。 [seen] は、ルートアンカーポイントを記録する際のアクション後に読み込まれる画面です（未読はnull）。
      */
     data class Ran(
         val exec: ToolExecution, override val before: List<GuardVerdict>, val after: List<GuardVerdict>, val content: JsonObject,
@@ -37,29 +37,29 @@ sealed interface ActionOutcome {
         val verdicts: List<GuardVerdict> get() = before + after
     }
 
-    /** 等用户时任务被取消了。 */
+    /** がユーザーを待っている間にタスクがキャンセルされました。 */
     data class Cancelled(override val before: List<GuardVerdict>) : ActionOutcome
 }
 
-/** 这次调用对调用方的结果:执行了就是执行结果,没执行就是拒绝说明。 */
+/** 呼び出し元に対するこの呼び出しの結果: 実行された場合は実行結果、実行されなかった場合は拒否ステートメントです。 */
 fun ActionOutcome.execution(): ToolExecution = when (this) {
     is ActionOutcome.Ran -> exec
     is ActionOutcome.Refused -> ToolExecution(content)
     is ActionOutcome.Cancelled -> ToolExecution(buildJsonObject { put("ok", false); put("error", "cancelled"); put("executed", false) })
 }
 
-/** 被拦下时交给调用方的说明,按来源的说法写。 */
+/** ソースに従って書かれた、停止時に呼び出し元に与えられる指示。 */
 internal object Refusals {
-    const val SINGLE_USE = "One approval lets through only the next matching action, and that action uses it up whether it succeeds or not."
+    const val SINGLE_USE = "承認は次の一致する操作1回だけに有効で、その成否にかかわらず使い切られる。"
     const val OWN_APP = "own_app"
-    const val PAYMENT_TAKEOVER = "The user completes payment with their own hands; do not use request_confirmation: after opening the payment page, call hand_to_user(reason=payment), " +
-        "with item as the product (variant, quantity), amount as the amount due shown on screen, and address as the delivery address."
+    const val PAYMENT_TAKEOVER = "支払いはユーザー本人が行います。request_confirmationは使わず、支払い画面を開いてhand_to_user(reason=payment)を呼んでください。" +
+        "itemには商品（仕様・数量）、amountには画面上の支払金額、addressには配送先を指定してください。"
 
     fun content(code: String, style: RefusalStyle, before: List<GuardVerdict>, hit: Irreversible?, reason: String?): JsonObject = when (style) {
-        // 模型单步被守卫叫停时任务就此结束,用不到说明
+        // モデルがガードによって 1 ステップで停止されると、タスクは終了し、説明は不要です。
         RefusalStyle.Model -> if (code == "approval_unavailable") notRun(code,
-            "This step spends money, but this run cannot collect the user's approval. The action was not run. " +
-                "Do not retry this action in this run; explain the limitation to the user.") {
+            "この操作には支出が伴いますが、この実行ではユーザーの承認を受け付けられないため、実行していません。" +
+                "この実行中は再試行せず、制約をユーザーへ説明してください。") {
             hit?.let { put("action", it.action.name); put("matched", it.matched) }
             put("counts_as_failure", false)
         } else if (hit == null) notRun(code, if (code == OWN_APP) Feedback["own_app"] else code) else {
@@ -68,14 +68,14 @@ internal object Refusals {
         }
         RefusalStyle.Script -> {
             val message = when (code) {
-                "guard_stopped" -> "Mika's operation guard stopped the task."
-                "guard_warning" -> "Mika's operation guard flagged this action; it was not run."
-                "confirmation_required" -> "this step spends money (${hit?.matched})"
-                "confirmation_mismatch" -> "this payment step (${hit?.matched}) does not match what the user approved ($reason)"
-                "approval_unavailable" -> "this step spends money and this run cannot get the user's approval; the action was not run"
-                "target_unresolved" -> "that ref is not on the latest snapshot; call mika.snapshot() again"
+                "guard_stopped" -> "Mikaの操作保護機能がタスクを停止しました。"
+                "guard_warning" -> "Mikaの操作保護機能がこの操作に警告したため、実行していません。"
+                "confirmation_required" -> "この操作には支出が伴います（${hit?.matched}）"
+                "confirmation_mismatch" -> "この支払い操作（${hit?.matched}）はユーザーが承認した内容と一致しません（$reason）"
+                "approval_unavailable" -> "この操作には支出が伴いますが、この実行ではユーザーの承認を受け付けられないため、実行していません"
+                "target_unresolved" -> "そのrefは最新のスナップショットにありません。mika.snapshot()を再度呼んでください"
                 OWN_APP -> Feedback["own_app"]
-                else -> error("unknown refusal $code")
+                else -> error("不明な停止理由: $code")
             }
             notRun(code, message) { hit?.let { put("action", it.action.name); put("matched", it.matched) } }
         }
@@ -85,16 +85,16 @@ internal object Refusals {
     private fun required(hit: Irreversible) = buildJsonObject {
         put("ok", false); put("error", "confirmation_required")
         put("action", hit.action.name); put("matched", hit.matched)
-        put("message", if (hit.action == IrrevAction.pay) "This step is a payment, so it was not run. $PAYMENT_TAKEOVER"
-            else "This step spends money (${hit.action.name}), so it was not run. First call request_confirmation saying where, what is bought and how much it costs, and do it after the user approves. $SINGLE_USE")
+        put("message", if (hit.action == IrrevAction.pay) "支払いに当たるため、この操作は実行していません。$PAYMENT_TAKEOVER"
+            else "この操作（${hit.action.name}）には支出が伴うため、実行していません。まずrequest_confirmationで支払先・購入内容・金額を示し、ユーザーの承認後に実行してください。$SINGLE_USE")
         put("recoverable", true); put("counts_as_failure", false)
     }
 
     private fun mismatch(hit: Irreversible, reason: String) = buildJsonObject {
         put("ok", false); put("error", "confirmation_mismatch")
         put("action", hit.action.name); put("matched", hit.matched); put("reason", reason)
-        put("message", "This step does not match the action the user approved ($reason). That approval is void, and this step was not run. " +
-            "If it still needs doing, call request_confirmation again describing this step truthfully, and do it right after the user approves.")
+        put("message", "この操作はユーザーが承認した内容と一致しません（$reason）。承認は無効となり、実行していません。" +
+            "引き続き必要な場合は、request_confirmationを再度呼び、この操作の内容を正確に説明してください。ユーザーの承認後、直ちに実行してください。")
         put("recoverable", true); put("counts_as_failure", false)
     }
 

@@ -1,8 +1,8 @@
 package com.wangzan101.mika.core.uistate
 
-/** 一个元素自己的上下文,判它做的是什么时只看这些,不看整屏:同一行上的文字(附着的标签、行里的说明)。 */
+/** 要素自体のコンテキスト。動作を判断するときは、画面全体ではなく、同じ行のテキスト (添付されたラベル、行内の説明) だけを見てください。 */
 object ElementContext {
-    /** 同一行:中心落在元素的上下范围里,或元素的中心落在它的上下范围里。 */
+    /** 同行: 中心が要素の上限と下限の範囲に収まるか、要素の中心が上限と下限の範囲に収まります。 */
     fun row(e: UiElement, s: ScreenSnapshot): List<UiElement> {
         if (e.bounds.size != 4) return emptyList()
         val cy = (e.bounds[1] + e.bounds[3]) / 2

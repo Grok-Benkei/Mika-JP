@@ -32,12 +32,12 @@ import kotlinx.serialization.json.put
 
 const val DO_STEPS_TOOL = "do_steps"
 private const val MIN_STEPS = 1
-/** 只限制单次调用的资源消耗,不把连续操作的合理长度写成任务规则。 */
+/** は 1 回の呼び出しのリソース消費を制限するだけで、適切な長さの連続操作をタスク ルールとして記述しません。 */
 private const val MAX_STEPS = 20
 private const val EXPECT_MAX = 200
-/** 第二步起,判定和执行前等界面稳定的上限(与动作自带屏幕相同)。 */
+/** 2ステップ目からは、判定・実行前のインターフェース安定性の上限が決まります（アクション付属の画面と同じ）。 */
 private const val SETTLE_MS = 1500L
-/** 一步的等待条件(都可不给);expect 是旧写法,意思从「做完看一眼」变成「等到出现」。 */
+/** ワンステップ待機条件 (指定する必要はありません); Expect は古い書き方で、意味は「終わってから見てください」から「表示されるまで待つ」に変わりました。 */
 private const val EXPECT = "expect"
 private const val EXPECT_GONE = "expect_gone"
 private const val EXPECT_APP = "expect_app"
@@ -45,46 +45,46 @@ private const val WAIT_STABLE = "wait_stable"
 private const val TIMEOUT_S = "timeout_s"
 private val STEP_FIELDS = setOf("tool", "args", EXPECT, EXPECT_GONE, EXPECT_APP, WAIT_STABLE, TIMEOUT_S)
 
-/** 应用访问被挡:批里要停下,并把执行入口的说明原样带给模型。 */
+/** アプリケーション アクセスがブロックされています: バッチを停止し、実行エントリの命令をそのままモデルに取り込む必要があります。 */
 private fun appAccessDenied(code: String) = com.wangzan101.mika.core.access.AppAccessDenied.isAppAccessCode(code)
 
-/** 一批里的一步;[until] 是做完之后、接着做之前要等到的样子,没给为 null。 */
+/** はバッチ内のステップです。 [until] は、終了後続行する前に待つ必要があるものです。そうでない場合は null です。 */
 data class BatchStep(val tool: String, val argsJson: String, val until: Until? = null)
 
 /**
- * 一次执行多个连续动作,逐步核对,出意外就停。每一步(第二步起先等界面稳定)经 [ActionExecutor] 执行,
- * 和单步同一套顺序;批里不使用、也不假设任何同意,不可逆的一步命中就停在它之前,不执行。
- * 核对不通过:工具失败、被切到别的 App、输入回读不一致。一步带了等待条件([Until])时做完先等它成立
- * ([ToolDispatcher.waitUntil]:读屏比字面,不问模型),到时限、看出弹框或换了 App 就停;等了多久写进这一步的结果。
- * 每一步对守卫和运行记录都是一个动作(运行记录里 source = "batch")。
+ * は、複数の連続動作を一度に実行し、段階的に確認し、事故が発生した場合に停止します。各ステップ (2 番目のステップから開始してインターフェースが安定するまで待機) は [ActionExecutor] によって実行されます。
+ * のシーケンスは単一ステップと同じです。バッチでは使用されず、いかなる同意も想定されません。不可逆的なステップヒットはその前で停止し、実行されません。
+ * は検証に失敗しました。ツールが失敗し、別のアプリに切り替えられ、入力リードバックに一貫性がありませんでした。 1ステップに待ち条件([Until])が含まれる場合は、まず成立するまで待ちます。
+ * ([ToolDispatcher.waitUntil]: 画面読み取り率、モデルを問わず)、制限時間に達した場合、ポップアップ ボックスが表示された場合、またはアプリが変更された場合に停止します。どれくらい待つ必要があるかは、このステップの結果に書き込まれます。
+ * 各ステップは、ガードと実行レコード (ソース = 実行レコードの「バッチ」) のアクションです。
  */
 class BatchRunner(
     private val tools: ToolDispatcher,
     private val guards: OperationGuards,
     private val executor: ActionExecutor,
-    /** 每个子步的守卫结论(执行前、执行后各一次)交回循环,计入卡住提醒与重复输入;返回要附给模型的建议。 */
+    /** 各サブステップのガード結論 (実行前に 1 回、実行後に 1 回) がループに返され、スタックされたリマインダーと反復入力が含まれます。モデルに添付される提案が返されます。 */
     private val noteVerdicts: (step: BatchStep, exec: ToolExecution?, verdicts: List<GuardVerdict>) -> String? = { _, _, _ -> null },
-    /** 用户此刻有没有新插话在等(只看内存里的收件箱);有就在两个子步之间停下,交给循环去送。 */
+    /** ユーザーは現在新しいコメントを待っていますか (メモリ内の受信トレイを見てください)。そうであれば、2 つのサブステップの間で停止し、ループに送信を任せます。 */
     private val steerWaiting: () -> Boolean = { false },
 ) {
     private class Stop(
         val index: Int, val reason: String, val entry: JsonObject, val executed: Boolean, val extra: JsonObject = JsonObject(emptyMap()),
-        /** 停下之后没做的那些子步也各给一条结果(新插话时),子步和结果一一对上。 */
+        /** 停止後に実行されなかったサブステップにも結果が与えられ (新たな割り込みが発生した場合)、サブステップと結果は 1 つずつペアになります。 */
         val rest: List<JsonElement> = emptyList(),
     )
 
-    /** 所有子步里出现过的守卫结论;循环据此判断这一步有没有守卫提醒。 */
+    /** すべてのサブステップに表示されるガード結論。ループはこれに基づいて、このステップにガード リマインダーがあるかどうかを判断します。 */
     val verdicts = mutableListOf<GuardVerdict>()
     private var advice: String? = null
 
-    /** 各步按条件等界面花的时间之和;运行记录把它算作等待,不算操作。 */
+    /** 条件に従ってインターフェイスを待機する各ステップに費やされた時間の合計。実行レコードでは、操作ではなく待機としてカウントされます。 */
     var waitedMs = 0L
         private set
 
     suspend fun run(steps: List<BatchStep>, callId: String, step: Int = 0): ToolExecution {
         val entries = mutableListOf<JsonElement>()
         var last: ToolExecution? = null
-        // 各子步读到的观察(已记进账本);整批的结果带着它们,裁剪时按它们的形态缩短
+        // 各サブステップで読み取られた観察結果 (台帳に記録)。結果のバッチ全体にそれらが含まれ、トリミング時にその形状に応じて短縮されます。
         val seen = mutableListOf<Observation>()
         var stop: Stop? = null
         fun skipFrom(i: Int): Stop {
@@ -96,7 +96,7 @@ class BatchRunner(
                 stop = skipFrom(i)
                 break
             }
-            // 上一步的界面还在变时判定会读到过渡画面,expect 也会误判
+            // 前ステップのインターフェースが変化中である場合、遷移画面が読み取られ、expectも誤判定されます。
             if (i > 0) tools.settle(SETTLE_MS)
             val out = executor.run(Part.ToolCall("$callId.${i + 1}", s.tool, s.argsJson), Origin.Batch(step))
             val before = out.before
@@ -110,7 +110,7 @@ class BatchRunner(
                 is ActionOutcome.Ran -> out.exec
                 is ActionOutcome.Refused -> {
                     val hit = out.hit
-                    // 应用权限拒绝:把执行入口给的下一步说明一起交给模型,别让它只看到错误码
+                    // アプリケーションのアクセス許可が拒否されました: 実行エントリで指定された次のステップの指示をモデルに与えます。モデルにエラー コードのみを表示させないでください。
                     val message = (out.content["message"] as? JsonPrimitive)?.contentOrNull?.takeIf { appAccessDenied(out.code) }
                     stop = if (hit == null) notRun(out.code, message = message)
                     else notRun(out.code, buildJsonObject { put("action", hit.action.name); put("matched", hit.matched) }, message)
@@ -118,14 +118,14 @@ class BatchRunner(
                 }
                 is ActionOutcome.Cancelled -> { stop = notRun("cancelled"); break }
             }
-            // 这一步之前的停留、间隔或这次等待被用户插话截断:这一步什么也没做,和后面的一起跳过,交给循环去送那句话
+            // このステップがユーザーの介入によって中断されるまでの滞在、間隔、または待機: このステップは何もせず、次のステップでスキップし、その文を送信するループに任せました。
             if (exec.content["error"] == JsonPrimitive(NEW_MESSAGE)) {
                 waitedMs += exec.waitMs
                 stop = skipFrom(i)
                 break
             }
             seen += exec.observations
-            // 子步里为节奏补的停留同样算这一批的等待
+            // サブステップでリズムを構成するストップも、このバッチの待機としてカウントされます。
             waitedMs += exec.waitMs
             val afterVerdicts = out.after
             note(s, exec, afterVerdicts)
@@ -138,16 +138,16 @@ class BatchRunner(
                 failed -> (c["error"] as? JsonPrimitive)?.contentOrNull ?: "failed"
                 c["verification"] == JsonPrimitive("mismatch") -> "action_not_applied"
                 c["app_switched"] != null -> "app_switched"
-                // 开到了用户的主屏上(挪回来了也是换了地方):后面的步骤是按原来那一屏排的
+                // がユーザーのホーム画面で開かれます (別の場所に戻されます)。次の手順は元の画面に従って配置されています。
                 c["opened"] != null -> "opened_elsewhere"
-                // 网站、App 说到上限了:后面的步骤不再做
+                // ウェブサイト、アプリ 上限について言えば、次の手順はもう実行しません。
                 c["limitReached"] != null -> "limit_reached"
                 else -> null
             }
             val review = i < steps.lastIndex && screen != null &&
                 (screen["imageReason"] != null || screen["protected"] == JsonPrimitive(true) ||
                     screen["readable"] == JsonPrimitive(false) || screen["note"] != null)
-            // 动作自带的屏幕可能还是加载中的样子:等到要出现的字出现了,就不必再看图
+            // アクションに付属する画面は、まだロード中のように見える場合があります。表示される単語が表示されるまで待ちます。再度画像を見る必要はありません。
             val until = s.until?.takeIf { hard == null && (!review || it.appears != null) }
             val waited = until?.let { tools.waitUntil(it, executor.recorder::now, steerWaiting) }
             waited?.let { waitedMs += it.waitedMs }
@@ -177,7 +177,7 @@ class BatchRunner(
                 if (all.isNotEmpty()) put("guard", JsonArray(all.map { it.toJson() }))
             }
             if (reason != null) { stop = Stop(i, reason, JsonObject(e + ("executed" to JsonPrimitive(true))), executed = true); break }
-            // 等的时候用户插了话:后面的子步在下一轮开头照常跳过;这已是最后一步时就停在它这里
+            // が待機している間に、ユーザーが中断しました。次のサブステップは通常どおり、次のラウンドの開始時にスキップされます。これが最後のステップになると、ここで停止します。
             if (waited?.stopped == UntilOutcome.NEW_MESSAGE && i == steps.lastIndex) {
                 stop = Stop(i, NEW_MESSAGE, JsonObject(e + ("executed" to JsonPrimitive(true))), executed = true); break
             }
@@ -223,7 +223,7 @@ class BatchRunner(
                     put("reason", stop.reason)
                     val n = "Step ${stop.index + 1} of ${steps.size}"
                     if (appAccessDenied(stop.reason)) {
-                        // 权限拒绝不是普通的操作失败:不要建议「换个批继续」,把下一步该怎么做说清楚
+                        // 権限の拒否は通常の操作の失敗ではありません。「バッチを変更して続行する」という提案はせず、次に何をすべきかを明確に説明してください。
                         val detail = (stop.entry["message"] as? JsonPrimitive)?.contentOrNull
                             ?: "Step ${stop.index + 1} of ${steps.size} was not run (${stop.reason})."
                         put("message", "$detail The remaining steps in this batch were not run.")
@@ -240,8 +240,8 @@ class BatchRunner(
             screen?.let { put("screen", it) }
             if (stop != null) put("recoverable", true)
         }
-        // 子步的画面已经逐个存过
-        // 最后一个子步发给模型的画面(能看图的主模型才有)留给循环,接在整批结果后面
+        // のサブステップ画像が 1 枚ずつ保存されました
+        // モデルに送信された最後のサブステップ (画像を表示できるメイン モデルでのみ利用可能) はループに残され、その後に結果のバッチ全体が続きます。
         return ToolExecution(content, changed = last?.changed, frame = if (!executor.recorder.savesScreens) last?.frame ?: last?.image else null,
             screenElements = last?.screenElements, images = last?.images.orEmpty(), imageIds = last?.imageIds.orEmpty(), place = last?.place,
             observations = seen)
@@ -255,13 +255,13 @@ class BatchRunner(
     private fun entry(tool: String, b: JsonObjectBuilder.() -> Unit) = buildJsonObject { put("tool", tool); b() }
 
     companion object {
-        /** 子步因用户新插话没做时的停止原因。 */
+        /** ユーザーによる新たな中断によりサブステップが停止された理由。 */
         const val NEW_MESSAGE = SKIPPED_FOR_NEW_MESSAGE
 
         /**
-         * 校验 do_steps 的参数;[available] 是此刻提供给模型的工具名,[batchable] 是能放进一批的工具(按工具声明,
-         * 只有屏幕动作和等待;观察、追问、接管、确认都不行)。
-         * 返回步骤,或点名第几步的错误说明。
+         * は do_steps のパラメーターを検証します。 [available] はこの時にモデルに付与されているツール名で、[batchable] はバッチに入れることができるツールです（ツール宣言によると、
+         * には画面アクションと待機のみがあります。観察、質問、引き継ぎ、確認は機能しません）。
+         * ステップに戻るか、どのステップのエラー説明に名前を付けます。
          */
         fun parse(argsJson: String, available: Set<String>, batchable: List<String>): Pair<List<BatchStep>?, String?> {
             val o = try { Json.parseToJsonElement(argsJson.ifBlank { "{}" }) as? JsonObject } catch (e: SerializationException) { null }
@@ -311,7 +311,7 @@ class BatchRunner(
             return out to null
         }
 
-        /** 等待条件按模型的写法交回(没等到时附在那一步的结果里)。 */
+        /** モデルの記述方法に応じて待ち条件を返します（待ちなしの場合はそのステップの結果に付加されます）。 */
         private fun untilFields(u: Until): JsonObject = buildJsonObject {
             u.appears?.let { put(EXPECT, it) }
             u.gone?.let { put(EXPECT_GONE, it) }
@@ -321,8 +321,8 @@ class BatchRunner(
         }
 
         /**
-         * 一批里的步骤作用在两块以上的屏上时给模型的说明([surfaceOf] 是工具作用的屏,不动屏的等待为 null);
-         * 都在同一块屏上为 null。
+         * バッチ内のステップが 3 つ以上の画面に適用される場合のモデルの命令 ([surfaceOf] はツールが適用される画面であり、移動していない画面の待機は null)。
+         * は同じ画面上では null です。
          */
         fun mixedSurface(steps: List<BatchStep>, surfaceOf: (String) -> String?): String? {
             val surfaces = steps.mapNotNull { surfaceOf(it.tool) }.distinct()
@@ -330,7 +330,7 @@ class BatchRunner(
             return Feedback.format("batch.mixed_surface", "surfaces" to surfaces.joinToString(", "))
         }
 
-        /** 运行记录用:批里输入的文字一律打码(端口还没说是不是密码框)。 */
+        /** 実行中のレコードの場合: バッチに入力されたすべてのテキストがコード化されます (ポートはパスワード ボックスであるかどうかを示しません)。 */
         fun redactArgs(argsJson: String): String {
             val o = try { Json.parseToJsonElement(argsJson) as? JsonObject } catch (e: SerializationException) { null } ?: return Redactor.text(argsJson)
             val steps = o["steps"] as? JsonArray ?: return Redactor.text(argsJson)
@@ -342,7 +342,7 @@ class BatchRunner(
             return Redactor.text(JsonObject(o + ("steps" to masked)).toString())
         }
 
-        /** do_steps 的定义;[batchable] 是能放进一批的工具名。 */
+        /** do_steps の定義。 [batchable] は、バッチに含めることができるツールの名前です。 */
         fun spec(batchable: List<String>) = ToolSpec(
             DO_STEPS_TOOL,
             Prompts.tool("do_steps"),
@@ -387,6 +387,6 @@ class BatchRunner(
     }
 }
 
-/** 结果里 effect 的种类;动作没报效果为 null。 */
-/** 动作报回的实际效果的种类(能力写在结果的 effect 里);没报为 null。 */
+/** 結果のエフェクトのタイプ。アクションが報告されない場合、その効果は無効です。 */
+/** アクションによって報告される実際の効果のタイプ (能力は結果の効果に書き込まれます)。報告されない場合は null です。 */
 private fun effectKind(c: JsonObject): String? = ((c["effect"] as? JsonObject)?.get("kind") as? JsonPrimitive)?.contentOrNull

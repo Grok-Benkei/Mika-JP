@@ -78,7 +78,7 @@ class UnavailableApprovalTest {
         // Preserve that decision here: this regression only repairs its delivery.
         for (label in listOf("确认支付", "Study notes\n2.99元\n删除\n编辑")) {
             val screen = DeniedPaymentScreen(label)
-            val message = "The action was not run; the phone owner must handle it."
+            val message = "操作は実行していません。スマホの所有者による対応が必要です。"
             val model = FakeModel(
                 reply("observe", "phone_observe"),
                 reply("tap", "phone_tap", """{"ref":"@e1","snapshotId":"s1"}"""),

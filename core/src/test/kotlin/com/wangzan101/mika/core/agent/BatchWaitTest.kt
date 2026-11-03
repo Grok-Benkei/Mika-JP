@@ -28,7 +28,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 一屏的样子:包名、元素名字、窗口(编号, 类型, 包名)、页面。 */
+/** 1 つの画面は、パッケージ名、要素名、ウィンドウ (番号、タイプ、パッケージ名)、ページのようになります。 */
 private data class Look(
     val pkg: String = "com.x",
     val names: List<String> = listOf("搜索框"),
@@ -36,7 +36,7 @@ private data class Look(
     val web: WebInfo? = null,
 )
 
-/** 屏幕按虚拟时间换:[frames] 是 (从第几毫秒起, 样子),读屏几次都不影响看到什么。 */
+/** 画面は仮想時間: [frames] (ミリ秒からどのように見えるか) に応じて変化します。画面を数回読み取っても、表示される内容には影響しません。 */
 private class TimedScreen(private val now: () -> Long, vararg val frames: Pair<Long, Look>) : ScreenPort by FakeScreen() {
     val calls = mutableListOf<String>()
     var stableCalls = 0
@@ -156,7 +156,7 @@ class BatchWaitTest {
         val out = runner(s).run(steps, "c1").content
         assertEquals("true", out.s("ok"))
         assertEquals(0L, out.entries()[0].wait()["waited_ms"]!!.jsonPrimitive.long)
-        // 不带条件的步不等,结果里也没有 wait
+        // 条件のないステップは等しくなく、結果には待機がありません。
         val plain = runner(TimedScreen({ testScheduler.currentTime }, 0L to results)).run(listOf(back(), back()), "c2").content
         assertTrue(plain.entries().all { it["wait"] == null })
     }
@@ -166,7 +166,7 @@ class BatchWaitTest {
         val out = runner(s).run(listOf(back(Until(gone = "加载中")), back()), "c1").content
         assertEquals("true", out.s("ok"))
         assertTrue(out.entries()[0].wait()["waited_ms"]!!.jsonPrimitive.long >= 1_500)
-        // 什么都读不到不算「已经没了」
+        // 何も読めない場合は「なくなった」とはみなされません
         val blank = TimedScreen({ testScheduler.currentTime }, 0L to Look(names = emptyList()))
         assertEquals("expectation_unmet", runner(blank).run(listOf(back(Until(gone = "加载中", timeoutMs = 2_000))), "c2").content.s("reason"))
     }
@@ -191,7 +191,7 @@ class BatchWaitTest {
         assertTrue(e[0].wait()["waited_ms"]!!.jsonPrimitive.long < 2_000)
         assertEquals(listOf(BatchRunner.NEW_MESSAGE, BatchRunner.NEW_MESSAGE), e.drop(1).map { it.s("error") })
         assertEquals(1, out["completed"]!!.jsonPrimitive.int)
-        // 最后一步的等待被打断:停在这一步,说清楚是等待被打断
+        // 待機の最後のステップが中断されました: このステップで停止し、待機が中断されたことを明確にします。
         var steer2 = false
         val last = runner(TimedScreen({ testScheduler.currentTime }, 0L to loading)) { steer2 || (testScheduler.currentTime >= 1_000).also { steer2 = it } }
             .run(listOf(back(Until(appears = "搜索结果"))), "c2").content

@@ -45,13 +45,13 @@ class RouteMatcherTest {
 
     @Test fun slotsMustAlignWithTemplate() = runTest {
         val msg = memo.copy(id = "c", template = "给{1}发消息说{2}", slots = 2)
-        // 「张三」只是「张三丰」的一部分:填回模板得不到原话
+        // 「Zhang San」は「Zhang Sanfeng」の一部です: テンプレートに入力しても元の単語を取得できません
         assertNull(RouteMatcher(FakeModel(text("""{"route": 1, "slots": ["张三", "晚上好"]}""")), MemRoutes(msg), null).choose("给张三丰发消息说晚上好"))
-        // 原话多了模板里没有的要求
+        // 元の単語には、テンプレートに含まれていない要件が多すぎます。
         assertNull(RouteMatcher(FakeModel(text("""{"route": 1, "slots": ["今天天气不错"]}""")), MemRoutes(memo), null).choose("在备忘录里写今天天气不错并置顶"))
-        // 槽值在原话里出现不止一次
+        // スロット値は元のストーリーで複数回登場します
         assertNull(RouteMatcher(FakeModel(text("""{"route": 1, "slots": ["好", "好"]}""")), MemRoutes(msg), null).choose("给好发消息说好"))
-        // 只差空白:算同一句
+        // 唯一の違いは空白です: 同じ文です
         assertEquals(RouteChoice(msg, listOf("张三丰", "晚上好")),
             RouteMatcher(FakeModel(text("""{"route": 1, "slots": ["张三丰", "晚上好"]}""")), MemRoutes(msg), null).choose("给 张三丰 发消息说晚上好"))
     }

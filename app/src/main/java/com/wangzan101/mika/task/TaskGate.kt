@@ -10,14 +10,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 
 /**
- * AgentLoop 在每个会改动屏幕的工具之前调用 [pass]。按先后检查:
- * 1. 手机操作助手不可用 → 暂停,等它恢复且用户点「继续」;
- * 2. 任务被挪到主屏(用户在主屏打开了这个 App)→ 暂停,用户点「继续」后才把它挪回虚拟屏;
- *    Mika 不自己判断用户是否用完,避免在用户眼前把 App 抽走;
- * 3. 屏幕熄灭或锁屏 → 等待解锁,亮屏并解锁后自动继续。
- * 前两条只在这一步用的是手机(phone 为 true)时才查:网页、沙箱上的步骤不需要助手,也不会被挪到主屏。
- * 另外,用户在浏览器页上亲手摸了借给任务的页面([onUserOnPage])→ 不论哪种屏都先停下,用户点「继续」再接着做。
- * 不碰界面的步骤(模型推理、读屏)不经过这里,照常进行。
+ * AgentLoop は、画面を変更するすべてのツールの前に [pass] を呼び出します。順番に確認してください:
+ * 1. モバイル操作アシスタントが利用できない → 一時停止し、再開するまで待ち、ユーザーが「続行」をクリックします。
+ * 2. タスクがホーム画面に移動され (ユーザーがホーム画面でアプリを開いた) → 一時停止され、ユーザーは仮想画面に戻す前に「続行」をクリックします。
+ *    ミカはユーザーが使い終わったかどうかを判断せず、ユーザーの目の前でアプリを取り上げることを避けます。
+ * 3. 画面が消えるかロックされる → ロックが解除されるまで待ち、画面がオンになりロックが解除されると自動的に続行されます。
+ * 最初の 2 つは、このステップで携帯電話が使用されている場合にのみチェックされます (電話は true)。Web ページおよびサンドボックス上のステップはアシスタントを必要とせず、ホーム画面には移動されません。
+ * また、ブラウザページでタスクが貸し出されているページ([onUserOnPage])をタッチ→どの画面を使用しても最初に停止し、「続行」をクリックして続行します。
+ * インターフェースに触れないステップ（モデル推論、画面読み取り）はここを経由せず、通常通りに進みます。
  */
 class TaskGate(
     private val locked: StateFlow<Boolean>,
@@ -27,7 +27,7 @@ class TaskGate(
     private val movedAway = MutableStateFlow(false)
     private val userOnPage = MutableStateFlow(false)
     private val resumes = MutableStateFlow(0)
-    /** 发现被挪走那一刻的点击计数:之后点的「继续」都算数,哪怕 Agent 还没走到 gate。 */
+    /** が移動されたことが判明した時点のクリック数。エージェントがまだゲートに到達していない場合でも、その後の「続行」クリックはすべてカウントされます。 */
     @Volatile private var resumesAtMove = 0
 
     fun onTaskMovedAway() {
@@ -35,19 +35,19 @@ class TaskGate(
         movedAway.value = true
     }
 
-    /** 已发现被挪走、还没挪回:任务服务据此立即显示暂停,不必等到下一个改动屏幕的工具。 */
+    /** は移動されたことが判明しましたが、元に戻されていません。これに応じて、タスク サービスは、次のツールによる画面の変更を待たずに、直ちに一時停止されます。 */
     val movedAwayPending: Boolean get() = movedAway.value
 
     /**
-     * 用户在浏览器页上亲手摸了借给任务的页面(他在操作,Mika 不能同时动):下一个会改动屏幕的工具之前停下,
-     * 等用户点「继续」;任务服务据此立即显示暂停。
+     * ユーザーがブラウザ ページでタスクに割り当てられたページをタッチしました (ユーザーは操作していましたが、ミカは同時に移動できませんでした): 画面を変更する次のツールの前に停止しました。
+     * ユーザーが「続行」をクリックするまで待ちます。タスク サービスはそれに応じて一時停止をすぐに表示します。
      */
     fun onUserOnPage() { userOnPage.value = true }
 
-    /** 用户在借出的页面上操作、还没点「继续」。 */
+    /** ユーザーは貸出ページを操作していますが、「続行」をクリックしていません。 */
     val userOnPagePending: Boolean get() = userOnPage.value
 
-    /** 用户点了「继续」。只对点击之后才开始的、或正在进行的暂停有效;用户在页面上操作的那种暂停当场解除。 */
+    /** ユーザーは「続行」をクリックしました。これは、クリック後に開始された一時停止または進行中の一時停止にのみ有効です。ユーザーがページ上で操作した一時停止はその場で解除されます。 */
     fun resume() {
         resumes.update { it + 1 }
         userOnPage.value = false
@@ -81,39 +81,39 @@ class TaskGate(
         }
     }
 
-    /** 要用户在手机上亲手处理一步,处理好了点「继续」(界面上算「要你处理」)。 */
+    /** では、ユーザーが携帯電話で 1 つのステップを手動で処理する必要があります。処理後、「続行」をクリックします（インターフェイスは「処理してほしい」としてカウントされます）。 */
     suspend fun pauseForUser(why: String, setWaiting: (TaskState?) -> Unit) {
         val seen = resumes.value
         setWaiting(TaskState.Held(GateReason("paused", why, resumable = true, needsYou = true)))
         resumes.first { it != seen }
     }
 
-    /** [seen]:从这个点击计数之后的「继续」才算;默认取当前值(先记下再显示暂停,显示后立刻点的也算)。 */
+    /** [seen]: このクリック数の後の「続行」がカウントされます。デフォルト値は現在値です（最初にそれを書き留めてから一時停止を表示し、表示直後にクリックすることもカウントされます）。 */
     private suspend fun pauseUntilResume(why: String, setWaiting: (TaskState?) -> Unit, seen: Int = resumes.value) {
         setWaiting(TaskState.Held(paused(why)))
         resumes.first { it != seen }
     }
 
     companion object {
-        /** 锁屏或熄屏:解锁后自动继续(运行记录里记成 waiting_unlock)。 */
+        /** 画面をロックするか画面をオフにする: ロック解除後、自動的に続行します (実行記録に wait_unlock として記録されます)。 */
         val LOCKED = GateReason("waiting_unlock")
 
-        /** 暂停,用户点「继续」后才接着做(运行记录里记成 paused,带上原因)。 */
+        /** は一時停止し、ユーザーは続行する前に「続行」をクリックします (実行中のレコードには理由とともに一時停止として記録されます)。 */
         fun paused(why: String) = GateReason("paused", why, resumable = true)
 
-        /** 等用户在手机上动一下手(比如在系统的选择框里选一个),动完自动继续(运行记录里记成 waiting_user)。 */
+        /** ユーザーが電話機上で手を動かすまで待機し (たとえば、システム選択ボックスで手を選択する)、移動後に自動的に続行します (実行レコードに wait_user として記録されます)。 */
         fun userStep(why: String) = GateReason("waiting_user", why, needsYou = true)
 
-        /** 系统在用户屏上问打开 [app] 的哪一个时请用户选的那句;名字读不到时不说名字。 */
+        /** システムは、ユーザー画面で [app] のどれを開くかをユーザーに選択するよう求めます。名前が読めない場合は名前を言いません。 */
         fun pickCopy(app: String?) = app?.let { tr(R.string.gate_pick_app, it) } ?: tr(R.string.gate_pick_system)
 
-        /** 选出来的 [app] 要用户亲手处理时的那句。 */
+        /** 選択済み [app] ユーザーが手で扱う必要がある場合の文。 */
         fun finishCopy(app: String?) = app?.let { tr(R.string.gate_finish_app, it) } ?: tr(R.string.gate_finish_unknown)
 
         val MOVED_AWAY: String get() = tr(R.string.gate_moved_away)
         val MOVE_BACK_FAILED: String get() = tr(R.string.gate_move_back_failed)
         val SHELL_DOWN: String get() = tr(R.string.gate_shell_down)
-        /** 用户在浏览器页上亲手操作借给任务的页面时暂停的原因(界面据此认出这种暂停)。 */
+        /** タスクに貸し出されたページを手動で操作するときに、ユーザーがブラウザ ページで一時停止する理由 (インターフェイスはこの一時停止を認識します)。 */
         val USER_ON_PAGE: String get() = tr(R.string.gate_user_on_page)
     }
 }

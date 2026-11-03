@@ -17,8 +17,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * destroy 单独一个类:它会结束外壳进程。只验收它自己能留下的痕迹——剪贴板还原、静音解除、虚拟屏释放、binder 失效;
- * 收尾时等连接重新拿到一个活的新外壳(进程死后的自动恢复),后面的测试类才不受影响。
+ * は単一のクラスを破棄します。これにより、シェル プロセスが終了します。クリップボードの復元、ミュートの解除、仮想画面の解除、バインダーの障害など、残せる痕跡のみを受け入れます。
+ * 最後に、後続のテスト クラスが影響を受けないように、接続が新しいライブ シェル (プロセス終了後の自動回復) を取得するまで待ちます。
  */
 @RunWith(AndroidJUnit4::class)
 class ShellDestroyParityDeviceTest {
@@ -40,7 +40,7 @@ class ShellDestroyParityDeviceTest {
     @After
     fun tearDown() {
         runCatching { probe.close() }
-        // 外壳已死时 releaseDisplay 会抛异常,这里只为关掉本地的 ImageReader
+        // releaseDisplay は、シェルが終了すると例外をスローします。これは、ローカルの ImageReader をオフにするだけです。
         runCatching { screen?.close() }
         ParityAudio.set(SETTINGS, audioBefore)
         ParityClip.put(context, clipBefore)
@@ -65,7 +65,7 @@ class ShellDestroyParityDeviceTest {
         assertEquals(ShellService.CLIP_SET, shell.setClipText("parity-ours"))
 
         val binder = shell.asBinder().also { dead = it }
-        // 进程在回复前就退出,调用方多半收到 DeadObjectException;正常返回也算
+        // プロセスは応答する前に終了し、呼び出し元は DeadObjectException を受け取る可能性が高くなります。通常の復帰も考慮されます
         runCatching { shell.destroy() }
 
         assertNotNull("binder still alive", pollUntil(5_000) { true.takeIf { !binder.isBinderAlive } })
@@ -76,7 +76,7 @@ class ShellDestroyParityDeviceTest {
     }
 
     private companion object {
-        // 新后端由看门狗拉起,间隔比旧后端的立即重绑长
+        // 新しいバックエンドはウォッチドッグによってプルアップされ、その間隔は古いバックエンドの即時の再バインドよりも長くなります。
         const val RECOVER_MS = 60_000L
     }
 }

@@ -17,9 +17,9 @@ import com.wangzan101.mika.settings.ChatGptSignInFailureRecord
 import java.net.URI
 
 /**
- * 「复制诊断信息」那一刻读到的状态。只放排查要用的:版本、机型、手机操作每一步的状态、模型的接口类型和地址、
- * 最近几次运行的结局;不放 Key、登录、聊天内容、任务目标和屏幕内容,也不放 IP、端口和 Wi-Fi 名。
- * 引导页的几项直接是引导页自己的输入 [setup](同一份状态机算出步骤),不另算一遍。
+ * 「診断情報のコピー」時に読み取られたステータス。トラブルシューティングに必要なもののみを含めます: バージョン、モデル、携帯電話操作の各ステップのステータス、モデルのインターフェイスのタイプとアドレス、
+ * の最近の実行結果。キー、ログイン、チャットの内容、タスクの目的、画面の内容、IP、ポート、Wi-Fi 名は含まれません。
+ * ブート ページ上のいくつかの項目は、ブート ページ自体 [setup] (同じステート マシンの計算ステップ) の直接の入力であり、追加の計算は必要ありません。
  */
 data class DiagnosticsSnapshot(
     val generatedAtMs: Long,
@@ -31,7 +31,7 @@ data class DiagnosticsSnapshot(
     val models: Models,
     val runs: List<Run>,
     val update: Update,
-    /** 语音转文字:选了什么、手机自带识别的情况;旧的调用处不给就不写这一段。 */
+    /** 音声からテキストへ: 選択された内容と携帯電話の認識ステータス。古いコールセンターがそれを提供しない場合、私はこの段落を書きません。 */
     val speech: Speech? = null,
 ) {
     data class App(val versionName: String, val build: String, val installer: String?, val language: String)
@@ -42,41 +42,41 @@ data class DiagnosticsSnapshot(
         val androidRelease: String,
         val sdk: Int,
         val abis: List<String>,
-        /** 沙箱(运行环境)的状态:不支持时写原因。 */
+        /** サンドボックス (実行環境) ステータス: サポートされていない場合の理由を書き込みます。 */
         val sandbox: String,
     )
 
     data class Phone(
         val accessibility: AccessibilityState,
-        /** 系统设置里「无线调试」那一项;这一项读不到为 null。 */
+        /** システム設定の「ワイヤレス デバッグ」項目。この項目は読み取ることができず、null です。 */
         val wirelessDebuggingSetting: Boolean?,
         val connect: ConnectCandidates?,
-        /** 系统里已有的配对码通知频道(id 到重要程度);一个都没建为空。是否可用以 [SetupInputs.pairingChannel] 为准。 */
+        /** There are existing pairing code notification channels in the system (id to the most important level);どれも空ではありません。利用可能かどうかは[SetupInputs.pairingChannel]によります。 */
         val pairingChannels: Map<String, Int>,
         val attentionChannelImportance: Int?,
         val wifiConnected: Boolean?,
-        /** 最近一次配对或连接失败的原文(渲染时脱敏)。 */
+        /** 最新のペアリングまたは接続失敗の元のテキスト (レンダリング時に感度が解除されます)。 */
         val lastError: String?,
         /**
-         * 另一份用户里的 App(分身、工作资料):内置助手对每份别的用户的判定(编号、标记、类型、资料组,不含名字)和能打开的另一份有几个;
-         * 助手没连着或问不到为 null。
+         * 別のユーザーのアプリ (クローン、作業データ): 組み込みアシスタントは、各コピーのユーザー (番号、タグ、タイプ、データ グループ、名前を除く) と開くことができる他のコピーの数を決定します。 アシスタントが接続されていない場合、またはアシスタントを要求できない場合、
+         * は null になります。
          */
         val appCopies: String? = null,
-        /** 配对钥匙在这个进程里的状况(没用过、读回、新建、读不出及原因);读不到为 null。 */
+        /** このプロセスのペアになったキーのステータス (未使用、リードバック、新規、読み取り不能、およびその理由)。読み取られない場合は null です。 */
         val adbKey: String? = null,
-        /** 这个进程里最近一次任务结束时 Mika 屏上的 App 留下、关掉了几个(只有个数,不列包名);还没有过为 null。 */
+        /** このプロセスの最新のタスクの終了時に、Mika の画面にいくつかのアプリが残されて閉じられました (パッケージ名ではなく番号のみ)。渡されていないものは null です。 ミカは */
         val appsAfterTask: String? = null,
     )
 
     data class Recovery(
         val consent: RecoveryConsent,
         val writeSecureSettings: Boolean,
-        /** 系统电池优化里 Mika 是不是不受限制;读不到为 null。 */
+        /** システムのバッテリー最適化で制限されませんか?読み込まれない場合は null になります。 */
         val ignoringBatteryOptimizations: Boolean?,
         val lastRestore: String?,
-        /** 内置助手在 Mika 被杀后把它拉起来的记录(助手交接时报来);没有为 null。 */
+        /** 内蔵アシスタントが殺されたミカを引き上げる記録（アシスタント引き継ぎ時間到来）; nullではありません。 */
         val helperRestores: HelperRestoreReport? = null,
-        /** 上一次 Mika 启动时发现无障碍服务被拿掉或没绑定;没有为 null。 */
+        /** 最後に Mega を起動したとき、アクセシビリティ サービスが削除されているか、バインドされていないことが判明しました。そうでない場合は null です。 */
         val lastA11yLoss: A11yLossRecord? = null,
     )
 
@@ -86,25 +86,25 @@ data class DiagnosticsSnapshot(
         val vision: RoleModel?,
         val light: RoleModel?,
         val chatGptSignedIn: Boolean,
-        /** 这次运行以来最近一次用 ChatGPT 登录失败(说明已脱敏);没有为 null。 */
+        /** この実行以降、ChatGPT を使用した最新のログインが失敗しました (感度が解除されていることを示します)。そうでない場合は null です。 */
         val chatGptLastFailure: ChatGptSignInFailureRecord? = null,
-        /** 账号登录(xAI)最近一次登录失败;没有为 null。 */
+        /** アカウント ログイン (xAI) 最新のログインに失敗しました。そうでない場合は null です。 */
         val accountLastFailure: ChatGptSignInFailureRecord? = null,
     )
 
-    /** 一个服务商:接口类型、地址(只取主机名)、列过几个模型(没列过为 null)。 */
+    /** サービス プロバイダー: インターフェイス タイプ、アドレス (ホスト名のみが取得されます)、リストされたいくつかのモデル (リストされていない場合は null)。 */
     data class Provider(val kind: String, val baseUrl: String, val listedModels: Int?)
 
     data class RoleModel(val model: String, val baseUrl: String)
 
-    /** 一次运行:开始时间、结局、失败的类别(不是原话)、走了几步、用的模型。 */
+    /** 1 回の実行: 開始時間、終了時間、失敗カテゴリ (元の単語ではありません)、実行されたステップ数、使用されたモデル。 */
     data class Run(val startedAtMs: Long, val outcome: String, val failKind: String?, val judged: String?, val steps: Int, val model: String?)
 
     data class Update(val status: String, val latest: String?, val available: String?)
 
     /**
-     * [choice] 是用户的选择(auto、system、off,或服务商模型「模型 @ 地址」);[systemAvailable]、[onDevice] 是系统说的能力,
-     * [silent] 是记成了不响应;[remembered] 是点名试通过的识别服务;[services] 是手机上登记的识别服务,每个一行。
+     * [choice] はユーザーの選択です (自動、システム、オフ、またはサービス プロバイダー モデル「モデル @ アドレス」)。 [systemAvailable] および [onDevice] はシステムの機能です。
+     * [silent] は応答なしとして記録されます。 [remembered] は点呼テストに合格した識別サービスです。 [services] は携帯電話に登録されている識別サービスで、1 行につき 1 行です。
      */
     data class Speech(
         val choice: String,
@@ -116,9 +116,9 @@ data class DiagnosticsSnapshot(
     )
 }
 
-/** 把 [DiagnosticsSnapshot] 写成一段纯文本:分段顺序固定,英文键,发到微信或 GitHub 都好读。最后整段再过一遍脱敏。 */
+/** [DiagnosticsSnapshot] をプレーン テキストとして書き込みます。セグメントの順序は固定されており、英語キーが使用され、WeChat または GitHub に送信するときに読みやすくなります。最後に、感度を下げるためにセクション全体をもう一度実行します。 */
 object Diagnostics {
-    const val HEADER = "Mika 诊断信息 / Mika diagnostics"
+    const val HEADER = "Mika JP 診断情報"
 
     fun render(s: DiagnosticsSnapshot): String = sanitize(buildString {
         appendLine(HEADER)
@@ -271,14 +271,14 @@ object Diagnostics {
 
     private fun role(r: DiagnosticsSnapshot.RoleModel) = "${r.model} @ ${host(r.baseUrl)}"
 
-    /** 地址只留主机名(路径、查询里可能有别的东西);解析不了就不写。 */
+    /** アドレスにはホスト名のみが含まれます (パスとクエリには他のものが含まれる場合があります)。解析できない場合は書き込まれません。 */
     fun host(url: String): String = runCatching { URI(url.trim()).host }.getOrNull()?.takeIf { it.isNotBlank() } ?: "(unparsed host)"
 
     private fun onOff(b: Boolean) = if (b) "on" else "off"
 
     private fun yes(b: Boolean) = if (b) "yes" else "no"
 
-    /** 通知频道的重要程度,按系统的取值:0 关、1 最低、2 低、3 默认、4 高。 */
+    /** システム値に従った通知チャネルの重要度: 0 オフ、1 最小、2 低、3 デフォルト、4 高。 */
     private fun importance(i: Int?) = when (i) {
         null -> "not created"
         0 -> "off"
@@ -302,13 +302,13 @@ object Diagnostics {
     private const val MAX_ERROR = 200
 
     private val IP = Regex("""\b\d{1,3}(\.\d{1,3}){3}\b(:\d{1,5})?""")
-    /** 完整写法(至少五段)或带「::」的缩写;时间里的 12:30:05 不算。 */
+    /** は完全に (少なくとも 5 段落) 書かれるか、「::」で省略されます。 12:30:05のタイムはカウントされません。 */
     private val IPV6 = Regex("""\[?(?:\b(?:[0-9A-Fa-f]{1,4}:){4,7}[0-9A-Fa-f]{1,4}\b|[0-9A-Fa-f]{0,4}::[0-9A-Fa-f:]*[0-9A-Fa-f])(?:%\w+)?\]?(:\d{1,5})?""")
     private val PORT = Regex("""(?i)\bport\s*[=:]?\s*\d{2,5}\b""")
     private val EMAIL = Regex("""[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}""")
     private val SECRET_PAIR = Regex("""(?i)\b(api[_-]?key|key|token|secret|password|passwd|authorization|cookie)\b(\s*[=:]\s*)\S+""")
 
-    /** 最后一遍:IP(带端口)、IPv6、端口号、邮箱、像凭据的「名=值」,再交给 [Redactor](Key、JWT、又长又杂的串)。 */
+    /** 前回: IP (ポート付き)、IPv6、ポート番号、電子メール、「名前=値」などの資格情報が、[Redactor] (キー、JWT、長くて複雑な文字列) に渡されます。 */
     fun sanitize(text: String): String {
         var out = IP.replace(text, "<ip>")
         out = IPV6.replace(out, "<ip>")

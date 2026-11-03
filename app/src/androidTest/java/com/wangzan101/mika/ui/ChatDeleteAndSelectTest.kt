@@ -44,8 +44,8 @@ import java.io.File
 import java.util.UUID
 
 /**
- * 侧栏长按一条对话在原地弹出菜单(置顶、改名、删除,点外面收起):删除先确认、删掉、列表当场更新;改名后列表换成新名字;置顶后排到最上面带图钉。
- * 还有对话页里长按回答、用户的话弹出复制 / 引用 / 选择文字:选择文字后能选中,引用随下一句话发出去。不用真机的任务环境。
+ * サイドバーの会話を長押しすると、その場でメニューがポップアップ表示されます (上部に固定、名前変更、削除、外側をクリックして閉じる): 削除するには、最初に確認して削除すると、リストがその場で更新されます。名前を変更すると、リストは新しい名前に置き換えられます。ピン留めした後、押しピンで上まで漕ぎます。
+ * には、会話ページで回答を長押しすることでテキストをコピー/引用/選択する機能もあり、ユーザーの言葉がポップアップ表示されます。テキストを選択した後、それを選択すると、引用が次の文とともに送信されます。実機を必要としない作業環境。
  */
 @RunWith(AndroidJUnit4::class)
 class ChatDeleteAndSelectTest {
@@ -107,7 +107,7 @@ class ChatDeleteAndSelectTest {
             .getOrNull(androidx.compose.ui.semantics.SemanticsProperties.Text)?.joinToString { it.text }.orEmpty()
         assertTrue(body, "天气" in body && "停止" in body && "2" in body)
 
-        // 取消:什么都不删
+        // キャンセル: 何も削除しません
         compose.onNodeWithText("取消").performClick()
         compose.waitForIdle()
         assertTrue(removed.isEmpty())
@@ -122,7 +122,7 @@ class ChatDeleteAndSelectTest {
         compose.onNodeWithText("订票").assertExists()
     }
 
-    /** 长按在原地弹出菜单:抬起的那一行(还是那个标题)和三项置顶、改名、删除;只是打开菜单什么都不改。 */
+    /** 長押しすると、メニューが表示されます。隆起した行 (同じタイトル) と、固定、名前変更、削除の 3 つの項目です。メニューを開いただけでは何も変わりません。 */
     @Test fun longPressShowsTheThreeActions() {
         store.append("a", Turn("查天气", "晴", "succeeded"))
         store.setTitle("a", "天气")
@@ -134,13 +134,13 @@ class ChatDeleteAndSelectTest {
         compose.onNodeWithTag("drawer-menu-rename").assert(hasText("改名"))
         compose.onNodeWithTag("drawer-menu-delete").assert(hasText("删除"))
         compose.onNodeWithText("取消置顶").assertDoesNotExist()
-        // 菜单开着时后面的内容不给无障碍读,只剩抬起的那一行
+        // メニューが開いているとき、次のコンテンツは読み取りにアクセスできず、浮き上がった行のみが残ります。
         assertEquals(1, compose.onAllNodesWithText("天气").fetchSemanticsNodes().size)
         assertEquals("天气", store.title("a"))
         assertEquals(null, store.pinnedAt("a"))
     }
 
-    /** 点菜单外面收起菜单,什么都不改;侧栏里那一行还在。 */
+    /** メニューの外側をクリックしてメニューを閉じると、何も変更されません。横の列の線はまだ残っています。 */
     @Test fun tappingOutsideClosesTheMenu() {
         store.append("a", Turn("查天气", "晴", "succeeded"))
         store.setTitle("a", "天气")
@@ -148,7 +148,7 @@ class ChatDeleteAndSelectTest {
 
         compose.onNodeWithText("天气").performTouchInput { longClick() }
         compose.onNodeWithTag("drawer-menu-pin").assertExists()
-        // 右下角:菜单靠左接在那一行下面,碰不到
+        // 右下隅: メニューはその線の下の左側に接続されており、タッチできません。
         compose.onNodeWithTag("drawer-menu").performTouchInput { click(percentOffset(0.95f, 0.95f)) }
         compose.waitForIdle()
         compose.onNodeWithTag("drawer-menu").assertDoesNotExist()
@@ -159,7 +159,7 @@ class ChatDeleteAndSelectTest {
         assertEquals(null, store.pinnedAt("a"))
     }
 
-    /** 改名:输入框里是现在的标题,换成新的保存;列表当场换名字,存下的也是新的。 */
+    /** 名前の変更: 入力ボックス内の現在のタイトルが新しいタイトルに置き換えられ、保存されます。リストの名前はその場で変更され、保存されたリストも新しいものになります。 */
     @Test fun renameUpdatesTheRow() {
         store.append("a", Turn("查天气", "晴", "succeeded"))
         store.setTitle("a", "天气")
@@ -176,11 +176,11 @@ class ChatDeleteAndSelectTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithText("上海出行").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(0, compose.onAllNodesWithText("天气").fetchSemanticsNodes().size)
         assertEquals("上海出行", store.title("a"))
-        // 之后才到的起好的标题不盖掉
+        // 後から入荷した良質なタイトルはブロックされません。
         assertTrue(!store.setTitle("a", "天气"))
     }
 
-    /** 置顶:排到「置顶」一段最上面、带图钉;再取消置顶回到「最近」。 */
+    /** ピン: 画鋲を使用して「トップ」セクションの上部に配置します。その後、ピンを解除して「最近」に戻ります。 */
     @Test fun pinMovesTheRowToTheTop() {
         store.append("a", Turn("查天气", "晴", "succeeded"))
         store.setTitle("a", "天气")
@@ -204,7 +204,7 @@ class ChatDeleteAndSelectTest {
         assertEquals(null, store.pinnedAt("a"))
     }
 
-    // 长按消息弹出菜单;选「选择文字」后那条换回系统的长按选中,侧栏不跟着打开
+    // メッセージを長押ししてメニューをポップアップ表示します。 「テキストの選択」を選択すると、テキストがシステムの長押し選択に戻り、サイドバーが開きません。
     @Test fun answerAndUserTextAreSelectableFromTheMenu() {
         store.append("s", Turn("今天天气怎么样", "上海今天**晴**,详见 [天气](https://example.com)", "succeeded"))
         val vm = vm()
@@ -228,7 +228,7 @@ class ChatDeleteAndSelectTest {
         compose.onNode(hasText("今天天气怎么样") and hasAnyAncestor(hasTestTag("selectable-user"))).assertExists()
     }
 
-    // 长按回答选「引用」:输入框上方出现引用小条,写一句发出去,引用跟着这句话交给任务,小条消失;气泡上方显示引的那条
+    // 回答を長押しして「引用」を選択します。入力ボックスの上に小さな引用バーが表示され、文を書いて送信します。引用はこの文を含むタスクに渡され、小さなバーは消えます。引用符はバブルの上に表示されます
     @Test fun longPressQuoteThenSend() {
         store.append("q", Turn("今天天气怎么样", "上海今天**晴**", "succeeded"))
         val vm = vm()
@@ -249,13 +249,13 @@ class ChatDeleteAndSelectTest {
         compose.onNodeWithTag("quote-chip").assertDoesNotExist()
         compose.onNodeWithTag("sent-quote").assertExists()
 
-        // × 去掉引用
+        // × 参照を削除
         compose.runOnUiThread { vm.quote(QuoteMessage.From.You, "今天天气怎么样") }
         compose.onNodeWithContentDescription("去掉引用").performClick()
         compose.onNodeWithTag("quote-chip").assertDoesNotExist()
     }
 
-    // 长按一条答完的回答「从这里分支」:复制到这一轮(含),切到新对话,标题带后缀,原对话不变
+    // 完成した回答を長押しします「ここから分岐」: このラウンド (包括的) にコピーし、新しい会話に切り替えます。タイトルにはサフィックスが付き、元の会話は変更されません。
     @Test fun branchFromAnAnswerOpensTheCopiedChat() {
         store.append("s", Turn("今天天气怎么样", "上海今天晴", "succeeded"))
         store.append("s", Turn("那明天呢", "明天多云", "succeeded"))
@@ -272,11 +272,11 @@ class ChatDeleteAndSelectTest {
         assertEquals("今天天气怎么样 · 分支", store.title(branch))
         assertEquals(store.branchOrigin(branch)?.parentId, "s")
         assertEquals(listOf("今天天气怎么样", "那明天呢"), vm.ui.value.exchanges.map { it.goal })
-        // 原对话还是两轮
+        // 元の会話はまだ 2 ラウンドです
         assertEquals(2, store.turns("s").size)
     }
 
-    // 长按自己说过的话「从这里重新问」:复制这一轮之前,输入框预填原话,不自动发送
+    // 自分が言ったことを長押しします。「ここからもう一度質問する」: このラウンドをコピーする前に、入力ボックスには元の単語があらかじめ入力されており、自動的には送信されません。
     @Test fun retryFromAUserMessagePrefillsTheNewChat() {
         store.append("s", Turn("今天天气怎么样", "上海今天晴", "succeeded"))
         store.append("s", Turn("那明天呢", "明天多云", "succeeded"))

@@ -13,24 +13,24 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 /**
- * 「用电脑启动」的脚本:电脑经 USB 调试跑 `adb shell sh <外部文件目录>/usb-start.sh`,起的是和无线调试同一个助手,
- * 交接也走同一个 [HelperHub.offer](同样核对 shell 身份、口令、签名)。
- * 助手不在时写带一次性口令的脚本;助手连着时换成不带口令的说明,磁盘上不留能用的口令。
- * 外部文件目录 App 自己写不用权限,shell 也读得到;别的 App 读不到。
+ * 「コンピューターで開始」スクリプト: コンピューターは、ワイヤレス デバッグと同じアシスタントで開始される USB デバッグを通じて `adb shell sh <外部文件目录>/usb-start.sh` を実行します。
+ * もハンドオーバーに同じ [HelperHub.offer] を使用します (シェル ID、パスワード、署名もチェックします)。
+ * アシスタントが使用できない場合は、ワンタイム パスワードを使用してスクリプトを作成します。アシスタントが接続されており、使用可能なパスワードがディスクに残っていない場合は、パスワードなしの命令に変更します。
+ * 外部ファイル ディレクトリは、アプリ自体が許可なく書き込むことができ、シェルもそれを読み取ることができます。他のアプリでは読み取れません。
  */
 class UsbStartScript(context: Context, private val hub: HelperHub) {
     private val app = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var started = false
 
-    /** 脚本在手机上的位置;外部存储暂时不可用时为 null。 */
+    /** 電話機上のスクリプトの場所。外部ストレージが一時的に利用できない場合は null。 */
     private fun file(): File? = app.getExternalFilesDir(null)?.let { File(it, HelperHandoff.USB_SCRIPT) }
 
-    /** 电脑上要跑的那条命令(引导页显示、复制的就是它)。 */
+    /** コンピューター上で実行されるコマンド (ブート ページに表示およびコピーされるものです)。 */
     fun command(): String =
         HelperHandoff.usbCommand(file()?.absolutePath ?: "/storage/emulated/0/Android/data/${app.packageName}/files/${HelperHandoff.USB_SCRIPT}")
 
-    /** App 启动时调:跟着助手在不在、口令有没有被作废(解除配对)重写脚本。 */
+    /** アプリ起動時間調整：アシスタントの有無、パスワードが無効化（ペアリング解除）されているかどうかに応じてスクリプトを書き換えます。 */
     @Synchronized
     fun start() {
         if (started) return
@@ -38,7 +38,7 @@ class UsbStartScript(context: Context, private val hub: HelperHub) {
         scope.launch { HelperHandoff.usbScriptWrites(hub.shell, hub.nonceResets).collect { write(connected = it) } }
     }
 
-    /** 有人要用助手却没有、打开引导页时调:再写一遍(口令还新就沿用,见 [HelperHub.usbNonce])。 */
+    /** 誰かがアシスタントを使いたいと思っていますが、それを持っていません。ブート ページを開くと、「Write it again」が呼び出されます (パスワードがまだ新しい場合は、そのままにしておきます。[HelperHub.usbNonce] を参照)。 */
     fun refresh() {
         scope.launch { write(connected = hub.shell.value != null) }
     }
@@ -54,7 +54,7 @@ class UsbStartScript(context: Context, private val hub: HelperHub) {
             Log.w(TAG, "cannot build ${f.name}", it)
             return
         }
-        // 先写临时文件再改名:电脑那边正在读时不会读到半截
+        // 最初に一時ファイルを書き込んでから、名前を変更します。コンピュータは、読み取り中にその半分を読み取りません。
         runCatching {
             val tmp = File(f.parentFile, f.name + ".tmp")
             tmp.writeText(text)
@@ -70,7 +70,7 @@ class UsbStartScript(context: Context, private val hub: HelperHub) {
     }
 }
 
-/** Mika 签名证书的指纹:助手每次交接前都拿它核对 Mika(两种启动方式共用),取自本 App 自己的安装信息。 */
+/** ミカ署名証明書のフィンガープリント: アシスタントは、アプリ自体のインストール情報から取得された、各ハンドオーバー前にミカをチェックするために使用します (両方の起動方法で共有)。 */
 internal fun ownCertPin(context: Context): String {
     val signers = context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
         .signingInfo?.apkContentsSigners?.map { it.toByteArray() }

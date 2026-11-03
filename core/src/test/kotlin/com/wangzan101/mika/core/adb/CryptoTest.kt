@@ -47,7 +47,7 @@ class EdPointTest {
         }
     }
 
-    /** 验签等式 [S]B = R + [k]A 同时考验解码、加法和任意点的标量乘。 */
+    /** 任意の時点でデコード、加算、およびスカラー乗算をテストしながら、署名方程式 [S]B = R + [k]A を検証します。 */
     @Test
     fun signatureEquationHoldsForRfc8032Vectors() {
         for (v in vectors) {
@@ -75,11 +75,11 @@ class EdPointTest {
 
     @Test
     fun decodeRejectsBadEncodings() {
-        // y = p(不规范)
+        // y = p (標準化されていない)
         assertNull(EdPoint.decode(EdPoint.toLe(EdPoint.P, 32)))
-        // y = 2 时 x² 无解
+        // y = 2 の場合、x² には解がありません
         assertNull(EdPoint.decode(EdPoint.toLe(BigInteger.TWO, 32)))
-        // x = 0 却标了负号(y = 1)
+        // x = 0 ですが、負の符号が付いています (y = 1)
         assertNull(EdPoint.decode(ByteArray(32).also { it[0] = 1; it[31] = 0x80.toByte() }))
         assertNull(EdPoint.decode(ByteArray(31)))
     }
@@ -94,7 +94,7 @@ class Spake2ConstantsTest {
         assertEquals("10e3df0ae37d8e7a99b5fe74b44672103dbddcbd06af680d71329a11693bc778", Spake2.derivePoint(Spake2.SEED_N).encode().hexs())
     }
 
-    /** 与参考实现源码里写死的坐标和预计算表首项(x、y 各 32 字节小端)逐一比对。 */
+    /** を、リファレンス実装ソース コードにハードコーディングされた座標および事前計算されたテーブルの最初の項目 (x、y それぞれ 32 バイトのリトル エンディアン) と 1 つずつ比較します。 */
     @Test
     fun mAndNMatchHardCodedReferenceValues() {
         val (mx, my) = Spake2.M.affine()
@@ -181,7 +181,7 @@ class Spake2RoundTripTest {
         val c = PairingAuth.client(pw)
         val s = PairingAuth.server(pw)
         c.initCipher(s.message); s.initCipher(c.message)
-        c.encrypt(byteArrayOf(1)) // 对方没收到这一条
+        c.encrypt(byteArrayOf(1)) // 相手はこのメッセージを受信していません
         assertThrows(AEADBadTagException::class.java) { s.decrypt(c.encrypt(byteArrayOf(2))) }
     }
 

@@ -43,7 +43,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 真实对话页与任务服务;脚本模型延迟取消收尾,让消息稳定停在尚未交给模型的阶段。 */
+/** リアルダイアログページとタスクサービス。スクリプトモデルはエンディングのキャンセルを遅らせ、モデルにまだ引き継がれていない段階でメッセージを安定して停止させることができます。 */
 @RunWith(AndroidJUnit4::class)
 class SteerEditingDeviceTest {
     @get:Rule(order = Int.MIN_VALUE) val chinese = ChineseUi()
@@ -160,7 +160,7 @@ class SteerEditingDeviceTest {
         shot("processed-menu")
     }
 
-    // 电脑追加的插话只归当前任务:手机上长按只有复制、引用、选择文字,撤回也被拒,照常交给模型
+    // パソコンから追加された割り込み発言は現在のタスクだけに属する: スマホでの長押しはコピー、引用、テキスト選択のみで、撤回も拒否され、通常どおりモデルへ渡される
     @Test fun remoteSteersOfferNoWithdrawOrEdit() {
         val started = app.remoteTasks.start("请核对今天的资料", conversation)
         val task = (started as com.wangzan101.mika.core.remote.StartOutcome.Started).task

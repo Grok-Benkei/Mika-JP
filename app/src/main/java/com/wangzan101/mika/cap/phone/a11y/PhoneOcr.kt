@@ -7,7 +7,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
-import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
+import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.wangzan101.mika.core.uistate.VisibleTextLine
 import com.wangzan101.mika.core.uistate.normalize
@@ -17,19 +17,19 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-/** 两套内置模型均在本机运行；同一帧并行识别，完成后才释放位图。两套都出错时抛异常(不当成没字)。 */
+/** このマシンでは 2 セットの組み込みモデルが実行されます。同じフレームが並行して認識され、ビットマップは完了後にのみ解放されます。両方のエラーが発生した場合は、例外がスローされます (「いいえ」として解釈しないでください)。 */
 internal object PhoneOcr {
     private const val TAG = "PhoneOcr"
 
-    private val chinese: TextRecognizer by lazy {
-        TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+    private val japanese: TextRecognizer by lazy {
+        TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
     }
     private val latin: TextRecognizer by lazy {
         TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     }
 
     suspend fun read(bitmap: Bitmap): List<VisibleTextLine> {
-        val recognizers = try { listOf(chinese, latin) } catch (e: Exception) {
+        val recognizers = try { listOf(japanese, latin) } catch (e: Exception) {
             bitmap.recycle()
             throw e
         }
@@ -47,7 +47,7 @@ internal object PhoneOcr {
                 result?.textBlocks?.forEach { block -> block.lines.forEach { line ->
                     val box = line.boundingBox ?: return@forEach
                     val value = line.text.trim()
-                    // 有的识别模型不给置信度(为 0),当作没有
+                    // 一部の認識モデルは信頼レベル (0) を与えず、存在しないものとして扱われます。
                     if (value.isNotEmpty()) lines += VisibleTextLine(value, listOf(
                         normalize(box.left, bitmap.width), normalize(box.top, bitmap.height),
                         normalize(box.right, bitmap.width), normalize(box.bottom, bitmap.height),
@@ -56,7 +56,7 @@ internal object PhoneOcr {
                 if (remaining.decrementAndGet() == 0) {
                     val complete = lines.toList()
                     bitmap.recycle()
-                    // 两套都出错不是「屏上没字」:照实报错,读屏结果才写得出 ocr: failed
+                    // 両方のセットにエラーがある場合、「画面に何も表示されない」わけではありません。エラーを正直に報告し、画面の結果を読んで ocr: failed と書き込みます。
                     if (continuation.isActive) {
                         if (succeeded.get() == 0) continuation.resumeWithException(IllegalStateException("text recognition failed"))
                         else continuation.resume(complete)

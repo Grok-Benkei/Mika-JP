@@ -6,9 +6,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 自检按返回:输入法弹着时按的那几下是收起输入法,不算在次数里;总下数有上限。 */
+/** セルフテストのプレスが返されました: 再生中にインプット メソッドを押した回数は、インプット メソッドを閉じるためのものであり、回数には含まれません。合計回数には上限があります。 */
 class BackPressesTest {
-    /** 一块屏:输入法要按 [imePresses] 下才收起(先清没上屏的字、再收起),之后再按 [pageLeavesAfter] 下页面离开。 */
+    /** 1 つの画面: 入力方法では、[imePresses] を押して閉じ (最初に画面上の単語を消去してから閉じます)、次に [pageLeavesAfter] を押してページを終了する必要があります。 */
     private class Screen(var imePresses: Int, val pageLeavesAfter: Int = 1) {
         var presses = 0
         private var pageBacks = 0
@@ -24,7 +24,7 @@ class BackPressesTest {
     }
 
     @Test fun keyboardThatTakesTwoPressesNoLongerFailsTheCheck() {
-        // 原来两下都被输入法吃掉就判失败
+        // インプットメソッドが2回食べると失敗とみなされることが分かりました。
         val screen = Screen(imePresses = 2)
         assertTrue(run(screen))
         assertEquals(3, screen.presses)

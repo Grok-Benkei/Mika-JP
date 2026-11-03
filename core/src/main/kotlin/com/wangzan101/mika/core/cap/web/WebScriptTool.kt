@@ -20,8 +20,8 @@ import kotlinx.serialization.json.put
 import com.wangzan101.mika.core.uistate.lastSnapshot
 
 /**
- * 页面脚本:自己不动页面,脚本里的每个动作经执行入口回来(守卫、关卡、不可逆判定、记录照常);
- * 不过锁屏关卡,也不能作为只读调用。
+ * ページ スクリプト: ページを移動しないでください。スクリプト内の各アクションは実行入口 (通常どおり、ガード、レベル、不可逆決定、およびレコード) を通じて返されます。
+ * ただし、ロック画面レベルを読み取り専用として呼び出すことはできません。
  */
 internal object WebScriptTool : WebTool {
     override val verb = Verb.Script
@@ -46,7 +46,7 @@ internal object WebScriptTool : WebTool {
         val timeoutMs = (a.int("timeoutMs", 1000, SCRIPT_MAX_TIMEOUT_MS) ?: SCRIPT_DEFAULT_TIMEOUT_MS).toLong()
         val calls = ScriptCalls(ctx.callId, ctx.sub, ctx.tools)
         val run = try {
-            // 时限由端口管:只算脚本自己的时间,动作(含等锁屏关卡)在做时不走表,也不会被掐在半中间
+            // 時間制限はポートによって管理されます。スクリプト自体の時間のみがカウントされ、アクション (ロック画面レベルの待機を含む) が実行中に時間外に実行されたり、途中で捕らえられたりすることはありません。
             ctx.web!!.runScript(code, timeoutMs, calls)
         } catch (e: WebTabCrashed) {
             ScriptRun.Failed("tab_crashed", FAILURE_MESSAGES.getValue("tab_crashed"))
@@ -59,8 +59,8 @@ internal object WebScriptTool : WebTool {
         }
         val content = calls.content(run)
         val result = (content["result"] as? JsonPrimitive)?.contentOrNull?.takeIf { it != "null" }
-        val seen = result?.let { webRead("页面脚本的结果(${ctx.lastSnapshot?.web?.url ?: "当前网页"})\n$it", ctx.lastSnapshot?.web?.url) }
-        // 脚本的结果来自网页:交给模型时套一层不可信的标记
+        val seen = result?.let { webRead("ページスクリプトの結果（${ctx.lastSnapshot?.web?.url ?: "現在のWebページ"}）\n$it", ctx.lastSnapshot?.web?.url) }
+        // スクリプトの結果は Web ページから取得されます。モデルに渡されると、信頼できないマークが適用されます。
         val shown = if (result == null) content else JsonObject(content +
             ("result" to JsonPrimitive(Untrusted.wrapWithin(result, EVAL_RESULT_MAX_CHARS))) +
             ("truncated" to JsonPrimitive(content["truncated"] == JsonPrimitive(true) || result.length > EVAL_RESULT_MAX_CHARS - Untrusted.OVERHEAD)))

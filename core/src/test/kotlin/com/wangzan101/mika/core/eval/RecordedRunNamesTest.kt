@@ -10,8 +10,8 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 /**
- * 改名前记下的运行(如调优组那一晚的记录)按旧名对照表读:评测从记录里取的事实、核查当时的证据,
- * 和同一次运行用现在的名字记下时一模一样,重新打分结果不变。
+ * 名前が変更される前に記録された操作 (その夜のチューニング チームの記録など) は、古い名前比較表に従って読み取られます。記録から得られた事実を評価し、当時の証拠を検証します。
+ * は、同じ実行が現在の名前で記録されたときとまったく同じであり、再スコア結果は変わりません。
  */
 class RecordedRunNamesTest {
     private var t = 0L
@@ -19,7 +19,7 @@ class RecordedRunNamesTest {
     private fun reply(step: Int, tool: String, args: String = "{}") = RunEvent.ModelReply(++t, step, "", tool, args, null, null, null)
     private fun result(step: Int, tool: String, json: String) = RunEvent.ToolResult(++t, step, tool, json, null, null)
 
-    /** 一次手机加网页、登录接管后交卷的运行,用现在的名字记下。 */
+    /** 携帯電話が Web ページを追加し、ログインして紙を渡す操作を引き継いだ後、現在の名前を書き留めます。 */
     private val current: List<RunEvent> = listOf(
         reply(1, "phone_launch_app", """{"package":"com.example.notes"}"""), result(1, "phone_launch_app", """{"ok":true}"""),
         screen(2, "com.example.notes", "新建", "搜索"), reply(2, "phone_type_text", """{"text":"买牛奶"}"""), result(2, "phone_type_text", """{"ok":true}"""),
@@ -32,7 +32,7 @@ class RecordedRunNamesTest {
         RunEvent.Verifier(++t, "pass", "{}", step = 8),
     )
 
-    /** 同一次运行在改名前记下的样子:每个改过名的工具换回它的旧名。 */
+    /** 名前を変更する前の同じ実行の様子: 名前を変更した各ツールは古い名前に置き換えられます。 */
     private val old: List<RunEvent> = run {
         val legacy = legacyNames()
         val former = legacy.names.flatMap { o -> legacy.replacements(o).map { it to o } }.toMap()
@@ -54,9 +54,9 @@ class RecordedRunNamesTest {
     @Test fun oldNamesRescoreLikeTheCurrentOnes() {
         assertNotEquals("the fixture must really use old names", current.map { (it as? RunEvent.ModelReply)?.tool }, old.map { (it as? RunEvent.ModelReply)?.tool })
         assertEquals(facts(current, TOOLS), facts(old, RECORDED_TOOLS))
-        // 不按对照表读,旧记录取到的事实就不一样(这个测试守得住)
+        // 対照表に従って読まないと、古い記録から得られる事実が異なります（このテストは開催できます）
         assertNotEquals(facts(current, TOOLS), facts(old, TOOLS))
-        // 核查当时的证据也一样
+        // 当時の証拠の検証も同様
         val (v, f) = RecordedVerifications.pairs(current).single()
         val answer = RecordedVerifications.answer(current, f).orEmpty()
         assertEquals(RecordedVerifications.ledgerSources(current, v, f, "", answer), RecordedVerifications.ledgerSources(old, v, f, "", answer))

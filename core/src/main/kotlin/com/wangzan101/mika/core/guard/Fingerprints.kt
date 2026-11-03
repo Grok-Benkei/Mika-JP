@@ -4,12 +4,12 @@ import com.wangzan101.mika.core.tool.Verb
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 
-/** 读屏、看图、诊断屏幕一类:守卫按工具计重复,不按参数。 */
+/** 画面読み取り、画像表示、および診断画面のカテゴリ: ガードはパラメーターではなくツールに基づいて繰り返されます。 */
 internal val DIAGNOSTIC_VERBS = setOf(Verb.Observe, Verb.ListElements, Verb.Screenshot, Verb.Describe, Verb.Diagnose, Verb.ViewPastScreens)
-/** 只读不动的看页面一类:页面没变时反复用它们读,由 [OperationGuards.read] 管。 */
+/** は、変更されない読み取り専用ページの一種です。ページが変更されない場合に繰り返し使用して読み取り、[OperationGuards.read] によって管理されます。 */
 internal val PAGE_READ_VERBS = DIAGNOSTIC_VERBS + setOf(Verb.ReadPage, Verb.EvaluateJs, Verb.SiteCommand)
 
-/** 工具结果的指纹(不含每次都换的读屏编号)。 */
+/** ツール結果のフィンガープリント (毎回変更される画面読み取り番号を除く)。 */
 internal fun resultFingerprint(content: JsonObject): Long {
     val text = JsonObject(content - "snapshotId" - "guard" - "advice").toString()
     var h = -0x340d631b7bdddcdbL
@@ -17,10 +17,10 @@ internal fun resultFingerprint(content: JsonObject): Long {
     return h
 }
 
-/** 画面指纹:元素列表文本的 64 位 FNV-1a。纯文本模型没有截图,也能判断「画面没变」。 */
+/** 画面フィンガープリント: 要素リスト テキスト用の 64 ビット FNV-1a。純テキストモデルのスクリーンショットがなくても「画面は変化していない」と判断できます。 */
 internal fun elementsHash(elements: JsonArray?): Long? {
     elements ?: return null
-    // 不含编号:稳定编号开着时同一屏里重复的同名元素每次读都换新编号,不该被当成换了一屏
+    // には番号付けが含まれていません。安定した番号付けがオンになっている場合、同じ画面上で同じ名前を持つ繰り返し要素には読み取られるたびに新しい番号が付けられるため、画面の変更とみなされるべきではありません。
     val text = JsonArray(elements.map { e -> (e as? JsonObject)?.let { JsonObject(it - "ref") } ?: e }).toString()
     var h = -0x340d631b7bdddcdbL
     for (b in text.toByteArray(Charsets.UTF_8)) {

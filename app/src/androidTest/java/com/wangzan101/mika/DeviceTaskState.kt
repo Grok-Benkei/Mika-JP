@@ -2,7 +2,7 @@ package com.wangzan101.mika
 
 import androidx.test.platform.app.InstrumentationRegistry
 
-/** 设备测试从 App 持有的 TaskCenter 读取状态；TaskService 只负责 Android 宿主。 */
+/** デバイス テストは、アプリが保持する TaskCenter からステータスを読み取ります。 TaskService は Android ホストのみを担当します。 */
 object DeviceTaskState {
     private val center get() = (InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as MikaApp).taskState
     val state get() = center.state

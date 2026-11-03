@@ -19,7 +19,7 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import com.wangzan101.mika.core.assembly.toolDispatcher
 
-/** 一屏只有一个按钮(名字由用例给)和一个普通按钮;记下真的点了什么。 */
+/** には、1 つの画面上にボタン (名前はユースケースによって付けられます) と通常のボタンが 1 つだけあります。実際にクリックした内容を書き留めます。 */
 private class OneButton(label: String) : ScreenPort by FakeScreen() {
     val taps = mutableListOf<String>()
     private val shown = listOf(
@@ -32,8 +32,8 @@ private class OneButton(label: String) : ScreenPort by FakeScreen() {
 }
 
 /**
- * 同一个花钱的动作,无论从哪条路径来(模型单步、一次多步、页面脚本、经验回放),执行入口给出同样的结论、
- * 同样不执行,运行记录里的确认事件也一样;不花钱的动作(发送、删除、提交和普通点击)照常执行,记录形状只差来源字段。
+ * お金を使うという同じアクションは、どのパスから来たとしても (モデルの単一ステップ、一度に複数のステップ、ページ スクリプト、エクスペリエンス再生)、実行の入り口では同じ結論が得られます。
+ * も実行されません。実行レコード内の確認イベントにも同じことが当てはまります。費用がかからないアクション (送信、削除、送信、および通常のクリック) は通常どおり実行され、レコード形状にはソース フィールドが欠落しているだけです。
  */
 @RunWith(Parameterized::class)
 class ActionExecutorOriginsTest(private val label: String, private val action: IrrevAction, private val origin: Origin) {
@@ -54,10 +54,10 @@ class ActionExecutorOriginsTest(private val label: String, private val action: I
         assertEquals("confirmation_required", out.code)
         assertEquals(action, out.hit?.action)
         assertEquals(label, out.hit?.matched)
-        assertTrue("没有执行", screen.taps.isEmpty())
+        assertTrue("操作は実行されていないはずです", screen.taps.isEmpty())
         val confirmations = events.filterIsInstance<RunEvent.Confirmation>().map { it.copy(atMs = 0) }
         assertEquals(listOf(RunEvent.Confirmation(0, action.name, label, null, null, "required")), confirmations)
-        // 没执行的动作不记成执行结果;模型单步的拦下说明本身就是交给模型的结果,照常记一条
+        // 実行されなかったアクションは実行結果として記録されません。モデルのシングルステップインターセプト記述自体がモデルに与えられた結果であり、通常どおり 1 つのレコードが記録されます。
         val results = events.filterIsInstance<RunEvent.ToolResult>()
         assertTrue(results.all { it.changed == null && it.callId == "c1" && "confirmation_required" in it.resultJson })
         assertEquals(if (origin.policy.recordsRefusal) 1 else 0, results.size)

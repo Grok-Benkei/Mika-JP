@@ -19,8 +19,8 @@ class XaiAuthTest {
     private lateinit var server: MockWebServer
     private val http = OkHttpClient()
 
-    // 绑到 127.0.0.1 并用它拼地址:MockWebServer 默认按本机主机名起服务,有的机器(localhost 被 VPN 改写过)
-    // 解析出的名字不是 localhost,OauthUrls 只放行 https 和本机地址,主机核对就会拒掉它自己的地址
+    // は 127.0.0.1 にバインドされており、それをアドレスの綴りに使用します。MockWebServer はデフォルトでローカル ホスト名と一部のマシンを提供します (localhost は VPN によって書き換えられています)。
+    // によって解決された名前は localhost ではありません。 OauthUrls では https とローカル アドレスのみが許可されます。ホストはチェック時に自身のアドレスを拒否します。
     @Before fun setUp() { server = MockWebServer().also { it.start(InetAddress.getByName("127.0.0.1"), 0) } }
     @After fun tearDown() { server.shutdown() }
 
@@ -55,7 +55,7 @@ class XaiAuthTest {
         assertFalse(denied.message.orEmpty(), denied.message.orEmpty().contains(secret))
     }
 
-    /** 用户在浏览器里时网络可能一时不通:连着几次连不上才算失败,中间成功一次就从头数。 */
+    /** ユーザーがブラウザーを使用しているときに、ネットワークが一時的に利用できなくなることがあります。数回接続できず、1 回成功すると最初から数えると失敗とみなされます。 */
     @Test fun devicePollToleratesShortNetworkTrouble() = runTest {
         val grant = DeviceGrant(DeviceChallenge("U", "https://x", null, 600, 1), "d")
         val answers = ArrayDeque(listOf<DevicePoll>(

@@ -47,7 +47,7 @@ class PersonalSkillFilesTest {
         assertEquals("---\nname: draft-one\n---\n改过的正文", files().get("draft-one")!!.markdown)
         assertFalse(File(tmp.root, "skills/pending/d1").exists())
         assertNull(f.approve("d1"))
-        // 更新草稿覆盖已有技能,不新增一份
+        // アップデートのドラフトは既存のスキルをカバーしており、新しいスキルは追加されていません。 それに応じて、
         f.putPending("d2", skill("draft-two", body = "新版本", replaces = "draft-one"))
         f.approve("d2")
         assertEquals(listOf("draft-one"), files().list().map { it.name })
@@ -100,6 +100,6 @@ class PersonalSkillFilesTest {
     @Test fun missingSkillFileStillListed() {
         files().put(skill("lao-ma-msg"))
         File(tmp.root, "skills/personal/lao-ma-msg/SKILL.md").delete()
-        assertEquals("", files().get("lao-ma-msg")!!.markdown) // 技能目录据此报「坏了」
+        assertEquals("", files().get("lao-ma-msg")!!.markdown) // スキル カタログは「壊れている」と報告します。
     }
 }

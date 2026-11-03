@@ -60,7 +60,7 @@ class StructuredCompactionTest {
         val takeover = round("hand_to_user", """{"reason":"login"}""", """{"outcome":"complete","ok":true}""")
         val h = head + taps(3) + takeover + taps(2) + taps(12)
         val out = ContextCompressor(TOOLS,structured = true).compress(h, contextTokens = 100).messages
-        // 一份摘要在第一段的位置;接管往返原样保留在后面
+        // 最初の段落の代わりに概要が表示されます。引き継ぎの往復は後方にそのまま残ります
         assertEquals(1, summaries(out).size)
         assertTrue(out[2].plainText().startsWith(ContextCompressor.HEADER))
         assertEquals(takeover, out.subList(3, 5))
@@ -74,7 +74,7 @@ class StructuredCompactionTest {
             if (i % 5 == 0) round("phone_tap", """{"target":"坏$i"}""", """{"ok":false,"error":"ref_expired"}""") else round("phone_tap", """{"target":"好$i"}""")
         } + taps(12)
         val s = summaries(ContextCompressor(TOOLS,structured = true).compress(h, contextTokens = 100).messages).single().lines()
-        // 上下文很小,只留最近一次往返:折了 31 步,最近 15 步逐条,更早 16 步并成计数
+        // コンテキストは非常に小さく、最新の往復のみが残ります。31 ステップ、最後の 15 ステップがステップごとに、前の 16 ステップが一緒にカウントされます。
         assertTrue(s.toString(), "- 16 earlier steps: applied 13, ref_expired 3" in s)
         assertEquals(15, s.count { it.startsWith("- Step ") })
         assertTrue("- Step 17 phone_tap(好17) → applied" in s && s.none { it.startsWith("- Step 16") })
@@ -91,7 +91,7 @@ class StructuredCompactionTest {
         val context = windowFor(uncalibrated(h))
         val c = ContextCompressor(TOOLS)
         assertEquals(h, c.compress(h, context).messages)
-        // 服务商报的比粗估多一倍:同样的历史按校准后的估算已越过触发点,压缩一次
+        // サービス プロバイダーは、概算の 2 倍の量を報告しました。同じ履歴が、調整された推定に従ってトリガー ポイントを超え、1 回圧縮されました。
         c.calibrate(1000, 2000)
         assertTrue(c.compress(h, context).foldedSteps > 0)
     }
@@ -101,7 +101,7 @@ class StructuredCompactionTest {
         val context = windowFor(uncalibrated(all))
         val c = ContextCompressor(TOOLS)
         assertTrue(c.compress(all, context, fixedOverhead = 100).foldedSteps > 0)
-        // 回到触发点以下仍接着用压缩的结果;新的实例(新任务)从原样起
+        // はトリガー ポイント未満に戻り、圧縮された結果を引き続き使用します。新しいインスタンス (新しいタスク) は以前と同様に開始されます
         assertTrue(c.compress(all, context).foldedSteps > 0)
         assertEquals(0, ContextCompressor(TOOLS).compress(all, context).foldedSteps)
         c.forget()
@@ -132,7 +132,7 @@ class StructuredCompactionTest {
     @Test fun loopUsesStructuredSummaryWhenFlagOn() = runTest {
         val m = fakeModel("main", contextTokens = 100) {
             for (i in 1..14) call("wait", "seconds" to 1 + i / 100.0)
-            answer("等完了")
+            answer("待機が完了しました")
         }
         AgentLoop(m, toolDispatcher(FakeScreen()), "BASE", flags = SpeedFlags(structuredCompaction = true)).run("等一会儿")
         val s = summaries(m.requests.last().messages).single()

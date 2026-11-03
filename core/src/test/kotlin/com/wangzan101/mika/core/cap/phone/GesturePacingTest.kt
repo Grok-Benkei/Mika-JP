@@ -12,7 +12,7 @@ import kotlin.random.Random
 class GesturePacingTest {
     private val lim = GesturePacing.Limits()
 
-    // ---------- 不加节奏 ----------
+    // ---------- リズムなし ----------
 
     @Test fun instantKeepsTheOldTimingAndPoints() {
         val p = GesturePacing.Instant
@@ -22,18 +22,18 @@ class GesturePacingTest {
         assertEquals(GesturePacing.TAP_MS, p.doublePress())
         assertEquals(DOUBLE_TAP_GAP_MS, p.doubleGap())
         assertEquals(500L, p.duration(500))
-        // 和 Rect.centerX/centerY 一样取整
+        // は Rect.centerX/centerY のように丸められます
         assertEquals(55 to 25, p.within(10, 0, 101, 51))
         assertEquals(7 to 9, p.near(7, 9))
         val s = p.stroke(listOf(100.0 to 900.0, 100.0 to 300.0), 400)
         assertEquals(listOf(GesturePacing.Point(100.0, 900.0, 0), GesturePacing.Point(100.0, 300.0, 400)), s.points)
-        // 多点路径按路程匀速分配时间
+        // 多地点パスは距離に応じて均一に時間を割り当てます
         val poly = p.stroke(listOf(0.0 to 0.0, 0.0 to 100.0, 300.0 to 100.0), 800)
         assertEquals(listOf(0L, 200L, 800L), poly.points.map { it.t })
         assertEquals(800L, poly.durationMs)
     }
 
-    // ---------- 点按 ----------
+    // ---------- クリック ----------
 
     @Test fun pressAndPausesStayInBounds() {
         repeat(500) { i ->
@@ -43,7 +43,7 @@ class GesturePacingTest {
             val hold = p.doublePress()
             val gap = p.doubleGap()
             assertTrue(hold in lim.doublePressMs)
-            // 系统认双击:第一下抬起到第二下按下 40–300 毫秒;按住远短于长按
+            // システムはダブルクリックを認識します: 最初に持ち上げてから 2 回目に押すまでに 40 ～ 300 ミリ秒。長押しは長押しよりもはるかに短いです
             assertTrue(gap in 40L..300L && gap in lim.doubleGapMs)
             assertTrue(hold < 400)
         }
@@ -85,7 +85,7 @@ class GesturePacingTest {
         }
     }
 
-    // ---------- 滑动 ----------
+    // ---------- スライド ----------
 
     @Test fun strokeStartsAndEndsOnTheGivenPointsWithMonotonicTime() {
         repeat(500) { i ->
@@ -107,7 +107,7 @@ class GesturePacingTest {
                 assertTrue(s.durationMs >= d && s.durationMs <= d * (1 + lim.holdStretch) + 1)
             } else {
                 assertTrue("${s.durationMs} vs $d", abs(s.durationMs - d) <= d * lim.durationJitter + 1)
-                // 相邻两点的时间间隔不超过采样上限(点数封顶时除外)
+                // 隣接する 2 つのポイント間の時間間隔がサンプリングの上限を超えません (ポイント数に制限がある場合を除く)
                 val gaps = pts.zipWithNext().map { (a, b) -> b.t - a.t }
                 if (pts.size < lim.maxPoints) assertTrue(gaps.max() <= lim.sampleMs.last + 1)
             }
@@ -125,7 +125,7 @@ class GesturePacingTest {
             val maxOff = minOf(dist * lim.bowFraction, lim.maxBowPx)
             for (p in pts) {
                 val off = abs((to.second - from.second) * p.x - (to.first - from.first) * p.y + to.first * from.second - to.second * from.first) / dist
-                // 二次贝塞尔离直线最远是控制点偏移的一半
+                // 直線から最も遠い二次ベジェは制御点オフセットの半分です
                 assertTrue("off $off > $maxOff", off <= maxOff / 2 + 1e-6)
             }
             val proj = pts.map { ((it.x - from.first) * (to.first - from.first) + (it.y - from.second) * (to.second - from.second)) / dist }
@@ -139,14 +139,14 @@ class GesturePacingTest {
         repeat(100) { i ->
             val fling = GesturePacing.human(Random(i)).stroke(listOf(from, to), 400).points
             val mean = 1200.0 / fling.last().t
-            // 起步慢:第一段速度远低于平均
+            // の開始が遅い: 最初のセクションの速度が平均よりも大幅に遅い
             assertTrue(speed(fling, 0) < mean * 0.5)
-            // 松手前一段的速度和匀速滑动时差不多(甩出去的远近不变)
+            // 放すまでの速度は等速スライド時とほぼ同じ（投げる距離は変わらない）
             val end = speed(fling, fling.size - 2)
             assertTrue("end $end vs mean $mean", end in mean * 0.75..mean * 1.1)
             val drag = GesturePacing.human(Random(i)).stroke(listOf(from, to), 1_500).points
             val dragMean = 1200.0 / drag.last().t
-            // 慢拖收尾几乎停住,松手时不甩
+            // ゆっくり最後までドラッグしてほぼ止まり、手を離してもブレない
             assertTrue(speed(drag, drag.size - 2) < dragMean * 0.2)
         }
     }
@@ -154,7 +154,7 @@ class GesturePacingTest {
     @Test fun drawnPathsAreFollowedWithoutBow() {
         val path = listOf(100.0 to 100.0, 100.0 to 500.0, 600.0 to 500.0)
         val pts = GesturePacing.human(Random(3)).stroke(path, 600, bow = true).points
-        // 每个点都在两段折线上
+        // 各点は 2 つのポリライン上にあります
         assertTrue(pts.all { abs(it.x - 100.0) < 1e-6 || abs(it.y - 500.0) < 1e-6 })
         assertEquals(600.0 to 500.0, pts.last().x to pts.last().y)
     }

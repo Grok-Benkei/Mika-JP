@@ -121,7 +121,7 @@ private val Body = TextStyle(fontSize = 13.5.sp, lineHeight = 20.sp)
 private val Strong = Body.copy(fontWeight = FontWeight.SemiBold)
 private val Step = TextStyle(fontSize = 13.sp, lineHeight = 18.sp)
 
-/** 卡片上的固定说法(按钮、链接、读屏描述)。 */
+/** カードのステートメント (ボタン、リンク、画面読み取りの説明) を修正しました。 */
 object CardCopy {
     val STOP: String get() = tr(R.string.chat_stop)
     val TAKE_OVER: String get() = tr(R.string.action_take_over)
@@ -140,7 +140,7 @@ object CardCopy {
     val ZOOM_HINT: String get() = tr(R.string.card_zoom_hint)
 }
 
-/** 卡片上的按钮;都转成任务服务现有的动作(见 [CapsuleController])。[runKey] 是按下时那件事的编号。 */
+/** カードのボタン。タスク サービスの既存のアクションに変換されます ([CapsuleController] を参照)。 [runKey] は、押されたときのそのものの番号です。 */
 interface CardActions {
     fun collapse()
     fun stop(runKey: String)
@@ -151,52 +151,52 @@ interface CardActions {
     fun decline(runKey: String, requestKey: Int)
     fun openMika(conversationId: String)
     fun zoom(on: Boolean)
-    /** 点了底部的输入框:这时浮层才改成能接收键盘。 */
+    /** は下部の入力ボックスをクリックしました。そのとき初めて、フローティング レイヤーがキーボードを受信できるように変更されました。 */
     fun openInput()
     fun draft(text: String)
-    /** 发出输入框里的话(交给谁见 [CapsuleCards.input])。 */
+    /** は入力ボックス内の単語を送信します ([CapsuleCards.input] を表示するために誰かにそれを渡します)。 */
     fun send()
-    /** 空闲卡片:[fresh] 为 true 开新对话,false 接着最近的对话。 */
+    /** アイドル カード: [fresh] true の場合は新しい会話を開き、false の場合は最新の会話を継続します。 */
     fun freshChat(fresh: Boolean)
-    /** 对话卡片滚到了顶:往前多加载几轮。 */
+    /** ダイアログ カードが一番上までスクロールしました。さらに数ラウンド前方にロードしてください。 */
     fun loadEarlier()
-    /** 输入框左边的截屏按钮:卡片先藏起来,截下用户此刻的屏幕,挂在输入框上面。 */
+    /** 入力ボックスの左側にある画面キャプチャ ボタン: 最初にカードを非表示にして、その時点のユーザーの画面をキャプチャし、入力ボックスの上に掛けます。 */
     fun captureScreen()
-    /** 附件条上的 ×:不要这张截图。 */
+    /** 添付ファイル バーの ×: このスクリーンショットは不要です。 */
     fun dropScreen()
-    /** 留在后台运行的那一页的卡片上的「关闭网页」。 */
+    /** バックグラウンドで実行されたままになっているページのカード上の「Web ページを閉じる」。 画面 */
     fun closeKeptPage() {}
 }
 
-/** 截下来、挂在输入框上面等着发的一屏:[thumb] 是缩略图(不让截图的页面没有)。 */
+/** がキャプチャされ、送信を待って入力ボックスにハングしました。[thumb] はサムネイルです (スクリーンショットが許可されていないページにはサムネイルがありません)。 */
 data class PendingScreen(val shot: CapturedScreen, val thumb: ImageBitmap?)
 
 /**
- * 卡片底部输入框此刻的样子:[open] 时是能打字的框(浮层能接收键盘),否则是一行提示,点了才打开;
- * [screen] 是截下来挂在上面的那一屏(随下一句发出,只发它也行)。
+ * カードの下部にある入力ボックスは、現時点では次のようになります。 [open] の場合、これは入力できるボックスです (フローティング レイヤーがキーボードを受け取ることができます)。それ以外の場合は、プロンプトの行が表示され、クリック後に開きます。
+ * [screen] は、切り取られてぶら下がった画面です（次の文と一緒に送信します。そのまま送信できます）。
  */
 data class CardInputUi(val open: Boolean = false, val draft: String = "", val screen: PendingScreen? = null) {
-    /** 写了字或挂着一屏:可以发。 */
+    /** が書き込んだか、画面がハングしています。送信できます。 */
     val canSend: Boolean get() = draft.isNotBlank() || screen != null
 
-    /** 卡片收起、胶囊藏起时:输入框收起,截下的那一屏不留,没发出的字留着,下次展开接着改。 */
+    /** カードが収納され、カプセルが非表示になった場合: 入力ボックスは収納され、画面のスクリーンショットは保持されず、未送信の単語は保持され、次回拡張および変更できます。 */
     fun collapsed(): CardInputUi = CardInputUi(draft = draft)
 
-    /** 说的话接在没发出的字后面(和对话页输入框同一个接法)。 */
+    /** が話した単語は、未送信の単語の後に接続されます (ダイアログ ページの入力ボックスと同じ接続方法)。 */
     fun withSpoken(text: String): CardInputUi = copy(draft = HoldToTalk.join(draft, text))
 }
 
 /**
- * 点开胶囊的卡片,不带状态,只说一件事(挑哪件见 [CapsuleCards.of])。
- * 任务卡片([CardView.Detail])左边是虚拟屏小画面 [preview](只有那件事有画面时才有),右边按状态放步骤、要你做的事和按钮;
- * 对话卡片([CardView.Chat])是那个对话的来回 [thread](还在读时为 null,中间先空着)。
- * 对话卡片固定 [height] 高(看得见的卡片,不含阴影边;不给时按屏幕高度的 [CardDocking.SHARE]),不随内容变;任务卡片
- * 按内容高、最多 [height],下面不留空——任务卡片中间那段取小画面(按画面的宽高比)和右边文字里高的那个。干活中的步骤最多和小画面
- * 一样高(还没有画面时按主屏的宽高比算,画面来了卡片不跳),步骤再多卡片也不变高:最新一步在底下,旧的往上滚着看;别的内容放不下就在里面滚,
- * 要你点的按钮和输入框固定在下面。高度变了(换卡片、内容变了)时一下到位:浮层窗口跟着内容大小,只变一次,不逐帧改窗口;上边不动(见 [CardDocking])。
- * 展开、收起的动效在外面套([OverlayMotion])。
- * [onHandle] 报标题栏在窗口里的位置(像素):按着它能拖卡片。
- * [zoomed] 时整张换成放大的画面,点一下回来。[elapsed] 把开始时刻换成用时(每秒更新)。
+ * カードをクリックしてカプセルを開きます。ステータスは表示されず、1 つのことだけが表示されます (どれを選択するかについては、[CapsuleCards.of] を参照してください)。
+ * タスク カード ([CardView.Detail]) の左側は、小さな仮想画面 [preview] (画面がある場合にのみ使用可能) です。右側のステータスを押して、手順、やりたいこと、ボタンを配置します。
+ * 会話カード ([CardView.Chat]) は、その会話 [thread] の前後です (読み取り中は null、最初は中央が空です)。
+ * ダイアログ カードの高さは [height] に固定されており (カードが表示され、シャドウ エッジなし。設定されていない場合は、画面の高さ [CardDocking.SHARE] を押します)、コンテンツによって変更されません。タスクカード
+ * 内容の高さに合わせ最大で [height]、下に余白を残さない — タスクカード中央の部分は、小さな画面（画面のアスペクト比で取る）と右側のテキストのうち高い方を取る。実行中のステップは最大でも小さな画面と
+ * 同じ高さ（画面がまだない場合はメイン画面のアスペクト比で計算し、画面が来てもカードが跳ねない）、ステップが増えてもカードは高くならない: 最新のステップが下にあり、古いものは上へスクロールして見る; 他の内容が収まらなければ内側でスクロールし、
+ * タップしてほしいボタンと入力欄は下部に固定する。高さが変わったとき（カードの切替、内容の変化）は一気に最終値にする: フローティングウィンドウは内容の大きさに追随し、一度だけ変わり、フレームごとにウィンドウを変えない; 上端は動かさない（[CardDocking] 参照）。
+ * 展開・収納のアニメーションは外側で付ける（[OverlayMotion]）。
+ * [onHandle] ウィンドウ内のタイトル バーの位置 (ピクセル) を報告します。タイトル バーを押してカードをドラッグします。
+ * [zoomed]の場合、全体画像が拡大画像に変わりますので、クリックして戻ります。 [elapsed] 開始時刻を経過時間に変更します(1秒ごとに更新)。
  */
 @Composable
 fun CapsuleCard(
@@ -212,7 +212,7 @@ fun CapsuleCard(
     onHandle: (Rect) -> Unit = {},
 ) {
     val field = CapsuleCards.input(card)
-    // 任务还在进行(干活中、Mika 问你、等条件)时,停止和对话页一样放在输入框右边,不另占一个按钮
+    // タスクがまだ進行中 (作業中、ミカがあなたに尋ねるなど) の場合、別のボタンを占有せずに、ダイアログ ページと同様に入力ボックスの右側に停止が配置されます。
     val stopKey = CapsuleCards.stopKey(card)
     val h = if (height == Dp.Unspecified) (LocalConfiguration.current.screenHeightDp * CardDocking.SHARE).dp else height
     val report by rememberUpdatedState(onHandle)
@@ -234,10 +234,10 @@ fun CapsuleCard(
 }
 
 /**
- * 浮层里的东西出现、收起的动效(卡片展开收起,收起后一颗回到边上):浮层窗口一下就是最后的大小和位置,里面的东西只靠图层的
- * 缩放和透明度从 [origin] 那边长出来(按此刻的大小给出方位,例如卡片从胶囊那边),真开始出来时调 [onOpened];
- * [open] 变成 false 时缩回那边、淡掉,做完调 [onClosed]。
- * 只动图层,不改布局,也就不逐帧改窗口。关了动画时直接到位,收起时马上调 [onClosed]。
+ * フローティング レイヤー内のオブジェクトが表示されたり折りたたまれたりする動的な効果 (カードが展開されて折りたたまれ、横に戻される): フローティング レイヤー ウィンドウは 1 回のクリックで最終的なサイズと位置になり、内部のオブジェクトはレイヤーによってのみ決定されます。
+ * は [origin] からスケールと透明度を伸ばします (現在のサイズに合わせて方向を指定します。たとえば、カードがカプセル側から来るようにします)。実際に透明になり始めたら、[onOpened] を調整します。
+ * [open] が false になったら、そこで撤回してフェードアウトし、[onClosed] の調整を終了します。
+ * はレイヤーを移動するだけでレイアウトは変更しないため、ウィンドウをフレームごとに変更することはありません。アニメーションをオフにするとそのままその場に、しまうとすぐに[onClosed]に調整されます。
  */
 @Composable
 fun OverlayMotion(
@@ -254,7 +254,7 @@ fun OverlayMotion(
                 shown.snapTo(1f)
                 opened()
             } else {
-                // 刚出来那一帧要排版、窗口换大小,最慢:等它画完再起步,动画的头几帧不被它吃掉
+                // 表示されたフレームを入力し、ウィンドウのサイズを変更する必要があります。最も遅い場合: 描画が完了するまで待ってから開始します。アニメーションの最初の数フレームは食い込まれません。
                 if (shown.value == 0f) repeat(SETTLE_FRAMES) { withFrameNanos { } }
                 opened()
                 shown.animateTo(1f, tween(CARD_IN_MS, easing = MikaMotion.Decelerate))
@@ -262,7 +262,7 @@ fun OverlayMotion(
         } else {
             if (!still) {
                 shown.animateTo(0f, tween(CARD_OUT_MS, easing = FastOutLinearInEasing))
-                // 让完全看不见的那一帧先画出来,再换内容、挪窗口,不留一帧半透明的卡片
+                // 最初に完全に非表示のフレームを描画してから、内容を変更してウィンドウを移動し、半透明のカード フレームを残さないようにします。
                 withFrameNanos { }
             }
             closed()
@@ -274,7 +274,7 @@ fun OverlayMotion(
             val scale = CARD_FROM_SCALE + (1f - CARD_FROM_SCALE) * v
             scaleX = scale
             scaleY = scale
-            // 透明度走得比缩放快:一出来就看得清,收起时最后才淡完
+            // 透明度はズームよりも速く、出てくるとすぐにはっきりと見え、戻すとフェードアウトします。
             alpha = (v * 2f).coerceAtMost(1f)
             transformOrigin = from(size)
         },
@@ -287,8 +287,8 @@ private const val CARD_FROM_SCALE = 0.6f
 private const val SETTLE_FRAMES = 2
 
 /**
- * 底部输入框:平时是一行提示(浮层不抢键盘),点了打开成能打字的框并弹出输入法;回车或右边的按钮发出。
- * 有 [stop] 时右边一直有黑色的停止键(同对话页输入栏),写了字再多一个发送。
+ * 下部の入力ボックス: 通常、これは一連のプロンプトです (フローティング レイヤーはキーボードを取得しません)。クリックして入力可能なボックスを開くと、入力方法がポップアップ表示されます。 Enterを押すか、右側のボタンを押して発行します。
+ * に [stop] がある場合、右側には常に黒いストップ キーがあります (ダイアログ ページの入力フィールドと同じ)。ひとこと書いたら、もうひとつ送ることがあります。
  */
 @Composable
 private fun InputRow(field: CardInput, ui: CardInputUi, actions: CardActions, stop: (() -> Unit)? = null) {
@@ -299,7 +299,7 @@ private fun InputRow(field: CardInput, ui: CardInputUi, actions: CardActions, st
     }
 }
 
-/** 输入框左边的截屏按钮:圆钮里一块屏。 */
+/** 入力ボックスの左側にあるスクリーンショット ボタン: 丸いボタン内の画面。 */
 @Composable
 private fun CameraKey(onClick: () -> Unit) {
     val c = MikaTheme.colors
@@ -313,7 +313,7 @@ private fun CameraKey(onClick: () -> Unit) {
     }
 }
 
-/** 输入框上面那一条:缩略图、「你此刻的屏幕」、App · 时刻,右边 × 不要它;不让截图的页面写「没截到」。 */
+/** 入力ボックスの上にあるもの: サムネイル、「現在の画面」、アプリ・タイム、右 × 不要です。スクリーンショットのページに「キャプチャされていません」と書かないようにしてください。 */
 @Composable
 private fun ScreenChip(p: PendingScreen, onRemove: () -> Unit) {
     val c = MikaTheme.colors
@@ -340,7 +340,7 @@ private fun ScreenChip(p: PendingScreen, onRemove: () -> Unit) {
     }
 }
 
-/** 发送键:有东西可发时是蓝底,否则灰的点不了。 */
+/** 送信ボタン: 送信するものがある場合は背景が青色になり、送信しない場合は灰色になり、クリックできません。 */
 @Composable
 private fun SendKey(enabled: Boolean, onSend: () -> Unit, start: Dp = 0.dp) {
     val c = MikaTheme.colors
@@ -375,7 +375,7 @@ private fun InputField(field: CardInput, ui: CardInputUi, actions: CardActions, 
                 Text(ui.draft.ifEmpty { field.hint }, style = Body, color = if (ui.draft.isEmpty()) c.ink3 else c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             stop?.let { StopKey(it) }
-            // 挂着一屏时不用打开输入框也能直接发
+            // は、画面がハングしたときに入力ボックスを開かずに直接送信できます。
             if (ui.screen != null) SendKey(true, actions::send, start = if (stop != null) 4.dp else 0.dp)
         }
         return
@@ -384,7 +384,7 @@ private fun InputField(field: CardInput, ui: CardInputUi, actions: CardActions, 
         focus.requestFocus()
         keyboard?.show()
     }
-    // 和对话页一样:打开时、外面的字一变(说完接上来),光标放到末尾,接着打都在后面
+    // は会話ページと同じです。これを開くと、外側の単語が変わり (話し終えた後に続きます)、カーソルが最後に配置され、その後の入力はすべて最後に行われます。
     var fieldValue by remember { mutableStateOf(TextFieldValue(ui.draft, TextRange(ui.draft.length))) }
     val shownValue = if (fieldValue.text == ui.draft) fieldValue else TextFieldValue(ui.draft, TextRange(ui.draft.length))
     Row(
@@ -407,7 +407,7 @@ private fun InputField(field: CardInput, ui: CardInputUi, actions: CardActions, 
     }
 }
 
-/** 输入框右边的停止键:黑底圆钮里一个方块,同对话页输入栏。 */
+/** 入力ボックスの右側にあるストップ キー: 黒い丸いボタンの中に四角形があり、ダイアログ ページの入力フィールドと同じです。 */
 @Composable
 internal fun StopKey(onStop: () -> Unit) {
     val c = MikaTheme.colors
@@ -428,7 +428,7 @@ private const val TITLE_MAX = 12
 @Composable
 private fun cardWidth() = minOf(CardWidth, (LocalConfiguration.current.screenWidthDp - 24).coerceAtLeast(240).dp)
 
-/** 卡片的底:[fixed] 时就是 [height] 高(对话卡片),否则按内容高、最多 [height](任务卡片)。 */
+/** カードの下部が [fixed] の場合、[height] の高さ (ダイアログ カード)、それ以外の場合、内容は最高 [height] (タスク カード) です。 */
 @Composable
 private fun CardFrame(height: Dp, fixed: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
     val c = MikaTheme.colors
@@ -439,7 +439,7 @@ private fun CardFrame(height: Dp, fixed: Boolean = true, content: @Composable Co
     )
 }
 
-/** 标题栏(按着它能拖卡片,见 [CapsuleCard] 的 onHandle):左边 Mika 图标,中间标题和状态,右边收起。 */
+/** タイトル バー (押してカードをドラッグします。[CapsuleCard] の onHandle を参照): 左側にミカ アイコン、中央にタイトルとステータス、右側に折りたたみます。 */
 @Composable
 private fun Header(title: String, sub: String, actions: CardActions, handle: Modifier) {
     val c = MikaTheme.colors
@@ -453,7 +453,7 @@ private fun Header(title: String, sub: String, actions: CardActions, handle: Mod
     }
 }
 
-/** 空闲卡片的标题栏:「接着「…」聊 · 新对话」或「新对话 · 接着上次聊」;没有任何对话时只有「新对话」。 */
+/** アイドル カードのタイトル バー: 「「...」とチャット · 新しい会話」または「新しい会話 · 最後のチャットを続行」;会話がない場合は、「新しい会話」のみが存在します。 */
 @Composable
 private fun IdleHeader(card: CardView.Chat, actions: CardActions, handle: Modifier) {
     val c = MikaTheme.colors
@@ -485,7 +485,7 @@ private fun IconButton(icon: ImageVector, label: String, onClick: () -> Unit) {
     }
 }
 
-/** 任务卡片:此刻在操作 App 或网页的那件事;按内容高,中间那段取左边小画面和右边文字里高的那个(步骤最多和小画面一样高)。 */
+/** タスク カード: アプリまたは Web ページで現在操作している内容。コンテンツの高さに応じて、中央のセクションは左側に小さな画面の高さ、右側にテキストの高さのものを選択します（ステップの高さは最大でも小さな画面と同じです）。 */
 @Composable
 private fun Detail(
     card: CardView.Detail, preview: Bitmap?, actions: CardActions, elapsed: @Composable (Long?) -> String?,
@@ -497,22 +497,22 @@ private fun Detail(
     CardFrame(height, fixed = false) {
         Header(ScreenCopy.plain(r.run.goal).ifBlank { "Mika" }, sub, actions, handle)
         val screen = preview?.takeIf { CapsuleCards.showsScreen(card.content) }
-        // 步骤那段的高度上限 = 小画面的高;还没有画面时按主屏的宽高比算同样的高,画面来了不跳
+        // ステップ部の高さの上限＝小画面の高さになります。画面がない場合、メイン画面のアスペクト比に応じて同じ高さが計算され、画面が来たときに画面がジャンプすることはありません。
         val config = LocalConfiguration.current
         val stepsMax = ScreenWidth / (screen?.let(::ratio) ?: ratio(config.screenWidthDp, config.screenHeightDp))
         Row(Modifier.padding(top = 10.dp).weight(1f, fill = false).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (screen != null) MiniScreen(screen) { actions.zoom(true) }
             Column(Modifier.weight(1f)) {
                 val content = card.content
-                // 干活中的步骤单独排(自己滚、最多和小画面一样高),没有要你点的按钮
+                // 作品のステップは個別に配置されており（小さな画面の高さまで自分でロールします）、クリックするためのボタンはありません。
                 if (content is CardContent.Working) Steps(content.steps, stepsMax) else {
-                    // 文字放不下就在这一段里滚;要你点的按钮放在下面,不跟着滚走
+                    // テキストが収まらない場合は、この段落内をスクロールしてください。クリックしたいボタンを下に置き、そのままスクロールしないでください。
                     Column(
                         Modifier.testTag("capsule-scroll").weight(1f, fill = false).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         when (content) {
-                            // 干活中在上面单独排
+                            // は作業時に上に別途配置されます
                             is CardContent.Working -> Unit
                             is CardContent.Takeover -> {
                                 Text(content.need, style = Strong, color = c.warn)
@@ -526,7 +526,7 @@ private fun Detail(
                             }
                             is CardContent.Question -> Text(content.prompt, style = Body, color = c.ink)
                             is CardContent.Held -> Text(content.why, style = Body, color = c.ink2)
-                            // 结束了的是对话卡片,不在这里
+                            // 終わったのは対話カード ここではない
                             is CardContent.Result -> Unit
                         }
                     }
@@ -542,8 +542,8 @@ private fun Detail(
 }
 
 /**
- * 留在后台运行的那一页的卡片:标题「后台网页 · 还剩 1 小时 52 分」,实时画面(它那块显示的最新一帧,点一下放大),
- * 站点和来自哪个对话,下面「打开对话」「关闭网页」。按内容高。剩下的时间每分钟走一次。
+ * バックグラウンドで実行されたままになっているページのカード: タイトル「バックグラウンド Web ページ · 残り 1 時間 52 分」、リアルタイム画面 (最新のフレームが表示されています、クリックして拡大)、
+ * サイトとその会話がどの会話からのものであるかを確認するには、下の [会話を開く] をクリックして [Web ページを閉じる] をクリックします。コンテンツを高く押します。残りの時間は毎分歩きます。
  */
 @Composable
 private fun KeptCard(card: CardView.Kept, preview: Bitmap?, actions: CardActions, height: Dp, handle: Modifier) {
@@ -578,7 +578,7 @@ private fun KeptCard(card: CardView.Kept, preview: Bitmap?, actions: CardActions
         }
         Row(Modifier.padding(top = 12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.weight(1f).testTag("kept-open")) { Action(tr(R.string.kept_open_chat), ButtonKind.Tonal) { actions.openMika(p.conversationId) } }
-            // 关闭是红字的淡红按钮,和别的按钮分开
+            // 閉じるは、他のボタンとは区切られた、赤文字の薄赤色のボタンです。
             Box(
                 Modifier.weight(1f).height(40.dp).testTag("kept-close").clip(MikaShapes.Pill).background(c.badSoft)
                     .clickable(role = Role.Button, onClick = actions::closeKeptPage),
@@ -590,7 +590,7 @@ private fun KeptCard(card: CardView.Kept, preview: Bitmap?, actions: CardActions
 
 private const val KEPT_TICK_MS = 30_000L
 
-/** 要你点的按钮(接管、同意、选项、继续),固定在卡片中间那段的下面,不跟着滚。 */
+/** がクリックしてほしいボタン (引継ぎ、同意、オプション、続行) はカードの中央セクションの下に固定されており、一緒に回転しません。 */
 @Composable
 internal fun Pinned(content: CardContent?, key: String, actions: CardActions) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -619,8 +619,8 @@ internal fun Pinned(content: CardContent?, key: String, actions: CardActions) {
 }
 
 /**
- * 对话卡片:那个对话的来回在中间滚;要你回答、同意时按钮固定在来回下面,再下面是输入框和「回到 Mika」。
- * 不带任务时是空闲卡片(标题栏能切新对话)。
+ * ダイアログ カード: ダイアログは中央で前後にスクロールします。回答または同意を求められる場合、ボタンは前後の下に固定されており、その下には入力ボックスと「ミカに戻る」があります。
+ * は、タスクがない場合のアイドル カードです (タイトル バーで新しい会話を開くことができます)。
  */
 @Composable
 private fun ChatCard(
@@ -636,7 +636,7 @@ private fun ChatCard(
             actions, handle,
         )
         Box(Modifier.padding(top = 8.dp).weight(1f).fillMaxWidth()) {
-            // 换了对话(空闲卡片切到新对话)时从那个对话的最新一问重新读起
+            // 会話が変更されると (アイドル カードが新しい会話に切り替わる)、その会話の最新の質問からもう一度読みます。
             if (thread != null) key(card.target) { ThreadList(thread, card.conversationId, actions) }
         }
         if (r != null) Pinned(card.content, r.run.key, actions)
@@ -650,8 +650,8 @@ private fun ChatCard(
 }
 
 /**
- * 对话的来回(旧的在上):打开时最新那句你说的话停在顶上;滚到顶往前多加载几轮,列表按每条的 key 停在原处;
- * 往下长的字只在你本来就在底部时跟着往下(同对话页);来了新的一问时滚到它。[footer] 排在最后一条后面。
+ * 会話の前後 (古いものが一番上): 開くと、あなたが言った最新の文が一番上で停止します。一番上までスクロールしてさらにいくつかのラウンドをロードすると、リストは各項目のキーに従って同じ場所で停止します。
+ * 下向きの長い単語は、あなたが既に最下位にいる場合にのみ下に続きます (会話ページと同じ)。新しい質問が出てきたらスクロールしてください。 [footer] は最後のものの後に来ます。
  */
 @Composable
 internal fun ThreadList(thread: ChatThread, conversationId: String?, actions: CardActions, footer: (@Composable () -> Unit)? = null) {
@@ -674,7 +674,7 @@ internal fun ThreadList(thread: ChatThread, conversationId: String?, actions: Ca
         lastAnchor = anchorKey
         state.scrollToItem(thread.anchor)
     }
-    // 回答按 Markdown 排版(流式时在后台解析),排好了高度才变:按条数和最后一条排出来的高度跟,不按字数
+    // の回答は Markdown に従ってフォーマットされており (ストリーミング中にバックグラウンドで解析されます)、高さは配置後にのみ変更されます。つまり、単語の数ではなく、項目の数と最後の項目の高さに応じて変わります。
     LaunchedEffect(state) {
         snapshotFlow {
             val info = state.layoutInfo
@@ -690,7 +690,7 @@ internal fun ThreadList(thread: ChatThread, conversationId: String?, actions: Ca
     LazyColumn(Modifier.testTag("capsule-thread").fillMaxWidth().fillMaxHeight(), state = state) {
         items(thread.items, key = { it.key }) { item ->
             when (item) {
-                // 带着屏幕的那句:缩略图和「你此刻的屏幕 · App · 时刻」,附言另起一个气泡
+                // 画面付きの文章: サムネイルと「現時点・アプリ・瞬間の画面」、追記で別のバブルを追加
                 is ThreadItem.User -> BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 8.dp), contentAlignment = Alignment.CenterEnd) {
                     val maxWidth = maxWidth
                     Column(horizontalAlignment = Alignment.End) {
@@ -701,7 +701,7 @@ internal fun ThreadList(thread: ChatThread, conversationId: String?, actions: Ca
                                 style = Body, color = c.onAccent,
                             )
                         }
-                        // 插的话的去向(已收到、已加入、下一件事)
+                        // 挿入された単語の宛先 (受信、追加、次のもの)
                         item.note?.let { Text(it, Modifier.padding(top = 2.dp, end = 4.dp), style = Sub, color = c.ink3) }
                     }
                 }
@@ -709,38 +709,38 @@ internal fun ThreadList(thread: ChatThread, conversationId: String?, actions: Ca
                     item.text, Modifier.padding(bottom = 4.dp), style = Sub,
                     color = if (item.kind.needsYou) c.warn else c.ink3, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
-                // 表格、代码块在自己那块里左右滑,不撑宽卡片;链接另开任务打开,浮层里也能点
+                // テーブルとコード ブロックは、カードを伸ばさずに独自の領域で左右にスライドできます。リンクは別のタスクで開くことができ、フローティング レイヤー内でクリックすることもできます。
                 is ThreadItem.Answer -> if (!item.cut) {
                     MarkdownText(item.text, Body.copy(color = c.ink), Modifier.fillMaxWidth().padding(bottom = 8.dp), streaming = item.streaming)
                 } else Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                    // 被插话打断的那段:淡色,下面一行小字(和对话页同一句话)
+                    // 中断により中断された段落: 明るい色、以下の短い単語の行 (会話ページと同じ文)
                     MarkdownText(item.text, Body.copy(color = c.ink2), Modifier.fillMaxWidth(), streaming = false)
                     Text(tr(R.string.steer_interrupted_reply), Modifier.padding(top = 2.dp), style = Sub, color = c.ink3)
                 }
             }
         }
-        // 接在来回后面的一段(浏览器页面板里此刻的步骤):紧跟着最后一条,跟到底部时一起往下
+        // 往復の後のセクション (ブラウザー ページ パネルの現在のステップ): 最後のセクションに従い、一番下に到達したら一緒に下に進みます。
         footer?.let { f -> item(FOOTER_KEY) { f() } }
     }
 }
 
 private const val FOOTER_KEY = "thread-footer"
 
-/** 卡片来回里截图缩略图的宽。 */
+/** カード内のスクリーンショットのサムネイルの幅。 */
 private val ThreadThumbWidth = 78.dp
 
-/** 跟到底部时滚到最后一条再往下这么多像素,由列表夹到真正的底。 */
+/** 最下部に到達したら、最後の項目までスクロールし、さらに多くのピクセルを下に移動して、リストから実際の最下部にクリップします。 */
 private const val END_OFFSET = 1_000_000
 
 /**
- * 干活中的步骤(旧的在上):按内容高、最多 [max] 高。放不下时最新一步留在底下,旧的在上面截掉、顶上淡出,往上滚看更早的;
- * 来了新的一步时,本来就在底部才跟着往下,往上翻着看时不拽回去(同 [ThreadList])。
- * [tags] 和 [steps] 一一对应:那一步在哪(「网页」「App」),写成步骤前面的小标签;没有为 null。
+ * を使用する手順 (古いものが上にあります): 内容によると、最大値は [max] です。どうしてもやめられない場合は、最新のステップを一番下に残し、一番上の古いステップを削除して、一番上でフェードアウトします。上にスクロールして以前のものを表示します。
+ * が新しいステップを踏み出すとき、すでに最下位にあり、その後下に移動します。上に上げても引きません（[ThreadList]と同じ）。
+ * [tags] と [steps] は 1 対 1 に対応します。そのステップ (「Web ページ」「アプリ」) はどこですか。ステップの前に小さなラベルとして書かれています。そうでない場合は null です。
  */
 @Composable
 internal fun Steps(steps: List<String>, max: Dp, tags: List<String?> = emptyList()) {
     val c = MikaTheme.colors
-    // 倒着排:第 0 项是最新一步,贴在底下
+    // 逆方向に配置: 項目 0 が最新のステップで、一番下に表示されます。
     val state = rememberLazyListState()
     var following by remember { mutableStateOf(true) }
     LaunchedEffect(state) {
@@ -759,13 +759,13 @@ internal fun Steps(steps: List<String>, max: Dp, tags: List<String?> = emptyList
             .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
             .drawWithContent {
                 drawContent()
-                // 上面还有更早的步骤:顶上淡出
+                // 上記の初期の手順があります: 上部のフェードアウト
                 if (state.canScrollForward) drawRect(Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black, endY = fade), blendMode = BlendMode.DstIn)
             },
         state = state,
         reverseLayout = true,
     ) {
-        // 按从旧到新的序号作 key:往上翻着看时来了新的一步,看着的那几步留在原处
+        // 古いものから新しいものまでのシリアル番号をキーとして使用します。上を見上げると、新しいステップが現れ、見ていたいくつかのステップは同じ場所に留まります。
         items(steps.size, key = { steps.lastIndex - it }) { j ->
             val i = steps.lastIndex - j
             val current = j == 0
@@ -802,7 +802,7 @@ private fun TextLink(text: String, onClick: () -> Unit) {
     )
 }
 
-/** 虚拟屏小画面,点一下放大。 */
+/** 仮想画面の小さな画像、クリックして拡大します。 */
 @Composable
 private fun MiniScreen(frame: Bitmap, onZoom: () -> Unit) {
     val c = MikaTheme.colors
@@ -822,7 +822,7 @@ private fun MiniScreen(frame: Bitmap, onZoom: () -> Unit) {
     }
 }
 
-/** 放大的画面:点一下回到卡片。 */
+/** 拡大画面：クリックするとカードに戻ります。 */
 @Composable
 private fun Zoomed(frame: Bitmap, actions: CardActions) {
     val image = remember(frame) { frame.asImageBitmap() }
@@ -841,7 +841,7 @@ private fun Zoomed(frame: Bitmap, actions: CardActions) {
     }
 }
 
-/** 画面的宽高比,夹在合理范围里(防止异常尺寸撑坏卡片)。 */
+/** 画面のアスペクト比は妥当な範囲内です (異常なサイズによるカードの損傷を防ぐため)。 */
 private fun ratio(b: Bitmap): Float = ratio(b.width, b.height)
 
 private fun ratio(width: Int, height: Int): Float = if (height <= 0) 0.45f else (width.toFloat() / height).coerceIn(0.3f, 1.8f)

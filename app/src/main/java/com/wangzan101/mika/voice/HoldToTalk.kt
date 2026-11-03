@@ -5,20 +5,20 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * 按住说话的状态机:按下、上滑取消、松开、到点收尾、收会话的事件,算出界面此刻该显示什么。
- * 不碰界面也不碰手势,对话输入栏和悬浮胶囊共用;会话由调用方开好再交进来([press]),
- * 事件由调用方收了转进来([onEvent]),[tick] 由调用方按住时定时调(计时、到 [maxMs] 收尾)。
- * 手还按着时会话自己先结束了(手机自带识别一段说完不再重开、中途出错但已听到字):结果先留着,
- * 等手指离开再按那时的落点处理——停在取消上就丢掉,否则才交出去;这样不会在用户想取消时把字发出去。
- * 只在一个线程(主线程)上调。
+ * 押して話すステート マシン: 押す、上にスライドしてキャンセルする、離す、その時点で終了する、およびセッションを閉じるというイベントで、現時点でインターフェイスに表示される内容を計算します。
+ * はインターフェイスやジェスチャーに触れません。会話入力フィールドとフローティングカプセルは共有されます。セッションは呼び出し元によって開かれ、渡されます ([press])。
+ * イベントは発信者 ([onEvent]) によって転送され、[tick] イベントは発信者が押し続けると発信者によってスケジュールされます (タイミング、[maxMs] で終了)。
+ * 手が押されている間に会話が自動的に終了しました (携帯電話には、文章が話された後は再開されないという認識が組み込まれており、途中でエラーが発生しましたが、単語は聞こえました): 結果が最初に保持されます。
+ * 指が離れるのを待って、その時点で着地ポイントを押します。キャンセルで止まったら投げ捨てます。そうでない場合は、引き継がれます。これにより、ユーザーがキャンセルしたいときにメッセージは送信されません。
+ * は 1 つのスレッド (メインスレッド) でのみ発生します。
  */
 class HoldToTalk(private val clock: () -> Long, private val maxMs: Long = 60_000, private val minMs: Long = 500) {
     sealed interface State {
         data object Idle : State
 
         /**
-         * 按着(或刚松开、手机自带识别还在收尾):[stable] 已经定下的字,[tail] 末尾还可能变的几个字。
-         * [ended]:手还按着,会话却已经结束、结果留着等松开。
+         * を押します (または、電話機の内蔵認識がまだ終了しているため、ボタンを放します): [stable] が決定され、[tail] の最後にいくつかの文字が変更されている可能性があります。
+         * [ended]: ハンドはまだ押されていますが、セッションは終了し、結果のリリースを待っています。
          */
         data class Listening(
             val stable: String,
@@ -30,13 +30,13 @@ class HoldToTalk(private val clock: () -> Long, private val maxMs: Long = 60_000
             val ended: Boolean = false,
         ) : State
 
-        /** 服务商:松开后在转文字。 */
+        /** サービスプロバイダー: リリース後、テキストが転送されます。 */
         data object Converting : State
 
-        /** 界面拿去填输入框,然后 [reset]。 */
+        /** インターフェイスを使用して入力ボックスに入力し、次に [reset] を入力します。 */
         data class Done(val text: String) : State
 
-        /** null = 没听清(什么都没认出来,或按得太短)。 */
+        /** null = はっきりと聞こえませんでした (何も認識しなかったか、または押した時間が短すぎました)。 */
         data class Problem(val why: SpeechFailure?) : State
     }
 
@@ -45,13 +45,13 @@ class HoldToTalk(private val clock: () -> Long, private val maxMs: Long = 60_000
 
     private var session: SpeechSession? = null
     private var startedAt = 0L
-    /** 已经松开(或到点)交给会话收尾;之后再松开、再到点都不重复调。 */
+    /** は解放され (またはポイントに到達し)、セッションの終了に引き渡されました。それが解放されるか、ポイントに到達すると、再び繰り返されることはありません。 */
     private var released = false
-    /** 手还按着时会话已经给出的结果(Done 或 Problem(null)),等松开再交出去。 */
+    /** 手が押されたままの状態で、セッションの結果 (完了または問題(null)) が返されました。解除されるまで待ってからお渡しください。 */
     private var pending: State? = null
 
     fun press(session: SpeechSession) {
-        // 还有上一段没收完(很少见,例如上一段还在转):用户这次重新按,上一段不要了
+        // 前の段落は終了していません (まれに、前の段落がまだ転送中であるなど): ユーザーが今度はもう一度押したので、前の段落は不要になりました。
         this.session?.cancel()
         this.session = session
         startedAt = clock()
@@ -60,10 +60,10 @@ class HoldToTalk(private val clock: () -> Long, private val maxMs: Long = 60_000
         _state.value = State.Listening("", "", 0f, 0, cancelArmed = false, live = session.live)
     }
 
-    /** 手指从按下处往上移了 [upPx];超过 [thresholdPx] 就是「松开取消」,移回来又恢复。 */
+    /** 指は押された位置から [upPx] まで上に移動します。 [thresholdPx]を超えた場合は「解除してキャンセル」を意味し、元に戻して再開します。 */
     fun drag(upPx: Float, thresholdPx: Float) = armCancel(upPx > thresholdPx)
 
-    /** 手指此刻在不在「取消」上;悬浮胶囊的落点不是上滑距离,由它直接告诉这里。 */
+    /** 現在、指は「キャンセル」になっていません。浮遊カプセルの着地点は上向きのスライドの距離ではなく、ここで直接語られます。 */
     fun armCancel(armed: Boolean) {
         val s = _state.value as? State.Listening ?: return
         if (released) return
@@ -83,14 +83,14 @@ class HoldToTalk(private val clock: () -> Long, private val maxMs: Long = 60_000
                 pending = null
                 _state.value = State.Idle
             }
-            // 按得太短多半是误触:不去转(服务商的还要花额度),当没听清
+            // 短すぎる押しは、おそらく誤ってタッチされた可能性があります。転送しないでください (サービスプロバイダーもクレジットを支払う必要があります)。はっきりと聞こえなかったふりをしてください。
             clock() - startedAt < minMs -> {
                 current?.cancel()
                 session = null
                 pending = null
                 _state.value = State.Problem(null)
             }
-            // 会话在手还按着时已经结束:现在才把留着的结果交出去
+            // 手が押されたままセッションが終了しました。保持されている結果が引き継がれるのは今だけです。
             early != null -> {
                 pending = null
                 _state.value = early
@@ -98,13 +98,13 @@ class HoldToTalk(private val clock: () -> Long, private val maxMs: Long = 60_000
             current != null -> {
                 released = true
                 current.release()
-                // 服务商的:录音器停下要一小会儿,Converting 事件才到;松开当下就显示在转,免得输入框先闪回占位
+                // サービス プロバイダー: Converting イベントが到着するまでレコーダーが停止するまでに少し時間がかかります。ボタンを放すとすぐに「変換中」と表示され、入力ボックスがフラッシュバックして最初にスペースを占めることがなくなります。
                 if (!s.live) _state.value = State.Converting
             }
         }
     }
 
-    /** 按着时定时调:更新用时;到 [maxMs] 当松开处理——录音到点会自己停、不另外通知,不收尾字就丢了。 */
+    /** を押して時間を調整します。時間を更新します。 [maxMs] に達するとプロセスを解放します。録音は通知なしに自動的に停止し、終了しないと最後の単語が失われます。 */
     fun tick() {
         val s = _state.value as? State.Listening ?: return
         if (released || (session == null && pending == null)) return
@@ -121,7 +121,7 @@ class HoldToTalk(private val clock: () -> Long, private val maxMs: Long = 60_000
         if (session == null) return
         val now = _state.value
         when (e) {
-            // 转文字以后服务商的引擎可能晚到一个音量:只在听的时候才认
+            // テキストに変換した後、サービス プロバイダーのエンジンは 1 ボリューム分遅れる可能性があります。リスニング時にのみ認識されます。
             is SpeechEvent.Level -> if (now is State.Listening) _state.value = now.copy(level = e.value)
             is SpeechEvent.Partial -> if (now is State.Listening) _state.value = now.copy(stable = e.stable, tail = e.tail)
             SpeechEvent.Converting -> _state.value = State.Converting
@@ -132,7 +132,7 @@ class HoldToTalk(private val clock: () -> Long, private val maxMs: Long = 60_000
                 if (released || now !is State.Listening) {
                     _state.value = result
                 } else {
-                    // 手还按着:先留着,界面照旧显示听到的字;松开时停在取消上就丢掉,否则才交出去
+                    // 手がまだ押されている場合は、最初に押し続けてください。インターフェイスには、聞いた単語が表示されます。放すときはキャンセルで止めて捨ててください。そうしないと渡してしまいます。
                     pending = result
                     _state.value = now.copy(stable = text, tail = "", level = 0f, ended = true)
                 }
@@ -140,7 +140,7 @@ class HoldToTalk(private val clock: () -> Long, private val maxMs: Long = 60_000
             is SpeechEvent.Failed -> {
                 session = null
                 val result = State.Problem(e.why)
-                // 出错不必等松开(再按着也不会有字了);只有手停在取消上时先留着,松开在取消上就不再提示
+                // 間違った場合は、ボタンを放すまで待つ必要はありません (もう一度押すと何も表示されません)。キャンセル ボタンで手が止まったときに長押しするだけでよく、キャンセル ボタンで手を離してもプロンプトは表示されません。
                 if (!released && now is State.Listening && now.cancelArmed) {
                     pending = result
                     _state.value = now.copy(level = 0f, ended = true)
@@ -151,7 +151,7 @@ class HoldToTalk(private val clock: () -> Long, private val maxMs: Long = 60_000
         }
     }
 
-    /** 离开页面、转屏、App 到后台:丢掉这一段,回到平时。可以重复调。 */
+    /** ページを離れ、画面を切り替え、アプリのバックグラウンドに移動します。この段落を破棄して通常に戻ります。繰り返し調整可能です。 */
     fun dispose() {
         session?.cancel()
         session = null
@@ -160,7 +160,7 @@ class HoldToTalk(private val clock: () -> Long, private val maxMs: Long = 60_000
         _state.value = State.Idle
     }
 
-    /** 界面用完了 [State.Done]/[State.Problem] 之后回到平时;还在听、在转时不动。 */
+    /** インターフェイスが使い果たされると、[State.Done]/[State.Problem] は通常に戻ります。まだ動かずに耳を傾け、振り向いています。 */
     fun reset() {
         val s = _state.value
         if (s is State.Done || s is State.Problem) _state.value = State.Idle
@@ -168,8 +168,8 @@ class HoldToTalk(private val clock: () -> Long, private val maxMs: Long = 60_000
 
     companion object {
         /**
-         * 说的话接在输入框已有的字后面:两边挨着的都是中日韩文字或全角标点时直接接上,
-         * 否则中间加一个空格(已有的字以空白结尾时不再加)。
+         * の発言は入力ボックス内の既存の単語に接続されます。両側の単語が中国語、日本語、韓国語の文字または全角句読点の場合は、直接接続します。
+         * それ以外の場合は、途中にスペースを追加します（既存の単語がスペースで終わる場合は追加されません）。
          */
         fun join(existing: String, spoken: String): String {
             if (existing.isEmpty()) return spoken

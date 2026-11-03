@@ -38,8 +38,8 @@ import com.wangzan101.mika.ui.components.MikaSwitch
 import com.wangzan101.mika.ui.theme.MikaType
 
 /**
- * 设置 › 恢复与修复 里手机操作的几个授权开关的文字(纯函数,便于测试)。和引导页一样说大白话,
- * 每一项都写清楚打开后 Mika 会做什么、怎么关;说明一直写在开关下面。都默认打开,配好手机操作后 Mika 自己补上。
+ * 設定 › 回復と修復 (簡単なテストのための純粋な機能) にある携帯電話操作用のいくつかの認証スイッチのテキスト。紹介ページ同様、わかりやすい言葉で、
+ * 各項目には、電源をオンにした後のミカの動作とオフの方法が明確に記載されています。指示は常にスイッチの下に書かれています。これらはデフォルトですべてオンになっており、携帯電話を操作できるように設定した後、ミカがそれを補います。
  */
 object RecoveryCopy {
     data class SwitchCopy(val title: String, val subtitle: String, val explain: String)
@@ -71,20 +71,20 @@ object RecoveryCopy {
     val FAILED: String get() = tr(R.string.rec_failed)
     val WORKING: String get() = tr(R.string.rec_working)
 
-    /** 开关拨动后的一行反馈;成功时不多说。 */
+    /** スイッチが切り替わった後の一連のフィードバック。成功したら言うことはあまりありません。 */
     fun result(r: PermissionResult): String? = when (r) {
         PermissionResult.Done -> null
         PermissionResult.NoRunner -> NEED_SETUP
         is PermissionResult.Failed -> FAILED
     }
 
-    /** 要靠配对过的无线调试才起作用的几项:只用 USB 启动命令起过助手时用不上。 */
+    /** が機能するには、ペアリングされたワイヤレス デバッグが必要です。USB 起動コマンドのみを使用してアシスタントを起動する場合は、これを使用できません。 */
     private val NEEDS_PAIRING = setOf(RecoveryCapability.RestoreAfterReboot, RecoveryCapability.AutoWirelessDebugging)
 
     /**
-     * 默认打开、还没生效的那一项下面说一句:没配好手机操作就提示先完成设置(配好后自动打开),
-     * 自动打开没成功就照实说;生效了或用户关掉了不多说。
-     * 助手只用 USB 启动命令起过([HelperRestart.UsbCommand])时,靠无线调试重起助手的两项说清用不上、重启后要再运行命令。
+     * はデフォルトでオンになっており、まだ有効になっていない項目は次のとおりです。 電話機が適切に設定されていない場合は、最初に設定を完了するように求められます（設定後に自動的に開きます）。
+     * 自動で開けなかった場合はそのとおり伝える; 有効になった、またはユーザーが切った場合は余計なことは言わない。
+     * ヘルパーを USB 起動コマンドでしか起動したことがない場合（[HelperRestart.UsbCommand]）、ワイヤレスデバッグでヘルパーを再起動する2項目については使えないことと、再起動後にコマンドを再実行する必要があることを明示する。
      */
     fun pending(
         c: RecoveryCapability, consent: RecoveryConsent, paired: Boolean, autoFailed: Set<RecoveryCapability>,
@@ -98,13 +98,13 @@ object RecoveryCopy {
         else -> null
     }
 
-    /** 「替我打开无障碍」下面,上次自动重启无障碍服务成功的时间;没成功时不说,界面顶上的提示照旧给手动处理的办法。 */
+    /** 「ユーザー補助を自動で開く」の下に、前回ユーザー補助サービスの自動再起動に成功した時刻を表示する; 成功していなければ表示せず、画面上部のヒントは従来どおり手動での対処法を示す。 */
     fun restarted(o: RepairOutcome?, zone: ZoneId = ZoneId.systemDefault()): String? =
         o?.takeIf { it.restarted }?.let { tr(R.string.rec_restarted_at, HH_MM.format(Instant.ofEpochMilli(it.atMillis).atZone(zone))) }
 
     private val HH_MM = DateTimeFormatter.ofPattern("HH:mm")
 
-    /** 「自动打开无线调试」下面,替你打开没成功、先停下的原因;没停下不多说。 */
+    /** 「ワイヤレスデバッグを自動で開く」の下に、自動で開けずに一旦止まった理由を表示する; 止まっていなければ余計なことは言わない。 */
     fun autoOnBlocked(b: AutoOnBlock?): String? = when (b) {
         null -> null
         AutoOnBlock.NotAllowedHere -> tr(R.string.rec_not_allowed_here)
@@ -112,7 +112,7 @@ object RecoveryCopy {
         AutoOnBlock.GaveUp -> tr(R.string.rec_gave_up)
     }
 
-    /** 「重启后自动恢复」下面,上次开机的结果;正常恢复了不多说。 */
+    /** 以下の「再起動後の自動回復」、最後の起動の結果。通常の回復については言うことはありません。 実際の状態では、 */
     fun lastRestore(o: RestoreOutcome?): String? = when (o) {
         null, RestoreOutcome.Restored -> null
         RestoreOutcome.PermissionMissing -> tr(R.string.rec_permission_missing)
@@ -121,7 +121,7 @@ object RecoveryCopy {
     }
 }
 
-/** 接上真实状态的几个开关:选择存在 [com.wangzan101.mika.settings.RecoverySettings],执行走已配对的连接。 */
+/** は複数のスイッチに接続されています。ペア接続を実行するには、[com.wangzan101.mika.settings.RecoverySettings] を選択します。 */
 @Composable
 fun RecoverySwitches() {
     val context = LocalContext.current
@@ -148,7 +148,7 @@ fun RecoverySwitches() {
         onToggle = { cap, on ->
             busy = cap
             message = null
-            // 不跟页面走:用户离开设置页时命令也要跑完,选择才和系统一致
+            // はページに従っていません: ユーザーが設定ページを離れるとき、選択内容がシステムと一致する前にコマンドを完了する必要があります。
             phone.pairing.scope.launch {
                 val r = phone.recovery.permissions.set(cap, on)
                 message = RecoveryCopy.result(r)?.let { cap to it }
@@ -159,10 +159,10 @@ fun RecoverySwitches() {
 }
 
 /**
- * 不带状态的几个开关,便于测试。开关显示用户要不要这一项(没亲手关掉就是打开),拨动直接执行,不再确认;
- * [notes] 是某一项下面的一行提示(拨动的结果、要先完成设置、自动打开没成功);
- * [restartNote] 是「替我打开无障碍」下面的一行说明(上次自动重启过无障碍服务);
- * [autoOnNote] 是「自动打开无线调试」下面的一行说明(替你打开没成功、先停下了)。
+ * 簡単なテストのためのステータスのないいくつかのスイッチ。スイッチは、ユーザーがこの項目を必要とするかどうかを示します (個人的にオフにせずにオンにします)。切り替えて、確認せずに直接実行します。
+ * [notes] は、特定の項目の下にあるプロンプトの行です (切り替えの結果、最初に設定を完了する必要があり、自動で開くことができませんでした)。
+ * [restartNote] は、「アクセシビリティをオンにしてください」の下の説明の行です (アクセシビリティ サービスは前回自動的に再起動されました)。
+ * [autoOnNote] は、「ワイヤレス デバッグを自動的にオンにする」の下の説明の行です (開くことに成功しなかったため、最初に停止しました)。
  */
 @Composable
 fun RecoverySection(

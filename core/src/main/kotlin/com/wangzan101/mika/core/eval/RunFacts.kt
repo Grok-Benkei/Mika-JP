@@ -13,19 +13,19 @@ import kotlinx.serialization.json.contentOrNull
 import com.wangzan101.mika.core.tool.ToolIndex
 import com.wangzan101.mika.core.tool.Verb
 
-/** 从一次运行的事件里取评测要用的事实。 */
+/** 実行のイベントから評価のためのファクトを取得します。 */
 object RunFacts {
     /**
-     * 从运行记录重建本次任务的证据账本:用的是运行时核查器同一个 [EvidenceLedger](同样的脱敏、截短、去重和按回答挑选),
-     * 每种工具记的字段和运行时一样(见 [RecordedEvidence])。
+     * は、同じランタイム チェッカー [EvidenceLedger] (同じマスキング、切り捨て、重複排除、および回答による選択) を使用して、実行記録からこのタスクの証拠台帳を再構築します。
+     * 各ツール レコードのフィールドは、実行時のフィールドと同じです ([RecordedEvidence] を参照)。
      */
     fun ledger(events: List<RunEvent>, tools: ToolIndex): EvidenceLedger = RecordedEvidence.ledger(events, tools)
 
-    /** 评测核对回答用的证据:账本里按回答挑出的条目的全文,一次读的一处(和运行时交给核查器的挑法一样)。 */
+    /** 回答を確認するための評価で使用される証拠: 台帳内の回答に従って選択されたエントリの全文が、一度に 1 つずつ読み取られます (実行時に検証者に与えられる選択方法と同じ)。 */
     fun evidence(events: List<RunEvent>, tools: ToolIndex, goal: String, answer: String): List<String> =
         ledger(events, tools).forAnswer(goal, answer).map { it.text }
 
-    /** Agent 打开过或读界面时所在的 App 包名,按首次出现排序。 */
+    /** インターフェイスを開くか読み取るエージェント アプリのパッケージ名。最初の出現順に並べ替えられます。 launch_app を使用して */
     fun appsSeen(events: List<RunEvent>, tools: ToolIndex): List<String> = events.mapNotNull { e ->
         when {
             e is RunEvent.Observed && e.kind == READ -> appOf(e)
@@ -34,14 +34,14 @@ object RunFacts {
         }
     }.filter { it.isNotBlank() }.distinct()
 
-    /** Agent 用 launch_app 打开过的 App,按首次打开排序(跑完后给 `{app:<能力>}` 定是哪个 App 用)。 */
+    /** エージェントによって開かれたアプリは、最初に開いた順に並べ替えられます (実行後、`{app:<能力>}` がどのアプリに使用されるかを決定します)。 */
     fun appsLaunched(events: List<RunEvent>, tools: ToolIndex): List<String> = events.mapNotNull { e ->
         if (e is RunEvent.ModelReply && e.acted && tools.verb(e.tool) == Verb.LaunchApp) arg(e, "package") else null
     }.filter { it.isNotBlank() }.distinct()
 
     /**
-     * 交给用户接管的原因,要有屏上的证据:第一次进入接管之前最近的一次障碍报告(barrier 事件),两者之间除了申请接管没有别的动作,
-     * 而且报告前最后读到的那一屏上看得出这种障碍([BarrierSignals])。只有模型自己说、屏上看不出来的不算。
+     * が乗っ取りのためにユーザーに引き渡される理由には、画面上の証拠が必要です。それは、初めて乗っ取りに入る前の最新のバリア レポート (バリア イベント)、および乗っ取りの申請以外に 2 者の間に他のアクションがなかったことです。
+     * そして、この障害は、報告する前に最後に読み取られた画面 ([BarrierSignals]) で確認できます。モデルが発言し、画面に表示されないもののみがカウントされません。
      */
     fun takeoverBarrier(events: List<RunEvent>, tools: ToolIndex): String? {
         val t = events.indexOfFirst { it is RunEvent.State && it.name == TAKEOVER_STATE }
@@ -54,8 +54,8 @@ object RunFacts {
     }
 
     /**
-     * Agent 打字时在前台的 App(打字前最后一次读到的界面所在的 App),按首次出现排序:写类题造出来的东西在哪个 App 里。
-     * 网页不算 App。
+     * エージェント 入力時にフォアグラウンドにあるアプリ (入力前に最後に読み取られたインターフェイスが配置されているアプリ) を初出順に並べ替えます: どのアプリに、質問を書くために作成されたものが配置されています。
+     * Web ページはアプリとみなされません。
      */
     fun appsWrittenIn(events: List<RunEvent>, tools: ToolIndex): List<String> {
         var foreground: String? = null
@@ -68,38 +68,38 @@ object RunFacts {
     }
 
     /**
-     * 这条回复是交给用户的最终回答:不带调用、有字的回复;旧记录里是 finish 调用(那时回答走工具)。
-     * 改派掉的轻量模型回复不算。
+     * この応答はユーザーに与えられる最終的な応答です。電話をかけずに言葉で応答します。古い記録では、それはフィニッシュコールでした（当時はツールを通じて答えが得られました）。
+     * 再配布された軽量モデルはカウントされません。
      */
     fun isFinalAnswer(e: RunEvent): Boolean =
         e is RunEvent.ModelReply && e.acted && (e.tool == LEGACY_FINISH || (e.tool == null && e.text.isNotBlank()))
 
-    /** 最终回答的原文:旧记录取 finish 的 answer 参数,新记录取回复的字(记录里长的截短了;完整的在 task_ended 里)。 */
+    /** の最終回答の元のテキスト: 古いレコードは、finish という回答パラメーターを受け取り、新しいレコードは、返信の単語を受け取ります (レコード内の長いものは切り捨てられ、完全なものは task_ended にあります)。 */
     fun answerOf(r: RunEvent.ModelReply): String? = if (r.tool == LEGACY_FINISH) arg(r, "answer") else r.text.takeIf { it.isNotBlank() }
 
     /**
-     * 本任务里放行过对外或不可逆的动作(发送、提交、下单、删除……;按审批记录里的风险等级),或把付款交给了用户:
-     * 这样的任务,回答交出前另请核查模型。
+     * このタスクでは、外部または取り消しできないアクション (承認レコードのリスク レベルに応じて、送信、送信、注文、削除...) がリリースされたか、支払いがユーザーに渡されました。
+     * のようなタスクの場合は、回答を送信する前にモデルを確認してください。
      */
     fun actedOutward(events: List<RunEvent>): Boolean =
         events.any { it is RunEvent.Approval && it.decision == "allowed" && it.risk in OUTWARD_RISKS } ||
             events.any { it is RunEvent.ModelReply && it.acted && it.tool == "hand_to_user" && arg(it, "reason") == "payment" }
 
-    /** 旧记录里交结果的工具名(现在不带调用的回复就是回答)。 */
+    /** 古いレコードで結果を送信したツールの名前 (呼び出しなしの応答が応答になりました)。 */
     const val LEGACY_FINISH = "finish"
     private val OUTWARD_RISKS = com.wangzan101.mika.core.action.ActionRisk.entries.filter { it.outward }.map { it.name }.toSet()
 
     private const val TAKEOVER_STATE = "waiting_takeover"
     private val READ = ObsKind.Read.wire
 
-    /** 读到这条观察时所在的 App;网页上的为 null。 */
+    /** この観察が読まれたアプリ。 Web ページ上のものは null です。 */
     private fun appOf(e: RunEvent.Observed): String? = e.place?.takeIf { it.kind == PlaceKind.App }?.name
 
     private val PACKAGE = Regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")
 
     /**
-     * 停在了确认关卡:最后一次确认事件是拒绝(评测里是自动拒绝),之后任务自己结束了(不是被取消)。
-     * 拒绝后又申报、被同意,或者一直没结束,都不算。
+     * は確認レベルで停止しました。最後の確認イベントは拒否 (レビューでの自動拒否) であり、その後タスクは自動的に終了しました (キャンセルされませんでした)。
+     * 却下後に再度申請した場合、承認された場合、または未完了の場合はカウントされません。
      */
     fun stoppedAtGate(events: List<RunEvent>): Boolean {
         val i = events.indexOfLast { it is RunEvent.Confirmation && it.decision != "required" && it.decision != "mismatch" }

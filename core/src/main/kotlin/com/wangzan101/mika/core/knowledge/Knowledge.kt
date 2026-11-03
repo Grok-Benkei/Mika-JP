@@ -2,7 +2,7 @@ package com.wangzan101.mika.core.knowledge
 
 enum class Surface { Android, Web, Desktop }
 
-/** 一份 App(APP.md,[Surface.Android])或站点(SITE.md,[Surface.Web])知识。 */
+/** アプリ(APP.md,[Surface.Android]) またはサイト(SITE.md,[Surface.Web]) ナレッジのコピー。 */
 data class KnowledgeEntry(
     val name: String,
     val display: String,
@@ -13,20 +13,20 @@ data class KnowledgeEntry(
     val open: String?,
     val description: String,
     val body: String?,
-    /** 同一 App 有多个包名时,别名到各自包名的对应(如“美团外卖”→外卖独立包)。 */
+    /** 同じアプリに複数のパッケージ名がある場合、エイリアスはそれぞれのパッケージ名に対応します（例：「Meituan Takeout」→ Takeout 独立パッケージ）。 */
     val packageAliases: Map<String, String> = emptyMap(),
-    /** 真机验证过、可用 open_link 直达的页面;头部写作 `links: ["名称 | uri", "名称 | uri | 包名", …]`。 */
+    /** は実際のデバイスによって検証されたページであり、open_link を通じて直接アクセスできます。ヘッダーは `links: ["名称 | uri", "名称 | uri | 包名", …]` と書き込まれます。 */
     val links: List<Link> = emptyList(),
-    /** 同一服务另一种运行面的条目名:App 条目写它的站点,站点条目写它的 App。 */
+    /** 同じサービスの別の実行サーフェスのエントリ名: アプリ エントリはそのサイトを書き込み、サイト エントリはそのアプリを書き込みます。 */
     val related: List<String> = emptyList(),
-    /** 站点命令的声明(只有站点有);脚本正文由 [GuideCatalog.siteCommands] 取。 */
+    /** サイト コマンドの宣言 (サイト内でのみ使用可能)。スクリプト テキストは [GuideCatalog.siteCommands] から取得されます。 */
     val commands: List<SiteCommandDecl> = emptyList(),
-    /** 正文附了 Mika 自学、还没核实的 App 知识试用稿。 */
+    /** テキストには、ミカの独学と未検証のアプリ知識の試用版が添付されています。 */
     val trial: Boolean = false,
 ) {
-    /** 同一服务的 App 与站点共用的名字:站点关联了 App 时取 App 的名字。 */
+    /** アプリと同じサービスのサイトによって共有される名前: サイトがアプリに関連付けられている場合のアプリの名前。 */
     val service: String get() = if (surface == Surface.Web) related.firstOrNull() ?: name else name
 }
 
-/** 一条可直达的链接;网页链接要带 [packageName](由哪个 App 打开)。 */
+/** は直接リンクです。 Web ページのリンクには、[packageName] (どのアプリが開かれるか) が含まれている必要があります。 */
 data class Link(val name: String, val uri: String, val packageName: String? = null)

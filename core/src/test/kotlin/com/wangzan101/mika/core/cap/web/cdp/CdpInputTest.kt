@@ -26,7 +26,7 @@ import com.wangzan101.mika.core.uistate.KeyModifier
 class CdpInputTest {
     private fun test(block: suspend kotlinx.coroutines.CoroutineScope.() -> Unit) = runBlocking { withTimeout(30_000) { block() } }
 
-    /** 按方法名回结果;没写的回空对象。 */
+    /** はメソッド名に従って結果を返します。書き込まれていない場合は、空のオブジェクトが返されます。 */
     private fun server(handler: (FakeDevTools.Conn, JsonObject) -> JsonElement? = { _, _ -> null }) = FakeDevTools().apply {
         onMessage = { c, m -> c.reply(m, handler(c, m) ?: JsonObject(emptyMap())) }
     }
@@ -42,10 +42,10 @@ class CdpInputTest {
         return r.value
     }
 
-    // ---------- 键表 ----------
+    // ---------- キーテーブル ----------
 
     @Test fun everyWebPressKeyHasACdpKey() {
-        // 网页上 press_key 放行的键(工具层 WEB_KEYS)都要能走 DevTools,且键码对得上
+        // Web ページ (ツール層 WEB_KEYS) の press_key によって解放されたキーは、DevTools に移動できる必要があり、キー コードが一致する必要があります。
         val expected = mapOf(
             66 to Triple("Enter", "Enter", 13), 160 to Triple("Enter", "NumpadEnter", 13), 67 to Triple("Backspace", "Backspace", 8),
             112 to Triple("Delete", "Delete", 46), 61 to Triple("Tab", "Tab", 9), 19 to Triple("ArrowUp", "ArrowUp", 38),
@@ -59,7 +59,7 @@ class CdpInputTest {
             assertEquals(android, k.androidKeyCode)
         }
         assertEquals("\r", CdpKeys.forAndroid(66)!!.text)
-        // 系统键不交给网页
+        // システム キーが Web ページに渡されません
         assertNull(CdpKeys.forAndroid(4)); assertNull(CdpKeys.forAndroid(3)); assertNull(CdpKeys.forAndroid(24))
     }
 
@@ -88,25 +88,25 @@ class CdpInputTest {
         }
     }
 
-    // ---------- 坐标 ----------
+    // ---------- 座標 ----------
 
     @Test fun viewPixelsToCssPixels() {
-        // 手机版:view 1080 宽、视口 411 CSS 像素(dpr 约 2.63)
+        // モバイル バージョン: ビュー 1080 幅、ビューポート 411 CSS ピクセル (dpr 約 2.63)
         val phone = CdpGeometry.scale(1080, 411.0)
         assertEquals(205.5, CdpGeometry.toCss(540, phone), 0.01)
-        // 桌面版:仿真视口 1280 宽,比 view 还宽,一个 CSS 像素不到一个 view 像素
+        // デスクトップ バージョン: シミュレーション ビューポート 幅 1280 ピクセル、ビューより広い、1 CSS ピクセルは 1 ビュー ピクセルより小さい
         val desktop = CdpGeometry.scale(1080, 1280.0)
         assertEquals(0.84375, desktop, 1e-9)
         assertEquals(640.0, CdpGeometry.toCss(540, desktop), 1e-9)
         assertEquals(1280.0, CdpGeometry.toCss(1080, desktop), 1e-9)
-        // 和 view 像素 = CSS × scale 互逆
+        // とビュー ピクセル = CSS × スケールは相互に逆になります ビューポート幅を読み取れない場合、
         assertEquals(333, Math.round(CdpGeometry.toCss(333, desktop) * desktop).toInt())
-        // 读不到视口宽时不换算
+        // は変換されません
         assertEquals(1.0, CdpGeometry.scale(1080, 0.0), 0.0)
         assertEquals(1.0, CdpGeometry.scale(0, 1280.0), 0.0)
     }
 
-    // ---------- 鼠标、键盘 ----------
+    // ---------- マウス、キーボード ----------
 
     @Test fun clickIsMoveThenPressThenRelease() = test {
         val srv = server(); val s = session(srv)
@@ -120,7 +120,7 @@ class CdpInputTest {
         s.close()
     }
 
-    /** 不回应 [stuck] 里的命令(按 Input 事件类型或方法名),其余回空对象。 */
+    /** は (入力イベント タイプまたはメソッド名に従って) [stuck] のコマンドに応答せず、残りは空のオブジェクトを返します。 */
     private fun hanging(vararg stuck: String) = FakeDevTools().apply {
         onMessage = { c, m -> if (m.p("type") !in stuck && m.method() !in stuck) c.reply(m, JsonObject(emptyMap())) }
     }
@@ -133,7 +133,7 @@ class CdpInputTest {
         val srv = refusing("mouseMoved"); val s = session(srv)
         val r = s.input(3_000) { mouseClick(1.0, 1.0) }
         assertTrue("$r", r is InputOutcome.NotSent)
-        // 没有接着按下,也不用抬起
+        // それ以上押す必要も、持ち上げる必要もありません
         assertEquals(listOf("mouseMoved"), srv.sent().map { it.p("type") })
         s.close()
     }
@@ -154,7 +154,7 @@ class CdpInputTest {
     }
 
     @Test fun timeoutOnFirstEventIsUncertain() = test {
-        // 超时的那一发可能已经到了页面:不能当作没发
+        // タイムアウトしたメッセージがページに到達した可能性があります。未送信として扱うことはできません。
         val srv = hanging("mouseMoved"); val s = session(srv)
         val r = s.input(200) { mouseClick(1.0, 1.0) }
         assertTrue("$r", r is InputOutcome.Uncertain)
@@ -176,14 +176,14 @@ class CdpInputTest {
     @Test fun laterEventRefusedIsUncertain() = test {
         val srv = refusing("mouseReleased"); val s = session(srv)
         assertTrue(s.input(3_000) { mouseClick(1.0, 1.0) } is InputOutcome.Uncertain)
-        // 抬起被拒后再尽力抬一次
+        // 拒否されても頑張ってまた持ち上げてください。
         assertEquals(listOf("mouseMoved", "mousePressed", "mouseReleased", "mouseReleased"), srv.sent().map { it.p("type") })
         s.close()
     }
 
     @Test fun comboStuckReleasesKeysInReverse() = test {
         val srv = FakeDevTools().apply {
-            // 主键按下后的抬起不回应
+            // メインボタンを押した後に上げると反応しない
             onMessage = { c, m -> if (!(m.p("type") == "keyUp" && m.p("key") == "a" && m.p("modifiers") == "2")) c.reply(m, JsonObject(emptyMap())) }
         }
         val s = session(srv)
@@ -251,7 +251,7 @@ class CdpInputTest {
         }
         val s = session(srv)
         assertEquals(1279.5, s.ok { viewportCssWidth() }, 0.0)
-        // 不经页面脚本
+        // ページスクリプトを経由しない
         assertTrue(srv.sent().none { it.method() == "Runtime.evaluate" })
         s.close()
     }
@@ -264,7 +264,7 @@ class CdpInputTest {
         assertEquals(listOf("rawKeyDown:Control:2", "rawKeyDown:a:2", "keyUp:a:2", "keyUp:Control:null"),
             sent.map { "${it.p("type")}:${it.p("key")}:${it.p("modifiers")}" })
         assertEquals("65", sent[1].p("windowsVirtualKeyCode")); assertEquals("KeyA", sent[1].p("code"))
-        // 快捷键不出字
+        // ショートカットキーでは文字は出ない
         assertNull(sent[1].p("text"))
         s.close()
     }
@@ -313,7 +313,7 @@ class CdpInputTest {
         assertEquals("Input.setInterceptDrags", sent.last().method()); assertEquals("false", sent.last().p("enabled"))
         val mouse = sent.filter { it.method() == "Input.dispatchMouseEvent" }
         assertEquals(listOf("mouseMoved", "mousePressed", "mouseMoved", "mouseMoved", "mouseMoved", "mouseMoved", "mouseReleased"), mouse.map { it.p("type") })
-        // 移动时按着左键
+        // 移動中は左ボタンを押したままにする
         assertTrue(mouse.drop(2).dropLast(1).all { it.p("buttons") == "1" && it.p("button") == "left" })
         assertEquals("50.0", mouse[3].p("x")); assertEquals("25.0", mouse[3].p("y"))
         assertEquals("100.0", mouse.last().p("x")); assertEquals("50.0", mouse.last().p("y"))
@@ -323,7 +323,7 @@ class CdpInputTest {
     @Test fun nativeDragAndDropIsReplayedAtTarget() = test {
         val data = buildJsonObject { put("items", buildJsonArray { add(buildJsonObject { put("mimeType", "text/plain"); put("data", "x") }) }); put("dragOperationsMask", 1) }
         val srv = server { c, m ->
-            // 第一次按住移动后浏览器把拖动交出来
+            // 最初に押したまま移動した後、ブラウザがドラッグを引き渡す
             if (m.method() == "Input.dispatchMouseEvent" && m.p("type") == "mouseMoved" && m.p("buttons") == "1") {
                 c.event("Input.dragIntercepted", buildJsonObject { put("data", data) })
             }
@@ -337,7 +337,7 @@ class CdpInputTest {
         assertEquals(listOf("dragEnter", "dragOver", "drop"), drags.map { it.p("type") })
         assertTrue(drags.all { it.p("x") == "100.0" && it.p("y") == "50.0" })
         assertEquals(data, drags.last().getValue("params").jsonObject["data"])
-        // 原生拖放结束于 drop,不再发抬起
+        // ネイティブのドラッグ アンド ドロップはドロップで終了し、解除されなくなりました。
         assertTrue(sent.none { it.p("type") == "mouseReleased" })
         assertEquals("false", sent.last().p("enabled"))
         s.close()
@@ -355,7 +355,7 @@ class CdpInputTest {
         s.close()
     }
 
-    // ---------- 下拉框 ----------
+    // ---------- ドロップダウン ボックス ----------
 
     @Test fun optionMatching() {
         val o = listOf(SelectOption("请选择", "", false), SelectOption("北京", "bj", false), SelectOption("Shanghai", "sh", false), SelectOption("bj", "x", false))
@@ -366,7 +366,7 @@ class CdpInputTest {
         assertNull(SelectMatch.indexOf(o, "广州"))
     }
 
-    /** 假页面上的一个 select:方向键改 selectedIndex(跳过禁用项),[keysWork] 为 false 时页面拦了按键。 */
+    /** false ページの選択: 矢印キーは selectedIndex を変更し (無効な項目をスキップ)、[keysWork] が false の場合、ページはキーをブロックします。 */
     private class FakeSelect(val options: List<SelectOption>, var index: Int, val keysWork: Boolean = true, val isSelect: Boolean = true) {
         val log = mutableListOf<String>()
         fun handle(m: JsonObject): JsonElement? {
@@ -423,7 +423,7 @@ class CdpInputTest {
         val s = session(srv)
         val r = s.ok { selectOptionAt(100.0, 200.0, "上海") }
         assertEquals(SelectOutcome.Selected(3, "上海", changed = true, byScript = false), r)
-        // 聚焦后按下两次(第二次跳过禁用的天津),没用脚本
+        // フォーカス後に 2 回押します (2 回目は無効な天津をスキップします)、スクリプトなし
         assertEquals(listOf("focus", "ArrowDown", "ArrowDown"), sel.log)
         val loc = srv.sent().first { it.method() == "DOM.getNodeForLocation" }
         assertEquals("100", loc.p("x")); assertEquals("200", loc.p("y"))
@@ -435,7 +435,7 @@ class CdpInputTest {
         val sel = FakeSelect(cities, 3)
         val s = session(server { _, m -> sel.handle(m) })
         assertEquals(SelectOutcome.Selected(1, "北京", changed = true, byScript = false), s.ok { selectOptionAt(1.0, 1.0, "bj") })
-        // 往上一次就跳过禁用的天津
+        // 上に上がったら無効な天津をスキップします
         assertEquals(listOf("focus", "ArrowUp"), sel.log)
         sel.log.clear()
         assertEquals(SelectOutcome.Selected(1, "北京", changed = false, byScript = false), s.ok { selectOptionAt(1.0, 1.0, "北京") })
@@ -447,7 +447,7 @@ class CdpInputTest {
         val sel = FakeSelect(cities, 0, keysWork = false)
         val s = session(server { _, m -> sel.handle(m) })
         assertEquals(SelectOutcome.Selected(3, "上海", changed = true, byScript = true), s.ok { selectOptionAt(1.0, 1.0, "上海") })
-        // 按了一次没动就不再按
+        // 一度押しても動かない場合は、もう一度押してください。
         assertEquals(listOf("focus", "ArrowDown", "script 3"), sel.log)
         s.close()
     }

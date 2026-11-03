@@ -24,9 +24,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * 用到时才建的网页端口(和手机虚拟屏到第一次 launch_app 才建同一个道理):第一次打开网址时才调 [create] 建后台网页显示、标签池和脚本引擎;
- * 只用手机的任务从头到尾不建。没建之前,其余方法都按「还没有打开的网页」回答,和建好后没有标签时一样。
- * 建不起来(系统 WebView 出问题)时这次打开网址按标签崩溃报(tab_crashed),下次再试。
+ * が使用されるときに構築されます (携帯電話の仮想画面が最初の launch_app まで構築されないのと同じ理由です): [create] は、Web サイトが初めて開かれたときにのみ、バックグラウンド Web ページ表示、タグ プール、およびスクリプト エンジンを構築するために呼び出されます。
+ * タスクは、最初から最後まで電話だけを使用して構築されるわけではありません。ビルドされる前は、他のすべてのメソッドは、ビルド後にラベルがない場合と同様に、「開かれていない Web ページ」として応答されます。
+ * をビルドできません (システム WebView に問題があります)。今度は、URL を開いてタブを押すと、クラッシュ (tab_crashed) が報告されます。次回もう一度試してください。
  */
 class LazyWebPort(private val create: suspend () -> WebPort) : WebPort {
     private val lock = Mutex()
@@ -46,7 +46,7 @@ class LazyWebPort(private val create: suspend () -> WebPort) : WebPort {
 
     override suspend fun navigate(url: String, newTab: Boolean): NavResult = built().navigate(url, newTab)
 
-    /** 现在就建好(任务开局就要用网页时,如借来了用户看着的页面);建不起来返回 false,下次用到时再试。 */
+    /** はすぐに構築されます (ユーザーが見ているページを借用するなど、タスクが Web ページの使用を開始するとき)。構築できない場合は false を返し、次回使用するときに再試行します。 */
     suspend fun prepare(): Boolean = try {
         built()
         true
@@ -54,7 +54,7 @@ class LazyWebPort(private val create: suspend () -> WebPort) : WebPort {
         false
     }
 
-    // ---------- 没建之前:没有打开的网页 ----------
+    // ---------- 構築前: Web ページが開いていません ----------
 
     override suspend fun snapshot(): ScreenSnapshot = port?.snapshot() ?: EMPTY
     override suspend fun peek(): ScreenSnapshot = port?.peek() ?: EMPTY
@@ -78,7 +78,7 @@ class LazyWebPort(private val create: suspend () -> WebPort) : WebPort {
     override suspend fun frameGrid() = port?.frameGrid()
     override suspend fun readPage(maxChars: Int, offset: Int, scrollLazy: Boolean): PageText =
         port?.readPage(maxChars, offset, scrollLazy) ?: PageText("", "", "", emptyList(), emptyList(), false, null)
-    /** 读一个网址(后台标签)和打开网址一样要先建好;读当前标签没建之前是空页。 */
+    /** URL (バックエンド タグ) を読み取るには、URL を開く場合と同様に、最初に作成する必要があります。現在のタグを読み取る前は、空のページです。 */
     override suspend fun read(req: PageRead): PageText =
         if (req.url != null) built().read(req) else port?.read(req) ?: PageText("", "", "", emptyList(), emptyList(), false, null)
     override suspend fun evaluate(script: String, timeoutMs: Long, args: JsonObject?): EvalJs =

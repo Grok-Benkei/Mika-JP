@@ -22,9 +22,9 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.Base64
 
 /**
- * 用服务商的模型把一段录音转成文字,接口形态见 [TranscribeMethod]。
- * 报错和对话模型走同一套映射([ModelHttp]),界面可以直接复用现有的说法;只按协议发请求,不按模型名特判。
- * [headers] 是每个请求都带的头(客户端标识等,见 ClientHeaders),Key 的头由这里按接口类型加。
+ * は、サービス プロバイダーのモデルを使用して録音をテキストに変換します。インターフェイスの形式については、[TranscribeMethod] を参照してください。
+ * エラー報告およびダイアログ モデルは同じマッピング セット ([ModelHttp]) を使用し、インターフェイスは既存のステートメントを直接再利用できます。リクエストはモデル名ではなくプロトコルに従ってのみ送信されます。
+ * [headers] は、各リクエストによって伝送されるヘッダーです (クライアント ID など。「ClientHeaders」を参照)。 Key ヘッダーは、インターフェイスの種類に応じてここに追加されます。
  */
 class Transcriber(
     private val http: OkHttpClient,
@@ -32,7 +32,7 @@ class Transcriber(
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** 转一段 WAV;失败抛 [ModelError](和对话模型同一套)。返回的文字可能是空串(没听到话)。 */
+    /** は WAV を転送します。失敗した場合は、[ModelError] (対話モデルと同じセット) をスローします。返されるテキストは空の文字列である可能性があります (単語が聞こえなかった)。 */
     suspend fun transcribe(
         p: Provider, key: String?, model: String, method: TranscribeMethod, wav: ByteArray, language: String?,
     ): String {
@@ -60,7 +60,7 @@ class Transcriber(
                                     put("type", "input_audio")
                                     putJsonObject("input_audio") { put("data", data); put("format", "wav") }
                                 })
-                                // 专做转写的模型不收文字块;通用模型没有这句指令会当成聊天回话
+                                // 音訳に特化したモデルはテキスト ブロックを受け入れません。一般的なモデルにはこのコマンドはなく、チャットの返信として扱われます。
                                 if (method != TranscribeMethod.ChatInputAudioOnly) {
                                     add(buildJsonObject { put("type", "text"); put("text", INSTRUCTION) })
                                 }
@@ -83,7 +83,7 @@ class Transcriber(
                         })
                     })
                 }
-                // 和对话适配器一样:库存的地址不带 /v1beta,这里补上
+                // は会話アダプターと同じです。インベントリ アドレスには /v1beta が含まれていません。ここに追加してください。
                 builder("$base/v1beta/models/$model:generateContent", key, gemini).post(payload.toString().toRequestBody(JSON)).build()
             }
         }
@@ -96,12 +96,12 @@ class Transcriber(
     }
 
     /**
-     * 选模型时试转:按接口类型依次试,返回第一个通过的;都不行抛最后一个错误。
-     * 通过 = 回 2xx 且解析得出文字字段(空串也算)。Key 的问题(401/403/额度)再试别的方法也没用,直接抛。
+     * モデルを選択するときに切り替えを試します。インターフェイス タイプごとに順番に試し、最初に合格したものを返します。それが機能しない場合は、最後のエラーがスローされます。
+     * は = を通じて 2xx を返し、それを解析してテキスト フィールドを取得します (空の文字列もカウントされます)。キーの問題 (401/403/limit) については、他の方法を試しても無駄です。そのまま捨ててください。
      */
     suspend fun detect(p: Provider, key: String?, model: String): TranscribeMethod {
         val order = if (p.kind == ProviderConfig.Kind.Gemini) listOf(TranscribeMethod.GeminiInline)
-        // 只发音频不带指令的放最后:通用模型也会回 2xx(把录音当聊天回一段话),排在前面会被误选
+        // は指示なしで音声のみを送信し、最後に配置されます。一般的なモデルは 2xx (録音をチャットとして扱って段落に返信) にも応答するため、最初にランク付けされた場合は誤って選択されます。
         else listOf(
             TranscribeMethod.AudioTranscriptions, TranscribeMethod.ChatInputAudio,
             TranscribeMethod.ChatInputAudioUri, TranscribeMethod.ChatInputAudioOnly,
@@ -120,7 +120,7 @@ class Transcriber(
         throw last ?: ModelError.BadResponse("no method")
     }
 
-    /** 只有「这个接口不是这么用的」(找不到路径、方法不对、请求不合、回的不是这个格式)才换下一种。 */
+    /** 「このインターフェースがこのように使用されていない」場合にのみ、次のインターフェースに変更します (パスが見つからない、メソッドが間違っている、リクエストに一貫性がなく、応答がこの形式ではない)。 */
     private fun triesNext(e: ModelError): Boolean = e is ModelError.ModelNotFound || e is ModelError.BadResponse
 
     private fun builder(url: String, key: String?, gemini: Boolean): Request.Builder = Request.Builder().url(url).apply {
@@ -137,7 +137,7 @@ class Transcriber(
                 val msg = ((root["choices"] as? JsonArray)?.firstOrNull() as? JsonObject)?.get("message") as? JsonObject
                 when (val c = msg?.get("content")) {
                     is JsonPrimitive -> c.contentOrNull
-                    // 内容是分块数组的:把文字块拼起来
+                    // の内容はブロックの配列です。テキスト ブロックをまとめます。
                     is JsonArray -> c.mapNotNull { (it as? JsonObject)?.str("text") }.joinToString("")
                     else -> null
                 }
@@ -145,7 +145,7 @@ class Transcriber(
             TranscribeMethod.GeminiInline -> {
                 val cand = (root["candidates"] as? JsonArray)?.firstOrNull() as? JsonObject
                 val parts = (cand?.get("content") as? JsonObject)?.get("parts") as? JsonArray
-                // 没有任何文字块(比如静音时只回结束原因)按空串;连候选都没有才算格式不对
+                // テキスト ブロックがない場合 (たとえば、ミュート時に終了理由のみが返される場合)、空の文字列を押します。候補がない場合は、形式が間違っています。
                 if (cand == null) null else parts.orEmpty().mapNotNull { (it as? JsonObject)?.str("text") }.joinToString("")
             }
         }
@@ -159,20 +159,20 @@ class Transcriber(
     companion object {
         private val JSON = "application/json".toMediaType()
 
-        /** 发给模型的指令:只要原话,不要解释(模型面向英文)。 */
+        /** モデルに送信される指示: 元の言葉だけで、説明はありません (モデルは英語です)。 */
         private const val INSTRUCTION = "Transcribe this recording word for word. Output only the transcript text."
 
         private val SPEECH_TOKENS = listOf("asr", "transcribe", "whisper", "paraformer", "sensevoice", "stt", "speech")
 
-        /** 这家能不能做语音转文字:有 Key 的 OpenAI 兼容、Responses、Gemini 可以;Anthropic 和账号登录的不行。 */
+        /** この会社は音声からテキストへの変換を行うことができますか? OpenAI と Key、Responses、および Gemini の互換性は問題ありません。 Anthropic とアカウント ログインはそうではありません。 */
         fun supports(p: Provider): Boolean = when (p.kind) {
             ProviderConfig.Kind.OpenAiCompat, ProviderConfig.Kind.OpenAiResponses, ProviderConfig.Kind.Gemini -> p.signIn == null
             else -> false
         }
 
         /**
-         * 列表里像语音模型的:名字按非字母数字切成段,有一段以 asr、transcribe、whisper 等开头。
-         * 模型列表只标了「是不是对话模型」,没有单独的语音标记,所以只能看名字。
+         * リストは音声モデルのように見えます。名前は英数字以外の文字に従ってセグメントに分割され、1 つのセグメントは asr、trancribe、wissers などで始まります。
+         * のモデルリストには「対話モデルかどうか」のみ記載されています。個別のボイスマークがないため、名前のみが表示されます。
          */
         fun looksLikeSpeech(m: ListedModel): Boolean =
             m.id.lowercase().split(Regex("[^a-z0-9]+")).any { seg -> SPEECH_TOKENS.any { seg.startsWith(it) } }

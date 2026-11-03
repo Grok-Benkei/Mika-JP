@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 留页的纯逻辑:留下、留新的顶掉旧的、到 2 小时自动关(假时钟)、各种关法的原因、关的时候在来源对话那一轮记一句。 */
+/** ページを離れる純粋なロジック: 滞在し、新しいページを保持して古いページを置き換え、2 時間後に自動的にシャットダウン (偽の時計)、シャットダウンのさまざまな理由、シャットダウン時にソースダイアログラウンドに文を書き留めます。 */
 class KeptPageSlotTest {
     private var now = 1_000L
     private val released = mutableListOf<String>()
@@ -23,11 +23,11 @@ class KeptPageSlotTest {
         assertEquals(now + 2 * KeptPageSlot.HOUR_MS, p.closesAt)
         assertEquals("tab1", slot.handle())
         assertEquals(2 * KeptPageSlot.HOUR_MS, slot.remainingMs())
-        // 没到点不关
+        // ポイントに達するまで電源を切らないでください
         now += 2 * KeptPageSlot.HOUR_MS - 1
         assertFalse(slot.expireIfDue())
         assertEquals(1L, slot.remainingMs())
-        // 到点自动关,放掉手里的东西,在来源那一轮记下原因
+        // はポイントに達すると自動的にオフになります。手に持ったものを置き、その理由をソースラウンドに書き留めます。
         now += 1
         assertTrue(slot.expireIfDue())
         assertNull(slot.page.value)
@@ -60,7 +60,7 @@ class KeptPageSlotTest {
     @Test fun lateCallbackDoesNotCloseALaterPage() {
         val old = keep("tab1")
         keep("tab2")
-        // 旧那一页崩溃的回调晚到:不关后来留的那一页
+        // 古いページのクラッシュに対するコールバックが遅れて到着します。後で残ったページを閉じないでください。
         assertFalse(slot.closeIf(old.id, KeptPageClose.Crashed))
         assertEquals("tab2", slot.handle())
     }
@@ -71,7 +71,7 @@ class KeptPageSlotTest {
         assertEquals("course.example.com" to null, slot.recordFor("r1"))
         assertNull(slot.recordFor("r2"))
         assertNull(slot.recordFor(null))
-        // 那一轮还没写进对话页面就崩了:照样记得留过、为什么关
+        // そのラウンドは会話ページに書き込まれる前にクラッシュしました。私はまだそれを保管していることを覚えていますが、なぜ閉じられているのでしょうか?
         slot.close(KeptPageClose.Crashed)
         assertEquals("course.example.com" to "crashed", slot.recordFor("r1"))
     }

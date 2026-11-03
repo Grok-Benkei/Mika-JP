@@ -9,8 +9,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * 模型把工具调用标记吐进正文时的清洗与还原。
- * 样本按实际见过的泄漏输出(双竖线 DSML、调用名 memory_write,一个不存在的工具)。
+ * モデルのクリーニングと復元。
+ * サンプルは、実際に確認されたリークを出力します (二重縦棒 DSML、呼び出し名memory_write、存在しないツール)。
  */
 class LeakedToolMarkupTest {
     private val bars = "｜｜"
@@ -73,19 +73,19 @@ class LeakedToolMarkupTest {
         assertEquals(text, LeakedToolMarkup.stripMarkup(text))
     }
 
-    /** 正文里有 `<` 又提到 DSML 这个词,但不是标记:一个字也不剥。 */
+    /** テキスト内に `<` があり、DSML という単語が言及されていますが、これはマークではなく、単語も削除されません。 */
     @Test fun textMentioningDsmlAfterALessThanIsUntouched() {
         val text = "比较 a<b 时,顺便说说 DSML 这种写法"
         assertEquals(text, LeakedToolMarkup.stripMarkup(text))
         assertEquals(text, LeakedToolMarkup.scan(text).text)
     }
 
-    /** 收不全的半个结束标记也不显示。 */
+    /** 中途半端なハーフエンドマークも表示されません。 */
     @Test fun partialClosingTagIsHiddenInPreview() {
         assertEquals("我查一下", LeakedToolMarkup.stripMarkup("我查一下</${bars}DSM"))
     }
 
-    /** `<tool_call>` 里不是合法 JSON(例如 XML 写法):原样留着,交给 AgentLoop 的漏调用检查,不剥成只剩前面一句。 */
+    /** `<tool_call>` は正当な JSON (XML 書き込みなど) ではありません。前の文まで削除せずにそのままにして、AgentLoop の不在着信チェックに渡します。 */
     @Test fun unparsableToolCallBlockIsKept() {
         val text = "我查一下\n<tool_call>\n<function=phone_observe>\n</function>\n</tool_call>"
         val reply = ModelReply(listOf(Part.Text(text)), StopReason.EndTurn, null)
@@ -123,7 +123,7 @@ class LeakedToolMarkupTest {
     }
 
     @Test fun streamingPreviewNeverShowsMarkup() {
-        // 流式预览按累计文字逐帧清洗,标记落地前的那一帧也不能带出乱码
+        // ストリーミングプレビューは蓄積されたテキストに応じてフレームごとにクリーニングされ、マークが着地する前のフレームでは文字化けが発生しません。
         val frames = listOf(
             "我查一下\n<${bars}DSML",
             "我查一下\n$dsml",

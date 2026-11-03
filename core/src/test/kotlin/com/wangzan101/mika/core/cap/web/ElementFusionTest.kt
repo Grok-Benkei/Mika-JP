@@ -16,7 +16,7 @@ import com.wangzan101.mika.core.uistate.WebInfo
 
 class ElementFusionTest {
     private val info = WebInfo("https://example.com/", "示例", "t1", 200)
-    // 视图 800x1600,页面 400x800 CSS 像素:倍数 2
+    // ビュー 800x1600、ページ 400x800 CSS ピクセル: 複数 2
     private val w = 800
     private val h = 1600
     private val scale = 2.0
@@ -66,8 +66,8 @@ class ElementFusionTest {
         assertEquals("关闭对话框", close.name)
         assertTrue(close.focused)
         assertEquals("回到 首页", home.name)
-        assertFalse("AX 说禁用", submit.clickable)
-        // 位置仍是页面脚本的
+        assertFalse("AXでは無効と報告されています", submit.clickable)
+        // の場所は引き続きページ スクリプト用です。
         assertEquals(p[0].centerX, close.centerX); assertEquals(p[0].bounds, close.bounds)
         assertEquals(Origin.BOTH, r.origins["@e1"])
         assertEquals(mapOf("@e1" to 11, "@e2" to 12, "@e3" to 13), r.backendIds)
@@ -117,7 +117,7 @@ class ElementFusionTest {
         )
         val r = ElementFusion.fuse(input(p, listOf(1, 2, 3, 4, 5, 6), a))
         assertEquals(listOf("button", "file", "menuitem", "heading", "link", "frame"), r.elements.map { it.role })
-        assertTrue("变成链接就可点", r.elements[4].clickable)
+        assertTrue("リンクになった要素はクリックできる必要があります", r.elements[4].clickable)
         assertEquals("内嵌页面:x.test", r.elements[5].name)
     }
 
@@ -147,7 +147,7 @@ class ElementFusionTest {
         assertTrue(b.clickable)
         near(180, b.centerX); near(260, b.centerY)
         assertEquals(Origin.AX, r.origins["@e3"])
-        assertNull("页面脚本的表里没有它", r.pageRefs["@e3"])
+        assertNull("ページスクリプトの参照表にこの要素はありません", r.pageRefs["@e3"])
         assertEquals("@e3", r.pageRefs["@e4"])
         assertEquals(79, r.backendIds["@e3"])
         assertEquals(mapOf("@e3" to 2), r.frameOwners)
@@ -168,7 +168,7 @@ class ElementFusionTest {
         )
         assertEquals(listOf("内嵌页面:x.test", "半截"), r.elements.map { it.name })
         val half = r.elements[1]
-        // 可见部分 CSS (150..200, 180..200) → 视图 (300..400, 360..400)
+        // 可視部分 CSS (150..200, 180..200) → 表示 (300..400, 360..400)
         near(350, half.centerX); near(380, half.centerY)
     }
 
@@ -215,7 +215,7 @@ class ElementFusionTest {
     }
 
     @Test fun axOnlyDuplicateOfAnUnmatchedPageElementIsDropped() {
-        // 页面脚本的元素没换到节点号,无障碍树里同一个按钮就别再列一遍
+        // ページスクリプトの要素はノード番号に変更されません。アクセシビリティ ツリーに同じボタンを再度リストしないでください。
         val p = page(el("button", "登录", 10, 10, 100, 40, c = 1))
         val a = listOf(root(), ax("b", 9, "button", "登录"))
         val r = ElementFusion.fuse(input(p, listOf(null), a, boxes = mapOf(9 to Box(10.0, 10.0, 110.0, 50.0)), onTop = mapOf(9 to true)))
@@ -274,7 +274,7 @@ class ElementFusionTest {
     }
 
     @Test fun emptyPageStillGetsCrossOriginNothing() {
-        // 页面脚本一个元素都没列:没有占位就没有跨源框架可补,读得到的文档里没命中检测也不补
+        // ページ スクリプトには単一の要素がリストされていません。プレースホルダーも、入力するクロスソース フレームワークも、ヒット検出や読み取られたドキュメントへの入力もありません。
         val a = listOf(root(), ax("b", 1, "button", "x"))
         val r = ElementFusion.fuse(input(emptyList(), emptyList(), a, boxes = mapOf(1 to Box(0.0, 0.0, 10.0, 10.0))))
         assertTrue(r.elements.isEmpty())

@@ -9,7 +9,7 @@ import com.wangzan101.mika.core.model.ToolSpec
 import com.wangzan101.mika.core.model.Usage
 import kotlinx.coroutines.currentCoroutineContext
 
-/** 一次调用是为哪个用途发的。存储里记 [key];认不出的 key(以后的版本写的)读成 [Other]。 */
+/** 呼び出しが発行される目的。 [key] はストレージに記録されます。認識されないキー (新しいバージョンで書き込まれた) は、[Other] として読み取られます。 */
 enum class UsagePurpose(val key: String) {
     Main("main"), Vision("vision"), Light("light"), Other("other");
 
@@ -24,18 +24,18 @@ enum class UsagePurpose(val key: String) {
     }
 }
 
-/** 一个模型是谁的、为哪个用途建的:记用量时原样带上。[providerName] 是建模型时服务商的名字(服务商删了也留着)。 */
+/** それは誰のモデルで、何の目的で作られていますか?利用記録時はそのままお持ちください。 [providerName] は、モデルを構築するときのサービス プロバイダーの名前です (サービス プロバイダーが削除されても保持されます)。 */
 data class UsageSource(val providerId: String, val providerName: String, val model: String, val purpose: UsagePurpose)
 
-/** 一次调用的结果:[usage] 为 null 表示服务商没报用量(或调用失败),这次只算次数,不估 token。 */
+/** への呼び出しの結果: [usage] は null です。これは、サービス プロバイダーが使用状況を報告しなかった (または呼び出しが失敗した) ことを意味します。今回は回数のみがカウントされ、トークンの推定は行われません。 */
 fun interface UsageSink {
     fun record(source: UsageSource, usage: Usage?)
 }
 
 /**
- * 给模型套上计量:每次 [ChatModel.complete](及逐段文字的那一路)结束都记一笔,成功且带用量的记 token,
- * 没报用量、抛错(含取消)的只记次数。对调用方透明:名字、能力照旧,异常原样抛出,逐段文字照常回调;
- * 原模型支持逐段文字,套上的也支持。记账本身出错不影响调用。
+ * モデルに測定値を追加: [ChatModel.complete] (およびテキストの段落) が終了するたびに、合計が記録されます。成功して金額が記録されると、トークンが記録されます。
+ * は、使用状況が報告されず、エラー (キャンセルを含む) がスローされた回数のみをカウントします。呼び出し元に対して透過的: 名前と機能は同じままで、例外はそのままスローされ、コールバックは通常どおり部分的に作成されます。
+ * のオリジナル モデルは段落ごとのテキストをサポートしており、セットされたモデルもそれをサポートしています。アカウンティング自体のエラーは通話には影響しません。
  */
 fun ChatModel.metered(source: UsageSource, sink: UsageSink): ChatModel =
     if (this is StreamingChatModel) MeteredStreamingModel(this, source, sink) else MeteredModel(this, source, sink)
@@ -48,7 +48,7 @@ private open class MeteredModel(private val inner: ChatModel, protected val sour
         counted { inner.complete(system, messages, tools) }
 
     protected suspend fun counted(call: suspend () -> ModelReply): ModelReply {
-        // 在一次运行里调用的,也记到这次运行名下(见 RunUsageTally)
+        // は実行中に呼び出され、この実行の名前にも記録されます (RunUsageTally を参照)
         val tally = currentCoroutineContext()[RunUsageTally]
         val reply = try {
             call()

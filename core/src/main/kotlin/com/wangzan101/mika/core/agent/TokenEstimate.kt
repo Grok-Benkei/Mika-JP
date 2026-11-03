@@ -5,16 +5,16 @@ import com.wangzan101.mika.core.model.Part
 import kotlin.math.ceil
 
 /**
- * 不调分词器的粗估:非汉字字符 / 4 + 汉字 × 0.75;图片知道尺寸时按 宽×高/[PIXELS_PER_TOKEN],不知道按 1000 计。
- * 只用来判断要不要压缩，以及上下文预算里按 token 截断。
- * 中日韩标点、全角字符、假名、谚文和汉字一样按 0.75 计。
+ * 未調整の単語セグメンターの概算値: 非中国語文字 / 4 + 中国語文字 × 0.75;画像のサイズがわかっている場合は、幅×高さ/[PIXELS_PER_TOKEN]を押します。そうでない場合は、1000として計算します。
+ * は、圧縮するかどうかを決定し、コンテキスト バジェット内のトークンによって切り詰めるためにのみ使用されます。
+ * 中国語、日本語、韓国語の句読点、全角文字、かな、ことわざ、漢字は0.75として計算されます。
  */
 object TokenEstimate {
     private const val IMAGE_TOKENS = 1000
-    /** 常见服务商的口径(约 28×28 像素一个 token,各家略有出入)。 */
+    /** 一般的なサービス プロバイダーの口径 (トークンあたり約 28×28 ピクセル、各社若干の違いがあります)。 */
     const val PIXELS_PER_TOKEN = 750.0
 
-    /** 一张 [width]×[height] 的图大约多少 token;尺寸不知道时按 1000。 */
+    /** [width]×[height] の写真にはおよそトークンがいくつありますか?サイズがわからない場合は、1000を押してください。 */
     fun image(width: Int, height: Int): Int = if (width > 0 && height > 0) ceil(width.toLong() * height / PIXELS_PER_TOKEN).toInt() else IMAGE_TOKENS
 
     fun of(messages: List<Message>): Int {
@@ -31,8 +31,8 @@ object TokenEstimate {
     }
 
     /**
-     * 用真实用量校准粗估:返回新的「真实 / 粗估」比值。[previous] 为 null 时直接取这一次的比值,
-     * 否则和之前的平滑合并;结果限在 [MIN_SCALE]..[MAX_SCALE],一次异常的用量不会把估算带偏太多。
+     * 実際の使用量で大まかな推定値を調整する: 新しい「真/大まかな推定値」の比率を返します。 [previous] が null の場合、今度は比率を直接取得します。 それ以外の場合、
+     * は前のスムージングとマージされます。結果は [MIN_SCALE]..[MAX_SCALE] に限定されます。異常な使用法によって推定が大きく偏ることはありません。
      */
     fun calibrated(previous: Double?, estimated: Int, actual: Int): Double {
         if (estimated <= 0 || actual <= 0) return previous ?: 1.0
@@ -45,10 +45,10 @@ object TokenEstimate {
     const val MAX_SCALE = 3.0
     private const val SMOOTHING = 0.3
 
-    /** 同一口径估算一段文字,用于不在消息里的固定开销(基础提示词、工具定义)。 */
+    /** は、メッセージに含まれない固定オーバーヘッド (基本的なプロンプト ワード、ツール定義) に使用される同じ口径のテキストを推定します。 */
     fun of(text: String): Int = ceil(chars(text)).toInt()
 
-    /** 截到不超过 [maxTokens] 个 token 的最长前缀,末尾接 [hint];只在上下文预算处用。 */
+    /** は [maxTokens] トークン以下の最長のプレフィックスで、最後に [hint] が続きます。コンテキストバジェットでのみ使用されます。 */
     fun clip(text: String, maxTokens: Int, hint: String = "…"): String {
         if (maxTokens <= 0 || text.isEmpty()) return ""
         if (of(text) <= maxTokens) return text
@@ -60,7 +60,7 @@ object TokenEstimate {
             val mid = (lo + hi + 1) / 2
             if (of(text.substring(0, mid)) <= room) lo = mid else hi = mid - 1
         }
-        // 不把一个代理对劈成两半
+        // はエージェント ペアを半分に分割しません
         if (lo in 1 until text.length && text[lo - 1].isHighSurrogate() && text[lo].isLowSurrogate()) lo--
         return text.substring(0, lo) + hint
     }

@@ -8,6 +8,7 @@ import com.wangzan101.mika.i18n.AppLanguage
 import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.ui.ChatCopy
 import android.app.Application
+import android.content.res.Configuration
 import android.net.Uri
 import android.util.Log
 import com.wangzan101.mika.chat.AndroidBranchWorkspace
@@ -68,28 +69,28 @@ import com.wangzan101.mika.task.FileChildRunStore
 import com.wangzan101.mika.task.TriggerRuntime
 
 /**
- * App 容器:进程里共用的服务都在这里建一份,经各自的 Owner 接口交给安卓入口(界面、服务、广播、provider),
- * 其余代码经构造参数拿到。助手进程(HelperMain、ShellService)没有这个对象,不用这里的任何服务。
+ * アプリ コンテナー: プロセスで共有されるすべてのサービスはここで作成され、それぞれのオーナー インターフェイスを通じて Android ポータル (インターフェイス、サービス、ブロードキャスト、プロバイダー) に渡されます。
+ * コードの残りの部分は、構築パラメータを通じて取得されます。ヘルパー プロセス (HelperMain、ShellService) にはこのオブジェクトがなく、ここではサービスを使用しません。
  */
 class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, PhoneServices.Owner,
     MemoryRuntime.Owner, ProviderStore.Owner, FileRouteStore.Owner, TaskRecovery.Owner {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    /** 手机能力的服务:内置助手、共用的 shell 连接、配对、「去设置」提示。 */
+    /** 電話対応サービス: 内蔵アシスタント、共有シェル接続、ペアリング、「設定に移動」プロンプト。 */
     override val phone: PhoneServices by lazy { PhoneServices(this) }
 
-    /** 网页标签的 DevTools 会话入口:整个进程一份;连不上时经内置助手代连。 */
+    /** Web ページ タグの DevTools セッション入口: プロセス全体の 1 つのコピー。接続できない場合は、内蔵アシスタントを使用して接続できます。 */
     override val webDevtools: WebDevtools by lazy { WebDevtools(phone.hub::openDevtoolsSocket) }
 
-    /** 各任务的标签池共用的标签总数上限。 */
+    /** 各タスクのタグプールが共有するタグの総数の上限。 */
     val resources = ResourceScheduler()
     val detailedTraces by lazy { DetailedTraces(this) }
 
     val remoteTasks by lazy { RemoteTaskHub(this) }
 
     /**
-     * 电脑连接(MCP):开关、访问令牌(和服务商的 Key 一样加密存)、监听。局域网那种默认关着;
-     * USB 那种由电脑经 adb 打开,只到这次关机为止(开机编号和 shell 里 `settings get global boot_count` 读到的一样)。
+     * コンピューター接続 (MCP): スイッチ、アクセス トークン (サービス プロバイダーのキーと同様に暗号化および保存)、モニタリング。 LAN タイプはデフォルトではオフになっています。
+     * USB は、今度はシャットダウンされるまで、adb 経由でコンピューターによって開かれます (ブート番号は、シェルで読み取られた `settings get global boot_count` と同じです)。
      */
     val mcp by lazy {
         val settingsDir = java.io.File(filesDir, "settings")
@@ -103,7 +104,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
     }
     val childRuns by lazy { FileChildRunStore(java.io.File(filesDir, "children-v3.json")) }
 
-    /** 外部 MCP server 的设置(与「连接电脑」的 inbound 设置分开)。 */
+    /** 外部 MCP サーバー設定 (「コンピューターに接続」の受信設定とは別)。 */
     val mcpServers by lazy {
         com.wangzan101.mika.settings.McpServerStore(
             java.io.File(filesDir, "settings"),
@@ -121,7 +122,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
     }
     override val tabBudget get() = resources.tabBudget
 
-    /** 任务结束后留在后台接着运行的那一页;关掉时在来源对话那一轮记下原因(对话页那一轮下面显示「后台网页已关闭」)。 */
+    /** バックグラウンドに残り、タスクの完了後も実行を続けるページ。閉じた場合は、ソースダイアログラウンドに理由を記録します (ダイアログページの下に「バックグラウンド Web ページが閉じられました」と表示されます)。 */
     override val pageKeeper: com.wangzan101.mika.cap.web.PageKeeper by lazy {
         com.wangzan101.mika.cap.web.PageKeeper(this, tabBudget).also { k ->
             k.onClosed = { p, reason ->
@@ -135,39 +136,39 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
         }
     }
 
-    /** 记忆、个人技能、开关与结果卡片提示。 */
+    /** 記憶、個人スキル、スイッチ、結果カードのヒント。 */
     override val memory: MemoryRuntime by lazy { MemoryRuntime(this) }
 
-    /** 本机的 token 用量账本:经模型配置建出的每个模型的每次调用都记在这里。 */
+    /** ネイティブ トークン使用量台帳: モデル設定を通じて作成された各モデルのすべての呼び出しがここに記録されます。 */
     val usage: UsageLedger by lazy { UsageLedger(java.io.File(filesDir, "usage-v1.json")) }
 
-    /** 模型配置与 Key;建出的模型都套上计量,记到 [usage]。 */
+    /** モデル構成とキー;構築されたすべてのモデルは測定され、[usage] として記録されます。 */
     override val providers: ProviderStore by lazy { ProviderStore.create(this, usage, "Mika/${BuildConfig.VERSION_NAME}") }
 
-    /** 语音转文字的选择:整个进程一份,设置页改了输入框立刻看得到(两份实例互相看不到对方的 set)。 */
+    /** Speech-to-text の選択: プロセス全体のコピーが 1 つあり、設定ページを変更した直後に入力ボックスが表示されます (2 つのインスタンスは互いの設定を確認できません)。 */
     val speech: com.wangzan101.mika.voice.SpeechSettings by lazy { com.wangzan101.mika.voice.SpeechSettings.get(this) }
 
-    /** 语音输入的入口,输入框和悬浮胶囊共用。 */
+    /** 音声入力入口、入力ボックス、フローティングカプセルは共用です。 */
     val voice: com.wangzan101.mika.voice.VoiceInput by lazy { com.wangzan101.mika.voice.VoiceInput(this, speech, providers) }
 
-    /** 用 ChatGPT 登录:跑在 App 的作用域里,期间开前台服务撑住进程(见 [com.wangzan101.mika.settings.ChatGptSignIns])。 */
+    /** ChatGPT を使用してログインします。アプリのスコープで実行し、この期間中にプロセスをサポートするフォアグラウンド サービスを開きます ([com.wangzan101.mika.settings.ChatGptSignIns] を参照)。 */
     val chatGptSignIn by lazy {
         com.wangzan101.mika.settings.ChatGptSignIns(scope,
             keepAlive = { com.wangzan101.mika.settings.ChatGptSignInService.start(this) },
             log = { msg, e -> Log.w("MikaChatGpt", msg, e) })
     }
 
-    /** 经验路线。 */
+    /** 体験ルート。 */
     override val routes: FileRouteStore by lazy { FileRouteStore.create(this) }
 
-    /** 异常退出后留下的系统改动的恢复;在跑的任务登记在这里。 */
+    /** 異常終了後に残ったシステム変更のリカバリ。実行中のタスクはここに登録されます。 */
     override val taskRecovery: TaskRecovery by lazy { TaskRecovery(this, phone.sharedShell) }
 
-    /** 运行账本与送达账本:整个进程一份,任务服务和启动时的恢复共用(同一个文件不能有两份实例)。 */
+    /** 実行元帳と配送元帳: プロセス全体に 1 つのコピー。タスク サービスと起動時のリカバリによって共有されます (同じファイルに 2 つのインスタンスを持つことはできません)。 */
     val runStore: RunStore by lazy { FileRunStateStore(java.io.File(filesDir, "runs-v3.json")) }
     val outbox: Outbox by lazy { Outbox(FileOutboxStore(java.io.File(filesDir, "outbox-v3.json"))) }
 
-    /** 没结束的运行的善后(标中断、补送、告知):进程里只做一次,App 启动和任务服务启动都调它。 */
+    /** 未完了の操作の余波 (標準の中断、補足配信、通知): プロセス内で 1 回だけ実行され、アプリの起動時とタスク サービスの開始時に呼び出されます。 */
     val runRecovery: RunRecovery by lazy {
         val app = this
         RunRecovery(runStore, outbox, LocalChannel { _, delivery ->
@@ -180,22 +181,22 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
         }, conversations, scope)
     }
 
-    /** 站点登记表(登录过的网站等):设置页和标签池共用。 */
+    /** サイト登録フォーム (ログイン Web サイトなど): 設定ページとタグプールは共有されます。 */
     override val webSites: SiteRegistry by lazy { SiteRegistry(java.io.File(filesDir, "web")) }
 
-    /** `files/sandbox/` 的树锁:安装、重置、命令、下载、附件都在它的许可里写。 */
+    /** `files/sandbox/` のツリー ロック: インストール、リセット、コマンド、ダウンロード、添付ファイルはすべてその権限に書き込まれています。 */
     override val sandboxTree = SandboxTree()
 
-    /** 任务从 App 拿的模型来源、评测钩子、屏幕画面的开关。 */
+    /** タスクは、アプリからモデルソース、評価フック、画面スイッチを取得します。 */
     override val tasks = TaskEnvironment()
 
-    /** 沙箱状态:安装服务更新的,设置页与 Agent 看到的是同一份。 */
+    /** サンドボックスのステータス: インストール サービスが更新され、設定ページはエージェントに表示されるものと同じです。 */
     override val sandboxState: SandboxState by lazy { SandboxState(this) }
 
-    /** 对话记录:整个进程一份,任务服务、聊天界面、结果卡片的按钮共用。 */
+    /** 会話レコード: プロセス全体のコピー 1 つ、タスク サービスの共有ボタン、チャット インターフェイス、および結果カード。 */
     val conversations: ConversationStore by lazy { ConversationStore(this) }
 
-    /** 删对话(侧栏长按):连带它的任务、定时任务和工作区。 */
+    /** 会話を削除します (サイドバーを長押し): タスク、スケジュールされたタスク、ワークスペースも一緒に削除します。 */
     val conversationDeleter: ConversationDeleter by lazy {
         val app = this
         ConversationDeleter(
@@ -207,41 +208,41 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             schedulesOf = { id -> TriggerRuntime.list(app).filter { it.threadId == id }.map { it.id } },
             removeSchedule = { TriggerRuntime.remove(app, it) },
             deleteWorkspace = { id ->
-                // 工作区里有附件、用户发来的屏幕、任务写的文件;沙箱里的命令碰得到这里,和命令、导入、重置互斥着删
+                // ワークスペースには添付ファイル、ユーザーから送信された画面、タスクによって書き込まれたファイルがあります。サンドボックス内のコマンドにはここからアクセスでき、コマンド、インポート、リセットとは相互に排他的です。
                 SandboxDirs(app).deleteWorkspace(id)
             },
         )
     }
 
-    /** 用户发来的屏幕(跟着各自的对话存在工作区里)。 */
+    /** ユーザーによって送信された画面 (それぞれの会話とともにワークスペースに保存されます)。 */
     val userScreens: com.wangzan101.mika.chat.UserScreenFiles by lazy { com.wangzan101.mika.chat.UserScreenFiles(this) }
 
-    /** 全局的询问 / 自主:整个进程一份,设置页和各任务共用。 */
+    /** グローバル クエリ/自律: プロセス全体、設定ページ、および各タスクに対して 1 つのコピーが共有されます。 */
     val approvals: ApprovalStore by lazy { ApprovalStore(java.io.File(filesDir, "approvals.json")) }
 
     val appAccess: com.wangzan101.mika.settings.AppAccessStore by lazy {
         com.wangzan101.mika.settings.AppAccessStore(java.io.File(filesDir, "app-access.json"))
     }
 
-    /** 全局的询问 / 自主和各任务自己的那一份;开发者选项里的「自主模式」经它改。 */
+    /** グローバルな調査/自律性と各タスクの独自の分担。開発者向けオプションの「自律モード」を変更できます。 */
     val approvalControl: ApprovalControl by lazy { ApprovalControl(approvals) }
 
-    /** 各 Run 的队列与展示状态跟 App 进程走，Service 重建时继续使用同一份。 */
+    /** 各実行のキューと表示ステータスはアプリ プロセスに従い、サービスが再構築されるときも同じコピーが引き続き使用されます。 */
     val taskState = TaskCenterState()
 
-    /** Mika 自己的界面此刻看不看得见。 */
+    /** ミカ自身のインターフェイスは現在非表示です。 */
     val foreground = AppForeground()
 
-    /** 检查更新:查到的新版本跟进程走,侧栏、设置首页、关于页的红点看同一份。 */
+    /** アップデートの確認: 見つかった新しいバージョンはプロセスに従っており、サイドバー、設定ホームページ、およびバージョン情報ページの赤い点は同じです。 */
     val updates: com.wangzan101.mika.about.UpdateChecker by lazy {
         com.wangzan101.mika.about.UpdateChecker(java.io.File(filesDir, "update-v1.json"), BuildConfig.VERSION_NAME,
             deviceAbis = android.os.Build.SUPPORTED_ABIS.toList())
     }
 
-    /** 浮在别的 App 上的悬浮胶囊。 */
+    /** 他のアプリの上に浮かぶ浮遊カプセル。 */
     val capsule: CapsuleController by lazy { CapsuleController(this, taskState, foreground, resources.takeoverQueue) }
 
-    /** 对话页的状态跟进程走:界面关了再打开,正在跑的任务的步骤还在。 */
+    /** ダイアログ ページのステータスはプロセスに従います。インターフェイスが閉じられてから開かれた後も、実行中のタスクのステップはそのまま残ります。 */
     val chat: ChatViewModel by lazy {
         val app = this
         ChatViewModel(
@@ -263,7 +264,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
                 override fun decline(key: Int) = TaskService.decline(app, key)
                 override fun show(conversationId: String) = taskState.show(conversationId)
 
-                // 按下那一刻就换成该对话任务的编号:之后切了对话、或那个任务换了,动作也不会落到别的任务上
+                // は、押された瞬間にダイアログタスクの番号に変更されます。後でダイアログが切り替わったり、タスクが変更された場合、アクションは他のタスクには影響しません。
                 private fun key(conversationId: String) = taskState.run(conversationId)?.key
                 override fun cancelIn(conversationId: String) { key(conversationId)?.let { TaskService.cancel(app, it) } }
                 override fun resumeIn(conversationId: String) { key(conversationId)?.let { TaskService.resume(app, it) } }
@@ -278,11 +279,11 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             conversations,
             taskState.busy,
             appLabel = { ConfirmationNotifier.appLabel(app, it) },
-            // 虚拟屏上打开过 App,或在用内置浏览器:画中画才有画面可看(只建了空屏的不算)
+            // アプリが仮想画面上で開かれている、または内蔵ブラウザが使用されている: ピクチャーインピクチャーでは表示する画像のみが含まれます (空白の画面のみのものはカウントされません)
             screenOpen = tasks.previewOpen
                 .stateIn(scope, SharingStarted.Eagerly, tasks.agentAppShown.value || tasks.webScreenOpen.value),
             endedRunId = taskState.endedRunId,
-            // 按对话取它自己的任务,不用服务对外那一份(并行时那是显示中的别的任务)
+            // は会話に応じて独自のタスクを実行し、外部タスク (並行して表示される別のタスク) を提供する必要はありません。
             liveRunId = { taskState.run(it)?.runId?.value },
             endedRunIds = taskState.endedRunIds,
             parallelFlag = { FeatureFlags.get(app).speedFlags().parallelTasks },
@@ -293,7 +294,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             runNotes = memory.notes,
             learning = AppLearningActions(app, memory),
             memoryItems = memory.items(),
-            // 附件进对话的工作区,不需要运行环境已准备好:设备支持就给附件按钮
+            // 添付ファイルは会話のワークスペースに入ります。実行環境は必要ありません。デバイスがサポートしている場合は、添付ボタンが表示されます。
             sandboxReady = SandboxState.get(app).status.map { it !is SandboxStatus.Unsupported }
                 .stateIn(scope, SharingStarted.Eagerly, SandboxState.get(app).status.value !is SandboxStatus.Unsupported),
             sharedFiles = taskState.sharedFiles,
@@ -311,48 +312,54 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             keptPage = pageKeeper.page,
             closeKept = { pageKeeper.close(com.wangzan101.mika.core.cap.web.KeptPageClose.User) },
             branchWorkspace = AndroidBranchWorkspace(app),
-            // 标题后面加当前界面语言的「分支」后缀;源标题太长时先截短,后缀留着
+            // タイトルの後に現在のインターフェース言語の「ブランチ」接尾辞を追加します。ソースのタイトルが長すぎる場合は、まずタイトルを短くし、サフィックスを残します。
             branchTitle = { base -> ChatCopy.branchTitle(base, tr(R.string.chat_branch_title_suffix)) },
         )
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        AppLanguage.applyDefaultLocale(this)
+    }
+
     override fun onCreate() {
         super.onCreate()
-        // 界面以外的文字(通知、服务、悬浮胶囊)按 App 语言取
+        // インターフェース以外のテキスト（通知、サービス、フローティングカプセル）はアプリ言語に従って取得されます。
+        AppLanguage.initializeDefault(this)
         AppLanguage.applyDefaultLocale(this)
         UiText.source = ResourceTexts { AppLanguage.resources(this) }
         registerActivityLifecycleCallbacks(foreground)
-        // 设置 › 网络代理:Mika 自己的连接从第一个请求起就按它走;SOCKS 代理的账号密码经全进程的认证器给
+        // 設定 › ネットワーク プロキシ: 最初のリクエストからミカ自身の接続が渡されます。 SOCKS プロキシのアカウント パスワードは、プロセス全体の認証者によって与えられます。
         com.wangzan101.mika.settings.NetProxyStore.get(this)
         com.wangzan101.mika.core.net.NetProxy.shared.installSocksAuth()
-        // 内置浏览器:设了代理才给 WebView 设上(读设置要解密,放到后台;没设代理不为此加载 WebView)
+        // 内蔵ブラウザ: プロキシを設定した後にのみ WebView を設定します (読み取り設定は復号化してバックグラウンドに置く必要があります。プロキシを設定しないと、このために WebView は読み込まれません)。
         scope.launch(Dispatchers.IO) { runCatching { com.wangzan101.mika.cap.web.WebProxy.apply(this@MikaApp) } }
         capsule.start()
-        // 内置助手的真实现,并开始看着助手(Mika 进程起来后,还活着的助手会自己交接 Binder)
+        // は組み込みアシスタントの実際の実装であり、アシスタントの監視を開始します (Mika プロセスの開始後、まだ生きているアシスタントが自らバインダーを引き渡します)
         phone.shellManager.start()
-        // 连接一可用就补上默认打开的几项能力
+        // は、接続が利用可能になるとすぐにデフォルトで有効になるいくつかの機能を追加します。
         phone.recovery.start()
-        // 告诉内置助手:Mika 被杀后要不要把它拉起来(胶囊一直显示或有任务在跑时才要)
+        // 内蔵アシスタントに指示: 殺された後にミカを引き上げるかどうか (これはカプセルが常に表示されている場合、またはタスクが実行されている場合にのみ必要です)
         com.wangzan101.mika.cap.phone.setup.RestoreWishSync(
             phone.hub, FeatureFlags.get(this).capsuleModeChanges(), taskState.busy, phone.recoverySettings.consent, phone.recovery.accessibility,
         ).start()
-        // 上次异常退出时留下的改动(App 被静音)在这里恢复
+        // 前回の異常終了（アプリがミュート）時に残された変更がここに復元されます。
         scope.launch { taskRecovery.recover() }
-        // 上次进程被杀时没结束的运行:现在就标为中断并告知,不等任务服务起来
+        // 最後のプロセスが強制終了されたときに操作は終了しませんでした。現在中断としてマークして通知し、タスクが処理されるのを待ちます。
         runRecovery.recover().let { if (it.isNotEmpty()) Log.w("MikaTask", "${it.size} runs interrupted by process restart") }
-        // 先对一下设备时区:没记过就记下当前的(升级上来的用户也有基线),和记下的不同就重算当地时间计划(关着时改了时区也补上)
+        // まずデバイスのタイム ゾーンを確認します。覚えていない場合は、現在のタイム ゾーンを書き留めます (アップグレード ユーザーにはベースラインもあります)。書き留めたものと異なる場合は、ローカル タイム プランを再計算します (タイム ゾーンがオフになっているときに変更された場合は、それも補います)。
         scope.launch(Dispatchers.IO) { runCatching { TriggerRuntime.syncTimeZone(this@MikaApp); TriggerRuntime.rearm(this@MikaApp) } }
-        // 给电脑跑的「经 USB 连接」脚本;顺带清掉上次开机留下的 USB 连接信息
+        // は、コンピューターに対して「USB 経由で接続」スクリプトを実行します。ちなみに、前回の起動時に残ったUSB接続情報はクリアされます。
         scope.launch(Dispatchers.IO) { runCatching { mcp.writeUsbScript() }.onFailure { Log.w("MikaMcp", "cannot write USB script", it) } }
-        // 上次导出写到一半被杀留下的空壳条目
+        // 最後のエクスポートの途中で強制終了されて残った空のシェル エントリ
         scope.launch { runCatching { ShareExporter(this@MikaApp).cleanPending() } }
-        // 上次进程留下的网页上传副本
+        // 最後のプロセスによって残された Web ページのコピーをアップロードします
         scope.launch { runCatching { WebFiles.clearStale(this@MikaApp, SandboxDirs(this@MikaApp).gate) } }
-        // 更新已经装上后,关于页下好的安装包
+        // アップデートがインストールされると、インストール パッケージが [バージョン情報] ページで利用可能になります。
         scope.launch(Dispatchers.IO) { runCatching { com.wangzan101.mika.about.ApkUpdater(this@MikaApp).dropInstalled() } }
-        // 运行环境没准备好(首次启动、Mika 升级后)就在后台准备,不联网、对用户不可见
+        // オペレーティング環境の準備ができていません (最初の起動、Mika アップグレード後)。バックグラウンドで準備されており、インターネットに接続されておらず、ユーザーには表示されません。
         RuntimePreparer.ensure(this)
-        // 沙箱就绪(启动时已就绪,或刚装好)就把技能目录核对一次:App 更新带来的脚本马上能用
+        // サンドボックスの準備ができたら (起動時に準備ができているか、インストールしたばかりの場合)、スキル ディレクトリを一度確認してください。アプリの更新によってもたらされたスクリプトはすぐに使用できます。
         scope.launch {
             SandboxState.get(this@MikaApp).status.first { it is SandboxStatus.Ready }
             val state = SandboxState.get(this@MikaApp)

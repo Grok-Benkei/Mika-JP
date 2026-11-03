@@ -25,9 +25,9 @@ data class ApkDownloadState(
 }
 
 /**
- * 系统负责后台下载;只保存任务编号,进程重启后仍能查询、取消或安装。方法在 IO 线程调用。
- * 文件放在本应用的外部专属目录(别的 App 读写不到),同一时间只留一个;换版本、删除、装好后都清掉。
- * 设了网络代理(设置 › 网络代理)时系统下载服务不走它,改由 Mika 自己经代理在进程里下([ProxiedApkDownload])。
+ * システムはバックグラウンド ダウンロードを担当します。タスク番号のみが保存され、プロセスの再起動後もタスク番号の照会、キャンセル、インストールを行うことができます。このメソッドは IO スレッドで呼び出されます。
+ * ファイルは、このアプリケーションの外部専用ディレクトリに配置されます (他のアプリケーションから読み書きすることはできません)。一度に残るファイルは 1 つだけです。バージョンを変更、削除、またはインストールするとクリアされます。
+ * ネットワーク プロキシが設定されている場合 (設定 › ネットワーク プロキシ)、システム ダウンロード サービスはそれを使用しません。代わりに、Mika はプロセス内でプロキシ経由でファイルをダウンロードします ([ProxiedApkDownload])。
  */
 class ApkUpdater(private val context: Context, private val net: NetProxy = NetProxy.shared) {
     private val manager = context.getSystemService(DownloadManager::class.java)
@@ -35,13 +35,13 @@ class ApkUpdater(private val context: Context, private val net: NetProxy = NetPr
     private val directory: File get() = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
         ?: error("external files unavailable"), "updates")
     private val file: File? get() = prefs.getString("file", null)?.let { File(directory, it) }
-    /** 这一份是 Mika 自己经代理下的(不是系统下载服务)。 */
+    /** これは、Mika 自身によって配布されています (システム ダウンロード サービスではありません)。 */
     private val viaApp: Boolean get() = prefs.getBoolean("viaApp", false)
 
     fun state(release: ReleaseInfo): ApkDownloadState =
         if (prefs.getString("url", null) != release.apkUrl) ApkDownloadState() else recorded()
 
-    /** 记下的那个下载任务现在的状态;系统里查不到这个任务算失败。 */
+    /** 書き留められたダウンロード タスクの現在のステータス。タスクがシステム内で見つからない場合、失敗とみなされます。 */
     private fun recorded(): ApkDownloadState {
         if (viaApp) return file?.let(proxied::state) ?: ApkDownloadState(DownloadPhase.Failed)
         val id = prefs.getLong("id", -1)
@@ -68,9 +68,9 @@ class ApkUpdater(private val context: Context, private val net: NetProxy = NetPr
         cancel()
         val folder = directory
         check(folder.mkdirs() || folder.isDirectory)
-        // 进程被杀、记录丢了时留下的旧文件也一并清掉,目录里只留这一次的。
+        // プロセスが強制終了され、レコードが失われたときに残された古いファイルもクリアされ、今回のみディレクトリに残ります。
         folder.listFiles()?.forEach { it.delete() }
-        // remove 的后台清理可能晚于下一次下载,不能复用旧任务的文件名。
+        // 削除のバックグラウンド クリーンアップは次のダウンロードよりも遅れる可能性があり、古いタスクのファイル名は再利用できません。
         val target = File(folder, "update-${UUID.randomUUID()}.apk")
         if (net.proxyFor(Uri.parse(url).host.orEmpty()) != null) {
             check(prefs.edit().putBoolean("viaApp", true).putString("url", url).putString("file", target.name).commit()) { "could not save download" }
@@ -80,7 +80,7 @@ class ApkUpdater(private val context: Context, private val net: NetProxy = NetPr
         val request = DownloadManager.Request(Uri.parse(url))
             .setTitle("Mika ${release.version}")
             .setMimeType("application/vnd.android.package-archive")
-            // 只在下载中显示通知:完成后的通知一点就会绕过下面的校验直接打开安装包,所以不留。
+            // はダウンロード中にのみ通知を表示します。完了後の通知は次の検証をバイパスし、インストール パッケージを直接開くため、そのまま放置しないでください。
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
             .setDestinationUri(Uri.fromFile(target))
         val id = manager.enqueue(request)
@@ -99,7 +99,7 @@ class ApkUpdater(private val context: Context, private val net: NetProxy = NetPr
         check(prefs.edit().clear().commit())
     }
 
-    /** 已经装上(或装了更新的版本)后,下好的安装包没用了:启动时清掉。下载中、暂停、失败的留给关于页处理。 */
+    /** がインストールされた後 (または新しいバージョンがインストールされた後)、ダウンロードしたインストール パッケージは役に立ちません。起動時にクリアしてください。ダウンロード、一時停止、または失敗したダウンロードは、[バージョン情報] ページで処理されます。 */
     fun dropInstalled() {
         val target = file ?: return
         if (recorded().phase != DownloadPhase.Ready) return
@@ -109,8 +109,8 @@ class ApkUpdater(private val context: Context, private val net: NetProxy = NetPr
     }
 
     /**
-     * 只接受本应用、更高版本、同一签名的完整附件;没通过就删掉文件并抛 [ApkRejected]。
-     * 系统安装器之后还会再验签名并要求用户确认。
+     * は、このアプリケーション、より上位のバージョン、および同じ署名の完全な添付ファイルのみを受け入れます。失敗した場合は、ファイルを削除して [ApkRejected] を捨ててください。
+     * システム インストーラーは署名を再検証し、ユーザーに確認を求めます。
      */
     fun installIntent(release: ReleaseInfo): Intent {
         check(state(release).phase == DownloadPhase.Ready)
@@ -141,12 +141,12 @@ class ApkUpdater(private val context: Context, private val net: NetProxy = NetPr
     @Suppress("DEPRECATION")
     private fun installedInfo(flags: Int): PackageInfo = context.packageManager.getPackageInfo(context.packageName, flags)
 
-    /** 当前签名证书;个别系统读安装包时不给 signingInfo,退回旧字段 signatures。 */
+    /** 現在の署名証明書。一部のシステムでは、インストール パッケージを読み取るときに signedInfo が提供されず、古いフィールド署名が返されます。 */
     @Suppress("DEPRECATION")
     private fun PackageInfo.signers(): Set<String> =
         (signingInfo?.apkContentsSigners ?: signatures).orEmpty().map { ApkIntegrity.sha256(it.toByteArray()) }.toSet()
 
-    /** 轮换过签名的包带着历史证书;多个签名者时没有历史。 */
+    /** ローテーションされた署名付きパッケージには履歴証明書が含まれます。署名者が複数いる場合、履歴はありません。 エージェントを通じてプロセスに配置される */
     private fun PackageInfo.signerHistory(): Set<String> {
         val info = signingInfo ?: return emptySet()
         if (info.hasMultipleSigners()) return emptySet()
@@ -154,7 +154,7 @@ class ApkUpdater(private val context: Context, private val net: NetProxy = NetPr
     }
 
     private companion object {
-        /** 经代理在进程里下的那一份,进程里只有一个。 */
+        /** のコピーは 1 つだけです。 */
         val proxied by lazy {
             ProxiedApkDownload(NetProxy.shared.client(OkHttpClient.Builder().readTimeout(60, TimeUnit.SECONDS)))
         }

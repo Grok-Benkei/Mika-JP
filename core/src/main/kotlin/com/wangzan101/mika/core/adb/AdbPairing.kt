@@ -9,18 +9,18 @@ import javax.crypto.AEADBadTagException
 import javax.net.ssl.SSLException
 import javax.net.ssl.SSLSocket
 
-/** adbd 通过 mDNS 公布的服务类型。 */
+/** adbd mDNS 経由でアドバタイズされるサービス タイプ。 */
 object AdbServiceTypes {
-    /** 「使用配对码配对」对话框开着时才公布。 */
+    /** 「ペアリングコードを使用してペアリング」ダイアログが開いている場合のみアナウンスされます。 ワイヤレス デバッグがオンになると、 */
     const val PAIRING = "_adb-tls-pairing._tcp"
-    /** 无线调试开着时公布;端口每次开关无线调试都会变。 */
+    /** がアナウンスされます。ポートは、ワイヤレス デバッグがオンまたはオフになるたびに変更されます。 */
     const val CONNECT = "_adb-tls-connect._tcp"
 }
 
-/** 在本机网络上找 adbd 公布的服务端口;找不到(超时)返回 null。 */
+/** は、ローカル ネットワーク上で adbd によって公開されたサービス ポートを探します。見つからない場合 (タイムアウト)、null が返されます。 */
 /**
- * 找本机 adbd 公布的服务端口。同一服务可能查到好几条(关了又开无线调试后,旧的那条可能还留在 mDNS 里,新的改名带上序号),
- * 全部交出,先查到的在前,由调用方挨个试。
+ * このマシンの adbd によって公開されたサービス ポートを見つけます。同じサービスに対して複数のエントリが見つかる可能性があります (ワイヤレス デバッグをオフにしてから再度オンにした後、古いエントリが mDNS に残り、新しいエントリの名前がシリアル番号で変更される可能性があります)。
+ * すべてを渡します。最初に見つかったものが最初になり、発信者はそれらを 1 つずつ試します。
  */
 fun interface AdbServiceFinder {
     suspend fun findPorts(serviceType: String, timeoutMs: Long): List<Int>
@@ -30,14 +30,14 @@ class AdbPairingException(val reason: Reason, message: String, cause: Throwable?
     enum class Reason { CONNECT_FAILED, TLS_FAILED, WRONG_CODE, PROTOCOL }
 }
 
-/** 配对成功时设备回报的身份(通常是 type=1 的设备 GUID)。 */
+/** ペアリングが成功したときにデバイスによって報告される ID (通常は type=1 のデバイス GUID)。 */
 class AdbPeerInfo(val type: Int, val data: String)
 
 /**
- * 无线调试的配对码配对(客户端)。流程:
- * TLS 1.3 → 导出 64 字节密钥("adb-label\0")→ 口令 = 配对码 + 导出密钥 → 交换 SPAKE2 消息 →
- * 用协商出的 AES-GCM 互换 8192 字节的 PeerInfo(我们发 adb 公钥,设备回 GUID)。
- * 每个包前有 6 字节头:版本(1)、类型(0=SPAKE2,1=PEER_INFO)、负载长度(大端 uint32)。
+ * ワイヤレス デバッグ (クライアント) のペアリング コード。プロセス:
+ * TLS 1.3 → 64 バイトのキー (「adb-label\0」) をエクスポート → パスワード = ペアリング コード + エクスポート キー → SPAKE2 メッセージを交換 →
+ * は、ネゴシエートされた AES-GCM を使用して 8192 バイトの PeerInfo を交換します (adb 公開キーを送信し、デバイスは GUID を返します)。
+ * 各パケットの前には 6 バイトのヘッダーがあります: バージョン (1)、タイプ (0=SPAKE2、1=PEER_INFO)、ペイロード長 (ビッグエンディアン uint32)。
  */
 class AdbPairing(private val tls: AdbTls) {
     fun pair(host: String, port: Int, code: String, timeoutMs: Int = 15_000): AdbPeerInfo {
@@ -72,7 +72,7 @@ class AdbPairing(private val tls: AdbTls) {
         System.arraycopy(key, 0, info, 1, key.size)
         writePacket(output, TYPE_PEER_INFO, auth.encrypt(info))
 
-        // 配对码不对时,设备解不开我们的 PeerInfo,直接断开
+        // ペアリング コードが正しくない場合、デバイスは PeerInfo のロックを解除できず、直接切断されます。
         val sealed = try {
             readPacket(input, TYPE_PEER_INFO)
         } catch (e: IOException) {
@@ -109,7 +109,7 @@ class AdbPairing(private val tls: AdbTls) {
             out.flush()
         }
 
-        /** 读一个包并核对类型;对方在包头之前断开返回 null。 */
+        /** パケットを読み取り、タイプを確認します。相手はパケット ヘッダーの前に切断し、null を返します。 */
         fun readPacket(input: DataInputStream, expectedType: Byte): ByteArray? {
             val header = ByteArray(6)
             try {

@@ -1,6 +1,1 @@
-- When you are sure of the next few steps (for example: tap the search box →
-  type → tap search), give them in one do_steps call, and give a wait condition
-  (expect) to the steps that load something. For visible form fields, tap and
-  enter each whole value in one batch; do not ask the model to decide between
-  known fields. If a field only appears after a step, inspect that new screen
-  before planning more actions. When you are not sure, go one step at a time.
+- 次の数手順を確信できる場合（例: 検索ボックスをタップ → 入力 → 検索をタップ）は、1回の do_steps でまとめて渡し、読み込みを伴う手順には待ち条件（expect）を付ける。表示されている入力欄については、タップと値全体の入力を1回のまとめに含める。既知の入力欄の間でモデルに判断させない。入力欄が手順の後に初めて現れる場合は、その新しい状態を確認してから次の操作を考える。確信できない場合は、1手順ずつ進める。

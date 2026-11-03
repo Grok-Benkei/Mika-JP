@@ -17,9 +17,9 @@ import java.security.SecureRandom
 import java.util.Base64
 
 /**
- * 电脑连接(MCP)的设置:开关和端口存成一个小 JSON 文件(读不懂按关着);
- * 访问令牌和服务商的 Key 一样经 [KeyCipher] 加密后另存一个文件,第一次要用时生成。
- * 默认关着。
+ * コンピューター接続 (MCP) 設定: スイッチとポートは小さな JSON ファイルに保存されます (理解できない場合は閉じるを押してください)。
+ * アクセス トークンは、[KeyCipher] によって暗号化され、サービス プロバイダーのキーと同様に別のファイルに保存されます。初めて使用するときに生成されます。
+ * はデフォルトではオフになっています。
  */
 class McpSettings(private val dir: File, private val cipher: KeyCipher, private val random: SecureRandom = SecureRandom()) {
     private val file = File(dir, "mcp.json")
@@ -27,7 +27,7 @@ class McpSettings(private val dir: File, private val cipher: KeyCipher, private 
     private val _enabled: MutableStateFlow<Boolean>
     @Volatile private var cachedToken: String? = null
 
-    /** 监听的端口;文件里没写就用 [DEFAULT_PORT]。 */
+    /** はリスニング ポートです。ファイルに記述されていない場合は、[DEFAULT_PORT] を使用してください。 */
     val port: Int
 
     init {
@@ -43,14 +43,14 @@ class McpSettings(private val dir: File, private val cipher: KeyCipher, private 
         save()
     }
 
-    /** 当前的访问令牌;还没有(或读不出来)就生成一个存下。 */
+    /** 現在のアクセス トークン。利用できない (または読み取れない) 場合は、生成して保存します。 */
     @Synchronized fun token(): String {
         cachedToken?.let { return it }
         val stored = runCatching { if (tokenFile.isFile) String(cipher.decrypt(tokenFile.readBytes()), Charsets.UTF_8) else null }.getOrNull()
         return stored?.takeIf { it.length >= MIN_TOKEN }?.also { cachedToken = it } ?: regenerate()
     }
 
-    /** 换一个新令牌:旧的当场失效,连着的电脑要换上新的才能再用。 */
+    /** 新しいトークンに変更します。古いトークンはその場で無効になり、接続されているコンピューターを再度使用するには、新しいトークンに置き換える必要があります。 */
     @Synchronized fun regenerate(): String {
         val bytes = ByteArray(32).also(random::nextBytes)
         val token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)

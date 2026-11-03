@@ -1,8 +1,8 @@
 package com.wangzan101.mika.core.uistate
 
 /**
- * press_key 只放行导航和编辑键。音量、电源/休眠/唤醒、Home、最近任务、搜索/助手、相机、媒体键
- * 都作用于整台手机而不是 Mika 的屏幕,一律拒绝。外壳进程注入按键时再查一遍同一张表。
+ * press_key は、ナビゲーション キーと編集キーのみを解放します。音量、電源/スリープ/ウェイク、ホーム、最近のタスク、検索/アシスタント、カメラ、メディアキー
+ * は、ミカの画面ではなく電話全体に適用され、拒否されます。シェル プロセスがキーストロークを挿入すると、同じテーブルが再度チェックされます。
  */
 object PressKeys {
     val BY_NAME: Map<String, Int> = linkedMapOf(
@@ -16,7 +16,7 @@ object PressKeys {
 
     fun isAllowed(keyCode: Int): Boolean = keyCode in CODES
 
-    /** 名字或数字;不在白名单里返回 null。 */
+    /** 名前または番号。ホワイトリストにない場合は null を返します。 */
     fun resolve(key: String): Int? {
         val k = key.trim()
         val code = k.toIntOrNull() ?: BY_NAME[k] ?: return null

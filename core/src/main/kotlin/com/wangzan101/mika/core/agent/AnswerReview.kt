@@ -15,24 +15,24 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** 回答交出前核对要看的任务情况。 */
+/** タスクを引き渡す前にタスクのステータスを確認するために応答します。 */
 internal data class ReviewFacts(
-    /** 本任务调过工具(没调过的是聊天、常识,没有可核对的材料)。 */
+    /** この作業に使用するツールを調整しました（調整されていないのはチャットと常識であり、確認する材料はありません）。 */
     val acted: Boolean,
-    /** 做过对外或不可逆的事(放行过这样的动作,或把付款交给了用户)。 */
+    /** は、外部的または取り消しできないことを行いました (そのようなアクションを許可した、またはユーザーに支払いを引き渡しました)。 */
     val outward: Boolean,
-    /** 最近一次改了状态的动作之后没有重新读过:回答说的结果没人看过。 */
+    /** は、ステータスを変更する最後のアクション以降、再度読み取っていません。回答に記載されている結果を誰も読んでいません。 */
     val unreadChange: Boolean,
 )
 
 /**
- * 最终回答交出前的核对。按风险来,不来回退回:
- * - 本任务一个工具也没调过(聊天、常识、对话里就能答的):不核,算没核对过。
- * - 字面核对([Grounding.check]):回答里的数、编号、日期、引文和写明的算式(a 运算符 b = c)要在本任务读到的材料里有原文。
- *   回答里有这类事实、全都对上了,算核实过;回答里没有这类事实,字面上没什么可核的,算没核对过。
- * - 做过对外或不可逆的事、最近一次改状态的动作之后没有重新读过、或字面核对有对不上的,另请核查模型([Verifier]);它判 pass 才算核实过。
- * 结论里有没对上的([Review.gaps]、[Review.objections])时,由循环退回给模型一次;再不行就把这几处标成未确认交出(见 AgentLoop)。
- * 来源([Review.sources])也在这里由代码找([AnswerSources])。
+ * 最終回答を渡す前の検証。リスクに従って来てください、リターンはありません:
+ * - このタスクは単一のツールでチェックされていません (チャット、常識、対話で回答できます): チェックされていません、チェックされていません。
+ * - リテラル チェック ([Grounding.check]): 解答に含まれる数字、数値、日付、引用、および記載された計算 (演算子 b = c) には、このタスクで読まれた資料の元のテキストが含まれている必要があります。
+ *   回答にそのような事実があり、それらがすべて正しい場合、それは検証されたとみなされます。回答にそのような事実がなく、文字通り検証するものが何もない場合、その回答は未検証とみなされます。
+ * - 何らかの外部的または元に戻せないことを行った場合、ステータスを変更するための最後のアクションの後に再読み込みしていない場合、または文字通りの検証が一致しない場合は、モデル ([Verifier]) を確認してください。合格した場合にのみ検証されたとみなされます。
+ * 一致する結論 ([Review.gaps]、[Review.objections]) がある場合、ループはそれをモデルに返します。失敗した場合、これらのポイントは未確認としてマークされ、引き渡されます (AgentLoop を参照)。
+ * ソース ([Review.sources]) は、コード ([AnswerSources]) によってここでも見つかります。
  */
 internal class AnswerReview(
     private val tools: ToolDispatcher,
@@ -40,29 +40,31 @@ internal class AnswerReview(
     private val emit: (RunEvent) -> Unit,
     private val now: () -> Long,
 ) {
-    /** 产品路径只整理出处，不再为收尾答复发起另一轮核查。 */
+    /** 製品パスはソースを分類するだけであり、最終応答のための別の検証ラウンドは開始されません。 */
     suspend fun sourcesOnly(goal: String, answer: String, media: Map<Int, List<Int>>): List<AnswerSource> =
         AnswerSources.of(tools.evidence(fresh = false).ledger, goal, answer, media)
 
     /**
-     * [gaps] 是回答里在读到的材料里找不到的那几处,[objections] 是核查模型判没做成的理由;两者合起来是 [unconfirmed]。
-     * [reviewed] 为 false 表示什么也没核对(没有可核对的、也没请核查模型);[verified] 只在核对过而且都对上时为 true。
-     * [note] 是核查器没能核实的原因;[verdict] 是核查模型的结论(没请它为 null)。
+     * [gaps] は私が読んだ資料では見つからなかった回答の部分、[objections] は検証モデルが完成しなかった理由です。 2 つの組み合わせは [unconfirmed] です。
+     * [reviewed] は false です。これは、何もチェックされていないことを意味します (何もチェックできず、チェックを要求されたモデルもありません)。 [verified] は、チェックされていてすべてが正しい場合にのみ true になります。
+     * [note] は、検証者が検証に失敗した理由です。 [verdict] は検証モデルの結論です (null ではありません)。
      */
     class Review(
         val gaps: List<String> = emptyList(), val objections: List<String> = emptyList(), val sources: List<AnswerSource> = emptyList(),
         val reviewed: Boolean = true, val verified: Boolean = true, val note: String? = null, val verdict: Verdict? = null,
+        /** モデルに修正点を返す際は、表示用に置き換える前の検証理由を保持する。 */
+        val modelObjections: List<String> = objections,
     ) {
         val unconfirmed: List<String> get() = (gaps + objections).distinct()
     }
 
-    /** 核第 [step] 步给出的回答 [answer]。[media]:每一步存下的画面编号;[verifying]:要请核查模型时先调它(界面上显示「正在核实」)。 */
+    /** は、ステップ [step] で指定された回答 [answer] をチェックしました。 [media]: 各ステップで保存された画面番号。 [verifying]: モデルを検証したい場合は、最初に調整してください (インターフェイスに「検証中」と表示されます)。 */
     suspend fun review(
         goal: String, answer: String, step: Int, facts: ReviewFacts, earlierGoals: List<String>, media: Map<Int, List<Int>>, verifying: () -> Unit,
     ): Review {
         if (!facts.acted) return Review(reviewed = false, verified = false)
         val v = verifier
-        // 字面核对只看账本(最近一次读取已在里面),不重新读;要请核查模型时才重新读此刻的界面
+        // リテラル検証は台帳を参照するだけであり (最新の読み取りは既に台帳に含まれています)、再読み取りは行いません。モデルを検証したい場合にのみ、現在のインターフェイスを再読み取りしてください。
         val read = tools.evidence(fresh = false)
         val sources = AnswerSources.of(read.ledger, goal, answer, media)
         val g = Grounding.check(goal, answer, read.sources(read.ledger.forAnswer(goal, answer)), read.today)
@@ -78,8 +80,9 @@ internal class AnswerReview(
         emit(RunEvent.Verifier(now(), r.verdict.wire, RunEvent.clip(Redactor.text(detailOf(r).toString())), step))
         return when (r.verdict) {
             Verdict.Pass -> Review(sources = sources, verdict = r.verdict)
-            // 标准只是用户原话,没满足的「标准」就是原话本身:说清楚的是核查器给的理由
-            Verdict.Fail -> Review(gaps = gaps, objections = listOf(r.reason).filter(String::isNotBlank), sources = sources, verified = false, verdict = r.verdict)
+            // 規格はユーザーのオリジナルの言葉だけです。満たされていない「基準」とは原語そのものであり、明確に記載されているのは検証者が理由を述べたものである。
+            Verdict.Fail -> Review(gaps = gaps, objections = listOf(r.reason).filter(String::isNotBlank), sources = sources, verified = false, verdict = r.verdict,
+                modelObjections = listOf(r.feedbackReason).filter(String::isNotBlank))
             Verdict.CannotVerify -> (gaps + r.notFound).distinct().let { missing ->
                 Review(gaps = missing, sources = sources, verified = false, note = r.reason, verdict = r.verdict)
             }

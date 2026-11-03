@@ -32,7 +32,7 @@ private fun call(name: String, args: String = "{}") = Part.ToolCall("l${++seq}",
 private fun tools(vararg calls: Part.ToolCall) = ModelReply(calls.toList(), StopReason.ToolUse, null)
 private fun finish() = com.wangzan101.mika.core.testing.answerReply("done")
 
-/** 屏上只有一个「发送」按钮。 */
+/** の画面には「送信」ボタンが 1 つだけあります。 */
 private class SendScreen(private val label: String = "发送", private val inner: FakeScreen = FakeScreen()) : com.wangzan101.mika.core.uistate.ScreenPort by inner {
     override suspend fun snapshot() = ScreenSnapshot("s1", "com.x",
         listOf(UiElement("@e1", "button", label, 500, 500, listOf(400, 450, 600, 550), null, true, false, false)), 1080, 2400)
@@ -45,13 +45,13 @@ class AgentLoopLightTest {
         AgentLoop(main, toolDispatcher(screen), "BASE", sink = sink, flags = on, router = ModelRouter(main, light))
 
     @Test fun cleanStepsGoToLightAndAreRecorded() = runTest {
-        // 第 1 步主模型;第 2 步前台 App 只见过一次,主模型;第 3 步起两步同 App、无错 → 轻量
+        // ステップ 1 のメイン モデル。ステップ 2 のフロントエンド アプリはメイン モデルで 1 回だけ確認されています。ステップ 3 からの 2 つのステップで同じアプリ、エラーなし → 軽量
         val main = Named("main", FakeModel(tools(call("phone_observe")), tools(call("phone_observe")), finish()))
         val light = Named("light", FakeModel(tools(call("phone_observe")), finish()))
         val sink = Events()
         val r = loop(main, light, sink).run("t")
         assertTrue(r is TaskState.Succeeded)
-        // 第 4 步轻量模型想交结果,改问主模型
+        // ステップ 4 軽量モデルの結果を送信したい場合は、代わりにメイン モデルに問い合わせてください。
         assertEquals(2, light.requests.size)
         assertEquals(3, main.requests.size)
         val replies = sink.list.filterIsInstance<RunEvent.ModelReply>()
@@ -59,7 +59,7 @@ class AgentLoopLightTest {
         assertEquals(listOf("main", "main", "light", "light", "main"), replies.map { it.model })
     }
 
-    // 不带调用的回复是最终回答,只由主模型给:轻量模型这样回就改问主模型
+    // 呼ばずの返答は、主力モデル：軽量モデルのみが出す最終回答です。この場合は、メインモデルに問い合わせてください。
     @Test fun lightAnswerIsAskedAgainOfMain() = runTest {
         val main = Named("main", FakeModel(tools(call("phone_observe")), tools(call("phone_observe")), finish()))
         val light = Named("light", FakeModel(com.wangzan101.mika.core.testing.answerReply("LIGHT_ANSWER")))
@@ -70,7 +70,7 @@ class AgentLoopLightTest {
         assertEquals(3, main.requests.size)
         assertTrue(sink.list.any { it is RunEvent.State && it.name == "light_to_main" && it.detail == "no_tool" })
         assertEquals(listOf("main", "main", "light_rejected", "main"), sink.list.filterIsInstance<RunEvent.ModelReply>().map { it.role })
-        // 改派后主模型看到的历史里没有那条没执行的回复
+        // 再割り当て後、メインモデルで見る履歴には未実行の応答がありません。
         val asked = main.requests.last()
         assertTrue(asked.flatMap { it.parts }.filterIsInstance<Part.Text>().none { "LIGHT_ANSWER" in it.text })
         assertEquals(asked.size, light.requests.single().size)
@@ -88,7 +88,7 @@ class AgentLoopLightTest {
     }
 
     @Test fun confirmationBlockedStepForcesMain() = runTest {
-        // 第 2 步主模型点「提交订单」被确认关卡拦下:之后两步主模型,第 5 步才轮到轻量模型
+        // 2 番目のステップでは、メイン モデルの「注文の送信」のクリックが確認レベルによってブロックされました。2 つのステップの後、それがメイン モデルになり、5 番目のステップでは軽量モデルの番になります。
         val main = Named("main", FakeModel(tools(call("phone_observe")), tools(call("phone_tap", """{"ref":"@e1","snapshotId":"s1"}""")),
             tools(call("phone_observe")), tools(call("phone_observe")), finish()))
         val light = Named("light", FakeModel(tools(call("phone_observe")), finish()))
@@ -116,7 +116,7 @@ class AgentLoopLightTest {
             tools(call("phone_observe")), tools(call("phone_observe")), tools(call("phone_observe")), finish()))
         val light = Named("light", FakeModel(ModelReply(listOf(Part.Thinking("tl"), theirs), StopReason.ToolUse, null), finish()))
         loop(main, light).run("t")
-        // 第 3 步轻量模型;第 4 步它要交结果,改问主模型:轻量模型那条去掉思考和私有数据,主模型自己的原样
+        // ステップ 3: 軽量モデル;ステップ 4 では、結果を渡す必要があります。代わりにメイン モデルに問い合わせます。軽量モデルの思考データとプライベート データを削除すると、メイン モデルはそのまま残ります。
         val toMain = main.requests[2].filter { it.role == com.wangzan101.mika.core.model.Role.Assistant }.flatMap { it.parts }
         assertTrue(mine in toMain && Part.Thinking("tm") in toMain)
         assertTrue(theirs.copy(opaque = null) in toMain && Part.Thinking("tl") !in toMain)
@@ -138,7 +138,7 @@ class AgentLoopLightTest {
     @Test fun screenshotsNeverGoToTextOnlyLight() = runTest {
         val main = Named("main", FakeModel(tools(call("phone_observe")), tools(call("phone_observe")), tools(call("phone_observe")), finish()))
         val light = Named("light", FakeModel())
-        // 主模型看图:observe 附截图,轻量模型不看图就不接
+        // メインモデルの画像: 添付のスクリーンショットを参照してください。画像を見ないと軽量モデルは接続されません。
         val seeing = object : ChatModel by main {
             override val capabilities = main.capabilities.copy(vision = true)
         }
@@ -152,7 +152,7 @@ class AgentLoopLightTest {
         val light = Named("light", FakeModel(com.wangzan101.mika.core.model.ModelError.Network()))
         val r = loop(main, light).run("t")
         assertTrue(r is TaskState.Succeeded)
-        // 轻量模型出错不重试,这一步直接改问主模型
+        // 軽量モデルでエラーが発生した場合、リトライは行われません。このステップはメイン モデルに直接変更します。
         assertEquals(1, light.requests.size)
         assertEquals(3, main.requests.size)
     }
@@ -162,7 +162,7 @@ class AgentLoopLightTest {
         val light = Named("light", FakeModel(com.wangzan101.mika.core.model.ModelError.Server(503)))
         val r = loop(main, light).run("t")
         assertTrue(r is TaskState.Succeeded)
-        // 503 没有重发给轻量模型,这一步由主模型接
+        // 503 は軽量モデルには再発行されず、この手順はメイン モデルに引き継がれます。
         assertEquals(1, light.requests.size)
         assertEquals(3, main.requests.size)
     }

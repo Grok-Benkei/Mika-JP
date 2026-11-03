@@ -7,7 +7,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
-/** 电脑交来的一个任务:[state] 为空表示已经交给任务服务、还没登记上(马上就会有)。 */
+/** コンピューターから引き渡されたタスク: [state] 空の場合は、タスク サービスに引き渡され、まだ登録されていないことを意味します (すぐに利用可能になります)。 */
 data class RemoteTask(
     val id: String,
     val conversation: String,
@@ -17,7 +17,7 @@ data class RemoteTask(
     val steers: List<RemoteSteer> = emptyList(),
 )
 
-/** 只报告电脑追加的消息;joined 表示进入当前任务上下文,不是执行成功。 */
+/** は、コンピューターによって追加されたメッセージのみを報告します。参加とは、実行が成功したことではなく、現在のタスク コンテキストに参加することを意味します。 */
 data class RemoteSteer(val messageId: String, val state: String)
 
 sealed interface StartOutcome {
@@ -26,22 +26,22 @@ sealed interface StartOutcome {
 }
 
 /**
- * App 一侧给电脑连接的任务出入口:任务照旧经任务服务开始、在对话里留记录,状态读任务自己的,这里不另存一份。
- * 只认电脑交来的任务(按 [RemoteTask.id]),手机上发起的任务看不到也动不了。
+ * アプリ側のコンピューターに接続されたタスク ポータル: タスクは引き続きタスク サービスを通じて開始され、会話にレコードが残され、ステータスはタスク自身のものを読み取り、ここには別のコピーはありません。
+ * は、コンピューターから送信されたタスクのみを認識します ([RemoteTask.id] を押します)。携帯電話で開始されたタスクは表示または移動できません。
  */
 interface RemoteTasks {
     fun start(goal: String, conversation: String?, requestId: String? = null): StartOutcome
     fun get(id: String): RemoteTask?
-    /** 新的在前。 */
+    /** 新しい順。 */
     fun list(limit: Int): List<RemoteTask>
-    /** 只在任务正等着回答追问时调用;交给任务时返回 true。 */
+    /** は、タスクが質問への回答を待機しているときにのみ呼び出されます。タスクに渡されると true を返します。 */
     fun answer(id: String, text: String): Boolean
-    /** 原子确认消息进入当前任务的收件箱;不能转成新任务。返回消息编号,拒绝为 null。 */
+    /** アトミック確認メッセージが現在のタスクの受信箱に入りました。新しいタスクに変換できません。メッセージ番号を返します。null として拒否されます。 */
     fun steer(id: String, text: String): String?
     fun cancel(id: String): Boolean
 }
 
-/** 任务状态对电脑的说法;只读任务自己的状态,不另记。 */
+/** タスクのステータスがコンピューターにとって何を意味するか。タスク自体のステータスのみが読み取られ、他の情報は記録されません。 */
 object RemoteStatus {
     const val STARTING = "starting"
     const val RUNNING = "running"
@@ -73,7 +73,7 @@ object RemoteStatus {
 
     fun finished(status: String) = status == DONE || status == FAILED || status == CANCELLED
 
-    /** 一个任务此刻的样子:状态、最近的进度说明、等什么、结果。 */
+    /** 現時点でのタスクの外観: ステータス、最近の進行状況の説明、待機内容、および結果。 */
     fun describe(t: RemoteTask): JsonObject = buildJsonObject {
         val s = t.state
         val status = of(s)

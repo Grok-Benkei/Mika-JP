@@ -3,20 +3,20 @@ package com.wangzan101.mika.cap.phone.a11y
 import com.wangzan101.mika.cap.phone.display.FrameMath
 
 /**
- * 认屏上文字(OCR)前后对画面的要求。自绘界面几乎不发无障碍事件,「事件安静」不等于画完:
- * 刚进页面、键盘在升起时认,认到的是过渡帧,或者认完画面已经换了、只好丢掉。
+ * 画面上のテキスト認識 (OCR) の前後の画面要件。自己描画インターフェイスは、アクセシビリティ イベントをほとんど送信しません。 「イベントが静かである」ということは、描画が完了したことを意味するものではありません。
+ * 最初にページに入ってキーボードを上げたときにトランジションフレームを認識していたか、認識後に画面が切り替わっていたので破棄する必要がありました。
  *
- * - 认之前等画面停稳:前后两帧相近([FrameMath.differs] 为假),最多等 [STILL_CAP_MS];一直有局部在动(动图头像、光标)也到时就认。
- * - 认完整页变了([FrameMath.pageChanged]):字的位置已经对不上,按新的一页再认一次,最多 [ATTEMPTS] 次;局部变化不影响字的位置,照用。
+ * - 認識する前に画面が安定するまで待ちます。前後の 2 つのフレームは似ています ([FrameMath.differs] は false)。最大でも [STILL_CAP_MS] まで待ちます。常に動いている部分（アニメーション化されたアバター、カーソル）がある場合は、それを認識します。
+ * - ページ全体が変更されたことを認識します ([FrameMath.pageChanged]): 文字の位置が一致しなくなりました。新しいページを押して、最大 [ATTEMPTS] 回再認識します。ローカルな変更は文字の位置に影響を与えないので、そのまま使用してください。
  *
- * 时钟、等待、取帧都由调用方注入,便于在 JVM 上测。
+ * クロック、待機、およびフレームのフェッチはすべて呼び出し元によって挿入されるため、JVM でのテストが簡単になります。
  */
 internal object StillFrameRead {
     const val POLL_MS = 120L
     const val STILL_CAP_MS = 1_200L
     const val ATTEMPTS = 2
 
-    /** [recognize] 认当前一帧;它给 null(没有画面)时直接返回 null。每次都整页变了也返回 null。 */
+    /** [recognize] は現在のフレームを認識します。 null (画像なし) の場合は、null を直接返します。ページ全体が変更されるたびに、null が返されます。 */
     suspend fun <T : Any> read(now: () -> Long, sleep: suspend (Long) -> Unit, frame: () -> IntArray?, recognize: suspend () -> T?): T? {
         repeat(ATTEMPTS) {
             awaitStill(now, sleep, frame)
@@ -27,7 +27,7 @@ internal object StillFrameRead {
         return null
     }
 
-    /** 等到前后两帧相近;到时限还在动返回 false。没有画面时不等。 */
+    /** 前後の 2 つのフレームが類似するまで待ちます。制限時間に達したときにまだ動いている場合は false を返します。画像がない場合は待ちません。 */
     suspend fun awaitStill(now: () -> Long, sleep: suspend (Long) -> Unit, frame: () -> IntArray?): Boolean {
         val deadline = now() + STILL_CAP_MS
         var prev = frame() ?: return true

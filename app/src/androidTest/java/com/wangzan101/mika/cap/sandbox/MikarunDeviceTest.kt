@@ -19,8 +19,8 @@ import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 /**
- * 启动器 mikarun 的真机用例:退出码、超时、断网、清场(脱离父进程的后代、Mika 被杀)。
- * 根文件系统与 SandboxSmokeTest 共用。
+ * ランチャー mikarun の実機使用例: 終了コード、タイムアウト、ネットワーク切断、クリーンアップ (親プロセスの子孫が分離され、Mika が強制終了)。
+ * ルート ファイル システムは SandboxSmokeTest と共有されます。
  */
 @RunWith(AndroidJUnit4::class)
 class MikarunDeviceTest {
@@ -51,7 +51,7 @@ class MikarunDeviceTest {
     fun parentDeathKillsWholeTree() {
         val marker = "1002"
         val inner = (launcher("--timeout", "600") + proot("/bin/sleep", marker)).joinToString(" ") { shQuote(it) }
-        // 「假父进程」:先报自己的 PID,再在后台起启动器并等它
+        // 「偽の親プロセス」: 最初に自身の PID を報告し、次にバックグラウンドでランチャーを起動してそれを待ちます。
         val p = start(listOf("/system/bin/sh", "-c", "echo \$\$; $inner & wait"))
         try {
             val fakeParent = p.inputStream.bufferedReader().readLine().trim().toInt()
@@ -82,7 +82,7 @@ class MikarunDeviceTest {
                 val args = cmdline(it)
                 args.firstOrNull()?.endsWith("libmikarun.so") == true && script in args
             }
-            // 启动器来不及清场:靠 PRoot 的 PDEATHSIG 与 PTRACE_O_EXITKILL 带走全部沙箱进程
+            // ランチャーがクリーンアップするには遅すぎます: PRoot の PDEATHSIG と PTRACE_O_EXITKILL を利用してすべてのサンドボックス プロセスを削除します
             Os.kill(launcherPid, OsConstants.SIGKILL)
             assertEquals("leftover sleep processes", emptyList<Int>(), awaitGone(marker, 3_000))
         } finally {
@@ -99,8 +99,8 @@ class MikarunDeviceTest {
 
     @Test
     fun netOffAllowsUnixSocket() {
-        // busybox 的 nc 不支持 AF_UNIX;改用 syslogd(在 /dev/log 上 bind)与 logger(connect)互通。
-        // /dev/log 绑到缓存目录里的一个文件,syslogd 会把它换成套接字。
+        // Busybox の NC は AF_UNIX をサポートしていません。代わりに syslogd (/dev/log にバインド) を使用してロガーと通信 (接続) します。
+        // /dev/log はキャッシュ ディレクトリ内のファイルにバインドされており、syslogd はそれをソケットに置き換えます。
         val devLog = File(SandboxSmokeTest.prootTmp.parentFile, "mikarun-test-devlog").apply { delete(); writeText("") }
         val script = "syslogd -n -O /tmp/mikarun-unix.log & sleep 1; logger -t mikaprobe hello-unix; sleep 1; " +
             "kill \$!; cat /tmp/mikarun-unix.log; rm -f /tmp/mikarun-unix.log"
@@ -180,7 +180,7 @@ class MikarunDeviceTest {
         return Result(p.exitValue(), out, elapsedMs)
     }
 
-    /** 本 App 身份能看到的、命令行参数里有一项恰好等于 marker 的进程。 */
+    /** このアプリの正体は、コマンドラインパラメータにマーカーと全く同じ処理があることがわかります。 */
     private fun findProcesses(marker: String): List<Int> =
         File("/proc").listFiles().orEmpty().mapNotNull { dir ->
             dir.name.toIntOrNull()?.takeIf { cmdline(it).contains(marker) }

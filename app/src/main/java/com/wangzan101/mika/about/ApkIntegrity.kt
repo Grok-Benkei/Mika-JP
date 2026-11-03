@@ -4,21 +4,21 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.io.File
 import java.security.MessageDigest
 
-/** 更新包没通过校验时为什么拒绝;界面按这个给出不同的说明。 */
+/** 更新パッケージが検証に失敗すると拒否されるのはなぜですか?インターフェイスはこれに基づいてさまざまな指示を与えます。 */
 class ApkRejected(val reason: Reason) : Exception(reason.name) {
     enum class Reason {
-        /** 大小、SHA-256 对不上,或者根本读不出安装包。 */
+        /** サイズと SHA-256 が一致していないか、インストール パッケージをまったく読み取ることができません。 */
         Corrupt,
-        /** 不是 Mika,或者版本不比已装的新。 */
+        /** はMikaではないか、バージョンがインストールされているものより新しくありません。 */
         NotNewer,
-        /** 签名证书和已装的 Mika 不同。 */
+        /** 署名証明書は、インストールされているミカとは異なります。 */
         Signer,
     }
 }
 
 /**
- * 下载地址只接受官方仓库的 HTTPS 发布附件。之后的跳转(到 GitHub 的附件存储)由系统下载服务处理、我们管不到,
- * 所以下载完的文件一律再验:大小与 SHA-256(发布元数据给了才验)、包名、版本号、签名证书。
+ * ダウンロード アドレスは、公式ウェアハウスからの HTTPS リリース添付ファイルのみを受け入れます。それ以降の (GitHub の添付ファイル ストレージへの) ジャンプはシステム ダウンロード サービスによって処理され、当社の制御の範囲を超えています。
+ * したがって、ダウンロードされたすべてのファイルは、サイズと SHA-256 (検証のためにリリース メタデータが提供されます)、パッケージ名、バージョン番号、および署名証明書を再検証する必要があります。
  */
 internal object ApkIntegrity {
     private val official = "${MikaLinks.RELEASES}/download/".toHttpUrl()
@@ -31,7 +31,7 @@ internal object ApkIntegrity {
         require(parsed.encodedPath.endsWith(".apk", ignoreCase = true))
     }
 
-    /** 给了摘要就必须是 sha256 且对得上;别的写法也算对不上,不放过。 */
+    /** 要約が指定されている場合、それは sha256 内に存在し、一貫性がなければなりません。他の書き方は一貫性がないとみなされるため、これを手放しません。 */
     fun verify(file: File, size: Long?, digest: String?) {
         corruptUnless(file.isFile && file.length() > 0)
         if (size != null) corruptUnless(file.length() == size)
@@ -42,8 +42,8 @@ internal object ApkIntegrity {
     }
 
     /**
-     * 新包的签名证书(各证书 SHA-256)要和已装的一致;新包轮换过签名时,已装的证书要在它的签名历史里。
-     * 系统安装器也会拦,这里提前拦下是为了给出说得清的提示。
+     * 新しいパッケージの署名証明書 (各証明書 SHA-256) は、インストールされているものと一致している必要があります。新しいパッケージが署名のためにローテーションされるとき、インストールされた証明書がその署名履歴に存在する必要があります。
+     * システム インストーラーもブロックされます。事前にブロックする目的は、明確なヒントを提供することです。
      */
     fun requireSameSigner(installed: Set<String>, archive: Set<String>, archiveHistory: Set<String>) {
         if (installed.isEmpty() || archive.isEmpty()) throw ApkRejected(ApkRejected.Reason.Signer)

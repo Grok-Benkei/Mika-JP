@@ -25,10 +25,10 @@ import org.junit.runner.RunWith
 import com.wangzan101.mika.shell.IMikaShell
 
 /**
- * 真机测试:内置助手经无线调试起来、交接 Binder、在自己的虚拟屏上注入点击,解绑后助手留着、再绑定直接可用。
- * 前提:安卓 12+,无线调试开着。配对二选一:
- * - 带 `-e pairingCode <6 位码>`(可加 `-e pairingPort <端口>`),此时系统的「使用配对码配对」窗口要开着;
- * - 已经用 Mika 的钥匙配对过:带 `-e assumePaired true`。
+ * 実機テスト: 内蔵アシスタントがワイヤレスでデバッグされ、Binder に渡されて、独自の仮想画面にクリックが挿入されます。バインドを解除した後もアシスタントは残り、再バインド後に直接使用できます。
+ * 前提条件: Android 12 以降、ワイヤレス デバッグがオンになっています。 2 つのペアのうち 1 つを選択します。
+ * - `-e pairingCode <6 位码>` (`-e pairingPort <端口>` を追加可能) では、この時点でシステムの「ペアリング コードを使用したペアリング」ウィンドウが開いているはずです。
+ * - すでにミカのキーとペアリングされています: `-e assumePaired true`。
  */
 @RunWith(AndroidJUnit4::class)
 class BuiltinHelperDeviceTest {
@@ -84,14 +84,14 @@ class BuiltinHelperDeviceTest {
             assertNotNull("display $displayId not visible", dm.getDisplay(displayId))
             assertTrue("injectTap", bound.injectTap(displayId, 100, 100))
 
-            // 解绑:屏被撤掉,和服务结束一样;助手进程和它的 Binder 还在
+            // バインド解除: サービスが終了したのと同じように、画面が削除されます。アシスタントプロセスとそのバインダーはまだ存在します
             main.runOnMainSync { conn.unbind() }
             assertNull(conn.shell.value)
             assertTrue("display not released on unbind", poll(5_000) { dm.getDisplay(displayId) == null })
             assertTrue("helper died on unbind", shell.asBinder().pingBinder())
             assertSame(shell, phone.hub.shell.value)
 
-            // 再绑定:直接拿到同一个助手,还能接着用
+            // の再バインド: 同じアシスタントを直接取得し、引き続き使用します
             main.runOnMainSync { conn.bind() }
             val again = runBlocking { withTimeout(5_000) { conn.shell.filterNotNull().first() } }
             assertSame(shell, again)

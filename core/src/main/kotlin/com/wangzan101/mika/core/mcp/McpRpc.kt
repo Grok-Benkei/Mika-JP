@@ -19,15 +19,15 @@ import kotlinx.serialization.json.putJsonObject
 import java.util.Base64
 
 /**
- * MCP 的 JSON-RPC 处理(Streamable HTTP 传输,只回单个 JSON,不开 SSE 流)。两代协议都认:
- * 新一代每个请求自带版本和客户端能力(`_meta` 里的 `io.modelcontextprotocol/…`,并在 HTTP 头里重复一遍,两边要一致),
- * 没有握手和会话;老一代先 `initialize` 握手。服务端不发请求、不发通知,也不发会话编号,所以老一代也是无状态的。
- * 进到这里的请求已经过了 [RemoteAccess](令牌、来源、限流、路径)。
+ * MCP の JSON-RPC 処理 (ストリーミング可能な HTTP 送信、単一の JSON のみを返し、SSE ストリームは開きません)。どちらの世代の協定でも次のことが認識されています。 新世代の
+ * の各リクエストには、独自のバージョンとクライアント機能が付属します (`_meta` の `io.modelcontextprotocol/…`、および HTTP ヘッダーで繰り返され、両側が一貫している必要があります)。
+ * にはハンドシェイクとセッションがありません。古い世代では、最初に `initialize` ハンドシェイクが行われます。サーバーはリクエスト、通知、またはセッション番号を送信しないため、古い世代もステートレスです。
+ * ここに入力されたリクエストは [RemoteAccess] (トークン、ソース、電流制限、パス) を渡しました。
  */
 class McpRpc(
     private val tools: McpTaskTools,
     private val serverVersion: String,
-    /** 每个过了门口、能读出来的请求:对方说自己是哪个客户端(没说时为空)。 */
+    /** ドアを通過した後に読み取ることができるすべてのリクエスト: 相手は、それがどのクライアントであるかを伝えます (指定されていない場合は空です)。 */
     private val onRequest: (remote: java.net.InetAddress, clientName: String?) -> Unit = { _, _ -> },
 ) {
     fun handle(req: HttpRequest): HttpResponse {
@@ -45,7 +45,7 @@ class McpRpc(
         if (msg !is JsonObject || (msg["jsonrpc"] as? JsonPrimitive)?.contentOrNull != "2.0") return error(400, null, INVALID_REQUEST, "Not a JSON-RPC 2.0 message")
         val method = (msg["method"] as? JsonPrimitive)?.takeIf { it.isString }?.content
         val id = msg["id"]
-        // 客户端发来的回应(我们不发请求,不会有)和通知:收下,不回内容
+        // クライアントからの応答 (リクエストは送信されません。リクエストは送信されません) と通知: 受け入れ、コンテンツは返されません
         if (method == null) return if ("result" in msg || "error" in msg) HttpResponse.empty(202) else error(400, null, INVALID_REQUEST, "Missing method")
         if (id == null) {
             onRequest(req.remote, null)
@@ -65,7 +65,7 @@ class McpRpc(
         else legacy(req, id, method, params)
     }
 
-    /** 新一代:版本、方法、工具名在头里各写一遍,和正文对不上就拒绝;不认的版本列出认的。 */
+    /** 新世代：ヘッダーにバージョン、メソッド、ツール名をそれぞれ記述します。テキストと一致しない場合は拒否します。認識されない場合は、認識されたバージョンをリストします。 */
     private fun modern(req: HttpRequest, id: JsonElement, method: String, params: JsonObject, meta: JsonObject, version: String): HttpResponse {
         val headerVersion = req.header("mcp-protocol-version")
         if (headerVersion == null) return error(400, id, HEADER_MISMATCH, "Missing MCP-Protocol-Version header")
@@ -107,11 +107,11 @@ class McpRpc(
         return ok(id, complete)
     }
 
-    /** 老一代:先握手(选双方都认的版本),之后照常调用;不发会话编号。 */
+    /** 旧世代: 最初に握手し (双方が認識するバージョンを選択)、その後通常どおり電話をかけます。セッション番号は送信されません。 */
     private fun legacy(req: HttpRequest, id: JsonElement, method: String, params: JsonObject): HttpResponse {
         val headerVersion = req.header("mcp-protocol-version")
         if (headerVersion != null && method != "initialize" && headerVersion !in LEGACY_VERSIONS) {
-            // 头里写的是新一代的版本,正文却没带新一代必有的 _meta
+            // ヘッダーに書かれているのは新世代バージョンですが、テキストには新世代必須バージョンが含まれていません _meta
             return if (headerVersion in MODERN_VERSIONS) error(400, id, INVALID_PARAMS, "Missing _meta.$META_VERSION")
             else unsupported(id, headerVersion)
         }
@@ -145,7 +145,7 @@ class McpRpc(
         data class Bad(val message: String) : Call
     }
 
-    /** 工具名不认得、参数不是对象:协议错误。参数内容不对、任务找不到:工具执行出错(isError),交给对面的模型看着改。 */
+    /** ツール名が認識されず、パラメーターはオブジェクトではありません: プロトコル エラー。パラメーターの内容が正しくないため、タスクが見つかりません: ツール実行エラー (isError)。修正は相手モデルに任せてください。 */
     private fun callTool(params: JsonObject): Call {
         val name = (params["name"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return Call.Bad("params.name must be a string")
         if (!tools.has(name)) return Call.Bad("Unknown tool: $name")
@@ -196,12 +196,12 @@ class McpRpc(
         const val PATH = "/mcp"
         const val MODERN = "2026-07-28"
         val MODERN_VERSIONS = listOf(MODERN)
-        /** 新的在前;握手时对方要的不认就给第一个。 */
+        /** 新しい順;握手の際、相手が握手を拒否した場合は、先に握手した人に渡します。 */
         val LEGACY_VERSIONS = listOf("2025-11-25", "2025-06-18", "2025-03-26")
 
         /**
-         * 新一代要求这些方法的完整结果带缓存提示(`ttlMs`、`cacheScope`),缺了客户端会拒收整个结果。
-         * 工具列表要看这台手机接没接设备能力,不是人人一样,所以只许同一令牌复用(private),新鲜 5 分钟。
+         * 新しい世代では、これらのメソッドの完全な結果にキャッシュ ヒント (`ttlMs`、`cacheScope`) が必要です。これらがないと、クライアントは結果全体を拒否します。
+         * ツール リストは、電話機のデバイスへの接続機能によって異なります。誰もが同じではないため、5 分間は同じトークンのみが再利用 (プライベート) できます。
          */
         val CACHEABLE = setOf("server/discover", "tools/list")
         const val LIST_TTL_MS = 300_000L
@@ -230,14 +230,14 @@ class McpRpc(
             putJsonObject("error") { put("code", code); put("message", message) }
         }.toString())
 
-        /** 门口挡下的请求:HTTP 状态码说明白,正文是不带 id 的 JSON-RPC 错误。 */
+        /** リクエストがドアでブロックされました: HTTP ステータス コードはクリアで、テキストは ID のない JSON-RPC エラーです。 */
         fun transportError(status: Int, message: String, headers: Map<String, String> = emptyMap()): HttpResponse =
             HttpResponse.json(status, buildJsonObject {
                 put("jsonrpc", "2.0")
                 putJsonObject("error") { put("code", INVALID_REQUEST); put("message", message) }
             }.toString(), headers)
 
-        /** 头里放不下的值写成 `=?base64?…?=`,比较前先解开。 */
+        /** 頭に収まりきらない値は `=?base64?…?=` と表記されます。比較する前にロックを解除してください。 */
         fun decodeHeader(v: String): String? =
             if (v.startsWith("=?base64?") && v.endsWith("?=") && v.length >= 11) {
                 runCatching { String(Base64.getDecoder().decode(v.substring(9, v.length - 2)), Charsets.UTF_8) }.getOrNull()

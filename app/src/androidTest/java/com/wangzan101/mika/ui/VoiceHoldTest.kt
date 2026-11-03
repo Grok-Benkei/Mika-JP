@@ -35,14 +35,14 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 对话输入栏按住说话:长按输入框浮起「在听」卡片,松开后字接在输入框里;上滑取消时什么都不填。用假的语音来源,不用麦克风。 */
+/** 長押ししてダイアログ入力フィールドで話します。入力ボックスを長押しして「リスニング」カードを浮かせ、放すと単語が入力ボックスに接続されます。上にスライドしてキャンセルし、何も入力しないでください。マイクを使わずに偽の音声ソースを使用します。 */
 @RunWith(AndroidJUnit4::class)
 class VoiceHoldTest {
     @get:Rule(order = Int.MIN_VALUE) val chinese = ChineseUi()
 
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
-    /** 假会话:事件由测试喂;记下松开、取消的次数。 */
+    /** 偽のセッション: イベントはテストによって供給されます。リリース数とキャンセル数を記録します。 */
     private class FakeSession : SpeechSession {
         val out = Channel<SpeechEvent>(Channel.UNLIMITED)
         override val events: Flow<SpeechEvent> = out.receiveAsFlow()
@@ -88,7 +88,7 @@ class VoiceHoldTest {
         waitTag("voice-listen")
         val session = voice.sessions.single()
         session.out.trySend(SpeechEvent.Partial("订明天", "的票"))
-        // 按满半秒以上才不算误触
+        // 0.5 秒以上押した場合は、誤ってタッチしたとはみなされません。
         Thread.sleep(700)
         compose.onNodeWithTag("composer-field").performTouchInput { up() }
         compose.waitUntil(5_000) { session.released == 1 }
@@ -100,10 +100,10 @@ class VoiceHoldTest {
 
     @Test fun focusedFieldKeepsLongPressForTheSystem() {
         composer("帮我订票")
-        // 点一下:聚焦打字
+        // クリック: 入力に集中します
         compose.onNodeWithTag("composer-field").performClick()
         compose.onNodeWithTag("composer-field").assertIsFocused()
-        // 聚焦后长按是系统的选字、粘贴,不开始听
+        // フォーカスした後、長押ししてもシステムの単語選択と貼り付けとなり、リスニングは開始されません。
         compose.onNodeWithTag("composer-field").performTouchInput { down(center) }
         Thread.sleep(800)
         compose.waitForIdle()
@@ -131,7 +131,7 @@ class VoiceHoldTest {
         compose.onNodeWithTag("composer-field").assertTextEquals("帮我订明天的票")
     }
 
-    /** 已允许录音,识别服务仍报录音出错:弹说明(麦克风总开关、权限管理);别的麦克风起不来照旧只提示一句。 */
+    /** は録音を許可されていますが、認識サービスは依然として録音エラーを報告します。メッセージがポップアップ表示されます (マイク マスター スイッチ、権限管理)。他のマイクをオンにできない場合でも、プロンプトは 1 文だけです。 */
     @Test fun audioErrorExplainsWhereToCheckButClientErrorKeepsTheOldHint() {
         composer()
         fun failWith(why: SpeechFailure) {

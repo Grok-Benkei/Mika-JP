@@ -1,1 +1,1 @@
-Run a shell command in the Linux sandbox (Alpine, /bin/sh -lc) with /workspace as the working directory. Returns exitCode and the output; ok is true only when the exit code is 0 and it did not time out. From your next call on you also get the file tools (read_file, write_file, search_files, share_file, run_bundled_script).
+作業ディレクトリを /workspace として、Linux の実行環境（Alpine、/bin/sh -lc）でシェルコマンドを実行する。exitCode と出力を返す。ok が true になるのは、終了コードが0でタイムアウトしなかった場合だけ。次の呼び出しからは、ファイル関連の手段（read_file、write_file、search_files、share_file、run_bundled_script）も得られる。

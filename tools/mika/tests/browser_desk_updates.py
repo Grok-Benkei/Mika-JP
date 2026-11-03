@@ -32,7 +32,7 @@ def browser_desk(respond, locale="zh-CN"):
             except PlaywrightError as exc:
                 raise unittest.SkipTest(f"Playwright's Chromium is unavailable: {exc}")
             try:
-                # The assertions read the Chinese strings; test_mika_desk checks both languages exist.
+                # 日本語以外のブラウザ設定でも、表示は日本語になる。
                 page = browser.new_page(locale=locale)
                 page.goto(url.geturl())
                 yield page, phone
@@ -80,7 +80,7 @@ class DeskUpdatesTest(unittest.TestCase):
                     return read_tasks([] if location == "older" else tasks, path)
 
                 with browser_desk(respond) as (page, _):
-                    expect(page.locator("#connection-line")).to_have_text("在线")
+                    expect(page.locator("#connection-line")).to_have_text('オンライン')
                     page.locator("#goal").fill("核对本周清单")
                     page.locator("#submit-goal").click()
                     expect(page.locator("#pending-run")).to_be_visible()
@@ -90,7 +90,7 @@ class DeskUpdatesTest(unittest.TestCase):
                         expect(page.locator("#pending-label")).to_contain_text(requests[0]["request_id"])
                         page.locator("#lookup-run").click()
                     if not accepted:
-                        expect(page.locator("#notice")).to_contain_text("暂未查到")
+                        expect(page.locator("#notice")).to_contain_text("見つかりません")
                         page.locator("#retry-run").click()
                     expect(page.locator(".answer")).to_have_text("Recovered")
                     expect(page.locator("#pending-run")).to_be_hidden()
@@ -153,18 +153,18 @@ class DeskUpdatesTest(unittest.TestCase):
             expect(inline).to_be_visible()
             expect(inline).to_be_in_viewport()
             expect(inline).to_contain_text("Missing source")
-            expect(inline).to_contain_text("手机未提供这轮的历史步骤")
+            expect(inline).to_contain_text("過去の手順が返されませんでした")
             expect(page.locator("#thread")).to_contain_text("Second result")
             expect(page.locator("#goal")).to_have_value("continue the first conversation")
-            earlier.get_by_role("button", name="展开要求").click()
+            earlier.get_by_role("button", name='依頼の全文を表示').click()
             expect(inline).to_be_visible()
             newer = page.locator('.turn[data-id="b"]')
-            newer.get_by_role("button", name="查看过程", exact=True).click()
+            newer.get_by_role("button", name='実行の様子を表示', exact=True).click()
             expect(inline).to_be_hidden()
             expect(newer.locator("#process-content")).to_be_visible()
             expect(newer.locator("#process-content")).not_to_contain_text("Missing source")
             expect(earlier.locator(".turn-process")).to_have_attribute("aria-expanded", "false")
-            newer.get_by_role("button", name="收起过程", exact=True).click()
+            newer.get_by_role("button", name='実行の様子を閉じる', exact=True).click()
             expect(newer.locator("#process-content")).to_be_hidden()
             expect(sidebar).to_be_hidden()
             page.locator("#goal").press("Enter")
@@ -260,21 +260,21 @@ class DeskUpdatesTest(unittest.TestCase):
             page.get_by_role("button", name="Monday", exact=True).click()
             expect(page.locator("#goal")).to_have_value("Monday")
             self.assertEqual([], mutations(phone))
-            page.get_by_role("button", name="发送回答", exact=True).click()
-            expect(page.locator("#compose-mode")).to_contain_text("追加要求")
+            page.get_by_role("button", name='回答を送信', exact=True).click()
+            expect(page.locator("#compose-mode")).to_contain_text('追加の依頼')
             page.locator("#goal").fill("only the first page")
             page.locator("#goal").press("Enter")
             expect(page.locator(".extra-input")).to_have_count(2)
             page.locator("#toggle-process").click()
-            expect(page.locator(".turn #process-content")).to_contain_text("已加入任务上下文")
+            expect(page.locator(".turn #process-content")).to_contain_text('タスクに反映済み')
             page.once("dialog", lambda d: d.accept())
-            page.get_by_role("button", name="取消本轮").click()
+            page.get_by_role("button", name='このタスクをキャンセル').click()
             expect(page.locator("#notice")).to_contain_text("已送出取消请求")
-            expect(page.locator(".state[data-tone]")).to_have_text("进行中")
+            expect(page.locator(".state[data-tone]")).to_have_text('実行中')
             task.update(status="cancelled")
             page.locator("#connection-details summary").click()
             page.locator("#refresh").click()
-            expect(page.locator(".state[data-tone]")).to_have_text("已取消")
+            expect(page.locator(".state[data-tone]")).to_have_text('キャンセル済み')
             self.assertEqual(
                 [
                     ("/api/v1/tasks/a/answer", {"text": "Monday"}),
@@ -377,10 +377,10 @@ class DeskUpdatesTest(unittest.TestCase):
             page.locator("#goal").fill("draft")
             page.locator("#connection-details summary").click()
             page.locator("#language").select_option("zh")
-            expect(page.locator("#toggle-process")).to_have_text("查看过程")
+            expect(page.locator("#toggle-process")).to_have_text('実行の様子を表示')
             expect(page.locator("#goal")).to_have_value("draft")
             page.reload()
-            expect(page.locator("#toggle-process")).to_have_text("查看过程")
+            expect(page.locator("#toggle-process")).to_have_text('実行の様子を表示')
             self.assertEqual([], mutations(phone))
 
     def test_switching_language_does_not_add_a_phone_update(self):

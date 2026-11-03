@@ -28,11 +28,11 @@ import org.junit.Test
 import kotlin.random.Random
 
 /**
- * App 里的节奏接在执行入口上:单步和一批里的每一步都在动作之前补足停留,停了多久记成这次调用的等待;
- * 「快」不停;限制浏览快慢的 App 换屏到了上限就不做、报 page_limit,打字照常,用户答话后接着做;停留里轻轻滚过只进运行记录。
+ * アプリのリズムは実行の入り口に接続されています。単一のステップとバッチの各ステップはアクション前の一時停止で構成され、一時停止の継続時間はこの呼び出しの待機時間として記録されます。
+ * 「高速」は停止しません。ブラウジング速度を制限するアプリは、上限に達しても画面を変更せず、page_limit を報告し、通常どおりに入力し、ユーザーの応答後に続行します。滞在中は軽くスクロールして走行記録のみ入力してください。
  */
 class AppDwellTest {
-    /** 一个 App:每点一下换一整屏(六条不同的内容);记下点、打字、轻轻滚了几下。 */
+    /** アプリ: クリックするたびに画面全体 (6 つの異なるコンテンツ) が変化します。クリック数を書き留め、入力し、数回スクロールします。 */
     private class Pages(private val pkg: String = "com.slow") : ScreenPort by FakeScreen() {
         var page = 0
         val calls = mutableListOf<String>()
@@ -65,7 +65,7 @@ class AppDwellTest {
         val ex = executor(t)
         val start = currentTime
         repeat(5) { assertEquals(0L, ex.tap(t).waitMs) }
-        // 屏数也不设上限
+        // 画面数の上限はありません
         assertEquals(5, screen.page)
         assertEquals(0L, currentTime - start)
     }
@@ -76,10 +76,10 @@ class AppDwellTest {
         assertEquals(0L, ex.tap(t).waitMs)
         val before = currentTime
         val second = ex.tap(t)
-        // 上一下换了一屏:新的一屏的范围(标准)
+        // 変更された前画面：新画面の範囲（標準）
         assertTrue("${second.waitMs}", second.waitMs in AppPacing.Limits().newScreenMs.first..AppPacing.Limits().maxDwellMs)
         assertTrue(currentTime - before >= second.waitMs)
-        // 一批里的每一步同样经执行入口停
+        // バッチ内の各ステップは実行エントリによっても停止されます
         val sid = t.execute(Part.ToolCall("o", "phone_observe", "{}")).content["snapshotId"]!!.jsonPrimitive.content
         val typed = ex.run(Part.ToolCall("b1", "phone_type_text", """{"ref":"@e1","snapshotId":"$sid","text":"你好"}"""), Origin.Batch(2)).execution()
         assertTrue("${typed.waitMs}", typed.waitMs > 0)
@@ -90,15 +90,15 @@ class AppDwellTest {
         val t = tools(screen, AppPacing(Random(1), screenCap = 3))
         val ex = executor(t)
         repeat(3) { assertEquals(JsonPrimitive(true), ex.tap(t).content["ok"]) }
-        // 已换了三屏:换屏的动作不做,说明为什么停
+        // は 3 つの画面を変更しました。画面を変更するアクションが機能しません。停止する理由を説明します。
         val stopped = ex.tap(t)
         assertEquals("page_limit", stopped.error())
         assertTrue(stopped.content["message"].toString(), stopped.content["message"].toString().contains("ask_user"))
         assertEquals(3, screen.page)
-        // 打字照常
+        // いつものように入力します
         val sid = t.execute(Part.ToolCall("o", "phone_observe", "{}")).content["snapshotId"]!!.jsonPrimitive.content
         assertEquals(JsonPrimitive(true), ex.run(Part.ToolCall("y", "phone_type_text", """{"ref":"@e1","snapshotId":"$sid","text":"a"}"""), Origin.Model(1)).execution().content["ok"])
-        // 用户答过话:接着做
+        // ユーザーは次のように答えました: どうぞ、やってください
         t.noteUserAnswer("还要接着看吗?", "继续")
         assertEquals(JsonPrimitive(true), ex.tap(t).content["ok"])
         assertEquals(4, screen.page)
@@ -116,10 +116,10 @@ class AppDwellTest {
         val t = tools(screen, AppPacing.human(Random(5)), IdleScroll(Random(6)))
         val ex = executor(t)
         ex.tap(t)
-        // 点按坐标或编号的动作之前不滚
+        // 座標または数値をクリックする前にスクロールしません
         ex.tap(t)
         assertTrue(screen.calls.none { it == "idle" })
-        // 返回不按屏上的位置:新的一屏上停得够久,停留里轻轻滚几下,只进运行记录
+        // 押さずに画面上の位置に戻ります: 新しい画面で十分な時間停止し、滞在中に数回スクロールし、走行記録のみを入力します
         val back = ex.run(Part.ToolCall("k", "phone_back", "{}"), Origin.Model(1)).execution()
         val idled = screen.calls.count { it == "idle" }
         assertTrue("$idled", idled > 0)

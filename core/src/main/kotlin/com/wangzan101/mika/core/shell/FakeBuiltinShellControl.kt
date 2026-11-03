@@ -2,7 +2,7 @@ package com.wangzan101.mika.core.shell
 
 import kotlinx.coroutines.flow.MutableStateFlow
 
-/** 测试和还没接上真实现时用:记下调用,状态由调用方摆。[pairingResult] 是 [startPairing] 之后的状态。 */
+/** テストするとき、まだ実際の実装に接続していないときに使用します。呼び出しを書き留めます。ステータスは呼び出し元によって設定されます。 [pairingResult] は [startPairing] 後の状態です。 */
 class FakeBuiltinShellControl(
     initial: BuiltinShellStatus = BuiltinShellStatus.NotPaired,
     var pairingResult: BuiltinShellStatus = BuiltinShellStatus.Running,

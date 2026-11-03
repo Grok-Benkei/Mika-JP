@@ -21,7 +21,7 @@ class RecoverySettingsTest {
     }
 
     @Test fun oldInstallWithoutChoiceKeysCountsAsUntouched() {
-        // 旧版本只写「已生效」:false 分不出是没动过还是关掉过,一律当没动过,连接可用时按默认打开
+        // 古いバージョンでは、「有効」: false のみが書き込まれます。何も操作されていないのか、オフになっているのかわかりません。未加工のまま扱いとさせていただきます。接続が利用可能な場合、デフォルトで接続が開かれます。
         val prefs = MemoryPrefs()
         prefs.edit().putBoolean("accessibility", true).putBoolean("battery_whitelist", false)
             .putBoolean("restore_after_reboot", false).commit()
@@ -35,7 +35,7 @@ class RecoverySettingsTest {
         val saved = RecoveryConsent(applied = setOf(a11y, restore), declined = setOf(battery))
         RecoverySettings(prefs).save(saved)
         assertEquals(saved, RecoverySettings(prefs).consent.value)
-        // 亲手关掉后又打开:回到「要」
+        // がオフにしてから再度オンにしました: 「欲しい」に戻りました
         RecoverySettings(prefs).save(saved.chose(battery, true))
         assertTrue(RecoverySettings(prefs).consent.value.wants(battery))
     }
@@ -45,7 +45,7 @@ class RecoverySettingsTest {
         val s = RecoverySettings(prefs)
         s.save(RecoveryConsent(applied = setOf(restore)))
         s.recordRestore(RestoreOutcome.NotRecovered)
-        // 别的项变了:开机结果仍然有效
+        // その他の項目が変更されました: ブート結果はまだ有効です
         s.save(RecoveryConsent(applied = setOf(restore), declined = setOf(battery)))
         assertEquals(RestoreOutcome.NotRecovered, RecoverySettings(prefs).lastRestore.value)
         s.save(RecoveryConsent(declined = setOf(battery)))
@@ -53,7 +53,7 @@ class RecoverySettingsTest {
         assertNull(RecoverySettings(prefs).lastRestore.value)
     }
 
-    /** 内存里的设置,只够这几项读写。 */
+    /** メモリ内の設定は、これらの項目の読み取りと書き込みにのみ十分です。 */
     private class MemoryPrefs : SharedPreferences {
         private val values = HashMap<String, Any?>()
 

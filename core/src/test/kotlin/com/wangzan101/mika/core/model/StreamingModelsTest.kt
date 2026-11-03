@@ -42,7 +42,7 @@ class StreamingModelsTest {
         assertTrue(server.takeRequest().body.readUtf8().contains("\"stream\":true"))
     }
 
-    /** 流式里思考在 `reasoning` 字段、或 `content` 是分块数组的,都认出来,记下收到的位置。 */
+    /** について考えると、`reasoning` フィールドまたは `content` はブロック配列です。両方を認識し、受信した位置を記録します。 */
     @Test fun openAiStreamReadsReasoningFieldAndChunkedContent() = runTest {
         val model = OpenAiCompatModel(server.url("/v1").toString().trimEnd('/'), "k", "m", caps, OkHttpClient())
         val endpoint = server.url("/v1/chat/completions").toString()
@@ -87,8 +87,8 @@ class StreamingModelsTest {
     }
 
     /**
-     * message_delta 里的用量是累计值,输入和缓存也可能在这里更新(第一组数值取自接口文档里的流式示例):带了的字段以它为准,
-     * 没带的、值为 null 或不是整数的沿用 message_start 的;message_start 全是 0 或没给用量时,按 message_delta 记。
+     * message_delta の使用量は累積値です。入力とキャッシュもここで更新できます (値の最初のセットはインターフェイス ドキュメントのストリーミング例から取得されます)。含まれるフィールドはその対象となります。
+     * が含まれていない場合、値が null または整数でない場合は、message_start が使用されます。 message_start がすべて 0 であるか、使用法が指定されていない場合は、message_delta が使用されます。
      */
     @Test fun anthropicStreamTakesCumulativeUsageFromMessageDelta() = runTest {
         fun reply(start: String, delta: String) = stream(
@@ -135,11 +135,11 @@ class StreamingModelsTest {
     private fun anthropic() = AnthropicModel(server.url("/").toString().trimEnd('/'), "k", "m", caps, OkHttpClient())
     private fun gemini() = GeminiModel(server.url("/").toString().trimEnd('/'), "k", "m", caps, OkHttpClient())
 
-    /** 没收尾就断开的流不能当成回答,而是可重试的一时故障(和接口配置无关)。 */
+    /** 終了前に切断されたストリームは応答とみなされませんが、再試行できる一時的な失敗と見なされます (インターフェイスの構成とは関係ありません)。 */
     private suspend fun assertCut(model: StreamingChatModel) {
         try {
             model.completeStreaming("s", user, emptyList()) {}
-            throw AssertionError("应拒绝不完整响应")
+            throw AssertionError("不完全な応答は拒否する必要があります")
         } catch (e: ModelError.StreamCut) {
             assertTrue(RetryPolicy.transient(e))
         }
@@ -164,24 +164,24 @@ class StreamingModelsTest {
         assertCut(gemini())
     }
 
-    /** 事件流一帧都没来就断了(比如长时间思考时被网关掐断),同样是可重试的断流。 */
+    /** イベント ストリームは 1 フレームも来る前に中断されました (たとえば、長時間考えているときにゲートウェイによって中断されました)。これは再試行可能な中断でもあります。 */
     @Test fun eventStreamCutBeforeAnyEventIsRetryable() = runTest {
         server.enqueue(stream())
         assertCut(openAi())
     }
 
-    /** 成功响应却既不是事件流、也没有任何事件(地址指到了网页):是配置问题,不重试。 */
+    /** は正常に応答しましたが、それはイベント ストリームでもイベントでもありませんでした (アドレスは Web ページを指していました)。これは構成の問題であり、再試行する必要はありませんでした。 */
     @Test fun nonStreamBodyWithoutEventsIsBadResponse() = runTest {
         server.enqueue(MockResponse().setHeader("Content-Type", "text/html").setBody("<html>hi</html>"))
         try {
             openAi().completeStreaming("s", user, emptyList()) {}
-            throw AssertionError("应拒绝非流式内容")
+            throw AssertionError("ストリーミングではない内容は拒否する必要があります")
         } catch (e: ModelError.BadResponse) {
             assertTrue(!RetryPolicy.transient(e))
         }
     }
 
-    /** 收到结束原因就算完整:有的端点不发最后的结束标记。 */
+    /** 終了理由を受信して​​も完了です。一部のエンドポイントは最終終了マークを送信しません。 */
     @Test fun openAiFinishReasonWithoutDoneIsComplete() = runTest {
         server.enqueue(stream("""{"choices":[{"delta":{"content":"好了"},"finish_reason":"stop"}]}"""))
         val reply = openAi().completeStreaming("s", user, emptyList()) {}

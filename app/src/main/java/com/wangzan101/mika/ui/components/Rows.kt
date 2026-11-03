@@ -44,13 +44,13 @@ import com.wangzan101.mika.ui.theme.MikaSize
 import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 
-/** 分组小标题:13 / 500,辅助文字色。 */
+/** グループサブタイトル: 13 / 500、補助文字色。 */
 @Composable
 fun GroupLabel(text: String, modifier: Modifier = Modifier) {
     Text(text, modifier.padding(top = 8.dp, bottom = 8.dp), style = MikaType.Label, color = MikaTheme.colors.ink3)
 }
 
-/** 分组下面的说明,和卡片里的文字对齐。 */
+/** 以下の指示をグループ化し、カード内のテキストと合わせます。 */
 @Composable
 fun FooterNote(text: String, modifier: Modifier = Modifier, color: Color = Color.Unspecified) {
     Text(
@@ -59,7 +59,7 @@ fun FooterNote(text: String, modifier: Modifier = Modifier, color: Color = Color
     )
 }
 
-/** 图标块的底色和图形色。默认中性;只有状态才上色。 */
+/** アイコン ブロックの背景色とグラフィックの色。デフォルトはニュートラルです。ステータスのみ色が付きます。 */
 enum class TileTone {
     Neutral, Accent, Ok, Warn, Bad;
 
@@ -72,7 +72,7 @@ enum class TileTone {
     }
 }
 
-/** 行左边的图标块:30dp、圆角 9,里面图形 18dp。 */
+/** 行の左側のアイコン ブロック: 30 dp、丸い角 9、内側のグラフィック 18 dp。 */
 @Composable
 fun IconTile(icon: ImageVector, tone: TileTone = TileTone.Neutral) {
     val (bg, fg) = tone.colors(MikaTheme.colors)
@@ -81,7 +81,7 @@ fun IconTile(icon: ImageVector, tone: TileTone = TileTone.Neutral) {
     }
 }
 
-/** 行与行之间的分隔线,从 [start] 画到右边;分组首行([first])不画。 */
+/** 行間の分割線は、[start] から右に引かれます。グループの最初の行 ([first]) は描画されません。 */
 private fun Modifier.topHairline(first: Boolean, start: Dp, color: Color): Modifier =
     if (first) this
     else drawBehind {
@@ -89,14 +89,14 @@ private fun Modifier.topHairline(first: Boolean, start: Dp, color: Color): Modif
         drawLine(color, Offset(start.toPx(), y), Offset(size.width, y), strokeWidth = 0.5.dp.toPx())
     }
 
-/** 有图标块时文字从这里开始:左边距 16 + 图标块 30 + 间距 14。 */
+/** アイコン ブロックがある場合、テキストはここから始まります: 左マージン 16 + アイコン ブロック 30 + スペース 14。 */
 private val TextStartWithIcon = 60.dp
 private val TextStartPlain = 16.dp
 
 /**
- * 列表行:左边图标块可选,中间标题和说明,右边是 [trailing](值、胶囊、开关、箭头)。
- * [detail] 是说明下面再一行的小字(如「上次结果」),颜色由 [detailColor] 定。
- * [first] 为分组首行时不画上分隔线;[onClick] 为空时整行不可点。
+ * リスト行: 左側にオプションのアイコン ブロック、中央にタイトルと説明、右側に [trailing] (値、カプセル、スイッチ、矢印)。
+ * [detail] は次の行を説明する小さなテキスト (「最後の結果」など) で、色は [detailColor] によって決まります。
+ * [first] がグループの最初の行である場合、分割線は描画されません。 [onClick] が空の場合、行全体をクリックすることはできません。
  */
 @Composable
 fun ListRow(
@@ -133,7 +133,7 @@ fun ListRow(
 
 enum class ValueTone { Plain, Ok, Warn, Bad, Link }
 
-/** 行尾的值。 */
+/** 行末の値。 */
 @Composable
 fun RowValue(text: String, tone: ValueTone = ValueTone.Plain) {
     val c = MikaTheme.colors
@@ -151,13 +151,13 @@ fun RowValue(text: String, tone: ValueTone = ValueTone.Plain) {
     )
 }
 
-/** 行尾的小箭头:点进去还有一页。 */
+/** 行の最後にある小さな矢印: クリックすると、別のページが表示されます。 */
 @Composable
 fun RowChevron() {
     Icon(MikaIcons.Chevron, null, Modifier.size(MikaSize.SmallIcon), tint = MikaTheme.colors.ink3)
 }
 
-/** 单选行:左边圆圈,选中时实心强调色。分隔线从文字处开始。 */
+/** 単一選択行: 左側に円が表示され、選択すると単色のアクセント カラーになります。区切り線はテキストから始まります。 */
 @Composable
 fun RadioRow(
     title: String,
@@ -167,7 +167,7 @@ fun RadioRow(
     first: Boolean = false,
     enabled: Boolean = true,
     titleStyle: TextStyle = MikaType.Body,
-    /** 标题下面的附加内容(例如能力小标签)。 */
+    /** タイトルの下の追加コンテンツ (小さな機能ラベルなど)。 */
     below: (@Composable () -> Unit)? = null,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
@@ -204,8 +204,8 @@ private fun RadioMark(selected: Boolean, enabled: Boolean = true) {
 }
 
 /**
- * 卡片里的输入行:左边固定宽的标题,右边单行输入框(空时显示 [placeholder])。
- * [secret] 为真时按密码显示;[trailing] 放在输入框右边(例如「显示」)。
+ * カードの入力行: 左側に固定幅のタイトル、右側に単一行の入力ボックス (空の場合は [placeholder] が表示されます)。
+ * [secret] が true の場合、パスワードに従って表示されます。 [trailing] は入力ボックス (たとえば、「表示」) の右側に配置されます。
  */
 @Composable
 fun InputRow(
@@ -241,7 +241,7 @@ fun InputRow(
     }
 }
 
-/** 卡片里自己排版的块之间的分隔线,从 [start] 画到右边。 */
+/** カード内の自己入力ブロック間の分割線は、[start] から右に引かれます。 */
 @Composable
 fun Hairline(start: Dp = TextStartWithIcon) {
     Box(Modifier.fillMaxWidth().padding(start = start).height(0.5.dp).background(MikaTheme.colors.hair))

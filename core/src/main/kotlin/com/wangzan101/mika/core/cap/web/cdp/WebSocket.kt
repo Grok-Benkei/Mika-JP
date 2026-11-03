@@ -13,8 +13,8 @@ import java.util.Base64
 class WebSocketException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
 /**
- * RFC 6455 客户端,跑在任意 [CdpStream] 上。不协商扩展和子协议。
- * [receive] 只给一个线程调用;写操作内部串行,任何线程都可以发。
+ * RFC 6455 クライアント。任意の [CdpStream] 上で実行されます。拡張機能とサブプロトコルはネゴシエートされません。
+ * [receive] は 1 つのスレッドによってのみ呼び出されます。書き込み操作は内部でシリアル化され、どのスレッドからも送信できます。
  */
 class WebSocketConnection private constructor(
     private val stream: CdpStream,
@@ -27,7 +27,7 @@ class WebSocketConnection private constructor(
     @Volatile private var closeSent = false
     @Volatile private var aborted = false
 
-    /** 对端关闭帧里的状态码和原因;没收到为 null。 */
+    /** ピア終了フレームのステータス コードと理由。受信していない場合は null。 */
     @Volatile var closeCode: Int? = null
         private set
     @Volatile var closeReason: String = ""
@@ -39,8 +39,8 @@ class WebSocketConnection private constructor(
     }
 
     /**
-     * 阻塞到下一条完整的数据消息。ping 自动回 pong,分片自动拼接。
-     * 对端发关闭帧时回一个关闭帧并返回 null。
+     * は、次の完全なデータ メッセージまでブロックします。 Ping は自動的に Pong を返し、シャードは自動的に結合されます。
+     * ピアがクローズ フレームを送信すると、クローズ フレームを返し、null を返します。
      */
     fun receive(): String? {
         var assembling: ByteArrayOutputStream? = null
@@ -93,12 +93,12 @@ class WebSocketConnection private constructor(
             if (fin && assembling == null) return payload.toString(Charsets.UTF_8)
             if (assembling == null) assembling = ByteArrayOutputStream(maxOf(payload.size * 2, 1024))
             assembling.write(payload)
-            // ByteArrayOutputStream.toString(Charset) 安卓 13 才有
+            // ByteArrayOutputStream.toString(Charset) Android 13 でのみ利用可能
             if (fin) return String(assembling.toByteArray(), Charsets.UTF_8)
         }
     }
 
-    /** 发关闭帧;之后对端回的关闭帧由 [receive] 收走。只发一次。 */
+    /** はクローズ フレームを送信します。次に、反対側から返されたクローズ フレームが [receive] によって受信されます。送信されたのは 1 回だけです。 */
     fun sendClose(code: Int = CLOSE_NORMAL, reason: String = "") {
         val r = reason.toByteArray(Charsets.UTF_8).let { if (it.size > 123) it.copyOf(123) else it }
         synchronized(writeLock) {
@@ -108,7 +108,7 @@ class WebSocketConnection private constructor(
         }
     }
 
-    /** 直接断开底层流,阻塞中的 [receive] 会抛错。 */
+    /** は基になるストリームを直接切断し、ブロックされた [receive] はエラーをスローします。 */
     fun abort() {
         aborted = true
         runCatching { stream.close() }
@@ -175,7 +175,7 @@ class WebSocketConnection private constructor(
         fun acceptFor(key: String): String =
             Base64.getEncoder().encodeToString(MessageDigest.getInstance("SHA-1").digest((key + GUID).toByteArray(Charsets.US_ASCII)))
 
-        /** 在 [stream] 上做升级握手;失败时关闭流并抛 [WebSocketException]。阻塞。 */
+        /** は [stream] でアップグレード ハンドシェイクを実行します。失敗した場合は、ストリームを閉じて、[WebSocketException] をスローします。ブロック。 */
         fun connect(
             stream: CdpStream,
             path: String,
@@ -188,7 +188,7 @@ class WebSocketConnection private constructor(
                     "Sec-WebSocket-Key: $key\r\nSec-WebSocket-Version: 13\r\n\r\n"
                 stream.output.write(req.toByteArray(Charsets.US_ASCII))
                 stream.output.flush()
-                // 握手后的帧可能已经进了缓冲,之后都从这个缓冲流读
+                // ハンドシェイク後のフレームはバッファリングされている可能性があり、その後このバッファ ストリームから読み取られます。 現時点で
                 val input = stream.input.buffered(64 * 1024)
                 val status = Http.readLine(input) ?: throw WebSocketException("no handshake response")
                 if (status.split(' ').getOrNull(1) != "101") throw WebSocketException("handshake rejected: $status")

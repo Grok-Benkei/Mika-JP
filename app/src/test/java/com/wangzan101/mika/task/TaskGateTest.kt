@@ -40,7 +40,7 @@ class TaskGateTest {
         assertFalse(passed)
         assertEquals(TaskState.Held(TaskGate.LOCKED), reported.last())
 
-        locked.value = LockState.Reading(interactive = true, keyguardLocked = true).locked // 亮屏但还在锁屏界面
+        locked.value = LockState.Reading(interactive = true, keyguardLocked = true).locked // 画面はオンですが、ロック画面のままです。
         runCurrent()
         assertFalse(passed)
         locked.value = LockState.Reading(interactive = true, keyguardLocked = false).locked
@@ -51,7 +51,7 @@ class TaskGateTest {
 
     @Test
     fun movedAwayPausesUntilUserContinuesThenMovesBack() = runTest {
-        gate.resume() // 暂停之前的「继续」不算数
+        gate.resume() // 一時停止前の「続行」はカウントされません
         gate.onTaskMovedAway()
         var passed = false
         launch { gate.pass { reported += it }; passed = true }
@@ -65,13 +65,13 @@ class TaskGateTest {
         assertTrue(passed)
         assertEquals(1, moveBackCalls)
 
-        // 挪回来之后不再暂停
+        // は戻った後に一時停止しなくなりました
         reported.clear()
         gate.pass { reported += it }
         assertEquals(listOf<TaskState?>(null), reported)
     }
 
-    /** 用户在借出的页面上动手:不论哪种屏都停下,点「继续」当场放行;之前的「继续」不算,也不挪任何东西。 */
+    /** ユーザーは、貸し出されたページでアクションを実行します。どのような画面であっても、停止し、「続行」をクリックしてその場で解放します。前の「続行」はカウントされず、何も移動されません。 */
     @Test
     fun userOnPagePausesAnyStepUntilContinue() = runTest {
         gate.onUserOnPage()
@@ -86,7 +86,7 @@ class TaskGateTest {
         assertTrue(passed)
         assertFalse(gate.userOnPagePending)
         assertEquals(0, moveBackCalls)
-        // 还没走到关卡就点了继续:不再停
+        // レベルに到達する前に、「続行: 停止なし」をクリックしました。
         gate.onUserOnPage()
         gate.resume()
         reported.clear()
@@ -120,13 +120,13 @@ class TaskGateTest {
         runCurrent()
         assertEquals(TaskState.Held(TaskGate.paused(TaskGate.SHELL_DOWN)), reported.last())
 
-        gate.resume() // 助手还没恢复:继续无效
+        gate.resume() // アシスタントはまだ復元されていません: 継続は無効です
         runCurrent()
         assertFalse(passed)
 
         shellUp.value = true
         runCurrent()
-        assertFalse(passed) // 恢复了也要等用户点继续
+        assertFalse(passed) // 回復後、ユーザーが [続行] をクリックするまで待つ必要があります。
         gate.resume()
         runCurrent()
         assertTrue(passed)
@@ -136,7 +136,7 @@ class TaskGateTest {
     fun movedAwayMeansOnMainAndNotOnAgentDisplay() {
         assertTrue(DeviceStateWatcher.isMovedAway(agentTop = 5, mainTop = 7, taskId = 7))
         assertFalse(DeviceStateWatcher.isMovedAway(agentTop = 7, mainTop = 3, taskId = 7))
-        // Agent 自己关掉了 App:不在任何屏最上面,不算被拿走
+        // エージェントはアプリを自動的に閉じました。アプリはどの画面の上部にもないため、削除されたものとしてカウントされません。
         assertFalse(DeviceStateWatcher.isMovedAway(agentTop = -1, mainTop = 3, taskId = 7))
         assertFalse(DeviceStateWatcher.isMovedAway(agentTop = -1, mainTop = -1, taskId = -1))
     }
@@ -145,7 +145,7 @@ class TaskGateTest {
     fun continueTappedRightAsPauseIsShownIsNotLost() = runTest {
         gate.onTaskMovedAway()
         var passed = false
-        // 通知一显示「已暂停」用户就点了继续:点击发生在 setWaiting 回调期间
+        // 通知に「一時停止」と表示されるとすぐに、ユーザーは続行するためにクリックします。クリックは setWaiting コールバック中に発生します。
         launch {
             gate.pass { reported += it; if (it is TaskState.Held && moveBackCalls == 0) gate.resume() }
             passed = true
@@ -164,7 +164,7 @@ class TaskGateTest {
 
     @Test
     fun continueTappedAfterMoveDetectedButBeforeGateCounts() = runTest {
-        // 发现被挪走后通知立即显示暂停;用户在 Agent 走到 gate 之前就点了继续
+        // 移動されたことが検出されると、通知にはすぐに一時停止が表示されます。エージェントがゲートに到着する前に、ユーザーは [続行] をクリックします。
         gate.onTaskMovedAway()
         gate.resume()
         gate.pass { reported += it }
@@ -172,7 +172,7 @@ class TaskGateTest {
         assertEquals(null, reported.last())
     }
 
-    /** 网页、沙箱上的步骤不需要内置助手,也不会被挪到主屏:只看锁屏。 */
+    /** Web ページとサンドボックスの手順には組み込みアシスタントは必要なく、ホーム画面には移動されません。ロック画面のみが表示されます。 */
     @Test
     fun shellAndMovedAwayOnlyCheckedForPhoneSteps() = runTest {
         shellUp.value = false
@@ -184,7 +184,7 @@ class TaskGateTest {
         runCurrent()
         assertFalse(passed)
         assertEquals(TaskState.Held(TaskGate.paused(TaskGate.SHELL_DOWN)), reported.last())
-        // 锁屏照样挡网页的步骤
+        // 画面をロックしても Web ページをブロックする手順
         reported.clear()
         locked.value = true
         var webPassed = false

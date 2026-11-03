@@ -2,6 +2,6 @@ package com.wangzan101.mika.task
 
 import androidx.test.platform.app.InstrumentationRegistry
 
-/** 真机测试用:被测 App 进程里那一份任务环境(换模型来源、评测钩子、看屏幕画面)。 */
+/** 実機テストの場合: テスト対象のアプリ プロセス内のタスク環境 (モデル ソースの変更、フックの評価、画面の表示)。 */
 internal val testTasks: TaskEnvironment
     get() = TaskEnvironment.of(InstrumentationRegistry.getInstrumentation().targetContext)

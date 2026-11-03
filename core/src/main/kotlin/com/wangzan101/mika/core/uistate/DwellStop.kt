@@ -5,28 +5,28 @@ import com.wangzan101.mika.core.tool.FAILURE_MESSAGES
 import com.wangzan101.mika.core.tool.ToolExecution
 import com.wangzan101.mika.core.tool.fail
 
-/** 这个网站本任务里看的页、这个 App 换的屏到了上限:不再换页、换屏(见 [PageLimitReached])。 */
+/** この Web サイト上のこのタスクで表示されたページと、このアプリによって変更された画面が上限に達しました。これ以上ページや画面を変更することはできません ([PageLimitReached] を参照)。 */
 const val PAGE_LIMIT = "page_limit"
 
-/** 换页、换屏之前的停留没让这个动作做:调用方不做它,按 [code] 报(见 [dwellStopped])。网页([com.wangzan101.mika.core.cap.web.PageDwell])和 App 里(手机能力的停留)共用。 */
+/** ページ変更または画面変更前の一時停止では、このアクションを実行できません。発信者はアクションを実行せず、[code] を押して報告します ([dwellStopped] を参照)。 Web ページ ([com.wangzan101.mika.core.cap.web.PageDwell]) とアプリ (携帯電話機能はそのまま) で共有されます。 */
 internal sealed class DwellStop(message: String) : Exception(message) {
     abstract val code: String
-    /** 附在说明后面的细节;没有为 null。 */
+    /** 詳細は説明に添付されています。 no は null です。 */
     open val detail: String? get() = null
 }
 
-/** 本任务里这个网站来的页、限制浏览快慢的这个 App 换的屏到了上限:不再换页、换屏,先回答或问用户。[site] 是网站主机名或 App 包名。 */
+/** このタスクでは、Web サイトのページと閲覧速度を制限するアプリの画面が上限に達しました。これ以上ページや画面が変更されることはありません。最初にユーザーに答えるか質問してください。 [site] は、Web サイトのホスト名またはアプリのパッケージ名です。 */
 internal class PageLimitReached(val site: String, val pages: Int, val cap: Int) :
     DwellStop("Pages or screens opened in $site in this task: $pages (limit $cap).") {
     override val code get() = PAGE_LIMIT
     override val detail get() = message
 }
 
-/** 停留中用户插了话:这次不做,先读那句话。 */
+/** ユーザーが滞在中に中断しました。今回はしませんが、最初にその文を読んでください。 */
 internal class DwellInterrupted : DwellStop("The pause before this action was cut short by a new message from the user.") {
     override val code get() = SKIPPED_FOR_NEW_MESSAGE
 }
 
-/** 不做这个动作的工具结果:说明为什么停、接下来怎么办(到上限时附上这个网站、App 看了几页)。 */
+/** このアクションを実行しないツールの結果: 停止した理由と次に何をすべきかを説明します (制限に達した場合は、この Web サイトとアプリの数ページを添付してください)。 */
 internal fun dwellStopped(e: DwellStop): ToolExecution =
     fail(e.code, listOfNotNull(FAILURE_MESSAGES.getValue(e.code), e.detail).joinToString(" "))

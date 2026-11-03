@@ -86,7 +86,7 @@ class DiagnosticsTest {
         assertTrue(t.contains("update available: 0.1.8"))
     }
 
-    /** 语音转文字一段:选择、自带识别的情况、手机上登记的识别服务(组件名、开不开放、要的权限);在模型之后。 */
+    /** 音声テキスト化セクション: 選択、内蔵認識ステータス、携帯電話に登録されている認識サービス (コンポーネント名、開くかどうか、必要な権限);モデルの後。 */
     @Test
     fun speechSectionListsRecognitionServices() {
         val speech = DiagnosticsSnapshot.Speech(
@@ -101,7 +101,7 @@ class DiagnosticsTest {
         assertTrue(t, t.contains("recognition services: 1\n- com.example.voice/.Recognizer (not exported) needs android.permission.BIND_VOICE_INTERACTION"))
     }
 
-    /** 引导页那几项来自同一个状态机:失败在连接一步,用户确认过无线调试。 */
+    /** ブート ページの項目は同じステート マシンからのものです。接続ステップで障害が発生し、ユーザーはワイヤレス デバッグを確認しました。 */
     @Test
     fun phoneControlReadsTheSetupFlow() {
         val t = Diagnostics.render(snapshot())
@@ -119,7 +119,7 @@ class DiagnosticsTest {
         assertTrue(t, t.contains("last error: AdbConnectionException(CONNECT_FAILED)"))
     }
 
-    /** 扫过本机、用户填过端口:只写个数和有没有填,不写端口号。 */
+    /** マシンをスキャンすると、ユーザーはポートを入力します。番号と、入力されているかどうかのみを書き込み、ポート番号は書きません。 */
     @Test
     fun connectServiceShowsScanAndManualWithoutPortNumbers() {
         val c = ConnectCandidates(0, 0, 0, connected = true, scanned = true, scanOpen = 2, scanAdb = 1, manual = true)
@@ -139,7 +139,7 @@ class DiagnosticsTest {
         assertTrue(t, t.contains("installer: unknown"))
     }
 
-    /** 配对通知频道被关掉:报的是引导页同一份状态,停在配对一步时还写出通知的问题。 */
+    /** ペアリング通知チャネルがオフになっています。ブート ページと同じステータスが報告され、ペアリング ステップが停止されたときに通知の問題が書き込まれます。 */
     @Test
     fun pairingChannelOff() {
         val snap = snapshot(shell = BuiltinShellStatus.NotPaired, discovery = PairingDiscovery.Searching, confirmed = emptySet())
@@ -154,7 +154,7 @@ class DiagnosticsTest {
         assertTrue(none, none.contains("pairing channel: Ready (not created)"))
     }
 
-    /** 不带 Key、令牌、邮箱、IP、端口:哪怕它们藏在地址、出错信息里。 */
+    /** には、アドレスまたはエラー メッセージに隠されている場合でも、キー、トークン、電子メール、IP、またはポートがありません。 */
     @Test
     fun noSecretsAddressesOrPorts() {
         val t = Diagnostics.render(
@@ -184,7 +184,7 @@ class DiagnosticsTest {
         assertTrue(t, t.contains("key=***"))
     }
 
-    /** 最近的运行:相对时间、结局、失败类别、步数、模型;没有目标和回答。 */
+    /** 最近の実行: 相対時間、終了、失敗カテゴリ、ステップ数、モデル。目標も答えもありません。 */
     @Test
     fun recentRuns() {
         val t = Diagnostics.render(snapshot())
@@ -209,7 +209,7 @@ class DiagnosticsTest {
         assertTrue(t, t.contains("last reboot restore: NotRecovered"))
     }
 
-    /** 内置助手拉起 Mika 的记录、启动时无障碍服务的问题:有就写何时、几次,没有写 never / ok。 */
+    /** 内蔵アシスタントがミカの記録を取得し、起動時のアクセシビリティ サービスに問題があります。「はい」の場合は、いつ、何回書き込みますか。そうでない場合は、「決して書き込みません / OK」と書き込みます。 */
     @Test
     fun helperRestoresAndAccessibilityLoss() {
         val base = snapshot()
@@ -224,7 +224,7 @@ class DiagnosticsTest {
         assertTrue(t, t.contains("accessibility on start: removed 2h ago"))
     }
 
-    /** 最近一次 ChatGPT 登录失败:写类别、错误代码和说明;说明里像令牌的串遮住。 */
+    /** 最新の ChatGPT ログイン失敗: カテゴリ、エラー コード、説明を書き込んでください。説明内のトークンのような文字列を隠します。 */
     @Test
     fun chatGptSignInFailureShowsCodeWithoutTokens() {
         val jwt = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEyMzQ1Njc4OTAifQ.c2lnbmF0dXJlLWJ5dGVzLWhlcmUtMTIzNDU2Nzg5MA"
@@ -233,10 +233,10 @@ class DiagnosticsTest {
         val t = Diagnostics.render(base.copy(models = base.models.copy(chatGptLastFailure = failure)))
         assertTrue(t, t.contains("ChatGPT last sign-in failure: 5m ago: CodeExpired (code invalid_grant) — CodeExpired: invalid_grant — bad code"))
         assertFalse(t, t.contains("eyJ"))
-        assertFalse("没有失败就不写这一行", Diagnostics.render(base).contains("last sign-in failure"))
+        assertFalse("失敗がない場合はこの行を出力しない", Diagnostics.render(base).contains("last sign-in failure"))
     }
 
-    /** 脱敏不误伤:时间、版本号、型号里的数字照写。 */
+    /** 偶発的な怪我のない感度解除: 時間、バージョン番号、モデルの数字が正確に書き込まれています。 */
     @Test
     fun sanitizeKeepsTimesAndVersions() {
         assertEquals("at 12:30:05 v0.1.7 SDK 34 Pixel 8", Diagnostics.sanitize("at 12:30:05 v0.1.7 SDK 34 Pixel 8"))

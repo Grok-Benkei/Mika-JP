@@ -26,20 +26,20 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * 读屏时经 DevTools 会话给页面脚本的元素表补无障碍信息,再交给 [ElementFusion] 合并。
+ * は、画面の読み取り時に DevTools セッションを通じてページ スクリプトの要素テーブルにアクセシビリティ情報を追加し、マージのためにそれを [ElementFusion] に渡します。
  *
- * 换节点号的做法:页面脚本本来就按编号表留着元素引用,让它把这张表原样交出(一次 Runtime.evaluate 拿到数组对象,
- * 一次 Runtime.getProperties 拆出每个元素的对象引用),再并发 DOM.describeNode 换成 backendNodeId。
- * 不往页面写标记(不触发页面和我们自己的变化计数),不取整棵 DOM.getDocument(大页面上几 MB),
- * 也不靠坐标命中(命中的常是按钮里的文字子元素,要再往上找)。N 个 describeNode 同时发出,往返只算一轮。
+ * ノード番号の変更方法: ページスクリプトは元々番号テーブルに従って要素参照を保持しており、テーブルをそのまま引き継がせます(一度Runtime.evaluateが配列オブジェクトを取得し、
+ * は一度 Runtime.getProperties を実行して各要素のオブジェクト参照を削除し、同時に DOM.describeNode を backendNodeId に置き換えます。
+ * はページにタグを書き込まず (ページと独自の変更カウントをトリガーしません)、DOM.getDocument 全体を取得しません (大きなページで数 MB)。
+ * は、ヒットするために座標に依存しません (通常、ヒットはボタン内のテキストのサブ要素であるため、さらに調べる必要があります)。同時に N 個の descriptionNode が発行され、ラウンドトリップは 1 ラウンドとしてのみカウントされます。
  *
- * 之后:Page.getFrameTree → 每帧 Accessibility.getFullAXTree(frameId)(跨源框架和主文档在同一目标里,按帧取);
- * 只有无障碍树有的候选:DOM.getBoxModel 取框、DOM.getNodeForLocation 确认在最上面;
- * 不可点的文字、图片:DOMDebugger.getEventListeners 看有没有点击类监听器。
- * 整个过程限时 [timeoutMs];超时、出错都返回 [Outcome.Skipped],调用方照用页面脚本的结果。
+ * の後: Page.getFrameTree → 各フレーム Accessibility.getFullAXTree(frameId) (クロスソース フレームとメイン ドキュメントは同じターゲット内にあり、フレームごとにフェッチされます);
+ * アクセシビリティ ツリーには候補のみがあります: DOM.getBoxModel ボックスの選択、最上部で確認された DOM.getNodeForLocation。
+ * クリックできないテキストと画像: DOMDebugger.getEventListeners クリック リスナーがあるかどうかを確認します。
+ * プロセス全体には時間制限があります [timeoutMs]。タイムアウトとエラーの場合は [Outcome.Skipped] が返され、呼び出し元はページ スクリプトの結果を使用します。
  */
 class ElementProbe(private val session: CdpSession, private val timeoutMs: Long = DEFAULT_TIMEOUT_MS) {
-    // 单个调用的上限放宽些:总时限先到,整次放弃,而不是某一步超时后带着残缺的数据往下走
+    // 1 回の呼び出しの上限が緩和されます。特定のステップがタイムアウトになった後に不完全なデータが表示されるのではなく、最初に合計時間制限に達し、呼び出し全体が放棄されます。
     private val callTimeoutMs = timeoutMs + 1_000
     sealed interface Outcome {
         class Fused(val result: ElementFusion.Result, val anchors: Map<String, Anchor>, val stats: String) : Outcome
@@ -47,14 +47,14 @@ class ElementProbe(private val session: CdpSession, private val timeoutMs: Long 
     }
 
     /**
-     * 只有无障碍树有的元素,点之前重新找它用:[hits] 是它自己和子孙的节点号(命中这些都算点到它),
-     * [ownerId] 是所在框架元素的节点号(框若按框架内坐标给出,用它换算)。
+     * は、アクセシビリティ ツリーの要素にすぎません。クリックする前にもう一度検索してください: [hits] はそれ自体とその子孫のノード番号です (これらをヒットすると、クリックしたとカウントされます)。
+     * [ownerId] は、フレーム要素のノード番号です (フレームがフレーム内の座標に従って与えられている場合は、変換に使用します)。
      */
     data class Anchor(val backendId: Int, val hits: Set<Int>, val ownerId: Int?)
 
     /**
-     * 找到的位置(顶层视口 CSS 像素):[box] 整个框,([x],[y]) 是框在可见范围里那部分的中心(点它就点这里);
-     * [onTop] 命中检测结果,检测不了为 null。
+     * (トップ ビューポート CSS ピクセル) によって検出された位置: [box] フレーム全体 ([x]、[y]) は、表示範囲内のフレームの一部の中心です (ここをクリック)。
+     * [onTop] ヒット検出結果、検出されなかった場合は null。
      */
     data class Placed(val box: ElementFusion.Box, val onTop: Boolean?, val x: Double = box.cx, val y: Double = box.cy)
 
@@ -62,7 +62,7 @@ class ElementProbe(private val session: CdpSession, private val timeoutMs: Long 
 
     private class Skip(message: String) : Exception(message)
 
-    /** [refNodes] 是在页面主环境里求值、返回本次编号表元素数组的表达式;[scale] 是 CSS 像素 → 视图像素。 */
+    /** [refNodes] は、ページのメイン環境で評価され、この数値テーブル内の要素の配列を返す式です。 [scale] は CSS ピクセル→ビューピクセルです。 */
     suspend fun enrich(page: ScreenSnapshot, refNodes: String, scale: Double): Outcome {
         val started = System.nanoTime()
         return try {
@@ -90,7 +90,7 @@ class ElementProbe(private val session: CdpSession, private val timeoutMs: Long 
         val frameList = frames.await()
         val owners = HashMap<Int, String>()
         refs.forEach { r -> if (r.backendId != null && r.frameId != null) owners[r.backendId] = r.frameId }
-        // describeNode 没给出框架号的,反过来按帧问它的框架元素
+        // descriptionNode はフレーム番号を与えません。代わりに、フレーム要素ごとにフレーム要素を問い合わせます。
         val known = owners.values.toSet()
         frameList.drop(1).filter { it.id !in known }.take(MAX_FRAMES).map { f ->
             async { frameOwner(f.id)?.let { it to f.id } }
@@ -128,7 +128,7 @@ class ElementProbe(private val session: CdpSession, private val timeoutMs: Long 
         Outcome.Fused(result, refAnchors, stats)
     }
 
-    /** 主文档、跨源占位里的框架优先,至多 [MAX_FRAMES] 个(不含主文档)。 */
+    /** マスター ドキュメントとクロスソース プレースホルダー内のフレームが [MAX_FRAMES] まで優先されます (メイン ドキュメントを除く)。 */
     private fun framesToRead(input: ElementFusion.Input, frames: List<ElementFusion.Frame>): List<String> {
         val behind = HashSet<String>()
         input.pageIds.forEachIndexed { i, id -> if (id != null && input.page[i].role == "frame") input.owners[id]?.let(behind::add) }
@@ -202,8 +202,8 @@ class ElementProbe(private val session: CdpSession, private val timeoutMs: Long 
     }.getOrElse { if (it is CancellationException) throw it else false }
 
     /**
-     * 取框并做命中检测(点取框在 [clip] 里可见部分的中心)。坐标按顶层视口理解没命中、而它在框架里时,
-     * 再按「框架内坐标 + 框架内容区左上角」试一次:不同版本的内核对框架里节点给的坐标系可能不同。
+     * フレームを選択し、ヒット検出を実行します ([clip] でフレームの表示部分の中心をクリックします)。トップレベルビューポート通りに座標がヒットせずフレーム内にある場合、
+     * 「フレーム内の座標 + フレーム コンテンツ領域の左上隅」を押して再試行してください。カーネルのバージョンが異なると、フレーム内のノードに異なる座標系が与えられる場合があります。
      */
     suspend fun place(anchor: Anchor, clip: ElementFusion.Box? = null): Placed? {
         val box = boxOf(anchor.backendId) ?: return null
@@ -222,8 +222,8 @@ class ElementProbe(private val session: CdpSession, private val timeoutMs: Long 
     }
 
     /**
-     * 点之前重新找只有无障碍树有的元素:先滚进视口(DOM 命令,不是滚轮),再取框;
-     * 在框架里的,点取框在框架内容区里可见部分的中心。元素已不在为 null。
+     * クリックする前に、アクセシビリティ ツリーでのみ使用できる要素を再検索します。まずビューポートにスクロールし (スクロール ホイールではなく DOM コマンド)、次にフレームを削除します。
+     * フレーム内で、フレーム コンテンツ領域の表示部分の中心をクリックします。要素は null ではなくなりました。
      */
     suspend fun locate(anchor: Anchor): Placed? = withTimeoutOrNull(LOCATE_TIMEOUT_MS) {
         runCatching { session.send("DOM.scrollIntoViewIfNeeded", buildJsonObject { put("backendNodeId", anchor.backendId) }, timeoutMs = LOCATE_TIMEOUT_MS) }
@@ -262,12 +262,12 @@ class ElementProbe(private val session: CdpSession, private val timeoutMs: Long 
         const val DEFAULT_TIMEOUT_MS = 1_500L
         const val LOCATE_TIMEOUT_MS = 1_000L
         private const val RELEASE_TIMEOUT_MS = 300L
-        /** 除主文档外最多读这么多个框架的无障碍树。 */
+        /** アクセシビリティ ツリーは、メイン ドキュメントに加えて、最大でこの数のフレームを読み取ることができます。 */
         const val MAX_FRAMES = 12
         private const val GROUP = "mika-elements"
         private val POINTER_EVENTS = setOf("click", "mousedown", "mouseup", "pointerdown", "pointerup", "touchstart", "touchend")
 
-        /** `Page.getFrameTree` 的 frameTree → 先序的帧列表,主文档在最前。 */
+        /** `Page.getFrameTree` の FrameTree → 予約済みのフレーム リスト。メインのドキュメントが前面にあります。 */
         fun parseFrameTree(tree: JsonObject): List<ElementFusion.Frame> {
             val out = ArrayList<ElementFusion.Frame>()
             fun walk(t: JsonObject, parent: String?, depth: Int) {
@@ -281,7 +281,7 @@ class ElementProbe(private val session: CdpSession, private val timeoutMs: Long 
             return out
         }
 
-        /** `Accessibility.getFullAXTree` 的 nodes → [ElementFusion.AxNode],order 按 childIds 深度优先重排(不依赖返回顺序)。 */
+        /** `Accessibility.getFullAXTree` → [ElementFusion.AxNode] のノードの順序は、childIds の深さに従って並べ替えられます (返される順序には依存しません)。 */
         fun parseAxTree(nodes: List<JsonObject>, frameId: String): List<ElementFusion.AxNode> {
             val byId = LinkedHashMap<String, JsonObject>()
             for (n in nodes) n.str("nodeId")?.let { byId[it] = n }
@@ -318,7 +318,7 @@ class ElementProbe(private val session: CdpSession, private val timeoutMs: Long 
             }
         }
 
-        // 布尔为真、三态为 true/mixed、记号不是 false 的属性名
+        // ブール値は true、スリーステートは true/混合、シンボルは false ではありません。
         private fun states(props: JsonArray?): Set<String> {
             val out = HashSet<String>()
             for (p in props.orEmpty()) {
@@ -331,7 +331,7 @@ class ElementProbe(private val session: CdpSession, private val timeoutMs: Long 
             return out
         }
 
-        /** 四个顶点(x1,y1,…,x4,y4)→ 外接矩形。 */
+        /** 4 つの頂点 (x1, y1,…,x4,y4)→ 囲む長方形。 */
         fun quadBox(q: JsonArray?): ElementFusion.Box? {
             val v = q?.mapNotNull { (it as? JsonPrimitive)?.doubleOrNull } ?: return null
             if (v.size < 8) return null

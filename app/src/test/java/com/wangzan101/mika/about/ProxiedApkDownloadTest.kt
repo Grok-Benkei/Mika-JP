@@ -15,7 +15,7 @@ import java.io.File
 import java.io.IOException
 import java.nio.file.Files
 
-/** 设了网络代理时更新包由 Mika 自己经代理下:请求确实发给代理,下完整才留下文件,出错不留半截。 */
+/** ネットワーク プロキシが設定されている場合、更新パッケージはプロキシ経由でミカ自身によってダウンロードされます。リクエストは実際にプロキシに送信され、ファイルはダウンロードが完了した場合にのみ残ります。エラーがある場合はパーツが残りません。 */
 class ProxiedApkDownloadTest {
     private lateinit var proxy: MockWebServer
     private val dir: File = Files.createTempDirectory("apk").toFile()

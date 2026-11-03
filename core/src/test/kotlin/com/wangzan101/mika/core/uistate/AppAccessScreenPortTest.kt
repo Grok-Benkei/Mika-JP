@@ -108,9 +108,9 @@ class AppAccessScreenPortTest {
         denied("app_blocked") { screen.awaitAppFree("bank", null, 1_000) }
     }
 
-    // ---------- 每个端口成员都过这道边界 ----------
+    // ---------- 各ポート メンバーがこの境界を越えます ----------
 
-    /** 端口的每个成员都在边界里显式转交给里面的端口:漏写的会落到接口的默认实现上,到不了里面。 */
+    /** ポートの各メンバーは境界内のポートに明示的に転送されます。省略はインターフェイスのデフォルト実装に影響し、内部に到達できません。 */
     @Test fun everyPortMemberIsForwardedExplicitly() {
         val reached = mutableSetOf<String>()
         val screen = AppAccessScreenPort(recordingPort(reached), AppAccessPolicy.ALLOW, packages = { listOf("bank") })
@@ -121,7 +121,7 @@ class AppAccessScreenPortTest {
         }
     }
 
-    /** 禁用的 App 在前台时,除了明说不碰 App 界面的那几个,端口的每个成员都被拒绝;新加的成员默认算在要检查的里面。 */
+    /** 無効化されたアプリがフォアグラウンドにある場合、アプリのインターフェイスに触れないよう明示的に指示しているメンバーを除き、ポートのすべてのメンバーが拒否されます。新しく追加されたメンバーは、デフォルトでチェック対象のリストに含まれます。 */
     @Test fun everyPortMemberExceptPassThroughIsChecked() {
         val screen = AppAccessScreenPort(recordingPort(mutableSetOf()), blocked(), packages = { listOf("bank") })
         for (m in portMembers()) {
@@ -133,14 +133,14 @@ class AppAccessScreenPortTest {
 
     private fun portMembers(): List<Method> = ScreenPort::class.java.methods.filter { it.name !in OWN }
 
-    /** 什么都只记下名字的端口;读屏给一屏前台是 bank 的。 */
+    /** ポートの名前を書き留めるだけです。銀行のフロントデスクに画面を読み上げてください。 */
     private fun recordingPort(reached: MutableSet<String>): ScreenPort =
         Proxy.newProxyInstance(ScreenPort::class.java.classLoader, arrayOf(ScreenPort::class.java)) { _, m, _ ->
             reached += m.name
             if (m.name == "snapshot" || m.name == "peek") ScreenSnapshot("s", "bank", emptyList(), 1, 1) else null
         } as ScreenPort
 
-    /** 按参数类型给样例值调一次(挂起函数最后一个参数是续体,这里的调用都不会真挂起);抛出的异常原样抛出。 */
+    /** パラメーターのタイプに従ってサンプル値を 1 回調整します (サスペンド関数の最後のパラメーターは継続本体であり、ここでの呼び出しは実際には中断されません)。スローされた例外はそのままスローされます。 */
     private fun invoke(screen: ScreenPort, m: Method) {
         val args = m.parameterTypes.map { t ->
             when (t) {
@@ -163,7 +163,7 @@ class AppAccessScreenPortTest {
         }
     }
 
-    // ---------- 少问窗口 ----------
+    // ---------- 質問を減らすウィンドウ ----------
 
     @Test fun snapshotIsCheckedAgainstItsOwnWindowsWithoutProbing() = runTest {
         val inner = object : ScreenPort by FakeScreen() {
@@ -201,12 +201,12 @@ class AppAccessScreenPortTest {
         screen.frameGrid()
         repeat(10) { screen.checkAppAccess() }
         assertEquals(0, probes)
-        // 窗口变了:再问一次,之后又沿用
+        // ウィンドウが変更されました。もう一度質問して、引き続き使用してください。
         token++
         screen.screenshotPng()
         screen.screenshotPng()
         assertEquals(1, probes)
-        // 过了沿用的时限:再问
+        // は継承の期限を過ぎました: もう一度質問してください
         now += AppAccessScreenPort.CHECK_TTL_MS + 1
         screen.checkAppAccess()
         assertEquals(2, probes)
@@ -246,10 +246,10 @@ class AppAccessScreenPortTest {
     }
 
     private companion object {
-        /** 边界自己的成员。 */
+        /** 境界自身のメンバー。 */
         val OWN = setOf("getAppAccess", "checkAppAccess")
 
-        /** 不碰任何 App 界面、原样转交的成员;按目标挑 App 的系统动作由端口自己看名单。加进来要说得出为什么。 */
+        /** はアプリのインターフェイスには一切触れず、メンバーをそのまま転送します。アプリのシステムアクションはターゲットに応じて選択され、ポート自体がリストを参照します。理由を理解するにはそれを追加してください。 */
         val PASS_THROUGH = setOf("systemAction", "systemCommand", "listApps", "otherProfiles", "appCopies", "getAfterTask")
     }
 }

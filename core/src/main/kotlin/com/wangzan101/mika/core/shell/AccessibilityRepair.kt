@@ -10,45 +10,45 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** App 看到的 Mika 无障碍服务:系统列表里有没有它([enabled]),服务实例是否连着([connected])。 */
+/** アプリで表示されるミカ アクセシビリティ サービス: システム リストにあるかどうか ([enabled])、サービス インスタンスが接続されているかどうか ([connected])。 */
 data class A11yObservation(val enabled: Boolean, val connected: Boolean) {
     /**
-     * 服务没在运行,就要修:不管是系统里开着却没绑定(进程被杀后系统当它崩溃了),
-     * 还是被从系统列表里拿掉了(强行停止时系统会这样做)。用户要关掉就关「替我打开无障碍」。
+     * サービスが実行されていないため、修復する必要があります: システム内で開いているがバインドされていない (プロセスが強制終了されるとシステムがクラッシュする) かどうか。
+     * はまだシステム リストから削除されました (システムは強制停止時にこれを実行します)。ユーザーがこれをオフにしたい場合は、「アクセシビリティをオンにする」をオフにします。
      */
     val stuck: Boolean get() = !connected
 }
 
-/** 自动重启无障碍服务进行到哪一步:要用服务的一方据此决定多等一会儿还是马上放弃。 */
+/** ユーザー補助サービスの自動再起動はどの段階で行われますか: サービスを使用したい当事者は、もう少し待つか、すぐに中止するかを決定します。 */
 enum class RepairPhase {
-    /** 没有要修的(服务连着、用户在 Mika 里关掉了替我打开、助手不在、试过两次放弃了)。 */
+    /** 修復するものは何もありません (サービスは接続されています。ユーザーがミカでサービスをオフにして私に代わってオンにしました。アシスタントは存在しません。2 回試しましたが、諦めました)。 */
     Idle,
-    /** 卡住了,先等一会儿看系统自己会不会连上。 */
+    /** がスタックしています。システムが自動的に接続するかどうかを確認するまで、しばらくお待ちください。 */
     Pending,
-    /** 正在去掉再加回、等服务连上。 */
+    /** は削除されて再インストールされ、サービスの接続を待機しています。 */
     Repairing,
 }
 
-/** 上一次自动重启无障碍服务的结果(只记在内存里,给设置页说一句)。 */
+/** アクセシビリティ サービスの最後の自動再起動の結果 (メモリにのみ記録されます。設定ページに何かを言ってください)。 */
 data class RepairOutcome(val restarted: Boolean, val atMillis: Long, val attempts: Int)
 
 /**
- * Mika 的无障碍服务没在运行时自动打开:内置助手在运行时,用它把 Mika 的服务写回系统列表
- * ([RecoveryPermissions.restartAccessibility]:列表里有就去掉再加回让系统重新绑定,没有就直接加上)。
- * App 自己有修改系统设置的授权时([direct])直接写,不用等助手(无线调试关着也能修)。
- * 只看三路状态:服务([A11yObservation])、内置助手和用户是否已解锁;任一变化都重新判断,不轮询。
+ * Mika's accessibility service is not automatically turned on at runtime: use the built-in assistant to write Mika's service back to the system list at runtime.
+ * ([RecoveryPermissions.restartAccessibility]: If it is in the list, remove it and add it back to let the system rebind it. If it is not in the list, add it directly).
+ * App When you have the authorization to modify the system settings ([direct]), write directly without waiting for the assistant (wireless debugging can also be repaired if it is turned off).
+ * は、サービス ([A11yObservation])、組み込みアシスタント、ユーザーがロック解除されているかどうかの 3 つのステータスのみを確認します。変更はポーリングなしで再判断されます。
  *
- * - 只要没在运行就修;只有用户在 Mika 里关掉了「替我打开无障碍」才不管。
- * - 开机后用户还没解锁过一次时(凭据加密的存储还没解开),不支持直接启动的服务本来就绑不上:这时不修,
- *   等用户解锁([watch] 的 unlocked 变为 true)后再判断一次,该修照样修。
- * - 刚卡住时先等 [GRACE_MS]:进程刚起来时系统通常马上会连上,不必动手。
- * - 每次卡住最多试 [MAX_ATTEMPTS] 次,间隔逐次拉长;还是没连上就停下,留给界面上手动处理的提示。
- *   服务连上了才算这一次过去,之后再断开重新计数。
+ * - 実行されていない限り修正します。ユーザーがミカで「アクセシビリティをオンにする」をオフにしている場合のみ。
+ * - When the user has not unlocked the computer once (the encrypted credential storage has not yet been unlocked), services that do not support direct startup cannot be bound: it will not be repaired at this time.
+ *   waits for the user to unlock it (unlocked of [watch] becomes true) and then make a judgment again, and the repair will still be done.
+ * - スタックした場合は、まず待ちます。 [GRACE_MS]: プロセスが開始されたばかりの場合、通常、システムはすぐに接続するため、何もする必要はありません。
+ * - スタックするたびに最大 [MAX_ATTEMPTS] 回試行し、間隔は徐々に長くなります。それでも接続できない場合は停止し、インターフェイス上に手動処理を求めるプロンプトが表示されます。
+ *   時間はサービス接続時のみ経過し、切断後は再度カウントされます。 True when the
  */
 class AccessibilityRepair(
     private val restart: suspend (gapMs: Long) -> PermissionResult,
     private val consent: () -> RecoveryConsent,
-    /** App 自己就能写系统设置(拿到了修改系统设置的授权)时为 true:这时不用等内置助手。 */
+    /** App can write system settings by itself (obtains authorization to modify system settings): there is no need to wait for the built-in assistant. */
     private val direct: () -> Boolean = { false },
     private val now: () -> Long = System::currentTimeMillis,
 ) {
@@ -61,8 +61,8 @@ class AccessibilityRepair(
     private enum class Result { Restored, GaveUp, Interrupted }
 
     /**
-     * 一直看着,直到被取消。修的过程中状态的变化(包括自己去掉又加回)按最新的一份再判断一次。
-     * [unlocked] 是开机后用户解锁过没有;没解锁时不修,解锁时它的变化让这里再判断一次。
+     * キャンセルされるまで視聴しました。修復作業中の状態変化（お客様ご自身での削除、再追加を含む）については、最新バージョンに基づいて再度判断させていただきます。
+     * [unlocked] ユーザーが起動後にロックを解除したかどうかです。ロックが解除されていない場合は修理できません。ロック解除時の変更はここで再度判断されます。
      */
     suspend fun watch(
         service: StateFlow<A11yObservation>,
@@ -120,17 +120,17 @@ class AccessibilityRepair(
     companion object {
         const val GRACE_MS = 3_000L
         const val MAX_ATTEMPTS = 2
-        /** 去掉和加回之间的停顿,逐次拉长(1 秒、2 秒):两次写入挨得太近,系统可能只看到最后的列表。 */
+        /** 削除と追加戻しの間の一時停止が連続して長くなります (1 秒、2 秒)。2 つの書き込みが近すぎるため、システムは最後のリストしか参照できない可能性があります。 */
         const val GAP_MS = 1_000L
         const val BACKOFF_MS = 5_000L
         const val CONNECT_TIMEOUT_MS = 8_000L
-        /** 从卡住到放弃最长要多久:先等一会儿,两次去掉再加回、各等连上,中间退避一次,再留些跑命令的余量。 */
+        /** How long does it take at the longest time from getting stuck to giving up: wait for a while, remove it twice and then return it, wait for each connection, retreat once in the middle, and leave some margin for running commands. */
         const val WORST_CASE_MS = GRACE_MS + MAX_ATTEMPTS * CONNECT_TIMEOUT_MS + GAP_MS * 3 + BACKOFF_MS + 2_000L
 
         /**
-         * 要用无障碍服务时等它:先照常等 [baseMs];还没连上、但正要修或正在修([phase] 不是 Idle),
-         * 就接着等到连上或修的那一边停下(修好了服务已经连着,放弃了返回 null),总共不超过 [capMs]。
-         * 没有要修的就和以前一样,[baseMs] 到了返回 null。
+         * アクセシビリティ サービスを使用したい場合は待ちます。最初は通常どおり待ちます [baseMs]。まだ接続されていませんが、修復中または修復中 ([phase] はアイドル状態ではありません)、
+         * その後、接続または修復された側が停止するまで待ちます (修復後、サービスはすでに接続されており、放棄された場合は null を返します)、合計が [capMs] を超えないようにします。
+         * に修理するものが何もない場合は、以前と同じになります。 [baseMs] が到着すると null が返されます。
          */
         suspend fun <T : Any> awaitService(
             service: StateFlow<T?>,

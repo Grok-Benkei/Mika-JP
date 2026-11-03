@@ -81,7 +81,7 @@ class AppAccessEnforcementTest {
         assertEquals("app_blocked", (outcome as ActionOutcome.Refused).code)
     }
 
-    /** 单步被应用权限挡住时,结果要交给模型继续判断,不能把整次任务当成异常结束。 */
+    /** 単一のステップがアプリケーションの権限によってブロックされた場合、結果をモデルに引き渡して継続的に判断する必要があり、タスク全体が異常終了したとはみなされません。 */
     @Test fun blockedToolResultReachesModelInsteadOfFailingTask() = runTest {
         var reads = 0
         val screen = object : ScreenPort by FakeScreen() {
@@ -100,7 +100,7 @@ class AppAccessEnforcementTest {
                 }
                 toolResult = messages.asReversed().flatMap { it.parts }.filterIsInstance<Part.ToolResult>()
                     .firstOrNull { it.callId == "c1" }?.content
-                return answerReply("这个应用已被你禁用，无法自动读取。")
+                return answerReply("このアプリは操作が無効に設定されているため、自動で読み取れません。")
             }
         }
         val end = AgentLoop(model, toolDispatcher(screen), "BASE", 10).run("看看银行 App")
@@ -108,6 +108,7 @@ class AppAccessEnforcementTest {
         assertEquals(0, reads)
         assertEquals(2, calls)
         assertEquals(true, toolResult?.contains("\"error\":\"app_blocked\""))
-        assertEquals(true, toolResult?.contains("disabled by the user"))
+        assertEquals(true, toolResult?.contains("ユーザーが「アプリのアクセス」で無効にしています"))
+        assertEquals(true, toolResult?.contains("シェル・別のアプリによる回避は行わない"))
     }
 }

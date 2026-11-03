@@ -8,20 +8,20 @@ import kotlin.math.roundToLong
 import kotlin.random.Random
 
 /**
- * 往输入框里打字的节奏(纯逻辑,不碰输入框):人打字是一个字一个字出来的,中日韩文字经输入法一个词一个词地上屏,
- * 字与字之间快慢不一,标点、空格之后偶尔停一下。[plan] 把一段字排成一串越来越长的前缀和每一段之前等多久;
- * 最后一段总是全文。
+ * 入力ボックスに入力するリズム (入力ボックスに触れずに純粋なロジック): ユーザーは一度に 1 単語ずつ入力し、入力メソッドを通じて中国語、日本語、韓国語の文字が 1 つずつ画面に表示されます。
+ * 単語ごとに速度が異なり、句読点やスペースの後に一時停止が生じることがあります。 [plan] 単語の段落を一連のより長いプレフィックスに配置し、各段落の前に待機する時間を指定します。
+ * 最後の段落は常に全文です。
  *
- * - 拉丁字母、数字、标点每个字等 [Limits.latinMs] 里随机取的一段;中日韩文字每个字等 [Limits.cjkMs],
- *   连着的几个([Limits.cjkGroup])一起上屏;
- * - 每一段之后有机会([Limits.pauseChance],标点、空格之后加倍)多停 [Limits.pauseMs];
- * - 字多时几个字并成一段,至多 [Limits.maxSteps] 段;总时长超过 [Limits.maxTotalMs] 时每段按比例缩短,长消息也不会打上几分钟。
- * - 一个字不拆开:代理对、组合附加符号、变体选择符、零宽连接的表情序列都和前面的字算一个。
+ * - ラテン文字、数字、句読点、各文字など。[Limits.latinMs] からランダムに選択された段落。中国語、日本語、韓国語の文字、各文字など [Limits.cjkMs]、
+ *   と複数の接続されたもの ([Limits.cjkGroup]) が一緒に画面に表示されます。
+ * - 各段落の後に ([Limits.pauseChance]、句読点とスペースの後に 2 倍)、さらに [Limits.pauseMs] を停止する機会があります。
+ * - 単語が多い場合、複数の単語が 1 つの段落 (最大 [Limits.maxSteps] 段落) に結合されます。合計の長さが [Limits.maxTotalMs] を超えると、各段落は比例して短くなり、長いメッセージは数分間入力されなくなります。
+ * - 単語を分割しないでください。サロゲート ペア、結合された追加記号、バリアント セレクター、およびゼロ幅で連結された式シーケンスは、前の文字と 1 つとしてカウントされます。
  *
- * [Instant] 一次写入全文、不等待(「快」、测试、不需要节奏的调用方用它)。
+ * [Instant] 待たずに全文を一度に書きます（「速い」、テスト、リズムを必要としない発信者に使用します）。
  */
 class TypingPacing(private val random: Random?, val limits: Limits = Limits()) {
-    /** 时长单位毫秒。 */
+    /** ミリ秒単位の継続時間。 */
     data class Limits(
         val latinMs: LongRange = 60L..170L,
         val cjkMs: LongRange = 160L..380L,
@@ -32,20 +32,20 @@ class TypingPacing(private val random: Random?, val limits: Limits = Limits()) {
         val maxTotalMs: Long = 6_000L,
     ) {
         companion object {
-            /** 限制浏览快慢的 App(和「像人」时所有 App):打得更慢、停得更多,长消息至多 12 秒。 */
+            /** ブラウジング速度を制限するアプリ (および「いいね!」の場合はすべてのアプリ): 入力が遅くなり、停止回数が増え、長いメッセージは最大 12 秒続くことがあります。 */
             val CAREFUL = Limits(
                 latinMs = 90L..230L, cjkMs = 220L..520L, pauseChance = 0.1, pauseMs = 500L..1_400L, maxSteps = 60, maxTotalMs = 12_000L,
             )
         }
     }
 
-    /** 一段:等 [delayMs] 之后,输入框里是全文的前 [end] 个 UTF-16 单位。 */
+    /** セクション: [delayMs] を待機した後、入力ボックスにはフルテキストの最初の [end] UTF-16 ユニットが含まれます。 */
     data class Step(val end: Int, val delayMs: Long)
 
-    /** 有节奏(不是 [Instant])。 */
+    /** にはリズムがあります ([Instant] ではありません)。 */
     val paced: Boolean get() = random != null
 
-    /** 把 [text] 排成一段一段;[Instant]、空串时只有一段(全文、不等)。 */
+    /** は、[text] を段落に配置します。 [Instant]、文字列が空の場合、段落は 1 つだけです (全文、範囲指定)。 */
     fun plan(text: String): List<Step> {
         val r = random ?: return listOf(Step(text.length, 0))
         val units = units(text)
@@ -54,7 +54,7 @@ class TypingPacing(private val random: Random?, val limits: Limits = Limits()) {
         val steps = mutableListOf<Step>()
         var i = 0
         while (i < units.size) {
-            // 中日韩文字按输入法一个词一个词上屏(连着的几个,不跨到别的文字);字多时至少 per 个字一段
+            // 中国語、日本語、韓国語の文字は、入力方法に従って一度に 1 単語ずつ画面に表示されます (他の単語にまたがらず、複数の連続した単語)。単語が多い場合は、段落ごとに少なくとも 1 つの単語を含める
             val group = if (isCjk(text, units[i])) {
                 val want = Pace.pick(r, limits.cjkGroup)
                 var k = 1
@@ -78,15 +78,15 @@ class TypingPacing(private val random: Random?, val limits: Limits = Limits()) {
     }
 
     /**
-     * 对这个输入框用的节奏:密码框([secret])不分段(读不回原文,核对不了半截字);要粘贴才收得到输入的网页框([web])
-     * 不分段(写进去的字 App 收不到)。这两种照旧一次写入([Instant]),其余照这个节奏。
+     * この入力ボックスに使用されるリズム: パスワード ボックス ([secret]) はセグメント化されていません (元のテキストを読み戻すことはできず、単語の半分はチェックできません)。 Web ページ ボックス ([web]) は、入力を受け取るために貼り付ける必要があります
+     * はセグメント化されていません (書かれた単語はアプリで受信できません)。これら 2 つのタイプは依然として 1 回書き込まれ ([Instant])、残りはこのリズムに従います。
      */
     fun forField(web: Boolean, secret: Boolean): TypingPacing = if (web || secret) Instant else this
 
     /**
-     * 按 [plan] 一段一段把 [text] 的前缀写进 [field],全文那一段留给调用方(照旧整段写入并读回核对),等完最后一段的停顿再返回。
-     * 写第一段后读回核对:框不接受半截字(读回对不上、读不出)或写不进时立刻停下,返回 false,调用方照旧一次写入全文。
-     * 写完了所有前缀返回 true;不分段([Instant]、只有一个字)时什么也不写,返回 false。
+     * [plan] を押して、[text] のプレフィックスをセクションごとに [field] に書き込み、全文セクションを呼び出し側に残し (それでもセクション全体を書き込んで確認のために読み戻します)、最後のセクションが一時停止されるまで待ってから戻ります。
+     * 最初の段落の書き込み後に読み戻してチェックします。ボックスは半語を受け入れません (読み戻しが一致しない、または読み取れない)、または書き込みを入力できない場合はすぐに停止し、false を返します。呼び出し側は依然として全文を一度に書き込みます。
+     * は、すべてのプレフィックスが書き込まれると true を返します。セグメンテーションがない場合 ([Instant]、1 ワードのみ)、何も書き込まれず false が返されます。
      */
     suspend fun leadIn(field: TextField, text: String, sleep: suspend (Long) -> Unit = { delay(it) }): Boolean {
         val steps = plan(text)
@@ -105,13 +105,13 @@ class TypingPacing(private val random: Random?, val limits: Limits = Limits()) {
     }
 
     companion object {
-        /** 一次写入全文。 */
+        /** はテキスト全体を一度に書き込みます。 */
         val Instant = TypingPacing(null)
 
-        /** 像人打字的节奏;[random] 可换成固定种子(测试)。 */
+        /** は人間のタイピングのリズムに似ています。 [random] は固定シード (テスト) に変更できます。 */
         fun human(random: Random = Random.Default, limits: Limits = Limits()) = TypingPacing(random, limits)
 
-        /** [text] 里每个字的起点(UTF-16 下标):代理对、附加符号、变体选择符、零宽连接的序列和前面的字算一个。 */
+        /** [text] の各単語の開始点 (UTF-16 添え字): サロゲート ペアのシーケンス、追加のシンボル、バリアント セレクター、ゼロ幅の連結、および前の単語は 1 つとしてカウントされます。 */
         internal fun units(text: String): List<Int> {
             val out = mutableListOf<Int>()
             var i = 0

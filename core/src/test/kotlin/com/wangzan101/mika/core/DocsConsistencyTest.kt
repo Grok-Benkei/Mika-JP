@@ -1,26 +1,32 @@
 package com.wangzan101.mika.core
 
 import com.wangzan101.mika.core.assembly.knownToolNames
+import com.wangzan101.mika.core.mcp.FakeRemoteTasks
+import com.wangzan101.mika.core.mcp.McpTaskTools
+import com.wangzan101.mika.core.mcp.McpUsb
+import com.wangzan101.mika.core.shell.HelperHandoff
+import kotlinx.serialization.json.jsonObject
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
 /**
- * 文档和代码不脱节:文档里反引号包着的文件路径、Kotlin 类名、工具名,必须在仓库里真的有。
- * 范围:README.md、docs/ 下全部 .md(含 docs/readme/ 里各语言的 README)、eval/README.md、tools/sandbox/README.md。
- * 另外,同样这些文档里不写死会变的个数(内置知识、工具、服务商、评测题有多少),见 [docsDoNotHardCodeCounts]。
+ * ドキュメントとコードの間に切れ目はありません。ドキュメント内のバッククォートで囲まれたファイル パス、Kotlin クラス名、ツール名はウェアハウスに実際に存在する必要があります。
+ * スコープ: README.md、docs/ 下のすべての .md (docs/readme/ 内の各言語の README を含む)、eval/README.md、tools/sandbox/README.md。
+ * さらに、同じドキュメント内のハードコーディングできない変数の数 (組み込みのナレッジ、ツール、サービス プロバイダー、評価質問の数) については、[docsDoNotHardCodeCounts] を参照してください。
  *
- * 只检查「整段反引号内容就是一个标识符」的写法;下面这些一律不查(规则,不是白名单):
- *  - 围栏代码块(```)整块不看;行内反引号里含空白的是命令或代码片段;
- *  - 含 < > * … { } ( ) = : " ' $ , ; | # 的是占位、通配、调用、键值、示例值;
- *  - 以 / ~ 开头的是设备或系统路径,含 :// 的是网址;
- *  - 路径:带 / 的,只有第一段是仓库根下真有的目录或文件才查(`files/sandbox/rootfs`、`read/system` 这类是运行时产物或分类名);
- *    不带 / 的,只有代码类扩展名(kt、py、xml 等)才查,json、md、txt 这类常是运行时产物;
- *    查的时候:根目录下直接存在,或「模块/包路径/文件」的简写(`app/task/X.kt`),或中间用 ... 省略(`core/.../X.kt`),或短文件名在仓库任意位置;
- *  - 类名:大驼峰且至少两个大写字母(`Mika` 这样的单词不当类名);在 core、app 的源码(含测试)里有 class/object/interface/typealias
- *    声明或同名文件;源码里从本仓库以外的包导入过的(安卓、JDK、库的类)不归本仓库管;
- *  - 工具名:只查「第一段是现有工具名的第一段」的 snake_case(`max_seconds` 这样的参数名不查),对照 [knownToolNames],
- *    那是工具注册处的名单,不是金样快照。
+ * は、「バックティックの内容全体が識別子である」という記述のみをチェックします。以下はチェックされません (ホワイトリストではなくルール)。
+ *  - フ​​ェンスで囲まれたコード ブロック (```) は全体として表示されません。行内のバックティック内の空白はコマンドまたはコードの一部です。
+ *  - < > * … { } ( ) = : " ' $ , ; | # が含まれます。プレースホルダー、ワイルドカード、呼び出し、キー値、およびサンプル値です。
+ *  - / ~ で始まるものはデバイスまたはシステムのパスで、:// を含むものは URL です。
+ *  - パス: / の場合、最初の段落のみがウェアハウス ルートの下に実際に存在するディレクトリまたはファイルになります (`files/sandbox/rootfs`、`read/system`、これらはランタイム製品名またはカテゴリ名です)。
+ *    / なし、コード クラス拡張子 (kt、py、xml など) のみがチェックされ、json、md、txt などは多くの場合ランタイム製品です。
+ *    を確認する場合: ルート ディレクトリに直接存在するか、「モジュール/パッケージ パス/ファイル」の省略形 (`app/task/X.kt`)、または中間の ... で省略されている (`core/.../X.kt`)、または短いファイル名がウェアハウス内のどこかにあります。
+ *  - クラス名: 大きなキャメルケースと少なくとも 2 つの大文字 (`Mika` のような単語は適切なクラス名ではありません)。コアとアプリ（テストを含む）のソースコードにclass/object/interface/typealiasがある
+ *    宣言または同じ名前のファイル。このリポジトリの外部のパッケージ (Android、JDK、ライブラリ クラス) からインポートされたソース コードは、このリポジトリでは管理されません。
+ *  - ツール名: 「最初の段落が既存のツール名の最初の段落である」snake_case のみを検索し (`max_seconds` のようなパラメーター名はチェックされません)、[knownToolNames] を比較します。
+ *    これはツール レジストリ リストであり、ゴールデン スナップショットではありません。
  */
 class DocsConsistencyTest {
     private val root = File("..").canonicalFile
@@ -48,7 +54,7 @@ class DocsConsistencyTest {
         return list.filter { it.isFile }
     }
 
-    /** 去掉围栏代码块后,取所有行内反引号里的内容。 */
+    /** フェンス コード ブロックを削除した後、すべての行のバッククォートの内容を取得します。 */
     private fun spans(text: String): List<String> {
         var fenced = false
         val prose = text.lines().filter { line ->
@@ -64,17 +70,23 @@ class DocsConsistencyTest {
 
     private val toolNames: Set<String> by lazy { knownToolNames() }
     private val toolPrefixes: Set<String> by lazy { toolNames.map { it.substringBefore('_') }.toSet() }
+    /** request_idなどの入力フィールドは、同じ接頭辞のツール名とは区別する。許可する名前は実際のMCPスキーマから得る。 */
+    private val parameterNames: Set<String> by lazy {
+        McpTaskTools(FakeRemoteTasks()).tools.flatMap { it.schema["properties"]?.jsonObject?.keys.orEmpty() }.toSet()
+    }
 
     private fun isPath(s: String): Boolean =
         !s.startsWith("/") && !s.startsWith("~") && "://" !in s &&
             ('/' in s || s.substringAfterLast('.', "").let { it in pathExtensions && s.length > it.length + 1 })
 
-    /** 文档里写的是 App 运行时才有的东西(设备上的目录和文件),不在仓库里;逐个写明为什么。 */
+    /** ドキュメントには、アプリの実行中にのみ存在し (デバイス上のディレクトリとファイル)、ウェアハウスには存在しないものについて説明されています。その理由を一つずつ説明します。 */
     private val runtimeOnly = mapOf(
-        "eval/logged-in.txt" to "评测的人工登录标记,放在设备上 App 的外部文件目录,不进仓库",
+        "eval/logged-in.txt" to "評価時に本人がログイン済みと示す端末内のファイルで、リポジトリには含めない",
+        HelperHandoff.USB_SCRIPT to "HelperHandoffがスマホの外部ファイル領域へ生成する起動スクリプト",
+        McpUsb.SCRIPT to "McpUsbがスマホの外部ファイル領域へ生成するPC接続スクリプト",
     )
 
-    /** 只有仓库根下确有的一级目录或文件开头的路径、以及代码类的短文件名,才是在指仓库里的东西;其余是运行时产物或相对写法。 */
+    /** ウェアハウスのルートにある第 1 レベルのディレクトリまたはファイルの先頭のパスと、コード クラスの短いファイル名のみがウェアハウス内の内容を参照します。残りはランタイム製品または相対表記です。 */
     private val topLevel: Set<String> by lazy { File(root, ".").list().orEmpty().filter { it !in skipDirs }.toSet() }
     private val codeExtensions = setOf("kt", "kts", "java", "py", "sh", "gradle", "xml", "aidl", "cpp", "h")
 
@@ -82,7 +94,7 @@ class DocsConsistencyTest {
         val clean = rel.removePrefix("./").trimEnd('/')
         if (clean.isEmpty() || clean in runtimeOnly) return true
         val dir = rel.endsWith("/")
-        // 中间用 ... 省略的写法:开头是真目录前缀,结尾是某个文件路径的结尾(可不带扩展名)
+        // は、真ん中に ... で書かれています。先頭は実際のディレクトリのプレフィックス、末尾は特定のファイル パスの末尾です (拡張子なしでも可)
         if ("..." in clean) {
             val head = clean.substringBefore("...").trimEnd('/')
             val tail = clean.substringAfterLast("...").trimStart('/')
@@ -94,7 +106,7 @@ class DocsConsistencyTest {
         val first = clean.substringBefore('/')
         if (first !in topLevel) return true
         if (File(root, clean).exists()) return true
-        // 「模块/包路径/文件」的简写(如 app/task/X.kt 指 app/src/main/java/.../task/X.kt):模块下任一路径以后面部分结尾即可
+        // 「モジュール/パッケージ パス/ファイル」の略語 (例: app/task/X.kt は app/src/main/java/.../task/X.kt を指します): モジュール内のパスは次の部分で終わることができます
         val rest = clean.substringAfter('/')
         return if (dir) repoDirs.any { it.startsWith("$first/") && (it.endsWith("/$rest")) }
         else repoFiles.any { it.startsWith("$first/") && it.endsWith("/$rest") }
@@ -106,23 +118,33 @@ class DocsConsistencyTest {
     private fun importedFromOutside(name: String): Boolean =
         Regex("""(?m)^import\s+(?!com\.wangzan101\.mika\.)[\w.]+\.$name\b""").containsMatchIn(sourceText)
 
-    private fun problems(doc: File): List<String> {
-        val rel = doc.relativeTo(root).invariantSeparatorsPath
-        return spans(doc.readText()).distinct().mapNotNull { s ->
+    private fun problems(doc: File): List<String> = problems(doc.relativeTo(root).invariantSeparatorsPath, doc.readText())
+
+    private fun problems(rel: String, text: String): List<String> {
+        return spans(text).distinct().mapNotNull { s ->
             if (notIdentifier.containsMatchIn(s)) return@mapNotNull null
             when {
-                isPath(s) -> if (pathExists(s)) null else "$rel: 路径 `$s` 在仓库里找不到"
-                tool.matches(s) -> if (s.substringBefore('_') !in toolPrefixes || s in toolNames) null else "$rel: 工具名 `$s` 不在现有工具里"
+                isPath(s) -> if (pathExists(s)) null else "$rel: パス `$s` がリポジトリに見つかりません"
+                tool.matches(s) -> if (s.substringBefore('_') !in toolPrefixes || s in toolNames || s in parameterNames) null else "$rel: ツール名 `$s` は現在のツールにありません"
                 classLike.matches(s) && s.count { it.isUpperCase() } >= 2 && s.any { it.isLowerCase() } ->
-                    if (classExists(s) || importedFromOutside(s)) null else "$rel: 类名 `$s` 在 core/app 的源码里找不到"
+                    if (classExists(s) || importedFromOutside(s)) null else "$rel: クラス名 `$s` がcore/appのソースに見つかりません"
                 else -> null
             }
         }
     }
 
+    @Test fun declaredParametersAndGeneratedPathsRemainCheckedAgainstTheirContracts() {
+        assertTrue("request_idはMCPの入力フィールドとして定義されている", "request_id" in parameterNames)
+        assertEquals(emptyList<String>(), problems("guide.md", "`request_id`、`${HelperHandoff.USB_SCRIPT}`、`${McpUsb.SCRIPT}`"))
+        val bad = problems("guide.md", "`request_typo`、`missing-bootstrap.sh`")
+        assertEquals(2, bad.size)
+        assertTrue(bad.toString(), bad.any { "request_typo" in it && "ツール名" in it })
+        assertTrue(bad.toString(), bad.any { "missing-bootstrap.sh" in it && "パス" in it })
+    }
+
     /**
-     * 会变的东西不写死个数:「18 份 App」「60 多个工具」「128 道评测题」(英文的「18 apps」「60+ tools」)这类写法一加内容就过期。
-     * 要列清单就用 README 里生成的段落(`./gradlew updateReadme`);确实要写个数的那一行末尾加 [countOk] 并说明为什么。
+     * 変更される内容の数に制限はありません。「18 個のアプリ」、「60 個以上のツール」、「128 個の評価質問」 (英語では「18 個のアプリ」および「60 個以上のツール」) は、コンテンツが追加されるとすぐに期限切れになります。
+     * リストを作成するには、README で生成された段落 (`./gradlew updateReadme`) を使用します。実際に番号を書きたい行の最後に [countOk] を追加し、その理由を説明します。
      */
     private val hardCount = Regex(
         """\d+\s*多?\s*(份|个|道|家)\s*(内置)?\s*(App|app|网站|站点|技能|工具|服务商|预设|(真机)?评测题)""" +
@@ -137,7 +159,7 @@ class DocsConsistencyTest {
             doc.readLines().withIndex().filter { (_, line) -> countOk !in line && hardCount.containsMatchIn(line) }
                 .map { (i, line) -> "$rel:${i + 1}: 「${hardCount.find(line)!!.value}」" }
         }
-        assertTrue("文档里写死了会变的个数,改成不带个数的说法(清单用 README 的生成段落):\n" + bad.joinToString("\n"), bad.isEmpty())
+        assertTrue("変動する件数を文書へ固定で記載しています。件数を省き、一覧はREADMEの生成部分を使ってください:\n" + bad.joinToString("\n"), bad.isEmpty())
     }
 
     @Test fun countPatternCatchesTypicalWording() {
@@ -152,8 +174,8 @@ class DocsConsistencyTest {
     }
 
     @Test fun inputsAreFound() {
-        assertTrue("找不到仓库根目录(工作目录应为 core/)", File(root, "settings.gradle.kts").isFile)
-        assertTrue("没找到文档", docs().size >= 5)
+        assertTrue("リポジトリのルートが見つかりません。作業ディレクトリはcore/を使ってください", File(root, "settings.gradle.kts").isFile)
+        assertTrue("文書が見つかりません", docs().size >= 5)
         assertTrue(toolNames.contains("knowledge_read"))
         assertTrue(classExists("ToolDef"))
         assertTrue(spans(docs().joinToString("\n") { it.readText() }).size > 50)
@@ -161,6 +183,6 @@ class DocsConsistencyTest {
 
     @Test fun docsMentionOnlyThingsThatExist() {
         val bad = docs().flatMap(::problems)
-        assertTrue("文档里提到了仓库里没有的东西:\n" + bad.joinToString("\n"), bad.isEmpty())
+        assertTrue("リポジトリにないものが文書に記載されています:\n" + bad.joinToString("\n"), bad.isEmpty())
     }
 }

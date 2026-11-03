@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 
-/** 对话页那一轮下面留页的那一行:还开着、关了(带原因或不带),和剩余时间的说法。 */
+/** ダイアログ ページのラウンドの下に残された行: まだオン、オフ (理由の有無にかかわらず)、および残り時間。 */
 class KeptPageCopyTest {
     @get:Rule val texts = ChineseTexts()
 
@@ -17,10 +17,10 @@ class KeptPageCopyTest {
 
     @Test fun rowFollowsTheLivePageAndTheTurnRecord() {
         assertEquals(KeptRow.Live(page), KeptRow.of(ex("r1", kept = "course.example.com"), page))
-        // 刚收尾、那一轮还没读回留页的记录时,照样按此刻留着的那一页显示
+        // ラウンド終了直後で残りページの記録を読み込んでいない場合でも、その時点で残っているページに応じて表示されます。
         assertEquals(KeptRow.Live(page), KeptRow.of(ex("r1"), page))
         assertEquals(KeptRow.Closed("expired"), KeptRow.of(ex("r1", kept = "course.example.com", closed = "expired"), null))
-        // 别的一轮留的页不挂到这一轮下面
+        // 他のラウンドで残ったページは、このラウンドにリンクされません。
         assertEquals(KeptRow.Closed(null), KeptRow.of(ex("r0", kept = "a.example.com"), page))
         assertNull(KeptRow.of(ex("r2"), page))
         assertNull(KeptRow.of(ex(null), null))

@@ -3,14 +3,14 @@ package com.wangzan101.mika.takeover
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 
-/** 交回那一刻用户在主屏上做过的事:操作次数和停在哪个页面(取不到为 null)。 */
+/** は、その時点でユーザーがホーム画面で行ったこと、つまり操作の数とどのページで停止したかを返します (使用できない場合は null)。 */
 data class HandoverActivity(val inputCount: Int, val stoppedAt: String?)
 
 /**
- * 接管期间数用户在主屏上对 [packageName] 的点击、输入、滚动次数;一次滑动会连着发很多滚动事件,
- * 间隔不到 [MERGE_MS] 的算同一次;同一个输入框连着的文字变化同理。一串连发最长算 [BURST_CAP_MS],
- * 超过的部分另算一次,免得长时间滑动或打字只记 1 次。顺带记下该包最近一次切到的 Activity 简名,取不到页面标题时用。
- * 事件来自无障碍回调所在的协程,读数来自交回的协程,所以加锁。
+ * の引き継ぎ中に、ホーム画面の [packageName] でのユーザーのクリック、入力、およびスクロールの数をカウントします。 1 回のスワイプで多くのスクロール イベントが連続して送信されます。
+ * と [MERGE_MS] の間の距離は同じ時間としてカウントされます。同じ入力ボックス内のテキストの変更は同じです。連続するメッセージの最長の文字列は [BURST_CAP_MS] です。
+ * 長時間のスワイプや入力を避けるため、超過部分は 1 回としてカウントされ、1 回だけ記録されます。ちなみに、ページタイトルが取得できない場合に使用できる、パッケージが最後に切り替えたアクティビティの短縮名をメモしておきます。
+ * イベントは、アクセシビリティ コールバックが配置されているコルーチンから取得され、読み取り値は返されたコルーチンから取得されるため、ロックされています。
  */
 class HandoverActivityCounter(val packageName: String) {
     private var count = 0
@@ -28,7 +28,7 @@ class HandoverActivityCounter(val packageName: String) {
         when (eventType) {
             AccessibilityEvent.TYPE_VIEW_CLICKED -> count++
             AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> {
-                // 换了输入框就是新的一次
+                // 入力ボックスが変更され、新しいものになりました
                 if (typingSource != source) typingBurst = null
                 typingSource = source
                 typingBurst = advance(typingBurst, timeMs)
@@ -57,8 +57,8 @@ class HandoverActivityCounter(val packageName: String) {
 }
 
 /**
- * 「停在哪」:窗口标题常常只是 App 名,这时用页面(Activity)简名,两样都有且不同才拼在一起;
- * 标题取不到就用页面简名。
+ * 「停止場所」: ウィンドウのタイトルは多くの場合、単なるアプリ名です。この場合、ページ (アクティビティ) の短縮名が使用されます。どちらも含まれていますが、統合される前は異なります。
+ * タイトルが取得できない場合は、ページの略称を使用してください。
  */
 fun stoppedAt(title: String?, appLabel: String?, activity: String?): String? {
     val t = title?.takeIf { it.isNotBlank() }

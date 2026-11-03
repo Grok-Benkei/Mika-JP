@@ -31,28 +31,28 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-/** 安卓闹钟的薄壳；时间与去重由持久化 TriggerStore 决定，闹钟广播可以重复来。 */
+/** Android 目覚まし時計用薄型ケース。時間と重複排除は永続的な TriggerStore によって決定され、目覚まし時計のブロードキャストを繰り返すことができます。 */
 object TriggerRuntime {
     private var recovered = false
-    /** 存下并布置闹钟;系统没准许准时闹钟(到点可能不准时或起不来)时引导用户去开一次,结果里照实说有没有提示到。 */
+    /** 目覚まし時計を保存して設定します。システムが目覚まし時計を時間通りにすることを許可していない場合 (時間通りにならないか、起きられない可能性があります)、ユーザーは一度目覚まし時計をオンにするよう案内され、その結果でプロンプトがあるかどうかがわかります。 */
     @Synchronized fun schedule(context: Context, definition: TriggerDefinition): Scheduled {
         val store = store(context)
         store.upsert(definition)
         engine(context, store).rearm(System.currentTimeMillis())
         val granted = canScheduleExactly(context)
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        // 只有通知真的发出去了才算提示过;没发出去下次再试
+        // 通知が実際に送信された場合のみ、リマインダーとみなされます。送信されない場合は、次回もう一度試してください。
         val notified = ExactAlarmGuide.shouldPrompt(granted, prefs.getBoolean(PROMPTED, false)) && promptExactAlarm(context)
         if (notified) prefs.edit().putBoolean(PROMPTED, true).apply()
         return Scheduled(granted, notified)
     }
 
-    /** 系统的「闹钟和提醒」授权页(安卓 12 起)。 */
+    /** システム (Android 12 以降) の「目覚まし時計とリマインダー」認証ページ。 */
     fun exactAlarmSettings(context: Context): Intent =
         Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}"))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
-    /** 第一次没有权限就建了定时任务:发一条通知,点开就是授权页(任务在后台跑,不直接跳页面)。返回通知有没有发出去。 */
+    /** 初めて許可なくスケジュールされたタスクを作成したとき: 通知を送信し、クリックして承認ページを開きます (タスクはバックグラウンドで実行され、ページに直接ジャンプしません)。返品通知を送信しました。 */
     private fun promptExactAlarm(context: Context): Boolean {
         val notifications = context.getSystemService(NotificationManager::class.java)
         if (!notifications.areNotificationsEnabled()) return false
@@ -68,7 +68,7 @@ object TriggerRuntime {
 
     @Synchronized fun rearm(context: Context) { engine(context, store(context)).rearm(System.currentTimeMillis()) }
 
-    /** 设备时区变化后,跟随旧设备时区的当地时间计划重算到新时区;显式钉了其他时区的不动。没有基线(首次使用)就只记下当前时区。 */
+    /** デバイスのタイム ゾーンが変更されると、古いデバイスのタイム ゾーンに従ったローカル タイム プランが新しいタイム ゾーンに再計算されます。他のタイムゾーンは明示的に固定されます。ベースラインがない場合 (初めて使用する場合)、現在のタイムゾーンをメモするだけです。 */
     @Synchronized fun syncTimeZone(context: Context) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val current = ZoneId.systemDefault().id
@@ -278,7 +278,7 @@ object TriggerRuntime {
     private const val KEY_DEVICE_ZONE = "device_timezone"
 }
 
-/** 准时闹钟权限的引导:没开时只主动提醒一次,之后在定时任务页一直写明。 */
+/** 時間厳守目覚まし時計許可ガイダンス: アラームがオンになっていない場合に 1 回だけ通知され、その後はスケジュールされたタスク ページに常に書き込まれます。 */
 object ExactAlarmGuide {
     val TITLE: String get() = tr(R.string.trigger_alarm_title)
     val BODY: String get() = tr(R.string.trigger_alarm_body)

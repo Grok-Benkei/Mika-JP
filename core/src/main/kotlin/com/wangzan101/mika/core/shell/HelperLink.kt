@@ -8,11 +8,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * 一条到常驻助手的「连接」:助手进程不跟着解绑结束,Binder 由 [source] 提供(没有时为 null)。
- * 对外和按服务绑定的连接一样:[shell] 只在绑定期间有值,[dropped] 表示连上过、仍需要、但现在断了。
- * 解绑时用 [release] 让助手撤掉这次绑定留下的改动(虚拟屏、静音、剪贴板),效果等同于服务结束。
+ * 常駐アシスタントへの「接続」: アシスタント プロセスはバインド解除で終了せず、バインダーは [source] によって提供されます (使用できない場合は null)。
+ * はサービスによってバインドされた外部接続と同じです。[shell] はバインド期間中にのみ値を持ち、[dropped] は接続されており、まだ必要ですが、現在は切断されていることを意味します。
+ * バインドを解除するときは、[release] を使用して、このバインドによって残された変更 (仮想画面、ミュート、クリップボード) を削除するようにアシスタントに依頼します。その効果はサービスの終了と同等です。
  *
- * [scope] 必须是单线程顺序执行的:解绑的撤销排在之后再绑定的发布前面,新任务建的屏不会被上一次的撤销误删。
+ * [scope] は単一スレッドで連続して実行する必要があります。バインド解除の取り消しは再バインドのリリースより前にランク付けされ、新しいタスクによって作成された画面が最後の取り消しによって誤って削除されることはありません。
  */
 class HelperLink<T : Any>(
     private val source: StateFlow<T?>,
@@ -63,7 +63,7 @@ class HelperLink<T : Any>(
         if (last != null) scope.launch { runCatching { release(last) } }
     }
 
-    /** 「重新连接」:绑定着却没有助手时请看门狗马上再起一次。 */
+    /** 「再接続」: バインドされているがアシスタントがいない場合は、すぐにウォッチドッグを再度開始してください。 */
     fun reconnect() {
         val ask = synchronized(this) { wanted && _shell.value == null }
         if (ask) need()

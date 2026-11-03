@@ -10,26 +10,26 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/** 最近一次登录失败,只给诊断信息用:时间、原因的类别、服务端的错误代码、一小段说明(已脱敏)。 */
+/** 最新のログインが失敗しました。時刻、原因の種類、サーバー エラー コード、および短い説明 (感度が解除されています) の診断情報のみが提供されます。 */
 data class ChatGptSignInFailureRecord(val atMs: Long, val kind: String, val code: String?, val detail: String)
 
-/** 这次登录是哪一家。前台服务和界面重建时靠它认,避免把别家的登录显示成 ChatGPT。 */
+/** 今回ログインする会社はどこですか？他の人のログインが ChatGPT として表示されるのを避けるために、フロントエンド サービスとインターフェイスを再構築するときにこれを利用してください。 */
 enum class SignInTarget { None, ChatGpt, Xai, OpenRouter }
 
-/** 设备码登录给用户看的用户码、验证页和到什么时候失效。设备码本身不在这里。 */
+/** デバイス コード ログインには、ユーザー コード、確認ページ、有効期限が表示されます。デバイスコード自体はここにはありません。 */
 data class DevicePrompt(val userCode: String, val openUrl: String, val expiresAtMs: Long = 0)
 
 /**
- * 一次账号登录(xAI、OpenRouter)的结果:成功是存下的服务商 id,失败是给用户看的原因。
- * 放在 [ChatGptSignIns] 里而不是界面状态里:登录期间界面可能重建,结果要交给当时在的那一个界面。
+ * アカウント ログインの結果 (xAI、OpenRouter): 成功は保存されたサービス プロバイダー ID、失敗はユーザーに表示される理由です。
+ * は、インターフェイス ステータスの代わりに [ChatGptSignIns] に配置されます。インターフェイスはログイン中に再構築される可能性があり、結果はその時点で存在していたインターフェイスに渡されます。
  */
 data class AccountOutcome(val target: SignInTarget, val providerId: String? = null, val failure: String? = null)
 
 /**
- * 用账号登录(ChatGPT、xAI、OpenRouter)在进程里的那一份。登录要等用户在外部浏览器里输密码、过两步验证,期间 Mika 在后台:
- * 跑在 App 的作用域 [scope] 里(界面重建、退到后台都不断),开始时调 [keepAlive] 撑住进程(前台服务,
- * 免得进程被冻住、本机回调没人接);它起不来只记一句,登录照常。前台服务看着 [running],变回假就自己停,
- * 所以成功、失败、取消、超时都会停。同一时刻只有一次登录;[cancel] 放弃(通知上的「取消」也走这里)。
+ * アカウント (ChatGPT、xAI、OpenRouter) でログインするプロセス中のもの。ログインするには、ユーザーが外部ブラウザにパスワードを入力し、2 段階認証に合格する必要があります。この間、ミカはバックグラウンドで動作します。
+ * は、アプリ スコープ [scope] で実行されます (インターフェイスは再構築され、継続的にバックグラウンドに後退されます)。最初に、プロセスをサポートするために [keepAlive] が呼び出されます (フォアグラウンド サービス、
+ * プロセスがフリーズしてローカル コールバックに応答できなくなるのを防ぎます)。立ち上がらない場合は、一文を思い出して、通常どおりログインしてください。フロント デスク サービスは [running] を調べ、false に戻るとサービスを停止します。
+ * したがって、成功、失敗、キャンセル、タイムアウトで停止します。同時にログインできるのは 1 つだけです。 [cancel] はあきらめます (通知の「キャンセル」もここに表示されます)。
  */
 class ChatGptSignIns(
     private val scope: CoroutineScope,
@@ -42,19 +42,19 @@ class ChatGptSignIns(
 
     private var job: Job? = null
 
-    /** 最近一次失败(见 [recordFailure]);只在内存里。 */
+    /** が最後に失敗しました ([recordFailure] を参照)。記憶の中だけで。 */
     @Volatile var lastFailure: ChatGptSignInFailureRecord? = null
         private set
 
-    /** 别的账号登录(xAI、OpenRouter)最近一次登录失败;说明同样已脱敏。 */
+    /** 他のアカウント (xAI、OpenRouter) での最新のログインが失敗しました。それはまた、鈍感化されたことを意味します。 */
     @Volatile var lastAccountFailure: ChatGptSignInFailureRecord? = null
         private set
 
-    /** 正在进行的是哪一家;没有在登录时是 [SignInTarget.None]。 */
+    /** が取り組んでいるのはどれですか。ログイン時は[SignInTarget.None]ではありません。 */
     @Volatile var target: SignInTarget = SignInTarget.None
         private set
 
-    /** 前台通知上的文字;空则用 ChatGPT 的那两句。 */
+    /** フロントデスク通知のテキスト。空の場合は、ChatGPT の 2 つの文を使用します。 */
     @Volatile var noticeTitle: String? = null
         private set
 
@@ -62,7 +62,7 @@ class ChatGptSignIns(
         private set
 
     private val _device = MutableStateFlow<DevicePrompt?>(null)
-    /** 设备码登录正在显示的用户码;登录结束就清掉。界面重建后靠它接着显示。 */
+    /** デバイス コード ログインにユーザー コードが表示されます。ログインが完了するとクリアされます。インターフェイスが再構築された後も表示され続けます。 */
     val device: StateFlow<DevicePrompt?> = _device.asStateFlow()
     val devicePrompt: DevicePrompt? get() = _device.value
 
@@ -71,7 +71,7 @@ class ChatGptSignIns(
     }
 
     private val _outcome = MutableStateFlow<AccountOutcome?>(null)
-    /** 最近一次账号登录的结果,界面拿去显示后 [consumeOutcome]。 */
+    /** 最新のアカウント ログインの結果は、インターフェイスに [consumeOutcome] として表示されます。 */
     val outcome: StateFlow<AccountOutcome?> = _outcome.asStateFlow()
 
     fun finishAccount(o: AccountOutcome) {
@@ -82,7 +82,7 @@ class ChatGptSignIns(
         _outcome.compareAndSet(o, null)
     }
 
-    /** 开始一次登录,跑 [block];已有一次在跑时不开,返回假。 */
+    /** はログインを開始し、[block] を実行します。実行中にすでに開くことができず、false を返します。 */
     fun start(
         target: SignInTarget = SignInTarget.ChatGpt,
         noticeTitle: String? = null,
@@ -97,7 +97,7 @@ class ChatGptSignIns(
         _outcome.value = null
         _running.value = true
         runCatching(keepAlive).onFailure { log("sign-in keep-alive could not start", it) }
-        // App 的作用域没有异常处理:漏出来的异常只记下,不让进程崩
+        // アプリのスコープには例外処理はありません。リークされた例外は、プロセスのクラッシュを防ぐためにのみ記録されます。
         val j = scope.launch {
             try {
                 block()
@@ -132,7 +132,7 @@ class ChatGptSignIns(
         lastFailure = ChatGptSignInFailureRecord(now(), e.reason.name, e.code, detail)
     }
 
-    /** 订阅账号登录失败。只记下类别和错误代码,说明再过一遍脱敏。 */
+    /** サブスクリプション アカウントのログインに失敗しました。カテゴリとエラーコードを書き留めて、再度感度解除を行ってください。 */
     fun recordAccountFailure(provider: String, reason: String, code: String?) {
         val detail = Diagnostics.sanitize(listOfNotNull(reason, code).joinToString(": ")).take(MAX_DETAIL)
         lastAccountFailure = ChatGptSignInFailureRecord(now(), provider, code, detail)

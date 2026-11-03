@@ -20,7 +20,7 @@ internal class Back(f: ScreenFamily) : ScreenTool(f, "back") {
     override val verb = Verb.Back
     override val batchable = true
     override val routable = f.routable
-    override val label = "返回"
+    override val label = "戻る"
     override val risk = Risk.Write
     override val showsScreenAfter = true
     override val reportsEffect = true
@@ -30,12 +30,12 @@ internal class Back(f: ScreenFamily) : ScreenTool(f, "back") {
     override suspend fun execute(a: Args, ctx: ToolContext) = ctx.action(ctx.screen.back())
 }
 
-/** 按键(回车、确认键可能是提交,要按目标判不可逆)。 */
+/** キー (Enter キーと確認キーを送信できますが、元に戻せないかどうかを判断するには押す必要があります)。 */
 internal class PressKey(f: ScreenFamily) : ScreenTool(f, "press_key") {
     override val verb = Verb.PressKey
     override val batchable = true
     override val routable = f.routable
-    override val label = "按键"
+    override val label = "キーを押す"
     override val risk = Risk.External
     override val gateTarget = GateTarget.Key
     override val showsScreenAfter = true

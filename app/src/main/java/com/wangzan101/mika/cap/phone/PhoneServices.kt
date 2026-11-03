@@ -12,38 +12,38 @@ import com.wangzan101.mika.core.shell.BuiltinShellControl
 import com.wangzan101.mika.settings.RecoverySettings
 
 /**
- * 手机能力在 Mika 进程里的服务,由 App 建一份、经 [Owner] 给出:内置助手(交接落点、配对与看门狗、
- * 自动恢复与授权)、任务和启动恢复共用的那条 shell 连接、配对流程、「去设置」提示。
- * 助手进程(HelperMain、ShellService)跑在 shell 身份下,没有 App 对象,不经这里。
+ * スマホ機能の Mika プロセス内サービスで、App が1つ作成して [Owner] 経由で提供する: 内蔵ヘルパー（引き渡しの受け口、ペアリングとウォッチドッグ、
+ * 自動回復と認証）、タスクと起動回復によって共有されるシェル接続、ペアリング プロセス、および「設定に移動」プロンプト。
+ * ヘルパー プロセス (HelperMain、ShellService) はシェル ID で実行され、App オブジェクトがないため、ここでは渡されません。
  */
 class PhoneServices(context: Context) {
     private val app = context.applicationContext
 
-    /** 助手交来 Binder 的落点:助手只认一个进程里的一个落点。 */
+    /** アシスタントはバインダー配置ポイントを引き渡しました。アシスタントは 1 つのプロセスで 1 つの配置ポイントのみを認識します。 */
     val hub = HelperHub(app)
 
-    /** 配对、经 adbd 起助手、看门狗。 */
+    /** ペアリング、adbd ブート アシスタント、ウォッチドッグ。 */
     val shellManager = BuiltinShellManager(app, hub) { recoverySettings.consent.value }
 
-    /** 内置助手本身(状态、配对、重试、解除配对)。 */
+    /** 内蔵アシスタント自体 (ステータス、ペアリング、再試行、ペアリング解除)。 */
     val shellControl: BuiltinShellControl get() = shellManager.engine
 
-    /** 自动恢复与授权开关的设置。 */
+    /** 自動回復と認証スイッチの設定。 */
     val recoverySettings: RecoverySettings by lazy { RecoverySettings(RecoverySettings.prefs(app)) }
 
-    /** 自动恢复与那几项授权开关。 */
+    /** は自動的に回復し、それらの認証が切り替わります。 */
     val recovery: BuiltinShellRecovery by lazy { BuiltinShellRecovery(app, shellManager.commandRunner, recoverySettings, shellControl) }
 
-    /** 任务与启动恢复共用的那条 shell 连接。 */
+    /** タスクと起動リカバリによって共有されるシェル接続。 */
     val sharedShell = SharedShell { BuiltinShellConnection(hub) { shellManager.need() } }
 
-    /** 一次配对的全过程。 */
+    /** ペアリングの全プロセスを一度に完了します。 */
     val pairing: PairingCoordinator by lazy { PairingCoordinator(app, shellControl) }
 
-    /** 任务要用手机、助手却没在运行时的提示。 */
+    /** タスクで携帯電話とアシスタントの使用が必要であるが、実行されていない場合にプロンプ​​トが表示されます。 */
     val setupPrompt = PhoneSetupPrompt(app)
 
-    /** 给出进程里那一份的 Application。 */
+    /** はプロセス中のアプリケーションを示します。 */
     interface Owner {
         val phone: PhoneServices
     }

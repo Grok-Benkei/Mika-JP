@@ -3,8 +3,8 @@ package com.wangzan101.mika.core.knowledge
 import com.wangzan101.mika.core.net.UrlHost
 
 /**
- * 选渠道用的事实:已装的包名、在 Mika 里登录着的站点主机名、内置浏览器能不能用、
- * 最近在 Mika 里碰到过人机验证或访问拦截的站点主机名。
+ * チャネル選択の事実: インストールされているパッケージ名、Mika にログインしているサイトのホスト名、内蔵ブラウザが使用できるかどうか、
+ * 最近、Mika で人間とコンピュータの認証またはアクセスブロックのためのサイトのホスト名に遭遇しました。
  */
 data class ChannelFacts(
     val installed: Set<String>,
@@ -13,15 +13,15 @@ data class ChannelFacts(
     val challengedSites: Set<String> = emptySet(),
 )
 
-/** 给任务开头的一行「可用渠道」:代码只给事实,选哪条由模型按网页规则决定。 */
+/** は、タスクの最初に「利用可能なチャネル」の行を表示します。コードは事実のみを提供し、どれを選択するかは Web ページのルールに従ってモデルによって決定されます。 */
 object ChannelAdvisor {
     private const val HEADER = "Available channels: "
-    /** 只列排在前面的几个,和每任务至多注入的参考资料份数相当。 */
+    /** には、各タスクに挿入される参照コピーの最大数に相当する上位数個のみがリストされます。 */
     private const val MAX_CHANNELS = 3
 
     /**
-     * 例:「可用渠道:小红书 — App:已安装(com.xingin.xhs),有 App 做法;网页:xiaohongshu.com,有网页做法,在 Mika 里登录过(m.xiaohongshu.com)」。
-     * [entries] 按匹配顺序,只取前 [MAX_CHANNELS] 个渠道。没有可说的为 null。
+     * 例: 「利用可能なチャネル: Xiaohongshu - アプリ: インストール済み (com.xingin.xhs)、アプリの練習あり、Web ページ: xiaohongshu.com、Web ページの練習あり、Mika (m.xiaohongshu.com) にログイン」。
+     * [entries] マッチング順序に従って、最初の [MAX_CHANNELS] チャネルのみが取得されます。何も言うことはありません。
      */
     fun line(entries: List<KnowledgeEntry>, skills: GuideCatalog?, facts: ChannelFacts): String? {
         val parts = entries.groupBy { it.service }.mapNotNull { (name, same) -> channel(name, same, skills, facts) }.take(MAX_CHANNELS)
@@ -31,7 +31,7 @@ object ChannelAdvisor {
 
     private fun channel(name: String, same: List<KnowledgeEntry>, skills: GuideCatalog?, facts: ChannelFacts): String? {
         val packages = same.flatMap { it.packages }.distinct()
-        // App 条目关联的站点名就是站点的主域名
+        // アプリ エントリに関連付けられたサイト名は、サイトのメイン ドメイン名です。
         val domains = same.flatMap { it.domains + if (it.surface == Surface.Android) it.related else emptyList() }.map { it.trim().lowercase().removePrefix("www.") }.filter { it.isNotEmpty() }.distinct()
         val app = if (packages.isEmpty()) null else {
             val state = packages.firstOrNull { it in facts.installed }?.let { "app: installed ($it)" } ?: "app: not installed"

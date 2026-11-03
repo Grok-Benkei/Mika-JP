@@ -9,12 +9,12 @@ import kotlinx.coroutines.flow.StateFlow
 import com.wangzan101.mika.shell.IMikaShell
 
 /**
- * 内置助手的连接。助手进程常驻,不跟着解绑结束:解绑时让它撤掉这次的改动([IMikaShell.releaseAll]),
- * 效果与服务结束相同;再绑定时直接用手里的 Binder。没有助手时请看门狗起一个。
+ * 内蔵アシスタントの接続。アシスタント プロセスは常駐しており、バインドを解除しても終了しません。バインドを解除するときに、この変更を元に戻します ([IMikaShell.releaseAll])。
+ * 効果はサービス終了と同じです。綴じ直すときは、手持ちのバインダーを直接使用してください。助手がいない場合は、番犬に迎えに来てもらいます。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class BuiltinShellConnection(hub: HelperHub, need: () -> Unit) : ShellBinding {
-    // 单线程:撤销和下一次发布按先后执行;撤销是同步 binder 调用,不放主线程
+    // シングルスレッド: 失効と次のリリースは順番に実行されます。取り消しは同期バインダー呼び出しであり、メインスレッドは解放されません
     private val link = HelperLink(
         hub.shell,
         CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1)),

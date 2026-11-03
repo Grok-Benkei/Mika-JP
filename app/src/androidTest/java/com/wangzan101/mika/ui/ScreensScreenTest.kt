@@ -17,7 +17,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 「后台屏」那一页:空态、一块屏一行、点开小画面(只用假数据,不建真屏)。 */
+/** 「背景画面」ページ: 空の状態、1 行に 1 つの画面、クリックすると小さな画面が開きます (偽のデータのみが使用され、実際の画面は作成されません)。 */
 @RunWith(AndroidJUnit4::class)
 class ScreensScreenTest {
     @get:Rule(order = Int.MIN_VALUE) val chinese = ChineseUi()
@@ -40,7 +40,7 @@ class ScreensScreenTest {
         compose.onNodeWithText(ScreensCopy.EMPTY).assertIsDisplayed()
     }
 
-    /** 一个任务一张卡:在做什么、在用哪个 App、状态都在;点那一行回到它所属的对话。 */
+    /** タスクごとに 1 枚のカード: 何をしているか、どのアプリを使用しているか、ステータスがすべて表示されます。その行をクリックすると、その行が属する会話に戻ります。 */
     @Test fun oneCardPerTaskOpensItsConversation() {
         show(listOf(row(12), row(-1, "queued")))
         compose.onNodeWithText("正在用设置").assertIsDisplayed()
@@ -51,14 +51,14 @@ class ScreensScreenTest {
         assertEquals(listOf("open conv-k12"), calls)
     }
 
-    /** 还没建屏的那块没有「看画面」:没有画面可看,不给一个点了没反应的入口。 */
+    /** 画面未構築エリアには「画面を見る」の項目がありません。見る画面がなく、クリックしても反応しない項目もありません。 */
     @Test fun aScreenThatIsNotBuiltYetHasNoPreview() {
         show(listOf(row(12), row(-1, "queued")))
         compose.onNodeWithTag("screens-preview-queued").assertDoesNotExist()
         compose.onNodeWithTag("screens-preview-k12").performScrollTo().assertIsDisplayed()
     }
 
-    /** 点一下展开、再点收起:按钮上的说法跟着换。 */
+    /** クリックして展開し、クリックして折りたたむと、それに応じてボタン上の文字が変わります。 */
     @Test fun previewToggles() {
         show(listOf(row(12)))
         compose.onNodeWithTag("screens-preview-k12").performScrollTo().performClick()

@@ -33,8 +33,8 @@ import org.junit.runner.RunWith
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * 真机测试:用脚本模型驱动 TaskService,在虚拟屏上打开系统设置,检验常亮、静音、被挪走暂停与锁屏等待。
- * 需要内置助手在运行、Mika 无障碍服务已开启。
+ * 実機テスト: スクリプト モデルを使用して TaskService を駆動し、仮想画面でシステム設定を開き、常時オン、ミュート、削除、一時停止、ロックされているかどうかを確認します。
+ * では、組み込みアシスタントが実行されており、Mika アクセシビリティ サービスがオンになっている必要があります。
  */
 @RunWith(AndroidJUnit4::class)
 class TaskServiceTest {
@@ -43,15 +43,15 @@ class TaskServiceTest {
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
     private lateinit var shell: IMikaShell
     /**
-     * 每个任务一个脚本模型:模型的调用编号、核查次数各任务分开数。共用一个时,上一个任务没取走的调用
-     * (核查、收尾)会被下一个任务的等待取到,测试就跑到了任务前面。
-     * 一个任务里向工厂要模型的不止任务本身:新对话起标题、停止后写交代也各要一次,而且和任务并发,
-     * 谁先要到说不准。所以工厂不按「第几次被要」发模型,一律给最近开始的那个任务的模型(见 [model])。
+     * 各タスクにはスクリプト モデルがあります。モデルの呼び出し番号と各タスクの検証回数です。共有する場合、前のタスクが通話を奪っていない
+     * (検証、終了) は次のタスクによってフェッチされ、テストはタスクの先頭まで実行されます。
+     * タスクでは、工場からのモデルを必要とするのはタスク自体だけではありません。新しい会話のタイトルと会話が停止された後の説明もそれぞれ 1 回ずつ必要であり、それらはタスクと同時に行われます。 誰が最初に
+     * を入手するかは誰にもわかりません。したがって、ファクトリは「要求された回数」に応じてモデルを発行するのではなく、最後に開始されたタスクのモデルのみを発行します ([model] を参照)。
      */
     private val models = List(MAX_TASKS) { ScriptedModel() }
-    /** 工厂在任务服务的线程上读它。 */
+    /** ファクトリは、タスク サービスのスレッドでそれを読み取ります。 */
     @Volatile private var started = 0
-    /** 最近一次 [start] 开始的那个任务的模型(还没开始任务时是第一个任务要用的)。 */
+    /** 最新のタスク [start] のモデル (タスクを開始する前の最初のタスクに使用されます)。 */
     private val model: ScriptedModel get() = models[maxOf(0, started - 1)]
 
     private fun start(goal: String) {
@@ -67,7 +67,7 @@ class TaskServiceTest {
         DeviceSupport.service()
         sh("pm grant ${context.packageName} android.permission.POST_NOTIFICATIONS")
         priorAudio = shell.getAudioMode(SETTINGS)!!
-        // 这里的任务都从界面发起,提议第一个工具调用时会另问一次意图;一律答「要操作」,不占脚本
+        // ここでのタスクはすべてインターフェイスから開始されます。最初のツールを呼び出すときに、意図を再度尋ねることをお勧めします。常に「操作する」と答えて、スクリプトを占有しないでください。
         models.forEach { it.intent = "ACT" }
         testTasks.modelFactory = { _, _ -> model }
         testTasks.lightModelFactory = { _, _ -> null }
@@ -79,7 +79,7 @@ class TaskServiceTest {
         TaskService.cancel(context)
         pollUntil(10_000) { DeviceTaskState.state.value.takeIf { !it.running() } }
         pollUntil(10_000) { DeviceTaskState.busy.value.takeIf { !it } }
-        // 测试中途失败时设置可能还留在主屏:只结束这个测试自己挪过去的任务
+        // テストが途中で失敗した場合、設定がホーム画面に残る場合があります。テストを終了してタスクをホーム画面に移動するだけにしてください。
         if (settingsTask >= 0 && shell.topTaskId(Display.DEFAULT_DISPLAY) == settingsTask) sh("am force-stop $SETTINGS")
         testTasks.modelFactory = TaskEnvironment.defaultModelFactory
         testTasks.lightModelFactory = TaskEnvironment.defaultLightModelFactory
@@ -88,7 +88,7 @@ class TaskServiceTest {
 
     private fun TaskState.running() = this !is TaskState.Succeeded && this !is TaskState.Failed && this !is TaskState.Cancelled
 
-    /** 开任务并让它在虚拟屏上打开设置,返回虚拟屏编号;此时模型正等着第二步。 */
+    /** タスクを開き、仮想画面の設定を開いて仮想画面番号を返します。現時点では、モデルは 2 番目のステップを待っています。 */
     private fun startWithSettingsOpen(): Int {
         start("测试任务")
         assertEquals(1, model.awaitCall().number)
@@ -101,12 +101,12 @@ class TaskServiceTest {
         return displayId
     }
 
-    /** 交出一个不带可核对值的回答,等任务结束:字面核对没有要对的,不另请核查,结局是办成。[appOpened] 只为调用处读起来清楚。 */
+    /** 検証可能な値を指定せずに回答を送信し、タスクが終了するのを待ちます。文字通りの検証では何も修正する必要はなく、追加の検証は必要なく、結果は完了します。 [appOpened] は、呼び出し側サイトで読み取れるようにするためだけに使用されます。 */
     private fun finishAndAwait(@Suppress("UNUSED_PARAMETER") appOpened: Boolean = true) {
         model.answer("done")
         val end = pollUntil(15_000) { DeviceTaskState.state.value.takeIf { !it.running() } }
         assertTrue("$end", end is TaskState.Succeeded && end.answer == "done" && !end.doubtful)
-        // 状态先一步变成结束,恢复声音等收尾做完后 busy 才变回 false
+        // ステータスが最初に完了に変わり、最後の仕上げが完了するまでサウンドが復元され、その後ビジーが false に戻ります。
         pollUntil(10_000) { DeviceTaskState.busy.value.takeIf { !it } }
     }
 
@@ -117,8 +117,8 @@ class TaskServiceTest {
         sh("dumpsys power").lines().map { it.trim() }.firstOrNull { "'Mika:task'" in it }
 
     /**
-     * 产品路径上回答不另请核查(任务以 reviewFinalAnswer = false 运行):模型给的回答原样交出,结局是办成、未经核查;
-     * 主模型和轻量模型都收不到核查请求。核查本身的规则由核心的单元测试管。
+     * 製品パス上の回答には追加の検証は必要ありません (タスクは reviewFinalAnswer = false で実行されます)。モデルによって与えられた回答がそのまま引き継がれ、結果は検証なしで完了します。
+     * メインモデルも軽量モデルも検証リクエストを受信しませんでした。検証のルール自体は、コア単体テストによって管理されます。
      */
     @Test
     fun answerHandedOverWithoutReview() {
@@ -127,7 +127,7 @@ class TaskServiceTest {
             object : ChatModel {
                 override val capabilities = Capabilities(toolCalls = false, vision = false, contextTokens = 8_000, reasoning = false)
                 override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
-                    // 配了轻量模型时,判意图、起标题先问它;别的只可能是核查,数下来
+                    // に軽量モデルが装備されている場合は、まず目的とタイトルを決定するために質問する必要があります。それ以外の場合は、確認してカウントダウンすることしかできません。
                     if (system == INTENT) return ModelReply(listOf(Part.Text("ACT")), StopReason.EndTurn, null)
                     if (system == TITLE) return ModelReply(listOf(Part.Text("测试对话")), StopReason.EndTurn, null)
                     if (system == Verifier.PROMPT) lightChecks.incrementAndGet()
@@ -148,7 +148,7 @@ class TaskServiceTest {
         pollUntil(10_000) { DeviceTaskState.busy.value.takeIf { !it } }
     }
 
-    /** 不打开 App 的任务不建虚拟屏:读屏是空屏并提示先 phone_launch_app,写操作失败 no_app_open,没有画面。 */
+    /** アプリを開かないタスクでは仮想画面は作成されません。読み取り画面は空白の画面で、最初にphone_launch_appのプロンプトが表示され、書き込み操作はno_app_openに失敗し、画面がありません。 */
     @Test
     fun noDisplayUntilLaunchApp() {
         start("你好")
@@ -164,7 +164,7 @@ class TaskServiceTest {
         finishAndAwait(appOpened = false)
         assertEquals(-1, testTasks.agentDisplayId.value)
 
-        // 第一次 phone_launch_app 才建屏,而且只建一块。第二个任务有它自己的脚本模型,调用从 1 数起
+        // 初めてphone_launch_app が構築され、画面が 1 つだけ構築されました。 2 番目のタスクには、1 から開始される独自のスクリプト モデルがあります。
         start("测试任务")
         assertEquals(1, model.awaitCall().number)
         assertEquals(-1, testTasks.agentDisplayId.value)
@@ -184,16 +184,16 @@ class TaskServiceTest {
     @Test
     fun openingSameAppPauses() {
         val displayId = startWithSettingsOpen()
-        // 静音在旁路协程里跟着打开的 App 做,稍等
+        // バイパス コルーチンで開いているアプリに従ってミュートが行われます。しばらくお待ちください。
         assertEquals("ignore", pollUntil(5_000) { shell.getAudioMode(SETTINGS)?.takeIf { it == "ignore" } } ?: shell.getAudioMode(SETTINGS))
 
-        // 模拟用户在主屏打开了同一个 App:任务被挪到主屏
+        // は、ユーザーがホーム画面で同じアプリを開いていることをシミュレートします。タスクはホーム画面に移動します。
         assertTrue(shell.moveTask(settingsTask, Display.DEFAULT_DISPLAY))
-        // 模型还在「推理」(没走到 gate)时就应立即显示暂停
+        // モデルは、まだ「推論中」(ゲートに到達する前) にすぐに一時停止を表示する必要があります。
         assertEquals(TaskState.Held(TaskGate.paused(TaskGate.MOVED_AWAY)), awaitState { it is TaskState.Held })
         model.feed("phone_back")
         assertEquals(TaskState.Held(TaskGate.paused(TaskGate.MOVED_AWAY)), awaitState { it is TaskState.Held })
-        // 暂停期间不自动挪回
+        // は一時停止中に自動的に戻りません
         Thread.sleep(1_500)
         assertEquals(settingsTask, shell.topTaskId(Display.DEFAULT_DISPLAY))
 
@@ -207,21 +207,21 @@ class TaskServiceTest {
     }
 
     /**
-     * 只看 dumpsys power,不改任何全局设置:临时关掉「插 USB 常亮」去等真实熄屏超时,
-     * 在上次用户操作已久时会让主屏立刻熄灭并上锁(实测踩过),无人值守时不可接受。
-     * 锁被系统禁用(例如后台限制)时 dumpsys 会标 DISABLED,这里一并排除。
+     * は、グローバル設定を変更せずに、dumpsys の電源のみを確認します。「USB を接続してオンのまま」を一時的にオフにして、実際の画面オフのタイムアウトを待ちます。
+     * を使用すると、最後のユーザー操作 (テスト済み) から長時間が経過すると、ホーム画面がオフになり、すぐにロックされます。これは、無人の場合には許容できません。
+     * ロックがシステムによって無効になっている場合 (バックグラウンド制限など)、dumpsys は DISABLED とマークされますが、ここでは除外されます。
      */
     @Test
     fun keepsScreenOnDuringTask() {
         startWithSettingsOpen()
         val line = mikaScreenLock()
         assertNotNull("Mika holds no screen wake lock while running", line)
-        // 有的系统在类型前加锁对象编号(mLock:<id>),只认类型字样
-        // 只保持亮屏、允许系统调暗,不锁在全亮
+        // 一部のシステムでは、タイプの前にロック オブジェクト番号 (mLock: <id>) を追加し、タイプのみを認識します。
+        // は画面をオンのままにするだけで、システムを暗くすることができ、最大の明るさにロックされません。
         assertTrue(line!!, "SCREEN_DIM_WAKE_LOCK" in line)
         assertFalse(line, "DISABLED" in line)
         val summary = sh("dumpsys power").lines().map { it.trim() }.first { it.startsWith("mWakeLockSummary=") }
-        // 摘要是位掩码(0x..),AOSP 的 WAKE_LOCK_SCREEN_DIM = 1 shl 2;部分版本打印成文字
+        // ダイジェストはビット マスク (0x..)、AOSP の WAKE_LOCK_SCREEN_DIM = 1 shl 2;一部のバージョンはテキストとして印刷されます
         val bits = Regex("0x([0-9a-fA-F]+)").find(summary)?.groupValues?.get(1)?.toInt(16)
         assertTrue(summary, if (bits != null) bits and (1 shl 2) != 0 else "SCREEN_DIM" in summary)
 
@@ -230,7 +230,7 @@ class TaskServiceTest {
         assertTrue("screen wake lock still held after the task: ${mikaScreenLock()}", released == true)
     }
 
-    /** 第一步之前的准备(开模型、读知识、选路线)也算在跑:模型还没开出来时屏幕锁就已拿上。 */
+    /** 最初のステップの前の準備 (モデルを開く、ナレッジを読み取る、ルートの選択) も実行中とみなされます。モデルを開く前に画面がロックされています。 */
     @Test
     fun keepsScreenOnWhilePreparing() {
         val opening = java.util.concurrent.CountDownLatch(1)
@@ -244,8 +244,8 @@ class TaskServiceTest {
     }
 
     /**
-     * 停止:界面当场是已停止,随后补上一段交代当作这一轮的回答(结局照旧是取消)。交代请轻量模型写,不给工具;
-     * 轻量模型出错时换主模型,主模型也写不出就按记录直接拼。
+     * 停止: インターフェイスはその場で停止され、その後、このラウンドの答えとして説明の段落が追加されます (エンディングはキャンセルされたままです)。軽量モデルを作成し、ツールは提供しないでください。
+     * 軽量モデルでエラーが発生した場合、メインモデルに変更します。メインモデルを書き込めない場合は、レコードを押して直接作成してください。
      */
     @Test
     fun stopLeavesASummaryAsTheAnswer() {
@@ -255,12 +255,12 @@ class TaskServiceTest {
             object : ChatModel {
                 override val capabilities = Capabilities(toolCalls = false, vision = false, contextTokens = 8_000, reasoning = false)
                 override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
-                    // 开局判意图的那一问答「要操作」,别的轻量调用只有写交代这一次
+                    // ゲーム開始を決定する意図に関する質問と回答は「操作が必要」です。他のライトコールは今回のみ書いて説明できます。
                     if (system == INTENT) return ModelReply(listOf(Part.Text("ACT")), StopReason.EndTurn, null)
                     if (system != SUMMARY) throw IllegalStateException("not for this test")
                     assertTrue(tools.isEmpty())
                     asked.incrementAndGet()
-                    // 交代先别写完:看得到「正在整理」
+                    // まだ書き終えないでください。「整理中」が表示されます
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { gate.await(10, java.util.concurrent.TimeUnit.SECONDS) }
                     return ModelReply(listOf(Part.Text("停止前打开了设置,还没看任何页面。")), StopReason.EndTurn, null)
                 }
@@ -273,7 +273,7 @@ class TaskServiceTest {
         val runId = pollUntil(5_000) { DeviceTaskState.endedRunIds.value[conversation] }!!
         assertTrue(runId in pollUntil(5_000) { DeviceTaskState.summarizing.value.takeIf { runId in it } }.orEmpty())
         val store = com.wangzan101.mika.chat.ConversationStore.shared(context)
-        // 先记下「已取消」,停止不等交代
+        // まず「キャンセル」と書いてください、説明を待つのはやめてください
         val placeholder = pollUntil(5_000) { store.turns(conversation).lastOrNull { it.runId == runId } }!!
         assertEquals("cancelled" to "已取消", placeholder.status to placeholder.outcome)
         gate.countDown()
@@ -284,7 +284,7 @@ class TaskServiceTest {
         assertNotNull(pollUntil(5_000) { DeviceTaskState.summarizing.value.takeIf { runId !in it } })
         pollUntil(10_000) { DeviceTaskState.busy.value.takeIf { !it } }
 
-        // 轻量模型出错、主模型交白卷:按记录直接拼
+        // 軽量モデルが間違っており、メイン モデルが無駄です: レコードを押して直接綴ってください。
         testTasks.lightModelFactory = { _, _ ->
             object : ChatModel {
                 override val capabilities = Capabilities(toolCalls = false, vision = false, contextTokens = 8_000, reasoning = false)
@@ -302,8 +302,8 @@ class TaskServiceTest {
         assertEquals(1, model.summaryRequests.get())
     }
 
-    // 绝不能在无人值守时启用:它会发 KEYCODE_SLEEP 让手机熄屏上锁,只有人能输入密码解锁。
-    // 只在用户本人在场、准备好解锁时手动去掉 @Ignore 运行。
+    // は、無人時には有効にしないでください。KEYCODE_SLEEP を送信して画面をオフにして電話をロックし、パスワードを入力してロックを解除できるのはユーザーだけです。
+    // @Ignore を手動で削除し、ユーザーが存在しロックを解除する準備ができている場合にのみ実行します。
     @Ignore("needs user to unlock: pressing power locks the phone and only a person can unlock it")
     @Test
     fun lockPausesAndUnlockResumes() {
@@ -311,7 +311,7 @@ class TaskServiceTest {
         sh("input keyevent KEYCODE_SLEEP")
         model.feed("phone_back")
         assertEquals(TaskState.Held(TaskGate.LOCKED), awaitState { it == TaskState.Held(TaskGate.LOCKED) })
-        // 由人解锁;解锁后应自动继续,不需要点继续
+        // は誰かによってロックが解除されました。ロック解除後は自動的に続行されるため、「続行」をクリックする必要はありません
         val resumed = pollUntil(120_000) { DeviceTaskState.state.value.takeIf { it is TaskState.Running } }
         assertNotNull(resumed)
         assertEquals(3, model.awaitCall().number)

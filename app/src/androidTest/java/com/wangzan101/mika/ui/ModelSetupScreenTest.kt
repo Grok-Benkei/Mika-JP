@@ -38,7 +38,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.rules.TemporaryFolder
 
-/** 欢迎页、配置模型一页(上手和设置共用)、选用途页、服务商详情、全部模型和「用作」面板(只用假数据,不联网)。 */
+/** ようこそページ、モデル設定ページ (開始とセットアップに共通)、使用状況ページの選択、サービスプロバイダーの詳細、すべてのモデル、および「使用」パネル (偽のデータのみ、インターネットには接続されていません)。 */
 @RunWith(AndroidJUnit4::class)
 class ModelSetupScreenTest {
     @get:Rule(order = Int.MIN_VALUE) val chinese = ChineseUi()
@@ -80,22 +80,22 @@ class ModelSetupScreenTest {
     @Test fun firstVisitShowsFormAndNextIsDisabled() {
         show(ModelSetupUi(form))
         compose.onNodeWithTag("setup-next").assertIsNotEnabled()
-        // 上面多了「用账号登录」一组,按钮可能在屏幕外:先滚到再点
+        // 上に「アカウントでログイン」グループがあります。ボタンが画面外にある場合があります。まずボタンまでスクロールしてからクリックしてください。
         compose.onNodeWithTag("setup-test").performScrollTo().assertIsEnabled().performClick()
         compose.onNodeWithTag("preset-Kimi").performScrollTo().performClick()
         assertEquals(listOf("test", "preset Kimi"), calls)
     }
 
-    /** 「不测试,直接保存」先问一次:说清后果,取消了就什么都不做,确认了才存。 */
+    /** "テストせずに直接保存してください。"まず質問してください。結果を明確に説明してください。キャンセルした場合は何もしません。保存する前に確認してください。 */
     @Test fun saveWithoutTestAsksBeforeSaving() {
         show(ModelSetupUi(form))
         compose.onNodeWithTag("setup-save-untested").performScrollTo().performClick()
         compose.onNodeWithText(ModelSetupCopy.SAVE_UNTESTED_TITLE).assertIsDisplayed()
         compose.onNodeWithText(ModelSetupCopy.SAVE_UNTESTED_BODY).assertIsDisplayed()
-        // 取消:什么都没存
+        // キャンセル: 何も保存されませんでした
         compose.onNodeWithText("取消").performClick()
         assertTrue(calls.isEmpty())
-        // 确认:存
+        // 確認: 保存
         compose.onNodeWithTag("setup-save-untested").performScrollTo().performClick()
         compose.onNodeWithText(ModelSetupCopy.SAVE_UNTESTED_CONFIRM).performClick()
         assertEquals(listOf("save untested"), calls)
@@ -106,9 +106,9 @@ class ModelSetupScreenTest {
         compose.onNodeWithTag("context-main").assertDoesNotExist()
         compose.onNodeWithText(ModelsCopy.PROVIDERS).assertIsDisplayed()
         compose.onNodeWithText("已连接 · 2 个模型 · 主模型、轻量模型在用").assertIsDisplayed()
-        // 轻量卡「用主模型」下面也写着主模型名,所以只在主模型卡里找
+        // 軽量カードには、「メイン モデルを使用」の下にメイン モデルの名前が記載されているため、メイン モデル カードでのみ見つけることができます。
         compose.onNodeWithTag("role-main").assertTextContains("deepseek-chat", substring = true)
-        // 表单收起,留一个入口
+        // フォームは閉じられており、入り口が残っています
         compose.onNodeWithText(ModelsCopy.ADD_PROVIDER).performClick()
         compose.onNodeWithTag("provider-通义千问").performClick()
         compose.onNodeWithTag("role-vision").performScrollTo().performClick()
@@ -119,7 +119,7 @@ class ModelSetupScreenTest {
     @Test fun settingsPageShowsAllThreeRolesWithoutBottomButton() {
         show(connected(RoleChoices(main = "c1", vision = RoleChoice.Off, light = RoleChoice.SameAsMain)), onboarding = false)
         compose.onNodeWithText(ModelsCopy.TITLE).assertIsDisplayed()
-        // 改动当场生效,左上角返回就行
+        // 変更はすぐに有効になり、左上隅に戻るだけです。
         compose.onNodeWithTag("setup-next").assertDoesNotExist()
         ModelRole.entries.forEach { compose.onNodeWithText(ModelsCopy.roleLabel(it)).assertIsDisplayed() }
         compose.onNodeWithText(ModelsCopy.OFF).assertIsDisplayed()
@@ -185,7 +185,7 @@ class ModelSetupScreenTest {
         compose.onNodeWithText(ModelsCopy.SAME_AS_MAIN).performClick()
         compose.onNodeWithText(ModelsCopy.OFF).performClick()
         compose.onNodeWithText("DeepSeek").assertIsDisplayed()
-        // 不按能力置灰
+        // は、機能に基づいていない場合はグレー表示されます
         compose.onNodeWithText("deepseek-coder").assertIsEnabled().performClick()
         compose.onNodeWithText("qwen-long").performScrollTo().performClick()
         assertEquals(listOf("${RoleChoice.SameAsMain}", "${RoleChoice.Off}", "p1 deepseek-coder", "p2 qwen-long"), picked)
@@ -203,7 +203,7 @@ class ModelSetupScreenTest {
         val ui = ModelSetupUi(form, providers = listOf(deepseek, many), configs = listOf(main), roles = RoleChoices(main = "c1"))
         compose.setContent { MikaTheme { RolePickerContent(ui, ModelRole.Main, RolePickerActions(), onBack = {}) } }
         compose.onNodeWithTag("model-filter").performTextInput("qwen-9")
-        // 筛选框里也有这几个字,只看不是输入框的那一行
+        // フィルター ボックスにはこれらの単語もあります。入力ボックスにない行を見てください。
         compose.onNode(hasText("qwen-9") and !hasSetTextAction()).assertIsDisplayed()
         compose.onNodeWithText("qwen-1").assertDoesNotExist()
         compose.onNodeWithText("DeepSeek").assertDoesNotExist()
@@ -221,7 +221,7 @@ class ModelSetupScreenTest {
         }
         compose.onNodeWithText(ModelsCopy.CONNECTED).assertIsDisplayed()
         compose.onNodeWithText(ModelsCopy.KEY_SAVED).assertIsDisplayed()
-        // 在用的排最前,只放 3 个
+        // 中古が先に表示されており、3つだけ配置されています。
         compose.onNodeWithTag("model-qwen-vl-max").assertIsDisplayed()
         compose.onNodeWithText(ModelsCopy.roleName(ModelRole.Vision)).assertIsDisplayed()
         compose.onNodeWithTag("model-qwen-max").assertIsDisplayed()
@@ -229,7 +229,7 @@ class ModelSetupScreenTest {
         compose.onNodeWithTag("model-qwen-turbo").assertDoesNotExist()
         compose.onNodeWithText(ModelsCopy.viewAll(5)).performScrollTo().performClick()
         assertEquals(listOf("all"), got)
-        // 删除前说清会影响哪个用途
+        // 削除する前に、どのような目的に影響するかを説明してください。
         compose.onNodeWithText(ModelsCopy.DELETE).performScrollTo().performClick()
         compose.awaitOne(ModelsCopy.deleteBody(listOf(ModelRole.Vision)), inDialog = true).assertIsDisplayed()
     }
@@ -283,7 +283,7 @@ class ModelSetupScreenTest {
         compose.onNodeWithContentDescription(ModelsCopy.REFRESH).assertIsNotEnabled()
     }
 
-    // ---------- 用账号登录 ----------
+    // ---------- アカウントでログイン ----------
 
     private val grok = Provider("p3", "xAI / Grok", ProviderConfig.Kind.Xai, "https://api.x.ai/v1", listOf(ListedModel("grok-4"), ListedModel("grok-4-fast")))
 

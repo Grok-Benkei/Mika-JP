@@ -24,17 +24,17 @@ internal data class RawResponse(val status: Int, val retryAfter: String?, val bo
     }
 }
 
-/** 各适配器共用的 HTTP 执行(enqueue + 协程取消)与 Retry-After 解析。 */
+/** HTTP の実行 (エンキュー + コルーチンのキャンセル) と再試行後の解決はすべてのアダプターで共有されます。 */
 internal object HttpSupport {
     suspend fun execute(http: OkHttpClient, req: Request): RawResponse =
         observe(req) { attempt -> executeRaw(http, req, attempt) }.also(::requireProxyAccepted)
 
-    /** HTTP 407 只会是途中的代理要账号密码(或拒了给的),不是服务商的回复。 */
+    /** HTTP 407 は、途中のエージェントがアカウント パスワードを要求した (またはパスワードの提供を拒否した) ことだけを意味し、サービス プロバイダーからの応答は意味しません。 */
     private fun requireProxyAccepted(raw: RawResponse) {
         if (raw.status == 407) throw ModelError.Proxy(ProxyFailure.AuthFailed)
     }
 
-    /** 连接失败:走了代理且错在代理那一段的说成代理的问题,别的照旧算网络失败。 */
+    /** 接続エラー: プロキシが失われ、エラーがプロキシ セクションにある場合、それはプロキシの問題であると言われます。それ以外の場合は、依然としてネットワーク障害とみなされます。 */
     fun networkError(http: OkHttpClient, req: Request, e: IOException): ModelError =
         NetProxy.failure(http, req.url, e)?.let { ModelError.Proxy(it, e) } ?: ModelError.Network(e)
 
@@ -75,8 +75,8 @@ internal object HttpSupport {
     }
 
     /**
-     * SSE 按事件交付；取消协程会同时取消 HTTP 请求。流读到头时由调用者按各自协议判断有没有正常收尾，
-     * 没收尾算 [ModelError.StreamCut]。一个事件都没有、又不是事件流格式的成功响应(比如地址指到了网页)算 [ModelError.BadResponse]。
+     * SSE はイベントベースで配信されます。コルーチンをキャンセルすると、HTTP リクエストもキャンセルされます。ストリームが最後まで読み込まれると、呼び出し元はそれぞれのプロトコルに従って正常に終了したかどうかを判断します。
+     * は没収され、[ModelError.StreamCut] の最終残高は没収されます。イベントはなく、イベント ストリーム形式 (たとえば、アドレスが Web ページを指している) では正常な応答ではありません ([ModelError.BadResponse])。
      */
     suspend fun stream(http: OkHttpClient, req: Request, onEvent: (String) -> Unit): RawResponse =
         observe(req) { attempt -> streamRaw(http, req, attempt, onEvent) }.also(::requireProxyAccepted)
@@ -102,7 +102,7 @@ internal object HttpSupport {
                             if (cont.isActive) cont.resume(RawResponse(it.code, it.header("retry-after"), it.body?.string().orEmpty()))
                             return
                         }
-                        val source = it.body?.source() ?: throw ModelError.BadResponse("流式响应没有内容")
+                        val source = it.body?.source() ?: throw ModelError.BadResponse("ストリーミング応答に内容がありません")
                         val data = mutableListOf<String>()
                         var events = 0
                         fun dispatch() {
@@ -124,7 +124,7 @@ internal object HttpSupport {
                         if (cont.isActive) {
                             dispatch()
                             val eventStream = it.header("Content-Type")?.contains("event-stream", ignoreCase = true) == true
-                            if (events == 0 && !eventStream) throw ModelError.BadResponse("返回的不是流式内容(Content-Type: ${it.header("Content-Type").orEmpty()})")
+                            if (events == 0 && !eventStream) throw ModelError.BadResponse("ストリーミング応答ではありません（Content-Type: ${it.header("Content-Type").orEmpty()}）")
                             cont.resume(RawResponse(it.code, it.header("retry-after"), ""))
                         }
                     } catch (e: Exception) {

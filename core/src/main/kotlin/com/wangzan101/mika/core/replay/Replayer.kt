@@ -21,25 +21,25 @@ import kotlin.math.hypot
 import com.wangzan101.mika.core.tool.Verb
 
 sealed interface ReplayOutcome {
-    /** 走完(或核对通过)的步数。 */
+    /** 完了した (または検証された) ステップの数。 */
     val done: Int
 
     data class Completed(override val done: Int) : ReplayOutcome
     /**
-     * [executed]:第 done+1 步真的执行了(界面可能已经动过);执行前就被拒的(参数、链接、编号过期、App 被占等)为 false。
-     * [error] 是那一步工具结果的错误码,交还时一并告诉模型。
+     * [executed]: ステップ完了+1 が実際に実行されます (インターフェイスが移動された可能性があります)。実行前に拒否されたもの (パラメータ、リンク、期限切れの番号、占有されているアプリなど) は false です。
+     * [error] は、そのステップでのツール結果のエラー コードであり、返されたときにモデルに報告されます。
      */
     data class Diverged(
         override val done: Int, val expected: String, val seen: String, val executed: Boolean = false, val error: String? = null,
     ) : ReplayOutcome
-    /** 下一步是不可逆操作(或判不清),停在它之前交还模型走正常确认流程。 */
+    /** 次のステップは不可逆的な操作 (または不明確) です。その前に停止し、モデルを戻して通常の確認プロセスに従います。 */
     data class StoppedForConfirmation(override val done: Int) : ReplayOutcome
 }
 
 /**
- * 不调模型地照路线一步步做。每步:锁屏关卡 → 读屏 → 轻量核对(前台包名、动作前锚点、选择器唯一命中)→
- * 经 [ActionExecutor] 执行(守卫一有提示就停;不可逆或判不清都停,回放从不认为用户已同意)→ 核对动作后的变化。
- * 任何一处对不上就停,交还模型。输入的字只来自路线里的固定文字和本次原话里的槽值。
+ * モデルを調整せずに、ルートを段階的にたどってください。各ステップ: ロック画面レベル → 画面読み取り → ライト検証 (フロントパッケージ名、アクション前のアンカーポイント、セレクター固有のヒット) →
+ * は [ActionExecutor] によって実行されます (ガードのプロンプトが表示されたらすぐに停止します。元に戻せない場合や不明確な場合は停止します。再生ではユーザーが同意したとはみなされません) → アクション後の変更を確認します。
+ * 一致しない部分がある場合は、モデルを停止して返却します。入力される言葉はルート内の定型文と原作のスロット値のみとなります。
  */
 class Replayer(
     private val tools: ToolDispatcher,
@@ -62,7 +62,7 @@ class Replayer(
                 return ReplayOutcome.Diverged(i, describe(step, choice.slots) + " ($why)", seen, executed, error)
             }
             val verb = tools.index[step.tool]?.takeIf { it.routable }?.verb ?: return diverged("not a replayable action", "")
-            // 锁屏、被拿走时先等;等完再读屏,核对和执行都按等完之后的一屏(执行入口不再等第二次)
+            // 画面がロックされたり奪われたりしたら、まず待ちます。待機後に画面を読み込み、待機後に画面上で確認して実行（2回目の実行入力を待つ必要はありません）
             gate()
             val snap = read() ?: return diverged("the screen could not be read", "")
             if (snap.protected) return diverged("the page is protected", PROTECTED_SEEN)
@@ -77,7 +77,7 @@ class Replayer(
                 find(snap, sel, choice.slots) ?: return diverged("the target element is not unique or not found", seen)
             }
             if (verb == Verb.Tap && target == null) return diverged("the tap has no target to check", seen)
-            // 链接只开参考资料里此刻还在的:资料改过,路线里记着的链接就不再放行
+            // 参考資料に残っているリンクのみ公開します。情報が変更されると、ルートに記録されているリンクは公開されなくなります。
             if (verb == Verb.OpenLink) {
                 fun arg(k: String) = (args[k] as? JsonPrimitive)?.contentOrNull
                 if (!tools.linkAllowed(arg("action"), arg("uri"), arg("package"))) return diverged("the link is no longer in the reference material", seen)
@@ -100,7 +100,7 @@ class Replayer(
                 is ActionOutcome.Cancelled -> return diverged("cancelled", seen)
             }
             val exec = out.exec
-            // 动作后只读一屏:路线锚点和「有没有出现预期文字」都用它
+            // は、アクションの後に 1 つの画面のみを読み取ります。これは、ルートのアンカー ポイントと「期待されるテキストが表示されるかどうか」に使用されます。
             val fresh = out.seen ?: tools.interfaces.peek()
             val effective = effectiveWrite(verb, exec.content)
             val now = fresh?.let { if (it.protected) PROTECTED_SEEN else summary(it) } ?: seen
@@ -119,7 +119,7 @@ class Replayer(
     }
 
     private suspend fun read(): ScreenSnapshot? = try {
-        // 读路线此刻所在的那块屏(最近一步动作的那块)
+        // 現時点でルートが存在する画面（最新のアクションのある画面）を読み取ります。
         val dump = tools.index.nameOf(Verb.ListElements, tools.surface)!!
         val r = tools.executeRead(Part.ToolCall("replay-read-${++seq}", dump, "{}"), 0)
         (r.content["snapshotId"] as? JsonPrimitive)?.contentOrNull?.let { tools.interfaces.snapshotFor(tools.declared(dump), JsonObject(mapOf("snapshotId" to JsonPrimitive(it)))) }
@@ -129,7 +129,7 @@ class Replayer(
         null
     }
 
-    /** 去掉编号;每个字符串参数里的 `{n}` 都换成槽值。槽号超出范围、或非字符串参数里带着槽,为 null。 */
+    /** は番号を削除します。各文字列パラメータの `{n}` はスロット値に置き換えられます。スロット番号が範囲外であるか、非文字列パラメータにスロットが含まれているため、null になります。 */
     private fun build(step: RouteStep, slots: List<String>): JsonObject? {
         val o = try { Json.parseToJsonElement(step.argsJson) as? JsonObject } catch (e: Exception) { null } ?: return null
         val out = mutableMapOf<String, JsonElement>()
@@ -145,9 +145,9 @@ class Replayer(
     }
 
     /**
-     * 在当前屏里按选择器找唯一的目标。名字为空不比名字;`{n}` 先换成槽值。
-     * 记录时唯一、现在却不止一个:页面已不是那时的样子(如列表里多了同名条目),不认。
-     * 记录时就不唯一:取同序号的那个,且只有它离记录时的位置不超过屏宽 15% 才认。
+     * セレクターを押して、現在の画面で唯一のターゲットを見つけます。名前が空の場合は、名前に置き換えられません。 `{n}` は最初にスロット値に置き換えられます。 記録されたときは
+     * のみでしたが、現在は複数存在します。ページはもはや当時のものではない (たとえば、リスト内に同じ名前のエントリがさらに存在する) ため、認識されません。
+     * は記録時に一意ではありません。同じシリアル番号を持つものは、記録時の位置が画面幅の 15% を超えない場合にのみ認識されます。
      */
     private fun find(s: ScreenSnapshot, sel: Selector, slots: List<String>): UiElement? {
         val name = fill(sel.name, slots) ?: return null
@@ -166,30 +166,30 @@ class Replayer(
         "${s.packageName ?: "unknown app"}: " + s.elements.map { it.name.trim() }.filter { it.isNotEmpty() }.distinct().take(8).joinToString(", ")
 
     private fun emit(e: RunEvent) {
-        try { sink.event(e) } catch (x: CancellationException) { throw x } catch (x: Exception) { /* 记录失败不影响回放 */ }
+        try { sink.event(e) } catch (x: CancellationException) { throw x } catch (x: Exception) { /* 録画失敗は再生に影響しない */ }
     }
 
     companion object {
-        /** 这些错误在动作执行之前就拒了,界面没被动过。 */
+        /** これらのエラーはアクションが実行される前に拒否され、インターフェイスは操作されませんでした。 */
         private val NOT_EXECUTED = setOf(
             "invalid_arguments", "unknown_tool", "invalid_link", "link_unresolved", "ref_expired", "app_in_use_by_other_task",
             "app_wait_would_deadlock", "app_wait_timed_out",
             "app_in_use_by_user", "app_not_found", "no_app_open", "confirmation_required", "batch_stopped",
         )
 
-        /** 屏宽 15%(0–999 坐标)。 */
+        /** 画面幅 15% (0 ～ 999 座標)。 */
         private const val NEAR = 150.0
         private const val PROTECTED_SEEN = "a protected page"
         private val SLOT = Regex("\\{(\\d+)\\}")
 
-        /** 把 `{n}` 换成第 n 个槽值;槽号不存在为 null。 */
+        /** は、`{n}` を n 番目のスロット値に置き換えます。スロット番号が存在しない場合は、null になります。 */
         internal fun fill(s: String, slots: List<String>): String? {
             var bad = false
             val out = SLOT.replace(s) { m -> slots.getOrNull(m.groupValues[1].toInt() - 1) ?: run { bad = true; "" } }
             return out.takeUnless { bad }
         }
 
-        /** 给模型看的一步说明。 */
+        /** モデルを表示するためのワンステップ手順。 */
         fun describe(step: RouteStep, slots: List<String>): String {
             val o = try { Json.parseToJsonElement(step.argsJson) as? JsonObject } catch (e: Exception) { null }
             val what = listOfNotNull(

@@ -17,14 +17,14 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/** 操作手机 App 需要的(内置助手、无障碍)此刻没有;[hint] 是告诉模型和用户怎么弄好的一句话。 */
+/** にはモバイル アプリの操作に必要なもの (組み込みアシスタント、アクセシビリティ) がありません。 [hint] は、モデルとユーザーにその方法を指示する文です。 */
 class PhoneUnavailable(val hint: String) : Exception(hint)
 
 /**
- * 用到时才接上的手机端口:第一次 launch_app / open_link,或系统命令、事件工具时才调 [acquire](连内置助手、等无障碍、备好虚拟屏;屏在这些动作用到时才建);
- * 只用网页或沙箱的任务从头到尾不需要内置助手和无障碍。没接上之前读屏是一块空屏、其余动作报 no_app_open,
- * 和接上后还没打开 App 时一样。接不上时这次动作报 phone_unavailable(附怎么弄好),下次再试。
- * 装了哪些 App 只问包管理器([listApps]),不用接上;另一份用户里的 App 没接上时问 [appCopies](内置助手已连着才有,不为它去接)。
+ * 使用時のみ接続されるモバイル ポート: [acquire] は、launch_app / open_link が初めて使用されるとき、またはシステム コマンドまたはイベント ツールが使用されるときにのみ呼び出されます (組み込みアシスタントを接続し、アクセシビリティを待機し、仮想画面を準備します。これらのアクションが使用されるまで画面は作成されません)。
+ * Web またはサンドボックスのみを使用して最初から最後までタスクを実行するには、組み込みのヘルパーやアクセシビリティは必要ありません。接続する前、読み取り画面は空白の画面であり、他のアクションは no_app_open を報告します。
+ * は接続後アプリを開く前と同じです。接続できない場合、このアクションは、phone_unavailable を報告します (修正方法は添付されています)。次回もぜひお試しください。
+ * がどのアプリがインストールされているかを尋ねるとき、パッケージ マネージャー ([listApps]) には接続せずに尋ねるだけです。別のユーザーのアプリが接続されていない場合、[appCopies] が要求されます (組み込みアシスタントは接続されている場合にのみ使用可能であり、接続されません)。
  */
 class LazyPhoneScreen(
     private val width: Int,
@@ -36,10 +36,10 @@ class LazyPhoneScreen(
     private val lock = Mutex()
     @Volatile private var port: ScreenPort? = null
 
-    /** 模型标下的任务结束时各 App 的去留;收尾时由任务交给内置助手执行(没接上过手机就没有可处理的)。 */
+    /** モデルのタスクが完了すると、各アプリは残るか消えます。最後に、タスクは実行のために組み込みアシスタントに渡されます (携帯電話に接続されていない場合、処理するものは何もありません)。 */
     override val afterTask = AfterTaskMarks()
 
-    /** 本任务用过手机(已接上)。 */
+    /** このタスクでは携帯電話が使用されました (接続されています)。 */
     val acquired: Boolean get() = port != null
 
     private suspend fun built(): ScreenPort? = lock.withLock {
@@ -60,7 +60,7 @@ class LazyPhoneScreen(
     override suspend fun openApp(packageName: String, cold: Boolean): ActionResult = built()?.openApp(packageName, cold) ?: unavailable()
     override suspend fun openAppCopy(packageName: String, userId: Int, cold: Boolean): ActionResult =
         built()?.openAppCopy(packageName, userId, cold) ?: unavailable()
-    // 被别的任务占着才会等,那时手机早已接上;没接上就没什么可等
+    // 他のタスクが占有している場合にのみ待機します。その時点までに、電話はすでに接続されています。接続されていない場合は、何も待つ必要はありません。
     override suspend fun awaitAppFree(packageName: String, userId: Int?, timeoutMs: Long): AppWait =
         port?.awaitAppFree(packageName, userId, timeoutMs) ?: AppWait.Unsupported
     override suspend fun openLink(action: String?, uri: String?, packageName: String?): ActionResult =
@@ -70,7 +70,7 @@ class LazyPhoneScreen(
     override suspend fun setWheel(ref: String, snapshotId: String, value: String): WheelOutcome =
         port?.setWheel(ref, snapshotId, value) ?: WheelOutcome(false, null, null, 0, "none", error = "no_app_open")
 
-    // ---------- 没接上之前:还没有打开的 App ----------
+    // ---------- 接続前：開いていないアプリ ----------
 
     override suspend fun snapshot(): ScreenSnapshot = port?.snapshot() ?: empty()
     override suspend fun peek(): ScreenSnapshot = port?.peek() ?: empty()
@@ -109,7 +109,7 @@ class LazyPhoneScreen(
         return screen.systemCommand(command)
     }
     override suspend fun listApps(): List<Pair<String, String>> = port?.listApps() ?: listApps.invoke()
-    // 要问内置助手:没接上之前不为它去接(接不上会请用户设置),打开过 App 之后才有
+    // 内蔵アシスタントに質問する: 接続する前に接続しないでください (接続できない場合は、ユーザーがセットアップするよう求められます)。アプリを開いた後にのみ接続してください。
     override suspend fun otherProfiles(): Map<String, List<String>> = port?.otherProfiles() ?: emptyMap()
     override suspend fun appCopies(): List<AppCopy> = port?.appCopies() ?: appCopies.invoke()
     override suspend fun checkScreen(): ScreenCheck? = port?.checkScreen()

@@ -28,10 +28,10 @@ class AudioMuteTest {
         val mute = AudioMute(audio, store)
         assertTrue(mute.mute("a.app"))
         assertTrue(mute.mute("b.app"))
-        assertTrue(mute.mute("a.app")) // 再次静音不能把 ignore 记成原值
+        assertTrue(mute.mute("a.app")) // 再びミュートするときに無視を元の値として記録できません
         assertEquals("ignore", audio.modes["a.app"])
 
-        // 进程崩溃:新实例按持久化记录恢复
+        // プロセス クラッシュ: 新しいインスタンスは永続レコードに従って復元されます
         assertTrue(AudioMute(audio, store).restoreAll())
         assertEquals("allow", audio.modes["a.app"])
         assertEquals("default", audio.modes["b.app"])
@@ -67,7 +67,7 @@ class AudioMuteTest {
         assertEquals("allow", audio.modes["a.app"])
         assertEquals("ignore", audio.modes["b.app"])
         assertEquals(mapOf("b.app" to "default"), store.saved)
-        // 交还后重新静音,原值仍是 allow
+        // は返された後再びミュートされますが、元の値はまだ許可されています
         assertTrue(mute.mute("a.app"))
         assertTrue(mute.restoreAll())
         assertEquals("allow", audio.modes["a.app"])

@@ -7,7 +7,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 
-/** 胶囊长按说话:松开时手指落在哪个圆上、长按和拖动怎么分、发出后胶囊上闪的那句。 */
+/** カプセルを長押しして話す: 指を離したときに指がどの円に当たるか、長押しとドラッグの見分け方、話した後にカプセル上で点滅する文章。 */
 class CapsuleVoiceTest {
     @get:Rule val texts = ChineseTexts()
 
@@ -19,14 +19,14 @@ class CapsuleVoiceTest {
     }
 
     @Test fun justOutsideCancelCircleStillCancels() {
-        // 圆外 10px,外扩 14px 以内
+        // 円の外側 10px、円の外側 14px 以内
         assertEquals(CapsuleVoice.Drop.Cancel, CapsuleVoice.drop(90f, 230f, cancel, edit, slopPx = 14))
         assertEquals(CapsuleVoice.Drop.Cancel, CapsuleVoice.drop(130f, 272f, cancel, edit, slopPx = 14))
     }
 
     @Test fun farFromBothCirclesIsSend() {
         assertEquals(CapsuleVoice.Drop.Send, CapsuleVoice.drop(230f, 900f, cancel, edit, slopPx = 14))
-        // 两个圆中间、都不够近
+        // 2 つの円の中心が十分に近くありません。
         assertEquals(CapsuleVoice.Drop.Send, CapsuleVoice.drop(231f, 230f, cancel, edit, slopPx = 14))
     }
 
@@ -35,7 +35,7 @@ class CapsuleVoiceTest {
     }
 
     @Test fun circlesNotLaidOutYetMeanSend() {
-        // 面板还没排好版(圆的位置还没报上来)时不会误判成取消
+        // パネルが未配置（サークルの位置が未報告）の場合、誤ってキャンセルと判断されることはありません。
         assertEquals(CapsuleVoice.Drop.Send, CapsuleVoice.drop(0f, 0f, Rect.Zero, Rect.Zero, slopPx = 14))
     }
 
@@ -44,7 +44,7 @@ class CapsuleVoiceTest {
         assertEquals(HoldGesture.Kind.Tap, g.down())
         assertEquals(HoldGesture.Kind.Tap, g.move(5f))
         assertEquals(HoldGesture.Kind.Hold, g.timeout())
-        // 长按以后再怎么移都还是长按,不变成拖
+        // 長押し後、どのように移動しても長押しされたままになり、ドラッグになりません。
         assertEquals(HoldGesture.Kind.Hold, g.move(200f))
     }
 
@@ -65,9 +65,9 @@ class CapsuleVoiceTest {
     }
 
     @Test fun sentNoteSaysWhatHappenedWithTheFirstWords() {
-        assertEquals("已插话：要下午三点以后的，二等座…", CapsuleVoice.sent(CardInputKind.Steer, "要下午三点以后的，二等座靠窗"))
-        assertEquals("已回答：明天上午", CapsuleVoice.sent(CardInputKind.Answer, "明天上午"))
-        assertEquals("已发出：查一下天气", CapsuleVoice.sent(CardInputKind.Continue, "查一下天气"))
-        assertEquals("已发出：查一下天气", CapsuleVoice.sent(CardInputKind.Start, "查一下天气"))
+        assertEquals("タスクに伝えました: 要下午三点以后的，二等座…", CapsuleVoice.sent(CardInputKind.Steer, "要下午三点以后的，二等座靠窗"))
+        assertEquals("回答しました: 明天上午", CapsuleVoice.sent(CardInputKind.Answer, "明天上午"))
+        assertEquals("送信しました: 查一下天气", CapsuleVoice.sent(CardInputKind.Continue, "查一下天气"))
+        assertEquals("送信しました: 查一下天气", CapsuleVoice.sent(CardInputKind.Start, "查一下天气"))
     }
 }

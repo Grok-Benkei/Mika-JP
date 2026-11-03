@@ -22,7 +22,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 
-/** 走一遍真实的内置助手、虚拟屏和无障碍路径,不用模型,也不往外发消息。 */
+/** モデルを使用したり、外部メッセージを送信したりせずに、実際の組み込みアシスタント、仮想スクリーン、バリアフリー パスをウォークスルーします。 */
 @RunWith(AndroidJUnit4::class)
 @SdkSuppress(minSdkVersion = 31, maxSdkVersion = 32)
 class LegacyPhoneDeviceTest {

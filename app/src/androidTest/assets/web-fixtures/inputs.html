@@ -48,21 +48,21 @@
     document.getElementById('target').addEventListener('click', function () { window.targetClicks++; });
   }
   bindTarget();
-  // 换掉同一个按钮(内容、位置都不变):手里的旧编号指向的元素已不在
+  // 内容と位置を変えずに同じボタンを置き換える。保持している古い参照番号が指す要素は、すでに存在しない。
   window.rerender = function () {
     document.getElementById('target').outerHTML = '<button id="target">目标按钮</button>';
     bindTarget();
   };
   document.getElementById('pwform').addEventListener('submit', function (e) { e.preventDefault(); window.submits++; });
 
-  // 会改写输入的手机号框:按 3-4-4 自动加空格
+  // 入力内容を書き換える電話番号欄。3桁・4桁・4桁の区切りに空白を自動挿入する。
   var phone = document.getElementById('phone');
   phone.addEventListener('input', function () {
     var d = phone.value.replace(/\D/g, '').slice(0, 11);
     phone.value = [d.slice(0, 3), d.slice(3, 7), d.slice(7)].filter(Boolean).join(' ');
   });
 
-  // 只认真实输入事件的编辑器:内容只从 beforeinput 来,直接改 DOM 不算数
+  // 実際の入力イベントだけを受け付けるエディター。内容はbeforeinputから取得し、DOMの直接変更は入力として扱わない。
   var editor = document.getElementById('editor');
   var model = '';
   var inputs = 0;

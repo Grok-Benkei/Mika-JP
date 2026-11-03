@@ -85,40 +85,40 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * 悬浮胶囊的接线:把各任务的状态([TaskCenterState.runs] 和每个 [TaskRun] 的状态、接管阶段、活动)、开关、
- * Mika 界面在不在前台([AppForeground])、屏幕亮没亮([DeviceStateWatcher])、无障碍服务在不在交给 [CapsuleModel],
- * 按它的结果经 [com.wangzan101.mika.cap.phone.a11y.OverlayHost] 加上、挪动或拆掉浮层窗口。
- * 点一颗或胶囊展开卡片([CapsuleCards] 定内容,只说一件事),点卡片外面、收起按钮或返回收回成一颗(看过的不再展开,模型记着);卡片和胶囊上的按钮都转成任务服务现有的动作。
- * 一颗和卡片各在一个窗口里、各待各的位置(见 [window]):展开时一颗那个窗口空出来,卡片在自己的窗口里从那一颗的方位缩放、淡入,
- * 收起时缩回去,一颗再在边上冒出来([OverlayMotion]:只动图层,不挪窗口,也不逐帧改窗口大小)。
- * 双击一颗或胶囊(见 [DoubleTap]:单击要等双击的时限过去才展开)把用户此刻的屏幕发给卡片里那段对话,和在卡片里发一句话走同一条路;
- * 卡片输入框左边的截屏按钮截下来先挂在输入框上面,可以补一句再发。截的时候浮层先藏起来,截完再出来,一颗上闪一下。
- * 卡片底部的输入框点开时浮层才能接收键盘,发出、收起、点外面、按返回时马上还回去;输入法弹出时胶囊和卡片挪到它上面。
- * 长按一颗或胶囊说话(见 [CapsuleTalk]、[CapsuleVoicePanel]):按着时整屏压暗、胶囊旁边浮出面板和「取消」「改一改」两个落点,
- * 松开直接发给单击会展开的那张卡片(和双击发屏幕同一套找目标),拖到「改一改」打开卡片、字在输入框里,拖到「取消」丢掉;
- * 发出、没听清、用不了时胶囊上闪一句([note])。面板在一颗那个窗口下面的另一个窗口里,不接触摸。
- * 卡片展开时才收那件事的画面(每秒至多 [PREVIEW_FPS] 张,没变不推)。平时是一颗图标,有事要说时展开成胶囊(模型定);
- * 可以拖,松手贴到最近的左边或右边;停的位置按边和高度比例记在 [FeatureFlags],转屏后按比例重新摆。
- * 卡片左右居中(对话卡片固定高,任务卡片按内容高、最多一样高),按着标题栏上下拖,上边的比例另记一份,换卡片时上边不动;
- * 对话卡片的来回从 [ConversationStore] 读(和对话页同一份),
- * 操作过的 App 从那一轮的运行记录([RunStore])里读。
- * 浮层画不出来(服务刚断开、系统不让)时这个服务实例上不再重试,胶囊不出现,通知照旧。全部在主线程。
+ * サスペンション カプセルの配線: 各タスクのステータス ([TaskCenterState.runs] と各 [TaskRun] のステータス、テイクオーバー ステージ、アクティビティ)、スイッチ、
+ * Mega インターフェイスがフォアグラウンドにあるかどうか ([AppForeground])、画面がオンになっているかどうか ([DeviceStateWatcher])、ユーザー補助サービスが存在するかどうか。 [CapsuleModel]にお任せください。
+ * 結果に従って、[com.wangzan101.mika.cap.phone.a11y.OverlayHost] を介してフローティング ウィンドウを追加、移動、または削除します。
+ * 1 つまたはカプセルをクリックしてカードを展開し ([CapsuleCards] は内容を決定し、1 つのことだけを言います)、カードの外側をクリックし、ボタンを閉じるか、戻ってカードを 1 つに格納します (これまでに見たものは展開されず、モデルが記憶します)。カードとカプセルのボタンは、タスク サービスの既存のアクションに変換されます。
+ * カードとカードはそれぞれウィンドウ内にあり、それぞれ独自の位置にあります ([window] を参照): 展開すると、カードのウィンドウは空になり、カードは独自のウィンドウ内でそのカードの方向からズームおよびフェードインします。
+ * は引っ込めると引っ込み、片方が端から飛び出します ([OverlayMotion]: レイヤーを移動するだけで、ウィンドウは移動せず、フレームごとのウィンドウ サイズは変更しません)。
+ * カプセルまたはカプセルをダブルクリックして ([DoubleTap]: ダブルクリックの制限時間が経過するまでクリックしても展開されません)、ユーザーの現在の画面をカード内の会話に送信します。これは、カード内の文を送信するのと同じです。
+ * カード入力ボックスの左側にあるスクリーンショット ボタンのスクリーンショットを撮り、入力ボックスに貼り付けます。送信する前に文章を追加できます。切断時、最初は浮遊層が隠れ、切断後に浮遊層が出てきて、そのうちの1つが点滅します。
+ * カードの下部にある入力ボックスをクリックして開いた場合にのみ、フローティング レイヤーがキーボードを受け取ることができます。送信したり、折りたたんだり、外側をクリックしたり、Return キーを押すとすぐに戻ったりすることができます。入力メソッドがポップアップすると、カプセルとカードがそこに移動します。
+ * カプセルまたはカプセルを長押しして話します ([CapsuleTalk]、[CapsuleVoicePanel] を参照)。押すと、画面全体が暗くなり、カプセルの横にパネルがポップアップ表示され、「キャンセル」と「変更」の 2 つのドロップダウン ポイントがあります。
+ * クリックすると展開されるカードを放して直接送信します (ダブルクリックしてターゲットを見つけるために画面を送信するのと同じセット)、カードを「変更」までドラッグしてカードを開き、入力ボックスに単語を入力し、「キャンセル」までドラッグして破棄します。
+ * が発行され、はっきりと聞こえない、または使用できない場合、カプセルは文 ([note]) を点滅させます。パネルはそのウィンドウの下の別のウィンドウ内にあり、タッチすることはできません。
+ * カードが拡張されると、そのものの写真が収集されます (1 秒あたり最大 [PREVIEW_FPS] 写真、変更はプッシュされません)。通常はアイコンですが、何か言いたいことがあるとカプセルに展開します (モデルが決定されます)。
+ * をドラッグして放し、最も近い左または右に貼り付けることができます。駐車位置は横と高さの比率に応じて[FeatureFlags]として記録され、画面を回転させると比率に応じてリセットできます。
+ * カードは左右に中央に配置され（会話カードは固定の高さ、タスクカードは内容に応じて同じ高さになります）、タイトルバーに従って上下にドラッグし、上部の比率を記録します。カードを変更するときに上部は移動しません。
+ * の対話カードの往復は[ConversationStore](対話ページと同じコピー)から読み取られ、
+ * が運営するアプリは、そのラウンドの走行記録([RunStore])から読み込まれます。
+ * フローティング レイヤーを描画できない場合 (サービスが切断されたばかりでシステムが許可を拒否した場合)、サービス インスタンスは再試行されず、カプセルは表示されず、通知は同じままになります。すべてメインスレッド上にあります。
  */
 class CapsuleController(
     private val context: Context,
     private val tasks: TaskCenterState,
     private val foreground: AppForeground,
-    /** 几个任务共用的接管队列:卡片和那一条上的先后从这里读。 */
+    /** いくつかのタスクによって共有される引き継ぎキュー: カードとそのカードがここから順番に読み取られます。 */
     private val takeoverQueue: TakeoverQueue,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val model = CapsuleModel(::reasonLabel)
     private val flags = FeatureFlags.get(context)
-    /** 任务结束后留在后台运行的那一页(没有任务时胶囊说它,卡片里能看画面、关掉)。 */
+    /** タスクが完了した後、ページがバックグラウンドで実行されたままになります (タスクがないときにカプセルがそれを表示し、画像をカードに表示してオフにすることができます)。 */
     private val keeper get() = (context.applicationContext as MikaApp).pageKeeper
     private val toolLabels by lazy { ToolLabels(knownTools()) }
     private val appLabels = HashMap<String, String>()
-    /** 各任务这一问一答此刻的样子,和对话页同一套推法(步骤、要你做的事、结果)。 */
+    /** 各タスクの質問と回答は現時点ではこんな感じで、ダイアログページと同じです（手順、求められる内容、結果）。 */
     private val exchanges = HashMap<String, Exchange>()
 
     private var view by mutableStateOf<CapsuleView.Shown?>(null)
@@ -127,34 +127,34 @@ class CapsuleController(
     private var zoomed by mutableStateOf(false)
     private var dock by mutableStateOf(flags.capsuleDock())
     private var inputUi by mutableStateOf(CardInputUi())
-    /** 截到一屏时加一:一颗上闪一下。 */
+    /** スクリーンショットを撮るときに 1 つ追加します。1 つは点滅します。 */
     private var flash by mutableIntStateOf(0)
     private val taps = DoubleTap(ViewConfiguration.getDoubleTapTimeout().toLong())
     private var tapJob: Job? = null
-    /** 正在截屏(浮层藏着):这时的点按、再截都不算。 */
+    /** はスクリーンショットを撮っています (フローティング レイヤーに隠れています): この時点でクリックしてスクリーンショットを撮ってもカウントされません。 */
     private var capturing = false
-    /** 在卡片里发了话的那个对话:展开时跟着它的任务,好看到回答。 */
+    /** がカードに送信した会話: 展開されているタスクに従って、答えを確認します。 */
     private var follow: String? = null
-    /** 空闲卡片接着的最近那段对话(点开空闲图标时读一次)。 */
+    /** アイドル カードに続く最新の会話 (アイドル アイコンをクリックすると 1 回読み取られます)。 */
     private var idle: CardView.Chat? = null
 
-    /** 长按说话;[talkIdle] 是空闲图标上开始说时去读的最近那段对话(说完发给它)。 */
+    /** 押し続けると話します。 [talkIdle] は、アイドル アイコンで話し始めたときに読み取られた (話し終わった後に送信された) 最後の会話です。 */
     private val talk = CapsuleTalk(context, { (context.applicationContext as MikaApp).voice }, scope, ::spoken)
     private var talkIdle: Deferred<CardView.Chat>? = null
-    /** 胶囊上临时闪的一句(已发出、没听清、用不了);到时自己消失。 */
+    /** カプセル上で文章が一時的に点滅します (送信されましたが、はっきりと聞こえず、使用できません)。それは自然に消えます。 */
     private var note by mutableStateOf<CapsuleNote?>(null)
     private var noteJob: Job? = null
     private var noteCount = 0
 
     /**
-     * 对话卡片的来回:[threadOf] 那个对话记下的全部轮次([past],后台从 [ConversationStore] 读,和对话页同一份;还没读到为 null),
-     * 排最后 [shownTurns] 轮,接上还没记进去的任务;[thread] 是此刻给界面的。[threadMark] 是上次读时这个对话里有哪些任务、结束没有,
-     * 变了(任务结束、拿掉,那一轮这时才记进对话)就重读。[placesOf] 按运行记录编号记着那一轮操作过的 App 和网站。
+     * 対話カードの往復: [threadOf] その対話に記録されたすべてのターン ([past]、バックグラウンドで [ConversationStore] から読み取られます。対話ページと同じです。読み取られない場合は null)、
+     * は [shownTurns] ラウンドで最後にランクされ、まだ記録されていないタスクを引き継ぎます。このときインターフェースには[thread]が付与されます。 [threadMark] は、私が最後に会話を読んだときにこの会話に含まれていたタスクと、会話が終了したかどうかです。
+     * 変更された場合 (ミッションが終了し、削除され、この時点で会話がそのラウンドに記録されます)、もう一度読んでください。 [placesOf] は、そのラウンドで操作したアプリや Web サイトを走行記録番号に応じて記録します。
      */
     private var thread by mutableStateOf<ChatThread?>(null)
     private var threadOf: String? = null
     private var past: List<PastTurn>? = null
-    /** 这个对话起好的标题(没有时卡片用第一句话)。 */
+    /** この会話に適したタイトルです (カードがない場合は、最初の文を使用してください)。 */
     private var pastTitle: String? = null
     private var shownTurns = CapsuleThreads.PAGE
     private var threadMark: Any? = null
@@ -162,61 +162,61 @@ class CapsuleController(
     private val placesOf = HashMap<String, List<String>>()
     private val runStore by lazy { RunStore(context) }
 
-    /** 卡片看得见的最高高度(像素,按屏幕和输入法定);0 是还没摆过。[cardFraction] 是卡片上边的比例,记在 [FeatureFlags]。 */
+    /** カードの表示可能な最大の高さ (画面と入力ルールに基づくピクセル)。 0はまだ設定されていません。 [cardFraction] はカード上の比率で、[FeatureFlags] として記録されます。 */
     private var cardHeight by mutableIntStateOf(0)
     private var cardFraction = flags.capsuleCardFraction()
-    /** 卡片标题栏在窗口里的位置:只有按着它能拖卡片。 */
+    /** ウィンドウ内のカード タイトル バーの位置: カードをドラッグするには、カードを押してのみ可能です。 */
     private var cardHandle: Rect? = null
-    /** 用户屏幕上输入法的上边;没弹出为 null。胶囊和卡片都让开它。 */
+    /** ユーザー画面の入力方法の上部。ポップアップしない場合は null です。カプセルやカードが邪魔になりません。 */
     private var imeTop: Int? = null
     private var imeJob: Job? = null
 
-    /** 胶囊此刻的透明度(不碰它几秒后淡下去);[lastActive] 是上次碰到或状态变了的时刻。 */
+    /** は、現時点でのカプセルの透明度です (タッチしないと数秒後に消えます)。 [lastActive] は、最後にタッチされた時刻、またはステータスが変更された時刻です。 */
     private var alpha by mutableStateOf(1f)
     private var lastActive = 0L
     private var look: Any? = null
     private var fadeJob: Job? = null
 
-    /** 卡片展开着;[closing] 是正在缩回胶囊那边(动效做完才真的收起)。 */
+    /** カードは展開中です。 [closing] はカプセルを格納しています (アニメーションが完了するまで実際には格納されません)。 */
     private var expanded = false
     private var closing by mutableStateOf(false)
-    /** 卡片真的开始出来了:这时一颗才让开(卡片排版、出来前一颗还在原处,不空着);卡片开始往回缩时一颗就回来。 */
+    /** カードが本当に出始めました。そのとき初めて 1 枚が邪魔になりませんでした (カードのレイアウト、出てくる前に 1 枚はまだ同じ場所にあり、空ではありませんでした)。カードが後退し始めると、1枚が戻ってきました。 */
     private var cardOut by mutableStateOf(false)
-    /** 展开前那一颗的中心(屏幕纵坐标)和卡片窗口的上边:卡片从那一颗的方位长出来、缩回去。 */
+    /** 展開前のカードウィンドウの中心（画面の垂直座標）とカードウィンドウの上部：カードはその位置から伸びたり縮んだりします。 */
     private var anchorY = 0
     private var cardTop by mutableIntStateOf(0)
     private var previewKey: String? = null
     private var previewJob: Job? = null
 
-    /** 「你来处理」那一条的高度比例(只在这次运行里记着)。 */
+    /** 「あなたがそれを処理します」身長比（この実行でのみ記憶されています）。 */
     private var barFraction = 0f
     private var dragging = false
     private var dragStartX = 0
     private var dragStartY = 0
     private var placedY = 0
-    /** 卡片窗口的上边。 */
+    /** カードウィンドウの上部。 */
     private var cardY = 0
     private var snap: ValueAnimator? = null
 
     /**
-     * 两个浮层窗口,各自待在自己的位置上,展开、收起时谁都不挪:[window] 放一颗、胶囊和那一条,停在边上;[cardWindow] 放卡片,
-     * 左右居中(收起时里面是空的,窗口没有大小,不挡下面的 App)。一个窗口在一颗和卡片的位置间来回挪,系统会把挪动做成滑过去的动画
-     * (安卓原版的窗口移动动画),看上去是一颗从中间滑回边上、卡片从边上滑到中间。
+     * には 2 つのフローティング ウィンドウがあり、それぞれが独自の位置に留まり、展開したり折りたたんだりするときに誰も動きません。[window] は 1 つ、カプセルとその 1 つを置き、横に止まります。 [cardWindow] がカードを置き、
+     * は左右中央に配置されます (折りたたむと内部は空になり、ウィンドウにはサイズがなく、下のアプリをブロックしません)。ウィンドウが星の位置とカードの位置の間を前後に移動すると、システムはウィンドウがスライドする動きをアニメーション化します。
+     * (オリジナルの Android ウィンドウ移動アニメーション) は、ハートが中央から横にスライドし、カードが横から中央にスライドするように見えます。
      */
     private var window: OverlayWindow? = null
     private var cardWindow: OverlayWindow? = null
-    /** 长按说话时的面板,在一颗那个窗口下面(压暗不盖住胶囊);平时空着没有大小。加不上时不能长按说话。 */
+    /** 話すときは、カプセルの窓の下にあるパネルを押し続けます (暗いですが、カプセルは覆われていません)。通常は空で、サイズはありません。追加できない場合は、長押しして話すことはできません。 */
     private var panelWindow: OverlayWindow? = null
-    /** 窗口加在哪个服务实例上;服务换了,旧窗口已随旧实例拆掉。 */
+    /** ウィンドウはどのサービス インスタンスに追加されますか?サービスが変更され、古いウィンドウが古いインスタンスとともに削除されました。 */
     private var windowOn: ScreenAccessibility? = null
-    /** 在这个服务实例上加窗口失败过:不再试,等服务重连。 */
+    /** このサービス インスタンスにウィンドウを追加できませんでした。再試行せず、サービスが再接続するまで待ちます。 */
     private var failedOn: ScreenAccessibility? = null
     private var tick: Job? = null
     private val ticks = MutableStateFlow(0)
     private var last: Snapshot? = null
 
     private val _showing = MutableStateFlow(false)
-    /** 胶囊此刻真的显示在亮着的屏幕上;任务服务据此把「需要你」通知发得安静些。 */
+    /** カプセルは、現時点では実際に照明された画面に表示されています。それに応じて、タスク サービスは「あなたが必要です」通知をより静かに送信します。 */
     val showing: StateFlow<Boolean> = _showing.asStateFlow()
 
     fun start() {
@@ -228,13 +228,13 @@ class CapsuleController(
                 keeper.page,
             ) { s, _, kept -> s.copy(kept = kept) }.collect(::render)
         }
-        // 说话面板出来时铺满整屏(压暗背后),收起时回到没有大小
+        // 発言パネルは、引き出すと画面全体を覆い（奥は暗くなります）、収納すると元の大きさに戻ります。
         scope.launch { snapshotFlow { talk.active }.collect { panelWindow?.setFullScreen(it) } }
-        // 停止后的交代写好(或写不成)时那一轮已改进对话:重读记下的轮次
+        // 停止後の説明が書かれた場合（または書かれなかった場合）の順番を改善しました。ダイアログ: 記録されたターンを読み直します。
         scope.launch { tasks.summarizing.collect { threadOf?.let(::loadPast) } }
-        // 对话删掉了:见 [forget]
+        // ダイアログが削除されました: [forget] を参照してください。
         scope.launch { ConversationStore.shared(context).deletions.collect(::forget) }
-        // 卡片上这个对话的标题变了(用户在侧栏改了名、后台起好了标题):卡片顶上「接着「…」聊」跟着换
+        // カード上の会話のタイトルが変更されました (ユーザーがサイドバーで名前を変更し、タイトルがバックグラウンドで設定されました): カード上部の「「...」でチャットを続ける」が変更されました。
         scope.launch {
             val store = ConversationStore.shared(context)
             store.changes.collect { id ->
@@ -246,7 +246,7 @@ class CapsuleController(
                 }
             }
         }
-        // 转屏:按记下的边和比例重新摆;系统给新尺寸可能稍晚一点,过一会儿再摆一次
+        // 画面の回転: 指定された辺と比率に従って再配置します。システムは少し後に新しいサイズを提供する場合があるので、しばらくしてから再度調整できます。
         context.registerComponentCallbacks(object : ComponentCallbacks {
             override fun onConfigurationChanged(newConfig: Configuration) {
                 place()
@@ -264,14 +264,14 @@ class CapsuleController(
     private data class Snapshot(
         val runs: List<CapsuleRun>, val mode: CapsuleMode, val mikaInForeground: Boolean, val locked: Boolean,
         val service: ScreenAccessibility?,
-        /** 任务结束后留在后台运行的那一页。 */
+        /** タスクの完了後、ページがバックグラウンドで実行されたままになります。 */
         val kept: KeptPage? = null,
     )
 
     /**
-     * 各任务此刻的样子。任务收尾后会从 [TaskCenterState.runs] 里拿掉;拿掉时它的状态已是终态,
-     * 还带着它(到任务列表再变为止),模型才能记下「办好了」并停一会儿,停完以后再列着它模型也不算。
-     * 没到终态就被拿掉的(服务被销毁)直接不算。
+     * 現時点での各タスクの様子。タスクが完了すると、[TaskCenterState.runs] から削除されます。削除されると、その状態はすでに最終状態になります。
+     * を持ち運んでいる場合にのみ (タスク リストが再び変更されるまで)、モデルは「完了」を書き留めてしばらく停止できます。一時停止後にモデルとしてリストすることはカウントされません。
+     * 最終状態 (サービスが破棄される) に達する前に削除された場合、直接カウントされません。
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun runs(): Flow<List<CapsuleRun>> {
@@ -283,7 +283,7 @@ class CapsuleController(
             exchanges.keys.retainAll(all.map { it.key }.toSet())
             if (all.isEmpty()) flowOf(emptyList())
             else combine(all.map { r ->
-                // 此刻在操作画面:有自己的虚拟屏,或正在用内置浏览器(卡片据此选任务卡片还是对话卡片)
+                // は現在操作画面上にあります。独自の仮想画面があるか、内蔵ブラウザを使用しています (カードはそれに応じてタスク カードまたは会話カードを選択します)。
                 combine(r.state, r.takeoverStage, r.activities, r.displayId, r.webOpen) { s, st, acts, display, web ->
                     CapsuleRun(
                         r.key, r.conversationId, s, st, r.goal, exchange(r, s, acts),
@@ -291,7 +291,7 @@ class CapsuleController(
                     )
                 }.combine(r.steers) { c, steers -> c.copy(steers = steers) }
             }) { it.toList() }.combine(takeoverQueue.changes) { list, _ ->
-                // 接管队里的先后:排队变了(前面那件交还了)就重读,下一件马上成为「需要你」
+                // キュー内の注文を引き継ぎます: キューが変更された場合 (前のアイテムが返された場合)、再度読み込むと、次のアイテムがすぐに「Need You」になります。
                 list.map { c ->
                     val owner = all.firstOrNull { it.key == c.key }?.takeover ?: return@map c
                     val ahead = takeoverQueue.ahead(owner)
@@ -326,13 +326,13 @@ class CapsuleController(
             hide()
             return
         }
-        // App 已交到你手上:顶部那一条代替卡片
+        // アプリがあなたに引き渡されました: 一番上のアプリがカードを置き換えます
         if (shown.kind == CapsuleKind.HandedOver) resetCard()
         view = shown
         card = if (expanded) CapsuleCards.of(model.cardRuns(), follow, idle, s.kept) else null
         if (expanded && card == null) resetCard()
         updateThread(card as? CardView.Chat, s.runs)
-        // 换成了没有输入框的内容(例如变成要你同意):输入框收起,焦点还给下面的 App
+        // は入力ボックスのないコンテンツに置き換えられます (たとえば、ユーザーの同意が必要です): 入力ボックスが閉じられ、フォーカスが次のアプリに戻ります。
         if (inputUi.open && card?.let(CapsuleCards::input) == null) closeInput()
         val detail = card as? CardView.Detail
         val keptCard = card as? CardView.Kept
@@ -347,7 +347,7 @@ class CapsuleController(
         }
         applyDrag()
         place()
-        // 换了状态、件数,展开或缩回:马上恢复,重新计时;只换了一句不算(一颗上看不到那句)
+        // はステータス、ピース数、展開または縮小を変更しました。ただちに復元して時間を再スタートします。 1 つの文だけを変更した場合はカウントされません (その文は表示されません)
         val nowLook = listOf(shown.kind, shown.pill, shown.count, shown.needCount)
         if (nowLook != look) {
             look = nowLook
@@ -356,10 +356,10 @@ class CapsuleController(
         _showing.value = true
     }
 
-    /** 加上两个窗口(先一颗的,再卡片的,卡片在上面);有一个加不上就都不要,退回通知。 */
+    /** は 2 つのウィンドウを追加します (最初の 1 つ、次にカード 1 つ、カードが上になります)。どちらかを追加できない場合、どちらも必要ない場合は、返品の通知が届きます。 */
     private fun openWindows(service: ScreenAccessibility): OverlayWindow? {
         val overlays = service.overlays()
-        // 面板先加,在一颗下面:按着说话时压暗的那层不盖住胶囊
+        // パネルは最初にカプセルの下に追加されます。カプセルを覆わないように暗いレイヤーを押します。
         val panel = overlays.open(OverlayPlacement(Gravity.TOP or Gravity.LEFT), touchable = false) { VoicePanelOverlay() }
         val ball = overlays.open(OverlayPlacement(Gravity.TOP or Gravity.RIGHT)) { CapsuleOverlay() }
         val cardW = ball?.let { overlays.open(OverlayPlacement(Gravity.TOP or Gravity.CENTER_HORIZONTAL), ::outside) { CardOverlay() } }
@@ -388,10 +388,10 @@ class CapsuleController(
     }
 
     /**
-     * 对话 [id] 删掉了:它刚结束的任务马上从胶囊和卡片上拿掉,卡片不再接着它(刚在卡片里发了话的;空闲卡片接着的,
-     * 展开着时换成开新对话的那张),展开着的卡片按 [CapsuleCards.of] 重挑(什么都没有就收起)。删对话先停掉它的任务、
-     * 等它收尾(最多 15 秒)再删记录,所以这时它的任务一般已经结束;等不到收尾的,或者收尾以后、删记录之前又在卡片里接着说的
-     * (会在这个对话里开一件新任务),之后存进的那一轮会把对话重新建起来,胶囊照常显示它。
+     * ダイアログ [id] 削除済み: 終了したタスクはすぐにカプセルとカードから削除され、カードはそれを継続しません (メッセージはカードに送信されたばかりで、アイドル状態のカードは継続されます)。
+     * (展開時に新しい会話を開くカードに置き換えます)、[CapsuleCards.of] を押して展開されたカードを再選択します (何もない場合は、しまっておきます)。会話を削除するには、まずタスクを停止します。
+     * はレコードを削除する前に完了するまで (最大 15 秒) 待機するため、そのタスクは通常この時点で終了しています。終了を待つことができないか、終了後もレコードを削除する前にカード内で続行されます。
+     * (この会話で新しいタスクが開きます)、その後の保存ラウンドにより会話が再作成され、カプセルには通常どおり表示されます。
      */
     private fun forget(id: String) {
         model.forget(id)
@@ -440,23 +440,23 @@ class CapsuleController(
         updateThread(null, emptyList())
     }
 
-    // ---------- 输入 ----------
+    // ---------- 入力 ----------
 
-    /** 点了输入框:这时才让浮层能接收键盘,输入法对着它弹出。 */
+    /** が入力ボックスをクリックすると、フローティング レイヤーがキーボードを受け取ることができ、入力メソッドがそのレイヤーに対してポップアップ表示されます。 */
     private fun openInput() {
         if (inputUi.open) return
         cardWindow?.setFocusable(true)
         inputUi = inputUi.copy(open = true)
     }
 
-    /** 收起输入框,立刻把焦点还给下面的 App。 */
+    /** 入力ボックスを閉じて、すぐに次のアプリにフォーカスを戻します。 */
     private fun closeInput() {
         if (!inputUi.open) return
         inputUi = inputUi.copy(open = false)
         cardWindow?.setFocusable(false)
     }
 
-    /** 返回键:先收起输入框,再关放大的画面,最后收起卡片。 */
+    /** リターン キー: 最初に入力ボックスを閉じ、次に拡大画面を閉じ、最後にカードを閉じます。 */
     private fun back() {
         when {
             inputUi.open -> closeInput()
@@ -465,15 +465,15 @@ class CapsuleController(
         }
     }
 
-    /** 放大或关掉画面;放大时卡片不能拖(没有标题栏)。 */
+    /** 画面を拡大または閉じます。拡大時にカードをドラッグすることはできません（タイトルバーはありません）。 */
     private fun zoom(on: Boolean) {
         zoomed = on
         applyDrag()
     }
 
     /**
-     * 发出输入框里的话,和在对话页里发的走同一条路(都记进那个对话):在跑、等条件时插话给它,
-     * Mika 问你时作为回答,办完后在同一个对话里接着说,空闲时接着最近的对话或开新对话;后两种之后卡片跟着那个对话的任务看回答。
+     * 入力欄の発言を送ると、会話ページで送るのと同じ経路を通る（どちらもその会話に記録される）: 実行中・条件待ちのときは割り込み発言として渡し、
+     * Mika から尋ねられているときは回答として、完了後は同じ会話で続けて話し、アイドル時は直近の会話を継ぐか新しい会話を開く; 後二者の後はカードはその会話のタスクに追随して回答を見る。
      */
     private fun send() {
         val text = inputUi.draft.trim()
@@ -487,7 +487,7 @@ class CapsuleController(
         refresh()
     }
 
-    /** 按输入框此刻交给谁([kind])发出 [text];开始说时进 [conversationId](为 null 时新开一个)。 */
+    /** 入力欄が現在誰に渡すか（[kind]）に応じて [text] を送る; 話し始めるときに [conversationId] に入る（null のときは新規に開く）。 */
     private fun submit(c: CardView, kind: CardInputKind, text: String, conversationId: String?) {
         val run = when (c) {
             is CardView.Detail -> c.run.run
@@ -503,8 +503,8 @@ class CapsuleController(
     }
 
     /**
-     * 截下的屏幕连同附言 [words] 发出:先存进这句话要去的那个对话(新对话这时就定下编号),
-     * 再写成带屏幕的一句话([UserScreenMessage])照常发出;存不下就不发。
+     * 切り取った画面を添え書き [words] と一緒に送る: まずこの発言の送り先の会話へ保存し（新しい会話ならこの時点で番号が決まる）、
+     * は画面付きの文 ([UserScreenMessage]) に書き換えられ、通常どおり送信されます。保存できない場合は送信されません。
      */
     private fun deliver(c: CardView, kind: CardInputKind, shot: CapturedScreen, words: String) {
         val access = (context.applicationContext as MikaApp).appAccess.current()
@@ -529,9 +529,9 @@ class CapsuleController(
     }
 
     /**
-     * 双击:把此刻的屏幕发给单击会展开的那张卡片里的对话,和在那张卡片里发一句话一样(在跑时插话、问你时作为回答、
-     * 办完接着说、空闲时接着最近的对话或开新对话),然后展开卡片看回答。那张卡片没有输入框(要你接管、同意)时
-     * 没有地方可发,就和单击一样展开。
+     * ダブルクリック: クリックすると展開されるカード内の会話に現在の画面を送信します。これは、そのカード内の文を送信するのと同じです (走っているときに中断し、質問しているときに応答します。
+     * 終了後も会話を続け、最近の会話を続けるか、空いているときに新しい会話を開始してください)、カードを展開して答えを確認してください。そのカードに入力欄がない場合（引き継ぎと同意が必要）
+     * 投稿する場所はなく、クリックするように展開するだけです。
      */
     private fun sendScreen() {
         val v = view ?: return
@@ -552,7 +552,7 @@ class CapsuleController(
         }
     }
 
-    /** 卡片里的截屏按钮:截下来挂在输入框上面,补不补一句都行。 */
+    /** カードのスクリーンショット ボタン: スクリーンショットを撮って入力ボックスに貼り付けると、文を追加するかどうかを選択できます。 */
     private fun captureForCard() {
         if (capturing) return
         scope.launch {
@@ -563,8 +563,8 @@ class CapsuleController(
     }
 
     /**
-     * 截下用户此刻的屏幕:输入框开着先收起(等输入法下去),浮层藏起来、真的从屏幕上下去了再截,截完马上出来、一颗上闪一下;
-     * 再在后台整理屏上的字。前台是 Mika 自己、截不到时为 null。
+     * は、ユーザーの現在の画面のスクリーンショットを取得します。入力ボックスが最初に開いて閉じられ (入力メソッドが削除されるのを待機します)、フローティング レイヤーは非表示になり、スクリーンショットを撮る前に実際に画面から削除されます。カットオフ直後に出て、アイコンが上に点滅します。 次に、
+     * がバックグラウンドで画面上の単語を整理します。フロントは美香本人が担当しており、期限までに間に合わない場合は無効となります。
      */
     private suspend fun captureScreen(): CapturedScreen? {
         val service = windowOn ?: return null
@@ -576,7 +576,7 @@ class CapsuleController(
                 closeInput()
                 withTimeoutOrNull(IME_GONE_MS) { while (imeTop != null) delay(IME_POLL_MS) }
             }
-            // 空着的那个窗口(展开时一颗那个、收起时卡片那个)不画东西,不用等它
+            // 空のウィンドウ (展開されている場合は箇条書きがあるウィンドウ、折りたたまれている場合はカードがあるウィンドウ) には何も描画しないので、待つ必要はありません。
             suspend fun <T> OverlayWindow.hidden(block: suspend () -> T): T = if (height > 0) hiddenWhile(block) else block()
             val store = (context.applicationContext as MikaApp).appAccess
             val sources = MainScreenCapture.sourcePackages(service) ?: return null
@@ -606,8 +606,8 @@ class CapsuleController(
     }
 
     /**
-     * 在对话 [conversationId] 里开始说 [text];别的任务在跑时排上,不丢。卡片接着跟这个对话;
-     * 空闲卡片也改成接着这个对话(新开的对话标题就是这句话)。
+     * は、会話 [conversationId] で [text] と言い始めます。他のタスクは実行中にキューに入れられ、失われることはありません。次に、カードはこれに話しかけます。
+     * この会話を継続するためにアイドル カードも変更されました (新しい会話のタイトルはこの文です)。
      */
     private fun startIn(conversationId: String, text: String) {
         TaskService.start(context, text, conversationId)
@@ -615,7 +615,7 @@ class CapsuleController(
         idle = idle?.let { CardView.Chat(conversationId, title = if (it.target == conversationId) it.title else ScreenCopy.plain(text)) }
     }
 
-    /** 点开空闲图标:先读用户此刻在哪个对话([loadIdle]),再展开(来回由 [updateThread] 读)。 */
+    /** アイドル アイコンをクリックします。まず、ユーザーが現在どの会話に参加しているかを読み取り ([loadIdle])、次に展開します ([updateThread] によって前後に読み取ります)。 */
     private fun openIdle() {
         scope.launch {
             idle = loadIdle()
@@ -625,25 +625,25 @@ class CapsuleController(
     }
 
     /**
-     * 空闲卡片接着的那段对话:用户在 App 里所在的那个,没有记录时接着最近那个(见 [CapsuleIdle]);一个都没有时开新对话。
-     * 不按对话文件的时间猜:新开的对话还没有文件,猜到的是上一个。
+     * アイドル カードに続く会話、つまりユーザーがアプリ内にいる会話。レコードがない場合は、最新のレコードが続きます ([CapsuleIdle] を参照)。記録がない場合は、新しい会話が開始されます。
+     * 会話ファイルの時刻を使用しない推測: 新しく開かれた会話にはまだファイルがありません。推測は前の会話です。
      */
     private suspend fun loadIdle(): CardView.Chat = withContext(Dispatchers.IO) {
         runCatching {
             val store = ConversationStore.shared(context)
             val recent = store.list().firstOrNull()?.let { CardView.Chat(it.id, title = it.title?.let(ScreenCopy::plain)) }
             CapsuleIdle.chat(store.currentChat(), recent) { id ->
-                // 和侧栏一样:用户起的名字或第一句话
+                // サイドバーと同じ: ユーザーが指定した名前または最初の文
                 (store.title(id) ?: store.turns(id).firstOrNull()?.userText)?.let(ScreenCopy::plain)
             }
         }.getOrElse { CardView.Chat(null) }
     }
 
-    // ---------- 对话卡片的来回 ----------
+    // ---------- 対話カードの前後 ----------
 
     /**
-     * 对话卡片要的来回:换了对话从头读(先读最近 [CapsuleThreads.PAGE] 轮);这个对话里的任务出现、结束、拿掉时重读记下的轮次
-     * (任务结束后那一轮才记进对话);其余时候只按此刻的任务重排(在回答的字跟着长)。不是对话卡片时清掉。
+     * ダイアログ カードを前後に移動: ダイアログを変更した後、最初から読み取ります (最新の [CapsuleThreads.PAGE] ラウンドを最初に読み取ります)。このダイアログ内のタスクが表示され、終了し、削除されたときに、記録されたターンを再読します。
+     * (ダイアログはタスク終了後のラウンドでのみ記録されます);また、現在のタスクに応じて再配置されるだけの場合もあります (答えは長くなります)。会話カードでない場合はクリアしてください。
      */
     private fun updateThread(chat: CardView.Chat?, runs: List<CapsuleRun>) {
         val id = chat?.target
@@ -653,7 +653,7 @@ class CapsuleController(
             past = null
             threadMark = null
             shownTurns = CapsuleThreads.PAGE
-            // 空闲卡片的新对话:来回是空的
+            // アイドル カードの新しいダイアログ: 前後が空です
             thread = if (chat != null) ChatThread(emptyList()) else null
             return
         }
@@ -671,7 +671,7 @@ class CapsuleController(
         rebuildThread()
     }
 
-    /** 按记下的轮次和卡片里此刻的任务排出来回;记下的还没读到时先空着。 */
+    /** 現時点でカードに記載されているラウンドとタスクに従って前後に配置します。メモは読まれるまで空白のままにしておきます。 */
     private fun rebuildThread() {
         val id = threadOf ?: return
         val p = past ?: return
@@ -680,7 +680,7 @@ class CapsuleController(
         thread = pastTitle?.let { built.copy(title = it) } ?: built
     }
 
-    /** 后台读对话 [id] 记下的轮次,连同要排出来的那几轮操作过的 App 和网站(从运行记录里读,读过的记着),读到后重排。 */
+    /** バックグラウンド読み取りダイアログ [id] 記録されたラウンドと、そのラウンドで操作したアプリやウェブサイトを整理（走行記録から読み取って、読み取ったものを記憶）し、読み込んだ後に並べ替えます。 */
     private fun loadPast(id: String) {
         threadJob?.cancel()
         val known = HashMap(placesOf)
@@ -699,12 +699,12 @@ class CapsuleController(
         }
     }
 
-    /** 那次运行操作过的 App 和网站;记录已清掉或读不了时为空(当作纯聊天)。在后台线程调。 */
+    /** その時点で運営されていたアプリやウェブサイト。レコードがクリアされている場合、または読み取ることができない場合は空になります (純粋なチャットとして扱われます)。バックグラウンドスレッドで調整しました。 */
     private fun placesIn(runId: String): List<String> = runCatching {
         CapsuleThreads.places(runStore.events(runId).filterIsInstance<RunEvent.Activity>()) { ConfirmationNotifier.appLabel(context, it) }
     }.getOrDefault(emptyList())
 
-    /** 滚到了顶:往前多排 [CapsuleThreads.PAGE] 轮(先读出它们操作过的 App)。 */
+    /** は一番上までスクロールしました。[CapsuleThreads.PAGE] ホイールを数行前に移動します (まず、操作したアプリを読み上げます)。 */
     private fun loadEarlier() {
         val id = threadOf ?: return
         val p = past ?: return
@@ -713,7 +713,7 @@ class CapsuleController(
         loadPast(id)
     }
 
-    /** 跟着用户屏幕上的输入法:弹出、收起、变高时重新摆。 */
+    /** は、ユーザーの画面上の入力方法に従い、ポップアップ、格納、高くなったらリセットします。 */
     private fun watchIme(service: ScreenAccessibility) {
         imeJob?.cancel()
         imeJob = scope.launch {
@@ -724,7 +724,7 @@ class CapsuleController(
         }
     }
 
-    /** 到了模型说的时刻再算一次(换句、办完后缩小、消失)。 */
+    /** はモデルで指定された時間に再度カウントされます (つまり、完了後に縮小して消えます)。 */
     private fun schedule(at: Long?) {
         tick?.cancel()
         tick = at?.let { t ->
@@ -737,7 +737,7 @@ class CapsuleController(
 
     // ---------- 半透明 ----------
 
-    /** 碰到了:马上恢复,从现在起重新计时。 */
+    /** が発生しました: すぐに復元し、これから時間を再開します。 */
     private fun wake() {
         lastActive = System.currentTimeMillis()
         fade()
@@ -754,9 +754,9 @@ class CapsuleController(
         }
     }
 
-    // ---------- 小画面 ----------
+    // ---------- 画面が小さい ----------
 
-    /** 只给展开的那件事收画面;换了一件或收起就停。 */
+    /** は展開されたものの画面を閉じるだけです。何かが変更されたり折りたたまれたりすると停止します。 */
     private fun watchPreview(key: String?) {
         if (key == previewKey) return
         previewKey = key
@@ -773,7 +773,7 @@ class CapsuleController(
         }
     }
 
-    /** 留在后台运行的那一页的卡片:收它那块显示的画面(和任务卡片的小画面同一个节流)。 */
+    /** ページ上のカードがバックグラウンドで実行されたままになっています: 表示されている画面を閉じます (タスク カードの小さい画面と同じ)。 */
     private fun watchKept(id: Long) {
         val key = "kept:$id"
         if (key == previewKey) return
@@ -786,9 +786,9 @@ class CapsuleController(
         }
     }
 
-    // ---------- 位置与拖动 ----------
+    // ---------- 位置とドラッグ ----------
 
-    /** 能摆的范围;[ime] 为 true 时让开输入法。 */
+    /** がスイングできる範囲; [ime] が true の場合、入力メソッドの邪魔をしないようにします。 */
     private fun area(ime: Boolean = true): DockArea? = windowOn?.overlays()?.area()?.let {
         val room = room()
         DockArea.of(it, margin = dp(EDGE_MARGIN_DP), gap = dp(TOP_GAP_DP), room = room)
@@ -800,8 +800,8 @@ class CapsuleController(
     private fun isBar() = view?.kind == CapsuleKind.HandedOver
 
     /**
-     * 按记下的位置摆窗口:胶囊贴在记下的那一边,「你来处理」那一条在顶部正中,卡片左右居中、上边按记下的比例摆;
-     * 放不下或输入法盖到时往上挪(卡片最高高度同时变矮)。卡片换了高度(换卡片、内容变了)窗口跟着变,再摆一次,上边不动。
+     * メモした位置に従ってウィンドウを配置します。カプセルはメモした側に取り付けられ、「You handle it」の行は上部の中央に、カードは左右の中央に配置され、上部はメモした比率に従って配置されます。
+     * を配置できないか、入力メソッド カバーに到達した場合は上に移動します (同時にカードの最大高さが短くなります)。カードの高さが変更されると (カードが変更され、コンテンツが変更されます)、ウィンドウもそれに応じて変更され、再配置されますが、上部は移動しません。
      */
     private fun place() {
         val w = window ?: return
@@ -814,9 +814,9 @@ class CapsuleController(
             w.place(OverlayPlacement(Gravity.TOP or Gravity.CENTER_HORIZONTAL, 0, placedY))
             return
         }
-        // 卡片展开着时这个窗口是空的,照样停在边上:收起时一颗就在原处出来
+        // カードを広げると、このウィンドウは空になりますが、端で止まります。折りたたむと、同じ場所から 1 枚のカードが出てきます。
         val d = dock
-        // 输入法盖到原来的位置:胶囊和卡片都挪到它上面,收起后回原处
+        // インプットメソッドカバーを元の位置に移動します。カプセルとカードをそこに移動し、収納して元の位置に戻します。
         val base = area(ime = false) ?: a
         val natural = CapsuleDocking.fitY(CapsuleDocking.y(d.fraction, base, dp(PILL_DP)), base, h)
         placedY = CapsuleDocking.fitY(natural, a, h)
@@ -825,8 +825,8 @@ class CapsuleController(
     }
 
     /**
-     * 摆卡片窗口:左右居中、上边按记下的比例。卡片最高高度按屏幕和输入法定,变了内容跟着重排,窗口变了尺寸再摆一次。
-     * 刚展开、窗口还空着时按卡片会有的高度先摆好(对话卡片固定高;任务卡片按内容高,先按最矮的算),内容出来时不用再挪。
+     * カードウィンドウを左右中央に配置し、上部にメモした比率を押します。カードの最大高さは、画面と入力規則によって決まります。コンテンツが変更されると、再配置され、ウィンドウのサイズと位置が変更されます。
+     * ウィンドウを展開したばかりで、まだウィンドウが空の場合は、カードの高さに合わせて配置します（対話カードは固定高に固定されています。タスクカードは内容に応じて高さが異なり、短いものが最初に計算されます）。内容が出てきたときに移動する必要はありません。
      */
     private fun placeCard(a: DockArea) {
         val w = cardWindow ?: return
@@ -839,31 +839,31 @@ class CapsuleController(
         w.place(OverlayPlacement(Gravity.TOP or Gravity.CENTER_HORIZONTAL, 0, cardY))
     }
 
-    /** 最高的卡片(对话卡片)在没让输入法的范围 [base] 里的窗口高(含阴影边):卡片上边的比例按它算。 */
+    /** 最も背の高いカード (対話カード) が入力メソッドの範囲内にあります。 [base] のウィンドウの高さ (影付きのエッジを含む): カードの上部の比率はそれに応じて計算されます。 */
     private fun cardFull(base: DockArea): Int =
         CardDocking.maxHeight(windowOn?.overlays()?.area()?.height ?: 0, base, room()) + 2 * room()
 
     /**
-     * 能拖哪里:胶囊和那一条整个能拖;卡片只有按着标题栏能拖(中间上下滑是滚动),放大画面时不能拖。
-     * 一颗和胶囊还能长按说话(那一条不能;语音输入设成不用时也不能,长按照旧是点按)。
+     * どこにドラッグできますか: カプセルとカプセル全体をドラッグできます。カードのドラッグはタイトルバーを押すことでのみ可能（中央の上下スワイプはスクロール）で、画面を拡大するとドラッグできません。
+     * カプセルを長押しして話すこともできます (これは機能しません。音声入力が使用されないように設定されている場合も機能しません。長押しは常にクリックを意味します)。
      */
     private fun applyDrag() {
         window?.draggable(drag)
         val talkable = canTalk()
-        // 说着说着不能说了(例如这时 App 交到你手上、胶囊换成那一条):这一段丢掉,不发——用户没机会松开选落点
+        // もう何も言えません（たとえば、アプリがあなたに渡され、カプセルがどのカプセルに変更された場合）：このセクションは破棄され、送信されません - ユーザーは選択したドロップポイントを解放する機会がありません。
         if (!talkable && talk.active) talk.abort()
         window?.holdable(talkHold.takeIf { talkable }, CapsuleTalk.HOLD_MS)
         cardWindow?.draggable(cardDrag, cardHandle.takeIf { !zoomed } ?: Rect())
     }
 
-    /** 卡片报来标题栏的位置。 */
+    /** カードはタイトル バーの位置を報告します。 */
     private fun onHandle(r: Rect) {
         if (r == cardHandle) return
         cardHandle = r
         applyDrag()
     }
 
-    /** 按着标题栏上下拖卡片(左右居中不动);松手记下上边的比例,下次展开、换卡片和转屏后按它摆。 */
+    /** タイトル バーを押して、カードを上下にドラッグします (動かさずに中央の左右にドラッグします)。手を放して上記の比率を確認し、次に押すと、カードを展開したり、カードを変更したり、画面を回転したりできます。 */
     private val cardDrag = object : OverlayDrag {
         override fun start() {
             dragging = true
@@ -892,7 +892,7 @@ class CapsuleController(
         }
     }
 
-    /** 拖胶囊(左右上下)或「你来处理」那一条(只上下);卡片见 [cardDrag]。 */
+    /** カプセル (左右上下) または「あなたが操作します」カプセル (上下のみ) をドラッグします。カードについては、[cardDrag] を参照してください。 */
     private val drag = object : OverlayDrag {
         override fun start() {
             val w = window ?: return
@@ -934,7 +934,7 @@ class CapsuleController(
         }
     }
 
-    /** 松手后滑到边上;关了动画时直接摆过去。 */
+    /** 手を放した後、横にスライドします。アニメーションがオフのときに真上にスイングします。 */
     private fun snapTo(fromX: Int, y: Int, toX: Int) {
         val w = window ?: return
         placedY = y
@@ -954,20 +954,20 @@ class CapsuleController(
         }
     }
 
-    /** 读屏时代替拖动:换到另一边。 */
+    /** 画面を読み取るときにドラッグする代わりに、反対側に切り替えます。 */
     private fun swapSide() {
         dock = dock.copy(side = if (dock.side == DockSide.Left) DockSide.Right else DockSide.Left)
         flags.setCapsuleDock(dock)
         place()
     }
 
-    // ---------- 长按说话 ----------
+    // ---------- 長押しして発言してください ----------
 
-    /** 此刻能不能在胶囊上说话:有面板窗口、不是「你来处理」那一条、语音输入没设成不用。 */
+    /** この時点でカプセル上で話せますか: パネル ウィンドウがありますが、「あなたが操作します」ウィンドウではなく、音声入力が無効に設定されていません。 */
     private fun canTalk(): Boolean = panelWindow != null && !isBar() &&
         (context.applicationContext as MikaApp).speech.choice.value != SpeechChoice.Off
 
-    /** 一颗那个窗口交来的长按:开始说、手指移动算落点、松开按落点收尾。 */
+    /** そのウィンドウを長押しします。話し始め、指を動かして着地点を計算し、指を放して着地点を押して終了します。 */
     private val talkHold = object : OverlayHold {
         override fun start(rawX: Float, rawY: Float) = beginTalk(byTouch = true)
 
@@ -985,19 +985,19 @@ class CapsuleController(
         }
     }
 
-    /** 读屏的「说话」:没在说就开始(没有手指,只能发出),在说就发出。 */
+    /** 画面読み上げの「話す」: 話していないときに開始し (指がなく、話すことしかできません)、話しているときに話します。 */
     private fun toggleTalk() {
         if (talk.active && !talk.byTouch && !talk.released) talk.finish(CapsuleVoice.Drop.Send)
         else beginTalk(byTouch = false)
     }
 
     /**
-     * 开始说:先等着的单击、双击不算了。说给谁按单击会展开的那张卡片(空闲图标上先去读最近那段对话,读到后面板顶上那句跟着换)。
-     * 没有录音权限(胶囊弹不了权限框)、语音输入用不了时不录,胶囊上说一句,点一下打开 Mika。
+     * は次のように言い始めました: シングルクリックやダブルクリックを待ってもカウントされません。展開されるカードをクリックする人を指定します (アイドル状態のアイコンで、最初に最新の会話を読み、読み終わったらパネルの上部にある文に変更します)。
+     * には録音許可がありません (カプセルは許可ボックスをポップアップできません)。許可が利用できない場合、音声入力は録音されません。カプセル上で何かを言い、クリックしてミカを開きます。
      */
     private fun beginTalk(byTouch: Boolean) {
         val v = view ?: return
-        // 松开后还在转时可以重新按:上一段由 talk.begin 丢掉
+        // は、放した後も回転しているときにもう一度押すことができます。前の段落は talk.begin によって破棄されます。
         if (capturing || (talk.active && !talk.released) || !canTalk()) return
         tapJob?.cancel()
         taps.reset()
@@ -1026,7 +1026,7 @@ class CapsuleController(
         }
     }
 
-    /** 说完了:按松开时的落点发出或打开卡片;没听清、出错时胶囊上说一句(说法和输入栏一样)。 */
+    /** 完了: リリースポイントを押してカードを送信または開きます。はっきりと聞こえなかったり、間違いをしたりすると、カプセルが何かを言います (その言葉は入力フィールドと同じです)。 */
     private fun spoken(drop: CapsuleVoice.Drop, state: HoldToTalk.State) {
         val idleJob = talkIdle
         talkIdle = null
@@ -1049,8 +1049,8 @@ class CapsuleController(
     }
 
     /**
-     * 松开直接发出:发给单击会展开的那张卡片里的对话(和双击发屏幕同一套),胶囊上闪「已插话 / 已回答 / 已发出:…」。
-     * 那张卡片没有输入框(要你接管、同意)时不发,展开卡片,字先放进输入框。
+     * リリースして直接送信: クリックすると展開されるカード内のダイアログを送信します (ダブルクリック送信画面と同じ設定)。カプセルは「中断/応答/送信:...」と点滅します。
+     * カードに入力ボックス (同意と承認が必要) がない場合、カードは送信されません。カードを展開し、まず入力ボックスに単語を入力します。
      */
     private fun sendSpoken(text: String) {
         val target = CapsuleCards.of(model.cardRuns(), follow, idle)
@@ -1066,7 +1066,7 @@ class CapsuleController(
         refresh()
     }
 
-    /** 拖到「改一改」松开:展开卡片,字在输入框里、键盘弹出,改完自己发。 */
+    /** [変更] までドラッグして放します。カードを展開すると、単語が入力ボックスに表示され、キーボードがポップアップし、変更を加えた後に送信します。 */
     private fun editSpoken(text: String) {
         open()
         inputUi = inputUi.withSpoken(text)
@@ -1089,16 +1089,16 @@ class CapsuleController(
         note = null
     }
 
-    /** 胶囊上闪着一句时点它:那句说要打开 Mika 就打开,否则收掉那句、照常点按。 */
+    /** カプセル上で文が点滅したら、それをクリックします。「Mika を開く」と表示されている場合は、開きます。それ以外の場合は、文を閉じて通常どおりクリックします。 */
     private fun tapCapsule() {
         val n = note
         clearNote()
         if (n?.opensMika == true) open(null) else tap()
     }
 
-    // ---------- 点按与卡片 ----------
+    // ---------- タップとカード ----------
 
-    /** 点一颗或胶囊:第一下先等一等,双击的时限里没有第二下才展开卡片;有就是双击,发出此刻的屏幕。 */
+    /** カードまたはカプセルをクリックします。最初のクリックを待ち、ダブルクリックの制限時間内に 2 回目のクリックがない場合はカードを展開します。ダブルクリックすると、現在の画面が表示されます。 */
     private fun tap() {
         if (capturing) return
         when (taps.tap(SystemClock.uptimeMillis())) {
@@ -1116,7 +1116,7 @@ class CapsuleController(
         }
     }
 
-    /** 展开卡片(空闲图标是空闲卡片)。每次展开都按用户此刻在哪个对话重读一次空闲卡片,不拿上次那份。 */
+    /** カードを展開します (アイドル アイコンはアイドル カードです)。拡張されるたびに、アイドル カードは、最後のコピーを取得せずに、ユーザーが現在どの会話に参加しているかに応じて再読み取りされます。 */
     private fun expand() {
         val v = view ?: return
         if (v.kind == CapsuleKind.Idle) {
@@ -1134,14 +1134,14 @@ class CapsuleController(
         }
     }
 
-    /** 展开卡片:先记下此刻那一颗的方位,卡片从那边长出来。 */
+    /** カードを展開します。まず、現時点でのカードの位置に注目してください。カードはそこから成長します。 */
     private fun open() {
         if (!expanded) anchorY = placedY + (window?.height ?: 0) / 2
         expanded = true
         closing = false
     }
 
-    /** 点在窗口外面:先关掉放大的画面,再收起卡片。 */
+    /** ウィンドウの外側をクリックしてください。拡大された画面を閉じてから、カードを収納してください。 */
     private fun outside() {
         when {
             zoomed -> zoom(false)
@@ -1154,7 +1154,7 @@ class CapsuleController(
         refresh()
     }
 
-    /** 收起卡片:输入框马上收起(焦点还给下面的 App),卡片缩回那一颗的方位后([closed])才真的收起;关了动画时直接收起。 */
+    /** カードを回収します: 入力ボックスはすぐに閉じられます (フォーカスは下のアプリに戻ります)。カードは、その位置 ([closed]) に格納されるまで格納されません。アニメーションがオフになると、直接撤回されます。 */
     private fun collapse() {
         if (!expanded) return
         closeInput()
@@ -1173,7 +1173,7 @@ class CapsuleController(
         refresh()
     }
 
-    /** 卡片缩放的原点:那一颗停靠的那一边,高度是那一颗的中心在卡片上的位置(超出卡片时取上下边)。 */
+    /** カードのスケーリングの原点：カードがドッキングされている側、高さはカード上のカードの中心の位置です（カードを超える場合は上下の辺を取ります）。 通知上の */
     private fun cardOrigin(size: Size): TransformOrigin {
         val y = if (size.height > 0f) ((anchorY - cardTop) / size.height).coerceIn(0f, 1f) else 0f
         return TransformOrigin(if (dock.side == DockSide.Right) 1f else 0f, y)
@@ -1185,7 +1185,7 @@ class CapsuleController(
         override fun collapse() = this@CapsuleController.collapse()
         override fun stop(runKey: String) = TaskService.cancel(context, runKey)
         override fun takeOver(runKey: String) {
-            // 和通知上的「我来处理」一样带着这次等待的编号:点在已经换掉的旧等待上不算数
+            // と「処理します」には、この待機の数が記載されています。置き換えられた古い待機をクリックしてもカウントされません。
             TaskService.takeOver(context, waitKey = runFor(runKey)?.takeover?.waitKey, runKey = runKey)
             collapse()
         }
@@ -1215,7 +1215,7 @@ class CapsuleController(
         }
     }
 
-    /** 卡片窗口里:展开时是卡片,收起时什么都没有(窗口没有大小)。 */
+    /** カード ウィンドウ: 展開するとカードが表示されますが、折りたたむと何も表示されません (ウィンドウにはサイズがありません)。 */
     @Composable
     private fun CardOverlay() {
         val c = card ?: return
@@ -1227,7 +1227,7 @@ class CapsuleController(
         }
     }
 
-    /** 面板窗口里:按着说话时整屏的那一层,贴着一颗此刻的位置;平时什么都没有。 */
+    /** パネル ウィンドウ: 話すときに画面全体を覆うレイヤーを押し、この時点の星の位置に固定します。通常は何もありません。 */
     @Composable
     private fun VoicePanelOverlay() {
         if (!talk.active) return
@@ -1239,7 +1239,7 @@ class CapsuleController(
         }
     }
 
-    /** 边上那个窗口里:一颗、胶囊或那一条;卡片出来后是空的,卡片往回缩时一颗同时从边上冒出来。胶囊上闪着一句时显示那句。 */
+    /** 横の窓には錠剤、カプセル、またはストリップが入っています。カードが出てくると空になり、カードが引っ込むと同時に横から錠剤が出てきます。カプセル上で文が点滅しているときにその文を表示します。 */
     @Composable
     private fun CapsuleOverlay() {
         val shown = view ?: return
@@ -1273,7 +1273,7 @@ class CapsuleController(
         }
     }
 
-    /** 用时,每秒更新;不显示用时时为 null。 */
+    /** 経過時間。1 秒ごとに更新されます。経過時間を表示しない場合はnull。 */
     @Composable
     private fun elapsed(startedAt: Long?): String? {
         if (startedAt == null) return null
@@ -1286,7 +1286,7 @@ class CapsuleController(
         return ChatCopy.clock(now - startedAt)
     }
 
-    /** 回到 Mika 的那个对话(和点通知同一个入口)。 */
+    /** 美香の会話（通知と同じ入り口）に戻ります。 */
     private fun open(conversationId: String?) {
         runCatching { context.startActivity(TaskService.openAppIntent(context, conversationId)) }
             .onFailure { Log.w(TAG, "could not open Mika from capsule", it) }
@@ -1299,7 +1299,7 @@ class CapsuleController(
         "login" -> R.string.takeover_reason_login
         "access_blocked" -> R.string.takeover_reason_access_blocked
         "payment" -> R.string.takeover_reason_payment
-        // 「需要你决定」接在「需要你：」后面重复了,用模型写的话
+        // モデルに記述されている場合、「I need you:」の後に「I need you to決定」が繰り返されます。
         else -> null
     }?.let(context::getString)
 
@@ -1307,26 +1307,26 @@ class CapsuleController(
 
     private companion object {
         const val TAG = "MikaCapsule"
-        /** 看得见的胶囊离屏幕左右边、离状态栏和底部。 */
+        /** 表示されるカプセルは、画面の左右、ステータス バー、および下部から離れた位置にあります。 */
         const val EDGE_MARGIN_DP = 12
         const val TOP_GAP_DP = 8
-        /** 胶囊、那一条连同阴影边的窗口高度(按比例摆高度时用)。 */
+        /** カプセル、シャドウ エッジに沿ったウィンドウの高さ (高さを比例的に設定する場合に使用)。 */
         const val PILL_DP = 40 + 16
         const val BAR_DP = 48 + 16
         const val SNAP_MS = 220L
 
         const val ROTATE_SETTLE_MS = 300L
-        /** 说话时两个落点各自外扩多少算拖到了。 */
+        /** 話すとき、2つの着地点がある程度拡張されています。 */
         const val TARGET_SLOP_DP = 14
-        /** 胶囊上闪的那句停多久:发出了、没听清、出错或用不了。 */
+        /** カプセル上のメッセージの点滅が止まるまでにどれくらい時間がかかりますか: 送信済み、はっきりと聞こえない、エラーまたは利用不可。 */
         const val NOTE_SENT_MS = 1_500L
         const val NOTE_SHORT_MS = 2_000L
         const val NOTE_LONG_MS = 3_500L
-        /** 截屏前收起卡片里的输入法,最多等它这么久下去。 */
+        /** スクリーンショットを撮る前に、カード内のインプットメソッドをしまってください。長くてもこのくらい待ちます。 */
         const val IME_GONE_MS = 700L
         const val IME_POLL_MS = 30L
     }
 }
 
-/** 胶囊上临时闪的一句:[kind] 定前面的标记(办好了是勾、没办成是叹号);[opensMika] 时点它打开 Mika;[id] 每句不同(胶囊按它重新定宽)。 */
+/** カプセル上で文が一時的に点滅します。 [kind] は設定の前のマークです (設定が完了している場合はチェック マーク、未完了の場合は感嘆符です)。 [opensMika] クリックしてミカを開きます。 [id] 各文は異なります (クリックするとカプセルの幅がリセットされます)。 */
 private data class CapsuleNote(val text: String, val kind: CapsuleKind, val opensMika: Boolean, val id: Int)

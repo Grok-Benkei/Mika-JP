@@ -7,12 +7,12 @@ import java.net.InetAddress
 import java.security.MessageDigest
 
 /**
- * 电脑连接的门口:每个请求先过这里,过了才交给协议层。顺序固定:
- * 浏览器来的(带 Origin)一律 403;同一地址认证失败太多次先 429;访问令牌不对 401。路由和错误序列化交给入口适配器。
- * 令牌按常量时间比较;失败次数按请求的来源([HttpRequest.source])记,[clock] 可换,测试里拨时间。
- * 冷却期间正确令牌也不放行:放行就等于告诉猜的人「这回猜对了」,冷却就挡不住猜令牌。
- * 经网关转发的请求按网关看到的调用方分开记,一个匿名调用方猜错只冷却它自己。
- * [token] 从哪里来的连接都认;[loopbackToken](经 USB 的电脑连接用的那个)只认本机回环来的连接。
+ * コンピューター接続ドア: 各リクエストは最初にここを通過し、次にプロトコル層に渡されます。固定順序:
+ * ブラウザ (Origin を使用) は常に 403 を取得します。同じアドレス 429 に対して認証が何度も失敗しました。アクセス トークンが正しくありません、401。ルーティングとエラーのシリアル化はイングレス アダプターに任せられます。
+ * トークンは一定時間に従って比較されます。失敗の数はリクエストのソース ([HttpRequest.source]) に従って記録され、[clock] は交換可能で、時刻はテストでダイヤルされます。
+ * 冷却期間中は正しいトークンは解放されません。トークンを解放することは、推測者に「今回は正しく推測しました」と伝えることと同じです。クールダウンしてもトークンの推測を止めることはできません。
+ * ゲートウェイによって転送されたリクエストは、ゲートウェイが認識する発信者に従って個別に記録されます。匿名の発信者が間違ったことを推測しても、冷めるばかりです。
+ * [token] はどこからの接続も認識します。 [loopbackToken] (USB 経由のコンピュータ接続に使用されるもの) は、ローカル マシンからループバックされた接続のみを認識します。
  */
 class RemoteAccess(
     private val token: () -> String?,
@@ -31,7 +31,7 @@ class RemoteAccess(
     private val failures = HashMap<String, Failures>()
 
     fun check(req: HttpRequest): Verdict {
-        // 浏览器的请求总带 Origin;电脑上的 MCP 客户端不带。网页不该能碰到这个端口(防 DNS 重绑定)
+        // ブラウザのリクエストには常に Origin が含まれます。コンピュータ上の MCP クライアントはサポートしません。 Web ページはこのポートにアクセスできないようにする必要があります (DNS 再バインド防止)
         if (req.header("origin") != null) return Verdict.Reject(403, "Browser requests are not allowed")
         val who = req.source
         val now = clock()
@@ -46,7 +46,7 @@ class RemoteAccess(
             if (h.length > 7 && h.substring(0, 7).equals("Bearer ", ignoreCase = true)) h.substring(7).trim() else null
         }
         val loopback = if (req.remote.isLoopbackAddress) loopbackToken() else null
-        // 两个都比,不因对上了第一个就少比一次。
+        // 両方を比較してください。最初の試合とマッチしたからといって、対戦回数が 1 回減るわけではありません。
         if (given == null || !(matches(given, token()) or matches(given, loopback))) {
             fail(who, now)
             return Verdict.Reject(401, "Missing or wrong access token", mapOf("WWW-Authenticate" to "Bearer"))
@@ -56,7 +56,7 @@ class RemoteAccess(
         return Verdict.Pass
     }
 
-    /** 本地监听与远程转发共用鉴权和协议错误;只有通过后才进入任务层。 */
+    /** ローカル監視とリモート転送は認証とプロトコル エラーを共有します。通過して初めてタスク層に入ります。 */
     fun handle(req: HttpRequest, next: (HttpRequest) -> HttpResponse): HttpResponse = when (val verdict = check(req)) {
         is Verdict.Reject -> if (req.path == McpRpc.PATH)
             McpRpc.transportError(verdict.status, verdict.message, verdict.headers)
@@ -71,12 +71,12 @@ class RemoteAccess(
         if (now - f.since > windowMs) { f.count = 0; f.since = now }
         f.count++
         if (f.count >= maxFailures) { f.lockedUntil = now + lockMs; f.count = 0; f.since = now }
-        // 地址多了只留最近的,不让表无限长
+        // アドレスが多すぎる場合は、最新のアドレスのみが保持され、テーブルは無限に長くなるわけではありません。
         if (failures.size > 256) failures.entries.minByOrNull { it.value.since }?.let { failures.remove(it.key) }
     }
 
     companion object {
-        /** 常量时间比较:先各自摘要成等长,再逐字节比,耗时不随前面对上了几个字符变。 */
+        /** 定数時間比較: 最初にそれらを等しい長さにダイジェストし、次にバイトごとに比較します。前に直面したキャラクターの数によって消費時間は変わりません。 */
         fun same(a: String, b: String): Boolean {
             val d = MessageDigest.getInstance("SHA-256")
             val x = d.digest(a.toByteArray(Charsets.UTF_8))
@@ -85,15 +85,15 @@ class RemoteAccess(
         }
 
         /**
-         * 收不收这个地址的连接:本机回环、局域网私有段(10/8、172.16/12、192.168/16)、
-         * 私有组网常用的运营商级 NAT 段(100.64/10)、IPv4 链路本地,以及 IPv6 的唯一本地(fc00::/7)和链路本地(fe80::/10)。
-         * 公网地址(比如走移动数据时)一律不收。
+         * このアドレスからの接続を受け入れるかどうか: ローカル ループバック、LAN プライベート セグメント (10/8、172.16/12、192.168/16)、
+         * プライベート ネットワーク用の一般的なキャリア グレード NAT セグメント (100.64/10)、IPv4 リンクローカル、IPv6 のみのローカル (fc00::/7) およびリンクローカル (fe80::/10)。
+         * パブリック ネットワーク アドレス (モバイル データを使用する場合など) は受け入れられません。
          */
         fun privateAddress(a: InetAddress): Boolean {
             val v4 = when (a) {
                 is Inet4Address -> a.address
                 is Inet6Address -> a.address.let { b ->
-                    // IPv4 映射成 IPv6 的写法(::ffff:a.b.c.d)按 IPv4 看
+                    // IPv4 は IPv6 (::ffff:a.b.c.d) にマッピングされます。IPv4 を参照してください。
                     if ((0 until 10).all { b[it] == 0.toByte() } && b[10] == 0xff.toByte() && b[11] == 0xff.toByte()) b.copyOfRange(12, 16) else null
                 }
                 else -> null

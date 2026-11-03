@@ -36,14 +36,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
 
-/** 运行还在录 Trace 时,多久重读一次。 */
+/** が動作中にトレースを記録している場合、どのくらいの頻度で再読み込みする必要があります。 */
 private const val TRACE_REFRESH_MS = 1_000L
 
 @Composable
 internal fun RunTraceSection(runId: String) {
     val context = LocalContext.current
     val store = (context.applicationContext as MikaApp).detailedTraces.store
-    // 运行过程页在任务跑着时就能打开:还在录就按秒重读,录完再读最后一次就停
+    // 実行中のプロセス ページは、タスクの実行中に開くことができます。記録中は 1 秒ごとに再読み取りし、記録後に再度読み取り、最後に停止します。
     val loaded by produceState<Pair<TraceArchive, List<TraceRow>>?>(null, runId) {
         var archive: TraceArchive? = null
         while (true) {

@@ -5,59 +5,59 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 /**
- * 界面用到的全部颜色。页面一律从 [MikaTheme.colors] 取,不写死色值。
- * 实色只用在强调(主按钮、选中、开关、用户消息)和状态(成功、需要你、出错);图标块一律中性。
+ * インターフェイスで使用されるすべての色。ページは常に [MikaTheme.colors] から取得され、デッド カラー値は書き込まれません。
+ * 単色は強調 (メイン ボタン、選択、スイッチ、ユーザー メッセージ) とステータス (成功、必要、エラー) にのみ使用されます。アイコン ブロックは常に中立です。
  */
 @Immutable
 class MikaColors(
-    /** 页面背景。 */
+    /** ページの背景。 */
     val bg: Color,
-    /** 卡片、分组。 */
+    /** カード、グループ。 */
     val surface: Color,
-    /** 浅填充:次按钮、分段控件底、代码块底。 */
+    /** 浅い塗りつぶし: サブボタン、セグメント化されたコントロールの下部、コード ブロックの下部。 */
     val fill: Color,
-    /** 文字三级:正文、次要、辅助。 */
+    /** 本文、副本文、補助本文の 3 つのレベルのテキスト。 */
     val ink: Color,
     val ink2: Color,
     val ink3: Color,
-    /** 分隔线。 */
+    /** ディバイダー。 */
     val hair: Color,
-    /** 卡片描边。 */
+    /** カードのストローク。 */
     val edge: Color,
     val accent: Color,
     val accentSoft: Color,
-    /** 强调色上的文字和图标。 */
+    /** アクセントカラーのテキストとアイコン。 */
     val onAccent: Color,
     val ok: Color,
     val okSoft: Color,
-    /** 「需要你」:[warn] 用于文字,[warnSolid] 用于圆点、描边。 */
+    /** "Need You": [warn] はテキストに使用され、[warnSolid] はドットとストロークに使用されます。 */
     val warn: Color,
     val warnSolid: Color,
     val warnSoft: Color,
     val bad: Color,
     val badSoft: Color,
-    /** 图标块的底。 */
+    /** アイコンブロックの下部。 */
     val neutralSoft: Color,
-    /** Mika 回答的底:比页面背景深一点点的灰,和用户的蓝色气泡区分开。 */
+    /** ミカの答え: ページの背景より少し濃いグレーで、ユーザーの青いバブルとは異なります。 */
     val answer: Color,
-    /** 灰色胶囊、关着的开关。 */
+    /** 灰色のカプセル、閉じたスイッチ。 */
     val greySoft: Color,
-    /** 悬浮玻璃(输入栏、浮在内容上的按钮)的底和描边。 */
+    /** フローティング ガラスの底部とストローク (入力フィールド、コンテンツ上にフローティングするボタン)。 */
     val glass: Color,
     val glassEdge: Color,
-    /** 卡片阴影;深色下卡片只靠描边,为透明。 */
+    /** カード シャドウ;暗い色の場合、カードはストロークのみに依存し、透明になります。 */
     val cardShadow: Color,
-    /** 悬浮元素的阴影。 */
+    /** 吊り下げられた要素の影。 */
     val floatShadow: Color,
-    /** 开关的圆钮。 */
+    /** スイッチの丸いボタン。 */
     val thumb: Color,
     /**
-     * 图表里分类的颜色(例如每家服务商一种),按固定的先后取;超出的归到 [seriesOther]。
-     * 只给图形上色,文字一律用 ink 三级。
+     * チャート内で分類された色 (たとえば、サービス プロバイダーごとに 1 つ) は、固定された順序で取得されます。余分な色は [seriesOther] に分類されます。
+     * はグラフィックのみに色を付け、すべてのテキストはインク レベル 3 を使用します。
      */
     val series: List<Color>,
     val seriesOther: Color,
-    /** 图表的网格线。 */
+    /** グラフのグリッド線。 */
     val grid: Color,
     val isDark: Boolean,
 )
@@ -128,5 +128,5 @@ val DarkColors = MikaColors(
     isDark = true,
 )
 
-/** 没有包在 [MikaTheme] 里时(比如界面测试)按浅色。 */
+/** が [MikaTheme] に含まれていない場合（インターフェイステストなど）、明るい色を押します。 */
 val LocalMikaColors = staticCompositionLocalOf { LightColors }

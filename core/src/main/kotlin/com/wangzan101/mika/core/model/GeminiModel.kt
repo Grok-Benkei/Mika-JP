@@ -19,13 +19,13 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /**
- * Gemini generateContent 原生接口。
- * - 角色只有 user / model;相邻同角色合并。历史里的 System 消息并入 systemInstruction。
- * - Gemini 不给调用编号:合成 "gemini-<序号>-<名称>"(响应带 id 则用之);
- *   回传 functionResponse 时按 callId 到历史里的 ToolCall 找函数名。
- * - thought 部分解析为 Thinking;选了思考强度时用 `generationConfig.thinkingConfig.thinkingLevel` 控制深度。
+ * GeminigenerateContent ネイティブ インターフェイス。
+ * - ロールにはユーザー/モデルのみが含まれます。隣接する同じロールはマージされます。履歴内のシステム メッセージは systemstruct にマージされます。
+ * - Gemini はコール番号を提供しません。「gemini-<シリアル番号>-<名前>」を合成します (応答に ID がある場合はこれを使用します)。
+ *   functionResponse を返すときに、callId を押して、履歴内の ToolCall で関数名を見つけます。
+ * - 思考部分は思考として解釈されます。思考の強度を選択した場合、`generationConfig.thinkingConfig.thinkingLevel` を使用して深さを制御します。
  */
-/** Google 给的占位签名:调用不是 Gemini 自己产生的(带不出原签名)时用它跳过签名校验。 */
+/** Google によって提供されたプレースホルダー署名: 呼び出しが Gemini 自体によって生成されていない場合 (元の署名を持ち出すことができない)、署名検証をスキップするために使用します。 */
 internal const val SKIP_SIGNATURE = "skip_thought_signature_validator"
 
 class GeminiModel(
@@ -34,11 +34,11 @@ class GeminiModel(
     private val model: String,
     override val capabilities: Capabilities,
     private val http: OkHttpClient,
-    /** 每个请求都带的头(见 [ClientHeaders]);Key 的头由适配器自己加。 */
+    /** 各リクエストにはヘッダーが含まれます ([ClientHeaders] を参照)。 Key ヘッダーはアダプター自体によって追加されます。 */
     private val headers: Map<String, String> = emptyMap(),
-    /** 回复最多多少 token(`generationConfig.maxOutputTokens`);null 不限,按服务端默认。 */
+    /** 応答するトークンの最大数 (`generationConfig.maxOutputTokens`)。 null 制限なし、サーバーのデフォルト。 */
     private val maxOutputTokens: Int? = null,
-    /** 用户选的思考档位;null 不发,`none` 尽量关掉思考,其余作为 `thinkingConfig.thinkingLevel` 发出。 */
+    /** ユーザーが選んだ思考装置。 nullは送信せず、`none`を可能な限りオフにし、残りは`thinkingConfig.thinkingLevel`として送信します。 */
     private val reasoningEffort: String? = null,
 ) : StreamingChatModel {
     override val name: String get() = model
@@ -101,10 +101,10 @@ class GeminiModel(
 
     private fun mapError(status: Int, retryAfter: String?, body: String): ModelError = ModelHttp.geminiError(status, retryAfter, body, model)
 
-    // Gemini 不接受 additionalProperties / $schema / $id 等 OpenAPI 子集之外的键
+    // Gemini は、AdditionalProperties / $schema / $id などの OpenAPI サブセット外のキーを受け入れません。
     private val rejectedKeys = setOf("additionalProperties", "\$schema", "\$id", "\$defs")
 
-    // 只在 schema 位置剔除;properties 是 名称->schema 的映射,名称本身不动
+    // はスキーマ位置でのみ削除されます。プロパティは名前 -> スキーマのマッピングであり、名前自体は変更されません
     private fun sanitize(el: JsonElement): JsonElement = when (el) {
         is JsonObject -> JsonObject(el.filterKeys { it !in rejectedKeys }.mapValues { (k, v) ->
             if (k == "properties" && v is JsonObject) JsonObject(v.mapValues { sanitize(it.value) }) else sanitize(v)
@@ -117,9 +117,9 @@ class GeminiModel(
         put("name", t.name)
         put("description", t.description)
         val schema = try { json.parseToJsonElement(t.parametersJsonSchema) } catch (e: Exception) {
-            throw IllegalArgumentException("工具 ${t.name} 的参数 schema 不是合法 JSON", e)
+            throw IllegalArgumentException("ツール ${t.name} のパラメータ schema が正しいJSONではありません", e)
         }
-        // 无参数工具:Gemini 拒绝没有 properties 的 object schema,省略 parameters
+        // パラメーターなしツール: Gemini はプロパティのないオブジェクト スキーマを拒否し、パラメーターを省略します
         val clean = sanitize(schema)
         val hasProps = (clean as? JsonObject)?.get("properties")?.let { it is JsonObject && it.isNotEmpty() } == true
         if (hasProps) put("parameters", clean)
@@ -144,7 +144,7 @@ class GeminiModel(
     }
 
     private fun userParts(m: Message, nameById: Map<String, String>): List<JsonObject> {
-        // functionResponse 紧跟在 functionCall 之后,排在其它部分之前
+        // functionResponse は functionCall の直後に続き、他の部分より前にランクされます。
         val results = m.parts.filterIsInstance<Part.ToolResult>().map { r ->
             buildJsonObject {
                 putJsonObject("functionResponse") {
@@ -170,8 +170,8 @@ class GeminiModel(
     }
 
     private fun modelParts(m: Message): List<JsonObject> {
-        // 一轮里只有第一个调用带签名(并行调用的其余几个本来就没有);第一个没有签名说明调用不是本适配器产生的
-        // (换了模型、或回放补的调用),按 Google 的说明发跳过校验的占位签名
+        // ラウンド内の最初の呼び出しのみに署名があります (他の並列呼び出しには署名がありません)。最初のものには署名がなく、呼び出しがこのアダプターによって生成されたものではないことを示しています
+        // (モデルを変更した、または通話を再実行した)。Google の指示に従って、検証をスキップするプレースホルダー署名を送信します。
         val firstCall = m.parts.firstOrNull { it is Part.ToolCall }
         return m.parts.mapNotNull { p -> modelPart(p, first = p === firstCall) }
     }
@@ -195,7 +195,7 @@ class GeminiModel(
             val blockReason = ((root["promptFeedback"] as? JsonObject)?.get("blockReason") as? JsonPrimitive)?.contentOrNull
             if (blockReason != null) throw ModelError.ContentRefused()
             val cand = root["candidates"]?.jsonArray?.firstOrNull()?.jsonObject
-                ?: throw ModelError.BadResponse("缺少 candidates")
+                ?: throw ModelError.BadResponse("candidatesがありません")
             val parts = mutableListOf<Part>()
             var calls = 0
             (cand["content"] as? JsonObject)?.get("parts")?.jsonArray?.forEach { el ->
@@ -205,7 +205,7 @@ class GeminiModel(
                 when {
                     fc != null -> {
                         val name = (fc["name"] as? JsonPrimitive)?.contentOrNull
-                            ?: throw ModelError.BadResponse("functionCall 缺少 name")
+                            ?: throw ModelError.BadResponse("functionCallにnameがありません")
                         val id = (fc["id"] as? JsonPrimitive)?.contentOrNull ?: "gemini-$calls-$name"
                         val sig = (p["thoughtSignature"] as? JsonPrimitive)?.contentOrNull
                         parts += Part.ToolCall(id, name, (fc["args"] ?: JsonObject(emptyMap())).toString(), sig)
@@ -236,7 +236,7 @@ class GeminiModel(
         val u = el as? JsonObject ?: return null
         fun n(k: String) = (u[k] as? JsonPrimitive)?.intOrNull
         val inT = n("promptTokenCount") ?: return null
-        // promptTokenCount 已含缓存命中部分,与统一口径一致
+        // プロンプトトークンカウントには、統合キャリバーと一致するキャッシュ ヒット部分がすでに含まれています
         val thoughts = n("thoughtsTokenCount") ?: 0
         return Usage(inT, (n("candidatesTokenCount") ?: 0) + thoughts, n("cachedContentTokenCount") ?: 0, thoughts)
     }
@@ -256,7 +256,7 @@ private class GeminiStream(
 
     fun accept(data: String) {
         val root = try { json.parseToJsonElement(data).jsonObject }
-        catch (e: Exception) { throw ModelError.BadResponse("流式响应不是合法 JSON", e) }
+        catch (e: Exception) { throw ModelError.BadResponse("ストリーミング応答が正しいJSONではありません", e) }
         usageOf(root["usageMetadata"])?.let { usage = it }
         val candidate = (root["candidates"] as? JsonArray)?.firstOrNull() as? JsonObject ?: return
         (candidate["finishReason"] as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotEmpty)?.let { finishReason = it }
@@ -276,7 +276,7 @@ private class GeminiStream(
     }
 
     fun finish(): ModelReply {
-        // Gemini 的流没有单独的结束标记,带 finishReason 的那一帧就是收尾;没等到它是连接中途被断开
+        // Gemini のストリームには個別の終了マークがありません。 finishReason を持つフレームが終了です。到達する前に接続が途中で切断されます。
         if (finishReason == null) throw ModelError.StreamCut()
         val parts = buildList<Part> {
             if (thinking.isNotEmpty()) add(Part.Thinking(thinking.toString()))

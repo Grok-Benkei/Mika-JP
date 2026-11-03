@@ -12,11 +12,11 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlin.math.roundToInt
 
-/** 两张截图的哈希距离不超过它就算同一画面(控件树与画面同步、@v 编号仍有效)。 */
+/** 2 つのスクリーンショットのハッシュ距離がそれを超えない場合、同じ画面とみなされます (コントロール ツリーは画面と同期されており、@v 番号はまだ有効です)。 */
 const val LOCATE_SCREEN_CHANGE = 8
 
 sealed interface LocateResult {
-    /** [x]/[y]/[box] 为 0–999 归一化,与 tap 同一坐标系;[source] 是 "elements" 或 "vision"。 */
+    /** [x]/[y]/[box] は 0 ～ 999 で正規化され、タップと同じ座標系です。 [source] は「要素」または「ビジョン」です。 */
     data class Found(
         val ref: String,
         val snapshotId: String,
@@ -26,17 +26,17 @@ sealed interface LocateResult {
         val seen: String?,
         val source: String,
         val note: String?,
-        /** 只靠看图、没有佐证(这一屏的树不能用,没东西可对照):点完要看效果。 */
+        /** 証拠なしで写真を見てください (この画面のツリーは使用できません。比較するものはありません)。クリックして効果を確認してください。 */
         val unverified: Boolean = false,
     ) : LocateResult
 
     data class NotFound(val reason: String, val message: String) : LocateResult
 }
 
-/** 画面拿不到或不能给视觉模型看;[reason] 是 protected_content、no_app_open 等。 */
+/** 画面を取得できないか、ビジュアル モデルに表示できません。 [reason] は protected_content、no_app_open などです。 */
 class ScreenUnavailable(val reason: String, message: String) : Exception(message)
 
-/** 找不到、看不了时给模型的说明;点名的是这块屏那一套工具。 */
+/** モデルが見つからない、または表示できない場合の手順。名前が付けられているのは、この画面とそのツールのセットです。 */
 private class LocateMessages(f: ScreenFamily) {
     private val describe = f.tool("describe")
     private val dump = f.tool("list_elements")
@@ -70,9 +70,9 @@ private val PROMPTS: Pair<String, String> by lazy {
 private val DESCRIBE_PROMPT: String by lazy { Prompts.role("describe") }
 
 /**
- * 在屏上找一个元素:有原文且控件树和画面同步时先在控件树里找唯一的精确匹配,
- * 否则让视觉模型框出来,再核对名字、画红框复看确认。找到的点登记进 [registry]。
- * 受保护的页面(系统防截屏)的画面一律不交给视觉模型。
+ * 画面上の要素を検索します。元のテキストがあり、コントロール ツリーが画面と同期している場合は、まずコントロール ツリー内で完全に一致する一意の要素を検索します。
+ * それ以外の場合は、ビジュアル モデルをフレーム化してから、名前を確認し、赤枠を描画して再度確認します。見つかった点は[registry]に登録されます。
+ * 保護されたページ (システム アンチスクリーンショット) の画面はビジュアル モデルに渡されません。
  */
 class Locator(private val screen: ScreenPort, private val vision: VisionService, private val registry: LocateRegistry, family: ScreenFamily) {
     private val m = LocateMessages(family)
@@ -121,8 +121,8 @@ class Locator(private val screen: ScreenPort, private val vision: VisionService,
         if (!confirmed) return LocateResult.NotFound("not_confirmed", "Something was marked, but a second look did not confirm it is the described element. ${m.notFoundNext}")
 
         val nameChecked = occupant != null && occupant.name.isNotBlank()
-        // 定位准度没验证过的模型:只靠看图的框要有佐证——框中心的元素就是要找的字(上面已核过名字),或再框一次、复看两次都确认且看到的一致。
-        // 树不能用、或缺了一块而要找的不在树里时,没有东西可对照:照样交出去,标明没佐证,点完由效果说话
+        // 位置決め精度が検証されていないモデル: 画像のみに依存するボックスがサポートされている必要があります。ボックスの中央の要素が探している単語です (名前は上記で確認されています)。または、単語が一貫していることを確認するためにボックスを再度チェックし、2 回再表示する必要があります。
+        // ツリーが使用できない場合、またはピースが不足していて、探しているものがツリーにない場合は、比較するものはありません。とにかくそれを渡し、裏付けとなる証拠なしとしてマークし、クリックした後に結果を見てください。
         val visionOnly = !vision.groundingVerified && !nameChecked && nothingToCheckAgainst(text)
         if (!vision.groundingVerified && !nameChecked && !visionOnly) {
             val again = try {
@@ -139,8 +139,8 @@ class Locator(private val screen: ScreenPort, private val vision: VisionService,
     }
 
     /**
-     * 这一屏没有能给看图的框作佐证的东西:树不能用;或缺了一块,而要找的字([text])不在树里(没给字时按不在算)。
-     * 树够用、判不准、读不到屏时都不算:照旧要佐证。
+     * この画面にはピクチャ フレームをサポートできるものはありません。ツリーは使用できません。または、ピースが欠落しており、探している単語 ([text]) がツリー内にありません (単語がない場合のクリックはカウントされません)。
+     * ツリーが足りていても、判定が正しくなくても、画面が読めなくても、サポートは必要です。
      */
     private suspend fun nothingToCheckAgainst(text: String?): Boolean {
         val s = peekOrNull() ?: return false
@@ -152,7 +152,7 @@ class Locator(private val screen: ScreenPort, private val vision: VisionService,
     }
 
     /**
-     * 同一张图再框一次:两次的框互相包住对方的中心、看到的字一致(都要有),第二个框画红框复看也确认,才算佐证。
+     * 同じ写真が再度フレームに入れられます。2 つのフレームは互いの中心を覆い、表示される単語は一貫しています (すべて存在する必要があります)。2 番目のフレームは赤色で再度チェックされ、証拠とみなされます。
      */
     private suspend fun secondLook(target: String, text: String?, first: Box, png: ByteArray, locatePrompt: String, confirmPrompt: String): Boolean {
         val box = parseBox(vision.ask(locatePrompt, if (text != null) "$target (label: \"$text\")" else target, listOf(png))) ?: return false
@@ -166,7 +166,7 @@ class Locator(private val screen: ScreenPort, private val vision: VisionService,
 
     private fun contains(b: Box, x: Int, y: Int) = x in b.l..b.r && y in b.t..b.b
 
-    /** 当前截图和「我现在想做的事」交给视觉模型,原样返回描述。画面拿不到抛 [ScreenUnavailable],模型出错抛 ModelError。 */
+    /** 現在のスクリーンショットと「今やりたいこと」をビジュアルモデルに渡し、説明をそのまま返します。画面が取得できない場合は、[ScreenUnavailable]がスローされます。モデルが失敗すると、ModelError がスローされます。 */
     suspend fun describe(task: String): String {
         val shot = capture().let { it as? Shot.Ok ?: throw (it as Shot.Missing).let { m -> ScreenUnavailable(m.reason, m.message) } }
         clearForVision()?.let { throw ScreenUnavailable(it.reason, it.message) }
@@ -174,8 +174,8 @@ class Locator(private val screen: ScreenPort, private val vision: VisionService,
     }
 
     /**
-     * 当前画面能不能交给视觉模型:能为 null;不能时是原因
-     * (protected_content、读不到屏时 vision_unavailable)。
+     * 現在のピクチャをビジュアル モデルに渡すことができるかどうか。null にすることもできます。それができない場合はそれが理由です
+     * (保護コンテンツ、画面が読み取れない場合はビジョン利用不可)。
      */
     internal suspend fun visionBlocker(): String? = clearForVision()?.reason
 
@@ -187,8 +187,8 @@ class Locator(private val screen: ScreenPort, private val vision: VisionService,
     }
 
     /**
-     * 截一张图。屏上有防截屏窗口时不截(截到的也是黑的,付款页一类不能外传);
-     * 截不到时区分「还没开 App」和一时截不到。
+     * スクリーンショットを撮ります。画面上にスクリーンショット防止ウィンドウがある場合、スクリーンショットは撮影されません (スクリーンショットも黒くなり、支払いページはアップロードできません)。
+     * 切断できない時間は、「アプリがまだ開いていない」場合と、一時的に切断できない時間に分かれます。
      */
     private suspend fun capture(): Shot {
         if (screen.isProtected()) return Shot.Missing("protected_content", m.protectedScreen)
@@ -198,14 +198,14 @@ class Locator(private val screen: ScreenPort, private val vision: VisionService,
             val empty = s != null && s.packageName == null && s.elements.isEmpty() && !s.hasWindow
             return if (empty) Shot.Missing("no_app_open", m.noApp) else Shot.Missing("screenshot_unavailable", m.noShot)
         }
-        // 截完再看一次:截图过程中切到了受保护页面
+        // スクリーンショットを撮ってもう一度見る: スクリーンショットの処理中に、保護されたページに切り替わりました。
         if (vision.ops.isMostlyBlack(png) && screen.isProtected()) return Shot.Missing("protected_content", m.protectedScreen)
         return Shot.Ok(png, vision.ops.aHash(png))
     }
 
     /**
-     * 交给视觉模型前再读一次屏:受保护页面不传；读不到屏也不传。
-     * 付款页按普通页面处理。可以传时为 null。
+     * ビジュアル モデルに渡す前に画面をもう一度読み取ります。保護されたページは転送されません。読み取れない画面は転送されません。
+     * 支払いページは通常のページとして処理されます。 null として渡すことができます。
      */
     private suspend fun clearForVision(): Shot.Missing? {
         val s = peekOrNull() ?: return Shot.Missing("vision_unavailable", m.unchecked)
@@ -218,7 +218,7 @@ class Locator(private val screen: ScreenPort, private val vision: VisionService,
     private suspend fun peekOrNull(): ScreenSnapshot? =
         try { screen.peek() } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
 
-    /** 名字或资源 ID(去空白、小写)恰好等于 [text] 的唯一元素;嵌套或同中心的算同一个,多个为 null。 */
+    /** は、名前またはリソース ID (空白と小文字が削除された) が [text] と正確に等しい唯一の要素です。入れ子または同心円状のものは同じものとしてカウントされ、複数のものは null になります。 */
     private fun exactMatch(elements: List<UiElement>, text: String): UiElement? {
         val want = norm(text)
         val hits = elements.filter { e -> onScreen(e) && (norm(e.name) == want || e.resourceId?.let { norm(it) == want } == true) }
@@ -226,7 +226,7 @@ class Locator(private val screen: ScreenPort, private val vision: VisionService,
         return distinct.singleOrNull()
     }
 
-    /** 那一点上面积最小、且不到半屏的元素。 */
+    /** その時点での最小要素、画面の半分未満。 */
     private fun elementAt(elements: List<UiElement>, x: Int, y: Int): UiElement? = elements.filter { e ->
         val b = e.bounds
         b.size == 4 && x in b[0]..b[2] && y in b[1]..b[3] && area(e) < 999L * 999 / 2
@@ -239,7 +239,7 @@ class Locator(private val screen: ScreenPort, private val vision: VisionService,
         val m = BBOX_2D.find(t) ?: BARE_BOX.find(t) ?: return null
         val (x1, y1, x2, y2) = m.groupValues.drop(1).map { it.toDouble() }
         if (listOf(x1, y1, x2, y2).any { it > 1000 } || x2 <= x1 || y2 <= y1) return null
-        // 0–1 的小数框是另一种坐标约定,换算不可靠
+        // 0–1 の小数ボックスは別の座標規則であり、変換は信頼できません。
         if (maxOf(x1, y1, x2, y2) <= 1) return null
         fun scale(v: Double) = (v * 999 / 1000).roundToInt()
         val seen = SEEN.find(t)?.groupValues?.get(1)?.let(::unescape)?.trim()?.take(MAX_SEEN)?.ifEmpty { null }
@@ -254,7 +254,7 @@ class Locator(private val screen: ScreenPort, private val vision: VisionService,
         return x.isNotEmpty() && y.isNotEmpty() && y !in x && x !in y
     }
 
-    /** 在屏内且有面积(读屏把屏外的元素压到边上,面积为 0)。 */
+    /** は画面内にあり、領域があります (画面読み取りでは画面外の要素が端に押し出され、領域は 0)。 */
     private fun onScreen(e: UiElement): Boolean {
         val b = e.bounds
         return b.size == 4 && b[0] >= 0 && b[1] >= 0 && b[2] <= 999 && b[3] <= 999 && b[2] > b[0] && b[3] > b[1]

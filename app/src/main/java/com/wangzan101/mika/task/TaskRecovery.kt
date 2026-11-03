@@ -23,14 +23,14 @@ import kotlinx.serialization.json.put
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 
-/** 持久化的一组「原值」;值为 null 表示原本没有这一项。没有记录时 [load] 返回 null。 */
+/** 永続的な「元の値」のセット。値が null は、この項目が元々存在しなかったことを意味します。 [load] はレコードがない場合は null を返します。 */
 interface MarkerStore {
     fun load(): Map<String, String?>?
     fun save(values: Map<String, String?>)
     fun clear()
 }
 
-/** 存在 SharedPreferences 里,同步提交:必须先落盘再去改系统状态。 */
+/** は SharedPreferences に存在し、同期的に送信されます。まずダウンロードしてから、システム ステータスを変更する必要があります。 */
 class PrefsMarker(private val prefs: SharedPreferences, private val name: String) : MarkerStore {
     override fun load(): Map<String, String?>? {
         val keys = prefs.getStringSet("$name.keys", null) ?: return null
@@ -54,9 +54,9 @@ class PrefsMarker(private val prefs: SharedPreferences, private val name: String
     }
 }
 
-/** 静音所需的 shell 能力。参数是静音的键(见 [AppAudioKey]):本来那份是包名,另一份用户里的那份带上用户编号。 */
+/** ミュートに必要なシェル機能。パラメータはミュート キーです ([AppAudioKey] を参照)。元のコピーはパッケージ名で、ユーザー内のもう一方のコピーにはユーザー番号が含まれます。 */
 interface AudioPort {
-    /** 当前 PLAY_AUDIO 模式;读不到返回 null。 */
+    /** 現在の PLAY_AUDIO モード。読み込まれなかった場合は null を返します。 */
     fun mode(packageName: String): String?
     fun mute(packageName: String): Boolean
     fun setMode(packageName: String, mode: String): Boolean
@@ -74,15 +74,15 @@ class ShellAudio(private val shell: IMikaShell) : AudioPort {
     }.getOrDefault(false)
 
     override fun setMode(packageName: String, mode: String): Boolean = runCatching {
-        // 不合格式的键当作已恢复:留着也恢复不了
+        // フォーマットされていないキーは回復されたものとして扱われます。残っていても回復できません。
         val (pkg, user) = AppAudioKey.parse(packageName) ?: return true
         if (user == null) shell.setAudioMode(pkg, mode) else shell.setAudioModeInUser(pkg, user, mode)
     }.getOrDefault(false)
 }
 
 /**
- * 任务期间关掉目标 App 的声音。静音前把原模式写进持久化记录:shell 服务随 Mika 进程一起结束,
- * 它内存里的原值会丢,只有这份记录能让下次启动时恢复。
+ * タスク中の対象アプリのサウンドをオフにします。ミュートする前に、元のパターンを永続レコードに書き込みます。シェル サービスは、Mika プロセスとともに終了します。
+ * メモリ内の元の値は失われ、次回起動時にこのレコードのみが復元されます。
  */
 class AudioMute(private val port: AudioPort, private val store: MarkerStore) {
     @Synchronized
@@ -95,7 +95,7 @@ class AudioMute(private val port: AudioPort, private val store: MarkerStore) {
         return port.mute(packageName)
     }
 
-    /** 只恢复一个 App(用户接管时让它能出声);恢复不了就留在记录里。没静音过的视为已恢复。 */
+    /** は 1 つのアプリのみを復元します (ユーザーが引き継ぐときに音を鳴らします)。復元できない場合は記録に残ります。ミュートされていないものは復元されたとみなされます。 */
     @Synchronized
     fun restore(packageName: String): Boolean {
         val saved = store.load().orEmpty()
@@ -106,7 +106,7 @@ class AudioMute(private val port: AudioPort, private val store: MarkerStore) {
         return true
     }
 
-    /** 恢复记录里的全部 App;恢复不了的留在记录里下次再试。 */
+    /** レコード内のすべてのアプリを復元します。復元できないものは記録に残され、次回再試行されます。 */
     @Synchronized
     fun restoreAll(): Boolean {
         val saved = store.load() ?: return true
@@ -117,8 +117,8 @@ class AudioMute(private val port: AudioPort, private val store: MarkerStore) {
 }
 
 /**
- * Mika 借剪贴板粘贴期间用户原来的剪贴板文字(和 Mika 放进去的文字)的加密留底:外壳进程随 Mika 一起被杀时,
- * 它内存里的原剪贴板就没了,下次启动只能靠这份把用户的内容还回去。用 [cipher] 加密后存成一段文字,还原后删掉。
+ * ミカは、クリップボードの貼り付け中にユーザーの元のクリップボード テキスト (およびミカによって入力されたテキスト) の暗号化を使用します。シェル プロセスがミカとともに強制終了されると、
+ * メモリ内の元のクリップボードが失われており、次回起動時にはこれに依存してユーザーのコンテンツを返すことしかできません。 [cipher]を使用して暗号化してテキストとして保存し、復元後に削除します。
  */
 class ClipBackup(private val read: () -> String?, private val write: (String?) -> Unit, private val cipher: KeyCipher) {
     fun save(original: String, ours: String) {
@@ -126,7 +126,7 @@ class ClipBackup(private val read: () -> String?, private val write: (String?) -
         write(Base64.getEncoder().encodeToString(cipher.encrypt(plain)))
     }
 
-    /** (原来的文字, Mika 放进去的文字);没有留底、或解不开(密钥已换)时为 null。 */
+    /** (原文、Mika が入力したテキスト);左下がない、またはロック解除できない(キーが変更されている)場合はnull。 */
     fun load(): Pair<String, String>? = runCatching {
         val data = read() ?: return null
         val o = Json.parseToJsonElement(String(cipher.decrypt(Base64.getDecoder().decode(data)))).jsonObject
@@ -137,27 +137,27 @@ class ClipBackup(private val read: () -> String?, private val write: (String?) -
 }
 
 /**
- * Mika 异常退出后留下的系统改动(App 静音、粘贴期间暂时换掉的剪贴板),在下次启动时恢复。
- * 静音记录每个任务一份(按 [TaskRun.key]),几个任务同时跑时各记各的包。
- * 任务期间的改动由任务自己收尾,恢复只处理没人收尾的那些:还在跑的任务([live])的记录不动,
- * 有任务在跑时也不还原剪贴板(那时它可能正借着剪贴板粘贴)。
- * 由 App 建一份、经 [Owner] 给出([live] 要在各任务间共用);等助手时用进程里共用的那条 [sharedShell]。
+ * ミカが異常終了した後に残ったシステム変更（アプリのミュート、貼り付け中にクリップボードが一時的に置き換えられた）は、次回起動時に復元されます。
+ * は、各タスクのコピーを 1 つサイレントに記録します ([TaskRun.key] を押します)。複数のタスクを同時に実行すると、各パッケージが記録されます。
+ * タスク中の変更はタスク自体によって完了し、復元では誰も完了していない変更のみが処理されます。まだ実行中のタスク ([live]) のレコードは移動されません。
+ * は、タスクの実行中にクリップボードを復元しません (その時点でクリップボード経由で貼り付けられる可能性があります)。
+ * はアプリによって作成され、[Owner] によって与えられます ([live] はタスク間で共有される必要があります)。アシスタントを待つときは、プロセス内で共有されている [sharedShell] を使用します。
  */
 class TaskRecovery(context: Context, private val sharedShell: SharedShell) {
     private val app = context.applicationContext
     private val clipCipher by lazy { KeystoreKeyCipher(CLIP_KEY_ALIAS) }
 
-    /** 恢复与任务开工时的登记共用,保证二者不交错。 */
+    /** リカバリは、タスクの開始時に登録と共有され、2 つが重複しないようにします。 */
     val lock = Mutex()
 
-    /** 还在跑的任务;进程被杀后为空,所有记录都归恢复处理。 */
+    /** はまだタスクを実行中です。プロセスが強制終了された後は空になり、すべてのレコードが復元されます。 */
     private val live = ConcurrentHashMap.newKeySet<String>()
 
     fun audioMute(shell: IMikaShell, runKey: String) = AudioMute(ShellAudio(shell), marker(runKey))
 
     private fun marker(runKey: String) = PrefsMarker(prefs(), "${MUTED}_$runKey")
 
-    /** 现有的全部静音记录名(含旧版的那一份)。 */
+    /** 既存のすべてのサイレント レコード名 (古いバージョンを含む)。 */
     private fun markerNames(): List<String> =
         prefs().all.keys.filter { it.startsWith(MUTED) && it.endsWith(".keys") }.map { it.removeSuffix(".keys") }
 
@@ -166,18 +166,18 @@ class TaskRecovery(context: Context, private val sharedShell: SharedShell) {
     fun pending(): Boolean =
         markerNames().any { it !in liveNames() } || (live.isEmpty() && prefs().getBoolean(CLIP_HELD, false))
 
-    /** 任务开工:先恢复没人收尾的遗留,再登记为在跑。 */
+    /** タスクが開始されます。まず、誰も完了していないレガシーを復元し、次にそれを実行中として登録します。 */
     suspend fun beginRun(shell: IMikaShell, runKey: String) = lock.withLock {
         withContext(Dispatchers.IO) { recoverWith(shell) }
         live += runKey
     }
 
-    /** 任务收尾(自己的静音已恢复)之后调用;没恢复成的留在记录里,下次由恢复处理。 */
+    /** は、タスクの完了後に呼び出されます (独自のミュートが復元されました)。復元されなかったものは記録に残され、次回復元されます。 */
     fun endRun(runKey: String) {
         live -= runKey
     }
 
-    /** 粘贴期间剪贴板是 Mika 的;进程在这期间结束,下次启动让 shell 把用户原来的剪贴板还回去。 */
+    /** 貼り付け期間中、クリップボードはミカに属します。プロセスはこの期間中に終了し、次回の起動時にシェルがユーザーの元のクリップボードを返すことができるようになります。 */
     fun markClipHeld(held: Boolean) {
         prefs().edit().putBoolean(CLIP_HELD, held).apply { if (!held) remove(CLIP_BACKUP) }.commit()
     }
@@ -188,26 +188,26 @@ class TaskRecovery(context: Context, private val sharedShell: SharedShell) {
         clipCipher,
     )
 
-    /** 换剪贴板成功后留底;加密失败就不留(只是少了进程被杀后的还原)。 */
+    /** は、クリップボードが正常に変更された後も最下位を維持します。暗号化が失敗した場合は保持されません (プロセスが強制終了された後に復元できないだけです)。 */
     fun saveClip(original: String, ours: String) {
         runCatching { clipBackup().save(original, ours) }.onFailure { Log.w(TAG, "clipboard backup not saved", it) }
     }
 
-    /** 已持有 [lock] 时调用。 */
+    /** がすでに [lock] を保持している場合に呼び出されます。 */
     fun recoverWith(shell: IMikaShell) {
         val records = markerNames().associateWith { PrefsMarker(prefs(), it) }
         if (!restoreRuns(records, ShellAudio(shell), liveNames())) Log.w(TAG, "muted apps not restored yet")
         if (live.isNotEmpty()) return
-        // shell 进程还在就还原它记着的原剪贴板(剪贴板已被用户换掉时它不会动);
-        // shell 也被杀过就按加密留底还原,两步都只在剪贴板仍是 Mika 的时才换
+        // は、シェル プロセスがまだ存在している間に、記憶している元のクリップボードを復元します (ユーザーがクリップボードを置き換えても移動しません)。
+        // シェルも強制終了されている場合は、[暗号化] を押して下部を残して復元します。どちらの手順でも、クリップボードがまだミカに属している場合にのみ、クリップボードを変更します。
         val inShell = runCatching { shell.restoreClip() }.isSuccess
         val fromBackup = restoreClip(clipBackup()) { o, u -> shell.restoreClipText(o, u) }
         if (inShell && fromBackup) markClipHeld(false)
     }
 
     /**
-     * 启动时调用:有遗留改动就等内置助手连上后恢复;等不到就留到下次。
-     * 等助手时不占锁,免得新任务跟着等;拿到锁后再确认一次还有没有遗留。
+     * 起動時に呼び出されます: 変更が残っている場合は、組み込みアシスタントが接続されて復元されるまで待ちます。そうでない場合は、次回までそのままにしておきます。
+     * は、新しいタスクの待機を避けるために、アシスタントを待機しているときにロックを占有しません。ロックを取得したら、再度ロックが残っているか確認してください。
      */
     suspend fun recover() {
         if (!pending()) return
@@ -222,7 +222,7 @@ class TaskRecovery(context: Context, private val sharedShell: SharedShell) {
 
     private fun prefs() = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    /** 给出进程里那一份的 Application。 */
+    /** はプロセス中のアプリケーションを示します。 */
     interface Owner {
         val taskRecovery: TaskRecovery
     }
@@ -234,17 +234,17 @@ class TaskRecovery(context: Context, private val sharedShell: SharedShell) {
         private const val CLIP_HELD = "clip_held"
         private const val CLIP_BACKUP = "clip_backup"
         private const val CLIP_KEY_ALIAS = "mika-clip-backup"
-        /** 每个任务的静音记录名是 muted_<任务 key>;旧版只有一份,名为 muted,照样恢复。 */
+        /** 各タスクのミュート レコード名は muted_<タスク キー> です。古いバージョンのコピーはミュートという名前で 1 つだけあり、まだ復元できます。 */
         private const val MUTED = "muted"
 
         fun of(context: Context): TaskRecovery = (context.applicationContext as? Owner)?.taskRecovery
             ?: error("the Application (${context.applicationContext.javaClass.name}) must implement TaskRecovery.Owner to give the task recovery")
 
-        /** 恢复 [records](记录名 → 记录)里不属于 [live] 的全部静音;都恢复了返回 true。 */
+        /** は、[live] に属さない [records] (レコード名 → レコード) 内のすべてのミュートを復元します。すべてが復元され、true が返されます。 */
         fun restoreRuns(records: Map<String, MarkerStore>, port: AudioPort, live: Set<String>): Boolean =
             records.filterKeys { it !in live }.values.map { AudioMute(port, it).restoreAll() }.all { it }
 
-        /** 按留底把用户原来的剪贴板还回去([restore] 只在剪贴板仍是 Mika 的时才换);还原了或没有留底返回 true,并删掉留底。 */
+        /** 保持ボタンを押して、ユーザーの元のクリップボードを返します ([restore] は、クリップボードがまだミカのものである場合にのみクリップボードを変更します)。復元された場合、または保持ボタンがない場合は true を返し、保持ボタンを削除します。 */
         fun restoreClip(backup: ClipBackup, restore: (original: String, ours: String) -> Unit): Boolean {
             val (original, ours) = backup.load() ?: return true.also { backup.clear() }
             return runCatching { restore(original, ours) }.onSuccess { backup.clear() }.isSuccess

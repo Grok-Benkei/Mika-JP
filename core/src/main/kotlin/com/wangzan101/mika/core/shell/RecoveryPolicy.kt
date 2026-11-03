@@ -2,29 +2,29 @@ package com.wangzan101.mika.core.shell
 
 import kotlinx.coroutines.delay
 
-/** 判断要不要重起助手时看的几样东西。 */
+/** アシスタントを再起動するかどうかを決定する際に確認すべき点がいくつかあります。 */
 data class RecoveryInputs(
-    /** 本机存着配对钥匙。 */
+    /** 本機にはペアリングキーが保存されています。 */
     val paired: Boolean,
-    /** 系统的无线调试开关;有的手机读不到,为 null。 */
+    /** システムのワイヤレス デバッグ スイッチ;一部の携帯電話では読み取れないため、null になります。 */
     val wirelessDebugging: Boolean?,
     val status: BuiltinShellStatus,
 )
 
 enum class StopReason {
     NotPaired,
-    /** 无线调试关着:等它打开时再来(由监听开关的一方重新触发)。 */
+    /** ワイヤレス デバッグがオフになっています: 再びオンになるまで待ちます (スイッチを聞いている側によって再トリガーされます)。 */
     WirelessDebuggingOff,
-    /** 失败的类别要用户出手(重新配对、连 Wi-Fi),重试没用。 */
+    /** 失敗したカテゴリでは、ユーザーはアクション (再ペアリング、Wi-Fi への接続) を行う必要があり、再試行は無駄です。 */
     NeedsUser,
     OutOfAttempts,
 }
 
 sealed interface RecoveryDecision {
     data object Healthy : RecoveryDecision
-    /** 等 [delayMs] 后用已配对的钥匙重连一次。 */
+    /** [delayMs] を待ってから、ペアリングされたキーを使用して再接続します。 */
     data class Try(val delayMs: Long) : RecoveryDecision
-    /** 别人正在连:等 [delayMs] 再看,不叠一次重连。 */
+    /** 他の人が接続中です。[delayMs] を待って、重複して再接続せずに再試行してください。 */
     data class Wait(val delayMs: Long) : RecoveryDecision
     data class Stop(val reason: StopReason) : RecoveryDecision
 }
@@ -32,16 +32,16 @@ sealed interface RecoveryDecision {
 data class RecoveryOutcome(val recovered: Boolean, val attempts: Int, val stoppedBecause: StopReason?)
 
 /**
- * 助手不在时什么时候重起、隔多久、试几次。拔 USB、adbd 重启会带走所有 shell 身份的进程,
- * 所以不区分「怎么没的」:只要配对还在、无线调试没被确认关掉、失败不需要用户出手,就按退避重连。
- * 信任网络与否读不到,一律先试,失败由连接结果说话。
+ * アシスタントが利用できない場合に再起動するタイミング、再起動の頻度、試行回数。 USB を取り外して adbd を再起動すると、シェル ID を持つすべてのプロセスが削除されます。
+ * したがって、「なぜそれが起こらなかったのか」に区別はありません。ペアリングがまだ存在している限り、ワイヤレス デバッグは確認されておらずオフになっており、失敗してもユーザーの操作は必要ありません。エスケープ ボタンを押して再接続するだけです。
+ * ネットワークが信頼できるかどうかに関係なく、ネットワークを読み取れない場合は、常に最初に試してください。失敗は接続結果によって判断されます。
  */
 object RecoveryPolicy {
     const val MAX_ATTEMPTS = 5
     const val BASE_DELAY_MS = 2_000L
     const val MAX_DELAY_MS = 30_000L
 
-    /** 第一次马上试,之后 2、4、8、16 秒……封顶 30 秒。 */
+    /** 初めてすぐに試してみて、その後は 2、4、8、16 秒...30 秒が上限です。 */
     fun backoffMs(attempt: Int): Long =
         if (attempt <= 0) 0L else (BASE_DELAY_MS shl (attempt - 1).coerceAtMost(20)).coerceAtMost(MAX_DELAY_MS)
 
@@ -61,8 +61,8 @@ object RecoveryPolicy {
     private fun needsUser(f: BuiltinShellFailure) = f.defaultFix != BuiltinShellFix.Retry
 
     /**
-     * 按 [decide] 一直试到恢复或该停。[attempt] 是一次重连(真实现里是 `BuiltinShellControl.retry()`,
-     * 它不抛异常,结果写进状态);[inputs] 每轮重新读。
+     * [decide] を押して、回復するか停止するまで試し続けます。 [attempt] は再接続です (実際には `BuiltinShellControl.retry()`、
+     * 例外はスローされず、結果はステータスに書き込まれます)。 [inputs] はラウンドごとに再度読み取られます。
      */
     suspend fun recover(
         inputs: suspend () -> RecoveryInputs,
@@ -81,7 +81,7 @@ object RecoveryPolicy {
     }
 }
 
-/** 开机时「重启后自动恢复」要不要动手:看它是否已经生效(默认打开、补上过的也算),不看用户有没有拨过开关。 */
+/** 起動時に「再起動後の自動回復」を使用するかどうか: それが有効になっているかどうか (デフォルトでオンになっており、追加されています) によって決まり、ユーザーがスイッチを切り替えたかどうかには依存しません。 最後に電源を入れたときからの */
 object BootRestore {
     const val MIN_SDK = 31
 
@@ -94,13 +94,13 @@ object BootRestore {
     }
 }
 
-/** 上一次开机自动恢复的结果,给设置页如实显示。 */
+/** の自動回復の結果が、設定ページに忠実に表示されます。 */
 enum class RestoreOutcome {
     Restored,
-    /** 这一项打开过,但修改系统设置的授权已经不在。 */
+    /** この項目はオンになっていますが、システム設定を変更する権限は利用できなくなりました。 */
     PermissionMissing,
-    /** 写无线调试开关被系统拒绝或写了不生效:这台手机不支持开机自动打开。 */
+    /** ワイヤレス デバッグ スイッチの書き込みがシステムによって拒否されたか、有効になりません: この電話機は起動時の自動オープンをサポートしていません。 */
     SettingUnavailable,
-    /** 开关打开了,但没能连上(比如不在信任的 Wi-Fi 上)。 */
+    /** スイッチはオンになっていますが、接続できません (たとえば、信頼できる Wi-Fi 上にありません)。 */
     NotRecovered,
 }

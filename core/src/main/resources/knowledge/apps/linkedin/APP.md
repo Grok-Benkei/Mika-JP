@@ -1,15 +1,14 @@
 ---
 name: linkedin
-display: 领英
+display: LinkedIn
 packages: ["com.linkedin.android"]
-aliases: ["领英", "LinkedIn", "linkedin", "Linkedin"]
+aliases: ["领英", "LinkedIn", "linkedin", "Linkedin", "リンクトイン"]
 sites: []
 open: LinkedIn
-description: 职业社交与求职 App
+description: プロフィールや求人を読み、条件と応募の範囲を確認する
 ---
-## 是什么
-领英(LinkedIn)是职业社交 App,包名 `com.linkedin.android`。
+## 概要
+職業向けのネットワークと求人サービス。勤務地、雇用形態、リモート可否、掲載時点を確認する。
 
-## 已知现象
-- 没登录时打开是欢迎页:轮播的介绍卡片,「使用邮箱登录」,「没有领英帐号?立即加入」。
-- 欢迎页上可能先弹出谷歌的「登录LinkedIn」底部面板(「继续以…的身份登录」),这个面板属于谷歌服务,读不到元素,右上角「×」关掉。
+## 注意点
+求人を調べる依頼と応募依頼を区別する。応募、企業への連絡、招待、投稿は外部送信になる。指定された相手と本文、添付した経歴を操作前後に照合する。ログインや本人確認、公開範囲の判断はユーザーへ引き継ぐ。

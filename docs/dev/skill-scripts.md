@@ -1,26 +1,26 @@
-# 沙箱脚本
+# サンドボックス スクリプト
 
-技能和网站知识可以带脚本,放在各自目录的 `scripts/` 下。打包后这些目录出现在沙箱的 `/opt/mika/skills/` 下,
-由 `run_bundled_script` 在沙箱里运行。参数:
+のスキルと Web サイトの知識をスクリプトとともに持ち込んで、それぞれのディレクトリの `scripts/` の下に配置できます。パッケージ化後、これらのディレクトリはサンドボックスの `/opt/mika/skills/` の下に表示されます。
+は、`run_bundled_script` によってサンドボックスで実行されます。パラメータ:
 
-- `source`:脚本所在的目录,也就是 `knowledge_read`、`skill_read` 结果里给出的 `scriptSource`,例如 `skills/documents`;
-- `script`:目录里的脚本路径,例如 `scripts/extract_pdf.py`;
-- `args`:参数数组(最多 50 个),原样交给脚本,中间不经过 shell;
-- `timeoutSec`:时限,1–600 秒,默认 60。
+- `source`: スクリプトが配置されているディレクトリ。つまり、`knowledge_read` と `skill_read` の結果で指定される `scriptSource` (たとえば、`skills/documents`)。
+- `script`: ディレクトリ内のスクリプト パス (`scripts/extract_pdf.py` など)。
+- `args`: パラメーター配列 (最大 50)。シェルを経由せずにそのままスクリプトに渡されます。
+- `timeoutSec`: 時間制限、1 ～ 600 秒、デフォルトは 60。
 
-解释器按扩展名选:`.py` 用 python3,`.mjs`、`.js` 用 node,`.sh` 用 sh(`ScriptManifest.interpreterFor`)。
+インタープリターは拡張子によって選択されます。`.py` は python3 を使用し、`.mjs` および `.js` はノードを使用し、`.sh` は sh(`ScriptManifest.interpreterFor`) を使用します。
 
-目前仓库里有一个脚本:
+現在、ウェアハウスにスクリプトがあります:
 
-| 脚本 | 位置 | 做什么 | 需要什么 |
+|スクリプト |場所 |何をすべきか |必要なもの |
 |---|---|---|---|
-| `scripts/extract_pdf.py` | `skills/documents/` | 从文本型 PDF 取字,可按页、看元数据、写入文件;扫描件不处理 | Alpine 包 `py3-pypdf` |
+| `scripts/extract_pdf.py` | `skills/documents/` |テキスト PDF から単語を取得し、ページを押したり、メタデータを表示したり、ファイルを書き込んだりできます。スキャンされたファイルは処理されません。アルパインパッケージ `py3-pypdf` |
 
-以上位置都在 `core/src/main/resources/` 下。脚本都带 `--help`,出错时以非 0 退出,并在标准错误写一句原因。
+上記のポジションはすべて `core/src/main/resources/` の下にあります。すべてのスクリプトには `--help` が含まれています。エラーが発生すると、ゼロ以外の値で終了し、標準エラーに理由を書き込みます。
 
 ## `scripts/manifest.json`
 
-每个带脚本的目录有一份 `scripts/manifest.json`,是一个数组,每个脚本一项:
+スクリプトを含む各ディレクトリには、配列である `scripts/manifest.json` のコピーが 1 つあり、スクリプトごとに 1 つの項目が含まれます。
 
 ```json
 [
@@ -28,15 +28,15 @@
 ]
 ```
 
-- `file`:脚本相对该目录的路径;不是目录内相对路径的项会被丢掉。
-- `runnable`:能否在沙箱里运行。`false` 的脚本只用来说明缺什么,`run_bundled_script` 会拒绝。
-- `reason`:可选,`runnable` 为 `false` 时给出的原因。
-- `needs`:依赖列表。`apk:<包名>` 表示需要这个 Alpine 包(必须在 `SANDBOX_PACKAGES` 里);`net` 表示要联网。
-- `network`:是否需要联网。为 `true` 而设置 → 高级里的「允许脚本联网」关着(默认关)时,`run_bundled_script` 会拒绝运行并提示去打开。
+- `file`: ディレクトリに対するスクリプトの相対パス。ディレクトリ内の相対パスではない項目は破棄されます。
+- `runnable`: サンドボックスで実行できますか? `false` のスクリプトは、不足しているものを説明するためにのみ使用され、`run_bundled_script` はそれを拒否します。
+- `reason`: オプション。`runnable` が `false` の場合に指定される理由。
+- `needs`: 依存関係リスト。 `apk:<包名>` は、この Alpine パッケージが必要であることを意味します (`SANDBOX_PACKAGES` にある必要があります)。 `net` は、インターネットに接続する必要があることを意味します。
+- `network`: ネットワークが必要かどうか。 `true` に設定 → 詳細設定の「スクリプト ネットワークを許可する」がオフになっている場合 (デフォルトではオフ)、`run_bundled_script` は実行を拒否し、開くように求めます。
 
-解析与「此刻能不能跑」的判断在 `core/.../knowledge/ScriptManifest.kt`;清单、文档里提到的脚本与脚本文件是否对得上,由 `BundledScriptsManifestTest` 核对。
+の解析と「現時点で実行できるかどうか」の判断は`core/.../knowledge/ScriptManifest.kt`によって行われます。リストおよびドキュメントに記載されているスクリプトがスクリプト ファイルと一致するかどうかは、`BundledScriptsManifestTest` によってチェックされます。
 
-## 运行环境
+## 動作環境
 
-沙箱基于 Alpine 3.22,`SANDBOX_PACKAGES`(`core/.../cap/sandbox/SandboxPackages.kt`)列出随 APK 自带的软件包:python3、nodejs、py3-pillow、py3-pypdf、tzdata。其中 py3-pypdf 供 PDF 取字脚本用;py3-pillow 现在没有内置技能脚本用到,包本身先留着;tzdata 让命令按手机当前时区处理本地时间。
-这些包在构建时装进随 APK 自带的运行环境(`tools/sandbox/build-runtime.py`,见 `tools/sandbox/README.md`);包有变化时,运行环境的版本随之改变,手机上启动时会自动重新解包。
+サンドボックスは Alpine 3.22 に基づいており、`SANDBOX_PACKAGES` (`core/.../cap/sandbox/SandboxPackages.kt`) には、APK に付属するソフトウェア パッケージ (python3、nodejs、py3-pillow、py3-pypdf、tzdata) がリストされています。その中で、py3-pypdf は PDF ワード抽出スクリプトに使用されます。 py3-pillow は現在組み込みスキル スクリプトでは使用されていないため、パッケージ自体は今のところ予約されています。 tzdata を使用すると、コマンドは携帯電話の現在のタイム ゾーンに従って現地時間を処理できます。
+これらのパッケージは、ビルド時に APK (`tools/sandbox/build-runtime.py`、`tools/sandbox/README.md` を参照) に付属する実行環境にロードされます。パッケージが変更されると、実行環境のバージョンもそれに応じて変更され、電話機の起動時に自動的に再解凍されます。

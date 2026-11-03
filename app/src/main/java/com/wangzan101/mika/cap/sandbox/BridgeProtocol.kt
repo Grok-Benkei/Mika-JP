@@ -12,12 +12,12 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.security.MessageDigest
 
-/** 一行回复;[close] 为 true 时回完就断开连接。 */
+/** は 1 行で応答します。 [close] が true の場合、応答後に接続が切断されます。 */
 class BridgeReply(val json: String, val close: Boolean = false)
 
 /**
- * 沙箱里 `mika` 命令与 Mika 之间的协议:一行一个 JSON 请求 `{"token","method","params"}`,一行一个 JSON 回复。
- * 手机方法只转给当前任务的动作入口;命令进程不能直接接触虚拟屏。
+ * サンドボックスの `mika` コマンドとミカの間のプロトコル: 1 行に 1 つの JSON リクエスト `{"token","method","params"}`、1 行に 1 つの JSON 応答。
+ * モバイル メソッドは、現在のタスクのアクション エントリのみを転送します。コマンドプロセスは仮想画面に直接接続できません。
  */
 object BridgeProtocol {
     const val MAX_REQUEST = 64 * 1024
@@ -29,7 +29,7 @@ object BridgeProtocol {
         data object End : Line
     }
 
-    /** 读一行(不含换行);超过 [max] 字节就不再读下去。末尾没有换行的半行算结束。 */
+    /** は 1 行を読み取ります (改行を除く)。これ以上の読み取りは [max] バイトを超えません。末尾に改行のない半行は完全なものとみなされます。 */
     fun readLine(input: InputStream, max: Int = MAX_REQUEST): Line {
         val buf = ByteArrayOutputStream()
         while (true) {
@@ -42,8 +42,8 @@ object BridgeProtocol {
     }
 
     /**
-     * [progress] 返回 false 表示这次被限流丢掉了;[share] 收到沙箱路径与可选的保存名,失败抛 [SandboxError];
-     * [info] 给出 Mika 版本、是否联网等。令牌不对、请求不是 JSON 对象或太大:回一个错误并断开。
+     * [progress] は、今回は電流制限によって破棄されたことを示す false を返します。 [share] はサンドボックスのパスとオプションの保存名を受け取り、失敗した場合は [SandboxError] をスローします。
+     * [info] は、インターネットに接続されているかどうかなど、Mika のバージョンを示します。トークンが正しくない、リクエストが JSON オブジェクトではない、または大きすぎる場合は、エラーを返して切断します。
      */
     suspend fun handle(
         line: String, token: String,
@@ -51,7 +51,7 @@ object BridgeProtocol {
         share: suspend (String, String?) -> String,
         info: () -> JsonObject,
         phone: (suspend (String, JsonObject) -> JsonObject)? = null,
-        /** 意外的失败交给 Mika 自己记日志;回给沙箱的只有错误码。 */
+        /** 予期せぬ障害が発生した場合、ミカはログを記録することになります。エラー コードのみがサンドボックスに返されます。 */
         onError: (Throwable) -> Unit = {},
     ): BridgeReply {
         if (line.toByteArray(Charsets.UTF_8).size > MAX_REQUEST) return error("too_large", close = true)
@@ -99,8 +99,8 @@ object BridgeProtocol {
     }
 
     /**
-     * 任务卡片上的一行字:去掉控制字符、格式字符(零宽字符、改写方向的字符等,能让显示的字和实际的字对不上)
-     * 和行/段分隔符,按码点截到 [MAX_PROGRESS] 个(不劈开代理对)。
+     * タスク カード上の単語の行: 制御文字と書式設定文字 (幅ゼロの文字、方向文字の書き換えなど。表示される単語と実際の単語が不一致になる可能性があります) を削除します。
+     * および行/段落の区切り文字は、コード ポイントによって [MAX_PROGRESS] に切り捨てられます (サロゲート ペアの分割なし)。
      */
     internal fun cleanProgress(s: String): String {
         val out = StringBuilder()
@@ -123,7 +123,7 @@ object BridgeProtocol {
     }.toString(), close)
 }
 
-/** 每 [intervalMs] 最多放过一次进度,多余的丢弃。 */
+/** は、[intervalMs] ごとに最大 1 回進行状況を見逃すことになり、超過分は破棄されます。 */
 class ProgressGate(private val intervalMs: Long = 1_000, private val now: () -> Long = System::currentTimeMillis) {
     private var last = Long.MIN_VALUE
 

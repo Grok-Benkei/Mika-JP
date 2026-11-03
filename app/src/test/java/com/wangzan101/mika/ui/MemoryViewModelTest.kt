@@ -25,7 +25,7 @@ class MemoryViewModelTest {
     @get:Rule val texts = ChineseTexts()
 
     @get:Rule val tmp = TemporaryFolder()
-    // 来历一行按本机时区显示日期:取本机时区那天的中午,在哪个时区跑都是 10 月 23 日
+    // 元の行には、ローカル タイム ゾーンに従って日付が表示されます。ローカル タイム ゾーンでその日の正午を取得すると、どのタイム ゾーンを実行しても 10 月 23 日になります。
     private val said = MemorySource("user_said", "以后点外卖都不要香菜", "c1", LocalDateTime.of(2025, 10, 23, 12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
     private val store = memoryStore().apply {
         add(MemoryKind.fact, "用户住在张江", listOf("家"), MemorySource("manual", atMs = 1)).getOrThrow()
@@ -49,8 +49,8 @@ class MemoryViewModelTest {
             vm.ui.value.rows.map { it.content }.toSet(),
         )
         assertEquals(MemoryKind.fact, vm.ui.value.rows.first { it.content == "用户住在张江" }.kind)
-        assertEquals("你手写的", vm.ui.value.rows.first { it.content == "用户住在张江" }.source)
-        assertEquals("你在 10 月 23 日说:『以后点外卖都不要香菜』", vm.ui.value.rows.first { it.kind == MemoryKind.preference }.source)
+        assertEquals("あなたが作成", vm.ui.value.rows.first { it.content == "用户住在张江" }.source)
+        assertEquals("10月23日 に言ったこと: 「以后点外卖都不要香菜」", vm.ui.value.rows.first { it.kind == MemoryKind.preference }.source)
     }
 
     @Test fun pendingCollectsProceduresAndCounts() = runTest {
@@ -70,7 +70,7 @@ class MemoryViewModelTest {
         vm.search("咖啡"); runCurrent()
         assertEquals(listOf("用户喝咖啡不加糖"), vm.ui.value.rows.map { it.content })
         vm.search(""); runCurrent()
-        // 空查询按更新时间倒序
+        // 更新時間の逆順の空のクエリ
         assertEquals(3, vm.ui.value.rows.size)
     }
 
@@ -91,12 +91,12 @@ class MemoryViewModelTest {
     @Test fun manualAddSensitiveShowsMessage() = runTest {
         val vm = vm()
         vm.add(MemoryKind.fact, "我的支付密码是123456", emptyList()); runCurrent()
-        assertEquals("这类信息我不会记", vm.ui.value.message)
+        assertEquals("この種類の情報は覚えません", vm.ui.value.message)
         assertEquals(3, vm.ui.value.rows.size)
         vm.dismissMessage()
         vm.add(MemoryKind.fact, "用户的妈妈叫老妈", emptyList()); runCurrent()
         assertEquals(4, vm.ui.value.rows.size)
-        assertEquals("你手写的", vm.ui.value.rows.first { it.content == "用户的妈妈叫老妈" }.source)
+        assertEquals("あなたが作成", vm.ui.value.rows.first { it.content == "用户的妈妈叫老妈" }.source)
     }
 
     @Test fun clearAllNeedsTwoConfirms() = runTest {
@@ -140,15 +140,15 @@ class MemoryViewModelTest {
         skills.putPending("d1", com.wangzan101.mika.core.skills.PersonalSkill("wechat-msg", skillMd("wechat-msg", "## 步骤\n1. 点搜索"), com.wangzan101.mika.core.skills.SkillStatus.pending, "r1", null, 0, emptyList()))
         val vm = skillsVm(skills)
         assertEquals(listOf("d1"), vm.ui.value.skills.drafts.map { it.id })
-        // 改过的全文同样过校验:缺小节、带敏感信息、提到没有的工具都不收
+        // 変更された全文もチェックされます。欠落しているセクション、機密情報、および使用できない言及されたツールは受け入れられません。
         vm.approveSkill("d1", skillMd("wechat-msg", "## 步骤\n1. 点搜索框")); runCurrent()
-        assertTrue(vm.ui.value.message!!.contains("五个小节"))
+        assertTrue(vm.ui.value.message!!.contains("5 つの項目"))
         vm.dismissMessage()
         vm.approveSkill("d1", fullMd("wechat-msg", "支付密码是123456")); runCurrent()
-        assertEquals("这类信息我不会记", vm.ui.value.message)
+        assertEquals("この種類の情報は覚えません", vm.ui.value.message)
         vm.dismissMessage()
         vm.approveSkill("d1", fullMd("wechat-msg", "用 `open_chat` 打开")); runCurrent()
-        assertEquals("里面提到了 Mika 没有的工具", vm.ui.value.message)
+        assertEquals("Mika にないツールが含まれています", vm.ui.value.message)
         assertEquals(1, vm.ui.value.skills.drafts.size)
         vm.approveSkill("d1", fullMd("renamed", "1. 用 `phone_tap` 点搜索框")); runCurrent()
         assertTrue(vm.ui.value.skills.drafts.isEmpty())
@@ -172,7 +172,7 @@ class MemoryViewModelTest {
         val vm = skillsVm(skills)
         val row = vm.ui.value.skills.installed.single()
         assertTrue(row.suspended)
-        assertEquals(listOf("没办成", "核查通过", "没能核实"), row.recent)
+        assertEquals(listOf("うまくいきませんでした", "確認に合格しました", "確認できませんでした"), row.recent)
         vm.restoreSkill("wechat-msg"); runCurrent()
         assertEquals(com.wangzan101.mika.core.skills.SkillStatus.active, skills.get("wechat-msg")!!.status)
         assertTrue(skills.get("wechat-msg")!!.outcomes.isEmpty())

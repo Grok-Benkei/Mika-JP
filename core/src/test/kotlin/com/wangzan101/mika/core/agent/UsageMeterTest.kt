@@ -18,7 +18,7 @@ class UsageMeterTest {
 
     @Test fun noUsageYetEstimatesMessagesAndOverheadOnce() {
         val h = listOf(task, call(), result())
-        // 第一步:没有锚点,消息 + 固定开销一起估,乘同一个比值
+        // ステップ 1: アンカー ポイントはありません。メッセージ + 固定オーバーヘッドが一緒に推定され、同じ比率が乗算されます。
         assertEquals(UsageMeter.estimate(TokenEstimate.of(h) + 11_000, 1.2), UsageMeter.of(h, 11_000, 1.2))
     }
 
@@ -29,23 +29,23 @@ class UsageMeterTest {
         val r2 = result()
         val h = listOf(task, first, r1, second, r2)
         val usage = mapOf(first to UsageMeter.Anchor(Usage(10_000, 50), 9_000), second to UsageMeter.Anchor(Usage(12_000, 40), 9_000))
-        // 真实输入(已含当时的提示词和工具)+ 回复的输出 + 之后消息的估算;固定开销没变,不再加
+        // 実際の入力 (当時のプロンプト ワードとツールを含む) + 応答の出力 + 後続のメッセージの推定。固定オーバーヘッドは変更されておらず、追加はありません
         assertEquals(12_000 + 40 + UsageMeter.estimate(TokenEstimate.of(listOf(r2)), 1.0), UsageMeter.of(h, 9_000, 1.0, usage::get))
-        // 之后固定开销变了(展开了一组工具):只加变化的那部分
+        // 以降、固定オーバーヘッドが変更されました (ツールのセットが拡張されました): 変更された部分のみが追加されました
         assertEquals(12_000 + 40 + UsageMeter.estimate(TokenEstimate.of(listOf(r2)) + 500, 1.0), UsageMeter.of(h, 9_500, 1.0, usage::get))
     }
 
     @Test fun thinkingTokensAreNotContextGrowth() {
         val reply = call()
         val h = listOf(task, reply)
-        // 输出 3000 里 2900 是服务商单独报出的思考,只有 100 会作为下一次的输入再发
+        // の出力は 3000 で、2900 はサービス プロバイダーによって個別に報告されます。次の入力として 100 のみが送信されます。
         val anchor = UsageMeter.Anchor(Usage(inputTokens = 8_000, outputTokens = 3_000, reasoningTokens = 2_900), 0)
         assertEquals(8_100, UsageMeter.of(h, 0, 1.0) { if (it === reply) anchor else null })
         assertEquals(0, UsageMeter.resent(Usage(1, 10, reasoningTokens = 50)))
     }
 
     @Test fun anchoredOverheadIsNotCountedTwiceInTheTrigger() {
-        // 32K 的本地模型,提示词和工具 11K:真实用量已含这 11K,触发点不再扣一次,不会每步都压
+        // 32K ローカル モデル、プロンプト ワードおよびツール 11K: 実際の使用量にはこれら 11K が含まれます。トリガー ポイントは一度減らされることはなくなり、ステップごとに押されることもなくなります。
         val window = 32_000
         val overhead = 11_000
         val c = ContextCompressor(TOOLS)
@@ -62,7 +62,7 @@ class UsageMeterTest {
             input += 100
         }
         assertEquals(0, compactions)
-        // 越过触发点(18K)才压
+        // はトリガーポイント (18K) を通過した後に押されます。
         val reply = call()
         h += reply
         h += result()
@@ -72,7 +72,7 @@ class UsageMeterTest {
     }
 
     @Test fun firstStepWithHeavyOverheadOnSmallWindowDoesNotCompactEveryStep() {
-        // 没有真实用量,固定开销已过触发点:压一次之后有回差,不会每一步都重新压
+        // は実際には使用されておらず、固定オーバーヘッドがトリガー ポイントを超えています。一度押すとバック​​ラッシュがあり、各ステップで再度押すことはありません。
         val window = 32_000
         val overhead = 16_000
         val c = ContextCompressor(TOOLS)

@@ -17,7 +17,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 
-/** 排在开始队列里、还没开始的任务:各处都写排队中,不写已暂停,也不给「继续」(点了也开始不了)。 */
+/** 開始キューにキューに入っているがまだ開始されていないタスク: Queued がどこにでも書き込まれ、Paused が書き込まれず、「続行」が与えられません (クリックしても開始できません)。 */
 class QueuedStateTest {
     @get:Rule val texts = ChineseTexts()
 
@@ -33,11 +33,11 @@ class QueuedStateTest {
         val ex = ChatViewModel.reduce(Exchange("订会议室", emptyList(), ExchangeStatus.Working, live = true), queued)
         assertEquals(ExchangeStatus.Queued(why), ex.status)
         assertFalse(ChatCopy.paused(ex.status))
-        assertEquals("排队中", ChatCopy.progressLine(ex))
-        assertEquals("排队中" to ChatCopy.Tone.Accent, ChatCopy.subtitle(ex, null))
+        assertEquals("待機中", ChatCopy.progressLine(ex))
+        assertEquals("待機中" to ChatCopy.Tone.Accent, ChatCopy.subtitle(ex, null))
     }
 
-    // 不能点继续的等待(比如等你在屏幕上选一下)在对话里也不给继续
+    // [続行] をクリックして待つことができない場合 (たとえば、画面上で選択するのを待っている場合)、会話を続行することはできません。
     @Test fun chatCardOffersContinueOnlyWhenResumable() {
         val ex = Exchange("x", emptyList(), ExchangeStatus.Working, live = true)
         assertEquals(ExchangeStatus.Paused("挪走了", true), ChatViewModel.reduce(ex, TaskState.Held(TaskGate.paused("挪走了"))).status)
@@ -45,8 +45,8 @@ class QueuedStateTest {
     }
 
     @Test fun notificationSaysQueued() {
-        assertEquals("排队中" to why, TaskService.describe(queued))
-        assertEquals("已暂停" to "挪走了", TaskService.describe(TaskState.Held(TaskGate.paused("挪走了"))))
+        assertEquals("待機中" to why, TaskService.describe(queued))
+        assertEquals("一時停止中" to "挪走了", TaskService.describe(TaskState.Held(TaskGate.paused("挪走了"))))
     }
 
     @Test fun capsuleCardHasNoContinue() {

@@ -16,7 +16,7 @@ import java.io.File
 import java.io.FileOutputStream
 import android.util.Log
 
-/** App 私有目录里的运行账本；每次转阶段后原子替换，异常重启不会把半份 JSON 当成记录。 */
+/** アプリのプライベート ディレクトリ内の実行台帳。各ステージ移行後のアトミック置換、および異常な再起動では、JSON の半分がレコードとして扱われません。 */
 class FileRunStateStore(private val file: File) : RunStore {
     private val records = linkedMapOf<RunId, StoredRun>()
 

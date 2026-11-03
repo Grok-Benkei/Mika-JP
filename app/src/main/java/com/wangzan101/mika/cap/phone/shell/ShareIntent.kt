@@ -2,7 +2,7 @@ package com.wangzan101.mika.cap.phone.shell
 
 import android.content.Intent
 
-/** 文字分享:安卓的 ACTION_SEND,类型 text/plain,文字放在 EXTRA_TEXT,只交给一个包。 */
+/** テキスト共有: Android ACTION_SEND、タイプ text/plain、テキストは EXTRA_TEXT に配置され、1 つのパッケージにのみ配信されます。 */
 object ShareIntent {
     const val TYPE = "text/plain"
 
@@ -10,8 +10,8 @@ object ShareIntent {
         .setPackage(packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
     /**
-     * 系统接口用不了时 `am start` 的参数(不经 shell 解释,文字原样作一个参数)。[component] 是这个包只有一个收分享的页面时
-     * 它的短名,直接指定;有几个时只限定包,由系统问用哪一个。
+     * システムインターフェースが使用できない場合の`am start`のパラメータ（シェル解釈なしではテキストがそのままパラメータとして使用されます）。 [component] は、このパッケージに収集と共有用のページが 1 つしかない場合です。
+     * 短縮名は直接指定されます。複数ある場合、パッケージのみが制限され、システムはどれを使用するかを尋ねます。
      */
     fun amArgs(displayId: Int, packageName: String, text: String, component: String?): List<String> =
         listOf("am", "start", "--display", "$displayId", "-a", Intent.ACTION_SEND, "-t", TYPE, "--es", Intent.EXTRA_TEXT, text) +

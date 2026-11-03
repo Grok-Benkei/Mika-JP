@@ -1,5 +1,6 @@
 package com.wangzan101.mika.core.general
 
+import com.wangzan101.mika.core.agent.ReplyLanguage
 import com.wangzan101.mika.core.prompt.Prompts
 import com.wangzan101.mika.core.tool.AgentTool
 import com.wangzan101.mika.core.tool.ArgError
@@ -21,22 +22,22 @@ import com.wangzan101.mika.core.tool.str
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** 做不成、问用户或交给用户的工具:结果里带给循环的 [Outcome]。 */
+/** は作成できません。ユーザーに問い合わせるか、ユーザーにツールを提供してください。結果として [Outcome] がループに入ります。 */
 internal object EndNotDone : AgentTool {
     override val verb = Verb.EndNotDone
-    override val label = "说明没办成的原因"
+    override val label = "できなかった理由を説明"
     override val risk = Risk.Read
     override val def = ToolDef("end_not_done",
         Prompts.tool("end_not_done"),
-        mapOf("message" to str("The concrete blocker, what was and was not completed, and the screen's current state."),
-            "subtype" to str("Failure kind (default interaction_failed).", FAILURE_SUBTYPES),
-            "recoverable" to bool("Whether a retry could still succeed (default false).")),
+        mapOf("message" to str("具体的な障害、完了したこと・未完了のこと、現在の画面の状態を日本語で説明します。"),
+            "subtype" to str("失敗の種類（既定値はinteraction_failed）。", FAILURE_SUBTYPES),
+            "recoverable" to bool("再試行で成功する可能性があるか（既定値はfalse）。")),
         listOf("message"))
 
     override suspend fun execute(a: Args, ctx: ToolContext): ToolExecution {
-        val m = a.str("message", max = 8000)!!
+        val m = japanese(a.str("message", max = 8000)!!, "message")
         val st = a.str("subtype") ?: "interaction_failed"
-        if (st !in FAILURE_SUBTYPES) throw ArgError("subtype", "must be one of ${FAILURE_SUBTYPES.joinToString("|")}")
+        if (st !in FAILURE_SUBTYPES) throw ArgError("subtype", "次のいずれかを指定してください: ${FAILURE_SUBTYPES.joinToString("|")}")
         val rec = a.bool("recoverable", false)
         return ToolExecution(buildJsonObject {
             put("ok", false); put("reported", true); put("subtype", st); put("recoverable", rec); put("counts_as_failure", false)
@@ -46,53 +47,59 @@ internal object EndNotDone : AgentTool {
 
 internal object AskUser : AgentTool {
     override val verb = Verb.AskUser
-    override val label = "问你一个问题"
+    override val label = "質問する"
     override val risk = Risk.Read
     override val def = ToolDef("ask_user",
         Prompts.tool("ask_user"),
-        mapOf("prompt" to str("The question to show the user."),
+        mapOf("prompt" to str("ユーザーに表示する質問を日本語で指定します。"),
             "options" to buildJsonObject {
-                put("type", "array"); put("description", "Optional 2-8 answer choices."); put("minItems", 2); put("maxItems", 8)
+                put("type", "array"); put("description", "回答の選択肢を2〜8件指定できます。説明は日本語で書き、固有名詞は保持します。"); put("minItems", 2); put("maxItems", 8)
                 put("items", buildJsonObject { put("type", "string") })
             }),
         listOf("prompt"))
 
     override suspend fun execute(a: Args, ctx: ToolContext): ToolExecution {
-        val q = a.str("prompt", max = 1000)!!.trim()
-        val opts = a.strList("options", 2, 8)?.map(String::trim)?.distinct()
-        if (opts != null && opts.size < 2) throw ArgError("options", "must have at least 2 different choices")
+        val q = japanese(a.str("prompt", max = 1000)!!.trim(), "prompt")
+        val opts = a.strList("options", 2, 8)?.map { japanese(it.trim(), "options") }?.distinct()
+        if (opts != null && opts.size < 2) throw ArgError("options", "異なる選択肢を2件以上指定してください")
         return ToolExecution(okObj { put("asked", true) }, outcome = Outcome.Input(q, opts))
     }
 }
 
-/** 交给用户亲手操作屏幕;要过锁屏关卡(用户要在屏上操作)。 */
+/** は、画面の操作をユーザーに任せます。ロック画面レベルを通過する必要があります (ユーザーが画面上で操作する必要があります)。 */
 internal object HandToUser : SurfaceAware {
     override val verb = Verb.HandToUser
-    override val label = "请你接手"
+    override val label = "引き継ぎをお願いする"
     override val risk = Risk.Write
     override val withScreens = true
     override val def = ToolDef("hand_to_user",
         Prompts.tool("hand_to_user"),
-        mapOf("reason" to str("Why the user is needed.", TAKEOVER_REASONS),
-            "message" to str("Tell the user what to do and where the task stopped. For payment: the item, spec, quantity, the amount shown on screen and the address."),
-            "item" to str("For payment: the item, spec and quantity, as shown on screen."),
-            "amount" to str("For payment: the amount the user will pay, with currency, as shown on screen."),
-            "address" to str("For payment: the delivery address shown on screen, if any.")),
+        mapOf("reason" to str("ユーザーの操作が必要な理由。", TAKEOVER_REASONS),
+            "message" to str("ユーザーが行うことと停止した場所を日本語で説明します。支払い時は商品・仕様・数量・画面上の金額・住所を含めます。"),
+            "item" to str("支払い時の商品・仕様・数量を画面の表記どおりに指定します。"),
+            "amount" to str("支払金額と通貨を画面の表記どおりに指定します。"),
+            "address" to str("配送先の住所が表示されている場合、その表記どおりに指定します。")),
         listOf("reason", "message"))
 
     override suspend fun execute(a: Args, ctx: ToolContext): ToolExecution {
         checkSurface(a, ctx)
         val raw = a.str("reason")!!
         val r = TAKEOVER_REASON_ALIASES[raw] ?: raw
-        if (r !in TAKEOVER_REASONS) throw ArgError("reason", "must be one of ${TAKEOVER_REASONS.joinToString("|")}")
-        val m = a.str("message", max = 1000)!!
-        // 付款:模型没写的项用之前被拒的付款申报里的
+        if (r !in TAKEOVER_REASONS) throw ArgError("reason", "次のいずれかを指定してください: ${TAKEOVER_REASONS.joinToString("|")}")
+        val m = japanese(a.str("message", max = 1000)!!, "message")
+        // 支払い: モデルに含まれていない品目については、以前に拒否された支払い申告を使用します。
         val declared = ctx.refusedPay.takeIf { r == "payment" }
-        // 只给紧接着的那次付款接管用,之后无关的付款不串用
+        // は次回の支払いにのみ使用され、その後の無関係な支払いには使用されません。
         if (declared != null) ctx.refusedPay = null
         val item = a.str("item", max = 10000)?.let(::capField) ?: declared?.content
         val amount = a.str("amount", max = 10000)?.let(::capField) ?: declared?.amount
         val address = a.str("address", max = 10000)?.let(::capField)
         return ToolExecution(okObj { put("handedOver", true) }, outcome = Outcome.Takeover(r, m, item, amount, address))
     }
+}
+
+/** ユーザー向けの説明が外国語なら表示前に差し戻す。商品名・住所などの画面データは対象にしない。 */
+private fun japanese(text: String, field: String): String {
+    if (ReplyLanguage.mismatch(text) != null) throw ArgError(field, "ユーザー向けの説明を日本語で書き直してください。引用・コード・固有名詞は元の表記を保持してください")
+    return text
 }

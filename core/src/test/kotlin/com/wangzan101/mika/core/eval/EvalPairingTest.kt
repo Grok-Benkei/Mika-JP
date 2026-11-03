@@ -7,13 +7,13 @@ class EvalPairingTest {
     private fun t(id: String, vararg apps: String) =
         EvalTask(id = id, goal = "g", apps = apps.toList(), category = EvalCategory.Read, expect = Expect.Succeeded, checks = emptyList())
 
-    // 用到的 App 不相交的两题才配对;按题目顺序贪心
+    // が使用するアプリは、2 つの素な質問のみに一致します。質問の順番に貪欲に
     @Test fun pairsDisjointAppsGreedily() {
         val tasks = listOf(t("a", "settings"), t("b", "settings"), t("c", "clock"), t("d", "clock", "settings"), t("e", "calc"))
         assertEquals(listOf(listOf("a", "c"), listOf("b", "e"), listOf("d")), EvalPairing.groups(tasks, 2).map { g -> g.map { it.id } })
     }
 
-    // 没写用到哪些 App 的题不知道会不会撞,单独跑;n=1 就是串行
+    // は、どのアプリが使用されたかを記録していませんでした。衝突が発生するかどうかはわからないので、別々に実行しました。 n=1 はシリアルを意味します。
     @Test fun unknownAppsRunAlone() {
         val tasks = listOf(t("a"), t("b", "clock"), t("c", "calc"))
         assertEquals(listOf(listOf("a"), listOf("b", "c")), EvalPairing.groups(tasks, 2).map { g -> g.map { it.id } })

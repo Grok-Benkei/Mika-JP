@@ -15,12 +15,12 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /**
- * 服务商列出的一个模型。能力字段为 null 表示接口没给,由调用方沿用自己的初值,这里不猜。
+ * サービスプロバイダーがリストしたモデル。機能フィールドが null の場合、インターフェイスが提供されていないことを意味し、呼び出し元は独自の初期値を使用します。ここでは推測しません。
  *
- * 有的服务商一个 Key 下的模型走不同的接口协议,列表里给每个模型写明协议和地址(`api` 表)。
- * [endpoint] 是其中 Mika 会说的那一种,调用这个模型时按它选适配器和地址;为 null 时按服务商的接口类型。
- * [unsupportedApis] 是写明了、但 Mika 一种也不会说的协议名:这样的模型调用必然失败,不给选(见 [usable])。
- * [chat] 是接口说没说它是对话模型(`type` 是 chat / embedding / rerank…,或输出模态里有没有文字);没说为 null。
+ * 一部のサービス プロバイダーは、1 つのキーのモデルに異なるインターフェイス プロトコルを使用します。プロトコルとアドレスはモデルごとにリスト（`api`テーブル）に記載されています。
+ * [endpoint] はミカが言うものです。このモデルを呼び出すときは、それに応じてアダプターとアドレスを選択します。 null の場合は、サービス プロバイダーのインターフェイス タイプを選択します。
+ * [unsupportedApis] は明確に記載されているプロトコル名ですが、Mika はそれを言うことができません。そのようなモデル呼び出しは失敗する必要があり、選択されません ([usable] を参照)。
+ * [chat] はインターフェイスであり、対話モデルであるとは言えません (`type` はチャット/埋め込み/再ランク...、または出力モーダルにテキストがあるかどうか)。言われなければ無効です。
  */
 data class ListedModel(
     val id: String,
@@ -32,42 +32,42 @@ data class ListedModel(
     val endpoint: ModelEndpoint? = null,
     val unsupportedApis: List<String> = emptyList(),
     val chat: Boolean? = null,
-    /** 服务商明确给出的思考档位;null 表示未知,空列表表示没有可选档位。保留服务商的顺序。 */
+    /** サービスプロバイダーによって明確に与えられた思​​考装置。 null は不明を意味し、空のリストはオプションのギアがないことを意味します。サービスプロバイダーの順序を守ります。 */
     val reasoningEfforts: List<String>? = null,
     /**
-     * 服务商写明这个模型接受的思考方式(Anthropic 列表 `capabilities.thinking.types` 里支持的那几种,
-     * 如 `adaptive`、`enabled`、`disabled`);null 表示没说。
+     * サービスプロバイダーは、このモデルで受け入れられる思考方法を示します (人間リスト `capabilities.thinking.types` でサポートされているもの、
+     * (`adaptive`、`enabled`、`disabled` など); null は言及されていないことを意味します。
      */
     val thinkingTypes: List<String>? = null,
     /**
-     * 接口写明了这个模型能走哪几种协议(有的聚合服务用 `supported_endpoints` 给出,如 `/chat/completions`、
-     * `/messages`);null 表示没说。用不在其中的接口类型调用必然失败,见 [ModelProtocol.ofPath]。
+     * インターフェイスは、このモデルが採用できるプロトコルを指定します (一部の集約サービスは、`/chat/completions` など、`supported_endpoints` によって提供されます)。
+     * `/messages`); null は言われていないことを意味します。これらに含まれないインターフェイス タイプでの呼び出しは失敗する必要があります。[ModelProtocol.ofPath] を参照してください。 モデル リストの
      */
     val protocols: List<ModelProtocol>? = null,
 ) {
     val usable: Boolean get() = endpoint != null || unsupportedApis.isEmpty()
 }
 
-/** 模型列表里 `api` 表认得的接口协议;[wire] 是表里的键名。 */
+/** `api` は、認識されたインターフェイス プロトコルを表します。 [wire] はテーブル内のキー名です。 */
 enum class ModelProtocol(val wire: String) {
-    /** OpenAI Chat Completions,由 [OpenAiCompatModel] 调用。 */
+    /** OpenAI Chat Completions。[OpenAiCompatModel] によって呼び出されます。 */
     ChatCompletions("chat-completions"),
-    /** Anthropic Messages,由 [AnthropicModel] 调用。 */
+    /** Anthropic メッセージ。[AnthropicModel] によって呼び出されます。 */
     Messages("messages"),
-    /** Gemini generateContent,由 [GeminiModel] 调用。 */
+    /** GeminigenerateContent。[GeminiModel] によって呼び出されます。 */
     GenerateContent("generate-content"),
-    /** OpenAI Responses,由 [ResponsesModel] 调用。排在最后:同一个模型也写了前几种的,照旧用前几种。 */
+    /** OpenAI レスポンス。[ResponsesModel] によって呼び出されます。最下位: 同じモデルが最初の数個も書き込んでいるため、最初の数個はまだ使用されています。 */
     Responses("responses");
 
     companion object {
         fun of(wire: String?): ModelProtocol? = entries.firstOrNull { it.wire == wire }
 
         /**
-         * 按端点路径认协议:有的聚合服务用 `supported_endpoints` 给每个模型能走哪些端点(`/chat/completions`、
-         * `/messages`、`/responses`、`/v1beta/models/{模型}:generateContent`),只写路径不写协议名。认不出为 null。
+         * は、エンドポイント パスによってプロトコルを識別します。一部の集約サービスは、`supported_endpoints` を使用して、各モデルがどのエンドポイントに到達できるかを決定します (`/chat/completions`、
+         * `/messages`、`/responses`、`/v1beta/models/{模型}:generateContent`)、パスのみを書き込み、プロトコル名は書き込みません。認識されない場合は null です。
          *
-         * 只认 `…:generateContent` 这一种 Gemini 生成端点:裸的 `/models`(或 `/v1/models`、`/provider/v1/models`)
-         * 是列模型的端点,列得出来不等于调得动,按它认定「能生成」会让不该试的模型被试一次,所以宁可认不出。
+         * は、Gemini が生成したエンドポイントである `…:generateContent` のみを認識します: ベア `/models` (または `/v1/models`、`/provider/v1/models`)
+         * は、リストされているモデルのエンドポイントです。リストに掲載されているからといって、調整できるわけではありません。 「生成可能」と判定された場合は、試すべきではないモデルを一度試行してしまうことになるので、認識しないほうが良いでしょう。
          */
         fun ofPath(path: String?): ModelProtocol? {
             val p = path?.trim()?.trimEnd('/')?.lowercase() ?: return null
@@ -83,14 +83,14 @@ enum class ModelProtocol(val wire: String) {
 }
 
 /**
- * 一个模型单独指定的接口:协议、列表里给的地址([baseUrl],是这个协议的根,如 `…/anthropic/v1`),
- * 以及兼容接口把思考内容放在哪个字段([reasoningField],如 `reasoning_content`;没说为 null)。
+ * は、モデル: プロトコルとリストで指定されたアドレス (`…/anthropic/v1` など、このプロトコルのルートである [baseUrl]) によって個別に指定されるインターフェイスです。
+ * および互換インターフェイスは、思考コンテンツをフィールドに配置します ([reasoningField]、`reasoning_content` など。null として言及されていません)。
  */
 data class ModelEndpoint(val protocol: ModelProtocol, val baseUrl: String, val reasoningField: String? = null) {
     /**
-     * 交给适配器的 Base URL。适配器自己接版本路径:[AnthropicModel] 接 `/v1/messages`、[GeminiModel] 接
-     * `/v1beta/models/…`,所以列表地址末尾已带的这一段去掉,免得重复;Chat Completions 只接 `/chat/completions`、
-     * Responses 只接 `/responses`,原样用。
+     * アダプターに渡されるベース URL。アダプター独自のバージョン パス: [AnthropicModel] は `/v1/messages` に接続し、[GeminiModel] は接続します
+     * `/v1beta/models/…` したがって、重複を避けるためにリスト アドレスの末尾にある段落を削除します。チャット完了は `/chat/completions` のみを受け入れます。
+     * 応答は `/responses` にのみ接続され、そのまま使用されます。
      */
     val adapterBaseUrl: String
         get() {
@@ -103,22 +103,22 @@ data class ModelEndpoint(val protocol: ModelProtocol, val baseUrl: String, val r
         }
 }
 
-/** 列模型为什么失败;[text] 是给人看的原因。 */
+/** モデル一覧の取得が失敗した理由。[text] はユーザー向けの説明。 */
 enum class ListFailure(val text: String) {
-    BadUrl("接口地址不对,要以 http:// 或 https:// 开头"),
-    Auth("API Key 无效或没有权限"),
-    Quota("账户额度已用完"),
-    RateLimited("请求太频繁,请稍后再试"),
-    Network("连不上这个地址,请检查网络和接口地址"),
-    ProxyUnreachable("连不上网络代理,或代理没有转发这个请求;请检查设置 › 网络代理"),
-    ProxyAuth("网络代理拒绝了账号或密码,请检查设置 › 网络代理"),
-    NotSupported("这个服务不提供模型列表"),
-    Server("服务暂时出错,请稍后再试"),
-    BadResponse("返回的内容看不懂,请检查接口地址和接口类型"),
+    BadUrl("APIのアドレスが正しくありません。http:// または https:// で始まる必要があります"),
+    Auth("APIキーが無効か、権限がありません"),
+    Quota("アカウントの利用上限に達しました"),
+    RateLimited("リクエストが頻繁すぎます。しばらく待ってから再試行してください"),
+    Network("このアドレスに接続できません。ネットワークとAPIアドレスを確認してください"),
+    ProxyUnreachable("ネットワークプロキシに接続できないか、プロキシがこのリクエストを転送しませんでした。「設定 › ネットワークプロキシ」を確認してください"),
+    ProxyAuth("ネットワークプロキシがアカウントまたはパスワードを拒否しました。「設定 › ネットワークプロキシ」を確認してください"),
+    NotSupported("このサービスはモデル一覧を提供していません"),
+    Server("サービスで一時的なエラーが発生しました。しばらく待ってから再試行してください"),
+    BadResponse("返信の内容を解析できませんでした。APIアドレスとAPIの種類を確認してください"),
     ;
 
     companion object {
-        /** 请求没发成:代理那一段的问题照实说,别的算连不上。 */
+        /** リクエストは送信されませんでした: 正直に言うと、プロキシ セクションの問題があり、他のセクションは接続できません。 */
         fun of(e: Throwable): ListFailure = when ((e as? ModelError.Proxy)?.failure) {
             ProxyFailure.Unreachable -> ProxyUnreachable
             ProxyFailure.AuthFailed -> ProxyAuth
@@ -135,21 +135,21 @@ sealed interface ModelListResult {
 }
 
 /**
- * 用各家公开的「列出模型」接口取可用模型:
- * - OpenAI 兼容:`GET {base}/models`(Bearer)。只给 id 的照实返回;带 `context_length`、
- *   `architecture.input_modalities`、`supported_parameters` 等字段的(部分聚合服务会给)才填能力。
- *   也认另一种写法:`capabilities.tools.supported`、`capabilities.reasoning.supported`、`limit.context`、
- *   `modalities.input`(有 `image/…` 即能看图),以及按协议给地址的 `api` 表(见 [ListedModel.endpoint])。
- *   用 ChatGPT 账号列出的是 `models` 表:名字在 `slug`、显示名在 `display_name`,只留 `visibility` 为 `list` 的、保持服务端的次序;
- *   给了 `input_modalities`、`context_window`、`supported_reasoning_levels` 的照填。
- * - Anthropic:`GET {base}/v1/models`,按 `after_id` 翻页;`max_input_tokens` 是上下文,
- *   `capabilities.image_input` / `capabilities.thinking` 是看图和推理。不给工具调用信息。
- *   思考档位按 `capabilities.effort` 和 `capabilities.thinking.types` 逐项照填(见 [anthropicEfforts])。
- * - Gemini:`GET {base}/v1beta/models`,按 `pageToken` 翻页;只留能 `generateContent` 的,
- *   `inputTokenLimit` 是上下文,`thinking` 是推理。不给工具调用和看图信息,也不给思考档位。
+ * 各社が公開している「リスト モデル」インターフェイスを使用して、利用可能なモデルを取得します。
+ * - OpenAI 互換: `GET {base}/models` (ベアラー)。 ID のみが真実に返されます。 `context_length`では、
+ *   、`architecture.input_modalities`、`supported_parameters` およびその他のフィールド (集約サービスの一部が提供します) のみを入力できます。
+ *   は別の書き方も認識します: `capabilities.tools.supported`、`capabilities.reasoning.supported`、`limit.context`、
+ *   `modalities.input` (`image/…` をお持ちの場合は画像を見ることができます)、およびプロトコルに従って指定されたアドレスを含む `api` テーブル ([ListedModel.endpoint] を参照)。
+ *   は ChatGPT アカウントを使用して `models` テーブルをリストします。名前は `slug` にあり、表示名は `display_name` にあり、`visibility` のみが `list` として残され、サーバーの順序は維持されます。
+ *   は `input_modalities`、`context_window`、`supported_reasoning_levels` の写真を提供しました。
+ * - Anthropic:`GET {base}/v1/models`、`after_id` を押してページをめくってください。 `max_input_tokens` はコンテキストです。
+ *   `capabilities.image_input` / `capabilities.thinking` は、写真を見て推理することです。ツール呼び出し情報を提供しません。
+ *   思考装置は、`capabilities.effort` および `capabilities.thinking.types` に従って項目ごとに入力されます ([anthropicEfforts] を参照)。
+ * - ジェミニ: `GET {base}/v1beta/models`、`pageToken` を押してページをめくってください。残っているのは`generateContent`だけです。
+ *   `inputTokenLimit` はコンテキスト、`thinking` は推論です。ツールの呼び出しや画像の表示に関する情報は提供されず、思考装置も提供されません。 各メソッドの
  */
 class ModelCatalog(private val http: OkHttpClient) {
-    // 各方法的 headers:每个请求都带的头(见 [ClientHeaders]);Key 的头由这里自己加
+    // ヘッダー: 各リクエストによって伝送されるヘッダー ([ClientHeaders] を参照)。 Key ヘッダーがここに追加されます。
     private val json = Json { ignoreUnknownKeys = true }
 
     suspend fun openAiCompat(baseUrl: String, apiKey: String?, headers: Map<String, String> = emptyMap()): ModelListResult = run {
@@ -197,7 +197,7 @@ class ModelCatalog(private val http: OkHttpClient) {
     }
 
     private fun openAiModel(o: JsonObject): ListedModel? {
-        // 用 ChatGPT 账号列模型时(`models` 表)名字在 `slug`、显示名在 `display_name`,只留 `visibility` 为 list 的
+        // ChatGPT アカウント列モデル (`models` テーブル) を使用する場合、名前は `slug` にあり、表示名は `display_name` にあり、リストには `visibility` のみが残ります。
         o.str("visibility")?.let { if (it != "list") return null }
         val id = (o.str("id") ?: o.str("slug"))?.takeIf { it.isNotBlank() } ?: return null
         val arch = o["architecture"] as? JsonObject
@@ -216,12 +216,12 @@ class ModelCatalog(private val http: OkHttpClient) {
                 ?.trim()?.takeIf { it.isNotEmpty() }
         }?.distinct()
         val api = o.obj("api")
-        // 有的聚合服务不给 `api` 表,改用 `supported_endpoints` 写这个模型能走哪几个端点
+        // 一部の集約サービスは、`api` テーブルを提供しません。代わりに、`supported_endpoints` を使用してください。このモデルの作成にはどのエンドポイントを使用できますか?
         val protocols = (o["supported_endpoints"] as? JsonArray)
             ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.let(ModelProtocol::ofPath) }
             ?.distinct()
             ?.takeIf { it.isNotEmpty() }
-        // 一个模型可能写了几种协议:按 Chat Completions、Messages、generateContent、Responses 的次序取第一种会说的
+        // モデルは複数のプロトコルを記述することができます: チャット完了、メッセージ、generateContent、および応答の順序で最初のものを取り上げます。
         val endpoint = api?.let { a ->
             ModelProtocol.entries.firstNotNullOfOrNull { p ->
                 val e = a.obj(p.wire) ?: return@firstNotNullOfOrNull null
@@ -247,7 +247,7 @@ class ModelCatalog(private val http: OkHttpClient) {
             chat = when (o.str("type")?.lowercase()) {
                 in CHAT_TYPES -> true
                 in NON_CHAT_TYPES -> false
-                // 只出图、出声音的不是对话模型;出文字的不另记
+                // 画像と音声のみを生成するものは対話モデルではありません。テキストを生成するものは個別に記録されません。
                 else -> outputs?.takeIf { "text" !in it }?.let { false }
             },
         )
@@ -270,9 +270,9 @@ class ModelCatalog(private val http: OkHttpClient) {
     }
 
     /**
-     * Anthropic 模型可选的思考档位:只在它接受自适应思考(`adaptive`,档位放 `output_config.effort`)时给,
-     * 档位是 `capabilities.effort` 里标了支持的那几级;也接受关掉思考(`disabled`)的,前面加一档 `none`。
-     * 只接受按预算思考(`enabled` + `budget_tokens`)或不分档位的,没有可选档位。
+     * 人間モデル用のオプションの思考ギア: 適応的思考を受け入れる場合にのみ与えられます (`adaptive`、ギアは `output_config.effort`)。
+     * ギアには、`capabilities.effort` でサポートされているレベルがマークされています。思考をオフにして (`disabled`)、ギア `none` を前に追加することもできます。
+     * は予算重視（`enabled`+`budget_tokens`）またはグレード問わず受け付けており、オプショングレードはございません。
      */
     private fun anthropicEfforts(effort: JsonObject?, types: List<String>): List<String> {
         val levels = effort?.takeIf { it.bool("supported") == true }?.supportedKeys().orEmpty()
@@ -281,7 +281,7 @@ class ModelCatalog(private val http: OkHttpClient) {
         return listOfNotNull("none".takeIf { "disabled" in types }) + levels
     }
 
-    /** `{"a":{"supported":true},"b":{"supported":false},"supported":true}` 里标了支持的子项:`[a]`。 */
+    /** `{"a":{"supported":true},"b":{"supported":false},"supported":true}` には、サポートされるサブ項目 `[a]` がマークされています。 */
     private fun JsonObject.supportedKeys(): List<String> = keys.filter { (this[it] as? JsonObject)?.bool("supported") == true }
 
     private fun geminiModel(o: JsonObject): ListedModel? {
@@ -317,7 +317,7 @@ class ModelCatalog(private val http: OkHttpClient) {
 
     private fun failureFor(status: Int, body: String): ModelListResult.Failed = when {
         status == 401 || status == 403 -> ModelListResult.Failed(ListFailure.Auth)
-        // Gemini 对无效 Key 回 400 INVALID_ARGUMENT,原因写在内容里
+        // Gemini は無効なキーに対して 400 INVALID_ARGUMENT を返します。理由はコンテンツに記載されています
         status == 400 && (body.contains("API_KEY_INVALID") || body.contains("API key not valid")) -> ModelListResult.Failed(ListFailure.Auth)
         status == 402 || body.contains("insufficient_quota") -> ModelListResult.Failed(ListFailure.Quota)
         status == 429 -> ModelListResult.Failed(ListFailure.RateLimited)
@@ -336,11 +336,11 @@ class ModelCatalog(private val http: OkHttpClient) {
     private fun JsonObject.int(k: String): Int? = (this[k] as? JsonPrimitive)?.intOrNull?.takeIf { it > 0 }
 
     private companion object {
-        /** 翻页上限:防止服务端一直给下一页。 */
+        /** ページめくりの上限: サーバーが常に次のページを表示しないようにします。 */
         const val MAX_PAGES = 10
-        /** Anthropic 的 `capabilities.effort` 按字母排;界面按由浅到深排,不认得的排最后。 */
+        /** Anthropic の `capabilities.effort` はアルファベット順に並べられています。インターフェースは昇順に配置されており、認識できないインターフェースが最後になります。 */
         val EFFORT_ORDER = listOf("low", "medium", "high", "xhigh", "max")
-        /** 列表里 `type` 一项的写法:是对话模型的,和不是的(向量、重排、画图、语音、审核)。 */
+        /** リスト内の項目 `type` の書き方: これは対話モデルですが、そうではありません (ベクトル、再配置、描画、スピーチ、レビュー)。 */
         val CHAT_TYPES = setOf("chat", "llm", "language", "text", "vlm", "code")
         val NON_CHAT_TYPES = setOf(
             "embedding", "embeddings", "rerank", "reranker", "image", "images", "video", "audio", "tts", "stt", "asr",

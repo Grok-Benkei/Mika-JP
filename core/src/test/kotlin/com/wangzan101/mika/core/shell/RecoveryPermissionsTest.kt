@@ -10,7 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RecoveryPermissionsTest {
-    // 包名由调用方给,不是写死的
+    // パッケージ名は呼び出し元によって指定され、ハードコーディングされません。
     private val pkg = "org.example.app"
     private val mika = PermissionCommands.accessibilityService(pkg)
     private val other = "com.example.reader/.ReaderService"
@@ -20,7 +20,7 @@ class RecoveryPermissionsTest {
         override fun save(consent: RecoveryConsent) { this.consent.value = consent }
     }
 
-    /** 假的执行器:记下跑过的命令(去掉退出码包装),[a11y] 是系统里的无障碍列表;[failAt] 是让第几条命令(从 1 数)失败。 */
+    /** 偽の実行者: 実行されたコマンドを記録します (終了コードのパッケージを削除します)。[a11y] はシステム内のアクセシビリティ リストです。 [failAt] は、失敗したコマンド (1 から数えます) です。 */
     private class FakeShell(var a11y: String? = null, val failOn: String? = null, val failAt: Int? = null) : ShellCommandRunner {
         private val PUT_LIST = "settings put secure enabled_accessibility_services "
         private val DELETE_LIST = "settings delete secure enabled_accessibility_services"
@@ -30,7 +30,7 @@ class RecoveryPermissionsTest {
             val bare = command.substringBefore(" 2>&1;")
             ran += bare
             val code = if (failOn != null && bare.contains(failOn) || ran.size == failAt) 255 else 0
-            // 写成功的列表照实留下,之后再读就是新的
+            // 書き込みに成功したリストはそのまま残り、後で読み込むと新しいリストになります。
             if (code == 0 && bare.startsWith(PUT_LIST)) a11y = bare.removePrefix(PUT_LIST).trim('\'')
             if (code == 0 && bare == DELETE_LIST) a11y = null
             return (if (code == 0) "" else "Exception occurred\n") + PermissionCommands.EXIT_MARK + code + "\n"
@@ -56,7 +56,7 @@ class RecoveryPermissionsTest {
             listOf("settings put secure enabled_accessibility_services '$other:$mika'", "settings put secure accessibility_enabled 1"),
             PermissionCommands.writeAccessibility("$other:$mika"),
         )
-        // 列表空了:删掉这一项并关掉总开关,不留空字符串
+        // リストは空です: この項目を削除し、空の文字列を残さずにメイン スイッチをオフにしてください
         assertEquals(
             listOf("settings delete secure enabled_accessibility_services", "settings put secure accessibility_enabled 0"),
             PermissionCommands.writeAccessibility(""),
@@ -122,11 +122,11 @@ class RecoveryPermissionsTest {
     fun withoutRunnerChoicesAreRecordedButNothingRuns() = runTest {
         val store = Store(RecoveryConsent(declined = setOf(a11y)))
         val p = RecoveryPermissions({ null }, store, pkg)
-        // 打开:先记下要,提示先完成设置,等连接可用时补上
+        // 開く: 最初に要件を書き留め、最初に設定を完了するように求めるプロンプトを表示し、接続が利用可能になるまで待ちます。
         assertEquals(PermissionResult.NoRunner, p.set(a11y, true))
         assertTrue(store.consent.value.wants(a11y))
         assertEquals(listOf(a11y, battery, restore, autoOn), store.consent.value.pending)
-        // 关掉一项没生效过的:没有要收回的,记下就算完成
+        // 有効になっていない項目を閉じます。取り消すものは何もありません。書き留めるだけで完了します。
         assertEquals(PermissionResult.Done, p.set(battery, false))
         assertEquals(RecoveryConsent(declined = setOf(battery)), store.consent.value)
     }
@@ -158,7 +158,7 @@ class RecoveryPermissionsTest {
     @Test
     fun applyPendingTurnsOnUntouchedOnesOnly() = runTest {
         val shell = FakeShell(a11y = other)
-        // 电池白名单用户亲手关掉了;要修改系统设置授权的两项早已生效
+        // バッテリーのホワイトリストがユーザーによってオフにされました。システム設定を変更するための 2 つの承認項目はすでに有効になっています。
         val store = Store(RecoveryConsent(applied = setOf(restore, autoOn), declined = setOf(battery)))
         val p = RecoveryPermissions({ shell }, store, pkg)
 
@@ -167,7 +167,7 @@ class RecoveryPermissionsTest {
         assertEquals(RecoveryConsent(applied = setOf(a11y, restore, autoOn), declined = setOf(battery)), store.consent.value)
         assertTrue(p.autoFailed.value.isEmpty())
 
-        // 都生效了:再来一次什么都不跑
+        // が有効になりました: 再度実行されるものは何もありません
         shell.ran.clear()
         assertEquals(PermissionResult.Done, p.applyPending())
         assertTrue(shell.ran.isEmpty())
@@ -189,7 +189,7 @@ class RecoveryPermissionsTest {
         val p = RecoveryPermissions({ shell }, store, pkg)
 
         assertTrue(p.applyPending() is PermissionResult.Failed)
-        // 一项失败不挡住其余几项
+        // 1 つの障害が他の障害をブロックしない
         assertEquals(RecoveryConsent(applied = setOf(a11y, restore, autoOn)), store.consent.value)
         assertEquals(setOf(battery), p.autoFailed.value)
 
@@ -217,7 +217,7 @@ class RecoveryPermissionsTest {
         runCurrent()
         assertEquals(listOf(PermissionCommands.whitelistAdd(pkg)), shell.ran)
 
-        // 掉线又重起:这期间收回过(比如解除配对又配上),再补一次
+        // が切断され、再起動されました: この期間中に取得されました (ペアリング解除とペアリングなど)。もう一度修復してください。
         status.value = BuiltinShellStatus.Connecting
         runCurrent()
         store.save(store.consent.value.copy(applied = emptySet()))
@@ -246,15 +246,15 @@ class RecoveryPermissionsTest {
         val store = Store(RecoveryConsent(applied = setOf(restore, autoOn)))
         val p = RecoveryPermissions({ shell }, store, pkg)
 
-        // 另一项还要用修改系统设置的授权:关掉这一项只记下,不收回
+        // 別の項目では、システム設定を変更するための承認が必要です。この項目をオフにして、メモするだけにして、元に戻さないようにしてください。
         assertEquals(PermissionResult.Done, p.set(restore, false))
         assertEquals(emptyList<String>(), shell.ran)
         assertEquals(RecoveryConsent(applied = setOf(autoOn), declined = setOf(restore)), store.consent.value)
-        // 两项都关掉才收回
+        // 取り戻す前に両方のアイテムをオフにしてください
         assertEquals(PermissionResult.Done, p.set(autoOn, false))
         assertEquals(listOf(PermissionCommands.revokeWriteSecureSettings(pkg)), shell.ran)
         assertEquals(RecoveryConsent(declined = setOf(restore, autoOn)), store.consent.value)
-        // 打开任一项都要这份授权
+        // この承認はアイテムを開くために必要です
         shell.ran.clear()
         assertEquals(PermissionResult.Done, p.set(autoOn, true))
         assertEquals(listOf(PermissionCommands.grantWriteSecureSettings(pkg)), shell.ran)
@@ -270,7 +270,7 @@ class RecoveryPermissionsTest {
 
     @Test
     fun unpairLeavesAloneWhatMikaNeverTurnedOn() = runTest {
-        // 用户自己在系统里开的无障碍、自己加的电池白名单,不是这里给的,解除配对不去动
+        // ユーザーが自分でバリアフリーシステムを開放し、バッテリーホワイトリストを追加しました。ここではそれは与えられません。ペアリング解除は行われません。
         val shell = FakeShell(a11y = "$mika:$other")
         val p = RecoveryPermissions({ shell }, Store(), pkg)
         p.revokeAll()
@@ -284,7 +284,7 @@ class RecoveryPermissionsTest {
         val p = RecoveryPermissions({ shell }, store, pkg)
 
         p.revokeAll()
-        // 收回的是生效状态,不是用户的选择:没关掉的不会因此变成「亲手关掉」
+        // 取り消されるのは有効な状態であり、ユーザーの選択ではありません。オフにされていないものは「手動でオフ」にはなりません。
         assertEquals(RecoveryConsent(declined = setOf(battery)), store.consent.value)
 
         shell.ran.clear()
@@ -304,13 +304,13 @@ class RecoveryPermissionsTest {
         val shell = FakeShell(failOn = "deviceidle")
         assertTrue(RecoveryPermissions({ shell }, store2, pkg).revokeAll() is PermissionResult.Failed)
         assertEquals(RecoveryConsent(), store2.consent.value)
-        // 一项失败不挡住其余几项
+        // 1 つの障害が他の障害をブロックしない
         assertTrue(PermissionCommands.revokeWriteSecureSettings(pkg) in shell.ran)
     }
 
     @Test
     fun consentHelpers() {
-        // 什么都没记:每项都默认要、都还没生效
+        // 何も記憶されません: デフォルトではすべてが必須ですが、まだ有効になっていません。
         val fresh = RecoveryConsent()
         assertTrue(RecoveryCapability.entries.all(fresh::wants))
         assertEquals(RecoveryCapability.entries, fresh.pending)
@@ -334,7 +334,7 @@ class RecoveryPermissionsTest {
                 PermissionCommands.writeAccessibility("$other:com.example.b/.B:$mika"),
             shell.ran,
         )
-        // 不是打开或收回能力:记录不变
+        // は開くことも格納することもできません。レコードは変更されません。
         assertEquals(RecoveryConsent(applied = setOf(a11y)), store.consent.value)
     }
 
@@ -362,7 +362,7 @@ class RecoveryPermissionsTest {
 
     @Test
     fun restartAccessibilityRestoresTheListWhenAddingBackFails() = runTest {
-        // 去掉成功(第 1、2 条),加回时第 3 条失败:把原来的列表连同总开关写回,结果仍报失败
+        // は正常に削除されました (項目 1 および 2) が、項目 3 を再度追加すると失敗しました。元のリストとメイン スイッチは書き戻されましたが、結果は依然として失敗しました。
         val shell = FakeShell(a11y = "$other:$mika", failAt = 3)
         assertTrue(RecoveryPermissions({ shell }, Store(), pkg).restartAccessibility(0) is PermissionResult.Failed)
         assertEquals(

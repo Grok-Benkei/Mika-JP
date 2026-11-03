@@ -88,18 +88,18 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
-/** 文本类和 Markdown 最多读这么多字节,再多只显示前面一部分。 */
+/** テキスト クラスと Markdown はこのバイト数まで読み込むことができ、それ以降は最初の部分のみが表示されます。 */
 private const val TEXT_CAP = 1 shl 20
 
-/** 图片解码的最长边,超过就按比例缩小,免得大图占满内存。 */
+/** デコードされるピクチャの最長の辺。最長辺を超える場合は、大きな画像がメモリをいっぱいにしないように、比例して縮小されます。 */
 private const val IMAGE_MAX_SIDE = 4096
 
-/** 每段文本的行数:长文本分段放进懒加载列表,只排看得见的几段。 */
+/** 各テキストの行数: 長いテキストはセグメント単位で遅延読み込みリストに入れられ、表示可能なセグメントのみが配置されます。 */
 private const val LINES_PER_CHUNK = 200
 
 private val MonoText = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.5.sp, lineHeight = 18.sp)
 
-/** 读进来的内容;PDF 不在这里,它按页现读现画。 */
+/** によって読み取られたコンテンツ。 PDF はここにはありません。ページごとに読み込まれて描画されます。 */
 private sealed interface Loaded {
     data class Text(val text: String, val truncated: Boolean) : Loaded
     data class Html(val html: String) : Loaded
@@ -107,8 +107,8 @@ private sealed interface Loaded {
 }
 
 /**
- * 文件查看页:顶栏是返回、文件名和「分享」「用其他应用打开」;下面按 [kind] 显示内容。
- * [kind] 为 null(这里不认识的类型)时只说一句,并给「用其他应用打开」。
+ * ファイル表示ページ: 上部のバーはリターン、ファイル名、「共有」、「他のアプリケーションで開く」です。以下の[kind]を押して内容を表示します。
+ * [kind] が null (ここでは認識されないタイプ) の場合は、一文を言って「他のアプリケーションで開く」と入力するだけです。
  */
 @Composable
 fun FileViewerScreen(uri: Uri, name: String, kind: ViewerKind?, onBack: () -> Unit) {
@@ -161,7 +161,7 @@ private fun load(context: Context, uri: Uri, kind: ViewerKind): Loaded = when (k
         },
     )
     else -> {
-        // 多读一个字节,用来判断是不是被截断了;截在多字节字符中间时解码会换成替代符,不影响前面的内容
+        // さらに 1 バイトを読み取って、切り捨てられているかどうかを確認します。マルチバイト文字の途中で切り詰められた場合、デコードは置換文字に置き換えられますが、以前の内容には影響しません。
         val bytes = open(context, uri).use { input ->
             val buf = ByteArray(TEXT_CAP + 1)
             var n = 0
@@ -179,9 +179,9 @@ private fun load(context: Context, uri: Uri, kind: ViewerKind): Loaded = when (k
 }
 
 private fun open(context: Context, uri: Uri) =
-    context.contentResolver.openInputStream(uri) ?: error("打不开 $uri")
+    context.contentResolver.openInputStream(uri) ?: error("ファイルを開けません: $uri")
 
-// ---------- 各类内容 ----------
+// ---------- 各種コンテンツ ----------
 
 @Composable
 private fun MarkdownView(l: Loaded.Text) {
@@ -196,7 +196,7 @@ private fun MarkdownView(l: Loaded.Text) {
     }
 }
 
-/** 等宽、可选中;按行分段放进懒加载列表,长文件也只排看得见的部分。长行自动折行。 */
+/** は同じ幅で選択可能です。それは行ごとにセグメント化された遅延読み込みリストに入れられ、長いファイルの目に見える部分だけが配置されます。長い行は自動的に折り返されます。 */
 @Composable
 private fun PlainTextView(l: Loaded.Text) {
     val c = MikaTheme.colors
@@ -213,7 +213,7 @@ private fun PlainTextView(l: Loaded.Text) {
     }
 }
 
-/** 网页:一个新的 WebView,脚本打开、可双指缩放、按宽视口排版;点链接交给系统处理。 */
+/** Web ページ: 新しい WebView、スクリプトが開き、2 本の指でズームでき、ワイド ビューポートに従ってタイプセットできます。リンクをクリックしてシステムに処理させます。 */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun HtmlView(html: String) {
@@ -235,7 +235,7 @@ private fun HtmlView(html: String) {
     )
 }
 
-/** 图片:铺满可见区域(按比例),双指缩放,放大后单指拖动,双击放大或还原。 */
+/** 画像: 表示領域を (均等に) カバーし、2 本の指でズームし、ズームインした後に 1 本の指でドラッグし、ダブルクリックして拡大または復元します。 */
 @Composable
 private fun PictureView(bitmap: Bitmap) {
     val zoom = remember { Zoom() }
@@ -251,7 +251,7 @@ private fun PictureView(bitmap: Bitmap) {
 
 // ---------- PDF ----------
 
-/** 打开的 PDF:各页的原始尺寸先读好(排版占位用),画页时一页一页来(渲染器同时只能开一页)。 */
+/** によって開かれた PDF: 各ページの元のサイズが最初に読み取られ (植字に使用され)、ページが 1 つずつ描画されます (レンダラーは同時に 1 ページしか開くことができません)。 */
 private class PdfDoc(private val fd: ParcelFileDescriptor) {
     private val renderer = PdfRenderer(fd)
     private val lock = Mutex()
@@ -269,7 +269,7 @@ private class PdfDoc(private val fd: ParcelFileDescriptor) {
         }
     }
 
-    /** 等手上这一页画完再关。 */
+    /** このページを閉じる前に、描画が完了するまで待ってください。 */
     fun close() {
         CoroutineScope(Dispatchers.IO).launch {
             lock.withLock {
@@ -280,13 +280,13 @@ private class PdfDoc(private val fd: ParcelFileDescriptor) {
     }
 }
 
-/** PDF:页按屏宽一列排开,只画看得见的页(滑走的页回收位图);双指缩放整列;底部「3 / 12」。 */
+/** PDF: ページは画面幅に従って 1 列に配置され、表示されているページのみが描画されます (スライド ページはビットマップとして再利用されます)。 2 本の指で列全体をズームします。一番下に「3/12」。 */
 @Composable
 private fun PdfView(uri: Uri, openElsewhere: () -> Unit) {
     val context = LocalContext.current
     val doc by produceState<Result<PdfDoc>?>(null, uri) {
         val opened = withContext(Dispatchers.IO) {
-            runCatching { PdfDoc(context.contentResolver.openFileDescriptor(uri, "r") ?: error("打不开 $uri")) }
+            runCatching { PdfDoc(context.contentResolver.openFileDescriptor(uri, "r") ?: error("ファイルを開けません: $uri")) }
         }
         value = opened
         try { awaitCancellation() } finally { opened.getOrNull()?.close() }
@@ -325,7 +325,7 @@ private fun PdfPages(doc: PdfDoc) {
     }
 }
 
-/** 视口中线所在的那一页。 */
+/** ビューポートの中心線が配置されているページ。 */
 private fun currentPage(list: LazyListState): Int {
     val info = list.layoutInfo
     val middle = (info.viewportStartOffset + info.viewportEndOffset) / 2
@@ -344,7 +344,7 @@ private fun PdfPage(doc: PdfDoc, index: Int, size: IntSize) {
             if (widthPx <= 0) return@produceState
             val b = runCatching { doc.render(index, widthPx) }.getOrNull() ?: return@produceState
             value = b
-            // 滑出列表或尺寸变了:先撤下再回收,别让界面画到已回收的位图
+            // がリストから外れるか、サイズが変更されました。最初に削除してからリサイクルし、インターフェースにリサイクルされたビットマップを描画させないでください。
             try { awaitCancellation() } finally { value = null; b.recycle() }
         }
         bitmap?.let { b ->
@@ -354,9 +354,9 @@ private fun PdfPage(doc: PdfDoc, index: Int, size: IntSize) {
     }
 }
 
-// ---------- 缩放 ----------
+// ---------- ズーム ----------
 
-/** 缩放和平移的状态:1 到 5 倍,平移不超出放大后的边。 */
+/** ズームとパンのステータス: 1 ～ 5 倍、パンは拡大側を超えません。 */
 private class Zoom {
     var scale by mutableFloatStateOf(1f)
     var offset by mutableStateOf(Offset.Zero)
@@ -375,8 +375,8 @@ private class Zoom {
 }
 
 /**
- * 双指缩放、平移;[panWithOneFinger] 为真时放大后单指也能拖。
- * 在事件的第一轮里先拿到,两指时滚动列表就收不到,单指照常滚。
+ * は 2 本の指を使用してズームとパンを行います。 [panWithOneFinger] が true の場合、ズームイン後に 1 本の指をドラッグすることもできます。
+ * はイベントの最初のラウンドで最初に取得されます。 2本指でリストをスクロールすると受信できません。通常どおり 1 本の指でスクロールできます。
  */
 private fun Modifier.zoomable(zoom: Zoom, panWithOneFinger: Boolean): Modifier = this
     .pointerInput(zoom) {
@@ -399,7 +399,7 @@ private fun Modifier.zoomable(zoom: Zoom, panWithOneFinger: Boolean): Modifier =
         translationY = zoom.offset.y
     }
 
-// ---------- 状态 ----------
+// ---------- ステータス ----------
 
 @Composable
 private fun Loading() {

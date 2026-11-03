@@ -21,8 +21,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * 真机测试:网页富文本编辑区。无障碍的 SET_TEXT 只改了网页里的文字,编辑器收不到 input 事件,
- * App 会以为没输入(例如「完成」按钮不亮、退出时不保存)。打字必须让编辑器收到真正的输入。
+ * 実機テスト: Web ページのリッチテキスト編集領域。アクセス可能な SET_TEXT は Web ページ内のテキストを変更するだけであり、エディターは入力イベントを受け取ることができません。
+ * アプリは入力がないと判断します (たとえば、[完了] ボタンが点灯せず、終了時に保存されません)。入力では、エディターが実際の入力を受信できるようにする必要があります。
  */
 @RunWith(AndroidJUnit4::class)
 class WebEditorInputTest {
@@ -57,7 +57,7 @@ class WebEditorInputTest {
         val after = snapUntil { snap -> status(snap)?.endsWith("text=你好 Mika") == true }
         assertTrue(status(after)!!, !status(after)!!.startsWith("inputs=0"))
 
-        // 再打一次是替换,不是接在后面
+        // 再度電話をかけると、接続ではなく交換になります。
         val again = screen.typeText(after.elements.first { it.editable }.ref, after.snapshotId, "第二次")
         assertEquals(Verification.MATCH, (again as ActionResult.Ok).verification)
         val replaced = snapUntil { snap -> status(snap)?.endsWith("text=第二次") == true }
@@ -68,8 +68,8 @@ class WebEditorInputTest {
     }
 
     /**
-     * 用户原来复制的内容(带自己的标签)在打字后原样还回去。Mika 的界面开在主屏上,这样测试进程读得到剪贴板;
-     * 还原后截一张主屏图(files/shots/clip-restored.png),人工确认没有弹「已复制」浮层。
+     * ユーザーが最初にコピーしたコンテンツ (独自のタグ付き) は、入力後にそのまま返されます。ミカのインターフェースはホーム画面で開かれ、テスト プロセスがクリップボードを読み取ることができます。
+     * が復元されたら、ホーム画面 (files/shots/clip-restored.png) のスクリーンショットを撮り、「コピーされた」オーバーレイがポップアップしていないことを手動で確認します。
      */
     @Test
     fun pastingRestoresTheUsersClipboard() = runBlocking<Unit> {
@@ -82,7 +82,7 @@ class WebEditorInputTest {
             DeviceSupport.startTestActivity(agent.display.displayId, WebEditorTestActivity::class.java)
             val s = snapUntil { snap -> snap.elements.any { it.editable } }
             val r = screen.typeText(s.elements.first { it.editable }.ref, s.snapshotId, "粘贴测试")
-            // 还原刚发生:「已复制」浮层若会弹,此刻就在主屏上
+            // 復元が発生しました: 「コピーされた」オーバーレイがポップアップ表示される場合、その時点ではホーム画面に表示されます。
             val shot = instr.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES).takeScreenshot()
             File(ctx.getExternalFilesDir(null), "shots").mkdirs()
             File(ctx.getExternalFilesDir(null), "shots/clip-restored.png").outputStream().use { shot.compress(Bitmap.CompressFormat.PNG, 80, it) }

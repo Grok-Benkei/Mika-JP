@@ -3,10 +3,10 @@ package com.wangzan101.mika.device
 import com.wangzan101.mika.core.device.CredentialKind
 
 /**
- * 通用规则:只认 SystemUI 里带密码标志的输入框;编辑框按输入类型区分 PIN(数字)和密码(非数字)。
- * 安卓原版锁屏的 PIN 框是自己画的(`pinEntry` / `PasswordTextView`),不声明 editable,只按原版的这组名字放行。
- * 编辑框没声明输入类型(TYPE_NULL,键盘由页面自己画)时看同一窗口里有没有 0–9 齐全的数字键:有就是 PIN 页,没有按密码页算。
- * 其余不可编辑的控件、SIM PIN 一律不认,认不准就不输入。
+ * 一般規則: SystemUI のパスワード マークが付いた入力ボックスのみが認識されます。編集ボックスでは、入力タイプに応じて PIN (数値) とパスワード (数値以外) が区別されます。
+ * オリジナルの Android ロック画面の PIN ボックスは私が描いたものです (`pinEntry` / `PasswordTextView`)。編集可能とは宣言されておらず、元の名前セットに従ってのみリリースされます。
+ * 編集ボックスが入力タイプ (TYPE_NULL、キーボードはページ自体によって描画される) を宣言していない場合、同じウィンドウ内に 0 ～ 9 の完全な数字キーがあるかどうかを確認します。存在する場合、それは PIN ページであり、パスワード ページはカウントされません。
+ * 他のすべての編集不可能なコントロールと SIM PIN は認識されません。よくわからない場合は、入力しないでください。
  */
 internal object KeyguardFields {
     fun matches(kind: CredentialKind, id: String, className: String, password: Boolean, editable: Boolean, numeric: Boolean,
@@ -20,12 +20,12 @@ internal object KeyguardFields {
         }
     }
 
-    /** 控件的文字或描述是一位数字(可带字母注音,如「2 ABC」)时返回这位数字,用来认数字键盘的键。 */
+    /** コントロールのテキストまたは説明が数字である場合にこの数字を返します (「2 ABC」などの文字の発音表記を持つことができます)。数字キーボードのキーを識別するために使用されます。 */
     fun digitKey(text: String?, description: String?): Char? =
         listOfNotNull(text, description).firstNotNullOfOrNull { s ->
             s.trim().takeIf { it.isNotEmpty() && it[0] in '0'..'9' && (it.length == 1 || !it[1].isLetterOrDigit()) }?.get(0)
         }
 
-    /** 0–9 都有键才算数字键盘。 */
+    /** 0 ～ 9 は、キーがある場合のみ数字キーボードです。 */
     fun isDigitPad(keys: Set<Char>): Boolean = ('0'..'9').all { it in keys }
 }

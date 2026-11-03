@@ -9,8 +9,8 @@ import org.junit.Test
 import kotlin.random.Random
 
 /**
- * App 里的节奏:同一屏短停、新的一屏长停,限制浏览快慢的 App 按字数加读的时间、停得更久,都有上限;
- * 模型花掉的时间算在内;屏数上限只给限制浏览快慢的 App,用户答话后重来,做成对外动作后不再设;「快」从不等。
+ * アプリのリズム: 同じ画面での短い一時停止、新しい画面での長い一時停止、閲覧速度を制限するアプリ、単語数に基づいて読書時間を追加するアプリ、およびより長い一時停止を行うアプリにはすべて上限があります。
+ * モデルに費やした時間も含まれます。画面数の上限は、閲覧速度を制限するアプリのみに適用されます。ユーザーは応答後に最初からやり直しますが、外部アクションを行った後は設定されなくなります。 「速い」ということは決して変わりません。
  */
 class AppPacingTest {
     private val std = AppPacing.Limits()
@@ -29,10 +29,10 @@ class AppPacingTest {
             if (same > std.sameScreenMs.last) assertTrue(same <= std.sameScreenMs.last + std.pauseMs.last)
             p.noteAction("com.a", 2_000, newScreen = true)
             val fresh = p.waitBefore(2_000, textChars = 5_000)
-            // 标准的范围不按字数加读的时间
+            // 標準範囲では、単語数に基づく読書時間は加算されません。
             assertTrue("$fresh", fresh in std.newScreenMs.first..std.maxDwellMs)
         }
-        // 平均来说新的一屏停得比同一屏久
+        // 平均して、新しい画面は同じ画面よりも長く表示されます。
         fun mean(newScreen: Boolean) = (0 until 200).map { s ->
             AppPacing.human(Random(s)).apply { noteAction("com.a", 0, newScreen) }.waitBefore(0)
         }.average()
@@ -52,10 +52,10 @@ class AppPacingTest {
         p.noteAction("com.slow", 0, newScreen = true, pace = PlacePace.CAREFUL)
         val empty = p.waitBefore(0, textChars = 0)
         assertTrue("$empty", empty in careful.newScreenMs.first..careful.newScreenMs.last + careful.pauseMs.last)
-        // 每个字加 readMsPerChar,读的时间至多 maxReadMs,整个停留至多 maxDwellMs
+        // 各単語に readMsPerChar を追加します。読み取り時間は最大 maxReadMs、滞在全体は最大 maxDwellMs です。
         assertEquals(empty + 100 * careful.readMsPerChar, p.waitBefore(0, textChars = 100))
         assertEquals((empty + careful.maxReadMs).coerceAtMost(careful.maxDwellMs), p.waitBefore(0, textChars = 1_000_000))
-        // 同一屏上接着做不加读的时间
+        // 読書時間を追加せずに同じ画面で続行します
         p.noteAction("com.slow", 0, newScreen = false, pace = PlacePace.CAREFUL)
         val same = p.waitBefore(0, textChars = 1_000)
         assertTrue("$same", same in careful.sameScreenMs.first..careful.sameScreenMs.last + careful.pauseMs.last)
@@ -83,12 +83,12 @@ class AppPacingTest {
     @Test fun carefulAppsHaveAScreenBudgetThatResetsWhenTheUserAnswers() {
         val p = AppPacing(Random(1), screenCap = 3)
         repeat(3) { p.noteAction("com.slow", 0, newScreen = true, pace = PlacePace.CAREFUL) }
-        // 同一屏上的动作、往下滚读余下的内容不算
+        // 同じ画面上のアクションと、コンテンツの残りを読むために下にスクロールするアクションはカウントされません。
         p.noteAction("com.slow", 0, newScreen = false, pace = PlacePace.CAREFUL)
         p.noteAction("com.slow", 0, newScreen = true, pace = PlacePace.CAREFUL, counts = false)
         assertEquals(3, p.screensIn("com.slow"))
         assertTrue(p.capReached("com.slow", PlacePace.CAREFUL))
-        // 普通 App 没有上限
+        // 通常アプリは上限なし
         repeat(10) { p.noteAction("com.a", 0, newScreen = true) }
         assertFalse(p.capReached("com.a", PlacePace.NORMAL))
         p.userAnswered()
@@ -103,7 +103,7 @@ class AppPacingTest {
         p.outwardDone("com.slow")
         assertFalse(p.capReached("com.slow", PlacePace.CAREFUL))
         assertTrue(p.capReached("com.other", PlacePace.CAREFUL))
-        // 用户答话也不恢复
+        // ユーザーの回答は復元されません
         p.userAnswered()
         repeat(3) { p.noteAction("com.slow", 0, newScreen = true, pace = PlacePace.CAREFUL) }
         assertFalse(p.capReached("com.slow", PlacePace.CAREFUL))

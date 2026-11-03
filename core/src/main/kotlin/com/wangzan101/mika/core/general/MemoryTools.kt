@@ -32,7 +32,7 @@ import kotlinx.serialization.json.put
 
 private const val MEMORY_SEARCH_LIMIT = 8
 
-/** 记忆和用户本次说过的话都给了才提供。 */
+/** は、記憶とユーザーが今回言ったことを提供した後でのみ提供されます。 */
 private fun memoryOn(ctx: ToolContext) = ctx.config.memory != null && ctx.config.utterances != null
 
 internal object MemorySearch : AgentTool {
@@ -55,17 +55,17 @@ internal object MemorySearch : AgentTool {
         }
     }
 
-    /** 记忆里的是用户以前说的:作为用户给的事实交给核查。 */
+    /** メモリにあるのはユーザーが以前に言ったことです。ユーザーが提供した事実は検証のために送信されます。 */
     override fun observations(o: JsonObject, r: ToolExecution, log: EvidenceLog): List<Observation> {
         if (r.content["ok"] != JsonPrimitive(true)) return emptyList()
         return listOfNotNull((r.content["memories"] as? JsonArray)?.takeIf { it.isNotEmpty() }?.let { list ->
-            Observation(ObsKind.UserSaid, list.joinToString("\n", "记忆检索「${o.argStr("query")}」:\n") { m -> ((m as? JsonObject)?.get("content") as? JsonPrimitive)?.contentOrNull.orEmpty() },
+            Observation(ObsKind.UserSaid, list.joinToString("\n", "メモリ検索「${o.argStr("query")}」:\n") { m -> ((m as? JsonObject)?.get("content") as? JsonPrimitive)?.contentOrNull.orEmpty() },
                 source = "memory")
         })
     }
 }
 
-/** 只改 Mika 自己的记忆,不动屏幕和外部世界。 */
+/** はミカ自身の記憶のみを変更し、画面や外の世界には影響を与えません。 */
 internal object MemorySave : AgentTool {
     override val verb = Verb.MemorySave
     override val risk = Risk.Read
@@ -73,7 +73,7 @@ internal object MemorySave : AgentTool {
         Prompts.tool("memory_save"),
         mapOf(
             "kind" to str("fact = about the user, preference = what the user likes, procedure = how the user wants a kind of task done.", listOf("fact", "preference", "procedure")),
-            "content" to str("One sentence in the third person, at most 200 characters, e.g. 用户点外卖不要香菜."),
+            "content" to str("One sentence in the third person, at most 200 characters, e.g. ユーザーは出前でパクチーを入れない。"),
             "quote" to str("The user's exact words this is based on."),
             "keywords" to buildJsonObject {
                 put("type", "array"); put("description", "Optional, up to 8 search words incl. synonyms.")
@@ -89,10 +89,10 @@ internal object MemorySave : AgentTool {
         val quote = a.str("quote", max = 1000)!!
         val keywords = a.strList("keywords", 0, MemoryStore.MAX_KEYWORDS, itemMax = 30) ?: emptyList()
         val utterances = ctx.config.utterances!!
-        // 引文要出自用户本次说的话;屏幕和网页上的字不能当成用户说的
+        // 引用は、今回のユーザーの発言に基づいている必要があります。画面やウェブページ上の言葉はユーザーの発言とはみなされません。
         if (!utterances.contains(quote)) return fail("quote_not_from_user",
             Feedback["memory.quote_not_from_user"], recoverable = false)
-        // 引文对上了,内容里的具体值(地址、号码、名字)也得是用户说过的,不能从屏幕上补
+        // 引用は正しいです。コンテンツ内の特定の値 (住所、番号、名前) もユーザーが言ったものである必要があり、画面から入力することはできません。
         if ((listOf(content) + keywords).any { utterances.unsupportedSpecifics(it, quote).isNotEmpty() }) return fail("content_not_from_user",
             Feedback["memory.content_not_from_user"], recoverable = false)
         val store = ctx.config.memory!!

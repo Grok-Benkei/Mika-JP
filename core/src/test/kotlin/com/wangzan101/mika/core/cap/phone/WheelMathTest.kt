@@ -29,7 +29,7 @@ class WheelMathTest {
         assertFalse(WheelMath.matches(null, "9"))
     }
 
-    /** 选中那一项的无障碍名字常带状态词或单位:「已选中，21」「Selected, 21」「21 (selected)」「21点」。 */
+    /** 選択された項目のアクセシビリティ対応の名前には、多くの場合、ステータスの単語または単位が含まれます: 「選択、21」、「選択、21」、「21 (選択)」、「ブラックジャック」。 */
     @Test fun valueIsFoundInsideLabelsWithStateWords() {
         assertEquals(21, WheelMath.number("已选中，21"))
         assertEquals(21, WheelMath.number("Selected, 21"))
@@ -43,7 +43,7 @@ class WheelMathTest {
         assertTrue(WheelMath.matches("已选中，下午", "下午"))
         assertTrue(WheelMath.matches("下午 (selected)", "下午"))
         assertFalse(WheelMath.matches("已选中，上午", "下午"))
-        // 报给模型的值只留值那一段
+        // モデルに報告される値は値セクションのみを残します
         assertEquals("21", WheelMath.clean("已选中，21"))
         assertEquals("21", WheelMath.clean("Selected, 21"))
         assertEquals("21", WheelMath.clean("21 (selected)"))
@@ -52,15 +52,15 @@ class WheelMathTest {
         assertEquals(null, WheelMath.clean(null))
     }
 
-    /** 真机上的时钟:24 小时的时、分两个滚轮都循环,选中项叫「已选中，21」,上下是 20、22。 */
+    /** 実機の時計: 24 時間ホイールの時と分の両方が循環します。選択されている項目を「選択、21」といい、上下が20、22となります。 */
     @Test fun stepsFromASelectedLabelWithStatePrefix() {
         val near = listOf("20", "已选中，21", "22")
-        // 看不出循环时按数差走(往回 14 格,循环的滚轮也到得了)
+        // ループ時に数値の違いが見えません (14 スペース戻ると、ループのスクロール ホイールに到達できます)
         assertEquals(-14, WheelMath.stepsTo(near, 1, "7"))
-        // 之前看出过 0–23 循环,或眼前就看得到 23 → 0:走近的一边,往前 10 格
+        // 以前に 0 ～ 23 のサイクルを見たことがある、または 23 → 0 が見えます: 私が近づいている側、10 ブロック前方
         assertEquals(10, WheelMath.stepsTo(near, 1, "7", knownModulus = 24))
         assertEquals(10, WheelMath.stepsTo(listOf("18", "19", "20", "已选中，21", "22", "23", "0"), 3, "7"))
-        // 分:21 → 25 往前 4 格
+        // 分: 21 → 25 4 スペース前
         assertEquals(4, WheelMath.stepsTo(near, 1, "25"))
         assertEquals(1, WheelMath.stepsTo(listOf("Selected, 21", "22"), 0, "22"))
         assertEquals(-1, WheelMath.stepsTo(listOf("20点", "21点", "22点"), 1, "20"))
@@ -69,13 +69,13 @@ class WheelMathTest {
     @Test fun selectedItemPrefersTheSelectedFlag() {
         val items = listOf(WheelMath.Item("20", 100, 100), WheelMath.Item("已选中，21", 100, 180, selected = true), WheelMath.Item("22", 100, 260))
         assertEquals(1, WheelMath.selectedIndex(items, 260, 80))
-        // 没有标着选中的:中线上的
+        // は選択済みとしてマークされていません: 中心線上
         assertEquals(2, WheelMath.selectedIndex(items.map { it.copy(selected = false) }, 260, 80))
     }
 
     /**
-     * 原版数字滚轮有时只报上下两格(39、41),中间那一格没报出来:不能拿离中线最近的邻居(39)当选中的,
-     * 那样停在 40 也读成 39。各项带着高度时只认盖住中线的;没有就按上下两项推出中间的。
+     * 元のデジタル ホイールは、上部と下部のグリッド (39、41) のみをレポートする場合があり、中央のグリッドはレポートされません。中心線に最も近い隣接グリッド (39) は選択できません。
+     * は 40 で停止し、39 を読み取ります。各アイテムに高さがある場合、中心線をカバーするアイテムのみが認識されます。そうでない場合は、上下の項目を押して中央の線を押し出します。
      */
     @Test fun missingCenterItemIsNotReplacedByANeighbour() {
         val pair = listOf(WheelMath.Item("39", 100, 100, height = 120), WheelMath.Item("41", 100, 340, height = 120))
@@ -148,7 +148,7 @@ class WheelMathTest {
 
     @Test fun selectedIsTheItemOnTheCenterLine() {
         assertEquals(2, WheelMath.selected(listOf(100, 200, 300, 400, 500), 310, 100))
-        // 没有正对中线的(整个滚轮在别处)
+        // は中心線と一致していません (ローラー全体が他の場所にあります)
         assertEquals(-1, WheelMath.selected(listOf(100, 200), 900, 100))
         assertEquals(-1, WheelMath.selected(emptyList(), 0, null))
     }
@@ -157,12 +157,12 @@ class WheelMathTest {
         val visible = listOf("上午", "下午")
         assertEquals(1, WheelMath.stepsTo(visible, 0, "下午"))
         assertEquals(-1, WheelMath.stepsTo(visible, 1, "上午"))
-        // 数字:目标在眼前按位置,不在按数差(循环看得出来就走近的一边)
+        // 番号: 番号の差ではなく、ターゲットは目の前の位置にあります (見える側にループします)
         assertEquals(2, WheelMath.stepsTo(listOf("07", "08", "09", "10", "11"), 2, "11"))
         assertEquals(31, WheelMath.stepsTo(listOf("07", "08", "09", "10", "11"), 2, "40"))
         assertEquals(-19, WheelMath.stepsTo(listOf("58", "59", "00", "01", "02"), 2, "41"))
         assertEquals(-31, WheelMath.stepsTo(listOf("07", "08", "09", "10", "11"), 2, "40", increasingForward = false))
-        // 文字列表、目标不在眼前:不知道
+        // テキストリスト、ターゲットは目の前にありません: わかりません
         assertNull(WheelMath.stepsTo(listOf("北京", "天津", "上海"), 1, "广州"))
         assertNull(WheelMath.stepsTo(listOf("07"), 5, "9"))
     }
@@ -172,7 +172,7 @@ class WheelMathTest {
         assertEquals(listOf(400, 400, 200), WheelMath.drags(10, 100, 450))
         assertEquals(listOf(-200), WheelMath.drags(-2, 100, 400))
         assertEquals(emptyList<Int>(), WheelMath.drags(0, 100, 400))
-        // 一次至少拖一格
+        // 一度に少なくとも 1 つのフレームをドラッグします
         assertEquals(listOf(100, 100), WheelMath.drags(2, 100, 50))
     }
 
@@ -186,7 +186,7 @@ class WheelMathTest {
         fun items(vararg t: String, x: Int = 500, gap: Int = 100) = t.mapIndexed { i, s -> WheelMath.Item(s, x, 200 + i * gap) }
         assertTrue(WheelMath.looksLikeWheel(items("08", "09", "10", "11", "12"), 400, 600))
         assertTrue(WheelMath.looksLikeWheel(items("上午", "下午", "晚上"), 400, 600))
-        // 靠左排的设置项、太长的文字、重复的、太少的、间距乱的都不算
+        // 左列の設定項目、テキストが長すぎる、繰り返している、少なすぎる、間隔がランダムであるなどはカウントされません。
         assertFalse(WheelMath.looksLikeWheel(items("Wi-Fi", "蓝牙", "显示", x = 120), 0, 1000))
         assertFalse(WheelMath.looksLikeWheel(items("今天下午三点开会别忘了", "好的", "收到"), 400, 600))
         assertFalse(WheelMath.looksLikeWheel(items("1", "1", "1"), 400, 600))

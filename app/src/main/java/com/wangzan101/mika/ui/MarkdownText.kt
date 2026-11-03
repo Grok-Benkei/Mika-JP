@@ -43,10 +43,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.wangzan101.mika.ui.theme.MikaTheme
 
-/** 按 Markdown 显示一段回答；流式草稿用临时闭合的语法预览。 */
+/** マークダウンで回答を表示します。一時的に閉じられた構文を使用したドラフト プレビューのストリーミング。 */
 @Composable
 fun MarkdownText(markdown: String, style: TextStyle, modifier: Modifier = Modifier, streaming: Boolean = false) {
-    // 流式片段更新频繁，在后台解析；上一帧保留到新片段准备好，避免主线程卡顿和文字闪空。
+    // ストリーミング クリップは頻繁に更新され、バックグラウンドで解析されます。メインスレッドの遅延やテキストのフラッシュを避けるために、新しいクリップの準備ができるまで前のフレームが保持されます。
     val colors = MikaTheme.colors
     val styles = remember(colors) { MarkdownModel.Styles.of(colors) }
     val blocks = if (streaming) {
@@ -116,7 +116,7 @@ private fun Block(b: MdBlock, style: TextStyle, depth: Int) {
     }
 }
 
-/** 表格:各列取本列最宽的格(有上限,超了换行),各行取本行最高的格;整张表可左右滑动。 */
+/** テーブル: 各列は列内の最も幅の広いセルを使用し (上限があり、改行を超える場合)、各行は行内の最も広いセルを使用します。テーブル全体を左右にスライドさせることができます。 */
 @Composable
 private fun TableBlock(t: MdBlock.Table, style: TextStyle) {
     val cols = t.header.size
@@ -148,7 +148,7 @@ private fun TableBlock(t: MdBlock.Table, style: TextStyle) {
                 widths[c] = maxOf(widths[c], m.maxIntrinsicWidth(Constraints.Infinity).coerceIn(minCol, maxCol))
             }
             val heights = measurables.chunked(cols).map { row -> row.withIndex().maxOf { (c, m) -> m.minIntrinsicHeight(widths[c]) } }
-            // 同一行的格一样高,边框和表头底色才对齐
+            // 同じ行のセルの高さは同じで、境界線とヘッダーの背景色は揃えられます。
             val placeables = measurables.mapIndexed { i, m -> m.measure(Constraints.fixed(widths[i % cols], heights[i / cols])) }
             layout(widths.sum(), heights.sum()) {
                 var y = 0

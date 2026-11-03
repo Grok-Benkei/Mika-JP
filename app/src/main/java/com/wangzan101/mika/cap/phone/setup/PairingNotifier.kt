@@ -18,20 +18,20 @@ import com.wangzan101.mika.ui.MainActivity
 import com.wangzan101.mika.ui.PhoneSetupCopy
 import com.wangzan101.mika.setup.PairingCodeReceiver
 
-/** 配对通知此刻该显示什么。 */
+/** このときペアリング通知に表示される内容。 */
 sealed interface PairingNotice {
-    /** 带输入框的「输入配对码」;[error] 是上一次没成功的原因和怎么办,输入框照样留着。 */
+    /** には、「ペアリング コードを入力してください」の入力ボックスがあります。 [error] は前回失敗した原因と対処法です。入力ボックスはそのまま残ります。 */
     data class EnterCode(val port: Int?, val error: String? = null) : PairingNotice
     data object Working : PairingNotice
     data object Done : PairingNotice
-    /** 配对后没能连上:回 Mika 看怎么处理。 */
+    /** はペアリング後に接続できませんでした: ミカに戻って何をすべきかを確認してください。 */
     data class Problem(val title: String) : PairingNotice
 
     companion object {
         /**
-         * 只在用户正在配对的这段时间里用([PairingCoordinator] 开着时)。找到配对窗口才弹输入框;
-         * 配对阶段的失败(码不对、过期、窗口关了)留在通知里重填;要重新配对的失败(配对失效)找到配对窗口后也给输入框,
-         * 和无障碍读码认的一样(PairingScreen.attempt);别的失败请用户回 Mika。
+         * は、ユーザーがペアリングしている期間 ([PairingCoordinator] がオンのとき) にのみ使用されます。入力ボックスは、ペアリング ウィンドウが見つかった場合にのみポップアップ表示されます。
+         * ペアリング段階での失敗 (コードが正しくない、期限切れ、ウィンドウが閉じている) は通知に残され、補充されます。再ペアリングに失敗した場合 (ペアリングが無効な場合)、ペアリング ウィンドウを見つけた後に入力ボックスも表示されます。
+         * はバリアフリーコード読み取り (PairingScreen.attempt) と同じです。そうでない場合は、Mika に戻ってください。
          */
         fun of(status: BuiltinShellStatus, discovery: PairingDiscovery): PairingNotice? {
             val port = (discovery as? PairingDiscovery.Found)?.port
@@ -47,23 +47,23 @@ sealed interface PairingNotice {
             }
         }
 
-        /** 无障碍在读配对码时,填码通知晚这么久再弹,多半已经配上了,不打扰。 */
+        /** アクセシビリティ ペアリング コードを読み取ると、非常に長い時間が経った後にコード入力通知がポップアップ表示されます。おそらくペアリングされているので、気にしないでください。 */
         const val AUTO_READ_GRACE_MS = 5_000L
-        /** 填码通知弹出后没人填,依次隔这么久再弹一次;最多 [MAX_REALERTS] 次,不刷屏。 */
+        /** 通知がポップアップ表示された後は誰もコードを入力しないため、非常に長い時間が経つと再び通知が表示されます。画面を更新せずに最大 [MAX_REALERTS] 回実行できます。 */
         val REALERT_MS = listOf(8_000L, 20_000L, 40_000L)
         val MAX_REALERTS = REALERT_MS.size
 
-        /** 发出 [notice] 前等多久。无障碍没开时找到配对窗口就弹,不等。 */
+        /** [notice] を送信するまでの待機時間。アクセシビリティがオンになっていない場合は、ペアリング ウィンドウを見つけるとポップアップが表示されます。待つ必要はありません。 */
         fun delayBefore(notice: PairingNotice, autoRead: Boolean): Long =
             if (notice is EnterCode && autoRead) AUTO_READ_GRACE_MS else 0L
 
-        /** 已经再提醒过 [sent] 次,下一次隔多久;null 表示不再提醒。 */
+        /** は、次回までどれくらい時間がかかるかを [sent] 回通知されました。 null は、それ以上リマインダーがないことを意味します。 */
         fun realertAfter(notice: PairingNotice, sent: Int): Long? = if (notice is EnterCode) REALERT_MS.getOrNull(sent) else null
 
         /**
-         * [PairingCoordinator] 跟着状态更新通知时的一次计算:这时该显示哪条,显示完是否不再跟。
-         * 填了码、配对还没开始([submitted])时一律是「正在配对」,也不在这时结束(助手原本就在运行也一样,配对开始后状态还会变);
-         * 「重新配对」时运行中的旧状态不算配好([PhoneSetupFlow.effectiveStatus]),助手在运行、又不在重新配对才结束。
+         * [PairingCoordinator] ステータス更新通知を追跡する場合、現時点でどの項目を表示するか、表示後に追跡を停止するかどうかの計算。
+         * がコードを入力し、ペアリングが開始されていない場合 ([submitted])、常に「ペアリング中」となり、この時点では終了しません (アシスタントが最初から実行されている場合も同様で、ペアリングの開始後にステータスが変わります)。
+         * 「再ペアリング」中の古い実行状態は、適切な一致とみなされません ([PhoneSetupFlow.effectiveStatus])。アシスタントは実行中ですが、終了するまで再ペアリングされません。
          */
         fun follow(status: BuiltinShellStatus, discovery: PairingDiscovery, repairing: Boolean, submitted: Boolean): Pair<PairingNotice?, Boolean> =
             if (submitted) Working to false
@@ -71,10 +71,10 @@ sealed interface PairingNotice {
     }
 }
 
-/** 系统里已有的一个配对频道;[userSet] 是用户自己改过它的重要程度。 */
+/** はシステム内にすでにペアになっているチャネルです。 [userSet] は、ユーザーが変更することが重要です。 */
 data class ChannelSnapshot(val id: String, val importance: Int, val userSet: Boolean)
 
-/** 配对频道怎么处理:[Create] 新建 [id](高优先级);[Use] 用已有的 [id],[health] 是它现在的样子。 */
+/** ペアリング チャネルの対処方法: [Create]、新しい [id] を作成します (高優先度)。 [Use]、既存の [id] を使用、[health] は現在のようになります。 */
 sealed interface ChannelPlan {
     val id: String
     val health: PairingChannelHealth
@@ -87,13 +87,13 @@ sealed interface ChannelPlan {
 }
 
 /**
- * 配对频道的选择(纯函数,便于测试)。频道的重要程度建好后 App 改不了:
- * 旧版本建得不够高、用户也没动过,就换一个新 id 重建;用户自己调低或关掉的不改回去,交给引导页提示。
+ * ペアリングチャンネル選択 (純粋な機能、テストが簡単)。チャネルの重要性は、作成後にアプリで変更することはできません。
+ * 古いバージョンは十分な高さで構築されておらず、ユーザーが触れていないため、新しい ID で再構築されます。ユーザーが自分で設定を下げるかオフにすると、元に戻すことはできず、ブート ページでプロンプトが表示されます。
  */
 object PairingChannel {
-    /** 用过的频道 id,越往后越新;新装的直接用最后一个。 */
+    /** 使用されるチャネル ID は、進むにつれて新しくなります。新しくインストールされたチャネルの場合は、最後のチャネルを使用してください。 */
     val IDS = listOf("pairing_code", "pairing_alert")
-    /** 更早版本的频道,见到就删,免得设置里多一项。 */
+    /** 以前のバージョンのチャンネルの場合は、設定に別の項目が追加されないように、表示されたら削除してください。 */
     const val LEGACY = "pairing"
 
     fun plan(existing: List<ChannelSnapshot>): ChannelPlan {
@@ -111,18 +111,18 @@ object PairingChannel {
 }
 
 /**
- * 配对通知:高优先级、带声音和振动(勿扰时听系统的),在系统设置的配对窗口上方弹出来;
- * 输入框用 RemoteInput,用户不用离开配对窗口。输入的码交给 [PairingCodeInput]。
+ * ペアリング通知: 優先度が高く、音と振動を伴い (おやすみ中にシステムの音声を聞きます)、システム設定のペアリング ウィンドウの上にポップアップ表示されます。
+ * 入力ボックスは RemoteInput を使用するため、ユーザーはペアリング ウィンドウを離れる必要はありません。入力したコードは[PairingCodeInput]に付与されます。
  */
 object PairingNotifier {
     const val KEY_CODE = "pairing_code"
     const val EXTRA_PORT = "pairing_port"
     private const val ID = 4401
     private const val DONE_TIMEOUT_MS = 8_000L
-    /** 填码通知最多留这么久(和找配对窗口的时长一样),App 被杀了也不会一直挂着。 */
+    /** コード埋め込み通知は、最大でこの長さ (一致するウィンドウと同じ長さ) にわたって留まることができます。たとえアプリが強制終了されても、常にハングするわけではありません。 */
     private const val INPUT_TIMEOUT_MS = 10 * 60_000L
 
-    /** 确保有一个配对频道,返回要用的那个(引导页据此提示、打开它的设置页)。 */
+    /** ペアリングされたチャネルがあることを確認し、使用するチャネルに戻ります (ブート ページにそれに応じたプロンプトが表示され、その設定ページが開きます)。 */
     fun ensureChannel(context: Context): ChannelPlan {
         val nm = context.getSystemService(NotificationManager::class.java)
         val existing = PairingChannel.IDS.mapNotNull { id ->
@@ -157,7 +157,7 @@ object PairingNotifier {
         when (notice) {
             is PairingNotice.EnterCode -> {
                 val input = RemoteInput.Builder(KEY_CODE).setLabel(PhoneSetupCopy.NOTIFY_INPUT_LABEL).setAllowFreeFormInput(true).build()
-                // RemoteInput 要往 Intent 里填结果,必须是可变的
+                // インテントに結果を入力するには、RemoteInput を変数にする必要があります。 画面がロックされている場合でも、ロックを解除する必要がなく、
                 val reply = PendingIntent.getBroadcast(
                     context, 1,
                     Intent(context, PairingCodeReceiver::class.java).apply { notice.port?.let { putExtra(EXTRA_PORT, it) } },
@@ -167,14 +167,14 @@ object PairingNotifier {
                     .addRemoteInput(input)
                     .setAllowGeneratedReplies(false)
                     .setSemanticAction(Notification.Action.SEMANTIC_ACTION_REPLY)
-                // 锁着屏也能直接填,不先要求解锁
+                // を直接入力できます。
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) action.setAuthenticationRequired(false)
                 val text = notice.error ?: PhoneSetupCopy.NOTIFY_ENTER_TEXT
                 b.setContentTitle(PhoneSetupCopy.NOTIFY_ENTER_TITLE)
                     .setContentText(text)
                     .setStyle(Notification.BigTextStyle().bigText(text))
                     .setOngoing(true)
-                    // 每次发都要响铃、弹出,包括没人填时的再次提醒和填错后的提示
+                    // は、誰も入力しない場合のリマインダーや、間違った入力の後にプロンプ​​トを表示するなど、送信されるたびに呼び出し音とポップアップを表示します。
                     .setOnlyAlertOnce(false)
                     .setTimeoutAfter(INPUT_TIMEOUT_MS)
                     .addAction(action.build())
@@ -186,7 +186,7 @@ object PairingNotifier {
                 .setAutoCancel(true).setOnlyAlertOnce(true).setTimeoutAfter(DONE_TIMEOUT_MS)
             is PairingNotice.Problem -> b.setContentTitle(notice.title).setContentText(PhoneSetupCopy.NOTIFY_PROBLEM_TEXT).setAutoCancel(true)
         }
-        // 没允许通知时系统会丢掉它;引导页在配对这一步先请用户允许
+        // 許可されていない場合、システムは通知を破棄します。ブート ページは、ペアリング手順で最初にユーザーに許可を求めます。
         runCatching { nm.notify(ID, b.build()) }
     }
 

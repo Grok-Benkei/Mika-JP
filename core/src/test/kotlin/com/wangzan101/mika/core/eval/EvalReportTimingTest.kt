@@ -16,35 +16,35 @@ class EvalReportTimingTest {
             pair("c", 10, 300, 100, 5_000, 1_000),
         )
         val md = EvalReport.markdown("r1", "m", scores, emptyList(), null, flags = "inlineScreen,replay")
-        assertTrue(md, "| 模型调用次数中位数 | 6 |" in md)
-        assertTrue(md, "| 模型调用次数 P90 | 10 |" in md)
-        assertTrue(md, "| 缓存命中率(cached/input) | 25.0% |" in md)
-        // 总耗时 30 秒:模型 15 秒、工具 5 秒
-        assertTrue(md, "| 模型等待占比 | 50.0% |" in md)
-        assertTrue(md, "| 工具执行占比 | 16.7% |" in md)
-        assertTrue(md, "| 回放命中 | 0 |" in md)
-        assertTrue(md, "| 回放交还 | 0 |" in md)
+        assertTrue(md, "| モデル呼び出し回数の中央値 | 6 |" in md)
+        assertTrue(md, "| モデル呼び出し回数 P90 | 10 |" in md)
+        assertTrue(md, "| キャッシュ利用率（cached/input） | 25.0% |" in md)
+        // には合計 30 秒かかります (モデルに 15 秒、ツールに 5 秒)
+        assertTrue(md, "| モデルの待機時間の割合 | 50.0% |" in md)
+        assertTrue(md, "| ツール実行時間の割合 | 16.7% |" in md)
+        assertTrue(md, "| 手順再実行の適合 | 0 |" in md)
+        assertTrue(md, "| 手順再実行からモデルへ移行 | 0 |" in md)
         assertTrue(md, "inlineScreen,replay" in md)
     }
 
-    // 占比加起来是 100%:模型、工具之外的是「其他/等用户」;没量到等界面时写「(暂无数据)」
+    // の合計割合は 100% です。モデルとツールを除けば、これは「その他/待機ユーザー」です。待機中のインターフェースが測定されていない場合は、「(データはまだありません)」と記述します
     @Test fun sharesSumToHundredWithOtherRow() {
         val scores = listOf(pair("a", 4, 400, 100, 5_000, 2_000), pair("b", 6, 300, 50, 5_000, 2_000), pair("c", 10, 300, 100, 5_000, 1_000))
         val md = EvalReport.markdown("r1", "m", scores, emptyList(), null)
-        assertTrue(md, "| 其他/等用户占比 | 33.3% |" in md)
-        assertTrue(md, "| 其中等界面占比 | (暂无数据) |" in md)
+        assertTrue(md, "| その他・ユーザー待機の割合 | 33.3% |" in md)
+        assertTrue(md, "| うち画面待機の割合 | （データなし） |" in md)
     }
 
-    // 回放评测:变体的回放命中、交还与交还后办成;原题单列,不进指标
+    // リプレイ評価: バリアント リプレイヒット、リターン、リターンが完了しました。元の質問は別にリストされており、インデックスには含まれていません
     @Test fun replayRatesAndOriginalsSection() {
         fun v(id: String, passed: Boolean, hits: Int, backs: Int) = TaskScore(id, passed, false, false, emptyList(), null) to
             Observed("succeeded", "", emptyList(), null, emptyMap(), emptyMap(), 2, 10_000, 0, 0, 0, null, replayHits = hits, replayHandBacks = backs)
         val scores = listOf(v("a~v1", true, 1, 0), v("a~v2", true, 0, 1), v("b~v1", false, 0, 1), v("b~v2", true, 0, 0))
         val md = EvalReport.markdown("r", "m", scores, emptyList(), null, originals = listOf(pair("a", 4, 1, 0, 1, 1)))
-        assertTrue(md, "| 回放命中率(走完路线的题) | 1/4(25.0%) |" in md)
-        assertTrue(md, "| 回放交还率(中途交还模型的题) | 2/4(50.0%) |" in md)
-        assertTrue(md, "| 交还后办成率 | 1/2(50.0%) |" in md)
-        assertTrue(md, "## 原题(记下路线用,不计入上面的指标)" in md)
-        assertTrue(md, "实跑 4 题" in md)
+        assertTrue(md, "| 手順再実行の適合率（最後まで実行したタスク） | 1/4(25.0%) |" in md)
+        assertTrue(md, "| 手順再実行からモデルへ戻した割合 | 2/4(50.0%) |" in md)
+        assertTrue(md, "| モデルへ戻した後の達成率 | 1/2(50.0%) |" in md)
+        assertTrue(md, "## 元のタスク（手順記録用。上記の指標には含めません）" in md)
+        assertTrue(md, "実行 4 件" in md)
     }
 }

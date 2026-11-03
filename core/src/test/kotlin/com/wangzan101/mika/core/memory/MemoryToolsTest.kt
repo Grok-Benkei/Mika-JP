@@ -85,7 +85,7 @@ class MemoryToolsTest {
         assertTrue(store.items.value.isEmpty())
     }
 
-    // 网页上读到的字也不算用户说的话
+    // Web ページ上で読まれた単語は、ユーザーが話した単語としてカウントされません。
     @Test fun quoteFromWebPageRejected() {
         val web = com.wangzan101.mika.core.cap.web.FakeWebPort()
         web.page = web.page.copy(text = "收货人 张三 地址 浦东张江路100号")
@@ -118,7 +118,7 @@ class MemoryToolsTest {
     @Test fun takeoverNoteAccepted() = runTest {
         val store = memStore()
         val model = FakeModel(
-            toolReply(memCall("hand_to_user", buildJsonObject { put("reason", "login"); put("message", "请登录") })),
+            toolReply(memCall("hand_to_user", buildJsonObject { put("reason", "login"); put("message", "ログインしてください") })),
             toolReply(memCall("memory_save", saveArgs("preference", "用户的外卖账号用手机号登录", "外卖账号用手机号登录"))),
             finishReply,
         )
@@ -159,7 +159,7 @@ class MemoryToolsTest {
         val d = toolDispatcher(FakeScreen())
         assertFalse(d.definitions().any { it.name.startsWith("memory_") })
         assertEquals("unknown_tool", d.run("memory_save", saveArgs("fact", "x", "x")).s("error"))
-        // 只给其中一样也不提供
+        // では、それらのいずれも提供されません。
         assertFalse(dispatcher(memStore(), null).definitions().any { it.name.startsWith("memory_") })
         assertTrue(dispatcher(memStore(), UserUtterances()).definitions().map { it.name }.containsAll(listOf("memory_search", "memory_save")))
     }
@@ -179,7 +179,7 @@ class MemoryToolsTest {
         val model = FakeModel(
             toolReply(memCall("memory_search", buildJsonObject { put("query", "外卖") })),
             toolReply(memCall("memory_save", saveArgs("fact", "用户的公司在漕河泾开发区", "公司在漕河泾开发区"))),
-            toolReply(memCall("hand_to_user", buildJsonObject { put("reason", "login"); put("message", "请登录") })),
+            toolReply(memCall("hand_to_user", buildJsonObject { put("reason", "login"); put("message", "ログインしてください") })),
             finishReply,
         )
         val loop = AgentLoop(model, toolDispatcher(FakeScreen(), memory = store, utterances = UserUtterances()), "B",
@@ -191,7 +191,7 @@ class MemoryToolsTest {
         assertEquals(2, store.items.value.size)
         val tools = events.filter { it is RunEvent.ModelReply || it is RunEvent.ToolResult }.joinToString("\n") { RunEvent.encode(it) }
         for (secret in listOf("不要香菜", "漕河泾", "老婆的手机号")) assertFalse(secret, tools.contains(secret))
-        assertTrue(tools.contains("preference")) // 编号、种类照记
+        assertTrue(tools.contains("preference")) // シリアル番号とタイプのメモ
     }
 
     @Test fun sourceCarriesConversationAndStoreClock() {
@@ -209,7 +209,7 @@ class MemoryToolsTest {
         val r = d.run("memory_save", saveArgs("fact", "用户的收货地址是浦东张江路100号", "以后都寄这里"))
         assertEquals("content_not_from_user", r.s("error"))
         assertTrue(store.items.value.isEmpty())
-        // 用户自己说出的具体值可以
+        // ユーザー自身が指定した特定の値は、
         val ok = dispatcher(store, UserUtterances().apply { add("以后都寄到张江路100号") })
             .run("memory_save", saveArgs("fact", "用户的收货地址是浦东张江路100号", "以后都寄到张江路100号"))
         assertEquals("true", ok.s("ok"))
@@ -234,7 +234,7 @@ class MemoryToolsTest {
     @Test fun placeNamesAndKeywordsChecked() {
         assertEquals("content_not_from_user", saveWith("以后都寄到我家", "用户家在汤臣一品苑", "以后都寄到我家").s("error"))
         assertEquals("content_not_from_user", saveWith("以后都寄到我家", "用户的收货地址在家里", "以后都寄到我家", listOf("张江路100号")).s("error"))
-        // 第三人称转述本身不算从屏幕抄来的
+        // 三人称ナレーション自体は、画面からコピーされたものとしてカウントされません。
         assertEquals("true", saveWith("我家里有只猫", "用户家里有猫", "我家里有只猫").s("ok"))
     }
 

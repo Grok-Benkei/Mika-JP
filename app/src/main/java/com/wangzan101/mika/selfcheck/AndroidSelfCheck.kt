@@ -45,6 +45,7 @@ import com.wangzan101.mika.core.uistate.UiElement
 import com.wangzan101.mika.settings.AccessibilityState
 import com.wangzan101.mika.settings.SystemStatus
 import com.wangzan101.mika.shell.IMikaShell
+import com.wangzan101.mika.ui.PhoneSetupCopy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -55,11 +56,11 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * 兼容性自检的安卓实现。手机这几项走任务用的同一套:进程里共用的那条助手连接([PhoneServices.sharedShell])、
- * [AgentDisplay] 建屏、[AndroidScreen] 打开页面、读屏、点按、打字、滚动、返回;网页走内置浏览器的 [WebScreen];
- * 沙箱走 [AndroidSandbox]。只碰 Mika 自己的自检页和系统设置(只打开、不点),不改设置、不联网。
- * 报告里的事实只写状态和数字,不写别的 App 的包名、账号和用户的内容。
- * [status] 是界面那边此刻的系统状态(无障碍、通知、内置助手)。
+ * 互換性セルフテストの Android 実装。携帯電話上のこれらのタスクは、プロセス内で共有されるアシスタント接続 ([PhoneServices.sharedShell]) という同じセットを使用します。
+ * [AgentDisplay] ビルド画面、[AndroidScreen] ページを開き、画面を読み、クリックし、入力し、スクロールし、戻ります。 Web ページは組み込みブラウザ [WebScreen] を使用します。
+ * サンドボックスウォーク [AndroidSandbox]。ミカ自身のセルフテスト ページとシステム設定のみをタッチし (開くだけ、クリックしないでください)、設定を変更せず、インターネットにも接続しないでください。
+ * レポートの事実にはステータスと数値のみが含まれており、他のアプリのパッケージ名、アカウント、ユーザーのコンテンツは含まれていません。
+ * [status] は、インターフェイス上の現在のシステム ステータス (アクセシビリティ、通知、組み込みアシスタント) です。
  */
 class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus) : SelfCheckPort {
     private val app = context.applicationContext
@@ -71,7 +72,7 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
     @Volatile private var screen: AndroidScreen? = null
     @Volatile private var web: Web? = null
 
-    /** 开跑时主屏最上面的任务;之后每到一个节点再看一次,变了的节点记下来。 */
+    /** は、実行開始時のメイン画面の一番上のタスクです。ノードに到達するたびにそれをもう一度見て、変更されたノードを書き留めます。 */
     private var mainBefore: Int? = null
     private val mainChanged = mutableListOf<String>()
 
@@ -100,7 +101,7 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
     }
 
     override suspend fun check(check: SelfCheck): CheckOutcome = when (check) {
-        SelfCheck.DEVICE -> error("judged from facts()")
+        SelfCheck.DEVICE -> error("facts() の情報から判定します")
         SelfCheck.PERMISSIONS -> permissions()
         SelfCheck.HELPER -> helper()
         SelfCheck.VIRTUAL_DISPLAY -> virtualDisplay()
@@ -114,17 +115,17 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         SelfCheck.APP_COPIES -> appCopies()
     }
 
-    // ---------- 2 权限 ----------
+    // ---------- 2 権限 ----------
 
     private fun permissions(): CheckOutcome {
         val s = status()
         val battery = runCatching { app.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(app.packageName) }.getOrNull()
-        val detail = "accessibility " + when (s.accessibility) {
-            AccessibilityState.On -> "on (bound)"
-            AccessibilityState.EnabledNotRunning -> "enabled, not bound"
-            AccessibilityState.Off -> "off"
-        } + ", notifications " + (if (s.notificationsAllowed) "allowed" else "blocked") +
-            ", battery " + when (battery) { true -> "unrestricted"; false -> "restricted"; null -> "unreadable" }
+        val detail = "ユーザー補助: " + when (s.accessibility) {
+            AccessibilityState.On -> "有効（接続済み）"
+            AccessibilityState.EnabledNotRunning -> "有効（未接続）"
+            AccessibilityState.Off -> "無効"
+        } + "、通知: " + (if (s.notificationsAllowed) "許可済み" else "未許可") +
+            "、バッテリー制限: " + when (battery) { true -> "なし"; false -> "あり"; null -> "確認できません" }
         return when {
             s.accessibility == AccessibilityState.Off -> CheckOutcome.fail(detail, Advice.TurnOnAccessibility)
             s.accessibility == AccessibilityState.EnabledNotRunning -> CheckOutcome.fail(detail, Advice.RestartAccessibility)
@@ -134,22 +135,22 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         }
     }
 
-    // ---------- 3 内置助手 ----------
+    // ---------- 3 内蔵アシスタント ----------
 
     private suspend fun helper(): CheckOutcome {
         val st = status().builtinShell
-        // 没配过对就不去连(连的时候会提示去设置);配过对的,看门狗可能正在起它,等一会儿
-        if (st == BuiltinShellStatus.NotPaired && !phone.shellControl.paired) return CheckOutcome.fail("not set up ($st)", Advice.SetUpPhoneControl)
+        // ペアリングされていない場合は接続されません (接続時にセットアップを求めるメッセージが表示されます)。ペアリングされている場合は、ウォッチドッグが起動している可能性がありますので、しばらくお待ちください。
+        if (st == BuiltinShellStatus.NotPaired && !phone.shellControl.paired) return CheckOutcome.fail("スマートフォン操作が未設定です（${PhoneSetupCopy.statusLine(st)}）", Advice.SetUpPhoneControl)
         val conn = connection ?: phone.sharedShell.acquire().also { connection = it }
         val sh = withTimeoutOrNull(HELPER_WAIT_MS) { conn.shell.filterNotNull().first() }
-            ?: return CheckOutcome.fail("not running (${phone.shellControl.status.value})", Advice.SetUpPhoneControl)
+            ?: return CheckOutcome.fail("操作アシスタントが動作していません（${PhoneSetupCopy.statusLine(phone.shellControl.status.value)}）", Advice.SetUpPhoneControl)
         shell = sh
         return withContext(Dispatchers.IO) {
             val uid = sh.identity().getOrNull(0) ?: -1
             val path = when {
-                uid == ROOT_UID -> "root"
-                phone.shellControl.paired -> "paired wireless debugging"
-                else -> "started from a computer (USB)"
+                uid == ROOT_UID -> "root 経由で起動"
+                phone.shellControl.paired -> "ペア設定済みのワイヤレスデバッグで起動"
+                else -> "パソコンから起動（USB）"
             }
             val who = when (uid) { SHELL_UID -> "shell"; ROOT_UID -> "root"; else -> "uid $uid" }
             val times = List(LATENCY_CALLS) {
@@ -158,83 +159,83 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
                 (SystemClock.elapsedRealtimeNanos() - t0) / 1_000
             }.sorted()
             mainBefore = mainTop(sh)
-            CheckOutcome.pass("running as $who, $path, round trip ${format(times[times.size / 2] / 1000.0)} ms")
+            CheckOutcome.pass("実行権限: $who、$path、往復 ${format(times[times.size / 2] / 1000.0)} ミリ秒")
         }
     }
 
-    // ---------- 4 虚拟屏 ----------
+    // ---------- 4 つの仮想画面 ----------
 
     private suspend fun virtualDisplay(): CheckOutcome {
-        val sh = shell ?: return CheckOutcome.fail("no helper", Advice.SetUpPhoneControl)
+        val sh = shell ?: return CheckOutcome.fail("操作アシスタントに接続できません", Advice.SetUpPhoneControl)
         val m = metrics()
-        // 建屏不中途打断:建好的一定记下,收尾时放掉
+        // 画面構築プロセスを中断しないでください。完成した画面を書き留めて、最後に解放してください。
         val made = withContext(NonCancellable + Dispatchers.IO) {
             runCatching { AgentDisplay(sh, m.widthPixels, m.heightPixels, m.densityDpi, app.getSystemService(DisplayManager::class.java)) }.onSuccess { display = it }
         }
-        val d = made.getOrElse { return CheckOutcome.fail("could not be created (${it.javaClass.simpleName})", Advice.DisplayFailed) }
+        val d = made.getOrElse { return CheckOutcome.fail("仮想画面を作成できませんでした（${it.javaClass.simpleName}）", Advice.DisplayFailed) }
         val flags = runCatching { app.getSystemService(DisplayManager::class.java).getDisplay(d.displayId)?.flags }.getOrNull()
         val own = flags?.let { it and ownFocusFlag() != 0 }
-        val detail = "created ${d.width}x${d.height}, own focus " + when (own) { true -> "yes"; false -> "no"; null -> "unknown" }
+        val detail = "${d.width}x${d.height} の画面を作成、独立したフォーカス: " + when (own) { true -> "あり"; false -> "なし"; null -> "確認できません" }
         return when {
-            Build.VERSION.SDK_INT < DeviceFacts.OWN_FOCUS_SDK -> CheckOutcome.partial("$detail (own focus needs Android 14)", Advice.FocusShared)
+            Build.VERSION.SDK_INT < DeviceFacts.OWN_FOCUS_SDK -> CheckOutcome.partial("$detail（独立したフォーカスには Android 14 以降が必要です）", Advice.FocusShared)
             own == false -> CheckOutcome.partial(detail, Advice.FocusShared)
             else -> CheckOutcome.pass(detail)
         }
     }
 
-    /** 安卓 14 起显示的「自己的焦点」标志;常量没公开,先按名字取,取不到用原版的值。 */
+    /** Android 14 以降に表示される「独自のフォーカス」サイン。定数はパブリックではないため、最初に名前で取得できますが、元の値を取得することはできません。 */
     private fun ownFocusFlag(): Int = runCatching { Display::class.java.getField("FLAG_OWN_FOCUS").getInt(null) }.getOrDefault(1 shl 11)
 
-    // ---------- 5 打开页面 ----------
+    // ---------- 5 ページを開く ----------
 
     private suspend fun appLaunch(): CheckOutcome {
-        val sh = shell ?: return CheckOutcome.fail("no helper", Advice.SetUpPhoneControl)
-        val d = display ?: return CheckOutcome.fail("no display", Advice.DisplayFailed)
-        val a11y = ScreenAccessibility.instance.value ?: return CheckOutcome.fail("accessibility service not connected", Advice.RestartAccessibility)
+        val sh = shell ?: return CheckOutcome.fail("操作アシスタントに接続できません", Advice.SetUpPhoneControl)
+        val d = display ?: return CheckOutcome.fail("仮想画面がありません", Advice.DisplayFailed)
+        val a11y = ScreenAccessibility.instance.value ?: return CheckOutcome.fail("ユーザー補助サービスに接続できません", Advice.RestartAccessibility)
         val s = screen ?: AndroidScreen(a11y, sh, LazyAgentDisplay(d.width, d.height) { d }.also { it.get() }).also { screen = it }
         val own = s.openOwnPage(SelfCheckTargetActivity.intent(app))
         if (own !is ActionResult.Ok || topPackage(sh, d.displayId) != app.packageName) {
-            return CheckOutcome.fail("Mika's test page did not open on Mika's display (${reason(own)})", Advice.LaunchFailed)
+            return CheckOutcome.fail("Mika のセルフテストページを仮想画面で開けませんでした（${reason(own)}）", Advice.LaunchFailed)
         }
         sampleMain(sh, "test page")
-        // 先关掉自检页再开系统设置:之后从头开一页,不靠把旧的那一页翻回前面
+        // まずセルフテスト ページを閉じてから、システム設定を開きます。次に、古いページを先頭に戻すのではなく、最初からページを開きます。
         withContext(Dispatchers.Main) { SelfCheckTargetActivity.finishOpen() }
         val settings = SystemPickers.settingsPackage(app.packageManager)
-        val settingsNote = if (settings == null) "no system Settings app found" else when (val r = s.openApp(settings, cold = false)) {
-            is ActionResult.Failed -> if (r.reason == "app_in_use_by_user") SETTINGS_IN_USE else "Settings did not open (${r.reason})"
+        val settingsNote = if (settings == null) "システムの設定アプリが見つかりません" else when (val r = s.openApp(settings, cold = false)) {
+            is ActionResult.Failed -> if (r.reason == "app_in_use_by_user") SETTINGS_IN_USE else "設定アプリを開けませんでした（${r.reason}）"
             is ActionResult.Ok -> {
                 val onMika = withContext(Dispatchers.IO) { topPackage(sh, d.displayId) } == settings
                 val onMain = withContext(Dispatchers.IO) { mainTop(sh)?.let { runCatching { sh.packageOfTask(it) }.getOrNull() } } == settings
                 sampleMain(sh, "Settings")
-                // 只看不点:返回一次离开它
+                // ただ見てください: 一度戻ってそのままにしてください
                 s.back()
                 when {
                     onMain -> SETTINGS_ON_MAIN
-                    !onMika -> "Settings did not come to the front of Mika's display"
+                    !onMika -> "設定アプリが Mika の仮想画面の最前面に表示されませんでした"
                     else -> null
                 }
             }
         }
-        // 后面几项在自检页上做:重新打开一次,从头来
+        // セルフテスト ページで次の項目を実行する必要があります。一度ページを再度開き、最初から開始します。
         val again = s.openOwnPage(SelfCheckTargetActivity.intent(app))
         if (again !is ActionResult.Ok || !poll { withContext(Dispatchers.IO) { isTestPageOnTop(sh, d.displayId) } }) {
-            return CheckOutcome.fail("Mika's test page did not reopen after Settings (${reason(again)})", Advice.LaunchFailed)
+            return CheckOutcome.fail("設定アプリを閉じた後、Mika のセルフテストページを開き直せませんでした（${reason(again)}）", Advice.LaunchFailed)
         }
         return when (settingsNote) {
-            null -> CheckOutcome.pass("Mika's test page and Settings opened on Mika's display")
-            SETTINGS_ON_MAIN -> CheckOutcome.fail("test page ok; $settingsNote", Advice.OpenedOnMainScreen)
-            SETTINGS_IN_USE -> CheckOutcome.partial("test page ok; $settingsNote", Advice.SettingsInUse)
-            else -> CheckOutcome.partial("test page ok; $settingsNote", Advice.LaunchFailed)
+            null -> CheckOutcome.pass("Mika のセルフテストページと設定アプリを仮想画面で開けました")
+            SETTINGS_ON_MAIN -> CheckOutcome.fail("セルフテストページの起動は正常。$settingsNote", Advice.OpenedOnMainScreen)
+            SETTINGS_IN_USE -> CheckOutcome.partial("セルフテストページの起動は正常。$settingsNote", Advice.SettingsInUse)
+            else -> CheckOutcome.partial("セルフテストページの起動は正常。$settingsNote", Advice.LaunchFailed)
         }
     }
 
-    // ---------- 6 读屏 ----------
+    // ---------- 6 画面の見方 ----------
 
     private suspend fun screenReading(): CheckOutcome {
-        val s = screen ?: return CheckOutcome.fail("no screen", Advice.LaunchFailed)
-        val d = display ?: return CheckOutcome.fail("no display", Advice.DisplayFailed)
+        val s = screen ?: return CheckOutcome.fail("画面を読み取る準備ができていません", Advice.LaunchFailed)
+        val d = display ?: return CheckOutcome.fail("仮想画面がありません", Advice.DisplayFailed)
         s.waitStable(SETTLE_MS)
-        // 页面刚开出来时树可能还没齐:等到最上面是 Mika、要的控件都在,最多等一会儿
+        // ページが最初に開かれたとき、ツリーはまだ完成していない可能性があります。Mika が最上部に表示され、必要なコントロールがすべて揃うまで待ちます。せいぜいしばらくお待ちください。
         var snap = s.snapshot()
         poll(PAGE_WAIT_MS) {
             snap = s.snapshot()
@@ -242,30 +243,30 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         }
         val missing = EXPECTED.filter { snap.find(it) == null }
         if (snap.packageName != app.packageName || missing.isNotEmpty()) {
-            return CheckOutcome.fail("missing ${missing.joinToString().ifEmpty { "none" }}; ${seen(snap)}", Advice.ReadFailed)
+            return CheckOutcome.fail("見つからない要素: ${missing.joinToString().ifEmpty { "なし" }}。${seen(snap)}", Advice.ReadFailed)
         }
-        val frame = awaitFrame(d) ?: return CheckOutcome.fail("tree ok; no screenshot from the display", Advice.BlankFrames)
+        val frame = awaitFrame(d) ?: return CheckOutcome.fail("要素ツリーは読み取れましたが、仮想画面のスクリーンショットを取得できません", Advice.BlankFrames)
         val blank = try {
             val grid = FrameMath.lumaGrid(frame.width, frame.height, frame::getPixel)
             FrameMath.isBlack(frame.width, frame.height, frame::getPixel) || grid.max() - grid.min() < BLANK_SPREAD
         } finally {
             frame.recycle()
         }
-        if (blank) return CheckOutcome.fail("tree ok; screenshot is blank or black", Advice.BlankFrames)
-        return CheckOutcome.pass("${snap.elements.size} elements, all expected found; screenshot not blank")
+        if (blank) return CheckOutcome.fail("要素ツリーは読み取れましたが、スクリーンショットが空白か真っ黒です", Advice.BlankFrames)
+        return CheckOutcome.pass("${snap.elements.size} 個の要素を読み取り、必要な要素をすべて確認しました。スクリーンショットは空白ではありません")
     }
 
-    // ---------- 7 动作 ----------
+    // ---------- 7 アクション ----------
 
     private suspend fun actions(): CheckOutcome {
-        val s = screen ?: return CheckOutcome.fail("no screen", Advice.LaunchFailed)
-        val sh = shell ?: return CheckOutcome.fail("no helper", Advice.SetUpPhoneControl)
-        val d = display ?: return CheckOutcome.fail("no display", Advice.DisplayFailed)
+        val s = screen ?: return CheckOutcome.fail("画面を読み取る準備ができていません", Advice.LaunchFailed)
+        val sh = shell ?: return CheckOutcome.fail("操作アシスタントに接続できません", Advice.SetUpPhoneControl)
+        val d = display ?: return CheckOutcome.fail("仮想画面がありません", Advice.DisplayFailed)
         val ok = mutableListOf<String>()
         val bad = mutableListOf<String>()
         fun mark(name: String, passed: Boolean) { if (passed) ok += name else bad += name }
 
-        // 点按:计数加一
+        // クリック: プラス 1 を数えます
         var snap = s.snapshot()
         val before = snap.find(COUNT)?.number()
         val button = snap.find(BUTTON)
@@ -274,13 +275,13 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
             mark("tap", poll { s.peek().find(COUNT)?.number() == before + 1 })
         } else mark("tap", false)
 
-        // 打字:英文和中文各打一次,回读输入框
+        // 入力: 英語と中国語で 1 回ずつ入力し、入力ボックスを読み返します。
         snap = s.snapshot()
         mark("type ASCII", snap.find(INPUT)?.let { typed(s, it, snap, ASCII) } == true)
         snap = s.snapshot()
-        mark("type Chinese", snap.find(INPUT)?.let { typed(s, it, snap, CHINESE) } == true)
+        mark("type Japanese", snap.find(INPUT)?.let { typed(s, it, snap, JAPANESE) } == true)
 
-        // 滚动:看得见的行换了
+        // スクロール: 表示される行が変更されました
         snap = s.snapshot()
         val rowsBefore = snap.rows()
         val list = snap.find(LIST)
@@ -289,7 +290,7 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
             mark("scroll", poll { s.peek().rows().let { it.isNotEmpty() && it.first() != rowsBefore.first() } })
         } else mark("scroll", false)
 
-        // 返回:自检页离开 Mika 屏的最上面。刚打完字输入法多半还弹着,那几下是收起输入法(安卓本来如此),不算在次数里
+        // 戻り: セルフテスト ページがミカ画面の上部から残ります。ほとんどの場合、入力後は入力メソッドがまだ再生されています。これらの数回のクリックは入力メソッドを閉じるためのものであり (これは Android の本来のケースです)、回数にはカウントされません。
         val gone = BackPresses.until(
             tries = BACK_TRIES,
             maxPresses = BACK_MAX_PRESSES,
@@ -300,10 +301,18 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         mark("back", gone)
         sampleMain(sh, "actions")
 
-        val detail = (ok.map { "$it ok" } + bad.map { "$it failed" }).joinToString(", ")
+        fun label(name: String): String = when (name) {
+            "tap" -> "タップ"
+            "type ASCII" -> "英数字の入力"
+            "type Japanese" -> "日本語の入力"
+            "scroll" -> "スクロール"
+            "back" -> "戻る操作"
+            else -> name
+        }
+        val detail = (ok.map { "${label(it)}: 成功" } + bad.map { "${label(it)}: 失敗" }).joinToString("、")
         return when {
             bad.isEmpty() -> CheckOutcome.pass(detail)
-            bad == listOf("type Chinese") -> CheckOutcome.partial(detail, Advice.ActionFailed)
+            bad == listOf("type Japanese") -> CheckOutcome.partial(detail, Advice.ActionFailed)
             else -> CheckOutcome.fail(detail, Advice.ActionFailed)
         }
     }
@@ -316,13 +325,13 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         return poll { s.peek().find(INPUT)?.name?.let { SelfCheckText.contains(it, text) } == true }
     }
 
-    // ---------- 8 一直在动 ----------
+    // ---------- 8 動き続けてください ----------
 
     private suspend fun staysAlive(): CheckOutcome {
-        val s = screen ?: return CheckOutcome.fail("no screen", Advice.LaunchFailed)
-        val d = display ?: return CheckOutcome.fail("no display", Advice.DisplayFailed)
+        val s = screen ?: return CheckOutcome.fail("画面を読み取る準備ができていません", Advice.LaunchFailed)
+        val d = display ?: return CheckOutcome.fail("仮想画面がありません", Advice.DisplayFailed)
         if (s.openOwnPage(SelfCheckTargetActivity.intent(app)) !is ActionResult.Ok) {
-            return CheckOutcome.fail("Mika's test page did not reopen", Advice.LaunchFailed)
+            return CheckOutcome.fail("Mika のセルフテストページを開き直せませんでした", Advice.LaunchFailed)
         }
         val start = SystemClock.uptimeMillis()
         var lastChange = start
@@ -336,7 +345,7 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
             if (h != null && h != prev) lastChange = now
             prev = h
             if (now - lastChange > STALL_MS) {
-                return CheckOutcome.fail("frames stopped after ${(lastChange - start + 500) / 1000} s", Advice.FramesStopped)
+                return CheckOutcome.fail("映像の更新が ${(lastChange - start + 500) / 1000} 秒後に停止しました", Advice.FramesStopped)
             }
             val tick = s.peek().find(TICK)?.number()
             if (tick == null || tick == lastTick) {
@@ -344,29 +353,29 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
             } else treeLostAt = null
             lastTick = tick
             treeLostAt?.let { lost ->
-                if (now - lost > STALL_MS) return CheckOutcome.fail("tree stopped updating after ${(lost - start + 500) / 1000} s", Advice.FramesStopped)
+                if (now - lost > STALL_MS) return CheckOutcome.fail("要素ツリーの更新が ${(lost - start + 500) / 1000} 秒後に停止しました", Advice.FramesStopped)
             }
         }
-        return CheckOutcome.pass("frames and tree kept changing for ${ALIVE_MS / 1000} s")
+        return CheckOutcome.pass("映像と要素ツリーが ${ALIVE_MS / 1000} 秒間、更新され続けました")
     }
 
-    // ---------- 9 主屏 ----------
+    // ---------- 9 ホーム画面 ----------
 
     private suspend fun mainScreen(): CheckOutcome {
-        val sh = shell ?: return CheckOutcome.fail("no helper", Advice.SetUpPhoneControl)
-        val before = mainBefore ?: return CheckOutcome.fail("main screen was not readable at the start", Advice.Error)
+        val sh = shell ?: return CheckOutcome.fail("操作アシスタントに接続できません", Advice.SetUpPhoneControl)
+        val before = mainBefore ?: return CheckOutcome.fail("開始時にメイン画面を読み取れませんでした", Advice.Error)
         sampleMain(sh, "end")
-        val who = if (withContext(Dispatchers.IO) { runCatching { sh.packageOfTask(before) }.getOrNull() } == app.packageName) "Mika" else "another app"
-        return if (mainChanged.isEmpty()) CheckOutcome.pass("top task unchanged ($who stayed on top)")
-        else CheckOutcome.fail("top task changed during: ${mainChanged.joinToString()}", Advice.MainScreenChanged)
+        val who = if (withContext(Dispatchers.IO) { runCatching { sh.packageOfTask(before) }.getOrNull() } == app.packageName) "Mika" else "別のアプリ"
+        return if (mainChanged.isEmpty()) CheckOutcome.pass("最前面のタスクは変わりませんでした（$who が最前面のまま）")
+        else CheckOutcome.fail("最前面のタスクが変わった時点: ${mainChanged.joinToString { stageLabel(it) }}", Advice.MainScreenChanged)
     }
 
-    // ---------- 10 内置浏览器 ----------
+    // ---------- 10 内蔵ブラウザ ----------
 
     private suspend fun browser(): CheckOutcome {
-        if (runCatching { WebViewCompat.getCurrentWebViewPackage(app) == null }.getOrDefault(true)) return CheckOutcome.fail("no WebView on this device", Advice.NoWebView)
+        if (runCatching { WebViewCompat.getCurrentWebViewPackage(app) == null }.getOrDefault(true)) return CheckOutcome.fail("この端末には WebView がありません", Advice.NoWebView)
         val m = metrics()
-        // 和任务一样在主线程建;建好的一定记下,收尾时关掉。访问不记进网站列表(不给 registry)
+        // はタスクと同様にメインスレッドに組み込まれます。構築された内容を必ず書き留めて、最後に閉じてください。訪問は Web サイトのリストに記録されません (レジストリには記録されません)。
         val built = withContext(NonCancellable + Dispatchers.Main) {
             runCatching {
                 val host = WebHost(app, m.widthPixels, m.heightPixels, m.densityDpi)
@@ -380,32 +389,32 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
                 }
             }
         }
-        val w = built.getOrElse { return CheckOutcome.fail("browser could not start (${it.javaClass.simpleName})", Advice.WebFailed) }
+        val w = built.getOrElse { return CheckOutcome.fail("ブラウザーを起動できませんでした（${it.javaClass.simpleName}）", Advice.WebFailed) }
         val nav = w.screen.navigate(WEB_PAGE, newTab = false)
-        if (!nav.loaded) return CheckOutcome.fail("local page did not load (${nav.netError ?: "not loaded"})", Advice.WebFailed)
+        if (!nav.loaded) return CheckOutcome.fail("ローカルのテストページを読み込めませんでした（${nav.netError ?: "未読み込み"}）", Advice.WebFailed)
         val read = w.screen.readPage(MAX_CHARS, 0, scrollLazy = false).text
-        if (!SelfCheckText.contains(read, WEB_MARKER)) return CheckOutcome.fail("page loaded but its text was not read", Advice.WebFailed)
+        if (!SelfCheckText.contains(read, WEB_MARKER)) return CheckOutcome.fail("ページは読み込めましたが、本文を読み取れませんでした", Advice.WebFailed)
         val snap = w.screen.snapshot()
         val button = snap.elements.firstOrNull { it.resourceId == WEB_BUTTON }
-            ?: return CheckOutcome.fail("text read; button not found", Advice.WebFailed)
+            ?: return CheckOutcome.fail("本文は読み取れましたが、ボタンが見つかりませんでした", Advice.WebFailed)
         w.screen.tapRef(button.ref, snap.snapshotId)
         val clicked = poll { SelfCheckText.contains(w.screen.readPage(MAX_CHARS, 0, scrollLazy = false).text, WEB_CLICKED) }
-        return if (clicked) CheckOutcome.pass("local page loaded, text read, button tap verified")
-        else CheckOutcome.fail("text read; button tap did not change the page", Advice.WebFailed)
+        return if (clicked) CheckOutcome.pass("ローカルのテストページを読み込み、本文の読み取りとボタンのタップを確認しました")
+        else CheckOutcome.fail("本文は読み取れましたが、ボタンをタップしてもページが変わりませんでした", Advice.WebFailed)
     }
 
-    // ---------- 11 沙箱 ----------
+    // ---------- 11 サンドボックス ----------
 
     private suspend fun sandbox(): CheckOutcome {
         val state = SandboxState.get(app)
         when (val st = state.status.value) {
-            is SandboxStatus.Unsupported -> return CheckOutcome.skipped("not supported on ${Build.SUPPORTED_ABIS.firstOrNull() ?: "this device"}", Advice.SandboxUnsupported)
+            is SandboxStatus.Unsupported -> return CheckOutcome.skipped("${Build.SUPPORTED_ABIS.firstOrNull() ?: "この端末"} はサンドボックスに対応していません", Advice.SandboxUnsupported)
             is SandboxStatus.Ready -> Unit
-            // 不为自检现装运行环境(要好几分钟)
-            else -> return CheckOutcome.partial("runtime not prepared (${st.javaClass.simpleName})", Advice.SandboxNotPrepared)
+            // はセルフテスト用のオペレーティング環境をインストールしません (数分かかります)
+            else -> return CheckOutcome.partial("実行環境の準備ができていません（${st.javaClass.simpleName}）", Advice.SandboxNotPrepared)
         }
         val box = AndroidSandbox(app, state)
-        // 命令出错(比如断网过滤装不上被拒)照实记下;取消照常往外抛
+        // コマンドにエラーがある場合 (たとえば、ネットワーク フィルターをインストールできずに拒否された場合)、真実に従ってそれを書き留めます。いつものようにキャンセルして捨ててください。
         suspend fun run(argv: List<String>): Result<CommandResult> = try {
             Result.success(box.run(SANDBOX_WORKSPACE, argv, null, COMMAND_MS) {})
         } catch (e: CancellationException) {
@@ -418,9 +427,9 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         val py = run(listOf("python3", "-c", "print(1+1)"))
         val pyOk = py.getOrNull()?.let { it.exitCode == 0 && it.output.trim() == "2" } == true
         fun what(r: Result<CommandResult>) = r.fold(
-            { if (it.timedOut) "timed out" else "exit ${it.exitCode}, ${it.durationMs} ms" }, { "error ${it.javaClass.simpleName}" },
+            { if (it.timedOut) "タイムアウト" else "終了コード ${it.exitCode}、${it.durationMs} ミリ秒" }, { "エラー: ${it.javaClass.simpleName}" },
         )
-        val detail = "echo ${if (echoOk) "ok" else "failed"} (${what(echo)}), python3 ${if (pyOk) "ok" else "failed"} (${what(py)})"
+        val detail = "echo: ${if (echoOk) "成功" else "失敗"}（${what(echo)}）、python3: ${if (pyOk) "成功" else "失敗"}（${what(py)}）"
         return when {
             echoOk && pyOk -> CheckOutcome.pass(detail)
             echoOk -> CheckOutcome.partial(detail, Advice.SandboxFailed)
@@ -428,16 +437,16 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         }
     }
 
-    // ---------- 12 另一份 App ----------
+    // ---------- 12 別のアプリ ----------
 
     private suspend fun appCopies(): CheckOutcome {
-        val sh = shell ?: return CheckOutcome.fail("no helper", Advice.SetUpPhoneControl)
+        val sh = shell ?: return CheckOutcome.fail("操作アシスタントに接続できません", Advice.SetUpPhoneControl)
         val users = withContext(Dispatchers.IO) { runCatching { sh.appCopyUsers()?.getIntArray(ShellService.KEY_COPY_USERS) }.getOrNull() }
-            ?: return CheckOutcome.partial("other users could not be read", Advice.Error)
-        return CheckOutcome.pass("${users.size} usable other profile(s)")
+            ?: return CheckOutcome.partial("他のユーザープロファイルを読み取れませんでした", Advice.Error)
+        return CheckOutcome.pass("利用できる他のプロファイルは ${users.size} 件です")
     }
 
-    // ---------- 收尾 ----------
+    // ---------- 最後 ----------
 
     override suspend fun release() {
         withContext(NonCancellable) {
@@ -459,14 +468,14 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         }
     }
 
-    // ---------- 小工具 ----------
+    // ---------- ガジェット ----------
 
     private fun metrics(): DisplayMetrics = DisplayMetrics().also {
         @Suppress("DEPRECATION")
         app.getSystemService(DisplayManager::class.java).getDisplay(Display.DEFAULT_DISPLAY).getRealMetrics(it)
     }
 
-    /** 主屏最上面的任务;读不到为 null。 */
+    /** ホーム画面の一番上のタスク。読み取れない場合は null になります。 */
     private fun mainTop(sh: IMikaShell): Int? = runCatching { sh.topTaskId(Display.DEFAULT_DISPLAY) }.getOrNull()?.takeIf { it >= 0 }
 
     private suspend fun sampleMain(sh: IMikaShell, stage: String) {
@@ -490,7 +499,7 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         return null
     }
 
-    /** 实时画面(缩小的那一份)的指纹;还没有画面为 null。 */
+    /** リアルタイム画像 (縮小された画像) のフィンガープリント。画像がまだない場合は null です。 */
     private fun frameHash(d: AgentDisplay): Int? {
         val bmp = d.frames.value ?: return null
         return runCatching {
@@ -510,8 +519,8 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
     }
 
     /**
-     * 自检页上的一个控件:先按资源 id(读屏给的是短名,也认完整写法的结尾),再按页面上的文字(有字的控件读屏时不带资源 id)。
-     * 文字和自检页一样按 App 语言取;比的时候不分大小写、不计较空白(见 [SelfCheckText])。
+     * セルフテスト ページのコントロール: 最初にリソース ID を押して (スクリーン リーダーは短い名前を表示し、完全な書き込みの終わりも認識します)、次にページ上のテキストを押します (単語を含むコントロールには、画面を読み取るときにリソース ID がありません)。
+     * テキストは、セルフテスト ページと同じアプリ言語で取得されます。比較では大文字と小文字は区別されず、空白は考慮されません ([SelfCheckText] を参照)。
      */
     private fun ScreenSnapshot.find(key: String): UiElement? =
         elements.firstOrNull { e -> e.resourceId?.let { it == key || it.endsWith("/$key") } == true }
@@ -527,23 +536,23 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
                 }
             }
 
-    /** 自检页上看得见的行(按从上到下)。 */
+    /** セルフテスト ページに線が表示されます (上から下に押します)。 */
     private fun ScreenSnapshot.rows(): List<String> =
         elements.filter { rowText.matches(it.name) }.sortedBy { it.centerY }.map { it.name }
 
     /**
-     * 读屏没找到自检页时写进报告的「看到了什么」:是自检页就写包名和前几个控件;是系统界面只写包名、个数和控件的种类或 id
-     * (系统设置顶上可能有用户的名字,不写文字);别的 App 连包名都不写。
+     * 画面を読んでもセルフテスト ページが見つからない場合は、レポートに「見た内容」を書き込みます。セルフテスト ページの場合は、パッケージ名と最初のいくつかのコントロールを書き込みます。システム インターフェイスの場合は、パッケージ名、番号、コントロールのタイプまたは ID のみを書き込みます
+     * (システム設定の上部にユーザー名が書かれている場合がありますが、テキストは書き込まれません);他のアプリはパッケージ名さえ書きません。
      */
     private fun seen(snap: ScreenSnapshot): String {
         val pkg = snap.packageName
         val n = snap.elements.size
         val first = snap.elements.take(SEEN_ELEMENTS)
         return when {
-            pkg == app.packageName -> "saw Mika, $n elements: " + first.joinToString { (it.resourceId ?: it.name).take(SEEN_CHARS) }
-            pkg == null -> "saw no readable window, $n elements"
-            systemPackage(pkg) -> "saw $pkg, $n elements: " + first.joinToString { (it.resourceId ?: it.role).take(SEEN_CHARS) }
-            else -> "saw another app, $n elements"
+            pkg == app.packageName -> "表示内容: Mika、要素 $n 個: " + first.joinToString { (it.resourceId ?: it.name).take(SEEN_CHARS) }
+            pkg == null -> "読み取れるウィンドウがありません（要素 $n 個）"
+            systemPackage(pkg) -> "表示内容: $pkg、要素 $n 個: " + first.joinToString { (it.resourceId ?: it.role).take(SEEN_CHARS) }
+            else -> "表示内容: 別のアプリ、要素 $n 個"
         }
     }
 
@@ -551,7 +560,7 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         app.packageManager.getApplicationInfo(pkg, 0).flags and ApplicationInfo.FLAG_SYSTEM != 0
     }.getOrDefault(false)
 
-    /** 带一个数字的文字(「点了 %d 次」「计时 %d」「第 %d 行」):按 App 语言取,用来认控件。 */
+    /** 数字を含むテキスト (「クリック %d 回」、「タイミング %d」、「行 %d」): アプリ言語に従って取得され、コントロールを識別するために使用されます。 */
     private fun numbered(res: Int) = SelfCheckText.Numbered(tr(res, SENTINEL), SENTINEL.toString())
 
     private val tapsText by lazy { numbered(R.string.selfcheck_target_taps) }
@@ -560,7 +569,15 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
 
     private fun UiElement.number(): Int? = Regex("\\d+").findAll(name).lastOrNull()?.value?.toIntOrNull()
 
-    private fun reason(r: ActionResult): String = (r as? ActionResult.Failed)?.reason ?: "not on top"
+    private fun reason(r: ActionResult): String = (r as? ActionResult.Failed)?.reason ?: "最前面にありません"
+
+    private fun stageLabel(stage: String): String = when (stage) {
+        "test page" -> "セルフテストページの起動時"
+        "Settings" -> "設定アプリの起動時"
+        "actions" -> "操作テスト時"
+        "end" -> "終了時"
+        else -> stage
+    }
 
     private fun format(ms: Double) = String.format(java.util.Locale.ROOT, "%.1f", ms)
 
@@ -577,16 +594,16 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         const val FRAME_TRIES = 20
         const val BLANK_SPREAD = 8
         const val BACK_TRIES = 2
-        /** 连收起输入法在内最多按这么多下。 */
+        /** 入力メソッドを閉じるまでの最大クリック回数はこの回数です。 長い間画像がまったく変化しなかったとしても、 */
         const val BACK_MAX_PRESSES = 5
         const val ALIVE_MS = 15_000L
         const val ALIVE_STEP_MS = 500L
-        /** 这么久画面一点没变就算停了(页面上的数字每 250 毫秒跳一次)。 */
+        /** は停止しました (ページ上の数字は 250 ミリ秒ごとに変化しました)。 */
         const val STALL_MS = 3_000L
         const val COMMAND_MS = 8_000L
         const val MAX_CHARS = 4_000
-        const val SETTINGS_IN_USE = "Settings is open on the main screen, so it was not opened"
-        const val SETTINGS_ON_MAIN = "Settings opened on the main screen"
+        const val SETTINGS_IN_USE = "設定アプリはメイン画面で使用中のため、新たに開きませんでした"
+        const val SETTINGS_ON_MAIN = "設定アプリがメイン画面で開きました"
 
         const val COUNT = "selfcheck_count"
         const val BUTTON = "selfcheck_button"
@@ -596,9 +613,9 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         const val TITLE = "selfcheck_title"
         val EXPECTED = listOf(TITLE, COUNT, BUTTON, INPUT, TICK, LIST)
         const val ASCII = "Mika 123"
-        const val CHINESE = "你好米卡"
+        const val JAPANESE = "こんにちはミカ"
         const val SENTINEL = 987_654_321
-        /** 读屏一项等自检页出现最多这么久。 */
+        /** セルフテストページが表示されるまでに、画面読み取り項目が表示されるまでに最大でこのくらいの時間がかかります。 */
         const val PAGE_WAIT_MS = 5_000L
         const val SEEN_ELEMENTS = 5
         const val SEEN_CHARS = 24
@@ -606,6 +623,6 @@ class AndroidSelfCheck(context: Context, private val status: () -> SystemStatus)
         const val WEB_PAGE = "https://appassets.androidplatform.net/assets/selfcheck/page.html"
         const val WEB_MARKER = "SELFCHECK-READ-OK"
         const val WEB_BUTTON = "#selfcheck-button"
-        const val WEB_CLICKED = "Clicked 1"
+        const val WEB_CLICKED = "クリック 1"
     }
 }

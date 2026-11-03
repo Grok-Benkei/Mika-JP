@@ -26,7 +26,7 @@ class LockStateTest {
         runCurrent()
     }
 
-    // 解锁的广播来得比锁屏界面退下早:读到的还是锁着,之后没有广播,也要自己看到解锁
+    // ロック解除のブロードキャストは、ロック画面が終了するよりも早く行われます。読み取られた内容はまだロックされており、その後ブロードキャストはないため、自分でロックの解除を確認する必要があります。
     @Test fun unlockSeenWithoutAnotherBroadcast() = runTest {
         val lock = lockState()
         val gate = TaskGate(lock.locked, MutableStateFlow(true)) { true }
@@ -36,27 +36,27 @@ class LockStateTest {
         runCurrent()
         assertEquals(TaskState.Held(TaskGate.LOCKED), reported.last())
 
-        // 熄屏时不读,等 SCREEN_ON
+        // 画面がオフのときは読み取りません。SCREEN_ON になるまで待ちます
         val dark = reads
         repeat(5) { tick() }
         assertEquals(dark, reads)
 
         interactive = true
-        lock.refresh() // SCREEN_ON 或 USER_PRESENT:亮了,锁屏界面还在
+        lock.refresh() // SCREEN_ON または USER_PRESENT: オン、ロック画面はまだ存在します
         tick()
         assertFalse(passed)
-        keyguardLocked = false // 锁屏界面退下,没有广播
+        keyguardLocked = false // ロック画面が終了し、ブロードキャストなし
         tick()
         assertTrue(passed)
         assertEquals(null, reported.last())
 
-        // 读到解锁后不再读
+        // が読み取られてロックが解除された後は読み取られなくなります
         val unlocked = reads
         repeat(10) { tick() }
         assertEquals(unlocked, reads)
     }
 
-    // 没人看这份状态时不读
+    // 誰も見ていないときはこのステータスを読まないでください
     @Test fun noReadsWithoutSubscribers() = runTest {
         interactive = true
         val lock = lockState()

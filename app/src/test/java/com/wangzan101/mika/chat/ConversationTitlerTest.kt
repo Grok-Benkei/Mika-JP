@@ -21,7 +21,7 @@ import org.junit.rules.TemporaryFolder
 class ConversationTitlerTest {
     @get:Rule val tmp = TemporaryFolder()
 
-    /** 回复固定文字的模型;[fail] 时抛错,[hang] 时一直不回。 */
+    /** は固定テキストに返信するモデルです。 [fail] はエラーをスローし、[hang] は戻りません。 */
     private class Titler(private val reply: String = "", private val fail: Boolean = false, private val hang: Boolean = false) : ChatModel {
         override val capabilities = Capabilities(toolCalls = true, vision = false, contextTokens = 8_000, reasoning = false)
         val requests = mutableListOf<List<Message>>()
@@ -39,13 +39,13 @@ class ConversationTitlerTest {
     @Test fun titlesTheFirstMessageOnce() = runBlocking {
         val s = store()
         val id = s.newConversation()
-        val m = Titler("附近的川菜")
+        val m = Titler("近くの四川料理")
         ConversationTitler.ensure(s, id, "帮我看看附近评分最高的川菜") { listOf(m) }
-        assertEquals("附近的川菜", s.title(id))
-        // 再来一次(模型换了说法)也不改、不再请求
+        assertEquals("近くの四川料理", s.title(id))
+        // もう一度試しても (モデル名が変更されています)、変更せず、再度リクエストしません。
         val again = Titler("别的名字")
         ConversationTitler.ensure(s, id, "第二句话") { listOf(again) }
-        assertEquals("附近的川菜", s.title(id))
+        assertEquals("近くの四川料理", s.title(id))
         assertTrue(again.requests.isEmpty())
     }
 
@@ -55,12 +55,12 @@ class ConversationTitlerTest {
         assertEquals("<message>\n订明天的高铁票\n</message>", text(m))
     }
 
-    /** 在浏览器页上问的第一句:页面说明不交给起标题的模型,只给用户说的话。 */
+    /** ブラウザー ページで尋ねられる最初の文: ページの説明はタイトルとともにモデルに与えられず、ユーザーが言ったことのみが与えられます。 */
     @Test fun pageContextIsNotPartOfTheTitleInput() = runBlocking {
-        val m = Titler("挑耳机")
+        val m = Titler("イヤホンを選ぶ")
         val first = com.wangzan101.mika.core.cap.web.AttachedPage.compose(
             com.wangzan101.mika.core.cap.web.AttachedPage.Page("https://shop.example.com/s", "搜索结果"), "挑一个评价最好的")
-        assertEquals("挑耳机", ConversationTitler.generate(listOf(m), first))
+        assertEquals("イヤホンを選ぶ", ConversationTitler.generate(listOf(m), first))
         assertTrue(text(m).contains("挑一个评价最好的"))
         assertFalse(text(m).contains("shop.example.com"))
     }
@@ -73,7 +73,7 @@ class ConversationTitlerTest {
         ConversationTitler.ensure(s, id, "查天气") { listOf(m) }
         assertNull(s.title(id))
         assertTrue(m.requests.isEmpty())
-        // 老对话没有标题,列表里仍是第一句话
+        // 古い会話にはタイトルがなく、まだリストの最初の文です。
         assertEquals("查天气", s.list().single().title)
     }
 
@@ -87,7 +87,7 @@ class ConversationTitlerTest {
     }
 
     @Test fun fallsBackToTheNextModelAndTimesOut() = runBlocking {
-        assertEquals("天气", ConversationTitler.generate(listOf(Titler(fail = true), Titler("天气")), "查天气"))
+        assertEquals("天気を確認", ConversationTitler.generate(listOf(Titler(fail = true), Titler("天気を確認")), "查天气"))
         assertNull(ConversationTitler.generate(listOf(Titler(hang = true)), "查天气", timeoutMs = 50))
         assertNull(ConversationTitler.generate(emptyList(), "查天气"))
     }
@@ -97,9 +97,30 @@ class ConversationTitlerTest {
         val line = com.wangzan101.mika.core.userscreen.UserScreenMessage.line("abc")
         assertNull(ConversationTitler.generate(listOf(m), line))
         assertTrue(m.requests.isEmpty())
-        // 带附言时只把附言给模型
+        // 追記を追加する場合はモデルにのみ追記を行ってください。
         ConversationTitler.generate(listOf(m), line + "\n这是什么")
         assertEquals("<message>\n这是什么\n</message>", text(m))
+    }
+
+    @Test fun nonJapaneseGeneratedTitlesUseAJapaneseFallback() = runBlocking {
+        for (reply in listOf("附近的川菜", "Book train tickets", "OpenAI", "`README.md`")) {
+            assertEquals(reply, "新しいチャット", ConversationTitler.generate(listOf(Titler(reply)), "調べて"))
+        }
+        val s = store()
+        val id = s.newConversation()
+        ConversationTitler.ensure(s, id, "Find nearby restaurants") { listOf(Titler("Nearby restaurants")) }
+        assertEquals("新しいチャット", s.title(id))
+    }
+
+    @Test fun aRejectedTitleCanFallBackToTheNextConfiguredModel() = runBlocking {
+        assertEquals("チケットを予約", ConversationTitler.generate(
+            listOf(Titler("Book train tickets"), Titler("チケットを予約")), "切符を予約して"))
+    }
+
+    @Test fun japaneseGeneratedTitlesPreserveNamesAndCode() = runBlocking {
+        for (title in listOf("OpenAIについて", "`README.md`を確認", "「微信」を調べる")) {
+            assertEquals(title, ConversationTitler.generate(listOf(Titler(title)), "調べて"))
+        }
     }
 
     @Test fun cleansTheReply() {
@@ -122,7 +143,7 @@ class ConversationTitlerTest {
         val b = ConversationStore(dir)
         assertEquals("附近的川菜", b.title(id))
         assertEquals("附近的川菜", b.list().single().title)
-        // 标题不进对话文件,轮次照旧读得出来
+        // タイトルは会話ファイルに入力されていませんが、ターンは引き続き読むことができます。
         assertEquals(listOf("帮我看看附近评分最高的川菜"), b.turns(id).map { it.userText })
         assertNull(b.title("不存在"))
     }

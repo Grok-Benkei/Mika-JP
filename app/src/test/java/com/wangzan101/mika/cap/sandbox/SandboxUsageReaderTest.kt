@@ -11,14 +11,14 @@ import org.junit.Test
 import java.io.File
 import java.nio.file.Files
 
-/** 已用空间:大小不跟进链接;清理按句柄删、不跟进链接;有任务在跑的对话不清。 */
+/** 使用済みスペース: サイズがリンクに従っていません。ハンドルによるクリーンアップ削除は、リンクをたどりません。実行中のタスクのダイアログが不明瞭です。 */
 class SandboxUsageReaderTest {
     private val tmp: File = Files.createTempDirectory("usage").toFile()
     private val dirs = SandboxDirs(File(tmp, "files/sandbox"), File(tmp, "cache"), File(tmp, "lib"), JVM_GATE, SandboxTree())
     private val active = mutableListOf<String>()
     private val reader = SandboxUsageReader(dirs, { listOf(ConversationSummary("a", "查快递", 0), ConversationSummary("b", "整理表格", 0)) }, { active })
 
-    /** 工作区外面一个大文件,工作区里有指向它(和它所在目录)的链接。 */
+    /** はワークスペースの外にある大きなファイルであり、ワークスペース内にそのファイル (およびそのファイルが配置されているディレクトリ) へのリンクがあります。 */
     private val outside = File(tmp, "outside").apply { mkdirs() }
     private val big = File(outside, "big.bin").apply { writeBytes(ByteArray(50_000)) }
 
@@ -40,7 +40,7 @@ class SandboxUsageReaderTest {
         assertEquals(listOf(1_000L, 300L, 10L), u.workspaces.map { it.bytes })
         assertEquals(listOf("整理表格", "查快递", null), u.workspaces.map { it.title })
         assertEquals(listOf(false, true, false), u.workspaces.map { it.busy })
-        assertNull("对话删掉了的认不出来", u.workspaces.last().conversationId)
+        assertNull("会話が削除されている場合は識別できない", u.workspaces.last().conversationId)
         assertEquals(70L, u.runtime)
         assertEquals(70L + 1_310L, u.total)
     }
@@ -49,7 +49,7 @@ class SandboxUsageReaderTest {
         val b = workspace("b", 1_000)
         assertTrue(reader.clear(b.name))
         assertFalse(b.exists())
-        assertTrue("链接指向的文件还在", big.isFile)
+        assertTrue("リンク先のファイルは残っている", big.isFile)
         assertEquals(50_000L, big.length())
     }
 
@@ -59,7 +59,7 @@ class SandboxUsageReaderTest {
         active += "a"
         assertFalse(reader.clear(a.name))
         assertTrue(File(a, "inbox/a.txt").isFile)
-        assertEquals("留下了一个在跑的", 1, reader.clearAll())
+        assertEquals("実行中の 1 件を残す", 1, reader.clearAll())
         assertTrue(a.exists())
         assertFalse(b.exists())
         assertTrue(big.isFile)

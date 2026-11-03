@@ -25,14 +25,14 @@ import com.wangzan101.mika.core.assembly.toolDispatcher
 internal fun ui(ref: String, role: String, name: String, b: List<Int>, rid: String? = null, clickable: Boolean = true, editable: Boolean = false) =
     UiElement(ref, role, name, (b[0] + b[2]) / 2, (b[1] + b[3]) / 2, b, rid, clickable, editable, false)
 
-/** 按页面走的假手机:每页一组元素,动作按「当前页 + 点了谁」换页;记下所有输入的字。 */
+/** ページごとに移動する偽の携帯電話: 各ページには一連の要素があり、アクションは「現在のページ + クリックした人」でページを変更します。入力されたすべての単語を記録します。 */
 internal class PagedScreen(pages: Map<String, List<UiElement>>, start: String = "launcher") : ScreenPort by FakeScreen() {
     val pages = pages.toMutableMap()
     var page = start
     var pkg: String? = null
     val typed = mutableListOf<String>()
     val taps = mutableListOf<String>()
-    /** (页, 被点元素名) → 新页 */
+    /** (ページ、クリックした要素名) → 新しいページ */
     val links = mutableMapOf<Pair<String, String>, String>()
     val log = mutableListOf<String>()
     var failReads = false
@@ -83,7 +83,7 @@ internal object Notes {
     fun screen() = PagedScreen(mapOf("home" to home, "editor" to editor)).apply { links["home" to "新建"] = "editor" }
 }
 
-/** 回放和循环里一样:动作经执行入口,同一份守卫、确认关卡与记录。 */
+/** 再生はループ内と同じです。アクションは実行エントリ、同じガード、確認レベル、レコードを通過します。 */
 internal fun replayerOn(d: ToolDispatcher, sink: RunSink, gate: suspend () -> Unit = {}) =
     Replayer(d, ActionExecutor(d, OperationGuards(), ConfirmationGate(), gate, ActionRecorder(sink)), gate = gate, sink = sink)
 
@@ -100,7 +100,7 @@ class ReplayerTest {
         assertEquals(listOf("新建"), s.taps)
         val replays = sink.all.filterIsInstance<RunEvent.Replay>()
         assertEquals(3, replays.size); assertTrue(replays.all { it.matched })
-        // 回放的动作也留下路线所需的记录,和工具结果按调用 id 配对
+        // 再生アクションは、ルートに必要なレコードも残し、コール ID に応じてツールの結果とペアになります。
         val targets = sink.all.filterIsInstance<RunEvent.ActionTarget>()
         assertEquals(3, targets.size)
         assertTrue(targets.all { t -> sink.all.filterIsInstance<RunEvent.ToolResult>().any { it.callId == t.callId && it.source == "replay" } })
@@ -116,7 +116,7 @@ class ReplayerTest {
     }
 
     @Test fun stopsWhenTargetNotUnique() = runTest {
-        // 锚点都在,但同名同 ID 的「新建」有两个(像列表里另一个联系人的同名按钮):不能照点
+        // アンカーはすべて存在しますが、同じ名前と ID の「新規」が 2 つあります (リスト内の別の連絡先と同じ名前のボタンなど)。クリックできません。
         val s = Notes.screen()
         s.pages["home"] = Notes.home + ui("@e9", "button", "新建", listOf(820, 880, 999, 980), rid = "n:id/new")
         val out = replayer(s).run(RouteChoice(Notes.route(), listOf("今天天气不错")))
@@ -138,7 +138,7 @@ class ReplayerTest {
         val steps = Notes.steps + RouteStep("phone_type_text", """{"text":"固定词"}""", Notes.steps[2].target, Anchors("com.notes", listOf("新笔记")), Anchors("com.notes", emptyList()))
         val out = replayer(s).run(RouteChoice(Notes.route(steps), listOf("周末去爬山")))
         assertEquals(ReplayOutcome.Completed(4), out)
-        // 端口收到的字只有两种来源:槽值(来自本次原话)与路线里的固定文字
+        // ポートが受信する単語のソースは 2 つだけです。スロット値 (元の会話から) とルート内の固定テキストです。
         assertEquals(listOf("周末去爬山", "固定词"), s.typed)
     }
 
@@ -155,10 +155,10 @@ class ReplayerTest {
 
     @Test fun divergesWhenActionHasNoEffect() = runTest {
         val s = Notes.screen()
-        s.links.clear() // 点了「新建」没反应,动作后锚点也没出现
+        s.links.clear() // 「新規」をクリックしても反応がなく、アクション後にアンカーポイントが表示されません。
         val out = replayer(s).run(RouteChoice(Notes.route(), listOf("x")))
         assertTrue(out is ReplayOutcome.Diverged); assertEquals(1, out.done)
-        // 点下去了,只是没看到预期变化:交还时要让模型知道这一步已经执行过
+        // クリックしましたが、期待した変化は見られませんでした。それを返すときに、このステップが実行されたことをモデルに知らせます。
         assertTrue((out as ReplayOutcome.Diverged).executed)
         assertEquals(listOf("新建"), s.taps)
     }
@@ -180,7 +180,7 @@ class ReplayerTest {
         val out = replayer(s, gate = { s.log += "gate" }).run(RouteChoice(Notes.route(), listOf("今天天气不错")))
         assertEquals(ReplayOutcome.Completed(3), out)
         assertEquals("gate", s.log.first())
-        // 每步都先过关卡再读屏
+        // 各ステップで画面を読む前に、最初にレベルを通過してください
         assertEquals(3, s.log.windowed(2).count { it == listOf("gate", "read") })
 
         val p = Notes.screen().apply { protectedPage = "home" }
@@ -189,7 +189,7 @@ class ReplayerTest {
     }
 
     @Test fun stableRefsTranslatedToPortRefs() = runTest {
-        // 稳定编号开着:回放读到的是模型编号(桌面先占了几个),点击要经分发器翻译回这一屏的端口编号
+        // 安定した番号がオンです: 再生によりモデル番号が読み取られます (デスクトップが最初にいくつかを占有します)。クリックすると、ディストリビュータを通じてこの画面のポート番号に変換されます。
         val s = Notes.screen().apply {
             pages["launcher"] = listOf(ui("@e1", "text", "桌面", listOf(0, 0, 999, 60), clickable = false), ui("@e2", "button", "相机", listOf(0, 100, 200, 200)))
         }
@@ -201,7 +201,7 @@ class ReplayerTest {
         assertEquals(ReplayOutcome.Completed(3), out)
         assertEquals(listOf("新建"), s.taps)
         assertEquals(listOf("今天天气不错"), s.typed)
-        // 运行记录里两套编号都有:模型编号不是端口编号
+        // 実行記録には 2 セットの番号があります: モデル番号はポート番号ではありません
         val tap = sink.all.filterIsInstance<RunEvent.ToolResult>().single { it.tool == "phone_tap" && it.source == "replay" }
         assertTrue(tap.resultJson, "\"portRef\":\"@e2\"" in tap.resultJson)
     }
@@ -215,7 +215,7 @@ class ReplayerTest {
         override suspend fun openLink(action: String?, uri: String?, packageName: String?): ActionResult { opened++; return result }
     }
 
-    // 路线里记着的链接此刻不在参考资料里:不去开,交还时说明没执行
+    // ルートに記憶されているリンクは、現時点では参考資料にありません。開かず、返すと実行されなかったと表示されます。
     @Test fun linkNoLongerAllowedStopsBeforeOpening() = runTest {
         val s = LinkScreen(ActionResult.Ok(changed = true))
         val d = toolDispatcher(s, deepLinks = true).also { it.captureTargets = true }
@@ -225,7 +225,7 @@ class ReplayerTest {
         assertEquals(0, s.opened)
     }
 
-    // 执行前就被拒(另一个任务占着 App):executed 为假,错误码交给模型
+    // は実行前に拒否されました (別のタスクがアプリを占有しています): 実行は false で、エラー コードがモデルに与えられます
     @Test fun preExecutionRejectionIsNotExecuted() = runTest {
         val s = LinkScreen(ActionResult.Failed("app_in_use_by_other_task"))
         val d = toolDispatcher(s, deepLinks = true).also { it.captureTargets = true; it.allowLinks(listOf(Link("新建笔记", "notes://new", "com.notes"))) }

@@ -1,123 +1,121 @@
-<!-- 主循环给模型的提醒、说明与参考资料的来源标签。每条以「## 键」开头,下面是原文;{{名字}} 由代码填。 -->
+<!-- 主な流れがモデルへ与える注意、説明、参考資料の出どころラベル。各項目は「## キー」で始まり、次が本文。{{名前}} はコードで埋める。 -->
 
 ## empty_reply
-Your reply was empty. Continue the task with your tools, or reply with your final answer to the user in text.
+返信が空だった。手段で作業を続けるか、ユーザーへの最終回答を文面で返信する。
 
 ## truncated_reply
-Your reply was cut off by the output limit before it was complete. Continue the task with your tools, or reply again with a shorter final answer.
+返信が出力上限で途中で切れた。手段で作業を続けるか、より短い最終回答で再度返信する。
 
 ## unconfirmed_nudge
-Before this answer goes to the user:
+この回答がユーザーへ渡る前に:
 {{findings}}
-Check this: read the place again if you can, then reply with your corrected final answer. Anything you still cannot confirm, say plainly in the answer that you could not confirm it instead of stating it as fact. This check happens once; your next answer goes to the user.
+次を確認する。可能であればその場所を再度読み、修正した最終回答で返信する。まだ確認できないものについては、事実として述べず、確認できなかった旨を回答の中で正直に伝える。この確認は1回だけ。次の回答がユーザーへ渡る。
 
 ## language_nudge
-Before this answer goes to the user: it is written mostly in {{answer}}, but the user's latest message is in {{user}}. Rewrite the whole answer in the language of the user's latest message. Translate what you read; keep the original only for proper names, or for labels the user must find on the screen, written as "translation (original)". Do not change any value: numbers, dates, amounts, units and names stay exactly as read. This check happens once; your next answer goes to the user.
+この回答がユーザーへ渡る前に: この回答は主に {{answer}} で書かれている。目標の出力言語は {{user}} であり、ユーザーの入力言語にかかわらず常に日本語である。回答全体の説明、質問、見出し、要約を日本語に書き直す。値は一切変えない。数値、日付、金額、単位、名前は、読んだとおり正確に保つ。引用原文、固有名詞、コード、URL、識別子、実際の表示ラベル、ユーザーが作成や翻訳の対象として指定した原文や訳文は、データとして必要な形を保つ。外国語の引用やラベルを示す場合は日本語の説明を添える。表示上で探す必要があるラベルは「日本語訳（原文）」の形で示せる。この確認は1回だけ。次の回答がユーザーへ渡る。
 
 ## leaked_call_nudge
-Your last reply contained a call to the tool `{{tool}}` written out as plain text, so it was not run: a tool call only takes effect when it is made through tool calling. If you meant to call a tool, call it again now; otherwise reply with your final answer to the user in plain words. This check happens once.
+直前の返信に、手段 `{{tool}}` への呼び出しが素の文面として書かれていたため、実行されなかった。手段の呼び出しが効力を持つのは、手段呼び出しとして行われた場合だけ。手段を呼ぶつもりだった場合は、今すぐ再度呼び出す。そうでない場合は、ユーザーへの最終回答を通常の言葉で返信する。この確認は1回だけ。
 
 ## unconfirmed_gaps
-These items in your answer do not appear in anything you read during this task:
+回答の中の次の項目は、この作業で読んだ内容のどこにも現れていない:
 {{items}}
 
 ## unconfirmed_objection
-An independent check of your answer against what you read during this task found a problem:
+この作業で読んだ内容に対する回答の独立した確認で、問題が見つかった:
 {{reasons}}
 
 ## followup_nudge
-Before this goes to the user: {{what}}, and nothing has been done with it since. Carry it out now, or, if you are not going to, tell the user plainly why.
+これがユーザーへ渡る前に: {{what}} について、その後何も行われていない。今すぐ実行するか、実行しない場合はその理由をユーザーに正直に伝える。
 
 ## followup_approved
-the user approved this action: {{action}}
+ユーザーがこの操作を承認した: {{action}}
 
 ## followup_answered
-the user answered your question 「{{prompt}}」
+ユーザーが質問「{{prompt}}」に答えた
 
 ## answer_or_failure
-If the result the task asks for needs a feature, menu, setting, page, item or value that is not there, call end_not_done listing what you checked. Only a yes/no question about whether something exists is answered by its absence: if the app's own search gave a definitive none, reply that it does not exist, quoting the text it showed.
+作業が求める結果に必要な機能、メニュー、設定、ページ、項目、値が存在しない場合は、確認した内容を列挙して end_not_done を呼び出す。存在するかどうかを尋ねる質問だけは、その不在自体が答えになる。アプリ自体の検索が明確に「ない」を返した場合は、表示された文面を引用して、存在しないと返信する。
 
 ## give_up_advice
-You keep repeating without progress. Stop revisiting the same places. If a specific missing choice or detail from the user would decide the next route, call ask_user and ask it once. Otherwise, continue only with a concrete untried route; if there is none, call end_not_done with the confirmed partial result, what is still missing and what you checked. {{answer_or_failure}}
+進展なく繰り返している。同じ場所を再訪し続けない。ユーザーからの特定の不足している選択や詳細が次の経路を決める場合は、ask_user を呼び、1回だけ尋ねる。そうでない場合は、具体的な未試行の経路だけで続ける。ない場合は、確認できた一部の結果、まだ不足しているもの、確認した内容を示して end_not_done を呼び出す。 {{answer_or_failure}}
 
 ## repeated_input_advice
-You have already typed "{{text}}" {{times}} times in this task; typing it again will show the same result. If what you have checked shows the target is not there, stop. {{answer_or_failure}}
+この作業で「{{text}}」をすでに {{times}} 回入力している。再度入力しても同じ結果が表示される。確認した内容で対象が存在しないことが示されている場合は、止める。 {{answer_or_failure}}
 
 ## progress_check
-Progress check: {{used}} of {{max}} steps used and the task is not finished. If what you have checked so far (search inside the app, its main menus) shows the target is not there or cannot be reached, stop now. {{answer_or_failure}} Continue only if you have a concrete, untried next place to look.
+進捗確認: {{max}} 手順のうち {{used}} 手順を使い、作業は終わっていない。これまでに確認した内容（アプリ内の検索、その主要なメニュー）で、対象が存在しない、または到達できないことが示されている場合は、今止める。 {{answer_or_failure}} 具体的な未試行の次の確認場所がある場合にだけ続ける。
 
 ## final_turn
-You are out of steps; no more phone actions are possible. If the task is done, reply to the user with the result in text, stating only what you read. If it is not done or only partly done, call end_not_done with the confirmed partial result, what you checked and what is missing.
+手順を使い切った。これ以上スマートフォンの操作はできない。作業が完了している場合は、読んだ内容だけを述べて、結果を文面でユーザーに返信する。完了していない場合や一部だけ完了している場合は、確認できた一部の結果、確認した内容、不足している内容を示して end_not_done を呼び出す。
 
 ## screenshot_note
-Current screenshot for the observation above.
+上記の確認に対する現在の画像。
 
 ## file_image_note
-The image file read above.
+上で読んだ画像ファイル。
 
 ## action_frame_note
-The screen right after the call above. Act with ref + snapshotId from the elements in that result's screen field; the image is only for understanding, and its screenshotId is for view_past_screens, never a snapshotId.
+上記の呼び出しの直後の状態。その結果の screen フィールドにある要素の ref + snapshotId で操作する。画像は理解のためだけ。その screenshotId は view_past_screens 用であり、決して snapshotId ではない。
 
 ## batch_view_note
-The screen after the steps above. Act with ref + snapshotId from these elements; the image (if any) is only for understanding, and its screenshotId is for view_past_screens, never a snapshotId.
+上記の手順の後の状態。これらの要素の ref + snapshotId で操作する。画像（ある場合）は理解のためだけ。その screenshotId は view_past_screens 用であり、決して snapshotId ではない。
 screen: {{screen}}
 
 ## recalled_note
-Recalled earlier screenshots, in the order of the view_past_screens result entries marked imageAttached. They show past screens, not the current one.
+呼び戻された以前の画像。view_past_screens の結果の項目のうち imageAttached と示された順序。その時点の表示を示すものであり、現在のものではない。
 
 ## nudge_source
-no answer given
+回答が得られていない
 
 ## before_accept_source
-added before the answer
+回答の前に追加された
 
 ## followup_source
-not carried out yet
+まだ実行されていない
 
 ## unconfirmed_source
-answer check
+回答の確認
 
 ## language_source
-answer language
+回答の言語
 
 ## leaked_call_source
-tool call as text
+文面としての手段呼び出し
 
 ## progress_source
-step check
+手順の確認
 
 ## final_source
-out of steps
+手順を使い切った
 
 ## replay_source
-earlier way of doing this
+以前の進め方
 
 ## parallel_call_skipped
-Phone actions run one at a time. Observe the result of the first action, then try again.
+スマートフォンの操作は一度に1つずつ実行される。最初の操作の結果を確認してから、再度試す。
 
 ## replay.completed
-All steps of the earlier way of doing this were run ({{total}} steps):
+以前の進め方のすべての手順が実行された（{{total}} 手順）:
 {{steps}}
-Read the app's current state to check the result; for a lookup task, find the answer in what you read, then answer the user directly.
+アプリの現在の状態を読んで結果を確認する。調べ物の作業については、読んだ内容の中から答えを見つけ、ユーザーに直接答える。
 
 ## replay.progress
-{{done}} of {{total}} steps were run automatically, following a way that worked before:
+{{total}} 手順のうち {{done}} 手順が、以前に成功した進め方に従って自動で実行された:
 {{steps}}
 {{next}}
 
-
-
 ## replay.diverged_executed
-Step {{step}} was run, but the expected change did not show: expected {{expected}}, actually read {{seen}}{{error}}. First check whether this step took effect; do not repeat it. Continue from the current screen or page.
+手順 {{step}} は実行されたが、期待した変化が現れなかった。期待: {{expected}}、実際に読まれたもの: {{seen}}{{error}}。まずこの手順が反映されたか確認する。繰り返さない。現在の表示またはページから続ける。
 
 ## replay.diverged_skipped
-Step {{step}} expected {{expected}}, actually read {{seen}}{{error}} (this step was not run). Continue from the current screen or page.
+手順 {{step}} は {{expected}} を期待したが、実際に読まれたものは {{seen}}{{error}} だった（この手順は実行されなかった）。現在の表示またはページから続ける。
 
 ## replay.error_code
-; error code: {{code}}
+; エラーコード: {{code}}
 
 ## replay.no_steps
-(none)
+（なし）
 
 ## replay.handback
 {{head}}
@@ -125,99 +123,98 @@ Step {{step}} expected {{expected}}, actually read {{seen}}{{error}} (this step 
 {{note}}
 
 ## replay.stopped
-Step {{step}} is 「{{action}}」, which needs the user's confirmation, so it was not run. Continue from the current screen or page, and handle the confirmation the normal way.
+手順 {{step}} は「{{action}}」であり、ユーザーの確認が必要なため、実行されなかった。現在の表示またはページから続け、確認は通常の方法で扱う。
 
 ## confirmation_unavailable
-request_confirmation is not available.
+request_confirmation は利用できない。
 
 ## confirm_app_mismatch
-app {{app}} is not the app on screen now ({{foreground}}). Observe, then call request_confirmation again with the package of the app on screen.
+アプリ {{app}} は、今表示されているアプリ（{{foreground}}）ではない。確認してから、表示されているアプリのパッケージで request_confirmation を再度呼び出す。
 
 ## batch.mixed_surface
-These steps act on more than one screen ({{surfaces}}); one do_steps call stays on one screen. Nothing was run: split them into separate calls, one screen per batch.
+これらの手順は複数の表示先に作用する（{{surfaces}}）。1回の do_steps は1つの表示先にとどまる。何も実行されなかった。表示先ごとに別々の呼び出しに分ける。
 
 ## approved_step_first
-Do the approved step on its own first: the user approved one action. Do exactly that action as a single tool call (not inside do_steps or web_script), then continue.
+承認された手順をまず単独で行う。ユーザーが1つの操作を承認した。その操作を正確に、単一の手段呼び出しとして行い（do_steps や web_script の中ではなく）、その後続ける。
 
 ## replay_screen_header
-Current screen (read result; its refs can be used directly):
+現在の状態（読み取り結果。その ref を直接使える）:
 
 ## replay_no_screen
-The current screen could not be read: observe first, then continue.
+現在の状態を読めなかった。まず確認してから続ける。
 
 ## confirmation_declined
-The user did not approve. Do not try this action again; report where things stand, then end.
+ユーザーは承認しなかった。この操作を再試行しない。現在の状況を報告して終える。
 
 ## confirmation_approved
-The user approved this once. Do this one action right away, without tapping anything else, scrolling, going back or switching apps in between (typing is fine). The approval is valid for 3 steps; the next matching action uses it up whether it succeeds or not, and doing it again needs a new request.
+ユーザーが今回だけ承認した。他のものをタップしたり、スクロールしたり、戻ったり、アプリを切り替えたりせず（入力は可）、直ちにこの1つの操作を行う。承認は3手順有効。次の一致する操作で、その成否にかかわらず使い切られる。再度行うには新たな依頼が必要。
 
 ## no_answer_message
-No answer came within the time limit.
+制限時間内に答えが来なかった。
 
 ## handback_note
-Getting the phone back only means control was returned; it does not mean the step succeeded. Read the current screen first to check the result, then continue or report.
+スマートフォンが戻ったことは、操作権が返されたことだけを意味し、その手順が成功したことを意味しない。まず現在の状態を読んで結果を確認してから、続けるか報告する。
 
 ## no_handback_note
-There was no handback. Do not say the user took care of it; report how the takeover ended as it is, and try another way or end if needed.
+引き継ぎはなかった。ユーザーが対応したとは言わない。引き継ぎがどのように終わったかをそのまま報告し、別の方法を試すか、必要であれば終える。
 
 ## user_finished_note
-The user says they finished it themselves.
+ユーザーが自分で終えたと言っている。
 
 ## user_finished_prompt
-The user says they finished it themselves. Only observe to read the app's current state and check: if it is confirmed done, answer the user directly with what you read; if you cannot confirm it, call end_not_done. Do nothing else.
-
+ユーザーが自分で終えたと言っている。アプリの現在の状態を読むためだけに確認する。完了が確認できれば、読んだ内容でユーザーに直接答える。確認できなければ end_not_done を呼び出す。他のことは行わない。
 
 ## user_screen.sent
-The user just captured the screen they are looking at ({{app}}, {{time}}), with no words.
+ユーザーが今見ている状態を撮影したばかり（{{app}}、{{time}}）。言葉は添えられていない。
 
 ## user_screen.sent_with_words
-The user just captured the screen they are looking at ({{app}}, {{time}}), with these words: {{words}}
+ユーザーが今見ている状態を撮影したばかり（{{app}}、{{time}}）。次の言葉を添えている: {{words}}
 
 ## user_screen.blocked
-The user tried to send you the screen they are looking at ({{app}}, {{time}}), but that page does not allow screenshots, so neither the image nor its text was captured; no words.
+ユーザーが今見ている状態を送ろうとした（{{app}}、{{time}}）が、そのページは画像の取得を許可していないため、画像もその文面も取得されなかった。言葉は添えられていない。
 
 ## user_screen.blocked_with_words
-The user tried to send you the screen they are looking at ({{app}}, {{time}}), but that page does not allow screenshots, so neither the image nor its text was captured; with these words: {{words}}
+ユーザーが今見ている状態を送ろうとした（{{app}}、{{time}}）が、そのページは画像の取得を許可していないため、画像もその文面も取得されなかった。次の言葉を添えている: {{words}}
 
 ## user_screen.missing
-The user sent a screen they were looking at ({{id}}), but that screenshot is no longer available.
+ユーザーが見ていた状態（{{id}}）を送ったが、その画像はもう利用できない。
 
 ## user_screen.earlier
-(Screen {{id}} the user sent earlier: {{app}}, {{time}}; the screen begins with 「{{gist}}」)
+（ユーザーが以前に送った状態 {{id}}: {{app}}、{{time}}。その状態は「{{gist}}」で始まる）
 
 ## user_screen.earlier_blank
-(Screen {{id}} the user sent earlier: {{app}}, {{time}}; no text was read on it)
+（ユーザーが以前に送った状態 {{id}}: {{app}}、{{time}}。そこでは文面が読まれなかった）
 
 ## user_screen.earlier_blocked
-(The user tried to send a screen earlier: {{app}}, {{time}}; that page does not allow screenshots, so nothing was captured)
+（ユーザーが以前に状態を送ろうとした: {{app}}、{{time}}。そのページは画像の取得を許可していないため、何も取得されなかった）
 
 ## user_screen.detail
-Screen id: {{id}}
-App: {{app}}{{package}}
-Captured at: {{time}}
-Text on the screen (each line starts with the position of its centre x,y, 0–999, top-left is 0,0; in a chat, bubbles on the left are from the other person and bubbles on the right are the user's own):
+状態の id: {{id}}
+アプリ: {{app}}{{package}}
+撮影時刻: {{time}}
+表示上の文面（各行は、その中心の位置 x,y で始まる。0–999、左上が 0,0。チャットでは、左側の吹き出しは相手のもの、右側の吹き出しはユーザー本人のもの）:
 {{lines}}
 
 ## user_screen.no_text
-No text was read on the screen.
+表示上で文面が読まれなかった。
 
 ## user_screen.ask_vision
-You cannot see this image. To learn anything beyond the text (icons, pictures, colours, layout), ask the vision model with view_user_screen and your question.
+この画像を見ることはできない。文面を超える内容（アイコン、画像、色、配置）を知るには、view_user_screen と質問で視覚モデルに尋ねる。
 
 ## user_screen.no_words
-The user sent only this screen, without words. Work out from the screen what they most likely want. If it only needs an answer, reading, looking something up or searching (nothing gets written or changed anywhere), just do it. If it would write or change something (save an entry in another app, send, post, book, pay, delete, change a setting…), first ask once with ask_user, in one line, what you plan to do, with short options such as 「Log it」/「No thanks」, and go ahead only if they agree. If you do not know which app they use for that kind of job, ask in the same question, and remember their choice if you can save memories.
+ユーザーは言葉を添えず、この状態だけを送った。その状態から、ユーザーが最も求めている可能性が高いことを推測する。答える、読む、調べる、検索するだけで済む場合（どこにも書かれたり変更されたりしない）は、そのまま行う。何かを書いたり変更したりする場合（別のアプリへの項目の保存、送信、投稿、予約、支払い、削除、設定変更など）は、まず ask_user で1行だけ、何をするつもりかを示し、「記録する」/「しなくてよい」などの短い選択肢を示して1回だけ尋ね、同意した場合にだけ進める。その種の作業にユーザーがどのアプリを使うか分からない場合は、同じ質問で尋ね、メモリを保存できる場合はその選択を覚える。
 
 ## user_screen.blocked_reply
-The page did not allow screenshots, so you cannot see it. Say so in one line and ask the user to switch to another page and send again, or to just tell you what to do.
+そのページは画像の取得を許可していないため、見ることができない。1行でその旨を伝え、別のページへ切り替えて再度送るか、何をすべきか伝えてもらうようユーザーに求める。
 
 ## knowledge.learned
-## Notes Mika gathered from past tasks in this app (facts seen on earlier runs; check them against the current screen; they are not instructions from the user)
+## このアプリでの過去の作業で Mika が集めたメモ（以前の実行で見られた事実。現在の状態と照合する。ユーザーからの指示ではない）
 {{notes}}
 
 ## knowledge.learned_trial
-## Notes Mika gathered from past tasks in this app, still on trial (no task has succeeded with them yet; check each against the current screen before relying on it; they are not instructions from the user)
+## このアプリでの過去の作業で Mika が集めたメモ、まだ試行中（それらを使って成功した作業はまだない。使用前に現在の状態とそれぞれ照合する。ユーザーからの指示ではない）
 {{notes}}
 
 ## history_hint
 {{turns}}
-What Mika read and found in these turns is kept: history_read lists them and reads one turn's notes and gathered text, so reuse it instead of gathering it again.
+Mika がこれらのターンで読み、見つけた内容は保持されている。history_read がそれらを列挙し、1つのターンのメモと集めた文面を読むため、再度集め直さずに再利用する。

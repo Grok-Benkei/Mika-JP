@@ -13,40 +13,40 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * 把一个滚轮转到一个值,在一次调用里做完。按控件能做什么依次试(能做就做,做不到退到下一种):
- * 1. 滚轮里有输入框(原版的数字滚轮有):直接把值写进去,让它失去焦点确认,读回来;
- * 2. 滚轮能无障碍「往前/往后滚」(原版的数字滚轮一下一格):读出当前值,按 [WheelSteps] 定方向和下数,一批一批滚,每批读回;
- * 3. 都不行(App 自己画的滚轮):读这一列看得到的几项(无障碍读不到就认屏上的字)估一格多高和当前值,在这一列上慢慢拖
- *    (不甩,免得转过头),读回来再校正;拖了值不动就拖远一点、换快一点再试,还不动报 not_moving 交回模型。
+ * スクロール ホイールを回転して値を指定し、1 回の呼び出しで完了します。実行できる内容に応じて、コントロールを順番に試します (実行できる場合は実行し、実行できない場合は次のコントロールに戻ります)。
+ * 1. スクロール ホイールには入力ボックスがあります (元のデジタル スクロール ホイールにはありました)。値を直接書き込み、フォーカスを外して確認し、それを読み戻します。
+ * 2. スクロール ホイールは障害なく「前方/後方にロール」できます (元のデジタル スクロール ホイールは 1 フレームをクリックします): 現在の値を読み取り、[WheelSteps] を押して方向を設定し、カウント ダウンし、一度に 1 つのバッチをロールし、各バッチを読み取ります。
+ * 3. どれも機能しません (アプリ自体によって描画されるスクロール ホイール): この列に表示されているいくつかの項目を読んで (問題なく読めない場合は、画面上の単語を認識してください)、1 つのグリッドの高さと現在の値を推定し、この列をゆっくりとドラッグします。
+ *    (頭を動かさないように動かないでください)、読み返してから修正してください。値が動かない場合は、さらにドラッグし、より速く変更して、もう一度試してください。それでも動かない場合は、not_moving を報告し、モデルを返します。
  *
- * 给的编号可以是滚轮,也可以是它显示的某一项(常是选中的那一项):这时滚轮是和这一项横向对齐的那一列,
- * 同一块里并排的别的滚轮(时旁边的分)不读、不拖。
- * 读值、拖动、等界面安静都由 [AndroidScreen] 注入,这里只管步骤。
+ * によって与えられる番号は、スクロール ホイールであることも、表示される特定の項目 (通常は選択された項目) であることもあります。このとき、スクロール ホイールは、この項目と水平に並んだ列内にあります。
+ * 同じブロック内の他のスクロール ホイール (時間の隣の分) は、読み取りまたはドラッグできません。
+ * の読み取り、ドラッグ、およびその他のインターフェイス機能はすべて [AndroidScreen] によって挿入されます。ここでは手順のみに焦点を当てます。
  */
 internal class WheelDriver(
     private val width: Int,
     private val height: Int,
-    /** 等到界面连续安静 quietMs,最多等 capMs。 */
+    /** インターフェイスが継続的に QuietMs (capMs まで) になるまで待ちます。 */
     private val quiet: suspend (quietMs: Long, capMs: Long) -> Unit,
-    /** 一根手指沿这几点拖(像素):[slow] 为 true 时慢拖、松手前停住不甩;false 时像人快快划一下。 */
+    /** これらの点 (ピクセル) に沿って 1 本の指をドラッグします。 [slow] が true の場合、ゆっくりとドラッグし、放す前に停止します。 false の場合、人間のように素早くドラッグします。 */
     private val drag: suspend (points: List<Pair<Int, Int>>, slow: Boolean) -> Boolean,
-    /** 认屏上的字(0–999 的坐标);没有为 null。 */
+    /** は画面上の文字を識別します (0 ～ 999 座標)。そうでない場合は null です。 */
     private val ocr: suspend () -> List<VisibleTextLine>?,
-    /** 这块屏上弹着输入法。 */
+    /** この画面には入力方法がポップアップ表示されます。 */
     private val imeShown: () -> Boolean,
-    /** 按一下返回(收起输入法)。 */
+    /** クリックして戻ります (入力メソッドを折りたたむ)。 */
     private val back: () -> Boolean,
 ) {
     private var attempts = 0
 
-    /** 一次读值:选中的那一项 [current](读不出为 null)和这一列看得到的几项(从上到下),[selected] 是选中项的下标。 */
+    /** 1 回限りの読み取り値: 選択した項目 [current] (null として読み取ることはできません) およびこの列に表示されるいくつかの項目 (上から下)、[selected] は選択した項目の添字です。 */
     private class Reading(val current: String?, val items: List<WheelMath.Item>, val selected: Int) {
         val texts get() = items.map { it.text }
     }
 
     /**
-     * 要转的那一列:从 [root] 往下读,只认横向落在 [left]..[right] 里的项;[mid] 是选中那一格的中线;
-     * [rowHeight] 是一格多高估不出来时的退路(给的是一项时就是它自己的高度)。
+     * 転送される列: [root] から下方に読み取り、[left]..[right] の水平方向にある項目のみを認識します。 [mid] は、選択したセルの中心線です。
+     * [rowHeight] は、過大評価が 1 グリッド以上出ない場合の撤退です (1 項目を指定した場合は、それ自体の高さになります)。
      */
     private class Column(val root: AccessibilityNodeInfo, val box: Rect, val left: Int, val right: Int, val mid: Int, val rowHeight: Int)
 
@@ -63,7 +63,7 @@ internal class WheelDriver(
         }
         if (WheelMath.matches(from, value)) return outcome(true, from, from, "none")
 
-        // 1. 直接输入
+        // 1. 直接入力
         editableOf(wheel ?: start)?.let { field ->
             if (typeInto(field, value)) {
                 now = settled(col)
@@ -71,7 +71,7 @@ internal class WheelDriver(
             }
         }
 
-        // 2. 无障碍滚动
+        // 2. バリアフリースクロール
         if (wheel != null && canStep(wheel)) {
             val steps = WheelSteps(value, cap = MAX_STEPS)
             var stopped: String? = null
@@ -79,7 +79,7 @@ internal class WheelDriver(
             loop@ while (true) {
                 when (val s = steps.next(now.current, now.texts)) {
                     WheelSteps.Step.Done -> {
-                        // 读到目标时滚轮可能还在动:停稳了再核对一次,不对就接着滚
+                        // ターゲットの読み取り時にスクロール ホイールがまだ動いている可能性があります。停止して再度確認してください。正しくない場合は、スクロールを続けてください。
                         now = settled(col)
                         if (WheelMath.matches(now.current, value)) return outcome(true, now.current, from, "actions")
                         if (++rechecks > MAX_RECHECKS) { stopped = "not_reached"; break@loop }
@@ -93,7 +93,7 @@ internal class WheelDriver(
                         quiet(STEP_QUIET_MS, STEP_CAP_MS)
                         wheel.refresh()
                         now = settled(col)
-                        // 一下都没滚动:这一边到头了(或这一边不让滚)
+                        // まったく転がりませんでした: こちら側は終了です (または、こちら側はロールできません)
                         if (done == 0 && !WheelMath.matches(now.current, value)) { stopped = "at_end"; break@loop }
                     }
                 }
@@ -101,7 +101,7 @@ internal class WheelDriver(
             if (stopped == "at_end" || stopped == "unknown_value") return outcome(false, now.current, from, "actions", stopped)
         }
 
-        // 3. 拖动
+        // 3.ドラッグ
         return dragTo(col, value, from, now)
     }
 
@@ -113,7 +113,7 @@ internal class WheelDriver(
         while (true) {
             when (val s = plan.next(now.texts, now.selected, now.items.map { it.centerY }, dragged)) {
                 WheelDrags.Step.Done -> {
-                    // 停稳了再核对一次(松手后滚轮还会吸附到最近的一格)
+                    // 停止して再度確認してください (ホイールを放した後も、ホイールは最も近いグリッドに張り付いたままになります)
                     now = settled(col)
                     if (WheelMath.matches(now.current, value)) return outcome(true, now.current, from, "drag")
                     if (++rechecks > MAX_RECHECKS) return outcome(false, now.current, from, "drag", "not_reached")
@@ -129,9 +129,9 @@ internal class WheelDriver(
     }
 
     /**
-     * 在这一列上拖过 [steps] 格(正数手指往上 = 前进),每格 [itemHeight]、再乘 [boost];返回手指实际走过的像素(往上为正),
-     * 拖不出去为 null。手指落在这一列的横向正中,往上拖从这一列靠下的地方起、往下拖从靠上的地方起,可以拖出这一列(手指没抬起,
-     * 滚轮照样跟着走),只夹在屏内。
+     * この列で [steps] をドラッグし (正の数値は前に進むことを意味します)、グリッドごとに [itemHeight] を乗算し、さらに [boost] を乗算します。指が実際に歩いたピクセルを返します (上が正)、
+     * は null になります。列の水平方向の中央に指を置き、上にドラッグして列の下部から開始し、下にドラッグして列の上部から開始すると、列をドラッグすることができます（指を離さずに、
+     * スクロール ホイールは動きに追従します)、画面内に固定されているだけです。
      */
     private suspend fun dragSteps(col: Column, r: Reading, steps: Int, itemHeight: Int, boost: Double, slow: Boolean): Int? {
         val h = itemHeight.coerceAtLeast(1)
@@ -153,7 +153,7 @@ internal class WheelDriver(
         return dragged
     }
 
-    /** 往滚轮里的输入框写值并确认(失去焦点时原版滚轮按写进去的值定下来);因此弹出的输入法收起来。 */
+    /** スクロール ホイールの入力ボックスに値を書き込み、確認します (フォーカスが失われると、元のスクロール ホイールは書き込まれた値に従って設定されます)。したがって、ポップアップ入力メソッドは廃止されます。 */
     private suspend fun typeInto(field: AccessibilityNodeInfo, value: String): Boolean {
         val imeBefore = imeShown()
         field.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
@@ -169,11 +169,11 @@ internal class WheelDriver(
         return set
     }
 
-    // ---------- 读 ----------
+    // ---------- 読む ----------
 
     /**
-     * 停稳后的读数:滚动、拖动之后滚轮还会转一会儿、吸附到最近的一格(原版数字滚轮一格的动画约 0.3 秒),
-     * 也不一定发无障碍事件。隔 [SETTLE_MS] 连读两次值相同才算停稳,至多读 [MAX_SETTLE_READS] 次。
+     * 停止後の読み取り値: スクロールしてドラッグした後、ホイールはしばらく回転し、最も近いフレームに吸着します (元のデジタル スクロール ホイールの 1 フレームのアニメーションは約 0.3 秒です)。
+     * は必ずしもアクセシビリティ イベントを引き起こすわけではありません。同じ値が [SETTLE_MS] ごとに 2 回連続して読み取られると停止します。最大 [MAX_SETTLE_READS] 回読み込むことができます。
      */
     private suspend fun settled(col: Column): Reading {
         var last = read(col)
@@ -196,8 +196,8 @@ internal class WheelDriver(
             val items = if (anchor >= 0) WheelMath.column(found, anchor) else found
             val i = WheelMath.selectedIndex(items, col.mid, WheelMath.itemHeight(items.map { it.centerY }) ?: h)
             if (i >= 0) return Reading(items[i].text, items, i)
-            // 没有哪一项盖住中线:可能是中间那一格没报出来(只报了上下两格),按上下紧挨着的两项推出中间那一格;
-            // 推不出时退回离中线最近的那一项
+            // どの項目も中心線をカバーしていません。中央のグリッドが報告されていない可能性があります (上部と下部のグリッドのみが報告されます)。すぐ上と下の 2 つの項目を押して、中央のグリッドを押し出します。
+            // は押し出せない場合は中心線に近い項目に戻ります。
             val below = items.indexOfFirst { it.centerY > col.mid }
             val mid = (if (below > 0) WheelMath.between(items[below - 1].text, items[below].text) else null) ?: run {
                 val j = WheelMath.selected(items.map { it.centerY }, col.mid, WheelMath.itemHeight(items.map { it.centerY }) ?: h)
@@ -208,7 +208,7 @@ internal class WheelDriver(
             }
             return Reading(mid, withMid, below)
         }
-        // 自己画的滚轮:认这一列里的字
+        // 私が描いたスクロール ホイール: この列の単語を認識します
         val lines = ocr().orEmpty().mapNotNull { l ->
             val cx = px((l.bounds[0] + l.bounds[2]) / 2, width)
             val cy = px((l.bounds[1] + l.bounds[3]) / 2, height)
@@ -219,7 +219,7 @@ internal class WheelDriver(
         return Reading(lines.getOrNull(i)?.text, lines, i)
     }
 
-    /** 这一列里看得到、带字的几项(往下找几层),从上到下;同一项不重复。 */
+    /** この列 (数レベル下にあります) に表示される単語を含むいくつかの項目 (上から下)。同じ項目は繰り返されません。 */
     private fun treeItems(col: Column): List<WheelMath.Item> {
         val out = mutableListOf<WheelMath.Item>()
         val r = Rect()
@@ -241,7 +241,7 @@ internal class WheelDriver(
         return out.sortedBy { it.centerY }
     }
 
-    /** 一项的名字;系统单独报的状态(stateDescription,如「已选中」)若被拼进了名字,先拿掉。太长的不算一项。 */
+    /** アイテムの名前。システムによって個別に報告されるステータス (「selected」などの stateDescription) が名前に綴られている場合は、最初にそれを削除してください。長すぎるものはカウントされません。 */
     private fun itemLabel(n: AccessibilityNodeInfo): String? {
         var label = ScreenReader.ownLabel(n) ?: return null
         val state = n.stateDescription?.toString()?.trim()
@@ -251,11 +251,11 @@ internal class WheelDriver(
         return label.takeIf { it.length <= MAX_ITEM_CHARS }
     }
 
-    // ---------- 认滚轮 ----------
+    // ---------- ローラーの識別 ----------
 
     /**
-     * 能无障碍滚的滚轮:给的节点自己、往上几层里能滚的那个(给的是滚轮里的一项时),或往下找到的;
-     * 往上找到的要横向罩着给的那一项的正中(整页的滚动区罩着几个并排的滚轮,不能拿来滚)。没有为 null。
+     * 障害物なしでスクロールできるローラー: 指定されたノード自体、数レイヤー上にスクロールできるもの (指定された項目がローラーの 1 つの場合)、または下に見つかったもの。
+     * 上で見つけたものは、指定された項目の中央を水平にカバーしているはずです (ページ全体のスクロール領域は、いくつかの並んだローラーで覆われており、スクロールには使用できません)。どれもヌルではありません。
      */
     private fun scrollableWheel(start: AccessibilityNodeInfo, startBox: Rect): AccessibilityNodeInfo? {
         if (scrollable(start)) return start
@@ -280,13 +280,13 @@ internal class WheelDriver(
     }
 
     /**
-     * 要读的那一列。给的是滚轮(能滚的)或里面装着几项:就是它。给的是一项(自己画的滚轮常这样):
-     * 往上找最近的、里面和它横向对齐的项不少于三项的那一层,只认横向和它对齐的项,所以旁边的滚轮不算进来。
+     * 読み取られる列。ローラー (転がすことができる) またはいくつかのアイテムが入った状態で提供されます。それだけです。与えられるのは 1 つのアイテムです (私がよく描くローラーは次のようになります)。
+     * 少なくとも 3 つのアイテムが水平方向に並んでいる最も近いレイヤーを検索します。横方向に並んだ項目のみが認識されるため、横にあるスクロール ホイールは含まれません。
      */
     private fun columnOf(start: AccessibilityNodeInfo, startBox: Rect, wheel: AccessibilityNodeInfo?): Column {
         val ownHeight = startBox.height().coerceAtLeast(1)
         if (wheel != null && wheel != start && Rect().also(wheel::getBoundsInScreen).let { it.width() <= startBox.width() * 2 }) {
-            // 给的是滚轮里的一项、滚轮就这一列宽:读整个滚轮
+            // は、スクロール ホイールに 1 つの項目を表示します。スクロール ホイールの幅はこの列のみです。スクロール ホイール全体を読んでください。
             val box = Rect().also(wheel::getBoundsInScreen)
             return Column(wheel, box, box.left, box.right, startBox.centerY(), ownHeight)
         }
@@ -314,7 +314,7 @@ internal class WheelDriver(
         it.id == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD || it.id == AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
     }
 
-    /** 滚轮自己或里面一层的输入框(原版数字滚轮中间那一格就是)。 */
+    /** スクロール ホイール自体、または内側のレイヤーの入力ボックス (元のデジタル スクロール ホイールの中央のボックス)。 */
     private fun editableOf(wheel: AccessibilityNodeInfo): AccessibilityNodeInfo? {
         if (wheel.isEditable) return wheel
         for (i in 0 until wheel.childCount) {
@@ -333,14 +333,14 @@ internal class WheelDriver(
         const val MAX_STEPS = 80
         const val MAX_UP = 5
         const val MAX_DOWN = 4
-        /** 一项的名字常带着状态词(「已选中，21」「Selected, 21」),放宽一些。 */
+        /** アイテムの名前にはステータス ワード (「選択済み、21」「選択済み、21」) が含まれることが多いため、よりリラックスしてください。 */
         const val MAX_ITEM_CHARS = 24
-        /** 一格多高估不出来时按一屏五行算。 */
+        /** 複数のグリッドで過大評価を決定できない場合は、1 画面と 5 つの要素に従って計算します。 */
         const val ASSUMED_ROWS = 5
-        /** 一次拖至少能拖这么多格(列表只读到一两项时也拖得开)、至少这么多像素(拖得太短会被当成点按)。 */
+        /** 一度に少なくともこの数のセルをドラッグできます (リストに 1 つまたは 2 つの項目しか読み込まれない場合でもドラッグできます)、少なくともこの数のピクセルをドラッグできます (ドラッグが短すぎるとクリックとみなされます)。 */
         const val MIN_DRAG_ROWS = 3
         const val MIN_DRAG_PX = 48
-        /** 判停稳:隔这么久连读两次值相同;至多读几次;读到目标后停稳了却不对,至多再接着转几次。 */
+        /** 停止判定：長時間２回読み込んでも値が同じ。多くても数回読むことができます。ターゲットを読んだ後に停止しますが、間違っており、継続できるのはせいぜい数回です。 */
         const val SETTLE_MS = 350L
         const val MAX_SETTLE_READS = 5
         const val MAX_RECHECKS = 2

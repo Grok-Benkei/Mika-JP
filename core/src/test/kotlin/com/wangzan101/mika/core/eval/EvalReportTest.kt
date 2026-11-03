@@ -23,18 +23,18 @@ class EvalReportTest {
         val md = EvalReport.markdown("r1", "deepseek-flash", scores, listOf("e-xhs" to "未安装 com.xingin.xhs"), null)
         assertFalse(secret in md)
         assertFalse("屏幕文字" in md)
-        listOf("r1", "deepseek-flash", "办成率", "2/4", "假成功率", "1/3", "1/4", "未核实成功", "步数", "耗时", "token",
+        listOf("r1", "deepseek-flash", "達成率", "2/4", "誤った成功報告の割合", "1/3", "1/4", "未確認の成功", "ステップ数", "所要時間", "トークン",
             "false_success", "a-ok", "b-false", "e-xhs", "未安装 com.xingin.xhs", "Mika评测-r1").forEach {
             assertTrue(it, it in md)
         }
-        assertTrue(md, "| 输入 token | 4000000 |" in md)
+        assertTrue(md, "| 入力トークン | 4000000 |" in md)
     }
 
     @Test fun perTaskVerdictShown() {
         val (s, o) = pair("v-ok", "succeeded", true, 4, 10_000)
         val (s2, o2) = pair("v-unv", "unverified", false, 4, 10_000)
         val md = EvalReport.markdown("r1", "m", listOf(s to o.copy(verdict = "pass"), s2 to o2.copy(verdict = "cannot_verify")), emptyList(), null)
-        assertTrue(md, "核查" in md)
+        assertTrue(md, "検証" in md)
         assertTrue(md, md.lines().any { it.startsWith("| v-ok |") && "pass" in it })
         assertTrue(md, md.lines().any { it.startsWith("| v-unv |") && "cannot_verify" in it })
     }
@@ -45,17 +45,17 @@ class EvalReportTest {
         val md = EvalReport.markdown("r1", "m", listOf(s to o, s2 to o2.copy(inputTokens = 1000, cachedTokens = 900, outputTokens = 7)), emptyList(), null)
         assertTrue(md, md.lines().any { it.startsWith("| t-a |") && it.endsWith("| 1000000 | 40.0% | 200000 |") })
         assertTrue(md, md.lines().any { it.startsWith("| t-b |") && it.endsWith("| 1000 | 90.0% | 7 |") })
-        // 汇总:按 token 加权的命中率,以及每题命中率的中位数
-        assertTrue(md, "| 缓存命中率(cached/input) | 40.0% |" in md)
-        assertTrue(md, "| 每题缓存命中率中位数 | 65% |" in md)
+        // 概要: トークンによって重み付けされたヒット率、および各質問のヒット率の中央値
+        assertTrue(md, "| キャッシュ利用率（cached/input） | 40.0% |" in md)
+        assertTrue(md, "| タスクごとのキャッシュ利用率の中央値 | 65% |" in md)
     }
 
     @Test fun costOnlyWithPrices() {
         val none = EvalReport.markdown("r1", "m", scores, emptyList(), null)
-        assertFalse("花费" in none)
+        assertFalse("費用" in none)
         val priced = EvalReport.markdown("r1", "m", scores, emptyList(), Prices(inputPerM = 1.0, outputPerM = 2.0, cachedPerM = 0.5))
-        // 每题: 未缓存输入 0.6M×1 + 缓存 0.4M×0.5 + 输出 0.2M×2 = 1.2;四题 4.8
-        assertTrue("花费" in priced)
+        // 各質問: キャッシュされていない入力 0.6M×1 + キャッシュされた 0.4M×0.5 + 出力 0.2M×2 = 1.2; 4 つの質問 4.8
+        assertTrue("費用" in priced)
         assertTrue(priced, "4.8" in priced)
     }
 
@@ -66,7 +66,7 @@ class EvalReportTest {
         assertEquals(7.0, EvalReport.p90(listOf(7.0)), 0.0)
         assertEquals(10.0, EvalReport.p90((1..11).map { it.toDouble() }.reversed()), 0.0)
         val md = EvalReport.markdown("r1", "m", scores, emptyList(), null)
-        assertTrue(md, "| 步数中位数 | 7 |" in md && "| 步数 P90 | 10 |" in md && "| 耗时中位数(秒) | 25 |" in md)
+        assertTrue(md, "| ステップ数の中央値 | 7 |" in md && "| ステップ数 P90 | 10 |" in md && "| 所要時間の中央値（秒） | 25 |" in md)
     }
 
     @Test fun totalWallClockShownWhenGiven() {
@@ -75,9 +75,9 @@ class EvalReportTest {
             Observed("succeeded", "", emptyList(), null, emptyMap(), emptyMap(), 1, 60_000, 0, 0, 0, null),
         )
         val o = Observed("succeeded", "", emptyList(), null, emptyMap(), emptyMap(), 1, 60_000, 0, 0, 0, null)
-        assertFalse("总墙钟时间" in EvalReport.markdown("r", "m", listOf(s to o), emptyList(), null))
+        assertFalse("合計経過時間" in EvalReport.markdown("r", "m", listOf(s to o), emptyList(), null))
         val md = EvalReport.markdown("r", "m", listOf(s to o), emptyList(), null, totalWallMs = 90_500, parallel = 2)
-        assertTrue(md, "| 总墙钟时间(秒) | 90.5 |" in md)
-        assertTrue(md, "并行 2" in md)
+        assertTrue(md, "| 合計経過時間（秒） | 90.5 |" in md)
+        assertTrue(md, "同時実行 2" in md)
     }
 }

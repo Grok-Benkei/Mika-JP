@@ -23,12 +23,12 @@ import kotlinx.serialization.json.put
 import com.wangzan101.mika.core.uistate.screen
 import com.wangzan101.mika.core.uistate.session
 
-/** 根据每一步读到的当前无障碍树重新定位目标,然后把动作交回统一执行入口。 */
+/** は、各ステップで読み取られた現在のアクセシビリティ ツリーに基づいてターゲットを再配置し、アクションを統合実行入口に返します。 */
 internal object PhoneRun : PhoneTool {
     override val verb = Verb.PhoneRun
     override val risk = Risk.Write
     override val composite = true
-    override val label = "连续操作手机"
+    override val label = "スマートフォンを連続操作"
     override val def = ToolDef("phone_run", Prompts.tool("phone_run"), mapOf(
         "commands" to buildJsonObject {
             put("type", "array"); put("minItems", 1); put("maxItems", 30)
@@ -123,7 +123,7 @@ internal object PhoneRun : PhoneTool {
                     val present = command.boolean("present") ?: true
                     val timeout = if (op == "assert") 0 else command.integer("timeoutMs") ?: 5_000
                     if (timeout !in 0..10_000) throw ArgError("commands[$index].timeoutMs", "must be 0-10000")
-                    // 等的时候用户插了话:不再等,这一条和后面的都不做,先读那句话
+                    // 待機中にユーザーが中断しました: もう待つ必要はありません、これや次のことはしないで、最初にその文を読んでください
                     val found = awaitText(ctx, text, present, timeout)
                     if (found == null) failCode(SKIPPED_FOR_NEW_MESSAGE)
                     else ToolExecution(buildJsonObject { put("ok", found); if (!found) put("error", "condition_unmet") })
@@ -186,7 +186,7 @@ internal object PhoneRun : PhoneTool {
     private suspend fun run(sub: SubActions, ctx: ToolContext, index: Int, name: String, args: JsonObject): ToolExecution =
         sub.run(Part.ToolCall("${ctx.callId}.${index + 1}.$name", name, args.toString()))
 
-    /** 等到文字出现(或消失);用户插话撤掉了这次等待时为 null。 */
+    /** テキストが表示される (または消える) まで待ちます。ユーザーがこの待機を中断してキャンセルすると、null になります。 */
     private suspend fun awaitText(ctx: ToolContext, text: String, present: Boolean, timeoutMs: Int): Boolean? {
         if (hasText(ctx, text) == present) return true
         if (timeoutMs == 0) return false

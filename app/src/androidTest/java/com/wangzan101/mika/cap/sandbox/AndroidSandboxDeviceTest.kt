@@ -13,10 +13,10 @@ import org.junit.BeforeClass
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** AndroidSandbox 在真机上跑命令;根文件系统按冒烟测试的方式准备在 files/sandbox-test/rootfs,不碰装好的沙箱。 */
+/** AndroidSandbox は実マシン上でコマンドを実行します。ルート ファイル システムは、インストールされたサンドボックスには触れずに、スモーク テスト方法に従って files/sandbox-test/rootfs に準備されます。 */
 @RunWith(AndroidJUnit4::class)
 class AndroidSandboxDeviceTest {
-    // 测试自己解的根文件系统,跟真正装好的沙箱分开放
+    // は、実際にインストールされたサンドボックスとは別に、自分で解決したルート ファイル システムをテストします
     private val sb = AndroidSandbox(SandboxSmokeTest.testDirs, { SandboxStatus.Ready(network = false) }, { AndroidSandbox.dns(context) }, bridges = true)
 
     private fun sh(command: String, ws: String = "dev-a", timeoutMs: Long = 30_000): CommandResult =
@@ -42,7 +42,7 @@ class AndroidSandboxDeviceTest {
     }
 
     private fun checkTimezone(zone: java.time.ZoneId, prefix: String) {
-        // 冬夏各测一次:不能把手机此刻的 UTC 偏移写死成全年偏移。
+        // 冬と夏に 1 回測定: 現時点では、携帯電話の UTC オフセットを年間を通じてのオフセットにプログラムすることはできません。
         for (date in listOf("2026-01-15T04:08:50Z", "2026-07-15T04:08:50Z")) {
             val instant = java.time.Instant.parse(date)
             val seconds = instant.epochSecond
@@ -103,14 +103,14 @@ class AndroidSandboxDeviceTest {
     @Test fun cannotSeeSdcard() {
         val r = sh("ls /sdcard /storage/emulated/0 2>&1")
         assertTrue(r.output, r.exitCode != 0 || r.output.isBlank())
-        // 经 /proc/self/root 绕到宿主的根目录也看不到
+        // は、/proc/self/root を通じてホストのルート ディレクトリにバイパスされても表示されません。
         val viaProc = sh("ls /proc/self/root/sdcard /proc/self/root/storage/emulated/0 2>&1")
         assertTrue(viaProc.output, viaProc.exitCode != 0 || viaProc.output.isBlank())
     }
 
     /**
-     * RELEASE-GATING:断网时沙箱里够不到宿主的套接字(dnsproxyd 能替沙箱解析域名,等于开了一条出网的路)。
-     * 每一条都必须失败;在真机上跑通之前不得发布沙箱。
+     * リリースゲート: ネットワークが切断されると、サンドボックス内のホストのソケットにアクセスできなくなります (dnsproxyd はサンドボックスのドメイン名を解決できます。これは、ネットワークから抜け出す方法を開くのと同じです)。
+     * それらはすべて失敗する必要があります。サンドボックスは、実際のマシンで実行されるまで解放してはなりません。
      */
     @Test fun cannotReachHostSocketsWhenNetOff() {
         assertTrue(sh("ls /proc/self/root/dev/socket 2>&1").let { it.exitCode != 0 })
@@ -127,9 +127,9 @@ class AndroidSandboxDeviceTest {
     }
 
     /**
-     * RELEASE-GATING:经 /proc/self/root、/proc/1/root 到不了宿主,宿主的 App 数据目录和本 App 的 shared_prefs 都读不到。
-     * `readlink /proc/self/root` 显示的是宿主上根文件系统的路径(PRoot 不翻译这个链接):只是一串路径,
-     * 顺着它走还在沙箱里,同样到不了。
+     * リリースゲート: /proc/self/root および /proc/1/root 経由でホストにアクセスできず、ホストのアプリ データ ディレクトリもこのアプリのshared_prefs も読み取ることができません。
+     * `readlink /proc/self/root` は、ホスト上のルート ファイル システムのパスを表示します (PRoot はこのリンクを変換しません)。単にパスの文字列です。
+     * フォローしてもまだサンドボックスの中にいて、そこにも到達できません。
      */
     @Test fun procRootStaysInGuest() {
         val pkg = context.packageName

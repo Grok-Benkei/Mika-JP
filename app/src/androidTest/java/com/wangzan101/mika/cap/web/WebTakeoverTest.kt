@@ -30,7 +30,7 @@ import org.junit.runner.RunWith
 import java.util.Collections
 import kotlin.coroutines.resume
 
-/** 真机测试:网页接管把同一个 WebView 拿到主屏、再放回后台宿主,页面状态不丢。 */
+/** 実機テスト: Web ページの引き継ぎでは、同じ WebView がメイン画面に表示され、ページのステータスを失うことなくバックグラウンド ホストに返されます。 */
 @RunWith(AndroidJUnit4::class)
 class WebTakeoverTest {
     @get:Rule(order = Int.MIN_VALUE) val chinese = ChineseUi()
@@ -100,7 +100,7 @@ class WebTakeoverTest {
         instr.runOnMainSync { b!!.performClick() }
     }
 
-    /** 测试自己当任务服务:按钮记下来,交回类的结束这次接管。 */
+    /** タスク サービスとして自分自身をテストします。ボタンを書き留めてクラスを返し、この引き継ぎを終了します。 */
     private fun showTask(reason: String = "login") = instr.runOnMainSync {
         assertTrue(WebHandover.show(ctx, tab, host, reason, "请登录示例商城", waitKey = 7, taskId = "task", onAction = { a ->
             actions += a
@@ -178,7 +178,7 @@ class WebTakeoverTest {
         DeviceSupport.pollUntil(5_000) { buttons(login!!).takeIf { it.isNotEmpty() } }
         assertEquals(listOf("完成"), buttons(login!!).map { it.text.toString() })
         DeviceSupport.pollUntil(5_000) { WebHandover.session.value?.url }
-        // buttons() 自己在主线程上取;点击另起一次主线程调用(不能嵌套)
+        // button() はメインスレッドで取得されます。クリックして別のメインスレッド呼び出しを開始します (ネストできません)
         val doneButton = buttons(login).single()
         instr.runOnMainSync { doneButton.performClick() }
         assertNotNull(DeviceSupport.pollUntil(5_000) { done.firstOrNull() })

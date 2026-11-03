@@ -14,12 +14,12 @@ import com.wangzan101.mika.ui.components.MikaSwitch
 import com.wangzan101.mika.ui.components.PageScaffold
 import com.wangzan101.mika.ui.components.RowChevron
 
-/** 一个工程开关:[id] 用作测试标签,[change] 算出改过这一项之后的整组开关。 */
+/** はエンジニアリング スイッチです。[id] はテスト ラベルとして使用され、[change] はこの項目を変更した後のスイッチのセット全体を計算するために使用されます。 */
 data class DevSwitch(
     val id: String, val title: String, val subtitle: String, val checked: Boolean, val change: (Boolean) -> SpeedFlags,
 )
 
-/** 开发者选项的两组:速度(已验证、默认多半开着)和实验(默认关)。开关的值与存储([SpeedFlags])不变。 */
+/** 開発者向けオプションの 2 つのグループ: 速度 (検証済み、デフォルトでほとんどがオン) と実験的 (デフォルトでオフ)。スイッチとストレージの値 ([SpeedFlags]) は変更されません。 */
 object DeveloperSwitches {
     fun speed(flags: SpeedFlags): List<DevSwitch> = listOf(
         DevSwitch("adaptive-vision", tr(R.string.dev_adaptive), tr(R.string.dev_adaptive_sub), flags.adaptiveVision) { flags.copy(adaptiveVision = it) },
@@ -36,7 +36,7 @@ object DeveloperSwitches {
     )
 }
 
-/** 「做事方式」一组:询问 / 自主的全局开关。 */
+/** 「物事のやり方」セット: 照会/自律グローバルスイッチ。 */
 object AutonomyCopy {
     val GROUP: String get() = tr(R.string.dev_group)
     val TITLE: String get() = tr(R.string.dev_autonomy)
@@ -45,7 +45,7 @@ object AutonomyCopy {
 
 val DEVELOPER_NOTE: String get() = tr(R.string.dev_note)
 
-/** 当前看图模型的「看图定位已验证」:[model] 是它的模型名。 */
+/** 現在の画像閲覧モデルの「画像位置確認済み」：[model] がモデル名です。 */
 data class GroundingSetting(val model: String, val verified: Boolean)
 
 object GroundingCopy {
@@ -56,8 +56,8 @@ object GroundingCopy {
 }
 
 /**
- * 设置 › 开发者选项:最前面是「自主模式」([autonomous],默认关即询问);原来「速度」下的八个开关,分成速度和实验两组;有看图模型时另有它的「看图定位已验证」
- * ([grounding] 为 null 时不显示);最后是「运行统计」的入口([onOpenRunStats] 为 null 时不显示)。
+ * 設定 › 開発者向けオプション: 前面は「自律モード」 ([autonomous]、デフォルトではオフにして尋ねる)。 「速度」の下にある元の 8 つのスイッチは、速度と実験の 2 つのグループに分けられます。画像閲覧モデルがある場合は、その「画像閲覧位置確認済み」も存在します。
+ * ([grounding] が null の場合は表示されません)。最後は「実行統計」のエントリです（[onOpenRunStats]がnullの場合は表示されません）。
  */
 @Composable
 fun DeveloperOptionsScreen(
@@ -104,7 +104,7 @@ fun DeveloperOptionsScreen(
 private fun SwitchGroup(switches: List<DevSwitch>, onSpeed: (SpeedFlags) -> Unit) {
     GroupCard {
         switches.forEachIndexed { i, s ->
-            // 整行都能点:开关小,行大
+            // は行全体をクリックできます: 小さなスイッチ、大きな行
             ListRow(null, s.title, s.subtitle, first = i == 0, onClick = { onSpeed(s.change(!s.checked)) }) {
                 MikaSwitch(s.checked, { onSpeed(s.change(it)) }, Modifier.testTag("dev-${s.id}"))
             }

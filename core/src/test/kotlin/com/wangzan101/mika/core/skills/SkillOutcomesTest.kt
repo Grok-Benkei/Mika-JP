@@ -35,7 +35,7 @@ class SkillOutcomesTest {
 
     @Test fun followedRejectionSuspendsImmediately() {
         assertEquals(SkillStatus.suspended, SkillOutcomes.record(s, SkillResult.verifier_rejected, followed = true).status)
-        // 没照着它做(只是推荐过)时一次退回不停用
+        // 守らない場合（あくまで推奨です）、使用をやめずに一度返品してください。
         assertEquals(SkillStatus.active, SkillOutcomes.record(s, SkillResult.verifier_rejected, followed = false).status)
     }
 
@@ -43,17 +43,17 @@ class SkillOutcomesTest {
         assertNull(SkillOutcomes.resultOf(TaskState.Cancelled, RunOutcome.Unknown))
         assertEquals(SkillResult.verified, SkillOutcomes.resultOf(TaskState.Succeeded("ok", verified = true), RunOutcome.Done))
         assertEquals(SkillResult.unverified, SkillOutcomes.resultOf(TaskState.Succeeded("ok", verified = false, note = "x"), RunOutcome.Done))
-        // 判下来办成、没跑核查:和核实过一样算好(试用据此转正式)
+        // 判決は完了しましたが、検証は行われませんでした。検証と同様に良好であると見なされます（それに応じて、裁判は公式に変換されます）
         assertEquals(SkillResult.verified, SkillOutcomes.resultOf(TaskState.Succeeded("ok", verified = false, reviewed = false), RunOutcome.Done))
         assertEquals(SkillResult.unreviewed, SkillOutcomes.resultOf(TaskState.Succeeded("ok", verified = false, reviewed = false), RunOutcome.Unknown))
         assertEquals(SkillResult.verifier_rejected, SkillOutcomes.resultOf(TaskState.Failed("核查未通过:没发出去", FailKind.GaveUp), RunOutcome.Unknown))
-        // 回答如实说没办成、只办了一部分:算失败;没判成:不算灵也不算不灵
+        // は、それは行われておらず、一部だけが行われただけであると正直に答えました。それは失敗とみなされます。それは成功したとは判断されませんでした。効果的でも効果的でもありませんでした。
         assertEquals(SkillResult.failed, SkillOutcomes.resultOf(TaskState.Succeeded("找不到这个菜单", verified = true), RunOutcome.NotPossible))
         assertEquals(SkillResult.failed, SkillOutcomes.resultOf(TaskState.Succeeded("只看了两条", verified = true), RunOutcome.Partial))
         assertEquals(SkillResult.unreviewed, SkillOutcomes.resultOf(TaskState.Succeeded("ok", verified = true), RunOutcome.Unknown))
         assertEquals(SkillResult.failed, SkillOutcomes.resultOf(TaskState.Failed("找不到", FailKind.GaveUp), RunOutcome.Unknown))
         assertEquals(SkillResult.failed, SkillOutcomes.resultOf(TaskState.Failed("步数用完", FailKind.StepLimit), RunOutcome.Unknown))
-        // 模型出错、运行环境出问题、操作保护停下:说明不了技能或知识灵不灵
+        // モデルエラー、動作環境の問題、動作保護停止：スキルや知識が有効かどうか説明できない
         for (k in listOf(FailKind.Model, FailKind.Environment, FailKind.Guard, FailKind.Interrupted))
             assertEquals(k.name, SkillResult.unreviewed, SkillOutcomes.resultOf(TaskState.Failed("x", k), RunOutcome.Unknown))
     }

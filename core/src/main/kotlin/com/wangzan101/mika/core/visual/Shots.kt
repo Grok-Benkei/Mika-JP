@@ -7,12 +7,12 @@ import com.wangzan101.mika.core.tool.fail
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
-/** 最近 [RECALL_KEEP] 次读屏,供 view_past_screens 回看;受保护页面、付款页不留图。 */
+/** 最後の [RECALL_KEEP] 画面読み取り値は、view_past_screens が確認するためのものです。保護されたページや支払いページには写真は残りません。 */
 internal class Recall(val id: Int, val step: Int, val app: String?, val png: ByteArray?, val elementsText: String)
 
 /**
- * 几块屏共用的画面编号与回看:screenshotId 在一个任务里统一往上数,view_past_screens 不管是哪块屏的都找得到。
- * [step] 是本次调用所在的轮次(循环的「第 N 步」),回看记录里的 step。
+ * 複数の画面で共有される画面番号とレビュー: タスク内では、screenshotId がカウントアップされ、どの画面であっても view_past_screens が見つかります。
+ * [step] はこのコールのラウンド (サイクルの「N 番目のステップ」) であり、レコードのステップを振り返ってください。
  */
 internal class Shots {
     var step = 0
@@ -28,8 +28,8 @@ internal class Shots {
     }
 
     /**
-     * 把画面的 screenshotId 当成了 snapshotId(看着图操作时常这样):画面编号只用来回看,不能拿来点。
-     * 读屏编号从来不是纯数字,纯数字且不超过已发过的画面编号的就是这种错;照实指出该用哪个。
+     * は、画面の ScreenshotId を snapshotId とみなします (これは、写真を見るときによく行われます)。画面番号は確認のためにのみ使用され、クリックには使用できません。
+     * 画面読み取り数値は決して純粋な数値ではありません。送信された画面番号を超えずに純粋な番号を使用するのは間違いです。どちらを使用すべきか正直に教えてください。
      */
     fun idAsSnapshot(o: JsonObject): ToolExecution? {
         val p = o["snapshotId"] as? JsonPrimitive ?: return null

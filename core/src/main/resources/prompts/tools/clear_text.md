@@ -1,1 +1,1 @@
-Clear the focused text field, or the one given by ref+snapshotId. The result's effect reads the field back (readback, readbackMatches) so you can see it is empty.
+フォーカスされている入力欄、または ref+snapshotId で指定された入力欄をクリアする。結果の effect がその欄を読み直す（readback、readbackMatches）ため、空になったことを確認できる。

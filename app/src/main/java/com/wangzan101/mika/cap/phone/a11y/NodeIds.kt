@@ -6,10 +6,10 @@ import com.wangzan101.mika.core.uistate.ElementLocator
 import com.wangzan101.mika.core.uistate.UiElement
 import java.util.UUID
 
-/** 手机读屏的 snapshotId:手机的前缀加随机串(看编号就知道是手机的,和网页的分得开)。 */
+/** 携帯電話画面読み取りの SnapshotId: 携帯電話のプレフィックスとランダムな文字列 (番号を見れば携帯電話からのものであることがわかり、Web ページから分離できます)。 */
 internal fun snapshotId(): String = PHONE_SNAPSHOT_PREFIX + UUID.randomUUID()
 
-/** 快照里的一个元素:交给模型的 [element]、认元素用的 [locator]、可直接操作的 [node]。 */
+/** スナップショット内の要素: モデルに渡される [element]、要素の識別に使用される [locator]、および直接操作できる [node]。 */
 internal class NodeEntry(val element: UiElement, val locator: ElementLocator, val node: AccessibilityNodeInfo)
 
 internal class NodeSnapshot(val id: String, val entries: List<NodeEntry>) {
@@ -17,8 +17,8 @@ internal class NodeSnapshot(val id: String, val entries: List<NodeEntry>) {
 }
 
 /**
- * 编号登记表:每次快照重新编号(@e1 起),只认最近几次快照的编号。
- * 最新快照的编号可以直接用;更早的快照只拿来按原元素特征重新定位。
+ * 番号登録テーブル: 各スナップショットは再番号付けされ (@e1 から開始)、最新のスナップショットの番号のみが認識されます。
+ * 最新のスナップショット番号を直接使用できます。以前のスナップショットは、元の要素の特性に従って再配置するためにのみ使用されます。
  */
 internal class NodeIds(private val keep: Int = 4) {
     sealed interface Lookup {

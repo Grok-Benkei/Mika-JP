@@ -5,23 +5,31 @@ import java.io.File
 
 private val GENERIC = setOf("app", "apps", "web", "www", "site", "browser")
 
-// 太泛的中文词:只有 “打开/进入/去”+词 这种明确点名时才算命中(“设置一个闹钟”不算)
+// 一般的すぎる中国語の単語: 明示的に名前が付けられている場合は、「open/enter/go」+単語のみがカウントされます (「アラームを設定する」はカウントされません)
 private val GENERIC_ZH = setOf(
     "设置", "浏览器", "搜索", "地图", "相机", "相册", "日历", "时钟", "天气", "音乐",
     "视频", "文件", "短信", "电话", "邮件", "商城", "应用", "手机",
 )
 private val NAMING_PREFIXES = listOf("打开", "进入", "去")
 
-// 常见的系统类 App 名。品牌词后面紧跟着它(「某牌应用市场」)时,说的是这个 App,不是品牌自己的商城等条目
+private val GENERIC_JA = setOf("設定", "ブラウザ", "ブラウザー", "検索", "地図", "カメラ", "写真", "カレンダー", "時計", "天気", "音楽", "動画", "ファイル", "電話", "メール")
+
+/** 「アラームを設定して」を設定アプリの起動依頼と取り違えない。 */
+private fun namesJapaneseApp(text: String, name: String): Boolean =
+    Regex(Regex.escape(name) + "(?:アプリ)?(?:を|で|から)?(?:開|起動|見|確認)").containsMatchIn(text) ||
+        text.contains("${name}アプリ")
+
+// 共通システムアプリ名。ブランド単語の直後にある場合（「あるブランドのアプリケーション マーケット」）、それはブランド独自のモールやその他のアイテムではなく、このアプリについて話しています。
 private val APP_KINDS = listOf(
     "应用市场", "应用商店", "浏览器", "钱包", "日历", "时钟", "相机", "图库", "文件管理", "主题", "云空间",
     "运动健康", "计算器", "便签", "备忘录", "录音机", "游戏中心", "手机管家", "天气",
+    "ブラウザ", "ブラウザー", "ウォレット", "カレンダー", "時計", "カメラ", "ギャラリー", "ファイル", "メモ", "電卓", "天気",
 )
 
 /**
- * 内置知识 + 用户补充:[notes] 按条目名(App 名或站点域名),附在对应条目正文后面并标明是用户自己写的;
- * [learnedNotes] 是 Mika 自学的 App 知识补充,附在最后并标明试用中还是已核实。
- * 匹配是确定性的字符串匹配,不调用模型。
+ * 組み込みナレッジ + ユーザー補足: [notes] エントリ名 (アプリ名またはサイトのドメイン名) に従って、対応するエントリのテキストに追加し、ユーザー自身が作成したものであることを示します。
+ * [learnedNotes] は、Mika の独学によるアプリの知識のサプリメントです。最後に添付されており、試行中か検証済みかを示します。
+ * の一致は決定的な文字列一致であり、モデルを呼び出しません。
  */
 class KnowledgeStore(private val bundled: List<KnowledgeEntry>, notes: Map<String, String> = emptyMap(),
     learnedNotes: Map<String, LearnedNote> = emptyMap()) {
@@ -34,20 +42,20 @@ class KnowledgeStore(private val bundled: List<KnowledgeEntry>, notes: Map<Strin
             trial = learned?.trial == true)
     }
 
-    /** 条目 [name] 的内置正文本身(不带用户补充和自学补充);起草自学补充时拿它当「现有的说明」。 */
+    /** エントリ [name] 自体の組み込みテキスト (ユーザー補足および自習補足なし)。自習用サプリメントを作成する際の「既存の説明」として使用してください。 */
     fun builtIn(name: String): String? = bundled.firstOrNull { it.name == name && it.body != null }?.body
 
     private fun pick(c: List<KnowledgeEntry>): KnowledgeEntry? = c.firstOrNull { it.body != null } ?: c.firstOrNull()
 
     fun byPackage(pkg: String): KnowledgeEntry? = pick(entries.filter { pkg in it.packages })
 
-    /** 主机名对上的站点知识(最具体的域名优先,见 [SiteMatch])。 */
+    /** ホスト名ペアに関するサイトの知識 (最も具体的なドメイン名が最初、[SiteMatch] を参照)。 */
     fun byDomain(host: String): KnowledgeEntry? = pick(SiteMatch.best(host, entries) { it.domains })
 
     /**
-     * 命中任务文字的条目。已安装 App 的条目排最前,其次有正文的,再按命中词长度(越长越具体)。
-     * [installed] 是已安装 App(包名, 显示名):命中词后面紧跟着某个已安装 App 的名字时,
-     * 说的是那个 App(如「某牌」+「应用市场」),不算命中。
+     * タスク テキストのエントリをヒットします。インストールされているアプリを含むエントリが最初にランク付けされ、次にテキストを含むエントリがランク付けされ、次にヒットした単語の長さの順にランク付けされます (長いほど具体的になります)。
+     * [installed] はインストールされているアプリ (パッケージ名、表示名): ヒットワードの後にインストールされているアプリの名前が続く場合、
+     * はそのアプリ (「特定のブランド」+「App Market」など) について話しているため、ヒットとしてカウントされません。
      */
     fun matchTask(text: String, limit: Int = 2, installed: List<Pair<String, String>> = emptyList()): List<KnowledgeEntry> {
         val t = text.lowercase()
@@ -56,11 +64,11 @@ class KnowledgeStore(private val bundled: List<KnowledgeEntry>, notes: Map<Strin
         return entries.mapNotNull { e -> score(e, t, followers)?.let { e to it } }
             .sortedWith(compareBy({ it.first.packages.none(packages::contains) }, { it.first.body == null }, { -it.second }))
             .map { it.first }
-            .distinctBy { it.service } // 同一服务的 App 与站点只给排序靠前的那份;另一份进入该 App/站点时再按包名/域名给
+            .distinctBy { it.service } // 同じサービスのアプリとサイトについては、最高ランクのもののみが与えられます。他のコピーがアプリ/サイトに入ると、パッケージ名/ドメイン名によって指定されます。
             .take(limit)
     }
 
-    /** “小红书”→ com.xingin.xhs;按名称/显示名/别名精确匹配(忽略大小写),只看安卓条目。 */
+    /** 「小さな赤い本」 → com.xingin.xhs;名前/表示名/エイリアスによる完全一致 (大文字と小文字は無視)。Android エントリのみを確認します。 */
     fun packageFor(nameOrAlias: String): String? {
         val q = nameOrAlias.trim().lowercase()
         if (q.isEmpty()) return null
@@ -73,11 +81,15 @@ class KnowledgeStore(private val bundled: List<KnowledgeEntry>, notes: Map<Strin
     private fun score(e: KnowledgeEntry, text: String, followers: List<String>): Int? {
         var best = -1
         val terms = (listOf(e.display, e.name) + e.aliases).map { it.trim().lowercase() }
-        // 条目自己的名字(如「某牌商城」)不算「另一个 App」
+        // エントリー名（「某ブランドモール」等）は「別アプリ」としてカウントされません
         val others = followers.filter { f -> terms.none { it.endsWith(f) } }
         for (x in terms) {
             if (x.length < 2 || x in GENERIC || (x.all { it.isDigit() } && x.length < 3)) continue
-            val hit = if (x in GENERIC_ZH) NAMING_PREFIXES.any { text.contains(it + x) } else containsTerm(text, x, others)
+            val hit = when (x) {
+                in GENERIC_ZH -> NAMING_PREFIXES.any { text.contains(it + x) }
+                in GENERIC_JA -> namesJapaneseApp(text, x)
+                else -> containsTerm(text, x, others)
+            }
             if (hit) best = maxOf(best, x.length)
         }
         for (d in e.domains) {
@@ -87,8 +99,8 @@ class KnowledgeStore(private val bundled: List<KnowledgeEntry>, notes: Map<Strin
         return best.takeIf { it >= 0 }
     }
 
-    // 英文/数字词要求单词边界,免得 "mm" 命中 "command";中文直接子串
-    // [others] 是别的 App 的名字:命中词后面紧跟着它时,命中词只是那个 App 名字的一部分
+    // 英語/数字の単語には、「mm」が「command」にヒットするのを防ぐために単語の境界が必要です。中国語の直接部分文字列
+    // [others] は別のアプリの名前です。ヒットした単語の直後にその単語が続く場合、ヒットした単語はそのアプリの名前の一部にすぎません。
     private fun containsTerm(text: String, term: String, others: List<String> = emptyList()): Boolean {
         var from = 0
         while (true) {
@@ -107,12 +119,12 @@ class KnowledgeStore(private val bundled: List<KnowledgeEntry>, notes: Map<Strin
     private fun Char.isAsciiAlnum() = this in 'a'..'z' || this in '0'..'9'
 
     companion object {
-        /** 附在 App/站点知识后面的用户补充的标题。 */
+        /** アプリ/サイトのナレッジに追加されるユーザー補足のタイトル。 */
         const val NOTES_HEADER = "## The user's own notes (written by the user; when they differ from the text above or the current screen, the current screen takes precedence)"
 
         /**
-         * 读构建时生成的索引里的 App(APP.md,安卓)与站点(SITE.md,网页)知识;正文取主文件去掉头部,
-         * App 与站点通过 [KnowledgeEntry.related] 互相关联。
+         * は、構築中に生成されたインデックス内のアプリ (APP.md、Android) とサイト (SITE.md、Web ページ) のナレッジを読み取ります。メインテキストはメインファイルから取得され、ヘッダーが削除されます。
+         * アプリとサイトは、[KnowledgeEntry.related] を通じて相互に関連付けられています。
          */
         fun loadBundled(loader: ClassLoader = KnowledgeStore::class.java.classLoader): List<KnowledgeEntry> {
             val catalog = GuideCatalog.loadBundled(loader)
@@ -132,7 +144,7 @@ class KnowledgeStore(private val bundled: List<KnowledgeEntry>, notes: Map<Strin
             }
         }
 
-        /** 用户对某个 App/站点的补充:`<dir>/apps/<id>/NOTES.md`、`<dir>/sites/<id>/NOTES.md`,按条目名。 */
+        /** アプリ/サイトへのユーザーの追加: `<dir>/apps/<id>/NOTES.md`、`<dir>/sites/<id>/NOTES.md`、エントリ名別。 */
         fun loadNotes(dir: File): Map<String, String> =
             listOf("apps", "sites").flatMap { sub ->
                 File(dir, sub).listFiles { f -> f.isDirectory }.orEmpty().sortedBy { it.name }.mapNotNull { d ->

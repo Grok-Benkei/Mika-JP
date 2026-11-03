@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class HantTest {
-    // 两串逐字配对:长度不等会悄悄截断、整张表错位;一个繁体字只能对一个简体字
+    // 2 つの文字列は単語ごとに照合されます。長さが等しくない場合は静かに切り捨てられ、テーブル全体の位置がずれます。 1 つの繁体字中国語文字は 1 つの簡体字文字のみと一致します
     @Test fun tableLinesUp() {
         assertEquals(Hant.TRADITIONAL.length, Hant.SIMPLIFIED.length)
         assertEquals(Hant.TRADITIONAL.length, Hant.TRADITIONAL.toSet().size)

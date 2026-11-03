@@ -9,11 +9,11 @@ import com.wangzan101.mika.core.uistate.PageDialog
 data class TabInfo(val tabId: String, val url: String, val title: String, val current: Boolean)
 
 /**
- * [externalLink]:页面要跳到 App(intent:/自定义协议/应用商店),没有跳。
- * [settled]:有 DevTools 时,加载后等到了网络空闲且页面安静为 true,等到上限还没静下来为 false;没有 DevTools 为 null。
- * [netError]:主文档没打开时浏览器给的错误码(如 net::ERR_NAME_NOT_RESOLVED);打开了为 null。
- * [upgradedFrom]:明文 http 被拒后改用 https 重试时,原来的 http 网址。
- * [download]:网址其实是个文件,这次打开变成了下载;它的下载记录。
+ * [externalLink]: ページはアプリ (意図:/カスタム プロトコル/アプリ ストア) にジャンプしようとしていますが、ジャンプはありません。
+ * [settled]: DevTools がある場合、ネットワークがアイドル状態でページの読み込み後に静かな場合は true、上限が静かでない場合は false になります。 DevTools がない場合は null になります。
+ * [netError]: メインドキュメントが開かれていないときにブラウザーによって表示されるエラー コード (net::ERR_NAME_NOT_RESOLVED など)。開いたときは null です。
+ * [upgradedFrom]: プレーンテキスト http が拒否された後、再試行するときに https (元の http URL) を使用します。
+ * [download]: URL は実際にはファイルですが、今回は開かれてダウンロードに変換されます。そのダウンロード記録。
  */
 data class NavResult(
     val tab: TabInfo,
@@ -25,13 +25,13 @@ data class NavResult(
     val netError: String? = null,
     val upgradedFrom: String? = null,
     val download: DownloadInfo? = null,
-    /** 加载中页面弹了框,还在等回话(加载等待在它出现时就停了)。 */
+    /** 読み込みページがポップアップ表示されますが、まだ応答を待っています (表示されると読み込み待機は停止します)。 */
     val dialog: PageDialog? = null,
 )
 
 /**
- * 整页正文的一段;[links]、[images] 为 (文字或说明, 地址);[nextOffset] 为下一段的起点,读完为 null。
- * [quality] 是读页的质量信号(按 [PageRead] 读时有);[netError] 是在后台标签里打开网址失败时浏览器给的错误码。
+ * はページ テキスト全体の段落です。 [links] および [images] は (テキストまたは説明、アドレス) です。 [nextOffset] は次の段落の開始点であり、読み取り後は null になります。
+ * [quality] は、ページの読み取り品質信号です ([PageRead] を押して読み取るときに発生します)。 [netError] は、バックグラウンド タブで URL を開くことができなかった場合にブラウザによって表示されるエラー コードです。
  */
 data class PageText(
     val url: String,
@@ -45,12 +45,12 @@ data class PageText(
     val netError: String? = null,
 )
 
-/** [file] 为沙箱路径 /workspace/downloads/<名字>;[status] 为 done|failed|running。 */
+/** [file] は、サンドボックス パス /workspace/downloads/<name> です。 [status] は完了|失敗|実行されました。 */
 data class DownloadInfo(val file: String, val bytes: Long, val mime: String?, val status: String, val error: String?)
 
 /**
- * web_keep_open 的结果:[keep] 为 true 时这一页([tabId]、[url]、[title]、站点 [host])在任务结束后留在后台接着运行,
- * 至多 [hours] 小时;[replaces] 是此刻留着的另一页的站点(任务结束时它会被关掉),没有为 null。[keep] 为 false 时撤销了这个任务里的留页。
+ * web_keep_open の結果: [keep] が true の場合、このページ ([tabId]、[url]、[title]、サイト [host]) はバックグラウンドに残り、タスク終了後も実行され続けます。
+ * は最大 [hours] 時間です。 [replaces] は、現時点で残っている別のページのサイト (タスクが終了すると閉じられます) であり、null ではありません。 [keep] が false の場合、このタスクの残りのページはキャンセルされます。
  */
 data class KeepOpenResult(
     val keep: Boolean,
@@ -62,24 +62,24 @@ data class KeepOpenResult(
     val replaces: String? = null,
 )
 
-/** 当前标签是用户自己在 Mika 浏览器里看着的那一页(借来的):它本来就不随任务关,用不着留。 */
+/** 現在のタブは、ユーザーが Mega ブラウザーで見ているページ (借用) です。タスクによって閉じられないため、保持する必要はありません。 */
 class WebTabIsUsers(val tabId: String) : Exception("tab $tabId is the user's own page")
 
-/** web_site_mode 的结果:[host] 当前页面的站点,[mobile] 现在用手机版,[reloaded] 当前页已按新版本重新加载。 */
+/** web_site_mode の結果: [host] 現在のページ [mobile] のサイトは、モバイル バージョン [reloaded] を使用しています。 現在のページは、新しいバージョンに従ってリロードされました。 */
 data class SiteModeResult(val host: String, val mobile: Boolean, val reloaded: Boolean)
 
 sealed interface EvalJs {
-    /** [json] 是脱敏、截断后的结果;[fresh]:这次新建了标签的读取世界,之前存在 state 里的都没了。 */
+    /** [json] は、減感と切り捨て後の結果です。 [fresh]: 今回は、新しいタグ読み取りワールドが作成され、以前に状態に存在していたタグ読み取りワールドは削除されます。 */
     data class Ok(val json: String, val truncated: Boolean, val fresh: Boolean = false) : EvalJs
 
     /**
-     * [error] 为 script_error|timeout|read_only(脚本想改页面)|invalid_selector|blocked_network|blocked_navigation|
-     * limit_exceeded|network_error|too_large|navigated(页面换了文档)|devtools_unavailable|no_tab_open。
+     * [error] は script_error|timeout|read_only (スクリプトはページを変更しようとしています)|invalid_selector|blocked_network|blocked_navigation| です。
+     * 制限を超えました|ネットワークエラー|大きすぎます|ナビゲートされました(ページが変更されたドキュメント)|devtools_unavailable|no_tab_open。
      */
     data class Failed(val error: String, val message: String) : EvalJs
 }
 
-/** web_wait_for 的条件;[wire] 是工具参数里的写法。 */
+/** は web_wait_for の条件です。 [wire] はツールパラメータに記載する方法です。 */
 enum class WaitKind(val wire: String) {
     TEXT_PRESENT("text_present"), TEXT_ABSENT("text_absent"), NETWORK_IDLE("network_idle"), URL_CONTAINS("url_contains");
 
@@ -88,81 +88,81 @@ enum class WaitKind(val wire: String) {
     }
 }
 
-/** [met]:条件在时限内成立;[url] 为结束时的地址。 */
+/** [met]: 制限時間内に条件が成立しました。 [url] が末尾のアドレスになります。 */
 data class WaitOutcome(val met: Boolean, val waitedMs: Long, val url: String?)
 
-/** 当前标签没有 DevTools 会话(系统不支持、连不上):要用网络记录的工具结果是 devtools_unavailable。 */
+/** 現在のラベルには DevTools セッションがありません (システムがサポートしていないため、接続できません): ネットワークを使用して記録されるツールの結果は、devtools_unavailable になります。 */
 class DevtoolsUnavailable : Exception("devtools unavailable")
 
-/** 网页标签:在手机读屏/操作的同一套接口上,加网页独有的导航、读页、标签、下载上传。 */
+/** Web ページ タグ: 携帯電話の画面読み取り/操作用の同じインターフェイス セットに、独自のナビゲーション、ページ読み取り、タグ、Web ページへのダウンロードとアップロードを追加します。 */
 interface WebPort : ScreenPort {
     suspend fun navigate(url: String, newTab: Boolean): NavResult
-    /** [scrollLazy]:读之前把懒加载内容滚动触发一遍(会动页面);核查取证时为 false,只读不滚。 */
+    /** [scrollLazy]: コンテンツを読み取る前に 1 回スクロールする遅延読み込みをトリガーします (ページが移動します)。証拠を検証および収集する場合は false であり、読み取り専用でスクロールしません。 */
     suspend fun readPage(maxChars: Int, offset: Int, scrollLazy: Boolean = true): PageText
 
     /**
-     * web_read_page 的读法:带质量信号、折叠列表块;[PageRead.url] 给了时在临时后台标签里打开、读完关掉,不动当前标签。
-     * 不支持后台读时给了 url 抛 [UnsupportedOperationException]。
+     * web_read_page の読み取り方法: 高品質信号、折りたたみリスト ブロック付き。 [PageRead.url] は、指定されると一時的なバックグラウンド タグで開かれ、読み取り後に閉じられ、現在のタグは移動されません。
+     * がバックグラウンド読み取りをサポートしていない場合、URL は [UnsupportedOperationException] をスローします。
      */
     suspend fun read(req: PageRead): PageText =
         if (req.url == null) readPage(req.maxChars, req.offset, req.lazy) else throw UnsupportedOperationException("background reads are not available")
     /**
-     * 读脚本:在当前标签真实页面的读取世界里只读地跑 [script](见 [ReadScriptProtocol]),上限 [timeoutMs];
-     * [args] 是站点命令的参数(脚本里的 args)。同一标签同一文档上的几次调用共用 state。
-     * DevTools 用不了时报 devtools_unavailable,不退回别的做法。
+     * 読み取りスクリプト: 現在のタグの実ページの読み取りワールドで読み取り専用 [script] ([ReadScriptProtocol] を参照) を実行します (上限は [timeoutMs])。
+     * [args] は、サイト コマンドのパラメーター (スクリプト内の引数) です。同じタグを持つ同じドキュメントに対する複数の呼び出しは、状態を共有します。
+     * DevTools は使用できません。 devtools_unavailable を報告し、他のメソッドには戻りません。
      */
     suspend fun evaluate(script: String, timeoutMs: Long, args: JsonObject? = null): EvalJs
     suspend fun tabs(): List<TabInfo>
     suspend fun switchTab(tabId: String): TabInfo?
     suspend fun closeTab(tabId: String): Boolean
-    /** 下载功能还没接入时抛 [UnsupportedOperationException],工具结果是 downloads_unavailable。 */
+    /** [UnsupportedOperationException] は、ダウンロード機能が接続されていない場合にスローされ、ツールの結果は downloads_unavailable になります。 */
     suspend fun downloads(): List<DownloadInfo>
     suspend fun upload(ref: String, snapshotId: String, paths: List<String>): ActionResult
     suspend fun historyBack(): ActionResult
     /**
-     * 当前标签的站点改用手机版或桌面版网页(默认桌面版),按站点记住,并重新加载当前页。
-     * 没有打开的网页为 null;不支持时抛 [UnsupportedOperationException]。
+     * 現在のラベルのサイトが Web ページのモバイル バージョンまたはデスクトップ バージョン (デフォルトのデスクトップ バージョン) に変更され、サイトごとに記憶され、現在のページがリロードされます。 Web ページが開かれていない場合、
+     * は null です。サポートされていない場合は、[UnsupportedOperationException] がスローされます。
      */
     suspend fun setSiteMode(mobile: Boolean): SiteModeResult? = throw UnsupportedOperationException("site mode is not available")
 
     /**
-     * 任务结束后留下当前标签接着运行([keep] 为 false 时撤销这个任务里的留页)。默认任务结束时关掉全部标签;留下的那一页至多留
-     * [KeepOpenResult.hours] 小时,全局只留一页。没有打开的网页为 null;当前标签是用户自己的页面时抛 [WebTabIsUsers];
-     * 不支持时抛 [UnsupportedOperationException]。
+     * は現在のラベルを離れ、タスク完了後も実行を続けます ([keep] が false の場合、このタスクの残りのページはキャンセルされます)。デフォルトでは、タスクの終了時にすべてのタブが閉じられます。残りのページは
+     * [KeepOpenResult.hours] 時間、グローバルに 1 ページだけが残ります。開かれていない Web ページは null です。現在のタグがユーザー自身のページの場合、[WebTabIsUsers] がスローされます。
+     * は、時間スロー [UnsupportedOperationException] をサポートしていません。
      */
     suspend fun keepOpen(keep: Boolean, reason: String): KeepOpenResult? = throw UnsupportedOperationException("keeping a page open is not available")
 
-    /** 当前标签此刻用的版本:`mobile` 或 `desktop`;没有打开的网页或不知道为 null。 */
+    /** 現時点で現在のタグで使用されているバージョン: `mobile` または `desktop`。開いている Web ページがないか、null です。 */
     suspend fun siteMode(): String? = null
 
     /**
-     * 在当前标签真实页面的隔离世界里跑 [code](async 函数体),`mika.*` 的调用经 [bridge] 回到 Mika;上限 [timeoutMs]。
-     * DevTools 用不了时报 devtools_unavailable,不退回别的做法。
+     * は、現在のラベルの実ページの分離された世界で [code] (非同期関数本体) を実行し、`mika.*` の呼び出しは [bridge] を介してミカに戻ります。上限は [timeoutMs] です。
+     * DevTools は使用できません。 devtools_unavailable を報告し、他のメソッドには戻りません。
      */
     suspend fun runScript(code: String, timeoutMs: Long, bridge: ScriptBridge): ScriptRun =
         ScriptRun.Failed(DEVTOOLS_UNAVAILABLE, "Page scripts need the page's DevTools connection, which is not available here.")
 
-    // web_interact:需要 DevTools 会话的动作;连不上时返回 devtools_unavailable,不假装做了
+    // web_interact: DevTools セッションを必要とするアクション。接続できない場合は devtools_unavailable を返します。接続したふりをしないでください
     suspend fun hover(at: WebPoint): ActionResult = ActionResult.Failed(DEVTOOLS_UNAVAILABLE)
     suspend fun drag(from: WebPoint, to: WebPoint, steps: Int): ActionResult = ActionResult.Failed(DEVTOOLS_UNAVAILABLE)
-    /** 原生下拉框选一项;[option] 是选项的显示文字或 value。 */
+    /** は、項目を選択するためのネイティブのドロップダウン ボックスです。 [option] は、オプションの表示テキストまたは値です。 */
     suspend fun selectOption(ref: String, snapshotId: String, option: String): ActionResult = ActionResult.Failed(DEVTOOLS_UNAVAILABLE)
-    /** 回答当前标签上等回话的页面弹框(见 [PageDialogs]);[text] 只给输入框弹框。没有弹框报 no_dialog。 */
+    /** は、現在のラベルの上位応答のページ ポップアップ ボックスに応答します ([PageDialogs] を参照)。 [text] は入力ボックスのポップアップ ボックスのみを表示します。 no_dialog を報告するポップアップ ボックスはありません。 */
     suspend fun answerDialog(accept: Boolean, text: String?): ActionResult = ActionResult.Failed(NO_DIALOG)
-    /** 对当前焦点按一次组合键。 */
+    /** 現在のフォーカスに対してキーの組み合わせを 1 回押します。 */
     suspend fun pressCombo(combo: KeyCombo): ActionResult = ActionResult.Failed(DEVTOOLS_UNAVAILABLE)
-    /** 当前标签记下的 XHR/fetch 响应(不带正文),旧的在前。没有 DevTools 时抛 [DevtoolsUnavailable]。 */
+    /** 現在のタグによって記録された XHR/フェッチ応答 (ボディなし)、古いものから。 DevTools がない場合は、[DevtoolsUnavailable] をスローします。 */
     suspend fun captures(urlContains: String?, method: String?, sinceLastAction: Boolean): List<CapturedResponse> = throw DevtoolsUnavailable()
 
-    /** 取一个响应,能取正文(JSON/文本、不太大)时带上;不在记录里为 null。没有 DevTools 时抛 [DevtoolsUnavailable]。 */
+    /** 応答を取得し、本文 (JSON/テキスト、大きすぎないもの) を取得できる場合はそれを返します。レコードにない場合は null です。 DevTools がない場合は、[DevtoolsUnavailable] をスローします。 */
     suspend fun capture(id: String): CapturedResponse? = throw DevtoolsUnavailable()
 
-    /** 等 [kind] 成立,至多 [timeoutMs]。要看网络的条件在没有 DevTools 时抛 [DevtoolsUnavailable]。 */
+    /** など [kind] が確立され、[timeoutMs] までになります。ネットワークの状況によっては、DevTools がない場合に [DevtoolsUnavailable] がスローされます。 */
     suspend fun waitFor(kind: WaitKind, value: String?, timeoutMs: Long): WaitOutcome = throw DevtoolsUnavailable()
 
 }
 
-/** web_interact 的落点:读屏编号,或 view 像素坐标。 */
+/** web_interact: 画面番号の読み取り、またはピクセル座標の表示の着地点。 */
 sealed interface WebPoint {
     data class Ref(val ref: String, val snapshotId: String) : WebPoint
     data class Xy(val x: Int, val y: Int) : WebPoint
@@ -170,14 +170,14 @@ sealed interface WebPoint {
 
 const val DEVTOOLS_UNAVAILABLE = "devtools_unavailable"
 const val NO_DIALOG = "no_dialog"
-/** 页面有弹框在等回话:别的动作都不做,先回话。 */
+/** ページ上に返信を待っているポップアップ ボックスがあります。他の操作は行わず、最初に返信してください。 */
 const val DIALOG_OPEN = "dialog_open"
 
-/** 当前标签正交给用户处理(接管中);返回非 ActionResult 的方法用它报,工具结果是 handed_over。 */
+/** 現在のラベルは処理のためにユーザーに渡されています (引き継がれています)。 ActionResult 以外を返すメソッドはこのメソッドを使用してレポートし、ツールの結果は Handed_over になります。 */
 class WebTabHandedOver(val tabId: String) : Exception("tab $tabId is with the user")
 
-/** 当前标签上页面弹框挂着(页面停着):要读页面、开网址的方法用它报,工具结果是 dialog_open。 */
+/** 現在のラベルのページ ポップアップ ボックスがハングしています (ページが停止しています): ページを読み取って URL を開くには、このメソッドを使用します。ツールの結果は、dialog_open です。 */
 class WebDialogOpen(val tabId: String) : Exception("tab $tabId has a page dialog open")
 
-/** 标签的渲染进程崩溃(或被系统回收),标签已销毁;返回非 ActionResult 的方法用它报,工具结果是 tab_crashed。 */
+/** タグのレンダリング プロセスがクラッシュし (またはシステムによってリサイクルされ)、タグが破棄されました。このメソッドを使用して非 ActionResult を報告すると、ツールの結果は tab_crashed になります。 */
 class WebTabCrashed(val tabId: String) : Exception("tab $tabId crashed")

@@ -22,7 +22,7 @@ import java.net.Socket
 import java.util.concurrent.Executors
 
 class LegacySseMcpClientTest {
-    /** 极简的 2024-11-05 服务:GET 开 SSE,POST 回 202,响应从 SSE 推回来。 */
+    /** ミニマリスト 2024-11-05 サービス: GET は SSE を開き、POST は 202 を返し、応答は SSE からプッシュバックされます。 */
     private class SseServer : Closeable {
         private val server = ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"))
         private val pool = Executors.newCachedThreadPool()

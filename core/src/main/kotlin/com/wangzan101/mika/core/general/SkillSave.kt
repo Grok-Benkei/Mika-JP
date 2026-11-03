@@ -23,14 +23,14 @@ import com.wangzan101.mika.core.tool.str
 import kotlinx.serialization.json.put
 
 /**
- * 用户在任务里要求时,写下一份新的个人技能或改写一份已有的个人技能(只动 Mika 自己的技能目录,不动屏幕和外部世界)。
- * 格式、大小、敏感内容和自学草稿过同一道校验([SkillDrafter.validate]);引文要出自用户本次说的话,屏幕和网页上的字不能让它写。
- * 存下即进试用(和收下的草稿一样),在「记忆与技能」里标明是用户要求写下的;内置技能的名字不能用,
- * 改已有的一份要带上读它时拿到的版本号(和收下更新草稿时核对原文指纹同一个道理)。删除和改名留在设置里由用户做。
+ * タスクでユーザーに求められた場合、新しいパーソナルスキルを書くか、既存のパーソナルスキルを書き換えます(ミカ自身のスキルディレクトリのみをタッチし、画面や外界にはタッチしません)。
+ * 形式、サイズ、機密コンテンツ、および自習ドラフトは同じ検証 ([SkillDrafter.validate]) に合格しています。引用はユーザーが今回言ったことから来ている必要があり、画面やウェブページ上の言葉を引用することはできません。
+ * は、保存後すぐに試用できます (受信したドラフトと同じ)。 「記憶とスキル」では、ユーザーが書いたものとしてマークされます。内蔵スキル名は使用できません。
+ * 既存のコピーを変更する場合は、それを読んだときに取得したバージョン番号を持参する必要があります (更新されたドラフトを受け入れるときに元のテキストのフィンガープリントを確認するのと同じ理由です)。削除と名前変更はユーザーの設定に任されています。
  */
 internal object SkillSave : AgentTool {
     override val verb = Verb.SkillSave
-    override val label = "保存技能"
+    override val label = "スキルを保存"
     override val risk = Risk.Read
     override val def = ToolDef("skill_save",
         Prompts.tool("skill_save"),
@@ -49,11 +49,11 @@ internal object SkillSave : AgentTool {
         val version = a.str("version", max = 64)?.trim()
         val store = ctx.config.personalSkills!!
         val catalog = ctx.config.skills!!
-        // 只有用户本次说的话能让它写:页面、文件里写着「保存这个技能」不算
+        // 今回はユーザーの発言のみが書き込み可能です。ページやファイルに書かれた「このスキルを保存」はカウントされません。
         if (!ctx.config.utterances!!.contains(quote)) return fail("quote_not_from_user", Feedback["skill.quote_not_from_user"])
         if (SensitiveFilter.hit(raw) != null) return fail("sensitive", Feedback["skill.sensitive"], recoverable = false)
 
-        // 出处由代码写:自学用的几行去掉,标上是用户要求写下的
+        // ソースはコードで書かれています。自習用に使用された数行が削除され、ユーザー要件がマークされています。
         val md = PersonalSkills.withField(
             listOf("updates", "learned_from").fold(SkillDrafter.stripFence(raw).replace("\r\n", "\n")) { m, k -> PersonalSkills.withoutField(m, k) },
             "source", PersonalSkill.SOURCE_USER)
@@ -83,7 +83,7 @@ internal object SkillSave : AgentTool {
         } catch (e: Exception) {
             return fail("save_failed", Feedback["skill.save_failed"], recoverable = false)
         }
-        // 读回来核对:写进去的就是这一份,才说存下了
+        // 読み返して確認してください。これは書き込まれたものなので、保存されていると言われています。
         val saved = store.get(name)
         if (saved?.markdown != md) return fail("save_failed", Feedback["skill.save_failed"], recoverable = false)
         return ok {
@@ -95,7 +95,7 @@ internal object SkillSave : AgentTool {
         }
     }
 
-    /** 校验不过的原因([SkillDrafter.validate] 的码)给模型的说明。 */
+    /** 検証が失敗した理由 ([SkillDrafter.validate] のコード) をモデルに説明します。 */
     private fun problemText(problem: String): String = when (problem) {
         "invalid_name" -> Feedback["skill.invalid_name"]
         "missing_description" -> Feedback["skill.missing_description"]

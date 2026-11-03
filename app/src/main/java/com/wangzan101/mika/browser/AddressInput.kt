@@ -4,11 +4,11 @@ import com.wangzan101.mika.core.cap.web.WebUrlPolicy
 import java.net.URLEncoder
 
 /**
- * 地址栏和首页搜索框里输入的一句话 → 要打开的网址。
- * - 带 `://` 的原样打开(能不能打开由 [WebUrlPolicy.checkNavigable] 再判);
- * - localhost、IPv4、方括号里的 IPv6(可带端口和路径)补上 http://;
- * - 像域名的(由点隔开的英文字母、数字、连字符,最后一段是至少两个字母或 xn-- 开头,可带端口和路径)补上 https://;
- * - 其余(含空格、中文、只有一个词、邮箱这类)用必应搜索。
+ * アドレスバーやホーム画面の検索欄への入力を、開くURLへ変換する。
+ * - 空白を含まず、`scheme://` で始まる入力はそのまま返す。実際に開けるかは [WebUrlPolicy.checkNavigable] で判定する。
+ * - localhost、IPv4、角括弧で囲んだIPv6形式には `http://` を補う。ポートやパスも指定できる。
+ * - ドメイン名の形式なら `https://` を補う。各ラベルは英数字とハイフンで構成し、末尾は2文字以上の英字かxn--形式とする。ポートやパスも指定できる。
+ * - それ以外はBingの検索URLにする。空白を含む文、単語、メールアドレスなども検索として扱う。
  */
 object AddressInput {
     const val SEARCH_PREFIX = "https://www.bing.com/search?q="
@@ -20,7 +20,7 @@ object AddressInput {
     private val IPV6 = Regex("^\\[[0-9A-Fa-f:.]+]$")
     private val PORT = Regex("^\\d{1,5}$")
 
-    /** 输入为空(只有空白)时为 null。 */
+    /** 前後の空白を除いて判定し、空の入力なら null を返す。 */
     fun resolve(input: String): String? {
         val s = input.trim()
         if (s.isEmpty()) return null
@@ -37,14 +37,14 @@ object AddressInput {
 
     fun search(query: String): String = SEARCH_PREFIX + URLEncoder.encode(query.trim(), "UTF-8")
 
-    /** 网址是必应的搜索结果页时为搜的词,否则为 null。 */
+    /** このクラスのBing検索URLから検索語を復元する。別のURL、デコードの失敗、空の検索語なら null。 */
     fun searchQuery(url: String): String? {
         if (!url.startsWith(SEARCH_PREFIX)) return null
         val q = url.removePrefix(SEARCH_PREFIX).substringBefore('&').substringBefore('#')
         return runCatching { java.net.URLDecoder.decode(q, "UTF-8") }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
     }
 
-    /** 开头到第一个 / ? # 为止的主机名和端口;里面带 @ 等不像主机名的字符时为 null。 */
+    /** 最初の /・?・# より前を、ホストと任意のポートに分ける。空、@を含む入力、区切りを解釈できない形式は null。 */
     private fun authority(s: String): Pair<String, String?>? {
         val auth = s.substringBefore('/').substringBefore('?').substringBefore('#')
         if (auth.isEmpty() || '@' in auth) return null

@@ -4,24 +4,24 @@ import com.wangzan101.mika.core.uistate.ScreenFamily
 import com.wangzan101.mika.core.uistate.tools.ScreenTool
 import com.wangzan101.mika.core.tool.AgentTool
 
-/** 手机能力的 id,也是手机那一套工具名字的前缀。 */
+/** 携帯電話の機能の ID は、携帯電話上のツール セットの名前のプレフィックスでもあります。 */
 const val PHONE = "phone"
 
-/** 手机读屏的 snapshotId 以它开头(端口的随机编号与稳定编号都是),看编号就知道是手机的。 */
+/** モバイル画面の読み取りの snapshotId は、それから始まります (ポートの乱数と安定した番号の両方)。番号を見れば、それが携帯電話のものであることがわかります。 */
 const val PHONE_SNAPSHOT_PREFIX = "p"
 
-/** 手机那一套屏幕工具:经验路线只记手机上的做法。 */
+/** 携帯電話用の画面ツールのセット: 体験ルートは携帯電話上のメソッドのみを記憶します。 */
 internal val PHONE_FAMILY = ScreenFamily(PHONE, snapshotPrefix = PHONE_SNAPSHOT_PREFIX, routable = true, sandboxCallable = true, ownPrompts = setOf("observe", "back", "scroll", "type_text", "clear_text"))
 
-/** 手机专属的工具。 */
+/** 携帯電話専用ツール。 */
 internal interface PhoneTool : AgentTool {
     override val capability: String get() = PHONE
     override val sandboxCallable: Boolean get() = true
 }
 
 /**
- * 手机一组:那一套屏幕工具(读屏、看图、点、滑、输入、按键、诊断屏幕),再加列出、打开 App 与链接,
- * 标出任务结束时 App 留着还是关掉,经系统标准接口设闹钟、计时器、日程,和转滚轮。按发给模型的顺序。
+ * 携帯電話のセット: 一連の画面ツール (画面読み取り、画像表示、ポイント、スライド、入力、キーストローク、診断画面) に加えて、リスト表示、アプリとリンクの起動、
+ * は、タスクの終了時にアプリをオンのままにするか閉じるかをマークし、システム標準インターフェイスを通じて目覚まし時計、タイマー、スケジュール、スクロール ホイールを設定します。モデルに発行された順序で。
  */
 internal object PhoneGroup {
     val tools: List<AgentTool> = ScreenTool.of(PHONE_FAMILY) + listOf(

@@ -7,7 +7,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
-/** 服务端工具描述的统一解析;HTTP/SSE 两种传输共用同一套风险注解读取。 */
+/** サーバー ツールの説明の統合解析。 HTTP/SSE の 2 つの送信は、同じリスク アノテーション解釈のセットを共有します。 */
 internal fun mcpToolDescriptor(o: JsonObject): McpToolDescriptor {
     val annotations = o["annotations"] as? JsonObject
     return McpToolDescriptor(
@@ -23,7 +23,7 @@ internal fun mcpToolDescriptor(o: JsonObject): McpToolDescriptor {
     )
 }
 
-/** JSON-RPC error 的文字;只取服务端 message,不含正文。 */
+/** JSON-RPC エラーのテキスト。テキストは含まれず、サーバー メッセージのみが取得されます。 内容[]; */
 internal fun mcpErrorMessage(error: kotlinx.serialization.json.JsonElement?, fallback: String = "JSON-RPC error"): String =
     (error as? JsonObject)?.get("message")?.let { (it as? JsonPrimitive)?.contentOrNull } ?: fallback
 
@@ -48,7 +48,7 @@ internal fun mcpPromptDescriptor(o: JsonObject): McpPromptDescriptor = McpPrompt
     }.orEmpty(),
 )
 
-/** resources/read 的 contents[];blob 只给占位,不把二进制塞进上下文。 */
+/** リソース/読み取りの blob は単なるプレースホルダーであり、バイナリはコンテキストに挿入されません。 */
 internal fun mcpResourceResult(result: JsonObject): McpResult {
     val contents = result["contents"] as? kotlinx.serialization.json.JsonArray
     val text = contents?.mapNotNull { element ->
@@ -63,7 +63,7 @@ internal fun mcpResourceResult(result: JsonObject): McpResult {
     return McpResult(text.ifEmpty { result.toString() })
 }
 
-/** prompts/get 的 description + messages[];角色和文本拼成可读的一段。 */
+/** プロンプト/説明 + メッセージを取得[];文字とテキストが読みやすい段落に結合されます。 content[]、structurdContent、および */
 internal fun mcpPromptResult(result: JsonObject): McpResult {
     val description = (result["description"] as? JsonPrimitive)?.contentOrNull.orEmpty()
     val messages = result["messages"] as? kotlinx.serialization.json.JsonArray
@@ -86,7 +86,7 @@ internal fun mcpPromptResult(result: JsonObject): McpResult {
         .joinToString("\n"))
 }
 
-/** tools/call 的 content[]、structuredContent 和成本;三种传输共用。 */
+/** ツール/コールのコストは、3 つの送信で共有されます。 */
 internal fun mcpToolResult(result: JsonObject): McpResult {
     val isError = (result["isError"] as? JsonPrimitive)?.booleanOrNull == true
     val content = result["content"] as? kotlinx.serialization.json.JsonArray

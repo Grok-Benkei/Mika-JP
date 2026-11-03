@@ -9,34 +9,34 @@ import java.math.BigDecimal
 import kotlin.math.abs
 import com.wangzan101.mika.core.tool.Verb
 
-/** 模型申报的一次要花钱的操作;字段已去首尾空白、截短,界面上照此显示。[app] 是包名。 */
+/** モデル宣言はコストのかかる操作です。フィールドは空白または切り詰められており、インターフェイス上ではそのように表示されます。 [app] はパッケージ名です。 */
 data class ConfirmationRequest(val action: IrrevAction, val target: String, val content: String, val amount: String?, val app: String)
 
 sealed interface DeclareResult {
-    /** 申报的 App 和前台不一致(或读不到前台),不交给用户。 */
+    /** 宣言されたアプリはフロントエンドと矛盾している (またはフロントエンドが読み取れない) ため、ユーザーに引き渡されません。 */
     data object Mismatch : DeclareResult
-    /** 本任务里用户已经拒绝过同一 App 的同类操作,不再问。 */
+    /** このタスクでは、ユーザーは同じアプリの同様の操作をすでに拒否しているため、再度要求されることはありません。 */
     data object Declined : DeclareResult
-    /** 付款不走这里,走接管。 */
+    /** ここでは支払わないで、乗っ取りに行きます。 */
     data object Unsupported : DeclareResult
     data object Pending : DeclareResult
 }
 
 sealed interface Permit {
     data object Allowed : Permit
-    /** 没有同意。 */
+    /** は同意しませんでした。 */
     data object NoGrant : Permit
-    /** 有同意,但和这一步对不上(或已过期);这次同意已作废。 */
+    /** は同意しましたが、このステップに対応していません (または有効期限が切れています)。この同意は無効になりました。 */
     data class Mismatch(val reason: String) : Permit
 }
 
 /**
- * 用户对一次要花钱的操作的同意(询问时只有付款要问):只放行紧接着的那一个匹配操作。
- * 同意绑定申报内容:同一前台 App、同类动作、对象出现在屏上(发送时在标题栏),发送时要发的字与申报相等,
- * 申报的金额在屏上;
- * 下一次命中的不可逆操作无论对不对得上都用掉它。中间做了打字以外的写操作(包括返回、打开 App)、
- * 或过了 [MAX_STEPS] 步,同意作废。只能同意这一次;只在一次任务内有效,任务开始和结束时 [reset]。
- * 任务循环和界面回答可能在不同线程,读写都加锁。
+ * ユーザーは、お金がかかる操作に同意します (要求時に支払いのみが求められます)。次の一致する操作のみが許可されます。
+ * は、宣言内容をバインドすることに同意します。同じフロントエンド アプリ、同様のアクション、画面上に表示されるオブジェクト (送信時にタイトル バー)、送信時に送信される単語は宣言と同じです。
+ * 申告金額が画面に表示されます。
+ * 正解か否かに関わらず、次ヒットの不可逆操作を使用します。タイピング以外の書き込み操作（アプリに戻る、開くなど）を実行した場合、
+ * または [MAX_STEPS] ステップが完了しました。契約は無効です。今回のみ同意できます。ミッション開始時と終了時 [reset] の 1 つのミッション内でのみ有効です。
+ * タスク ループとインターフェイス応答が異なるスレッドにある可能性があり、読み取りと書き込みの両方がロックされています。
  */
 class ConfirmationGate {
     private class Grant(val request: ConfirmationRequest, val step: Int)
@@ -53,12 +53,12 @@ class ConfirmationGate {
         return DeclareResult.Pending
     }
 
-    /** [step] 是回答所在的步数,过期按它算。 */
+    /** [step] は回答のステップ番号であり、有効期限はこれに基づいて計算されます。 */
     fun decide(approved: Boolean, step: Int = 0) {
         decide(if (approved) ConfirmChoice.Once else ConfirmChoice.Deny, step)
     }
 
-    /** 按用户的选择记一次性同意。 */
+    /** は、ユーザーの選択に従って 1 回限りの同意を記録します。 */
     @Synchronized fun decide(choice: ConfirmChoice, step: Int) {
         val req = pending ?: return
         pending = null
@@ -70,9 +70,9 @@ class ConfirmationGate {
     }
 
     /**
-     * [screen] 是此刻的一屏;[typing] 是这一步要输入并回车的文字(type_text 时)。
-     * [seen] 是看图找到的点复看确认过的所见文字:读屏里没有文字(自绘界面)时,对象可以对它核,
-     * 要发的字读不到也就不核(画面上的字核不了)。有同意时不论结果都用掉它。付款永远不放行。
+     * [screen] は現在の画面です。 [typing] は入力するテキストであり、この手順で Enter キーを押します (type_text)。
+     * [seen] は、画像を見て再度確認した後に見つかったテキストです。画面の読み取り (自己描画インターフェイス) にテキストがない場合、被験者はそれを確認できます。
+     * 送信する文字が読み取れない場合は認証されません（画面上の文字は認証できません）。同意する場合は、結果に関係なく使用してください。支払いは決して解放されません。
      */
     @Synchronized fun permits(hit: Irreversible, screen: ScreenSnapshot?, step: Int, typing: String? = null, seen: List<String> = emptyList()): Permit {
         val g = grant ?: return Permit.NoGrant
@@ -91,23 +91,23 @@ class ConfirmationGate {
         return Permit.Mismatch(reason)
     }
 
-    /** 读屏里一个带字的元素都没有(自绘界面、画布)。 */
+    /** 画面読み上げ（自作インターフェース、キャンバス）に文字を含む要素はありません。 */
     private fun textless(s: ScreenSnapshot) = s.elements.none { it.name.isNotBlank() }
 
-    /** 申报的对象出现在复看确认过的所见文字里(至少两个字)。 */
+    /** 宣言されたオブジェクトは、レビューによって確認されたテキスト (少なくとも 2 単語) に表示されます。 */
     private fun seenShows(r: ConfirmationRequest, seen: List<String>): Boolean {
         val t = norm(r.target).take(MATCH_CHARS)
         return t.length >= 2 && seen.any { t in norm(it) }
     }
 
-    /** 执行了一个写操作:打字和清空输入框不影响同意,其余(点别处、滑动、返回、打开 App)让它作废。 */
-    /** 有一次已同意、还没用掉的操作。 */
+    /** は書き込み操作を実行しました。入力ボックスの入力とクリアは同意に影響しませんでしたが、残りの操作 (他の場所をクリック、スライド、戻る、アプリを開くなど) は無効になりました。 */
+    /** 合意されたが使用されていない操作があります。 */
     val hasGrant: Boolean @Synchronized get() = grant != null
 
-    /** 用户同意了、还没被用掉的那次操作;没有为 null。 */
+    /** ユーザーが同意したが、まだ使用されていない操作。そうでない場合は null です。 */
     val granted: ConfirmationRequest? @Synchronized get() = grant?.request
 
-    /** [verb]:刚执行的写操作做的动作;输入、清空不作废同意(同意的就是要输入的这一步)。 */
+    /** [verb]: 実行されたばかりの書き込み操作のアクション。入力およびクリアは同意を無効にするものではありません (同意は入力されるステップです)。 */
     @Synchronized fun noteWrite(verb: Verb?) {
         if (verb !in KEEPS_GRANT) grant = null
     }
@@ -119,8 +119,8 @@ class ConfirmationGate {
     }
 
     /**
-     * 对象要在屏上不可编辑的文字里(输入框里打的不算),至少两个字;
-     * 发送时只认屏幕顶部的标题栏(聊天对象的名字在那里),其余动作屏上任何地方都行。
+     * オブジェクトは、画面上の編集不可のテキスト (入力ボックスへの入力はカウントされません) 内に少なくとも 2 単語存在する必要があります。
+     * 送信時、画面上部のタイトル バー (チャット パートナーの名前が表示される部分) のみが認識され、その他のアクションは画面上のどこにでも可能です。
      */
     private fun targetShown(r: ConfirmationRequest, s: ScreenSnapshot): Boolean {
         val t = norm(r.target).take(MATCH_CHARS)
@@ -131,8 +131,8 @@ class ConfirmationGate {
     }
 
     /**
-     * 要发的就是同意的那段话:点发送时某个输入框里的字和它相等,type_text 回车时要输入的字和它相等。
-     * 申报被截短(以 … 结尾)时比前缀。
+     * 送信したいのは合意された段落です。送信をクリックすると、入力ボックス内の単語はその段落と等しく、type_text を押すと、入力される単語はそれと等しくなります。
+     * 宣言はプレフィックスよりも切り詰められます (... で終わる)。
      */
     private fun contentMatches(content: String, s: ScreenSnapshot, typing: String?): Boolean {
         val capped = content.endsWith("…")
@@ -143,21 +143,26 @@ class ConfirmationGate {
     }
 
     /**
-     * 申报的金额只和屏上带币种(¥/￥、元、$)的数比:「已售25件」「满25减3」不算;输入框和提示语里的不算;
-     * 紧挨着优惠、减、抵扣、运费、券、红包、已省(或带负号)的金额不算。
-     * 有合计/实付/应付/总计时:可滚动区外的每个合计都要等于申报的金额;都在滚动区里时看离按钮最近的那个;
-     * 合计字样在、金额读不出(同一行后面几段拼起来也读不出)时不放行。
-     * 没有合计时要等于可滚动区之外最大的那个金额。申报里没有数字不放行。
+     * 申告金額は画面上の通貨（￥/￥、元、$）付きの数値とのみ比較され、「25個売れた」「3マイナス25個」はカウントされません。入力ボックスとプロンプトはカウントされません。
+     * 割引、減額、控除、運賃、クーポン、赤い封筒のすぐ隣にある金額、および保存された金額 (またはマイナス記号付き) はカウントされません。
+     * 合計/実際の支払い/支払可能/合計がある場合: スクロール可能領域外の各合計は、宣言された金額と等しくなければなりません。すべてがスクロール可能な領域内にある場合は、ボタンに最も近いものを確認します。
+     * は、総文字数や金額が読めない場合（同一行の次の段落は綴っても読めない場合）には解放されません。
+     * 合計がない場合、スクロール可能領域外の最大金額と等しくなければなりません。番号のない申請は認められません。
      */
     private fun amountShown(amount: String?, s: ScreenSnapshot, button: String): Boolean {
+        // 位取りを含む金額を先頭や末尾の数値だけで比較しない。通貨を問わず、換算に未対応の間は不一致として実行を止める。
+        // 申告欄は金額専用なので、通貨の省略や「日本円」「ドル」でも位取りを検出する。
+        if (amount?.let { IrreversibleDetector.UNSCALED_NUMBER.containsMatchIn(currencyFree(Hant.fold(it))) } == true) return false
         val declared = amount?.let { currencyFree(it) }?.let { NUMBER.find(it)?.value }?.toBigDecimalOrNull() ?: return false
+        val expectedCurrency = currencyTag(amount.orEmpty())
         fun same(x: BigDecimal) = x.compareTo(declared) == 0
         val shown = s.elements.filter { !it.editable && !it.hint }
+        if (shown.any { unscaledAmount(IrreversibleDetector.rowText(it, shown)) }) return false
         val scrollables = s.elements.filter { it.scrollable }
         fun outside(e: UiElement) = scrollables.none { inside(e, it) }
         val labels = shown.filter { e -> TOTAL_LABELS.any { it in Hant.fold(e.name) } }
         if (labels.isNotEmpty()) {
-            val totals = labels.map { it to totalOf(it, shown) }
+            val totals = labels.map { it to totalOf(it, shown, expectedCurrency) }
             if (totals.any { it.second == null }) return false
             val out = totals.filter { outside(it.first) }
             if (out.isNotEmpty()) return out.all { same(it.second!!) }
@@ -165,25 +170,43 @@ class ConfirmationGate {
             val near = totals.minByOrNull { (e, _) -> if (b == null) -top(e) else abs(centerY(e) - centerY(b)) }!!
             return same(near.second!!)
         }
-        val largest = shown.filter(::outside).flatMap { amounts(it.name) }.maxOrNull() ?: return false
+        val largest = shown.filter(::outside).flatMap { amounts(it.name, expectedCurrency) }.maxOrNull() ?: return false
         return same(largest)
     }
 
-    /** 合计标签后面的金额:先看它自己,再把同一行右边的几段按横向顺序拼上去看。 */
-    private fun totalOf(label: UiElement, shown: List<UiElement>): BigDecimal? {
+    /** 合計ラベルの背後にある金額: 最初に単独で見てから、同じ行の右側の段落を横方向にまとめて見てください。 */
+    private fun totalOf(label: UiElement, shown: List<UiElement>, expectedCurrency: String?): BigDecimal? {
         fun after(text: String) = TOTAL_LABELS.mapNotNull { w -> text.indexOf(w).takeIf { it >= 0 }?.let { text.substring(it + w.length) } }
-            .firstNotNullOfOrNull { amounts(it).firstOrNull() }
+            .firstNotNullOfOrNull { amounts(it, expectedCurrency).firstOrNull() }
         return after(Hant.fold(label.name)) ?: after(Hant.fold(IrreversibleDetector.rowText(label, shown)))
     }
 
-    private fun currencyFree(t: String) = t.replace(THOUSANDS, "")
+    private fun currencyFree(t: String) = java.text.Normalizer.normalize(t, java.text.Normalizer.Form.NFKC).replace(THOUSANDS, "")
 
-    /** 带币种的金额,去掉紧挨着优惠一类字样或带负号的。 */
-    private fun amounts(name: String): List<BigDecimal> {
+    private fun unscaledAmount(t: String) = IrreversibleDetector.UNSCALED_AMOUNT.containsMatchIn(currencyFree(Hant.fold(t)))
+
+    /** ¥だけでは円と人民元を区別できない。明示された通貨が異なる場合だけ拒否する。 */
+    private fun currencyTag(t: String): String? {
+        val text = java.text.Normalizer.normalize(t, java.text.Normalizer.Form.NFKC).uppercase(java.util.Locale.ROOT)
+        return when {
+            "円" in text || "JPY" in text -> "JPY"
+            "元" in text || "CNY" in text || "RMB" in text -> "CNY"
+            "$" in text || "USD" in text -> "USD"
+            else -> null
+        }
+    }
+
+    /** 通貨を含む金額の場合は、「割引」という語またはその横にあるマイナス記号を削除します。 */
+    private fun amounts(name: String, expectedCurrency: String? = null): List<BigDecimal> {
         val t = currencyFree(Hant.fold(name))
-        return CURRENCY.findAll(t).filter { m ->
+        val matches = CURRENCY.findAll(t).toList()
+        val firstCurrency = matches.firstOrNull()?.value?.let(::currencyTag)
+        if (expectedCurrency != null && firstCurrency != null && expectedCurrency != firstCurrency) return emptyList()
+        return matches.filter { m ->
+            val actualCurrency = currencyTag(m.value)
             val before = t.substring(maxOf(0, m.range.first - DISCOUNT_WINDOW), m.range.first)
-            DISCOUNTS.none { it in before } && !before.trimEnd().endsWith("-")
+            (expectedCurrency == null || actualCurrency == null || expectedCurrency == actualCurrency) &&
+                DISCOUNTS.none { Hant.fold(it) in before } && !before.trimEnd().endsWith("-")
         }.mapNotNull { m -> m.groupValues[1].ifEmpty { m.groupValues[2] }.toBigDecimalOrNull() }.toList()
     }
 
@@ -199,16 +222,16 @@ class ConfirmationGate {
     private fun norm(s: String) = s.filterNot { it.isWhitespace() }.lowercase()
 
     companion object {
-        /** 同意后过了这么多步还没用就作废。 */
+        /** 同意後、多くの手順を経て使用されない場合は無効となります。 */
         const val MAX_STEPS = 3
         const val MATCH_CHARS = 20
-        /** 发送对象要在这条线(0–999)以上:屏幕顶部约 15% 的标题栏。 */
+        /** 送信オブジェクトは、この行 (0 ～ 999) より上、つまり画面上部のタイトル バーの約 15% にある必要があります。 */
         const val TITLE_BAND = 150
         private val NUMBER = Regex("\\d+(\\.\\d+)?")
-        private val CURRENCY = Regex("[¥￥$＄]\\s*(\\d+(?:\\.\\d+)?)|(\\d+(?:\\.\\d+)?)\\s*元")
+        private val CURRENCY = Regex("(?:[¥￥$＄]|JPY|CNY|USD)\\s*(\\d+(?:\\.\\d+)?)|(\\d+(?:\\.\\d+)?)\\s*(?:元|円|JPY|CNY|USD)", RegexOption.IGNORE_CASE)
         private val THOUSANDS = Regex("(?<=\\d),(?=\\d{3}(?!\\d))")
         private val TOTAL_LABELS = IrreversibleDetector.TOTAL_LABELS
-        private val DISCOUNTS = listOf("优惠", "减", "抵扣", "运费", "券", "红包", "已省")
+        private val DISCOUNTS = listOf("优惠", "减", "抵扣", "运费", "券", "红包", "已省", "割引", "値引", "クーポン", "送料", "還元", "ポイント")
         private const val DISCOUNT_WINDOW = 4
         private val KEEPS_GRANT = setOf(Verb.TypeText, Verb.ClearText)
     }

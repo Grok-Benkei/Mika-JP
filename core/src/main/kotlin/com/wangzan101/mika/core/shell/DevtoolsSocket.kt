@@ -1,8 +1,8 @@
 package com.wangzan101.mika.core.shell
 
 /**
- * WebView 调试接口的本地抽象套接字:每个开着调试的进程一个,名为 `webview_devtools_remote_<pid>`。
- * 内置助手代连时只认这个样子的名字,且 pid 必须属于 Mika 的 uid。
+ * WebView デバッグ インターフェイスのローカル抽象ソケット: デバッグが有効になっているプロセスごとに 1 つ、`webview_devtools_remote_<pid>` という名前。
+ * の組み込みアシスタントは、接続時にこのような名前のみを認識し、pid はミカの uid に属している必要があります。
  */
 object DevtoolsSocket {
     private const val PREFIX = "webview_devtools_remote_"
@@ -10,10 +10,10 @@ object DevtoolsSocket {
 
     fun name(pid: Int): String = "$PREFIX$pid"
 
-    /** 名字里的 pid;不是这个样子(多了前后缀、前导 0、超出范围)返回 null。 */
+    /** 名の pid はこのようなものではなく (追加のサフィックス、先頭の 0、範囲外)、null を返します。 */
     fun pidOf(name: String): Int? = NAME.matchEntire(name)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
 
-    /** `/proc/<pid>/status` 里的真实 uid(Uid 行第一列);没有这一行返回 null。 */
+    /** `/proc/<pid>/status` の実際の uid (Uid 行の最初の列)。そのような行がない場合は、null が返されます。 */
     fun procUid(status: String): Int? =
         status.lineSequence().firstOrNull { it.startsWith("Uid:") }
             ?.removePrefix("Uid:")?.trim()?.split(Regex("\\s+"))?.firstOrNull()?.toIntOrNull()

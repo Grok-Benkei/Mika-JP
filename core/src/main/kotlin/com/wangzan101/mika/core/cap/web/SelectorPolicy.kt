@@ -1,24 +1,24 @@
 package com.wangzan101.mika.core.cap.web
 
 /**
- * 交给页面的 CSS 选择器不许按 value 属性选元素:`input[value^="h"]` 一位一位试,猜得出密码框、隐藏字段的值。
- * 只看字面会漏,所以先照 CSS 读选择器的规矩还原成浏览器看到的样子再找:去掉注释,解开转义(`v\61 lue` 就是 value),
- * 引号里的整段拿掉(属性名不写在引号里,引号里的注释记号、`[value` 也不算数);属性名前可以带命名空间(`*|value`、`|value`)。
- * 还原时宁可多认:转义出来的方括号(类名 `.\5b value`)也算作按 value 选。
- * 带 `url(` 的一律算作按 value 选:url( 后面不带引号时到 `)` 为止是一个记号,里面的注释记号、引号既不开始注释也不开始字符串,
- * 上面的还原对不上;`:is()` 只丢掉写错的那一项,后面的 `[value` 照样生效。选择器里本来也用不到它。
- * web_script 的 mika.query 在 Kotlin 里查([selectsByValue]);只读脚本的查找方法在页面里调,用同一套规矩的 JS 版([JS])。
+ * ページに渡された CSS セレクターは、value 属性に従って要素を選択することを許可されていません: `input[value^="h"]` パスワード ボックスと隠しフィールドの値を 1 つずつ推測してみてください。 リテラルのみを読み取ると
+ * は見逃されるため、まず CSS 読み取りセレクターの規則に従ってブラウザーで表示される状態に戻してから検索します。コメントを削除してエスケープを解除します (`v\61 lue` は値です)。 引用符で囲まれた段落全体
+ * (属性名は引用符で囲まれて記述されず、引用符で囲まれたコメント マークと `[value` はカウントされません)。属性名の前に名前空間を付けることができます (`*|value`、`|value`)。
+ * 復元時にさらに認識することをお勧めします。エスケープされた角括弧 (クラス名 `.\5b value`) も、値によって選択されたものとしてカウントされます。
+ * と `url(` は値の選択としてカウントされます: url( `)` までのマークの後に引用符はありません。コメント マークと引用符内のコメントはコメントでも文字列でも始まりません。
+ * の上記の復元は一致しません。 `:is()` は間違った項目を破棄するだけで、後続の `[value` は引き続き有効です。セレクターでは使用されません。
+ * web_script の mika.query は Kotlin ([selectsByValue]) で検索されます。読み取り専用スクリプトの検索メソッドは、同じルール セット ([JS]) の JS バージョンを使用してページ内で呼び出されます。
  */
 object SelectorPolicy {
     fun selectsByValue(selector: String): Boolean = plain(selector).let { URL_FUNCTION.containsMatchIn(it) || BY_VALUE.containsMatchIn(it) }
 
-    /** `[`、可有可无的命名空间、value,后面不再接名字里的字。只认 CSS 的空白(空格、制表、换行),和 JS 版一致。 */
+    /** `[`、オプションの名前空間、値。名前にこれ以上の単語は続きません。 CSS の空白文字 (スペース、タブ、改行) のみが認識されます。これは JS バージョンと同じです。 復元後に */
     private val BY_VALUE = Regex("""\[[ \t\n]*(?:[^ \t\n\[\]|]*[ \t\n]*\|[ \t\n]*)?value(?![\w\x{80}-\x{10FFFF}-])""", RegexOption.IGNORE_CASE)
 
-    /** 还原后出现 `url(`(名字可以是转义拼出来的):CSS 在这里开始一个 url 记号。 */
+    /** が表示されます。 `url(` (名前はエスケープで綴ることができます): CSS はここで URL マークを開始します。 */
     private val URL_FUNCTION = Regex("""url\(""", RegexOption.IGNORE_CASE)
 
-    /** 按 CSS 的读法还原:换行先统一成 \n;注释换成一个空格;引号里的整段换成 `""`;转义换成它代表的字。 */
+    /** は CSS の発音に従って復元されます。改行は最初に \n に統合されます。コメントはスペースに変更されます。引用符で囲まれた段落全体が `""` に変更されます。 「escape」はそれが表す言葉に変わります。 */
     internal fun plain(selector: String): String {
         val s = selector.replace("\r\n", "\n").replace('\r', '\n').replace('\u000C', '\n')
         val out = StringBuilder()
@@ -33,7 +33,7 @@ object SelectorPolicy {
                 }
                 c == '"' || c == '\'' -> {
                     i++
-                    // 引号里:反斜杠加换行是续行,别的转义照常吃掉;没转义的换行让这段字到此为止(浏览器也这样)
+                    // 引用符内: バックスラッシュと改行は行継続であり、他のエスケープは通常どおりに使用されます。エスケープされていない改行は段落を終了します (ブラウザーにも同じことが当てはまります)
                     while (i < s.length && s[i] != c && s[i] != '\n') {
                         i = when {
                             s[i] != '\\' -> i + 1
@@ -55,7 +55,7 @@ object SelectorPolicy {
         return out.toString()
     }
 
-    /** [i] 处是反斜杠:返回转义出的字和下一个位置。1–6 位十六进制(紧跟的一个空白算在转义里),否则就是下一个字本身。 */
+    /** [i] はバックスラッシュです。エスケープされた単語と次の位置を返します。 1 ～ 6 の 16 進数 (次のスペースはエスケープとしてカウントされます)、それ以外の場合は次の単語そのもの。 */
     private fun escape(s: String, i: Int): Pair<String, Int> {
         if (i + 1 >= s.length) return "\uFFFD" to s.length
         var j = i + 1
@@ -71,7 +71,7 @@ object SelectorPolicy {
 
     private fun Char.isHex() = this in '0'..'9' || this in 'a'..'f' || this in 'A'..'F'
 
-    /** JS 版:在页面里定义 `selectsByValue(选择器字符串)`,和上面一行一行对应。 */
+    /** JS バージョン: 上記に対応する `selectsByValue(选择器字符串)` をページ内に 1 行ずつ定義します。 */
     val JS: String = """
   const selectsByValue = (() => {
     const HEX = /^[0-9a-fA-F]${'$'}/;

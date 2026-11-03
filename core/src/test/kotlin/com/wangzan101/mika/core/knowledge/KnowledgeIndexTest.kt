@@ -34,54 +34,54 @@ class KnowledgeIndexTest {
     }
 
     @Test fun requiredFieldsAndLimits() {
-        assertError("缺少头部", "knowledge/apps/a/APP.md" to "没有头部")
-        assertError("必须与目录名", appMd("a", listOf("p.a")).let { (p, t) -> p.replace("/a/", "/b/") to t })
-        assertError("缺少 packages", appMd("a", emptyList()))
-        assertError("不认得的键 assistent", appMd("a", listOf("p.a"), extra = "assistent: 小助手\n"))
-        // 迁移来的元数据键已去掉,写了就报
+        assertError("ヘッダー（--- で囲んだメタデータ）がありません", "knowledge/apps/a/APP.md" to "没有头部")
+        assertError("はディレクトリ名", appMd("a", listOf("p.a")).let { (p, t) -> p.replace("/a/", "/b/") to t })
+        assertError("packagesがありません", appMd("a", emptyList()))
+        assertError("未知のキーがあります: assistent", appMd("a", listOf("p.a"), extra = "assistent: 小助手\n"))
+        // 移行されたメタデータ キーは削除されました。書いたら報告してください。
         listOf("risk: read", "status: draft", "updated: 2026-10-24", "verified_on: x")
-            .forEach { assertError("不认得的键 ${it.substringBefore(':')}", appMd("a", listOf("p.a"), extra = "$it\n")) }
-        assertError("terms 只有技能能写", appMd("a", listOf("p.a"), extra = "terms: [购物]\n"))
-        assertError("terms 只有技能能写", siteMd("a.com").let { (p, t) -> p to t.replace("mode: desktop\n", "mode: desktop\nterms: [购物]\n") })
-        assertError("description 超过", appMd("a", listOf("p.a")).let { (p, t) -> p to t.replace("description: a 的说明", "description: " + "长".repeat(61)) })
-        assertError("超过 2500", appMd("a", listOf("p.a"), body = "字".repeat(2501)))
-        assertError("mode 只能是", siteMd("a.com").let { (p, t) -> p to t.replace("mode: desktop\n", "") })
-        // pace:App 和网站能写,只认 careful;技能不能写
-        assertError("pace 只能是", siteMd("a.com").let { (p, t) -> p to t.replace("mode: desktop\n", "mode: desktop\npace: slow\n") })
-        assertError("pace 只能是", appMd("a", listOf("p.a"), extra = "pace: slow\n"))
-        assertError("pace 只有 App 和网站能写", skillMd("s", extra = "pace: careful\n"))
+            .forEach { assertError("未知のキーがあります: ${it.substringBefore(':')}", appMd("a", listOf("p.a"), extra = "$it\n")) }
+        assertError("termsはスキル専用", appMd("a", listOf("p.a"), extra = "terms: [购物]\n"))
+        assertError("termsはスキル専用", siteMd("a.com").let { (p, t) -> p to t.replace("mode: desktop\n", "mode: desktop\nterms: [购物]\n") })
+        assertError("descriptionは60 文字以内", appMd("a", listOf("p.a")).let { (p, t) -> p to t.replace("description: a 的说明", "description: " + "长".repeat(61)) })
+        assertError("上限2500", appMd("a", listOf("p.a"), body = "字".repeat(2501)))
+        assertError("modeにはdesktopまたはmobile", siteMd("a.com").let { (p, t) -> p to t.replace("mode: desktop\n", "") })
+        // ペース: アプリと Web サイトを作成できますが、注意が必要です。スキルは書けない
+        assertError("paceに指定できる値:", siteMd("a.com").let { (p, t) -> p to t.replace("mode: desktop\n", "mode: desktop\npace: slow\n") })
+        assertError("paceに指定できる値:", appMd("a", listOf("p.a"), extra = "pace: slow\n"))
+        assertError("paceを指定できるのはアプリとウェブサイト", skillMd("s", extra = "pace: careful\n"))
         assertTrue(errors(appMd("a", listOf("p.a"), extra = "pace: careful\n")).isEmpty())
         val careful = siteMd("a.com").let { (p, t) -> p to t.replace("mode: desktop\n", "mode: desktop\npace: careful\n") }
         assertTrue(errors(careful).isEmpty())
-        assertError("要在 domains 里", siteMd("a.com", domains = listOf("b.com")))
-        assertError("缺少 SKILL.md", "skills/x/notes.md" to "x")
-        assertError("links 里的", appMd("a", listOf("p.a"), extra = "links: [\"文件 | file:///sdcard/a\"]\n"))
-        // 技能正文没有上限
+        assertError("をdomainsに含めてください", siteMd("a.com", domains = listOf("b.com")))
+        assertError("SKILL.md がありません", "skills/x/notes.md" to "x")
+        assertError("linksの", appMd("a", listOf("p.a"), extra = "links: [\"文件 | file:///sdcard/a\"]\n"))
+        // スキルテキストに上限なし
         assertTrue(errors(skillMd("long", body = "字".repeat(5000))).isEmpty())
     }
 
     @Test fun uniqueNamesPackagesAndDomains() {
-        assertError("包名 p.a 被多个 App 声明", appMd("a", listOf("p.a")), appMd("b", listOf("p.a")))
-        assertError("域名 a.com 被多个站点声明", siteMd("a.com"), siteMd("b.com", domains = listOf("b.com", "a.com")))
-        assertError("名字 dup 重复", appMd("dup", listOf("p.a")), skillMd("dup"))
+        assertError("パッケージ名p.a が複数のアプリで定義", appMd("a", listOf("p.a")), appMd("b", listOf("p.a")))
+        assertError("ドメインa.com が複数のサイトで定義", siteMd("a.com"), siteMd("b.com", domains = listOf("b.com", "a.com")))
+        assertError("名前dup が重複", appMd("dup", listOf("p.a")), skillMd("dup"))
     }
 
     @Test fun linksMustExistBothWays() {
-        assertError("sites 里的 a.com 不存在", appMd("a", listOf("p.a"), sites = listOf("a.com")))
-        assertError("apps 里缺少 a", appMd("a", listOf("p.a"), sites = listOf("a.com")), siteMd("a.com"))
-        assertError("apps 里的 nope 不存在", skillMd("s", apps = listOf("nope")))
+        assertError("sitesに指定されたa.com がありません", appMd("a", listOf("p.a"), sites = listOf("a.com")))
+        assertError("appsにaがありません", appMd("a", listOf("p.a"), sites = listOf("a.com")), siteMd("a.com"))
+        assertError("appsに指定されたnope がありません", skillMd("s", apps = listOf("nope")))
     }
 
     @Test fun referencedAttachmentsMustExist() {
-        assertError("附件 references/x.md 不存在", appMd("a", listOf("p.a"), body = "读 `references/x.md`"))
-        // 点名另一个条目时到那个条目里找
+        assertError("参照ファイルreferences/x.md が", appMd("a", listOf("p.a"), body = "读 `references/x.md`"))
+        // 別のエントリに名前を付ける場合は、そのエントリ内で検索します
         assertTrue(errors(appMd("a", listOf("p.a"), body = "读 `skill:s` 的 `references/x.md`"), skillMd("s"), "skills/s/references/x.md" to "x").isEmpty())
-        assertError("提到的 skill:t 不存在", appMd("a", listOf("p.a"), body = "见 skill:t"))
-        assertError("可运行的 scripts/run.py 不存在", skillMd("s"), "skills/s/scripts/manifest.json" to """[{"file":"scripts/run.py","runnable":true}]""")
+        assertError("参照先skill:t がありません", appMd("a", listOf("p.a"), body = "见 skill:t"))
+        assertError("実行可能と定義されたscripts/run.pyがありません", skillMd("s"), "skills/s/scripts/manifest.json" to """[{"file":"scripts/run.py","runnable":true}]""")
     }
 
     @Test fun localPathsRejectedExceptLicenseFiles() {
-        assertTrue(errors(appMd("a", listOf("p.a"), body = "见 /Users/me/x")).any { "本机路径" in it })
+        assertTrue(errors(appMd("a", listOf("p.a"), body = "见 /Users/me/x")).any { "ローカル端末の絶対パス" in it })
         assertTrue(errors(appMd("a", listOf("p.a")), "knowledge/apps/a/assets/LICENSE.md" to "/Users/me/x").isEmpty())
     }
 }

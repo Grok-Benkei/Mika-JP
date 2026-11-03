@@ -23,9 +23,9 @@ import com.wangzan101.mika.core.assembly.toolDispatcher
 import com.wangzan101.mika.core.knowledge.KnowledgeStore
 
 /**
- * 模型能看到的全部提示词表面:每种能力组合的完整系统提示词、每个工具的定义(名字、说明、参数 schema)、
- * 内部角色的提示词。金样在 core/src/test/resources/prompt-surface/;重构前后必须一字不差。
- * 重新生成:./gradlew :core:test --tests '*PromptSurface*' -PupdateSnapshots
+ * モデルに表示されるすべてのプロンプト ワード: 各機能の組み合わせの完全なシステム プロンプト ワード、各ツールの定義 (名前、説明、パラメーター スキーマ)、
+ * 内部ロールのプロンプトワード。ゴールデン サンプルは core/src/test/resources/prompt-surface/ にあります。再構築の前後で逐語的に記録する必要があります。
+ * 再生成: ./gradlew :core:test --tests '*PromptSurface*' -PupdateSnapshots
  */
 class PromptSurfaceTest {
     private class Mem : MemoryPersistence {
@@ -35,7 +35,7 @@ class PromptSurfaceTest {
 
     private class Combo(val tools: () -> ToolDispatcher, val flags: SpeedFlags = SpeedFlags.OFF, val memory: MemoryStore? = null)
 
-    private val bundled = KnowledgeStore(KnowledgeStore.loadBundled())
+    private val bundled = KnowledgeStore(com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.entries())
     private val LAYERS = linkedMapOf("chat" to emptyList(), "phone" to listOf("phone"), "web" to listOf("web"), "all" to listOf("phone", "web", "sandbox"))
     private val combos: Map<String, Combo> = linkedMapOf(
         "phone" to Combo({ toolDispatcher(FakeScreen()) }),
@@ -49,11 +49,11 @@ class PromptSurfaceTest {
         "everything" to MemoryStore(Mem(), clock = { 1L }, ids = { "m" }).let { mem ->
             Combo({
                 toolDispatcher(
-                    FakeScreen(), visionEnabled = true, skills = GuideCatalog.loadBundled(), vision = VisionService(says(), JvmTestImageOps),
+                    FakeScreen(), visionEnabled = true, skills = com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog(), vision = VisionService(says(), JvmTestImageOps),
                     web = FakeWebPort(), inlineScreen = true, deepLinks = true,
                     memory = mem, utterances = UserUtterances(), sandbox = FakeSandbox(SandboxStatus.Ready(network = false)), workspace = { "w" },
                     personalSkills = com.wangzan101.mika.core.skills.InMemoryPersonalSkills(),
-                    // 子任务和之前几轮的记录:之前有记过运行的一轮时才有 history_read
+                    // サブタスクと以前のラウンドのレコード:history_read は、以前の実行がある場合にのみ使用できます。
                     runSpec = com.wangzan101.mika.core.run.RunSpec(com.wangzan101.mika.core.run.RunId("t"), "t", "thread",
                         priorTurns = listOf(Turn("之前", "好", "succeeded", runId = "r1"))),
                     childHost = com.wangzan101.mika.core.child.ChildRunHost { spec, _ ->
@@ -64,7 +64,7 @@ class PromptSurfaceTest {
         },
     )
 
-    /** [open] 时上一轮用过三组:开局都展开(本任务提供了的);否则都收着,只有入口。 */
+    /** [open] 前のラウンドでは 3 つのグループが使用されました。これらはすべて最初に展開されました (このタスクによって提供されました)。それ以外の場合は、入り口だけがあり、すべて閉鎖されていました。 */
     private fun offered(c: Combo, open: Boolean = true): FakeRequestCapture = runBlocking {
         val m = FakeRequestCapture()
         AgentLoop(m, c.tools(), SystemPrompt.identity(), flags = c.flags, memory = c.memory)
@@ -72,7 +72,7 @@ class PromptSurfaceTest {
         m
     }
 
-    /** 每种组合各组都展开时的系统提示词(收着时的样子见 layeredSurfaces)。 */
+    /** 各組み合わせおよび各グループが展開されるときのシステム プロンプト ワード (折りたたまれた外観については、layeredSurfaces を参照)。 */
     @Test fun systemPromptPerCombination() {
         for ((name, c) in combos) {
             val m = offered(c)
@@ -81,15 +81,15 @@ class PromptSurfaceTest {
     }
 
     @Test fun toolDefinitions() {
-        // 同名工具按本任务有几块屏可能有几种定义(多一个 surface 参数),入口工具收着时另有短说明:每种都列出
+        // 同じ名前のツールには複数の画面があり、このタスクに従って複数の定義 (もう 1 つのサーフェス パラメーター) を持つ場合があります。エントリーツールを収集する際には、各タイプがリストされている簡単な説明があります。
         val all = combos.values.flatMap { offered(it).tools + offered(it, open = false).tools }
             .distinctBy { it.name + it.description + it.parametersJsonSchema }.sortedBy { it.name }
         PromptSurface.check("tools", PromptSurface.tools(all))
     }
 
     /**
-     * 分层之后各情形下第一次请求的全貌(系统提示词 + 每个工具的定义全文),组合同 everything、按产品路径不给确认工具:
-     * chat 只聊天(都收着)、phone / web 上一轮用过那一组(开局展开)、all 三组都展开。大小另写进 layers/sizes。
+     * 階層化後の各状況での最初のリクエストの全体像 (システム プロンプト ワード + 各ツールの定義の全文)、すべてを組み合わせた、製品パスによる確認ツールなし:
+     * チャットのみチャット (すべて保存)、前のラウンドで使用した電話/Web グループ (開始時に展開)、3 つのグループすべてが展開されます。サイズはレイヤー/サイズに分けて記載されています。
      */
     @Test fun layeredSurfaces() {
         val c = combos.getValue("everything")
@@ -126,7 +126,7 @@ class PromptSurfaceTest {
         override suspend fun events(runId: String) = emptyList<com.wangzan101.mika.core.record.RunEvent>()
     }
 
-    /** 只回一个 finish:记下开工那次请求的系统提示词和工具。 */
+    /** は、作業開始要求のシステム プロンプトの単語とツールを書き留めるという 1 つの終了のみで応答します。 */
     private class FakeRequestCapture : com.wangzan101.mika.core.model.ChatModel {
         override val capabilities = com.wangzan101.mika.core.model.Capabilities(toolCalls = true, vision = false, contextTokens = 128_000, reasoning = false)
         var system: String? = null

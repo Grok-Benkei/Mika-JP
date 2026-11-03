@@ -4,19 +4,19 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * 滚轮选择器(时间、日期、地区这类一格一格转的)的算法,和怎么转无关:认值、算方向和格数、估一格多高。
- * 端口照它在一次工具调用里转到位,不需要模型一格一格看。
+ * ホイール セレクターのアルゴリズム (一度に 1 フレーム、日付、領域などを回転します) は、回転方法とは何の関係もありません。値を認識し、セルの方向と数を計算し、1 つのセルの高さを推定します。
+ * ポートは、モデルを 1 つずつ表示する必要がなく、1 つのツール呼び出しでそのまま配置されます。
  *
- * 「前进」指滚轮上的值往后走(下面那一项转到中间,数字通常变大);是不是变大由读回来的值校正。
+ * 「前方」は、ローラーの値が後方に移動することを意味します (次の項目を中央に回すと、通​​常は数字が大きくなります)。大きくなるかどうかは読み戻した値によって補正されます。
  */
 object WheelMath {
     private val ONLY_NUMBER = Regex("""^-?\d{1,6}$""")
     private val LEADING_NUMBER = Regex("""^\D{0,3}?(\d{1,6})(?!\d)""")
     private val DIGITS = Regex("""(?<!\d)\d{1,6}(?!\d)""")
-    /** 一项的文字里把值和状态词(「已选中」「selected」……)、单位隔开的标点。 */
+    /** 項目のテキスト内の値、ステータス単語 (「選択済み」、「選択済み」...)、および単位を区切る句読点。 */
     private val SEPARATORS = Regex("""[,，、:：;；|/()（）\[\]【】<>《》·•]+""")
 
-    /** 比较文字用:去空白、全角数字换半角、忽略大小写。 */
+    /** テキストを比較するには: 空白を削除し、全角の数字を半角に置き換え、大文字と小文字を無視します。 */
     fun normalize(s: String): String = buildString {
         for (c in s.trim()) when {
             c.isWhitespace() -> Unit
@@ -26,9 +26,9 @@ object WheelMath {
     }
 
     /**
-     * 显示的文字里的整数:"09" → 9,"9时"/"9 点" → 9,"2026年" → 2026,"第3周" → 3;
-     * 无障碍名字常在值前后带状态词("已选中，21"、"Selected, 21"、"21 (selected)"),整段只有一个数时就是它。
-     * 有几个数时取开头附近的第一个(前面的字超过三个为 null);没有数字为 null。
+     * によって表示されるテキスト内の整数: 「09」→ 9、「9 時」/「9 時」→ 9、「2026」→ 2026、「第 3 週」→ 3;
+     * アクセシブルな名前には、値の前後にステータス単語 (「選択済み、21」、「選択済み、21」、「21 (選択済み)」) が含まれることがよくあります。これは、段落全体に数字が 1 つしかない場合に当てはまります。
+     * 複数の数字がある場合、先頭近くの最初の数字が取得されます (先頭に 3 文字以上ある場合は null)。数値がない場合は null です。
      */
     fun number(s: String?): Int? {
         val t = s?.let(::normalize)?.ifEmpty { null } ?: return null
@@ -37,12 +37,12 @@ object WheelMath {
         return LEADING_NUMBER.find(t)?.groupValues?.get(1)?.toIntOrNull()
     }
 
-    /** 按标点切开的几段(已按 [normalize] 处理):"已选中，21" → [已选中, 21]。 */
+    /** 句読点に従って切り取られた複数のセグメント ([normalize] に従って処理): 「選択済み、21」 → [選択済み、21]。 */
     fun segments(s: String): List<String> = normalize(s).split(SEPARATORS).filter { it.isNotEmpty() }
 
     /**
-     * 报给模型的值:名字里带着状态词时只留值那一段("已选中，21" → "21"、"Selected, 21" → "21");
-     * 切不出唯一一段带数字的就原样(文字值不猜哪段是状态词)。
+     * モデルに報告される値: 名前にステータス単語が含まれる場合、値セグメントのみが残ります (「選択済み、21」→「21」、「選択済み、21」→「21」)。
+     * は、番号が含まれる唯一の段落を切り取ってそのままにすることはできません (テキスト値は、どの段落がステータス ワードであるかを推測しません)。
      */
     fun clean(label: String?): String? {
         val t = label?.trim()?.ifEmpty { null } ?: return null
@@ -51,12 +51,12 @@ object WheelMath {
         return parts.filter { p -> p.any { it.isDigit() || it in '０'..'９' } }.singleOrNull() ?: t
     }
 
-    /** 目标本身就是一个数(「9」「09」「２０２６」),不是带数字的文字。 */
+    /** ターゲット自体は数字 (「9」、「09」、「2026」) であり、数字を含むテキストではありません。 */
     fun numericTarget(target: String): Int? = normalize(target).takeIf(ONLY_NUMBER::matches)?.toIntOrNull()
 
     /**
-     * 滚轮此刻显示的 [shown] 是不是要的 [target]:目标是纯数字时按数比("09" 就是 "9","40分" 就是 "40",
-     * "已选中，21" 就是 "21");否则文字相同,或显示的(或按标点切开的某一段)以目标开头/结尾(「北京市」对「北京」)。
+     * 現時点でスクロールホイールに表示されている [shown] は [target] です。 対象が純粋な数字の場合は、数字の比率を押します (「09」は「9」、「40 ポイント」は「40」、
+     * "選択済み、21" は "21");それ以外の場合、テキストは同じであるか、表示される (または句読点に従って切り取られたセクション) がターゲットで開始/終了します (「北京市」と「北京」)。
      */
     fun matches(shown: String?, target: String): Boolean {
         val s = shown?.let(::normalize)?.ifEmpty { null } ?: return false
@@ -67,8 +67,8 @@ object WheelMath {
     }
 
     /**
-     * 从上到下看得到的几项估出循环的长度:数字里出现一次「往下变小」(…58 59 00 01…),循环长度 = 断点前的最大值 − 断点后的最小值 + 1;
-     * 看不出循环(全是递增、不是数字、太少)为 null。
+     * いくつかの項目を上から下に見てループの長さを推定します。「下に行くほど小さくなる」が数値の中に 1 回出現します (...58 59 00 01...)。ループの長さ = ブレークポイント前の最大値 − ブレークポイント後の最小値 + 1。
+     * は、ループ (数値ではなくすべての増分、少なすぎる) が null であることを認識できません。
      */
     fun modulus(visible: List<String>): Int? {
         val n = visible.map { number(it) ?: return null }
@@ -79,7 +79,7 @@ object WheelMath {
         return (n.subList(0, i).max() - n.subList(i, n.size).min() + 1).takeIf { it >= 2 }
     }
 
-    /** 从 [current] 到 [target] 要往数大的那边走几格(负数往小的那边):循环长度 [modulus] 已知时取近的那一边。 */
+    /** [current] から [target] まで、数字が大きい側に何グリッド移動する必要があります (負の数字は小さい側に移動します): サイクル長 [modulus] がわかっている場合は、最も近い側を選択します。 */
     fun distance(current: Int, target: Int, modulus: Int?): Int {
         val d = target - current
         if (modulus == null || modulus < 2) return d
@@ -87,14 +87,14 @@ object WheelMath {
         return if (m <= modulus / 2) m else m - modulus
     }
 
-    /** 数从 [before] 变成 [after] 走了几格(循环长度已知时 59→0 是 +1 不是 −59);不是数字为 null。 */
+    /** という数値は、[before] から [after] まで何グリッドになりますか (ループの長さがわかっている場合、59→0 は +1 ですが、-59 ではありません)。数値でない場合は null です。 */
     fun moved(before: String?, after: String?, modulus: Int?): Int? {
         val b = number(before) ?: return null
         val a = number(after) ?: return null
         return distance(b, a, modulus)
     }
 
-    /** 一格多高:相邻几项中心的间距取中位数;不到两项、间距太小为 null。 */
+    /** 1 グリッドの高さ: 隣接する項目の中心間の距離の中央値を取得します。項目が 2 つ未満で距離が小さすぎる場合は、null になります。 */
     fun itemHeight(centers: List<Int>): Int? {
         val sorted = centers.sorted()
         val gaps = (1 until sorted.size).map { sorted[it] - sorted[it - 1] }.filter { it > 2 }
@@ -103,9 +103,9 @@ object WheelMath {
     }
 
     /**
-     * 选中的那一项:只有一项标着选中([Item.selected],无障碍的 isSelected)就是它;各项都带着自己的高度时,
-     * 是自己的上下范围盖住中线 [centerY] 的那一项(都没盖住为 -1:中间那一格没报出来,不拿上下的邻居充数);
-     * 否则按 [selected] 找中线上的。
+     * 選択された項目: 選択済みとマークされた項目は 1 つだけ ([Item.selected]、バリアフリー isSelected)、それだけです。各アイテムに独自の高さがある場合、
+     * は、上下の範囲が正中線 [centerY] をカバーするアイテムです (カバーされていないのは -1 です。中央の正方形は報告されず、上下の隣接範囲は充電に使用されません)。
+     * それ以外の場合は、[selected] を押して中心線を見つけます。
      */
     fun selectedIndex(items: List<Item>, centerY: Int, itemHeight: Int?): Int {
         items.indices.filter { items[it].selected }.singleOrNull()?.let { return it }
@@ -117,17 +117,17 @@ object WheelMath {
     }
 
     /**
-     * 中线上那一格没报出来(有的滚轮只报上下两格)、上下紧挨着的两项都是数时,中间那一格的文字:
-     * 上下差 2 就是夹在中间的数;差得多时只认转过一圈的接口(59 和 1 中间是 0,22 和 0 中间是 23,12 和 2 中间是 1,
-     * 11 和 1 中间是 12,1 和 59 中间是 0)。1–12 的时针在 12 那一格没报出来时上下是 11 和 1,不能按「小的那边减一」推成 0
-     * (0 不在这只滚轮上);倒着排(1 在上、11 在下)也是 12。写法照上面那一项(单位;上下有补零的就补零);推不出为 null。
+     * 中心線上のグリッドはレポートされません (一部のローラーでは、上部と下部のグリッドのみがレポートされます)。すぐ上と下の 2 つの項目は時間を数えています。中央のグリッドのテキストは次のとおりです。
+     * と 2 の違いは、真ん中に挟まれた数字です。差がはるかに大きい場合は、一度回転されたインターフェイスのみが認識されます (59 と 1 の中間は 0、22 と 0 の中間は 23、12 と 2 の中間は 1、
+     * 11 と 1 は 12、1 と 59 は 0)。 12 グリッドが報告されていない場合、1 ～ 12 の時針は 11 と 1 になります。 「小さい方マイナス1」を押して0にすることはできません。
+     * (このローラーには 0 はありません);上下逆に並べると（上に1、下に11）、12になります。書き方は上記の通りです（単位。上下に0がある場合は0を追加します）。推定できない場合は null になります。
      */
     fun between(above: String, below: String): String? {
         val a = number(above) ?: return null
         val b = number(below) ?: return null
         val mid = when {
             abs(b - a) == 2 -> (a + b) / 2
-            // 1–12:11 和 1 中间是 12。要排在「小的那边减一」之前,否则会推成 0
+            // 1–12:11 で、1 はその間の 12 です。 「小さい方から 1 を引いた値」より前にランク付けする必要があります。そうでない場合は 0 にプッシュされます。
             (a == 11 && b == 1) || (a == 1 && b == 11) -> 12
             b < a && b <= 2 -> if (b >= 1) b - 1 else a + 1
             a < b && a <= 2 -> if (a >= 1) a - 1 else b + 1
@@ -136,14 +136,14 @@ object WheelMath {
         if (mid < 0) return null
         val token = DIGITS.find(above.trim())?.value ?: return null
         val other = DIGITS.find(below.trim())?.value.orEmpty()
-        // 补零的滚轮(上下有一项以 0 开头,如 09、01)照样补零到同样宽
+        // ゼロ パディングされたローラー (09、01 など、上下の項目のいずれかが 0 で始まる) は引き続き同じ幅にパディングされます。
         val padded = listOf(token, other).any { it.length > 1 && it.startsWith('0') }
         return above.trim().replaceFirst(token, if (padded) mid.toString().padStart(token.length, '0') else mid.toString())
     }
 
     /**
-     * 从上到下的几项里,和第 [anchor] 项连成一列、间距差不多的那一段:同一块里滚轮上下的标题、按钮不算进来。
-     * 一格多高按它和上下相邻项的间距(取小的)算。不到三项、估不出一格多高时原样返回。
+     * 上から下にいくつかの項目のうち、項目 [anchor] と同じ間隔で並んでいるセクション、つまり同じブロック内のスクロール ホイールの上下のタイトルとボタンは含まれません。
+     * 1 つのグリッドの高さは、そのグリッドと上下に隣接するアイテムの間の距離 (いずれか小さい方) に基づいて計算されます。アイテム数が 3 つ未満で 1 つのブロックの高さが推定できない場合は、そのまま返却します。
      */
     fun column(items: List<Item>, anchor: Int): List<Item> {
         if (items.size < 3 || anchor !in items.indices) return items
@@ -160,7 +160,7 @@ object WheelMath {
         return items.subList(lo, hi + 1)
     }
 
-    /** 中线 [centerY] 上的那一项的下标:中心离中线最近的;离得超过大半格(没有正对中线的)为 -1。 */
+    /** 中心線 [centerY] の項目の下付き文字: 中心線に最も近い中心。正方形の半分を超える距離 (中心線に面していない) は -1 です。 */
     fun selected(centers: List<Int>, centerY: Int, itemHeight: Int?): Int {
         val best = centers.indices.minByOrNull { abs(centers[it] - centerY) } ?: return -1
         if (itemHeight != null && abs(centers[best] - centerY) > itemHeight * 0.75) return -1
@@ -168,9 +168,9 @@ object WheelMath {
     }
 
     /**
-     * 要往前转几格才到(负数往后):目标就在看得到的几项里时按位置差算(下面的是前进);目标和选中的都是数字时按数差算
-     * (看得出循环就走近的一边,眼前看不出时用之前看出的 [knownModulus];[increasingForward] 为 false 时前进是变小);
-     * 都不行(文字列表、目标不在眼前)为 null。
+     * 到着するまでに前方に曲がる必要があるスペースの数 (負の数は後方に戻ります): ターゲットが表示されるいくつかのアイテムの中にある場合、計算は位置の差に基づいて行われます (以下は前方)。ターゲットと選択されたものが両方とも数値の場合、数値の差に基づいて計算されます
+     * (ループが見える場合は、ループに近づきます。見えない場合は、前に見た [knownModulus] を使用します。[increasingForward] が false の場合、順方向が小さくなります);
+     * どれもだめな場合（テキスト一覧、対象が目の前にない）は null。
      */
     fun stepsTo(visible: List<String>, selectedIndex: Int, target: String, increasingForward: Boolean = true, knownModulus: Int? = null): Int? {
         if (selectedIndex !in visible.indices) return null
@@ -182,8 +182,8 @@ object WheelMath {
     }
 
     /**
-     * 转过 [steps] 格要拖的距离(像素,正数手指往上拖 = 前进),一格 [itemHeight];一次拖不超过 [maxDrag],超过的分几次。
-     * 返回每一次拖的距离。
+     * [steps] マス回すのにドラッグする距離（ピクセル、正数が指を上へドラッグ = 前進）、1マスは [itemHeight]; 1回のドラッグは [maxDrag] を超えず、超える分は複数回に分ける。
+     * 各回のドラッグ距離を返す。
      */
     fun drags(steps: Int, itemHeight: Int, maxDrag: Int): List<Int> {
         if (steps == 0 || itemHeight <= 0) return emptyList()
@@ -199,13 +199,13 @@ object WheelMath {
         return out
     }
 
-    /** 滚轮里看得到的一项:文字和中心(像素);[selected] 无障碍标着选中;[height] 它自己有多高(不知道为 0)。 */
+    /** ホイールの中で見えている1項目: テキストと中心（ピクセル）; [selected] はユーザー補助が選択中としているか; [height] はその項目自身の高さ（不明なら 0）。 */
     data class Item(val text: String, val centerX: Int, val centerY: Int, val selected: Boolean = false, val height: Int = 0)
 
     /**
-     * 一个能竖着滚的容器看上去是不是滚轮,宁可漏认不错认:三到九项、每项都是短的值(不超过 [MAX_ITEM_CHARS] 个字)、互不相同,
-     * 都在容器横向的正中(偏离不到宽度的 15%),从上到下等距排着(最大间距不到最小的 1.5 倍)。
-     * 设置页那种靠左排的短标签、聊天列表都不像。
+     * 垂直方向に転がすことができるコンテナがローラーのように見える場合、私はそれを識別するよりも見逃したくなります。3 ～ 9 個の項目があり、各項目は短い値 ([MAX_ITEM_CHARS] 文字以下) であり、互いに異なります。
+     * はすべてコンテナの水平方向の中央にあり (偏差は幅の 15% 未満)、上から下まで等間隔に配置されています (最大間隔は最小間隔の 1.5 倍未満)。
+     * 設定ページの左行にある短いラベルとチャット リストは、それとはまったく異なります。
      */
     fun looksLikeWheel(items: List<Item>, left: Int, right: Int): Boolean {
         if (items.size !in 3..9 || right <= left) return false
@@ -221,31 +221,31 @@ object WheelMath {
 
     private const val MAX_ITEM_CHARS = 8
 
-    /** 拖了 [dragged] 像素实际转过 [moved] 格:一格实际多高;没转为 null。 */
+    /** は、[dragged] ピクセルをドラッグして、[moved] グリッドを実際に回転させました: 1 つのグリッドの実際の高さ。 null には変換されません。 */
     fun calibrated(dragged: Int, moved: Int): Int? =
         if (moved == 0) null else abs((dragged.toDouble() / moved).roundToInt()).takeIf { it > 2 }
 }
 
 /**
- * 按无障碍「往前/往后滚」转滚轮时的下一步:每批之后把读回的值交进来,它说再往哪边滚几下,或停。
- * 一下转过的不一定是一格(列表一下滚一页),所以每批之后按读回的值重算:
- * - 目标是数:按数差定方向和下数;第一次读回时看「往前」是变大还是变小;值不动了说明这一边到头、目标不在范围里,停;
- *   来回越过目标好几次(一下不止一格,停不准)也停,交给拖动去校准。
- * - 目标是文字:在眼前就按位置差;不在就一下一下往前扫,到头了反过来扫,两头都到了停。
+ * バリアフリーの「前方/後方ロール」に従ってホイールを回すときの次のステップ: 各バッチの後に、読み取った値を渡すと、どちらの方向にさらに数回回転するか、停止するかを教えてくれます。
+ * は必ずしも一度に 1 セルずつ回転するわけではない (リストは一度に 1 ページずつスクロールします)。そのため、各バッチの後に読み取られる値に従って再計算されます。
+ * - ターゲットは数字です。方向を決定し、数字の差に応じてカウントダウンします。初めて読み返すときに、「進む」が大きくなるか小さくなるかを確認します。値が動かない場合は、こちら側が終端に到達し、ターゲットが範囲内にないことを意味します。停止します。
+ *   はターゲットを数回前後に横切り (一度に 1 マス以上、停止は正確ではありません)、停止し、キャリブレーションのためにドラッグに任せます。
+ * - ターゲットはテキストです。それが目の前にある場合は、位置の差を押します。そこにない場合は、1 つずつ前にスワイプし、最後に到達したら、両端に到達するまで逆にスワイプします。
  */
 class WheelSteps(private val target: String, private val cap: Int = 80, private val burst: Int = 5) {
     sealed interface Step {
         data object Done : Step
-        /** 往 [forward] 那边滚 [count] 下。 */
+        /** は [forward] に進み、[count] にロールします。 */
         data class Act(val forward: Boolean, val count: Int) : Step
         /**
-         * 停下:[reason] 为 at_end(到头了,目标不在这一边)、not_moving(循环的滚轮滚了不动)、cap(滚了太多下)、
-         * overshoot(停不准)、unknown_value(读不出值)。
+         * Stop: [reason] は at_end (終わり、ターゲットはこちら側にありません)、not_moving (サイクルホイールが回転していません)、cap (回転回数が多すぎます)、
+         * オーバーシュート (停止できない)、unknown_value (値を読み取ることができません)。
          */
         data class Stop(val reason: String) : Step
     }
 
-    /** 到目前为止滚了几下。 */
+    /** はこれまでに数回ロールしました。 */
     var actions: Int = 0
         private set
     private val numeric = WheelMath.numericTarget(target)
@@ -258,7 +258,7 @@ class WheelSteps(private val target: String, private val cap: Int = 80, private 
     private var scanForward = true
     private var scanReversed = false
 
-    /** 刚才那批之后:此刻选中的值 [current] 和看得到的几项 [visible](从上到下)。第一次调时还没滚过。 */
+    /** 前のバッチの後: 選択された値 [current] といくつかの表示項目 [visible] (上から下)。初めて調整したときは転がりませんでした。 */
     fun next(current: String?, visible: List<String> = emptyList()): Step {
         if (WheelMath.matches(current, target)) return Step.Done
         if (current == null) return Step.Stop("unknown_value")
@@ -268,7 +268,7 @@ class WheelSteps(private val target: String, private val cap: Int = 80, private 
         if (actions >= cap) return Step.Stop("cap")
         if (numeric != null && WheelMath.number(current) != null) {
             if (prev != null) {
-                // 值不动:看得出循环的滚轮没有头,是这一下没起作用,不是到头了
+                // 値が動かない: 循環ホイールに終わりがないことがわかります。それは、今回がうまくいかないからであり、終わりではないからです。
                 if (unchanged) return Step.Stop(if (modulus != null) "not_moving" else "at_end")
                 val moved = WheelMath.moved(last, current, modulus)
                 if (!calibrated && moved != null && moved != 0) {
@@ -280,7 +280,7 @@ class WheelSteps(private val target: String, private val cap: Int = 80, private 
             val forward = d > 0
             val turned = prev != null && forward != prev.forward
             if (turned && ++reversals > 3) return Step.Stop("overshoot")
-            // 刚越过目标往回走:一下一下来
+            // 目標を越えて歩いて戻りました: ステップバイステップ
             val n = if (turned) 1 else minOf(abs(d), burst)
             return act(forward, n.coerceAtMost(cap - actions), current)
         }
@@ -305,23 +305,23 @@ class WheelSteps(private val target: String, private val cap: Int = 80, private 
 }
 
 /**
- * 拖动转滚轮(App 自己画的、不能无障碍滚的)时的下一步:每次拖完把读回的这一列交进来,它说再拖几格、怎么拖,或停。
- * - 按 [WheelMath.stepsTo] 定格数(数字按数差,看得出循环走近的一边,之前看出过的循环长度记着);第一次转动时看「往上拖」
- *   是变大还是变小,按实际转过的格数校准一格多高。
- * - 拖了值不动不等于到头:只有看不出循环、往要去的那边已经没有项时才算到头(at_end);否则是这一下没起作用,
- *   下次换个快慢(只差一格的还拖远一点),连着 [maxStill] 次不动报 not_moving。
- * - 文字列表、目标不在眼前:一次翻过看得到的几项往一边扫,到头了反过来,两头都到了停。
+ * スクロール ホイールをドラッグするときの次のステップ (アプリ自体によって描画され、障害物がないとスクロールできません): ドラッグするたびに手を入力すると、列を読み戻すと、あと何スペースドラッグするか、ドラッグする方法、または停止するかが表示されます。
+ * - [WheelMath.stepsTo] を押して番号を固定します (番号の差を押してループが近づいている側を確認し、前に見たループの長さを覚えておいてください)。初めて回すときは「ドラッグアップ」を見てください
+ *   が大きくなるか小さくなるかにかかわらず、実際に回転するグリッドの数に応じて 1 つのグリッドの高さを調整します。
+ * - 値をドラッグしても、それが終了であることを意味するわけではありません。ループが表示されず、移動したい方向に項目がない場合にのみ、終了 (at_end) になります。そうしないと、今回は機能しません。
+ *   次回速度を変更します (フレーム差が 1 つだけの場合は、さらにドラッグします)。[maxStill] は移動せず、not_moving を報告します。
+ * - テキスト リスト。ターゲットは目の前にありません。一度に表示されるいくつかの項目をスクロールして片側にスワイプし、最後に到達したら反転し、両端で停止します。
  */
 class WheelDrags(private val target: String, rowHeight: Int, private val maxMoves: Int = 5, private val maxStill: Int = 3) {
     sealed interface Step {
         data object Done : Step
-        /** 拖过 [steps] 格(正数手指往上 = 前进),距离再乘 [boost];[slow] 慢拖不甩,否则快划一下。 */
+        /** は [steps] グリッド上をドラッグし (正の指が上を向いている = 前方)、距離に [boost] を掛けます。 [slow] 震えずにゆっくりとドラッグします。それ以外の場合は素早くスワイプします。 */
         data class Drag(val steps: Int, val boost: Double, val slow: Boolean) : Step
-        /** 停下:[reason] 为 at_end、not_moving、not_reached(转了几轮没到,或按数算到了却没有这个值)、unknown_value。 */
+        /** 停止: [reason] は at_end、not_moving、not_reached (数ラウンド後に到着しないか、数値に従って計算されましたがこの値を持っていません)、unknown_value です。 */
         data class Stop(val reason: String) : Step
     }
 
-    /** 一格多高(像素):先按看得到的几项估,转动后按实际转过的格数校准。 */
+    /** 1 つのグリッド (ピクセル) の高さ: 最初に取得したいくつかの値に従って推定し、次に実際に回転したグリッドの数に従って回転および校正します。 */
     var itemHeight: Int = rowHeight.coerceAtLeast(1)
         private set
     private val numeric = WheelMath.numericTarget(target)
@@ -338,8 +338,8 @@ class WheelDrags(private val target: String, rowHeight: Int, private val maxMove
     private var still = 0
 
     /**
-     * 刚才那次拖动之后:这一列从上到下的几项 [items]、各自中心的纵坐标 [centers]、选中项下标 [selected](找不到为 -1),
-     * 和手指实际走过的像素 [dragged](往上为正;第一次调时还没拖过,给 0)。
+     * ドラッグ後: この列のいくつかの項目を上から下に [items]、各中心の縦座標 [centers]、選択した項目の添字 [selected] (見つからない場合は -1)、
+     * と指が実際に歩いたピクセル [dragged] (上は正です。最初の調整中にドラッグされていないため、0 です)。
      */
     fun next(items: List<String>, selected: Int, centers: List<Int> = emptyList(), dragged: Int = 0): Step {
         val current = items.getOrNull(selected)
@@ -374,17 +374,17 @@ class WheelDrags(private val target: String, rowHeight: Int, private val maxMove
         if (still >= maxStill) return Step.Stop("not_moving")
         if (moves >= maxMoves) return Step.Stop("not_reached")
         val planned = WheelMath.stepsTo(items, selected, target, increasingForward, modulus)
-        // 按数算已经到了却没对上:这个值不在滚轮上(比如 0–59 里找 75)
+        // 計算によると、到着しましたが一致しません: 値がスクロール ホイール上にありません (たとえば、0 ～ 59 で 75 を見つけます)
         if (planned == 0) return Step.Stop("not_reached")
         lastScanning = planned == null
         val steps = planned ?: ((items.size - 1).coerceAtLeast(1) * if (scanForward) 1 else -1)
         last = current
-        // 上一下没起作用:换个快慢再来;只差一格的拖得短,再拖远一点(拖得多的不加,免得一起作用就转过头、把校准带偏)
+        // 以前のものは機能しませんでした。速度を変更して再試行してください。 1 フレームだけ短いものをドラッグし、さらにドラッグします (長すぎる場合は、頭を回転させてキャリブレーションを偏らせないように、ドラッグしないでください)。
         val boost = if (abs(steps) <= 1) 1.0 + BOOST * still else 1.0
         return Step.Drag(steps, boost, slow = still % 2 == 0).also { lastDrag = it }
     }
 
-    /** 看不出循环,往要去的那边(前进是下面)已经没有项了。 */
+    /** ループが見えません。行きたい方向（下が前方）への項目がありません。 */
     private fun atEnd(items: List<String>, selected: Int, forward: Boolean): Boolean {
         if (modulus != null || items.size < 2 || selected !in items.indices) return false
         return if (forward) selected == items.lastIndex else selected == 0

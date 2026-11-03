@@ -18,13 +18,13 @@ class EvalHooksTest {
         hooks.autoAnswer = { prompt, options -> asked = prompt to options; "选第一个" }
         assertEquals("选第一个", hooks.answerFor(TaskState.WaitingInput("要哪一个?", listOf("A", "B"))))
         assertEquals("要哪一个?" to listOf("A", "B"), asked)
-        // 只回答追问,别的状态不碰
+        // はフォローアップの質問にのみ回答し、他のステータスには触れません。
         assertNull(hooks.answerFor(TaskState.Running(3, "")))
     }
 
     @Test fun noHookMeansWaitForUser() {
         assertNull(hooks.answerFor(TaskState.WaitingInput("要哪一个?")))
-        // 钩子不答(返回空)也一样等用户,直到评测超时
+        // フックは応答せず (空を返し)、評価がタイムアウトになるまで同じ方法でユーザーを待ちます。
         hooks.autoAnswer = { _, _ -> null }
         assertNull(hooks.answerFor(TaskState.WaitingInput("要哪一个?")))
         hooks.autoAnswer = { _, _ -> "  " }

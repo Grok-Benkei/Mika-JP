@@ -4,8 +4,8 @@ import android.os.Handler
 import android.os.Looper
 
 /**
- * 进程内共用一条 shell 连接,按引用计数绑定/解绑;由 [com.wangzan101.mika.cap.phone.PhoneServices] 建一份。
- * 解绑会撤掉 shell 一侧的虚拟屏等改动,所以任务和启动恢复不能各自绑一条再各自解绑。[create] 第一次要用时建连接。
+ * はプロセス内でシェル接続を共有し、参照カウントに基づいてバインド/バインド解除します。 1 つのコピーは [com.wangzan101.mika.cap.phone.PhoneServices] によって作成されます。
+ * をアンバインドすると、シェル側の仮想画面やその他の変更が削除されるため、タスクとスタートアップ リカバリを 1 つにバインドしてから個別にアンバンドルすることはできません。 [create] 初めて使用するときに接続を確立します。
  */
 class SharedShell(private val create: () -> ShellBinding) {
     private var connection: ShellBinding? = null
@@ -28,13 +28,13 @@ class SharedShell(private val create: () -> ShellBinding) {
         }
     }
 
-    /** 「重新连接」:已绑定却没有助手时请看门狗马上再起一次;没人绑着就什么也不做。 */
+    /** 「再接続」: バインドされているがアシスタントがない場合は、すぐにウォッチドッグを再度開始してください。誰も縛られていないなら、何もしないでください。 */
     @Synchronized
     fun reconnect() {
         connection?.takeIf { users > 0 }?.reconnect()
     }
 
-    // 绑定/解绑统一放到主线程,避免与连接回调交错
+    // バインド/アンバインドは、接続コールバックとのインターリーブを避けるためにメインスレッドに統合されます。
     private fun onMain(block: () -> Unit) {
         if (Looper.myLooper() == Looper.getMainLooper()) block() else main.post(block)
     }

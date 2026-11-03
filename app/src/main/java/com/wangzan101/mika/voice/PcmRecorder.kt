@@ -19,9 +19,9 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
 
 /**
- * 录 16k 单声道 16 位 PCM。start 后每约 50ms 更新一次 [level](0..1,按每块 RMS 归一化);
- * stop 返回到目前为止的全部 PCM;录满 [maxMs] 自动停止,之后再 stop 仍返回已录的内容。
- * 录音权限由调用方先检查,这里拿不到麦克风就返回 false。stop 会短暂阻塞(等读循环退出),别在主线程调。
+ * は 16k モノラル 16 ビット PCM を記録します。 [level] (0..1、各ブロックの RMS によって正規化) は開始後 50ms ごとに更新されます。
+ * stop は、これまでのすべての PCM を返します。 [maxMs] は、録画がいっぱいになると自動的に停止し、その後再び停止しても、録画されたコンテンツを返します。
+ * 録音許可は、最初に呼び出し側によってチェックされます。ここでマイクを取得できない場合は false を返します。 stop は短時間ブロックするため (読み取りループが終了するのを待機します)、メインスレッドで呼び出さないでください。
  */
 class PcmRecorder(private val maxMs: Int = 60_000, private val streaming: Boolean = false) : StreamingRecorder {
     // At most five seconds while a connection is opening. Never silently drop a sample.
@@ -37,13 +37,13 @@ class PcmRecorder(private val maxMs: Int = 60_000, private val streaming: Boolea
     private var pcm = ShortArray(0)
     private var size = 0
 
-    @SuppressLint("MissingPermission") // 权限由调用方在 start 之前检查
+    @SuppressLint("MissingPermission") // 権限は開始前に呼び出し元によってチェックされます
     override fun start(): Boolean {
         synchronized(lock) {
             if (record != null) return false
             val minBuf = AudioRecord.getMinBufferSize(Wav.RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
             if (minBuf <= 0) return false
-            val chunk = Wav.RATE / 20 // 50ms 一块
+            val chunk = Wav.RATE / 20 // 50ms 1個
             val rec = try {
                 AudioRecord(
                     MediaRecorder.AudioSource.MIC, Wav.RATE,
@@ -86,14 +86,14 @@ class PcmRecorder(private val maxMs: Int = 60_000, private val streaming: Boolea
                 synchronized(lock) {
                     if (streaming && record === rec) audio.close(IOException("Audio capture failed"))
                 }
-                break // 读失败或已被停掉
+                break // の読み取りが失敗したか、停止されました
             }
             var sum = 0.0
             for (i in 0 until n) sum += buf[i].toDouble() * buf[i]
             val lvl = (sqrt(sum / n) / 8000.0).coerceIn(0.0, 1.0).toFloat()
             val full = synchronized(lock) {
-                if (record !== rec) return // 已被 stop/cancel
-                // 在锁里、确认还没被停掉之后才写,免得 cancel 刚归零又被这一块的音量盖回去
+                if (record !== rec) return // は停止/キャンセルされました
+                // は、ゼロに戻った直後にキャンセルがこの作品のボリュームにかぶることを避けるために、ロックに入って停止していないことを確認した後に書き込まれます。
                 _level.value = lvl
                 val take = minOf(n, pcm.size - size)
                 System.arraycopy(buf, 0, pcm, size, take)
@@ -106,18 +106,18 @@ class PcmRecorder(private val maxMs: Int = 60_000, private val streaming: Boolea
             }
             if (full) break
         }
-        // 录满自动停:释放麦克风,已录内容留给之后的 stop 取
+        // は、録音がいっぱいになると自動的に停止します。マイクを放し、次の停止のために録音内容を残しておきます。
         synchronized(lock) {
             if (record === rec) {
                 release(rec)
                 record = null
-                _level.value = 0f // 不录了,波形别停在最后一块的音量上
+                _level.value = 0f // これ以上録音できません。最後の音量で波形を止めないでください。
             }
         }
         if (streaming) audio.close()
     }
 
-    /** 停止并返回到目前为止录到的全部 PCM;没在录(含已自动停止)也安全。 */
+    /** は停止し、これまでに記録されたすべての PCM を返します。録画中でなくても（自動停止含む）安心です。 */
     override fun stop(): ShortArray {
         val (rec, j) = synchronized(lock) {
             val r = record
@@ -125,7 +125,7 @@ class PcmRecorder(private val maxMs: Int = 60_000, private val streaming: Boolea
             if (r != null) release(r)
             r to job.also { job = null }
         }
-        // 等读循环退出,保证之后取到的 PCM 不再变
+        // 後で取得される PCM が変更されないことを確認するために、読み取りループが終了するまで待ちます。
         if (rec != null) runBlocking { j?.join() }
         if (streaming) audio.close()
         return synchronized(lock) {
@@ -137,7 +137,7 @@ class PcmRecorder(private val maxMs: Int = 60_000, private val streaming: Boolea
         }
     }
 
-    /** 放弃这次录音,丢掉已录内容;可重复调用。 */
+    /** この録音を中止し、録音されたコンテンツを破棄します。繰り返し呼び出すことができます。 */
     override fun cancel() {
         synchronized(lock) {
             record?.let { release(it) }

@@ -51,14 +51,14 @@ import com.wangzan101.mika.core.assembly.toolDispatcher
 import com.wangzan101.mika.cap.phone.PhoneServices
 
 /**
- * 真机测试:web_script 的整条路径。分发器 → 端口 → 隔离世界里的脚本 → 绑定 → 子步(真实守卫、关卡、记录)→ 真实点击与输入。
- * DevTools 会话在测试里自己连(本进程的调试套接字,按记号找到这个标签的页面);产品里由会话管理提供。
+ * 実機テスト: web_script のパス全体。ディストリビューター → ポート → 隔離されたワールドのスクリプト → バインディング → サブステップ (リアル ガード、レベル、レコード) → 実際のクリックと入力。
+ * DevTools セッションはテスト中に単独で接続されます (このプロセスのデバッグ ソケット、マークを押してこのラベルのページを見つけます)。これは製品のセッション管理によって提供されます。
  */
 @RunWith(AndroidJUnit4::class)
 class BrowserScriptDeviceTest {
     private val instr = InstrumentationRegistry.getInstrumentation()
     private val ctx = instr.targetContext
-    /** 本测试自己的一份:换会话来源、连法都不影响别的测试。 */
+    /** このテストは私自身のものです。セッション ソースと接続方法を変更しても、他のテストには影響しません。 */
     private val devtools = WebDevtools(PhoneServices.of(InstrumentationRegistry.getInstrumentation().targetContext).hub::openDevtoolsSocket)
     private lateinit var host: WebHost
     private lateinit var pool: WebTabPool
@@ -106,7 +106,7 @@ class BrowserScriptDeviceTest {
         }
     }
 
-    /** 打记号,逐个页面目标求值找到这个标签。 */
+    /** マークを付け、ページごとにターゲットを評価してこのラベルを見つけます。 */
     private suspend fun connect(tab: WebTab): CdpSession? {
         val mark = UUID.randomUUID().toString()
         js(tab, "window.__testMark='$mark'")
@@ -128,7 +128,7 @@ class BrowserScriptDeviceTest {
 
     private suspend fun script(code: String, timeoutMs: Int? = null): JsonObject {
         val id = "s${++n}"
-        // 和循环里一样经执行入口:脚本里的每个动作作为 Script 来源逐个过守卫、关卡、判定并记录
+        // にはループ内と同じ実行エントリがあります。スクリプト内の各アクションはスクリプト ソースとして使用され、ガード、レベル、判定、レコードを 1 つずつ通過します。
         val executor = ActionExecutor(tools, OperationGuards(), ConfirmationGate(), gate = {}, recorder = ActionRecorder(sink))
         val extra = timeoutMs?.let { ""","timeoutMs":$it""" }.orEmpty()
         return executor.run(Part.ToolCall(id, "web_script", """{"code":${JsonPrimitive(code)}$extra}"""), Origin.Model(n)).execution().content
@@ -152,7 +152,7 @@ class BrowserScriptDeviceTest {
         assertEquals("苹果 3 元", v["texts"]!!.jsonArray[0].jsonPrimitive.content)
         assertEquals("5", v.s("total")); assertEquals("5", v.s("count")); assertEquals("苹果 3 元", v.s("first"))
         assertEquals("clicks=0", v.s("status")); assertEquals("null", v["none"].toString()); assertEquals("true", v.s("visible"))
-        // 页面看不到 mika、绑定和脚本的东西
+        // ページでは mika、バインディング、スクリプトが表示されません
         assertEquals("\"undefined undefined undefined\"", page("typeof window.mika + ' ' + typeof window.__mika + ' ' + typeof window.__mikaRun"))
     }
 
@@ -166,7 +166,7 @@ class BrowserScriptDeviceTest {
         for (k in listOf("pw", "otp", "tok")) assertEquals(k, "***", v[k]!!.jsonObject.s("value"))
         assertEquals("***", v["tok"]!!.jsonObject["attrs"]!!.jsonObject.s("value"))
         assertTrue(r.s("result"), "hunter2" !in r.s("result") && "654321" !in r.s("result") && "csrf-123" !in r.s("result"))
-        // 按 value 属性选元素(一位一位猜)不行
+        // 値属性による要素の選択 (1 つずつ推測) が機能しない
         val guess = script("return await mika.query('input[value^=\"c\"]', { fields: ['count'] })")
         assertEquals(guess.toString(), "script_error", guess.s("error"))
         assertTrue(guess.s("message"), guess.s("message").startsWith("Error: invalid_selector"))
@@ -174,7 +174,7 @@ class BrowserScriptDeviceTest {
 
     @Test
     fun pageGlobalsAreUnreachableAndHostileScriptsChangeNothing() = runBlocking<Unit> {
-        // 模型代码手里没有页面对象:浏览器全局一概是 undefined;能拿到全局对象的路都封了
+        // モデル コードにはページ オブジェクトがありません。ブラウザーのグローバル オブジェクトはすべて未定義です。グローバル オブジェクトへのアクセスはすべてブロックされます。
         val r = script("""
             const types = {};
             types.document = typeof document; types.window = typeof window; types.self = typeof self; types.globalThis = typeof globalThis;
@@ -203,7 +203,7 @@ class BrowserScriptDeviceTest {
         val v = Json.parseToJsonElement(r.result()).jsonObject
         for ((k, t) in v["types"]!!.jsonObject) assertEquals(k, "undefined", t.jsonPrimitive.content)
         for ((k, e) in v["escape"]!!.jsonObject) assertEquals(k, "blocked", e.jsonPrimitive.content)
-        // 页面原样
+        // ページそのまま
         assertEquals("0", page("window.clicks"))
         assertEquals("\"\"", page("document.getElementById('inc').style.color"))
         assertEquals("2", page("document.getElementById('sel').options.length"))
@@ -254,7 +254,7 @@ class BrowserScriptDeviceTest {
         assertEquals("$SCRIPT_MAX_ACTIONS", page("window.clicks"))
     }
 
-    // 「提交订单」要花钱:询问时脚本里不做
+    // 「注文の送信」には費用がかかります。要求時にスクリプト内で実行されません。
     @Test
     fun irreversibleTapIsNotRun() = runBlocking<Unit> {
         val r = script("""
@@ -280,7 +280,7 @@ class BrowserScriptDeviceTest {
         assertEquals("42", page("window.pageSecret"))
     }
 
-    /** 读脚本(web_evaluate_js):真实 DOM 读得到,改不了、点不了、发不了 POST,秘密读出来是 ***,state 跨调用留着。 */
+    /** スクリプトの読み取り (web_evaluate_js): 実際の DOM を読み取ることはできますが、変更、クリック、または POST することはできません。シークレットは *** として読み取られ、状態は呼び出し間で保持されます。 */
     private suspend fun read(code: String): JsonObject =
         tools.runAction(Part.ToolCall("r${++n}", "web_evaluate_js", """{"script":${JsonPrimitive(code)}}""")).content
 
@@ -301,7 +301,7 @@ class BrowserScriptDeviceTest {
         }
         assertEquals(before, page("document.body.innerHTML.length"))
         assertEquals("\"export\"", page("document.title"))
-        // 读脚本不碰网络:同源 GET 也不行,别的发请求的路子也一样
+        // スクリプトの読み取りはネットワークに影響しません。同じソースの GET は機能せず、リクエストを送信する他の方法も同じです。
         for (code in listOf("await fetch(location.href)", "await fetch(location.href, { method: 'POST' })", "await fetch('https://example.com/')",
             "window.navigator.sendBeacon(location.href, 'x')", "new window.XMLHttpRequest()", "new window.Image()",
             "new window.WebSocket('wss://example.com/')", "new window.EventSource(location.href)")) {
@@ -309,11 +309,11 @@ class BrowserScriptDeviceTest {
             assertEquals("$code $r", "blocked_network", r.s("error"))
             assertTrue(r.toString(), r.toString().contains("web_capture"))
         }
-        // 建元素、改 src 本来就是改页面
+        // 要素の作成と src の変更は、基本的にページを変更することになります。
         assertEquals("read_only", read("document.createElement('img')").s("error"))
         read("state.n = 41; return 1;")
         assertTrue(read("state.n + 1").result().contains("42"))
-        // 「显示密码」改成 text 之后也还是秘密
+        // 「表示パスワード」を文字に変更しても秘密のまま
         page("revealPassword()")
         assertTrue(read("document.querySelector('#pw').value").result().contains("\"***\""))
     }

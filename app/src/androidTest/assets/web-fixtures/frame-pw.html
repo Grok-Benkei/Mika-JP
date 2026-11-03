@@ -4,7 +4,7 @@
 <body style="margin:0">
 <input type="password" id="framepw" value="frame-secret-7">
 <script>
-  // 父页面会把它改成文本框(「显示密码」)
+  // 親ページが「显示密码」の操作で通常のテキスト欄へ切り替える。
   window.reveal = function () { document.getElementById('framepw').type = 'text'; };
 </script>
 </body>

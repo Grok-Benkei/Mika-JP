@@ -37,7 +37,7 @@ class FakeScreen : ScreenPort {
         snapshots++
         return ScreenSnapshot("snap$snapshots", "com.x", listOf(el), 1080, 2400)
     }
-    /** 和真实端口一样:看一眼不登记编号,不算一次读屏。 */
+    /** は実際のポートと同じです。一目で番号を登録しないと、画面読み取りとしてカウントされません。 */
     override suspend fun peek() = ScreenSnapshot("peek", "com.x", listOf(el), 1080, 2400)
     override suspend fun screenshotPng() = png
     override suspend fun tapRef(ref: String, snapshotId: String): ActionResult { calls += "tapRef $ref $snapshotId"; return result }
@@ -64,7 +64,7 @@ class ToolDispatcherTest {
         assertEquals("打开设置看电量", d.callReason("phone_launch_app", args("""{"packageName":"com.x","reason":" 打开设置看电量 "}""")))
         assertNull(d.callReason("phone_observe", args("{}")))
         assertNull(d.callReason("phone_observe", args("""{"reason":"  "}""")))
-        // 接管的 reason 是原因代号,不是用意
+        // 引き継ぎの理由は理由コードであり、意図ではありません。
         assertNull(d.callReason("hand_to_user", args("""{"reason":"captcha","message":"m"}""")))
     }
 
@@ -76,11 +76,11 @@ class ToolDispatcherTest {
 
     @Test fun tapNormalizedXYConvertsToPixels() = runTest {
         val s = FakeScreen(); toolDispatcher(s).execute(call("phone_tap", """{"x":500,"y":999}"""))
-        assertEquals(1, s.snapshots) // 没有快照时先取一次
+        assertEquals(1, s.snapshots) // スナップショットがない場合は最初に 1 つ作成します
         assertEquals(listOf("tapXY 540 2399"), s.calls)
     }
 
-    // 端口不会双击时如实报错,不退成单击
+    // ポートは、ダブルクリックしてもエラーを報告せず、シングルクリックにも戻りません。
     @Test fun doubleTapOnAPortThatCannotIsRecoverableError() = runTest {
         val s = FakeScreen(); val r = toolDispatcher(s).execute(call("phone_tap", """{"x":1,"y":1,"clicks":2}"""))
         assertEquals("double_tap_unsupported", r.content.s("error")); assertTrue(s.calls.isEmpty())
@@ -100,18 +100,18 @@ class ToolDispatcherTest {
 
     @Test fun unknownToolReturnsUnknownToolError() = runTest {
         assertEquals("unknown_tool", toolDispatcher(FakeScreen()).execute(call("phone_fly")).content.s("error"))
-        assertEquals("unknown_tool", toolDispatcher(FakeScreen()).execute(call("phone_screenshot")).content.s("error")) // 视觉关闭
+        assertEquals("unknown_tool", toolDispatcher(FakeScreen()).execute(call("phone_screenshot")).content.s("error")) // ビジョンオフ
     }
 
     @Test fun staleNodeErrorIsSurfaced() = runTest {
         val s = FakeScreen().apply { result = ActionResult.Failed("ref_expired") }
         val r = toolDispatcher(s).execute(call("phone_tap", """{"ref":"@e1","snapshotId":"old"}"""))
-        assertEquals("ref_expired", r.content.s("error")); assertTrue("Read the screen again" in r.content.s("message"))
+        assertEquals("ref_expired", r.content.s("error")); assertTrue("再度" in r.content.s("message"))
     }
 
     @Test fun takeoverOutcome() = runTest {
-        val r = toolDispatcher(FakeScreen()).execute(call("hand_to_user", """{"reason":"login","message":"请登录"}"""))
-        assertEquals(Outcome.Takeover("login", "请登录"), r.outcome)
+        val r = toolDispatcher(FakeScreen()).execute(call("hand_to_user", """{"reason":"login","message":"ログインしてください"}"""))
+        assertEquals(Outcome.Takeover("login", "ログインしてください"), r.outcome)
         val bad = toolDispatcher(FakeScreen()).execute(call("hand_to_user", """{"reason":"nope","message":"x"}"""))
         assertNull(bad.outcome); assertEquals("invalid_arguments", bad.content.s("error"))
     }
@@ -127,37 +127,37 @@ class ToolDispatcherTest {
 
     @Test fun takeoverCarriesPaymentFields() = runTest {
         val r = toolDispatcher(FakeScreen()).execute(call("hand_to_user",
-            """{"reason":"payment","message":"请付款","item":"咖啡豆 ×1","amount":"¥89.00","address":"上海"}"""))
-        assertEquals(Outcome.Takeover("payment", "请付款", item = "咖啡豆 ×1", amount = "¥89.00", address = "上海"), r.outcome)
+            """{"reason":"payment","message":"支払いをお願いします","item":"咖啡豆 ×1","amount":"¥89.00","address":"上海"}"""))
+        assertEquals(Outcome.Takeover("payment", "支払いをお願いします", item = "咖啡豆 ×1", amount = "¥89.00", address = "上海"), r.outcome)
     }
 
     @Test fun refusedPayDeclarationFillsPaymentTakeover() = runTest {
-        // 模型先按 request_confirmation 申报付款被拒,随后接管时没写金额:用申报里的
+        // モデルは、最初に request_confirmation を押して支払いが拒否されたことを報告しましたが、引き継ぎ時に金額が書き込まれませんでした。宣言内の金額を使用します。
         val d = toolDispatcher(FakeScreen())
         val refused = d.execute(call("request_confirmation", """{"action":"pay","target":"某店","content":"咖啡豆 ×1","amount":"¥89.00","app":"com.x"}"""))
         assertEquals("payment_requires_takeover", refused.content.s("error"))
-        val r = d.execute(call("hand_to_user", """{"reason":"payment","message":"请付款"}"""))
-        assertEquals(Outcome.Takeover("payment", "请付款", item = "咖啡豆 ×1", amount = "¥89.00"), r.outcome)
-        // 模型自己写了的不覆盖;别的原因不填
+        val r = d.execute(call("hand_to_user", """{"reason":"payment","message":"支払いをお願いします"}"""))
+        assertEquals(Outcome.Takeover("payment", "支払いをお願いします", item = "咖啡豆 ×1", amount = "¥89.00"), r.outcome)
+        // モデルが単独で記述されている場合はカバーされません。その他の理由がある場合は記入されません。
         assertEquals("¥10", (d.execute(call("hand_to_user", """{"reason":"payment","message":"m","amount":"¥10"}""")).outcome as Outcome.Takeover).amount)
         assertNull((d.execute(call("hand_to_user", """{"reason":"login","message":"m"}""")).outcome as Outcome.Takeover).amount)
     }
 
     @Test fun refusedPayIsUsedOnceAndClearedOnAppChange() = runTest {
         val pay = call("request_confirmation", """{"action":"pay","target":"某店","content":"咖啡豆 ×1","amount":"¥89.00","app":"com.x"}""")
-        fun payTakeover() = call("hand_to_user", """{"reason":"payment","message":"请付款"}""")
-        // 一次付款接管用掉之后,之后无关的付款接管不再带上
+        fun payTakeover() = call("hand_to_user", """{"reason":"payment","message":"支払いをお願いします"}""")
+        // 1 回限りの支払い引き継ぎが使用されると、その後の無関係な支払い引き継ぎは実行されなくなります
         val d = toolDispatcher(FakeScreen())
         d.execute(pay)
         assertEquals("¥89.00", (d.execute(payTakeover()).outcome as Outcome.Takeover).amount)
         assertNull((d.execute(payTakeover()).outcome as Outcome.Takeover).amount)
-        // 打开别的 App 后作废
+        // は無効になります。
         val d2 = toolDispatcher(FakeScreen())
         d2.execute(pay)
         d2.execute(call("phone_launch_app", """{"package":"com.y"}"""))
         val t2 = d2.execute(payTakeover()).outcome as Outcome.Takeover
         assertNull(t2.amount); assertNull(t2.item)
-        // 被切到别的 App 后作废
+        // は別のアプリに切り替えられた後無効化されました。
         val s3 = FakeScreen()
         val d3 = toolDispatcher(s3)
         d3.execute(pay)
@@ -168,34 +168,34 @@ class ToolDispatcherTest {
 
     @Test fun takeoverOutcomesSurviveLongActionLog() = runTest {
         val d = toolDispatcher(FakeScreen())
-        d.execute(call("hand_to_user", """{"reason":"payment","message":"请付款"}"""))
+        d.execute(call("hand_to_user", """{"reason":"payment","message":"支払いをお願いします"}"""))
         d.noteTakeover("payment", HandBack(HandBackOutcome.skipped))
         repeat(40) { d.execute(call("phone_launch_app", """{"package":"com.a$it"}""")) }
         val e = d.evidence()
         assertTrue(e.actions.none { "hand_to_user" in it })
         assertEquals(1, e.takeovers.size)
-        assertTrue(e.takeovers.single(), "hand_to_user(payment) 接管被跳过" in e.takeovers.single())
+        assertTrue(e.takeovers.single(), "hand_to_user(payment) ユーザーによる操作がスキップされました" in e.takeovers.single())
     }
 
     @Test fun argsTrimmed() = runTest {
-        val r = toolDispatcher(FakeScreen()).execute(call("ask_user", """{"prompt":"  选哪个?\n","options":[" 同事张伟 ","同学张伟\t"]}"""))
-        assertEquals(Outcome.Input("选哪个?", listOf("同事张伟", "同学张伟")), r.outcome)
+        val r = toolDispatcher(FakeScreen()).execute(call("ask_user", """{"prompt":"  どちらにしますか？\n","options":[" 同僚の张伟 ","同級生の张伟\t"]}"""))
+        assertEquals(Outcome.Input("どちらにしますか？", listOf("同僚の张伟", "同級生の张伟")), r.outcome)
         val d = toolDispatcher(FakeScreen())
-        // 去空白后为空、选项重复到不足两个:参数不对
+        // はブランクを削除すると空になり、オプションが 2 つ未満まで繰り返されます。パラメーターが正しくありません。
         assertEquals("invalid_arguments", d.execute(call("ask_user", """{"prompt":"  \n "}""")).content.s("error"))
-        assertEquals("invalid_arguments", d.execute(call("ask_user", """{"prompt":"选","options":["A"," "]}""")).content.s("error"))
-        assertEquals("invalid_arguments", d.execute(call("ask_user", """{"prompt":"选","options":["A"," A "]}""")).content.s("error"))
-        assertEquals(listOf("A", "B"), (d.execute(call("ask_user", """{"prompt":"选","options":["A","B"," A"]}""")).outcome as Outcome.Input).options)
+        assertEquals("invalid_arguments", d.execute(call("ask_user", """{"prompt":"選択してください","options":["A"," "]}""")).content.s("error"))
+        assertEquals("invalid_arguments", d.execute(call("ask_user", """{"prompt":"選択してください","options":["A"," A "]}""")).content.s("error"))
+        assertEquals(listOf("A", "B"), (d.execute(call("ask_user", """{"prompt":"選択してください","options":["A","B"," A"]}""")).outcome as Outcome.Input).options)
     }
 
     @Test fun terminalOutcomes() = runTest {
         val d = toolDispatcher(FakeScreen())
-        // 办完不经工具:没有 finish 这个工具了
+        // は工具なしで仕上げることができます。仕上げツールはありません。
         assertTrue(d.definitions().none { it.name == "finish" })
-        assertEquals(Outcome.Input("哪个?"), d.execute(call("ask_user", """{"prompt":"哪个?"}""")).outcome)
-        assertEquals(Outcome.Input("选", listOf("a", "b")), d.execute(call("ask_user", """{"prompt":"选","options":["a","b"]}""")).outcome)
-        assertEquals("invalid_arguments", d.execute(call("ask_user", """{"prompt":"选","options":["a"]}""")).content.s("error"))
-        assertEquals(Outcome.Failure("卡住"), d.execute(call("end_not_done", """{"message":"卡住"}""")).outcome)
+        assertEquals(Outcome.Input("どちらですか？"), d.execute(call("ask_user", """{"prompt":"どちらですか？"}""")).outcome)
+        assertEquals(Outcome.Input("選択してください", listOf("a", "b")), d.execute(call("ask_user", """{"prompt":"選択してください","options":["a","b"]}""")).outcome)
+        assertEquals("invalid_arguments", d.execute(call("ask_user", """{"prompt":"選択してください","options":["a"]}""")).content.s("error"))
+        assertEquals(Outcome.Failure("進展がありません"), d.execute(call("end_not_done", """{"message":"進展がありません"}""")).outcome)
         val rf = d.execute(call("end_not_done", """{"message":"m","subtype":"blocked","recoverable":true}"""))
         assertEquals(Outcome.Failure("m", "blocked", true), rf.outcome)
         assertEquals("blocked", rf.content.s("subtype"))
@@ -273,7 +273,7 @@ class ToolDispatcherTest {
         val s = FakeScreen().apply { result = ActionResult.Failed("not_editable") }
         val r = toolDispatcher(s).execute(call("phone_type_text", """{"text":"hi","ref":"@e1","snapshotId":"a"}"""))
         assertEquals("not_editable", r.content.s("error"))
-        assertTrue(r.content.s("message"), "actual input field" in r.content.s("message"))
+        assertTrue(r.content.s("message"), "実際の入力欄" in r.content.s("message"))
     }
 
     @Test fun typeTextCarriesPortHintWhenVerified() = runTest {
@@ -288,7 +288,7 @@ class ToolDispatcherTest {
         val r = toolDispatcher(s).execute(call("phone_type_text", """{"text":"hi","pressEnter":true}"""))
         assertEquals("unknown", r.content.s("verification"))
         assertTrue(r.content.s("hint")!!, "这个输入框需要粘贴" in r.content.s("hint")!!)
-        assertEquals(listOf("type null null hi"), s.calls) // 核实不了就不按回车
+        assertEquals(listOf("type null null hi"), s.calls) // 確認できない場合は、Enter キーを押さないでください。
     }
 
     @Test fun scrollPrefersAccessibilityAndSwipeUsesNormalizedCoordinates() = runTest {
@@ -366,14 +366,14 @@ class ToolDispatcherTest {
 
     @Test fun lookupToolsListedOnlyWithCatalogAndAreReadOnly() = runTest {
         assertFalse(toolDispatcher(FakeScreen()).definitions().any { it.name in lookupTools })
-        val d = toolDispatcher(FakeScreen(), skills = com.wangzan101.mika.core.knowledge.GuideCatalog.loadBundled())
+        val d = toolDispatcher(FakeScreen(), skills = com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog())
         assertTrue(d.definitions().map { it.name }.containsAll(lookupTools))
         for (t in lookupTools) assertFalse(t, isWritingTool(t, JsonObject(emptyMap())))
     }
 
-    // 知识和技能各查各的、各读各的;读错了组的名字时说清该用哪个工具
+    // 知識とスキルは個別に確認して読む必要があります。グループ名を読み間違えた場合は、どのツールを使用するかを明確にしてください。
     @Test fun knowledgeAndSkillLookupsThroughDispatcher() = runTest {
-        val d = toolDispatcher(FakeScreen(), skills = com.wangzan101.mika.core.knowledge.GuideCatalog.loadBundled())
+        val d = toolDispatcher(FakeScreen(), skills = com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog())
         val found = d.execute(call("knowledge_search", """{"query":"闲鱼"}""")).content
         val matches = found["matches"]!!.jsonArray
         assertTrue(matches.size in 1..10)
@@ -382,11 +382,11 @@ class ToolDispatcherTest {
         val sites = d.execute(call("knowledge_search", """{"query":"知乎","kind":"site"}""")).content["matches"]!!.jsonArray
         assertTrue(sites.isNotEmpty() && sites.all { it.jsonObject.s("kind") == "site" })
         assertEquals("invalid_arguments", d.execute(call("knowledge_search", """{"query":"x","kind":"skill"}""")).content.s("error"))
-        val skills = d.execute(call("skill_search", """{"query":"文档"}""")).content["matches"]!!.jsonArray
+        val skills = d.execute(call("skill_search", """{"query":"文書"}""")).content["matches"]!!.jsonArray
         assertTrue(skills.isNotEmpty() && skills.all { it.jsonObject.s("kind") in setOf("skill", "personal") })
         val view = d.execute(call("knowledge_read", """{"name":"app:xianyu"}""")).content
         assertTrue(view["ok"]!!.jsonPrimitive.boolean)
-        assertTrue(view.s("content").contains("com.taobao.idlefish"))
+        assertTrue(view.s("content").contains("Xianyu") && view.s("content").contains("中古品売買サービス"))
         assertTrue(d.execute(call("skill_read", """{"name":"documents"}""")).content["ok"]!!.jsonPrimitive.boolean)
         val wrongGroup = d.execute(call("skill_read", """{"name":"app:xianyu"}""")).content
         assertEquals("skill_not_found", wrongGroup.s("error"))
@@ -413,12 +413,12 @@ class ToolDispatcherTest {
         d.execute(call("phone_back"))
         val before = s.snapshots
         val e = d.evidence()
-        assertEquals(before + 1, s.snapshots) // 此刻重新读了一屏
-        assertEquals("当前 App:com.x\n搜索", e.freshText)
-        assertEquals(e.read(ObsKind.Read).distinct(), e.read(ObsKind.Read)) // 同样的读屏只记一次
+        assertEquals(before + 1, s.snapshots) // この時点で画面をもう一度読み取ります
+        assertEquals("現在のアプリ:com.x\n搜索", e.freshText)
+        assertEquals(e.read(ObsKind.Read).distinct(), e.read(ObsKind.Read)) // 同じ画面読みは 1 回だけ記憶されます
         assertNull(e.freshImage)
-        // 密码框不写原文
-        assertEquals(listOf("第5步 phone_tap(搜索) 生效", "第6步 phone_type_text(「天气」) 生效", "第7步 phone_type_text() 画面没变化", "第8步 phone_back() 画面没变化"), e.actions)
+        // パスワードボックスに元のテキストが書き込まれません
+        assertEquals(listOf("ステップ5 phone_tap(搜索) 操作を反映", "ステップ6 phone_type_text(「天气」) 操作を反映", "ステップ7 phone_type_text() 画面に変化なし", "ステップ8 phone_back() 画面に変化なし"), e.actions)
         assertNotNull(d.evidence(withImage = true).freshImage)
     }
 
@@ -428,10 +428,10 @@ class ToolDispatcherTest {
         }
         val e = toolDispatcher(s).evidence(withImage = true)
         assertNull(e.freshImage)
-        assertEquals("当前 App:com.x\n搜索", e.freshText)
+        assertEquals("現在のアプリ:com.x\n搜索", e.freshText)
     }
 
-    /** 还没有虚拟屏时的端口:读屏是空屏,写操作失败 no_app_open。 */
+    /** 仮想画面がない場合のポート: 画面の読み取りは空の画面であり、書き込み操作は no_app_open に失敗します。 */
     private class NoDisplayScreen(private val inner: FakeScreen = FakeScreen()) : ScreenPort by inner {
         override suspend fun snapshot() = ScreenSnapshot("empty", null, emptyList(), 1080, 2400, hasWindow = false)
         override suspend fun screenshotPng(): ByteArray? = null
@@ -443,10 +443,10 @@ class ToolDispatcherTest {
         val d = toolDispatcher(NoDisplayScreen())
         val o = d.execute(call("phone_observe")).content
         assertTrue(o["ok"]!!.jsonPrimitive.boolean)
-        assertTrue(o.s("hint"), "Start with phone_launch_app" in o.s("hint"))
+        assertTrue(o.s("hint"), "phone_launch_app から始める" in o.s("hint"))
         for (r in listOf(d.execute(call("phone_tap", """{"x":500,"y":500}""")), d.execute(call("phone_back")))) {
             assertEquals("no_app_open", r.content.s("error"))
-            assertTrue(r.content.s("message"), "Open an app or a page first" in r.content.s("message"))
+            assertTrue(r.content.s("message"), "まずアプリまたはページを開く" in r.content.s("message"))
         }
     }
 
@@ -468,11 +468,11 @@ class ToolDispatcherTest {
 
     @Test fun obstacleHintsPerKind() = runTest {
         val expect = mapOf(
-            "popup" to listOf("own close control", "Do not call hand_to_user"),
-            "login" to listOf("hand_to_user with reason login"),
-            "captcha" to listOf("hand_to_user with reason captcha"),
-            "access_blocked" to listOf("Do not retry", "hand_to_user with reason access_blocked", "subtype blocked"),
-            "payment" to listOf("complete it directly"),
+            "popup" to listOf("自身の閉じる操作", "hand_to_user を呼ばない"),
+            "login" to listOf("reason login で hand_to_user"),
+            "captcha" to listOf("reason captcha で hand_to_user"),
+            "access_blocked" to listOf("再試行せず", "reason access_blocked で hand_to_user", "subtype blocked"),
+            "payment" to listOf("直接完了する"),
         )
         for ((k, words) in expect) {
             val r = barrier(k)
@@ -495,11 +495,11 @@ class ToolDispatcherTest {
     }
 
     @Test fun loginAndCaptchaHintsUnchangedInMeaning() = runTest {
-        // M1 的两种:都是叫 hand_to_user(带同名 reason)、交回后重新读屏;带 reason 参数不影响结果
+        // M1 には 2 つのタイプがあります。どちらも hand_to_user (reason と同じ名前) と呼ばれ、画面を返した後に再度読み込まれます。理由パラメータは結果に影響しません。
         for (k in listOf("login", "captcha")) {
             val h = barrier(k, reason = "页面要求登录后查看").s("hint")
-            assertTrue(h, "hand_to_user with reason $k" in h && "observe again" in h)
+            assertTrue(h, "reason $k で hand_to_user" in h && "再度確認" in h)
         }
-        assertTrue("Do not try to solve" in barrier("captcha").s("hint"))
+        assertTrue("自分で解こうとしない" in barrier("captcha").s("hint"))
     }
 }

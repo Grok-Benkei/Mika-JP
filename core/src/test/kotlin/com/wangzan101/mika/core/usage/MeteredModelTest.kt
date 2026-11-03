@@ -59,8 +59,8 @@ class MeteredModelTest {
         val m = inner.metered(source, sink)
         assertEquals("plain-model", m.name)
         assertEquals(inner.capabilities, m.capabilities)
-        assertFalse("不支持逐段文字的套上后也不支持", m is StreamingChatModel)
-        assertTrue("没调用就不记", recorded.isEmpty())
+        assertFalse("逐次テキスト出力に未対応なら、ラップ後も未対応です", m is StreamingChatModel)
+        assertTrue("呼び出しがなければ記録しません", recorded.isEmpty())
     }
 
     @Test fun replyWithoutUsageCountsAsMissing() = runTest {
@@ -106,7 +106,7 @@ class MeteredModelTest {
         assertSame(r, m.complete("s", user, emptyList()))
     }
 
-    // 在运行的上下文里调用的,另记到这次运行名下(成功、没报用量、失败都算一次);不在上下文里的不算
+    // は実行コンテキストで呼び出され、この実行の名前で記録されます (成功、使用報告なし、失敗はすべて 1 回としてカウントされます)。コンテキストにないものはカウントされません。
     @Test fun callsInsideARunAreTalliedForThatRun() = runTest {
         val tally = RunUsageTally()
         val ok = Plain { reply(Usage(100, 20, 60)) }.metered(source, sink)
@@ -124,7 +124,7 @@ class MeteredModelTest {
         assertEquals(100L, e.inputTokens)
         assertEquals(20L, e.outputTokens)
         assertEquals(60L, e.cachedTokens)
-        // 总账照记每一次
+        // 毎回総勘定元帳記録
         assertEquals(4, recorded.size)
     }
 }

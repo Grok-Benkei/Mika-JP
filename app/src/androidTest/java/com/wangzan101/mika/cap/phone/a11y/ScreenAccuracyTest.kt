@@ -18,7 +18,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 真机测试:不重要节点能读到、焦点变化算变化、提示语有标记、输入控件被换掉后仍能核实。 */
+/** 実機テスト: 重要でないノードを読み取ることができ、フォーカスの変更は変更としてカウントされ、プロンプトにマークが付けられ、置き換えられた後も入力コントロールを検証できます。 */
 @RunWith(AndroidJUnit4::class)
 class ScreenAccuracyTest {
     private val agent = DeviceSupport.newAgent()
@@ -99,11 +99,11 @@ class ScreenAccuracyTest {
     fun typingIntoAButtonDoesNotTapIt() = runBlocking<Unit> {
         val s = openFields()
         assertEquals(ActionResult.Failed("not_editable"), screen.typeText(s.named("7").ref, s.snapshotId, "咖啡"))
-        // 没有点下去:结果仍是 0
+        // クリックされませんでした: 結果はまだ 0 です
         assertTrue(screen.snapshot().elements.any { it.name == "0" })
     }
 
-    /** scroll down 要看到更下面的内容:设置首页原来最下面那一项往上挪(或出现了原来没有的项)。 */
+    /** 下にスクロールすると、下のコンテンツが表示されます。設定ホームページの下部にある元の項目が上に移動します (または、もともと存在しなかった項目が表示されます)。 */
     @Test
     fun scrollDownShowsContentFurtherDown() = runBlocking<Unit> {
         ok(screen.openApp(DeviceSupport.SETTINGS, cold = true))
@@ -119,7 +119,7 @@ class ScreenAccuracyTest {
         assertTrue("content did not move up: new=$newNames", newNames.isNotEmpty() && (wlan == null || wlan.centerY < wlanBefore.centerY))
     }
 
-    /** 系统计算器(按 AOSP 的计算器类别找,没有就跳过):按数字后读得到显示区的值。只在虚拟屏上用。 */
+    /** システム電卓 (AOSP の電卓カテゴリに従って検索します。利用できない場合はスキップします): 数字を押して、表示領域の値を読み取ります。仮想画面でのみ使用されます。 */
     @Test
     fun calculatorDisplayIsRead() = runBlocking<Unit> {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
@@ -128,7 +128,7 @@ class ScreenAccuracyTest {
         assumeTrue("no calculator app", pkg != null)
         ok(screen.openApp(pkg!!, cold = true))
         var s = snapUntil(8_000) { snap -> snap.elements.any { it.clickable && it.name == "1" } }
-        // 计算器会保留上次的输入,只要求按完后出现一个以 123 结尾、之前没有的显示值
+        // 計算機は最後の入力を保持し、押した後に、以前は利用できなかった 123 で終わる表示値が表示されることのみを必要とします。
         val before = s.elements.map { it.name }.toSet()
         for (digit in listOf("1", "2", "3")) {
             val key = s.elements.first { it.clickable && it.name == digit }
@@ -136,7 +136,7 @@ class ScreenAccuracyTest {
             assertEquals("tap $digit", true, r.changed)
             s = screen.snapshot()
         }
-        // 显示区可能带千分位等格式,只比数字
+        // 表示領域には、1000 の位やその他の形式が含まれる場合がありますが、数字のみが表示されます。
         snapUntil { snap -> snap.elements.any { e -> e.name !in before && e.name.filter(Char::isDigit).endsWith("123") } }
     }
 }

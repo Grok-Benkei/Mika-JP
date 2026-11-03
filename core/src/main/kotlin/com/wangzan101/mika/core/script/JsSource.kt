@@ -1,21 +1,21 @@
 package com.wangzan101.mika.core.script
 
 /**
- * 模型或站点命令写的 JS 源码的词法检查。
+ * モデルまたはサイトコマンドで記述された JS ソースコードの字句チェック。
  *
- * [usesImport]:字符串、注释、正则字面量之外有没有 `import` 这个词(动态 import 会在全局作用域里跑模块,绕开只读包装)。
- * `/` 是除号还是正则的开头,有时只看词法分不清(`)`、`}`、`++` 之后,以及 of/yield/await 这类既可能是关键字也可能是变量名的词之后):
- * 这时两种读法都走一遍,任何一种读法在代码里读到 import 都算有。读法按 (位置, `/` 的读法, 括号栈) 去重,不会成倍增长;
- * 读不通的读法(正则或字符串没合上就到行尾)作废。宁可误拦,不漏。
+ * [usesImport]: 文字列、コメント、通常のリテラル以外に `import` という単語はありますか (動的インポートでは、読み取り専用パッケージをバイパスして、グローバル スコープでモジュールが実行されます)。
+ * `/` が除算記号なのか正規表現の始まりなのか、辞書を見ただけでははっきりしないことがあります (`)`、`}`、`++` の後、および of/yield/await などの単語の後。これらはキーワードまたは変数名である可能性があります)。
+ * このとき、両方の読み取り方法を実行します。どちらの読み取り方法も、コード内の読み取りインポートとしてカウントされます。発音 (位置、`/` の発音、括弧スタック) を押すと重複が削除され、重複しません。
+ * 読み取り不可能な読み取り方法 (通常または文字列が閉じずに行末に到達する) が無効です。失敗するよりは、誤ってブロックする方が良いでしょう。
  */
 object JsSource {
     private enum class Slash { Regex, Divide, Both }
 
     private data class State(val pos: Int, val slash: Slash, val stack: List<Char>)
 
-    /** 之后的 `/` 一定是正则开头的关键字。 */
+    /** の後の `/` は、正規表現で始まるキーワードである必要があります。 */
     private val BEFORE_EXPRESSION = setOf("return", "typeof", "instanceof", "in", "new", "delete", "void", "throw", "case", "do", "else")
-    /** 可能是关键字也可能是变量名的词:之后的 `/` 两种读法都走。 */
+    /** はキーワードまたは変数名です。次の `/` は両方の方法で読み取ることができます。 */
     private val EITHER = setOf("of", "yield", "await", "let", "async", "get", "set", "static")
 
     fun usesImport(code: String): Boolean {
@@ -30,7 +30,7 @@ object JsSource {
         return false
     }
 
-    /** 从 [start] 起读一条读法,遇到两可的 `/` 就把两种读法交给 [fork] 并停下。读到 import 返回 true。 */
+    /** は、[start] から始まる読み取り値を読み取ります。あいまいな `/` に遭遇すると、2 つの読み取り値を [fork] に渡して停止します。インポートを読み取ると true が返されます。 */
     private class Lexer(private val code: String, start: State, private val fork: (State) -> Unit) {
         private var i = start.pos
         private var slash = start.slash
@@ -85,7 +85,7 @@ object JsSource {
         private fun identStart(c: Char) = c == '$' || c == '_' || c == '\\' || c.isLetter()
         private fun identPart(c: Char) = identStart(c) || c.isDigit() || c == '‌' || c == '‍'
 
-        /** 一个标识符;`\uXXXX`、`\u{…}` 转义解开后再比。 */
+        /** は識別子です。 `\uXXXX` と `\u{…}` はエスケープされて比較されます。 */
         private fun word(): String {
             val out = StringBuilder()
             while (i < n && identPart(code[i])) {
@@ -100,7 +100,7 @@ object JsSource {
             return out.toString()
         }
 
-        /** 字符串字面量;到行尾还没合上(且不是续行)为 false。 */
+        /** 文字列リテラル。行の終わりまで閉じていない場合 (行の継続ではない場合) は false です。 */
         private fun string(q: Char): Boolean {
             i++
             while (i < n) {
@@ -115,7 +115,7 @@ object JsSource {
             return false
         }
 
-        /** 模板字符串的文字部分,从当前位置读到反引号(结束)或 `${`(压栈,回到代码)。 */
+        /** テンプレート文字列のテキスト部分。現在位置からバックティック (終了) または `${` (スタックにプッシュ、コードに戻る) を読み取ります。 */
         private fun template(): Boolean {
             while (i < n) {
                 val c = code[i]
@@ -129,7 +129,7 @@ object JsSource {
             return false
         }
 
-        /** 正则字面量(含字符类里的 `/`)和标志;到行尾还没合上为 false。 */
+        /** 通常のリテラル (文字クラスの `/` を含む) およびフラグ。行末で閉じていない場合は false になります。 */
         private fun regex(): Boolean {
             i++
             var inClass = false

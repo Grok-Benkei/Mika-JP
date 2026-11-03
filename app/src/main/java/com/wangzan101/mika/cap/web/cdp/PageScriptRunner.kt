@@ -36,13 +36,13 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * 在一个标签的主框架里建隔离世界跑页面脚本(web_script)。
- * 发件箱只在这个隔离世界里,页面自己的脚本看不到;模型代码在里面拿不到任何页面对象(见 [PageScriptProtocol]),
- * 脚本的每个 `mika.*` 调用放进发件箱,由一直挂着的取件求值([PageScriptProtocol.TAKE])交回来,一次一个交给 [ScriptBridge](Mika 的动作路径),结果用 `Runtime.evaluate` 在同一个世界里回传。
- * 兜底:脚本发起的网络请求、没有 mika 动作在做时主框架的跳转(后者先 `Page.stopLoading`)都让脚本以错误结束。
- * 整页跳走会销毁隔离世界,脚本就停在那里(返回 [ScriptRun.Navigated])。
- * 时限只算脚本自己的时间:mika 动作在做(含等锁屏关卡)时不走表;到时限先等手上的动作做完再收尾。
- * [preflight] 每个 mika 调用之前查一次标签(接管中、崩溃),不为 null 就结束脚本。
+ * ラベルのメイン フレームにページ スクリプト (web_script) を実行する隔離されたワールドを構築します。
+ * 送信ボックスはこの隔離された世界にのみ存在し、ページ自体のスクリプトは表示されません。モデル コードではページ オブジェクトを取得できません ([PageScriptProtocol] を参照)。
+ * スクリプトの各 `mika.*` 呼び出しは送信ボックスに入れられ、常にハングするフェッチ評価 ([PageScriptProtocol.TAKE]) によって戻され、一度に 1 つずつ [ScriptBridge] (Mika のアクション パス) に渡され、結果は `Runtime.evaluate` と同じワールドに返されます。
+ * 結論: スクリプトによって開始されたネットワーク リクエストと、mika アクションがない場合のメイン フレームのジャンプ (後者は最初に `Page.stopLoading`) はすべて、スクリプトがエラーで終了する原因となります。
+ * ページ全体をジャンプすると孤立した世界が破壊され、スクリプトはそこで停止します ([ScriptRun.Navigated] に戻ります)。
+ * 時間制限はスクリプト自体の時間のみをカウントします。mika のアクションが実行されている間 (ロック画面レベルの待機を含む)、時計は実行されません。制限時間に達したら、実行中のアクションが完了するまで待ってから終了してください。
+ * [preflight] 各 mika 呼び出しの前にタグを確認します (引き継ぎ、クラッシュ)。 null でない場合は、スクリプトを終了します。
  */
 class PageScriptRunner(
     private val session: CdpSession,
@@ -54,14 +54,14 @@ class PageScriptRunner(
         val world = PageScriptProtocol.WORLD_PREFIX + UUID.randomUUID()
         val outcome = CompletableDeferred<ScriptRun>()
         val calls = Channel<ScriptCall>(Channel.UNLIMITED)
-        // 拿着它时有一个动作在做;收尾前要等它做完,动作不能做到一半被打断
+        // これを保持するとアクションが実行されます。終了する前に終了するまで待つ必要があり、アクションを途中で中断することはできません。
         val busy = Mutex()
         val context = AtomicInteger(-1)
         val gone = AtomicBoolean(false)
         val mainFrame = AtomicReference<String?>(null)
         val reader = AtomicInteger(-1)
 
-        // 先订阅再建世界:事件流不重放
+        // 最初にサブスクライブしてからワールドを構築します: イベント ストリームが再生されません
         launch(start = CoroutineStart.UNDISPATCHED) {
             session.events.collect { e ->
                 if (e.sessionId != sessionId) return@collect
@@ -69,7 +69,7 @@ class PageScriptRunner(
                 when (e.method) {
                     "Runtime.executionContextDestroyed" -> if (p.int("executionContextId") == context.get()) gone.set(true)
                     "Runtime.executionContextsCleared" -> gone.set(true)
-                    // 不开 Runtime 时没有上下文销毁的事件:主框架换了文档,世界就没了
+                    // ランタイムが有効になっていない場合、コンテキスト破棄イベントはありません。メイン フレームがドキュメントを変更し、世界は消滅します。
                     "Page.frameNavigated" -> if (mainFrameNavigated(p, mainFrame.get())) gone.set(true)
                     "Network.requestWillBeSent" -> if (context.get() >= 0 && PageScriptProtocol.requestFromScript(p)) {
                         outcome.complete(ScriptRun.Failed(BLOCKED_NETWORK, "the script sent a network request (${p.requestUrl()}); scripts may only read the page"))
@@ -94,7 +94,7 @@ class PageScriptRunner(
                 return@coroutineScope ScriptRun.Failed(DEVTOOLS_UNAVAILABLE, "the page did not answer in time")
             }
 
-            // 一直挂着一个取件:脚本的 mika 调用一条条交回来;收尾(__mikaEnd)交回 null,世界没了求值失败,都就此停
+            // ピックアップは常にあります。スクリプトの mika 呼び出しは 1 つずつ返されます。終了 (__mikaEnd) は null を返し、世界は消滅し、評価は失敗し、すべてがここで停止します。
             launch {
                 while (!outcome.isCompleted) {
                     val r = try {
@@ -115,7 +115,7 @@ class PageScriptRunner(
 
             launch {
                 outcome.complete(try {
-                    // 不设上限:时限由下面的表管(动作在做时不走表)
+                    // 上限なし: 制限時間は以下の時計によって管理されます (アクションの実行中は時計は動作しません)
                     val r = session.send("Runtime.evaluate", buildJsonObject {
                         put("expression", PageScriptProtocol.run(code)); put("contextId", contextId)
                         put("awaitPromise", true); put("returnByValue", true)
@@ -127,7 +127,7 @@ class PageScriptRunner(
                         else -> ScriptRun.Done((r["result"] as? JsonObject)?.get("value")?.let { it as? JsonPrimitive }?.takeIf { it.isString }?.content)
                     }
                 } catch (e: CdpException) {
-                    // 世界随整页跳转没了,脚本的 Promise 也就没了
+                    // ページ全体で世界がジャンプし、スクリプトの Promise が消えます。
                     if (gone.get() || CONTEXT_GONE.containsMatchIn(e.errorMessage)) ScriptRun.Navigated else ScriptRun.Failed("script_error", e.errorMessage)
                 })
             }
@@ -161,7 +161,7 @@ class PageScriptRunner(
                 }
             }
 
-            // 只在没有动作在做时走表
+            // は、アクションが実行されていない場合にのみウォッチを実行します。
             launch {
                 var left = timeoutMs
                 while (left > 0) {
@@ -185,7 +185,7 @@ class PageScriptRunner(
                     } catch (e: Exception) {
                         true
                     }
-                    // 收尾都等不到回应:脚本在跑同步死循环,占着页面。只在这时打断(没在跑时打断会误伤页面下一段脚本)
+                    // 最後の応答が待ちきれません。スクリプトは同期された無限ループで実行され、ページを占有しています。現時点では中断のみを行ってください (実行中に中断しないと、ページ上の次のスクリプトが誤って破損する可能性があります)
                     if (!ended) runCatching { session.send("Runtime.terminateExecution", JsonObject(emptyMap()), sessionId, STEP_TIMEOUT_MS) }
                 }
             }
@@ -195,7 +195,7 @@ class PageScriptRunner(
 
     private class Worlds(val frameId: String, val script: Int, val reader: Int)
 
-    /** 在读取世界里照校验过的参数读 DOM,只拿回纯数据。 */
+    /** は、読み取りワールドで検証されたパラメーターに従って DOM を読み取り、純粋なデータのみを返します。 */
     private suspend fun readPage(ctx: Int, spec: JsonObject): JsonObject {
         val r = session.send("Runtime.evaluate", buildJsonObject {
             put("expression", PageScriptProtocol.read(spec)); put("contextId", ctx); put("returnByValue", true)
@@ -209,11 +209,11 @@ class PageScriptRunner(
     }
 
     /**
-     * 建两个隔离世界:脚本世界(发件箱、`mika`、跑模型代码,拿不到页面对象)和读取世界(只有 Mika 固定的读取器)。
+     * は、スクリプト ワールド (送信ボックス、`mika`、実行中のモデル コード、ページ オブジェクトを取得できません) と読み取りワールド (ミカ固定リーダーのみ) の 2 つの独立した世界を構築します。
      */
     private suspend fun setUp(world: String): Worlds {
-        // 不开 Runtime:开着它时页面能察觉到调试器(有的网站因此一直重载);隔离世界和求值都不需要它
-        // 兜底要看的事件:跳转请求、网络请求(已开着的再开一次无妨)
+        // ランタイムがオンになっていません: オンになっている場合、ページはデバッガーを検出できます (一部の Web サイトはこのため常にリロードされます)。世界の分離や評価には必要ありません。
+        // チェックすべきこと: ジャンプ リクエスト、ネットワーク リクエスト (すでに開いている場合は再度開いても問題ありません)
         session.send("Page.enable", JsonObject(emptyMap()), sessionId, STEP_TIMEOUT_MS)
         session.send("Network.enable", JsonObject(emptyMap()), sessionId, STEP_TIMEOUT_MS)
         val frameId = session.send("Page.getFrameTree", JsonObject(emptyMap()), sessionId, STEP_TIMEOUT_MS)["frameTree"]
@@ -221,7 +221,7 @@ class PageScriptRunner(
             ?: throw CdpException(0, "no main frame", "Page.getFrameTree")
         val ctx = session.send("Page.createIsolatedWorld", buildJsonObject {
             put("frameId", frameId); put("worldName", world)
-            // 协议里的参数名就是这么拼的
+            // プロトコルのパラメーター名の綴りは次のとおりです。
             put("grantUniveralAccess", false)
         }, sessionId, STEP_TIMEOUT_MS)["executionContextId"]?.jsonPrimitive?.intOrNull
             ?: throw CdpException(0, "no execution context", "Page.createIsolatedWorld")
@@ -235,7 +235,7 @@ class PageScriptRunner(
         return Worlds(frameId, ctx, readerCtx)
     }
 
-    /** 装不上就不跑模型代码。 */
+    /** がインストールできない場合、モデルコードは実行されません。 */
     private suspend fun install(ctx: Int, source: String) {
         val r = session.send("Runtime.evaluate", buildJsonObject {
             put("expression", source); put("contextId", ctx); put("returnByValue", true)

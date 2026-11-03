@@ -4,8 +4,8 @@ import kotlin.math.hypot
 import kotlin.math.min
 
 /**
- * 给模型看的一屏:[elements] 的 ref 已换成模型编号,[snapshotId] 是这块屏的前缀加序号("p1"、"w2"…);
- * [port] 是端口原样的快照,[toPort] 是模型编号 → 端口编号。
+ * はモデルの画面です。[elements] の参照はモデル番号に置き換えられ、[snapshotId] はこの画面のプレフィックスとシリアル番号 (「p1」、「w2」...) です。
+ * [port] はポートそのままのスナップショット、[toPort] は型番→ポート番号です。
  */
 data class ModelSnapshot(
     val snapshotId: String,
@@ -13,7 +13,7 @@ data class ModelSnapshot(
     val elements: List<UiElement>,
     val toPort: Map<String, String>,
 ) {
-    /** 换成模型编号的快照;不可逆判定、坐标换算都用它。 */
+    /** はモデル番号のスナップショットに置き換えられます。不可逆判定や座標変換に使用されます。 */
     val screen: ScreenSnapshot by lazy {
         val refs = toPort.entries.associate { (model, original) -> original to model }
         port.copy(
@@ -25,37 +25,37 @@ data class ModelSnapshot(
 }
 
 sealed interface Resolved {
-    /** [relocated]:模型给的是旧一屏的 snapshotId,编号在最新一屏里仍指同一元素。 */
+    /** [relocated]: モデルは古い画面の snapshotId を示し、その番号は最新の画面の同じ要素を参照しています。 */
     data class Current(val portRef: String, val portSnapshotId: String, val relocated: Boolean) : Resolved
     data object Stale : Resolved
 }
 
-/** 沿用旧编号允许的最大中心位移:屏幕短边的这个比例(与端口找回的上限一致)。 */
+/** は、古い数値で許可されている最大中心変位、つまり画面の短辺の比率 (ポート取得の上限と一致) に従います。 */
 const val STABLE_REF_MAX_SHIFT = RELOCATE_MAX_SHIFT
 
-/** 旧 snapshotId 能翻译的最多几屏之前;更早的按过期处理。 */
+/** 古い snapshotId は、数画面前まで変換できます。それ以前のものは期限切れとして処理されます。 */
 private const val KEEP_CENTERS = 20
 
 /**
- * 跨读屏的稳定元素编号。端口编号只在一次读屏内有效;这里让相邻两屏里没变的元素保持同一个模型编号,
- * 动作时再翻译回端口编号,端口照旧负责过期判断与找回。
+ * 読み取り画面全体で安定した要素番号。ポート番号は 1 つの画面読み取り内でのみ有効です。ここでは、2 つの隣接する画面内の変更されていない要素は、同じモデル番号で保持されます。
+ * がアクティブになると、ポート番号に変換され、有効期限の判断と取得はポートが引き続き担当します。
  *
- * 沿用旧编号的条件不比端口的找回([relocate])宽:键(角色 + 名字 + 资源 ID)在新旧两屏里都唯一、
- * 前台 App 没换、遍历顺序里前一个有名字的元素(上下文)相同或页面整体没动且它还在原地、
- * 中心位移不超过短边的 [STABLE_REF_MAX_SHIFT];列表里的元素(落在可滚动容器里)还要页面没滚动、它没挪窝。
- * 列表里重复的同名元素(一排「关注」)永远拿新编号:滚动后同一位置已经是另一行。
- * 没名字也没资源 ID 的元素认不出是不是同一个,也拿新编号。编号任务内单调递增,退役的不再复用。
+ * 古い番号を使用する条件はポート取得 ([relocate]) よりも広くありません。キー (ロール + 名前 + リソース ID) は古い画面と新しい画面の両方で一意です。
+ * フロントエンド アプリが変更されていない、トラバーサル シーケンス内の以前の名前付き要素 (コンテキスト) が同じである、またはページ全体が移動せずにまだ所定の位置にある、
+ * の中心変位は [STABLE_REF_MAX_SHIFT] の短辺を超えません。リスト内の要素 (スクロール可能なコンテナに含まれる要素) は、スクロールまたは移動しないでください。
+ * リスト内で同じ名前の繰り返し要素 (「フォロー」の行) は常に新しい番号を取得します。スクロールすると、同じ位置がすでに別の行にあります。
+ * 要素には名前もリソース ID もありません。同じ要素であるかどうかを識別することはできないため、新しい番号が割り当てられます。番号付きタスクは単調に増加し、廃止されたタスクは再利用されなくなります。
  *
- * snapshotId 是 [prefix] 加序号:每块屏一个前缀,看编号就知道是哪块屏的。
+ * スナップショット ID は [prefix] です。シリアル番号を追加します: 各画面のプレフィックス。番号を見ればどの画面であるかがわかります。
  */
 class RefStabilizer(private val prefix: String = "s") {
     private var nextRef = 1
     private var count = 0
     var latest: ModelSnapshot? = null
         private set
-    /** 最新一屏里每个编号首次出现在第几屏;编号一旦从某屏消失就不会再出现,所以它在 [born, 最新一屏] 里连续存在。 */
+    /** 最新画面の各数字が初めて表示される画面。ある画面から数字が消えると二度と現れないので、【生まれた最新画面】に存在し続けます。 */
     private var born = mapOf<String, Int>()
-    /** 最近 [KEEP_CENTERS] 屏里每个模型编号的中心;旧 snapshotId 翻译时限制累计位移。 */
+    /** 最近の [KEEP_CENTERS] 画面内の各型番の中央。 old snapshotId は、変換中の累積変位を制限します。 */
     private val centers = LinkedHashMap<Int, Map<String, Pair<Int, Int>>>()
 
     fun next(port: ScreenSnapshot): ModelSnapshot {
@@ -73,7 +73,7 @@ class RefStabilizer(private val prefix: String = "s") {
             val k = key(e)
             val old = prevByKey[k]?.singleOrNull()?.takeIf { (j, _) ->
                 identifiable(e) && newCount[k] == 1 && relocate(before[j], before, after, shortSide) == Relocation.Found(i) &&
-                    // 列表项会复用:只有页面没滚、它还在原地才算同一个
+                    // リスト項目は再利用されます。ページのみがスクロールされず、同じ場所に残ります。
                     (!(before[j].inList || after[i].inList) || (still && shift(before[j], after[i]) <= shortSide * SAME_SPOT_SHIFT))
             }?.value
             val ref = old?.ref ?: "@e${nextRef++}"
@@ -91,12 +91,12 @@ class RefStabilizer(private val prefix: String = "s") {
         val cur = latest ?: return Resolved.Stale
         val n = snapshotId.removePrefix(prefix).takeIf { snapshotId.startsWith(prefix) }?.toIntOrNull() ?: return Resolved.Stale
         if (n < 1 || n > count) return Resolved.Stale
-        // 编号得真是那一屏里的,模型拼错的组合不放过
+        // には画面に表示されているとおりに番号が付けられており、スペルを間違えたモデルの組み合わせを見逃すことはありません。
         val from = born[ref] ?: return Resolved.Stale
         if (from > n) return Resolved.Stale
         val portRef = cur.toPort[ref] ?: return Resolved.Stale
         if (n != count) {
-            // 每屏之间都没挪远,累计起来也可能挪远了:从模型看到的那一屏算起
+            // 各画面は遠くに移動したわけではなく、モデルが見た画面から開始して累積的に遠くに移動した可能性があります。
             val then = centers[n]?.get(ref) ?: return Resolved.Stale
             val now = centers[count]?.get(ref) ?: return Resolved.Stale
             val limit = min(cur.port.width, cur.port.height) * STABLE_REF_MAX_SHIFT
@@ -113,8 +113,8 @@ class RefStabilizer(private val prefix: String = "s") {
         hypot((a.centerX - b.centerX).toDouble(), (a.centerY - b.centerY).toDouble())
 
     /**
-     * 和端口读屏时一样的特征:上下文是遍历顺序里前一个有名字的元素;
-     * 中心落在别的可滚动元素范围里的算在列表里(端口快照里没有父子关系,按范围推断)。
+     * はポート読み取りと同じ特性を持っています。コンテキストは、走査順序で前の名前付き要素です。
+     * 中心が他のスクロール可能な要素の範囲内にある場合、それらはリストにカウントされます (ポート スナップショットには親子関係がないため、範囲に基づいて推測されます)。
      */
     private fun locators(s: ScreenSnapshot): List<ElementLocator> {
         val panes = s.elements.filter { it.scrollable && it.bounds.size == 4 }

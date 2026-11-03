@@ -21,11 +21,11 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 import com.wangzan101.mika.core.uistate.session
 
-/** 不截屏地按文字、资源 ID 或控件类型查询当前无障碍树,结果保留父子线索。 */
+/** スクリーンショットを撮らずに、テキスト、リソース ID、またはコントロール タイプによって現在のアクセシビリティ ツリーをクエリすると、結果には親子の手掛かりが保持されます。 */
 internal object PhoneQuery : PhoneTool {
     override val verb = Verb.Query
     override val risk = Risk.Read
-    override val label = "查找界面控件"
+    override val label = "画面要素を探す"
     override val def = ToolDef("phone_query", Prompts.tool("phone_query"), mapOf(
         "text" to str("Case-insensitive text or accessibility description to find."),
         "resourceId" to str("Full or partial Android resource ID to find."),
@@ -42,12 +42,12 @@ internal object PhoneQuery : PhoneTool {
     }
 }
 
-/** 一次采集多屏文字。每次滚动仍通过子动作入口,因此取消、状态记录和动作结果与单步一致。 */
+/** は、複数の画面からテキストを一度に収集します。各スクロールはサブアクションのエントリを通過するため、キャンセル、ステータスの記録、およびアクションの結果は 1 つのステップで一貫しています。 */
 internal object PhoneCollect : PhoneTool {
     override val verb = Verb.Collect
     override val risk = Risk.Write
     override val composite = true
-    override val label = "采集多屏内容"
+    override val label = "複数画面の内容を集める"
     override val def = ToolDef("phone_collect", Prompts.tool("phone_collect"), mapOf(
         "direction" to str("Direction of newer content: up or down.", listOf("up", "down")),
         "pages" to int("Maximum screens to inspect, 1-30 (default 10).", 1, 30),
@@ -156,7 +156,7 @@ internal object PhoneCollect : PhoneTool {
             val obj = element as? JsonObject ?: return@forEach
             if (obj["secret"] != JsonPrimitive(true)) add((obj["name"] as? JsonPrimitive)?.contentOrNull, obj["bounds"] as? JsonArray)
         }
-        // OCR 只包含树里缺失的文字；与树文本按屏幕位置合并，群聊才不会把补出的消息都放到末尾。
+        // OCR には、ツリー内の欠落しているテキストのみが含まれます。画面の位置に応じてツリー テキストと結合されるため、グループ チャットの最後に補足メッセージがすべて表示されることはありません。
         (content["visibleText"] as? JsonArray)?.forEach { entry ->
             val obj = entry as? JsonObject ?: return@forEach
             add((obj["text"] as? JsonPrimitive)?.contentOrNull, obj["bounds"] as? JsonArray)

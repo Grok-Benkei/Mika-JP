@@ -27,7 +27,7 @@ class UploadStagingTest {
         assertEquals(listOf("photo", "second"), r.staged.files.map { it.readText() })
         assertEquals(listOf("photo.txt", "photo.txt"), r.staged.files.map { it.name })
         assertTrue(r.staged.files.all { it.canonicalPath.startsWith(root.canonicalPath + File.separator) })
-        // 交出去之后工作区里的文件再换也不影响副本
+        // 引き渡し後、ワークスペース内のファイルを変更してもコピーには影響しません。
         File(ws, "in/photo.txt").writeText("swapped")
         assertEquals("photo", r.staged.files[0].readText())
         staging.delete(r.staged)
@@ -49,7 +49,7 @@ class UploadStagingTest {
         assertEquals("file_not_found", refused("/workspace/none.txt"))
         assertEquals("file_too_large", refused("/workspace/big.bin"))
         assertEquals("file_too_large", refused("/workspace/a.bin", "/workspace/b.bin"))
-        // 拒绝时不留副本
+        // 拒否時にコピーが残らない
         assertTrue(root.list().orEmpty().isEmpty())
         staging.clear()
         assertFalse(root.exists())

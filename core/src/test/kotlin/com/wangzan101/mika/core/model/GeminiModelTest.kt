@@ -168,7 +168,7 @@ class GeminiModelTest {
         val rl = errorOf(429, err(429, "RESOURCE_EXHAUSTED", "slow down"), "Retry-After" to "3")
         assertEquals(3000L, (rl as ModelError.RateLimited).retryAfterMs)
         assertTrue(errorOf(429, err(429, "RESOURCE_EXHAUSTED", "You exceeded your current quota")) is ModelError.RateLimited)
-        // 这个模型的免费额度为零:等也没用,认成这个账号用不了这个模型,试调用时接着试下一个
+        // このモデルの無料割り当てはゼロです。待っても無駄です。このアカウントではこのモデルは使用できないものとします。呼び出すときは、次の呼び出しを試してください。
         val zero = errorOf(429, err(429, "RESOURCE_EXHAUSTED", "Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-x"))
         assertTrue(zero is ModelError.ModelNotAvailable)
         assertTrue(errorOf(404, err(404, "NOT_FOUND", "models/x is not found for API version v1beta, or is not supported for generateContent.")) is ModelError.ModelNotFound)
@@ -208,7 +208,7 @@ class GeminiModelTest {
         assertFalse(mp[1].jsonObject.containsKey("thoughtSignature"))
     }
 
-    // 别的模型产生的调用(没有签名):一轮里第一个调用发跳过校验的占位签名,其余照旧不带
+    // 他のモデルによって生成された呼び出し (署名なし): ラウンド内の最初の呼び出しでは、検証をスキップするプレースホルダー署名が送信されますが、残りの呼び出しでは検証がスキップされません。
     @Test fun foreignCallGetsSkipSignature() = runTest {
         server.enqueue(ok(cand("""[]""")))
         val foreign = Message(Role.Assistant, listOf(Part.Text("看看"), Part.ToolCall("c1", "phone_tap", "{}"), Part.ToolCall("c2", "phone_back", "{}")), Author.Mika)
@@ -221,7 +221,7 @@ class GeminiModelTest {
 
     @Test fun outputTokensIncludeThoughts() = runTest {
         server.enqueue(ok("""{"candidates":[{"content":{"parts":[{"text":"x"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":5,"thoughtsTokenCount":7}}"""))
-        // 思考另记一份:不算上下文增长(见 UsageMeter)
+        // もう 1 つの考え: コンテキストの増加をカウントしない (UsageMeter を参照)
         assertEquals(Usage(10, 12, 0, reasoningTokens = 7), model().complete("s", user, emptyList()).usage)
     }
 
@@ -236,7 +236,7 @@ class GeminiModelTest {
         assertFalse(props.obj("additionalProperties").containsKey("additionalProperties"))
     }
 
-    // 插话打断后:半截回复是只有一段文字的 model 回合(没有 thought);插话和运行时状态并进下一个 user 回合,角色交替
+    // 中断後: 半分の返信は、(何も考えずに) 1 段落のテキストのみを含む模範的なターンです。中断と実行時状態は次のユーザーターンに入り、役割が交代します。
     @Test fun interruptedReplyIsATextOnlyModelTurnBeforeTheSteer() = runTest {
         server.enqueue(ok(cand("""[{"text":"好"}]""")))
         model().complete("s", InterruptedHistory.messages, emptyList())

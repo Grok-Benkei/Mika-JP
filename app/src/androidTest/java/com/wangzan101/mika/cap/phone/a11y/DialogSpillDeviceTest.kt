@@ -16,12 +16,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * 真机测试:后台进程在主屏上打开一个对话框样式的页面(登录验证、账号确认一类要用户在主屏点确认的弹窗)。
- * 这种弹窗要留在主屏给用户;Mika 的屏不该被它盖住,也不该把它挪到后台屏上。
+ * 実機テスト: バックグラウンド プロセスにより、ホーム画面にダイアログ スタイルのページが開きます (ログイン確認やアカウント確認など、ユーザーがホーム画面をクリックして確認する必要があるポップアップ ウィンドウ)。
+ * この種のポップアップ ウィンドウは、ユーザーのホーム画面に残しておく必要があります。ミカの画面が隠れたり、背景画面に移動したりしないでください。
  */
 @RunWith(AndroidJUnit4::class)
 class DialogSpillDeviceTest {
-    // 和任务里一样,屏的尺寸、密度同主屏:挪过来的页面不必因尺寸变了重建
+    // はタスク内と同じで、画面のサイズと密度はメイン画面と同じです。移動されたページはサイズの変更によって再構築される必要はありません。
     private val agent = run {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
         val m = android.util.DisplayMetrics().also {
@@ -37,13 +37,13 @@ class DialogSpillDeviceTest {
 
     @After
     fun tearDown() {
-        // 失败时弹窗可能还留在主屏:关掉它
+        // 失敗するとポップアップ ウィンドウがホーム画面に残る場合があります。閉じてください。
         val main = shell.topTaskId(Display.DEFAULT_DISPLAY)
         if (main >= 0 && shell.packageOfTask(main) == DeviceSupport.TEST_PACKAGE) DeviceSupport.sh("input keyevent 4")
         agent.release()
     }
 
-    /** 主屏上各窗口的类型、包和范围:对话框样式的窗口明显比整屏小。 */
+    /** メイン画面上の各ウィンドウのタイプ、パッケージ、および範囲: ダイアログ スタイルのウィンドウは、明らかに画面全体よりも小さいです。 */
     private fun dumpMainWindows(label: String) {
         val service = DeviceSupport.service()
         for (w in service.windowsOn(Display.DEFAULT_DISPLAY)) {
@@ -55,7 +55,7 @@ class DialogSpillDeviceTest {
 
     @Test
     fun dialogOnTheMainScreenIsLeftForTheUser() = runBlocking<Unit> {
-        // 先单独看一眼这种对话框在主屏上的窗口(不经过 Mika 的动作)
+        // まずはホーム画面にあるこのようなダイアログボックスのウィンドウを見てください(美香のアクションなし)
         DeviceSupport.sh("am start -n ${DeviceSupport.TEST_PACKAGE}/${DialogSpillTestActivity::class.java.name}")
         DeviceSupport.pollUntil(5_000) {
             shell.topActivity(Display.DEFAULT_DISPLAY)?.takeIf { it.contains("DialogSpillTestActivity") }
@@ -81,7 +81,7 @@ class DialogSpillDeviceTest {
         val r = screen.tapRef(button.ref, s.snapshotId)
         println("tap result: $r")
 
-        // 从助手的记录里认这次冒到主屏上的弹窗任务(挪走后任务号不变)
+        // アシスタントのレコードからホーム画面にポップアップするポップアップ タスクを特定します (タスク番号は削除後も変わりません)。
         val b = shell.mainArrivals(since)
         val packages = b?.getStringArray(MainScreenWatch.KEY_PACKAGE)
         val tasks = b?.getIntArray(MainScreenWatch.KEY_TASK)
@@ -89,7 +89,7 @@ class DialogSpillDeviceTest {
         assertNotNull("no arrival on the main screen was reported for the popup", dialogTask)
         dumpMainWindows("after action")
 
-        // 让 Mika 有机会处理这次冒到主屏上的任务(动作里没赶上的,读屏时会补)
+        // は、今度はミカにホーム画面にポップアップ表示されるタスクを処理する機会を与えます (アクションに含まれていないものはすべて、画面を読み取るときに入力されます)
         delay(1_500)
         val now = screen.snapshot()
         delay(500)
@@ -100,9 +100,9 @@ class DialogSpillDeviceTest {
             "after: opened=$opened main top=${shell.topTaskId(Display.DEFAULT_DISPLAY)} " +
                 "dialogTask=$dialogTask stillOnMain=$stillThere vd top=${shell.topTaskId(vd)} (before $vdBefore, main before $mainBefore)",
         )
-        // 弹窗还在主屏,用户能接着点确认
+        // ポップアップ ウィンドウはまだホーム画面にあるため、ユーザーはクリックして確認できます。
         assertTrue("the dialog was moved off the user's screen", stillThere)
-        // Mika 的屏还是原来那一页
+        // ミカの画面は以前と同じです
         assertEquals("Mika's screen changed", vdBefore, shell.topTaskId(vd))
         assertNotNull("the popup was not reported to the model", opened)
         assertEquals(DeviceSupport.TEST_PACKAGE, opened!!.packageName)

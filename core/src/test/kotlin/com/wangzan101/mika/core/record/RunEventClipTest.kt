@@ -14,10 +14,10 @@ class RunEventClipTest {
         val s = "x".repeat(RunEvent.MAX_RESULT + 10)
         val out = RunEvent.clipResult(s)
         assertTrue(out.startsWith("x".repeat(RunEvent.MAX_RESULT)))
-        assertTrue(out, out.endsWith("…(已截短,原长 ${s.length} 字)"))
+        assertTrue(out, out.endsWith("…（短縮しました。元の長さ: ${s.length}文字）"))
     }
 
     @Test fun plainFieldsStillClippedAtMaxField() {
-        assertEquals(RunEvent.MAX_FIELD + "…(已截短)".length, RunEvent.clip("x".repeat(RunEvent.MAX_FIELD + 1)).length)
+        assertEquals(RunEvent.MAX_FIELD + "…（短縮しました）".length, RunEvent.clip("x".repeat(RunEvent.MAX_FIELD + 1)).length)
     }
 }

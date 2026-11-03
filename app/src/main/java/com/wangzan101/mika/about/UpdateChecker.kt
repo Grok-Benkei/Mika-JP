@@ -24,12 +24,12 @@ import okhttp3.Request
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-/** 手动检查更新这一次的结果;自动检查不改它(失败时不打扰)。 */
+/** 今回は結果を手動で確認して更新します。自動チェックでは変更されません (失敗しても気にする必要はありません)。 */
 enum class CheckStatus { Idle, Checking, Done, Failed }
 
 /**
- * 检查更新的状态。[latest] 是最近一次查到的版本(更新记录用),[update] 是比当前新的那个(有它才有红点)。
- * [manualRounds] 每完成一次手动检查加一,页面据此给出「已是最新」「连不上」之类的提示。
+ * アップデートの状況を確認してください。 [latest] は見つかった最新バージョン (更新レコードに使用) で、[update] は新しいバージョン (赤い点があります) です。
+ * [manualRounds] 手動チェックが完了するたびに 1 つ追加され、それに応じてページに「すでに最新です」や「接続できません」などのプロンプトが表示されます。
  */
 data class UpdateState(
     val latest: ReleaseInfo? = null,
@@ -41,8 +41,8 @@ data class UpdateState(
 }
 
 /**
- * 每次打开 App 都自动查一次,只挡住连着来的:离上次自动检查不到 [MIN_GAP_MS](来回切几下、旋转屏幕)不再查。
- * 上次时间比现在还晚(改过系统时间)也算到期。
+ * はアプリを開くたびに自動的にチェックされ、連続するもののみがブロックされます。前回の自動チェック時よりも小さい値です。 [MIN_GAP_MS]（数回前後に切り替え、画面を回転）は再度チェックされません。
+ * 前回の時刻は現在より遅い (システム時刻が変更されている) ため、期限切れとみなされます。
  */
 object UpdateSchedule {
     const val MIN_GAP_MS = 2 * 60 * 1000L
@@ -51,9 +51,9 @@ object UpdateSchedule {
 }
 
 /**
- * 检查更新,没有自己的服务器:只问 GitHub 发布页接口;连不上、限流、读不懂都算这次没查到。
- * 查到的版本和上次自动检查的时间存在 [file],App 重开后红点还在;装了新版后当前版本不再落后,红点自然消失。
- * 这里只检查版本；用户主动下载、安装由 [ApkUpdater] 处理。
+ * は更新をチェックしますが、独自のサーバーはありません。GitHub リリース ページ インターフェイスを問い合わせるだけです。接続できない場合、フローが制限されている場合、または読み取れない場合は、今度は見つかりません。
+ * 見つかったバージョンと最後の自動チェックの時刻は [file] です。アプリを再度開いた後も、赤い点はまだ表示されています。新しいバージョンをインストールすると、現在のバージョンの遅れはなくなり、赤い点が自然に消えます。
+ * はここでバージョンのみをチェックします。ユーザーが開始したダウンロードとインストールは、[ApkUpdater] によって処理されます。
  */
 class UpdateChecker(
     private val file: File,
@@ -62,7 +62,7 @@ class UpdateChecker(
     private val releaseApi: String = MikaLinks.LATEST_RELEASE_API,
     private val now: () -> Long = System::currentTimeMillis,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-    /** 本机支持的 ABI(Build.SUPPORTED_ABIS),用来挑发布里合适的 APK;为空时取全架构包。 */
+    /** でサポートされている ABI (Build.SUPPORTED_ABIS) は、リリースで適切な APK を選択するために使用されます。空の場合は、完全なアーキテクチャ パッケージが使用されます。 */
     private val deviceAbis: List<String> = emptyList(),
 ) {
     private val _state = MutableStateFlow(UpdateState())
@@ -72,22 +72,22 @@ class UpdateChecker(
     private var lastAttempt: Long? = null
     private var loaded = false
 
-    /** 每次打开 App 时调:到期就在后台查一次,失败不吭声。 */
+    /** アプリを開くたびに、「有効期限が切れたらバックグラウンドで一度チェックしてください」が呼び出され、失敗すると音は鳴りません。 */
     fun autoCheckInBackground() {
         scope.launch { autoCheck() }
     }
 
-    /** 用户点了「检查更新」。 */
+    /** ユーザーが「アップデートの確認」をクリックしました。 */
     fun checkInBackground() {
         scope.launch { check(manual = true) }
     }
 
-    /** 读出存着的结果(只读一次),红点不用等联网。 */
+    /** は保存された結果を読み取り (1 回のみ読み取り)、赤い点はインターネット接続を待つ必要はありません。 */
     suspend fun load() = mutex.withLock { loadLocked() }
 
     /**
-     * 到期就查一次,返回这次有没有真的去查。开查前先记下这次的时间:同时进来的第二次(查还没完)看到的是刚记的时间,
-     * 不会再查一遍。
+     * 有効期限が切れたら一度確認してください。今度は本当にチェックしたかどうかを確認してください。調査を開始する前に、時間を書き留めてください。同時に 2 回目に訪問するとき (調査はまだ終わっていません)、先ほど記録した時間が表示されます。
+     * は再度チェックしません。
      */
     suspend fun autoCheck(): Boolean {
         val due = mutex.withLock {
@@ -111,7 +111,7 @@ class UpdateChecker(
         }
     }
 
-    /** GitHub 上最新的发布;没查到为空。 */
+    /** GitHub の最新リリース。見つからない場合は空です。 */
     internal fun fetchLatest(): ReleaseInfo? = runCatching { Releases.fromGitHub(get(releaseApi), deviceAbis) }.getOrNull()
 
     private fun get(url: String): String {
@@ -155,7 +155,7 @@ class UpdateChecker(
     }
 
     companion object {
-        /** 有的网络连 GitHub 时快时慢:超时放短,失败就换备用来源。走设置 › 网络代理。 */
+        /** 一部のネットワークは、GitHub への接続時に高速な場合と低速な場合があります。タイムアウトを短縮し、失敗した場合はバックアップ ソースに切り替えます。設定 › ネットワーク プロキシに移動します。 */
         fun defaultClient(): OkHttpClient = NetProxy.shared.client(OkHttpClient.Builder()
             .connectTimeout(5, TimeUnit.SECONDS)
             .readTimeout(8, TimeUnit.SECONDS)

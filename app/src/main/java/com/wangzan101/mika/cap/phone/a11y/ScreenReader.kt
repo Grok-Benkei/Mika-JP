@@ -12,8 +12,8 @@ import com.wangzan101.mika.core.uistate.UiWindowTree
 import com.wangzan101.mika.core.uistate.normalize
 
 /**
- * 读一次屏的结果。[hash] 覆盖所有可见节点(含标成「对无障碍不重要」的)的文字、类型、位置、勾选、
- * 输入焦点和光标/选区,用来判断界面变没变:点输入框只换了焦点也算变了。
+ * 画面を1回読み込んだ結果。 [hash] は、テキスト、タイプ、位置、チェック、および
+ * 入力フォーカスとカーソル/選択は、インターフェイスが変更されたかどうかを判断するために使用されます。入力ボックスをクリックしてフォーカスを変更した場合のみ、変更とみなされます。
  */
 internal class ScreenRead(
     val entries: List<NodeEntry>,
@@ -23,17 +23,17 @@ internal class ScreenRead(
     val hasAppWindow: Boolean,
     val topPackage: String?,
     val windows: List<UiWindowTree> = emptyList(),
-    /** 有应用窗口(不管根节点读不读得到)。 */
+    /** にはアプリケーション ウィンドウがあります (ルート ノードが読み取り可能かどうかに関係ありません)。 */
     val anyAppWindow: Boolean = hasAppWindow,
 )
 
-/** 从某块屏的窗口里读出元素列表、界面指纹和诊断用的文字。 */
+/** は、特定の画面のウィンドウから要素リスト、インターフェイス フィンガープリント、診断テキストを読み取ります。 */
 internal object ScreenReader {
     private const val MIN_SIZE = 5
     private const val MAX_DEPTH = 80
     private const val AGGREGATE_MAX = 60
 
-    // 输入法与无障碍浮层不属于被操作的 App
+    // 入力メソッドとアクセシビリティ フローティング レイヤーは、操作されるアプリに属しません
     private val SKIPPED_TYPES = setOf(
         AccessibilityWindowInfo.TYPE_INPUT_METHOD,
         AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY,
@@ -41,11 +41,11 @@ internal object ScreenReader {
         AccessibilityWindowInfo.TYPE_SPLIT_SCREEN_DIVIDER,
     )
 
-    /** 从上到下排好的、属于界面内容的窗口。 */
+    /** ウィンドウは上から下に配置され、インターフェイス コンテンツに属します。 */
     fun contentWindows(windows: List<AccessibilityWindowInfo>): List<AccessibilityWindowInfo> =
         windows.filter { it.type !in SKIPPED_TYPES }.sortedByDescending { it.layer }
 
-    // 最上面的应用窗口可能是读不到内容的浮层(弹出菜单、输入框的选字浮窗等),跳过它们
+    // 最上位のアプリケーション ウィンドウは、読み取れないコンテンツ (ポップアップ メニュー、入力ボックスの単語選択フローティング ウィンドウなど) を含むフローティング レイヤーである可能性があります。それらはスキップしてください。
     fun topPackage(windows: List<AccessibilityWindowInfo>): String? =
         contentWindows(windows).filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
             .firstNotNullOfOrNull { it.root?.packageName?.toString() }
@@ -91,14 +91,14 @@ internal object ScreenReader {
                                 normalize(rect.left, width), normalize(rect.top, height),
                                 normalize(rect.right, width), normalize(rect.bottom, height),
                             ),
-                            // 输入框总带上资源 ID:回车前要靠它认出搜索框(名字常常只是推荐词)
+                            // 入力ボックスには常にリソース ID が含まれます。Enter キーを押す前に、そのリソース ID に基づいて検索ボックスを認識する必要があります (多くの場合、名前は単に推奨される単語です)。
                             resourceId = if (label.isEmpty() || n.isEditable) readableResourceId(rid) else null,
                             clickable = n.isClickable, editable = n.isEditable, scrollable = n.isScrollable,
                             hint = own != null && showingHint(n),
                             focused = n.isFocused,
                             secret = n.isPassword,
                             placeholder = if (n.isEditable) n.hintText?.toString()?.trim()?.ifEmpty { null } else null,
-                            // 安卓的搜索框控件(SearchView 里的输入框)按类名认
+                            // Android の検索ボックス コントロール (SearchView の入力ボックス) はクラス名で識別されます
                             searchField = n.isEditable && n.className?.toString()?.contains("Search", ignoreCase = true) == true,
                             states = uiStates(n),
                         )
@@ -153,7 +153,7 @@ internal object ScreenReader {
         )
     }
 
-    /** 单个节点当前的特征(不含上下文);节点不可见或太小时为 null。 */
+    /** 単一ノードの現在の特性 (コンテキストなし)。ノードが表示されないか、小さすぎる場合は null。 */
     fun locatorOf(n: AccessibilityNodeInfo, width: Int, height: Int): ElementLocator? {
         if (!n.isVisibleToUser) return null
         val rect = Rect().also { n.getBoundsInScreen(it) }
@@ -167,8 +167,8 @@ internal object ScreenReader {
     }
 
     /**
-     * 看上去是滚轮选择器:原版的数字滚轮控件,或能滚、里面是几项在正中竖着等距排开的短值(规则见 [WheelMath.looksLikeWheel],
-     * 宁可漏认)。有一项读不出字就不算。
+     * はスクロール ホイール セレクターのように見えます。オリジナルのデジタル スクロール ホイール コントロール、またはスクロール可能で、中央に垂直方向に等距離に配置されたいくつかの短い値があります (ルールについては、[WheelMath.looksLikeWheel] を参照してください)。
+     * はむしろ認識を見逃してしまいます)。 1 つの項目の単語を発音できない場合はカウントされません。
      */
     fun isWheel(n: AccessibilityNodeInfo): Boolean {
         if (n.className?.toString()?.endsWith("NumberPicker") == true) return true
@@ -186,7 +186,7 @@ internal object ScreenReader {
         return WheelMath.looksLikeWheel(items.sortedBy { it.centerY }, box.left, box.right)
     }
 
-    /** 列表类容器:子项会复用,同一位置可能换成别的条目。 */
+    /** リスト コンテナ: サブアイテムは再利用され、同じ位置が他のアイテムに置き換えられる可能性があります。 */
     private fun isList(n: AccessibilityNodeInfo): Boolean {
         if (n.collectionInfo != null) return true
         val cls = n.className?.toString() ?: return false
@@ -211,7 +211,7 @@ internal object ScreenReader {
 
     private fun labelOf(n: AccessibilityNodeInfo, own: String?) = own ?: if (n.isClickable) descendantLabel(n) else ""
 
-    /** 只算界面指纹,不建元素表(动作前后比对用)。 */
+    /** はインターフェイスのフィンガープリントのみをカウントし、要素テーブル (アクションの前後の比較用) を構築しません。 */
     fun hash(windows: List<AccessibilityWindowInfo>): Long {
         var hash = FNV_OFFSET
         val rect = Rect()
@@ -228,7 +228,7 @@ internal object ScreenReader {
         return hash
     }
 
-    /** 判动作效果用的控件状态(和 [hash] 看的同一批)。 */
+    /** はアクションの効果を判定するための制御ステータスです([hash]と同じバッチ)。 */
     @Suppress("DEPRECATION")
     private fun uiStates(n: AccessibilityNodeInfo): Set<String> = buildSet {
         if (n.isChecked) add(UiStates.CHECKED)
@@ -236,12 +236,12 @@ internal object ScreenReader {
         if (!n.isEnabled) add(UiStates.DISABLED)
     }
 
-    // isChecked 在 API 36 起被三态的 checked 取代;minSdk 30 仍需用它
+    // isChecked は、API 36 以降、スリーステート チェックに置き換えられました。 minSdk 30 はまだ使用する必要があります
     @Suppress("DEPRECATION")
     private fun states(n: AccessibilityNodeInfo) =
         "${n.isChecked}${n.isSelected}${n.isEnabled}${n.isFocused}${n.textSelectionStart}:${n.textSelectionEnd}"
 
-    /** 节点自己的名字:文字(提示语也算,输入框靠它说明用途),没有就用内容描述。 */
+    /** ノード自体の名前: テキスト (プロンプトもカウントされ、入力ボックスはそれに依存して目的を説明します)。そうでない場合は、コンテンツの説明を使用します。 プロンプトは */
     fun ownLabel(n: AccessibilityNodeInfo): String? {
         val text = n.text?.toString()?.trim()
         if (!text.isNullOrEmpty()) return text
@@ -251,8 +251,8 @@ internal object ScreenReader {
     }
 
     /**
-     * 节点上显示的是提示语:系统标了 showingHintText,或没有实际文字、名字来自提示语,
-     * 或报出的文字就是提示语本身(有的输入框不设那个标记)。
+     * ノードに表示されます。システムは ShowingHintText とマークされているか、プロンプトに実際のテキストまたは名前がありません。
+     * または報告されたテキストはプロンプトそのものです (一部の入力ボックスにはそのマークがありません)。
      */
     private fun showingHint(n: AccessibilityNodeInfo): Boolean {
         if (n.isShowingHintText) return true
@@ -262,14 +262,14 @@ internal object ScreenReader {
         return if (text.isNullOrEmpty()) n.contentDescription.isNullOrBlank() else text == hint
     }
 
-    /** 输入框正在显示的提示语;没在显示提示语时为 null。 */
+    /** 入力ボックスに表示されているプロンプト。プロンプトが表示されない場合は null です。 */
     fun placeholderOf(n: AccessibilityNodeInfo): String? =
         if (showingHint(n)) n.text?.toString()?.trim()?.ifEmpty { null } ?: n.hintText?.toString()?.trim() else null
 
     /**
-     * 输入框里用户可见的实际文字;显示的是提示语时为空串,密码框读不出时为 null。
-     * [placeholder] 是输入前看到的提示语:有的输入框打字后不再标「显示提示语」,却仍把它当文字报出来,这时也算空。
-     * 但要输入的 [typing] 本身就等于提示语时,没标「显示提示语」的同样文字就当作已输入。
+     * 入力ボックスでユーザーに表示される実際のテキスト。プロンプトが表示される場合は空の文字列になり、パスワード ボックスを読み取れない場合は null になります。
+     * [placeholder] は、入力前に表示されるプロンプトです。一部の入力ボックスは、入力後に「プロンプトを表示」とマークされなくなりましたが、テキストとして報告され、現時点では空とみなされます。
+     * ただし、入力する[typing]自体がプロンプトと等しい場合は、「表示プロンプト」マークのない同じテキストが入力されたものとみなされます。
      */
     fun fieldText(n: AccessibilityNodeInfo, placeholder: String? = null, typing: String? = null): String? {
         if (n.isPassword) return null
@@ -281,7 +281,7 @@ internal object ScreenReader {
         return text
     }
 
-    /** 没名字的可点容器用子节点的文字当名字。 */
+    /** 名前のないクリック可能なコンテナは、子ノードのテキストを名前として使用します。 */
     private fun descendantLabel(n: AccessibilityNodeInfo): String {
         val parts = mutableListOf<String>()
         fun walk(c: AccessibilityNodeInfo, depth: Int) {
@@ -298,7 +298,7 @@ internal object ScreenReader {
         return if (joined.length > AGGREGATE_MAX) joined.take(AGGREGATE_MAX) + "…" else joined
     }
 
-    /** `com.x:id/cart_icon` → `cart_icon`;混淆过的短名认不出用途,不给。 */
+    /** `com.x:id/cart_icon` → `cart_icon`;紛らわしい短縮名はその目的を特定するために使用できないため、指定されません。 */
     private fun readableResourceId(id: String?): String? {
         val short = id?.substringAfterLast('/') ?: return null
         return short.takeIf { Regex("^[A-Za-z0-9_]{4,}$").matches(it) && Regex("[A-Za-z]{3}").containsMatchIn(it) }

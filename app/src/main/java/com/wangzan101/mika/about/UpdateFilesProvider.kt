@@ -6,8 +6,8 @@ import android.os.ParcelFileDescriptor
 import androidx.core.content.FileProvider
 
 /**
- * 走网络代理时由 Mika 自己下的安装包,交给系统安装器用的 content:// 地址(系统下载服务下的那份由它自己给地址)。
- * 只覆盖更新包目录(见 res/xml/update_files.xml),只读,不对外导出,安装时临时授权。
+ * ネットワーク プロキシを使用する場合、Mika 自身がダウンロードしたインストール パッケージは、システム インストーラーが使用する content:// アドレスに付与されます (システム ダウンロード サービスのアドレスは独自に付与されます)。
+ * は更新パッケージ ディレクトリ (res/xml/update_files.xml を参照) のみをカバーしており、読み取り専用でエクスポートされません。インストール中に一時的に許可されます。
  */
 class UpdateFilesProvider : FileProvider() {
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? {

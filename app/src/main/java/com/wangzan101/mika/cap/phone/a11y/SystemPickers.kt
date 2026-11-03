@@ -7,11 +7,11 @@ import android.provider.MediaStore
 import android.provider.Settings
 
 /**
- * 目标 App 调起的系统界面所在的包(权限框、选择器、文件和照片选择器):出现在前台不算被切走。
- * 按标准 Intent 解析得到,不写死包名。
+ * ターゲット アプリによって呼び出されるシステム インターフェイスが配置されているパッケージ (アクセス許可ボックス、セレクター、ファイル、写真セレクター): 前景に表示されるものは、削除されたものとしてカウントされません。
+ * は標準のインテントに従って解析され、パッケージ名はハードコーディングされません。
  */
 internal object SystemPickers {
-    /** 系统自带的选择器(ResolverActivity 等)所在的包。 */
+    /** システムに付属のセレクター (ResolverActivity など) が配置されているパッケージ。 */
     const val SYSTEM_PACKAGE = "android"
     private const val ACTION_REQUEST_PERMISSIONS = "android.content.pm.action.REQUEST_PERMISSIONS"
 

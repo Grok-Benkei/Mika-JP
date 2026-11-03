@@ -11,7 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
 
-/** 长驻进程的租约:平时和 shared 一样挡住独占的,独占的一来就收回,不会被挡住。 */
+/** 常駐プロセスのリース: 通常、共有などの排他的なものはブロックされます。専用のものは来たらすぐに回収されブロックされません。 */
 class SandboxTreeLeaseTest {
     @Test fun exclusiveRevokesLeaseInsteadOfWaiting() = runBlocking {
         val tree = SandboxTree()
@@ -21,7 +21,7 @@ class SandboxTreeLeaseTest {
         assertEquals(42, r)
         assertEquals(1, stopped.get())
         assertTrue(lease.revoked)
-        lease.close() // 收回后持有者照常关,不出错
+        lease.close() // が取り消された後、所有者は通常どおりエラーなく閉じることができます。 独占期間中に
         assertEquals(1, stopped.get())
     }
 
@@ -35,7 +35,7 @@ class SandboxTreeLeaseTest {
         assertFalse(lease.revoked)
     }
 
-    /** 独占期间要的租约排在它后面,拿到时没被收回过。 */
+    /** によって要求されたリースはその次にランクされており、取得時に取り消されていませんでした。 */
     @Test fun leaseRequestedDuringExclusiveWaitsAndIsFresh() = runBlocking {
         val tree = SandboxTree()
         val stopped = AtomicInteger()
@@ -54,7 +54,7 @@ class SandboxTreeLeaseTest {
         lease.close()
     }
 
-    /** 普通的 shared 仍然挡住独占的;租约不改它。 */
+    /** 通常の共有静止ブロックは排他的です。リースはそれを変更しません。 */
     @Test fun plainSharedStillBlocksExclusive() = runBlocking {
         val tree = SandboxTree()
         val inside = kotlinx.coroutines.CompletableDeferred<Unit>()

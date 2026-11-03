@@ -16,9 +16,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.io.ByteArrayOutputStream
 
 /**
- * Agent 专用的虚拟屏。画面输出到本进程的 ImageReader,截图不依赖无障碍截图接口。
- * 帧处理限速到 ≤10 帧/秒:来帧时若离上次处理不足 100ms 就延后到期再取最新一帧,
- * 期间旧帧由 acquireLatestImage 丢弃。
+ * エージェント専用の仮想画面。画面はこのプロセスの ImageReader に出力され、スクリーンショットはアクセス可能なスクリーンショット インターフェイスに依存しません。
+ * フレーム処理速度は 10 フレーム/秒以下に制限されています。受信フレームが最後の処理から 100ms 未満の場合、有効期限が遅れて最新のフレームが取得されます。 古いフレームは、
+ * 中にacquirelateImageによって破棄されました。
  */
 class AgentDisplay(
     private val shell: IMikaShell,
@@ -33,18 +33,18 @@ class AgentDisplay(
 
     val displayId: Int
 
-    // ImageReader 始终是建屏时的物理尺寸;应用的逻辑坐标随虚拟屏旋转,与主屏的方向无关。
+    // ImageReader は常に画面作成時の物理サイズになります。アプリケーションの論理座標は仮想画面とともに回転し、メイン画面の方向とは関係がありません。
     private val geometry get() = DisplayFrameGeometry(bufferWidth, bufferHeight,
         displayManager.getDisplay(displayId)?.rotation ?: Surface.ROTATION_0)
     val width: Int get() = geometry.width
     val height: Int get() = geometry.height
 
     private val _frames = MutableStateFlow<Bitmap?>(null)
-    /** 实时画面:限速 ≤10 帧/秒,缩到短边 ≤360。 */
+    /** リアルタイム画像: 速度制限 ≤ 10 フレーム/秒、短辺 ≤ 360 に短縮。 */
     val frames: StateFlow<Bitmap?> = _frames.asStateFlow()
 
     private val frameLock = Any()
-    private var fullFrame: Bitmap? = null // 带行填充的整帧,宽 = rowStride / pixelStride
+    private var fullFrame: Bitmap? = null // 行パディング付きのフルフレーム、幅 = rowStride / ピクセルStride
     private var hasFrame = false
     private var frameGeometry = DisplayFrameGeometry(bufferWidth, bufferHeight, Surface.ROTATION_0)
     private var lastProcessedAt = 0L
@@ -72,7 +72,7 @@ class AgentDisplay(
         }
         displayId = id
         reader.setOnImageAvailableListener({ schedule() }, handler)
-        // 建屏期间可能已经有帧排进来;先有正确的屏号,再处理这些帧。
+        // 画面の構築中にキューに入れられたフレームがあった可能性があります。まず正しいスクリーン番号を取得してから、これらのフレームを処理します。
         handler.post { schedule() }
     }
 
@@ -107,7 +107,7 @@ class AgentDisplay(
         }
     }
 
-    /** 最新一帧的整幅 PNG;还没收到画面时返回 null。 */
+    /** 最新フレームの PNG 全体。画像を受信して​​いない場合は null を返します。 */
     fun latestFramePng(): ByteArray? {
         val crop = latestFrameBitmap() ?: return null
         return try {
@@ -117,7 +117,7 @@ class AgentDisplay(
         }
     }
 
-    /** OCR 使用原始尺寸的画面副本，避免 PNG 编码和解码；调用方负责 recycle。 */
+    /** OCR は、フレームの元のサイズのコピーを使用し、PNG エンコードとデコードを回避します。呼び出し元にはリサイクルの責任があります。 */
     fun latestFrameBitmap(): Bitmap? = synchronized(frameLock) {
         val bmp = fullFrame
         if (!hasFrame || bmp == null) null else uprightDisplayFrame(bmp, frameGeometry, paint = paint)
@@ -134,7 +134,7 @@ class AgentDisplay(
     private fun closeLocal() {
         released = true
         handler.removeCallbacksAndMessages(null)
-        // 在帧线程上收尾,避免与正在处理的帧并发
+        // は、処理中のフレームとの同時実行を避けるためにフレーム スレッドで終了します
         handler.post {
             reader.close()
             synchronized(frameLock) {

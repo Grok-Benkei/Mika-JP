@@ -18,7 +18,7 @@ class PageScriptProtocolTest {
     @Test fun parsesCalls() {
         val c = PageScriptProtocol.parseCall("""{"id":3,"op":"tap","args":{"ref":"@e2"}}""")!!
         assertEquals(3, c.id); assertEquals("tap", c.op); assertEquals("\"@e2\"", c.args["ref"].toString())
-        // 没有 args 当空对象;log 的 id 为 0
+        // には引数がなく、空のオブジェクトです。ログのIDは0です
         assertEquals(JsonObject(emptyMap()), PageScriptProtocol.parseCall("""{"id":0,"op":"log"}""")!!.args)
     }
 
@@ -32,17 +32,17 @@ class PageScriptProtocolTest {
         val r = buildJsonObject { put("ok", true); put("value", "a\"b</script>\n") }
         val e = PageScriptProtocol.settle(7, r)
         assertTrue(e.startsWith("globalThis.__mikaSettle && globalThis.__mikaSettle(7, {"))
-        // JSON 的转义保证字符串不会把表达式截断
+        // JSON エスケープにより、文字列が式を切り捨てないことが保証されます。
         assertTrue("\\\"b" in e && "\\n" in e)
     }
 
     @Test fun runPassesCodeAsDataNotSource() {
-        // 模型代码作为字符串交给事先存下的 AsyncFunction 编译,不拼进表达式
+        // モデル コードは、式にスペルを含めずに、コンパイル用の文字列として事前保存された AsyncFunction に渡されます。
         assertEquals("globalThis.__mikaRun(\"return '1\\\"'\")", PageScriptProtocol.run("return '1\"'"))
     }
 
     @Test fun errorLineFromStack() {
-        // 编译出来的源码:函数头、") {"、'use strict';、里层箭头函数各一行,模型代码从第 5 行起
+        // コンパイルされたソース コード: 関数ヘッダー、") {"、'use strict';、内側のアロー関数ごとに 1 行、モデル コードは 5 行目から始まります
         val (msg, line) = PageScriptProtocol.error(details("""{"text":"Uncaught (in promise)","lineNumber":0,
             "exception":{"description":"TypeError: x\n    at eval (mika-script.js:7:9)\n    at mika-prelude.js:80:1"}}"""))
         assertEquals("TypeError: x", msg); assertEquals(3, line)
@@ -57,7 +57,7 @@ class PageScriptProtocolTest {
     }
 
     @Test fun onlyPlainJavaScriptGlobalsAreAllowed() {
-        // 放行的只有 ECMAScript 本身;没有一个是浏览器全局,也没有能把字符串当代码跑的
+        // ECMAScript 自体のみがリリースされています。どれもブラウザに対してグローバルではなく、文字列をコードとして実行できるものはありません。
         val allowed = PageScriptProtocol.ALLOWED_GLOBALS
         for (g in listOf("document", "window", "self", "globalThis", "location", "fetch", "XMLHttpRequest", "setTimeout", "navigator", "history",
             "localStorage", "frames", "top", "parent", "eval", "Function", "console", "HTMLElement", "Element", "Node", "Event", "CSSStyleSheet",
@@ -69,22 +69,22 @@ class PageScriptProtocolTest {
 
     @Test fun preludeShadowsEveryGlobalAndClosesStringEval() {
         val p = PageScriptProtocol.PRELUDE
-        // 存下 AsyncFunction 之后才封构造器;遮住的名字取自全局对象和它整条原型链
+        // は、コンストラクターを閉じる前に AsyncFunction を保存します。マスクされた名前は、グローバル オブジェクトとそのプロトタイプ チェーン全体から取得されます。
         assertTrue(p.indexOf("const AsyncFunction =") < p.indexOf("'constructor', unavailable"))
         assertTrue("for (let o = G; o; o = O.getPrototypeOf(o)) for (const k of O.getOwnPropertyNames(o))" in p)
         for (k in listOf("fixed(G, 'eval', unavailable)", "fixed(G, 'Function', unavailable)", "fixed(G.Error, 'prepareStackTrace', undefined)")) assertTrue(k, k in p)
-        // 严格模式、this 为 undefined、遮住的名字都传 undefined,最后一个参数才是 mika;返回值只交 JSON 字符串
+        // は厳密モードで、これは未定義で、カバーされる名前はすべて未定義で渡され、最後のパラメーターは mika です。戻り値は JSON 文字列のみです。
         assertTrue("new AsyncFunction(...shadow, 'mika', \"'use strict';\\nreturn (async () => {\\n\" + code" in p)
         assertTrue("apply(fn, undefined, [...blanks, mika])" in p)
         assertTrue("stringify(r)" in p)
-        // 前置脚本自己不碰 DOM:页面对象一个都没有经它交到模型代码手里
+        // 事前スクリプトは DOM 自体には影響しません。ページ オブジェクトは DOM を通じてモデル コードに渡されません。
         for (dom in listOf("document.", "querySelector", "innerText", "HTMLElement")) assertFalse(dom, dom in p)
         assertTrue(p.trimEnd().endsWith("//# sourceURL=${PageScriptProtocol.PRELUDE_URL}"))
     }
 
     @Test fun preludeSendsCallsThroughTheOutbox() {
         val p = PageScriptProtocol.PRELUDE
-        // 不靠 DevTools 绑定(那要打开 Runtime):调用放进发件箱,由 __mikaTake 交出,名字在模型代码里同样被遮住
+        // は DevTools バインディングに依存しません (その場合、ランタイムを開く必要があります)。呼び出しは送信ボックスに入れられ、__mikaTake によって引き渡され、名前もモデル コード内で隠されます。
         assertTrue("fixed(G, '__mikaTake'" in p)
         assertTrue(p.indexOf("fixed(G, '__mikaTake'") < p.indexOf("const shadow"))
         assertTrue(PageScriptProtocol.TAKE.startsWith("globalThis.__mikaTake("))
@@ -100,23 +100,23 @@ class PageScriptProtocolTest {
 
     @Test fun readerMasksSecretsWithThePageRule() {
         val r = PageScriptProtocol.READER
-        // 和 page.js 同一条规则(那边的清单见 app 的 PageScriptSecretRuleTest)
+        // には page.js と同じルールがあります (リストについてはアプリの PageScriptSecretRuleTest を参照してください)。
         assertEquals(listOf("password", "hidden"), PageScriptProtocol.SECRET_INPUT_TYPES)
         for (t in listOf("current-password", "new-password", "one-time-code", "cc-number", "cc-csc")) assertTrue(t, t in PageScriptProtocol.SECRET_AUTOCOMPLETE)
         assertTrue("k === 'value' && secret(el)" in r)
         assertTrue("secret(el) ? (el.value ? MASK : '')" in r)
         assertTrue("const textOf = (el) => (secret(el) ? ''" in r)
         assertTrue("k.startsWith('on')" in r)
-        // 读取器只交纯数据
+        // リーダーは純粋なデータのみを配信します
         assertTrue(PageScriptProtocol.read(buildJsonObject { put("mode", "count") }).startsWith("globalThis.__mikaRead({"))
     }
 
     @Test fun backstopSeesScriptInitiatedRequests() {
         fun req(stack: String) = details("""{"requestId":"1","request":{"url":"https://x/"},"initiator":{"type":"script","stack":$stack}}""")
         assertTrue(PageScriptProtocol.requestFromScript(req("""{"callFrames":[{"url":"mika-script.js","lineNumber":3}]}""")))
-        // 异步的 parent 链里也算
+        // も非同期親チェーンに含まれます。
         assertTrue(PageScriptProtocol.requestFromScript(req("""{"callFrames":[],"parent":{"callFrames":[{"url":"mika-prelude.js"}]}}""")))
-        // 页面自己的脚本发的(包括 mika.tap 触发的页面处理函数)不算
+        // ページ自体によって送信されたスクリプト (mika.tap によってトリガーされるページ処理関数を含む) はカウントされません。
         assertFalse(PageScriptProtocol.requestFromScript(req("""{"callFrames":[{"url":"https://shop.example.com/app.js"}]}""")))
         assertFalse(PageScriptProtocol.requestFromScript(details("""{"requestId":"1","initiator":{"type":"other"}}""")))
     }
@@ -124,9 +124,9 @@ class PageScriptProtocolTest {
     @Test fun backstopStopsNavigationOutsideActions() {
         val nav = details("""{"frameId":"F1","reason":"scriptInitiated","url":"https://evil/"}""")
         assertTrue(PageScriptProtocol.navigationOutsideAction(nav, "F1", inAction = false))
-        // mika.tap / mika.navigate 在做时页面跳转是那个动作的结果
+        // mika.tap / mika.navigate これを実行すると、そのアクションの結果としてページジャンプが行われます。
         assertFalse(PageScriptProtocol.navigationOutsideAction(nav, "F1", inAction = true))
-        // 子框架自己跳(广告轮播)不管
+        // サブフレームは、
         assertFalse(PageScriptProtocol.navigationOutsideAction(nav, "F2", inAction = false))
     }
 }

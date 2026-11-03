@@ -1,1 +1,1 @@
-Scroll the current phone app until text, a resource ID, or a role is found in its accessibility tree. Check each resulting screen, stop if the app changes or content stops moving, and return the current ref and parent context. Use for a target further up or down a long list. maxScrolls is a limit, not a fixed action plan.
+アクセシビリティツリーの中で文面、リソース ID、役割が見つかるまで、現在のスマートフォンアプリをスクロールする。各結果の状態を確認し、アプリが変わった場合や内容の移動が止まった場合は止め、現在の ref と親の文脈を返す。長い一覧のさらに上や下にある対象に使う。maxScrolls は制限であり、固定した操作計画ではない。

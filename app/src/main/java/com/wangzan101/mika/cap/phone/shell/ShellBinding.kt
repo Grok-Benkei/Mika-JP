@@ -3,19 +3,19 @@ package com.wangzan101.mika.cap.phone.shell
 import kotlinx.coroutines.flow.StateFlow
 import com.wangzan101.mika.shell.IMikaShell
 
-/** 到 shell 身份服务的一条连接;[SharedShell] 按引用计数绑定/解绑,调用方只看这几样。 */
+/** シェル ID サービスへの接続。 [SharedShell] 参照カウントによるバインド/アンバインド。呼び出し元にはこれらのみが表示されます。 */
 interface ShellBinding {
-    /** 绑定期间连着时是服务的接口,否则为 null。 */
+    /** は、バインド中に接続されている場合はサービス インターフェイスであり、それ以外の場合は null です。 */
     val shell: StateFlow<IMikaShell?>
 
-    /** 连上过、仍需要,但现在断了。重新连上或解绑后复位。 */
+    /** は接続されており必要でしたが、現在は切断されています。再接続するか、バインドを解除してリセットします。 */
     val dropped: StateFlow<Boolean>
 
     fun bind()
 
-    /** 解绑后不留下虚拟屏、静音和剪贴板改动。 */
+    /** は、バンドル解除後に仮想画面、ミュート、およびクリップボードの変更を残しません。 */
     fun unbind()
 
-    /** 「重新连接」:断开后没能自动连回时手动再试一次。 */
+    /** 「再接続」: 切断後に自動接続に失敗した場合は、手動で再接続してください。 */
     fun reconnect()
 }

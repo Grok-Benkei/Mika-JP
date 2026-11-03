@@ -17,24 +17,24 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.io.ByteArrayOutputStream
 
 /**
- * 截下用户此刻在主屏上看着的那一屏,连同前台 App 和屏上的字(见 [UserScreenText]:先读无障碍树,不够用时认画面上的字)。
- * 屏上有防截屏窗口(截图报错,或截出来几乎全黑而屏上有 App 窗口)时不留画面,只记下是哪个 App、截不到。
- * Mika 自己的浮层要不要先藏起来由调用方定(见 [OverlayWindow.hiddenWhile]);读树时浮层、输入法本来就不算。
+ * ユーザーがホーム画面で現在見ている画面と、フロントエンド アプリおよび画面上の単語のスクリーンショットを撮ります ([UserScreenText] を参照: 最初にアクセシビリティ ツリーを読み、十分でない場合は画面上の単語を認識します)。
+ * の画面にスクリーンショット防止ウィンドウがある場合 (スクリーンショットでエラーが報告されるか、スクリーンショットがほぼ真っ黒であるが画面上にアプリ ウィンドウがある)、画面は保持されませんが、画面は記録され、スクリーンショットは取得されません。
+ * ミカ自身のフローティング レイヤーを最初に非表示にするかどうかは呼び出し元が決定します ([OverlayWindow.hiddenWhile] を参照)。フローティング レイヤーと入力メソッドは、ツリーを読み取るときにカウントされません。
  */
 internal object MainScreenCapture {
     private const val TAG = "MikaScreenCapture"
     private const val JPEG_QUALITY = 88
-    /** 认字最多等这么久:超时就只用树里的字。 */
+    /** 文字を学習するには、この時間しか待つことができません。タイムアウトになった場合は、ツリー内の文字を使用してください。 */
     private const val OCR_WAIT_MS = 4_000L
 
     sealed interface Result {
         class Captured(val shot: CapturedScreen) : Result
-        /** 前台是 Mika 自己:不截。 */
+        /** フロントデスクはミカ本人です: いいえ。 */
         data object Self : Result
         data object Unavailable : Result
     }
 
-    /** 只查看窗口根的归属,不遍历文本;有未知归属时拒绝分享。 */
+    /** はウィンドウ ルートの所有権をチェックするだけで、テキストはスキャンしません。所有者が不明な場合は共有を拒否します。 */
     fun sourcePackages(service: ScreenAccessibility): Set<String>? {
         val windows = service.windowsOn(Display.DEFAULT_DISPLAY).filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
         if (windows.isEmpty()) return null
@@ -43,14 +43,14 @@ internal object MainScreenCapture {
         return packages.filterNotNull().toSet()
     }
 
-    /** 截图(调用方已把浮层藏好)。读树要在截图的同一时刻:截完马上读。 */
+    /** のスクリーンショット (呼び出し元がフローティング レイヤーを非表示にしました)。ツリーはスクリーンショットと同時に読み取られる必要があります。スクリーンショットを撮った直後に読み取ってください。 */
     suspend fun shoot(service: ScreenAccessibility): Pair<ScreenAccessibility.MainShot, ScreenRead?> {
         val shot = service.takeMainScreenshot()
         val read = runCatching { readTree(service) }.getOrNull()
         return shot to read
     }
 
-    /** 截下的画面和树整理成一屏(在后台:编码、认字);[topInset]/[bottomInset] 是状态栏、导航条占掉的像素。 */
+    /** は、写真と木を切り取って 1 つの画面にまとめます (バックグラウンドで: エンコード、文字認識)。 [topInset]/[bottomInset] は、ステータス バーとナビゲーション バーが占めるピクセルです。 */
     suspend fun build(
         service: ScreenAccessibility, shot: ScreenAccessibility.MainShot, read: ScreenRead?,
         topInset: Int, bottomInset: Int, appLabel: (String) -> String,
@@ -72,7 +72,7 @@ internal object MainScreenCapture {
                 val bmp = shot.bitmap
                 try {
                     val jpeg = ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it) }.toByteArray()
-                    // 安卓 12 以前防截屏的窗口截出来是黑的:屏上有 App 窗口而画面几乎全黑就当作截不到,不发黑图
+                    // Android 12 より前では、スクリーンショット防止ウィンドウのスクリーンショットは黒でした。画面上にアプリ ウィンドウがあり、画面がほぼ完全に黒い場合、キャプチャできないとみなされ、黒い画像は送信されません。
                     if (read?.anyAppWindow != false && BitmapImageOps.isMostlyBlack(jpeg)) {
                         return@withContext Result.Captured(CapturedScreen(null, UserScreen("", now, pkg, label, blocked = true)))
                     }
@@ -89,7 +89,7 @@ internal object MainScreenCapture {
         }
     }
 
-    /** 主屏上属于 App 的窗口(状态栏、导航栏、输入法、浮层不算)读成元素。 */
+    /** ホーム画面上のアプリに属する​​ウィンドウ（ステータスバー、ナビゲーションバー、インプットメソッド、フローティングレイヤーはカウントされません）が要素として読み込まれます。 */
     private fun readTree(service: ScreenAccessibility): ScreenRead {
         val windows = service.windowsOn(Display.DEFAULT_DISPLAY).filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
         val m = service.resources.displayMetrics

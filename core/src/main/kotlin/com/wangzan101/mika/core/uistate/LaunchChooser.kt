@@ -5,10 +5,10 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** 系统问「打开哪一个」时列出的一项。[clone]:是不是另一份用户里的那个(分身、工作资料);看不出为 null。 */
+/** システムが「どれを開きますか?」と尋ねたときにリストされるアイテムの 1 つ。 [clone]: 別のユーザー（クローン、作品情報）のものですか？ null であることはわかりません。 */
 data class ChoiceOption(val label: String, val clone: Boolean?)
 
-/** 打开 App 后系统弹出的「打开哪一个」:[packageName] 是问的那个窗口所在的包,[options] 是提到这个 App 的选项。 */
+/** アプリを開いた後、システムは「どれを開きますか?」というポップアップを表示します。 [packageName] は問題のウィンドウが配置されているパッケージで、[options] はこのアプリを言及するオプションです。 */
 data class LaunchChoice(val packageName: String, val options: List<ChoiceOption>) {
     fun toJson(): JsonObject = buildJsonObject {
         put("package", packageName)
@@ -19,14 +19,14 @@ data class LaunchChoice(val packageName: String, val options: List<ChoiceOption>
 }
 
 /**
- * 认「打开哪一个」:打开 App 之后,最上面换成了别的系统包的窗口,而且窗口里的选项提到了这个 App 的名字。
- * 同一 App 装在两份用户里(分身、工作资料)时,有的系统先问用哪一份;不认的话会当成没打开,模型就一遍遍重开、一遍遍被问。
+ * 「どれを開きますか?」: アプリを開くと、上部のウィンドウが別のシステム パッケージ ウィンドウに置き換えられ、ウィンドウ内のオプションにアプリの名前が表示されます。
+ * 同じアプリが 2 人のユーザー (アバター、仕事用プロファイル) にインストールされている場合、一部のシステムはどちらを最初に使用するかを尋ねます。そうでない場合、モデルはオープンされていないものとして扱われ、モデルが再度オープンされて何度も質問されます。
  */
 object LaunchChooser {
     /**
-     * 窗口元素里提到 App 名 [appLabel] 的可点选项;一个也没有为 null(不是在问打开哪一个)。只认可点的:
-     * 权限框一类的说明文字也会提到 App 名,但它的按钮不带 App 名。
-     * [profiles] 是这台手机另外几份用户的名字:选项里带着它的是另一份,名字正好是 App 名的是本来那份。
+     * ウィンドウ要素には、アプリ名 [appLabel] のクリック可能なオプションが記載されています。どれも null ではありません (どれを開くかは尋ねません)。認識されたポイントのみ:
+     * 権限ボックスなどの説明テキストにもアプリ名が記載されていますが、そのボタンにはアプリ名がありません。
+     * [profiles] は、この携帯電話の他のユーザーの名前です。オプションにそれが含まれているユーザーは別のユーザーで、アプリの名前が付いているユーザーは元のユーザーです。
      */
     fun options(appLabel: String, elements: List<UiElement>, profiles: List<String>): List<ChoiceOption>? {
         val label = key(appLabel)
@@ -37,7 +37,7 @@ object LaunchChooser {
             val name = key(e.name)
             val clone = when {
                 others.any { name.contains(it) } -> true
-                // 两项名字一模一样(只靠角标区分):光看字分不出哪个是本来那份
+                // 2 つの名前はまったく同じです (角のマークによってのみ区別されます)。文字を見ただけではどちらが元の名前であるかわかりません。
                 counts.getValue(name) > 1 -> null
                 name == label -> false
                 else -> null
@@ -46,7 +46,7 @@ object LaunchChooser {
         }
     }
 
-    /** [options] 认出的那几个选项在 [elements] 里的下标(先后不变);不是在问打开哪一个为 null。点选项时用。 */
+    /** [options] [elements] で認識されたオプションの添え字 (順序は変更されません)。どちらを開くかを尋ねるのは null ではありません。オプションをクリックするときに使用します。 */
     fun optionIndices(appLabel: String, elements: List<UiElement>): List<Int>? {
         val label = key(appLabel)
         if (label.isEmpty()) return null
@@ -56,10 +56,10 @@ object LaunchChooser {
     private fun key(s: String) = s.filterNot(Char::isWhitespace).lowercase()
 }
 
-/** 这台手机的一份用户(`pm list users` 的一行):[id] 用户号,[name] 名字(如分身、工作资料),[running] 正在运行。 */
+/** この携帯電話のユーザー(`pm list users`の行): [id] ユーザー番号、[name] 名前(クローン、作品情報など)、[running] が動作しています。 */
 data class UserProfile(val id: Int, val name: String, val running: Boolean)
 
-/** 读 `pm list users`、`pm list packages` 的输出。 */
+/** は、`pm list users` および `pm list packages` の出力を読み取ります。 */
 object AppProfiles {
     private val USER = Regex("""UserInfo\{(\d+):(.*):[0-9a-fA-F]+\}(\s+running)?""")
     private val PACKAGE = Regex("""^package:([A-Za-z0-9_.]+)\s*$""")
@@ -72,7 +72,7 @@ object AppProfiles {
     fun parsePackages(output: String): Set<String> =
         output.lineSequence().mapNotNull { PACKAGE.find(it.trim())?.groupValues?.get(1) }.toSet()
 
-    /** 每个包也装在哪几份别的用户里:[others] 是 用户 → 那份用户装的包。 */
+    /** 各パッケージは複数のユーザー コピーにもインストールされます。 [others] はユーザー → そのユーザーによってインストールされたパッケージです。 */
     fun alsoIn(others: Map<UserProfile, Set<String>>): Map<String, List<String>> {
         val out = linkedMapOf<String, MutableList<String>>()
         for ((user, packages) in others) for (p in packages) out.getOrPut(p) { mutableListOf() } += user.name.ifEmpty { "user ${user.id}" }

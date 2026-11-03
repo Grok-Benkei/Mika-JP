@@ -1,3 +1,3 @@
-List Mika's own settings that may be changed: each key, a readable label, the current value and, when the value must be one of a few, the choices. Model, API keys, network access for commands and anything that deletes data are never listed.
+変更できる Mika 自身の設定を列挙する。各キー、読みやすいラベル、現在の値、値が少数のいずれかでなければならない場合の選択肢。モデル、APIキー、コマンド用のネットワークアクセス、データを削除するものは決して列挙されない。
 
-Call it before settings_set, and only when the user asks to change how Mika behaves ("be faster", "don't mute the apps", "switch to dark mode").
+settings_set の前に呼び出し、ユーザーが Mika の動作の変更を求めた場合にだけ使う（「速くして」「アプリをミュートしないで」「ダークモードに切り替えて」など）。

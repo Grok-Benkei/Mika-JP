@@ -31,7 +31,7 @@ class LearnGateTest {
         assertFalse(LearnGate.shouldSaveRoute(true, TaskState.Succeeded("ok", verified = false, reviewed = true, note = "x"), RunOutcome.Done, "r1", "打开设置"))
         assertFalse(LearnGate.shouldSaveRoute(false, unreviewed, RunOutcome.Done, "r1", "打开设置"))
         assertFalse(LearnGate.shouldSaveRoute(true, unreviewed, RunOutcome.Done, null, "打开设置"))
-        // 带着用户屏幕的话:意思在屏幕上,不按字记路线
+        // ユーザー画面の場合: 意味は画面上にあり、ルートは単語によって記録されません
         assertFalse(LearnGate.shouldSaveRoute(true, unreviewed, RunOutcome.Done, "r1", UserScreenMessage.compose("s1", "这个怎么关")))
     }
 }

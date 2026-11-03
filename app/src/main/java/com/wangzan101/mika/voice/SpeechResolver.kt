@@ -3,31 +3,31 @@ package com.wangzan101.mika.voice
 import com.wangzan101.mika.settings.Provider
 
 /**
- * 手机自带识别的能力:系统说有没有([available])、是不是在本机上识别(不联网)、
- * 以及在这台手机上试过时理不理我们([responsive];系统说有、请求发过去却一个回调都不给,就记成 false)。
+ * 携帯電話には認識機能が組み込まれています。システムは、携帯電話が ([available]) であるかどうか、マシン上で認識されているか (インターネットに接続されていない)、
+ * であり、この電話で試したときは無視されました ([responsive]; システムは利用可能であると示し、要求は送信されましたが、コールバックが与えられなかったため、false として記録されました)。
  */
 data class SystemCapability(val available: Boolean, val onDevice: Boolean, val responsive: Boolean = true) {
-    /** 真能拿来听写:系统有、而且没被记成不响应。 */
+    /** はディクテーションに実際に使用できます。システムにはそれが備わっており、応答なしとして記録されません。 */
     val usable get() = available && responsive
 }
 
-/** 这一次实际要用的识别引擎;选择的东西不在了就给出 [Unavailable] 和原因,由界面提示。 */
+/** 今回使用する実際の認識エンジン。選択したものが利用できない場合は、[Unavailable] とその理由が表示され、インターフェイスにプロンプ​​トが表示されます。 */
 sealed interface SpeechEngineSpec {
     data class System(val onDevice: Boolean) : SpeechEngineSpec
     data class Provider(val provider: com.wangzan101.mika.settings.Provider, val model: String, val method: TranscribeMethod) : SpeechEngineSpec
     data class Doubao(val resourceId: String) : SpeechEngineSpec
     data class Unavailable(val why: Why) : SpeechEngineSpec
-    /** [SystemNoResponse]:手机自带识别系统说有,但请求发过去一直没有回应(已记下,用户重新选它时清掉)。 */
+    /** [SystemNoResponse]: 携帯電話の内蔵識別システムは、それを持っていると言っていますが、リクエストを送信した後、応答がありません (メモされており、ユーザーが再度選択するとクリアされます)。 */
     enum class Why { Off, NoSystemNoModel, SystemGone, SystemNoResponse, ProviderGone, DoubaoNotConfigured }
 }
 
-/** 把用户的选择、手机能力和现有服务商对起来,得出这次用哪个引擎。纯函数,不碰系统。 */
+/** は、ユーザーの選択、携帯電話の機能、既存のサービス プロバイダーを比較して、今回どのエンジンを使用するかを決定します。純粋な機能であり、システムには影響しません。 */
 object SpeechResolver {
     fun resolve(choice: SpeechChoice, system: SystemCapability, providers: List<Provider>): SpeechEngineSpec = when (choice) {
         SpeechChoice.Off -> SpeechEngineSpec.Unavailable(SpeechEngineSpec.Why.Off)
         is SpeechChoice.Doubao -> if (choice.resourceId in DoubaoProtocol.resources) SpeechEngineSpec.Doubao(choice.resourceId)
             else SpeechEngineSpec.Unavailable(SpeechEngineSpec.Why.DoubaoNotConfigured)
-        // 自带识别不响应时照实说、指去设置,不悄悄改用要花钱的服务商模型
+        // の内蔵認識が応答しない場合は、真実を伝えて設定を依頼してください。お金のかかるサービスプロバイダーモデルに黙って切り替えないでください。
         SpeechChoice.Auto -> when {
             system.usable -> SpeechEngineSpec.System(system.onDevice)
             system.available -> SpeechEngineSpec.Unavailable(SpeechEngineSpec.Why.SystemNoResponse)

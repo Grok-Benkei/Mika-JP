@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.protobuf)
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
-    // 沙箱路径契约测试放在 testFixtures,app 的 AndroidSandbox 也跑同一套
+    // サンドボックス パス コントラクト テストは testFixtures に配置され、アプリの AndroidSandbox も同じセットを実行します
     `java-test-fixtures`
 }
 
@@ -38,12 +38,12 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.kotlinx.coroutines.test)
-    // 测试里的 TLS 1.3 与导出密钥:用和 Android 平台同源的 TLS 实现,只进测试类路径
+    // テストでの TLS 1.3 とエクスポートされたキー: Android プラットフォームと同じ生成元を持つ TLS で実装され、テスト クラス パスのみを入力します。
     testImplementation(libs.conscrypt.openjdk.uber)
     testFixturesImplementation(libs.junit)
 }
 
-// 运行时列不了资源目录:构建时扫 knowledge/apps、knowledge/sites、skills 的头部,校验后生成索引资源;校验不过构建失败
+// 実行時にリソース ディレクトリを一覧表示できません: 構築時に、ナレッジ/アプリ、ナレッジ/サイト、およびスキルのヘッダーをスキャンし、検証後にインデックス リソースを生成します。検証後にビルドが失敗します。
 val knowledgeIndex by tasks.registering(JavaExec::class) {
     val resources = file("src/main/resources")
     val out = layout.buildDirectory.dir("generated/knowledge-index")
@@ -58,18 +58,18 @@ val knowledgeIndex by tasks.registering(JavaExec::class) {
 }
 sourceSets.main { resources.srcDir(knowledgeIndex) }
 
-// README 里会变的清单(内置知识、服务商预设)从源头重新生成,见 testFixtures 里的 ReadmeSections;ReadmeSectionsTest 守着两边一致
+// README の変更リスト (組み込みナレッジ、サービス プロバイダーのデフォルト) はソースから再生成されます。testFixtures の ReadmeSections を参照してください。 ReadmeSectionsTest は両側の一貫性を維持します
 val updateReadme by tasks.registering(JavaExec::class) {
     group = "documentation"
-    description = "重新生成 README.md、docs/readme/README.zh-CN.md 里 generated 标记之间的段落"
+    description = "README.mdと旧翻訳パスのgeneratedマーカー間を日本語で再生成します"
     classpath = sourceSets["testFixtures"].runtimeClasspath
     mainClass.set("com.wangzan101.mika.core.docs.ReadmeSections")
     args(rootProject.projectDir.absolutePath)
     outputs.upToDateWhen { false }
 }
 
-// 桌面上对着 OpenAI 真实服务走一遍「用 ChatGPT 登录」(登录、列模型、Responses、工具调用、换新令牌),见 docs/dev/chatgpt-signin-check.md。
-// 单独的源码集:不进 core 的产物,也不进 app
+// デスクトップ上の実際の OpenAI サービス「ChatGPT でログイン」(ログイン、列モデル、応答、ツール呼び出し、トークンの更新) について説明します。docs/dev/chatgpt-signin-check.md を参照してください。
+// 個別のソース コード セット: コア製品もアプリもなし
 val chatgptCheck by sourceSets.creating {
     compileClasspath += sourceSets.main.get().output
     runtimeClasspath += sourceSets.main.get().output
@@ -79,7 +79,7 @@ configurations[chatgptCheck.runtimeOnlyConfigurationName].extendsFrom(configurat
 
 val chatgptSignInCheck by tasks.registering(JavaExec::class) {
     group = "verification"
-    description = "用 App 的登录代码对着 OpenAI 走一遍 ChatGPT 登录;-Ptimeout=<秒> -Pmodel=<slug> -Pkeep"
+    description = "アプリの認証コードでChatGPTログインを検証します。-Ptimeout=<秒> -Pmodel=<slug> -Pkeep"
     classpath = chatgptCheck.runtimeClasspath
     mainClass.set("com.wangzan101.mika.core.chatgpt.check.ChatGptSignInCheckKt")
     args(listOfNotNull(
@@ -91,23 +91,25 @@ val chatgptSignInCheck by tasks.registering(JavaExec::class) {
 }
 
 tasks.test {
-    // 跨语言 CLI 契约由 cliTest 显式运行;纯 JVM 测试不要求电脑安装 Python。
+    // 言語間の CLI コントラクトは、cliTest によって明示的に実行されます。純粋な JVM テストでは、コンピューターに Python がインストールされている必要はありません。
     exclude("**/RemoteCliContractTest*")
-    // 真网关跨语言测试显式运行,普通 JVM 测试不要求安装 Go。
+    // True Gateway の言語間テストは明示的に実行され、通常の JVM テストでは Go をインストールする必要はありません。
     exclude("**/RelayGatewayIntegrationTest*")
-    // testFixtures 会把 core 的 jar 放到测试类路径前面;让目录排在前面,按目录读资源的测试才找得到文件
+    // testFixtures は、コア jar をテスト クラス パスの前に置きます。ディレクトリを先頭に置くと、ディレクトリに従ってリソースを読み取るテストのみがファイルを見つけることができます
     classpath = sourceSets.main.get().output + classpath
-    // TaskSetTest 读仓库根目录的评测任务集
+    // TaskSetTest は、ウェアハウスのルート ディレクトリにある評価タスク セットを読み取ります
     inputs.dir(rootProject.file("eval")).withPropertyName("evalTasks")
-    // DocsConsistencyTest、ReadmeTranslationsTest 读仓库的文档(根目录 README.md,docs/readme/ 下各语言的译文在 docs 里),并对照 app 的源码;文档或 app 源码变了要重跑
-    inputs.files(rootProject.file("README.md"), rootProject.file("tools/sandbox/README.md")).withPropertyName("docsFiles")
+    // DocsConsistencyTest と ReadmeTranslationsTest は、ウェアハウスのドキュメント (ルート ディレクトリ README.md、docs/readme/ にある各言語の翻訳は docs にあります) を読み取り、アプリのソース コードと比較します。ドキュメントまたはアプリのソース コードが変更された場合は、それを再実行する必要があります。
+    inputs.files(rootProject.file("README.md"), rootProject.file("README.upstream.md"), rootProject.file("tools/sandbox/README.md")).withPropertyName("docsFiles")
     inputs.dir(rootProject.file("docs")).withPropertyName("docsDir")
     inputs.dir(rootProject.file("app/src")).withPropertyName("appSources")
-    // updateReadme 先改写 README,同一次构建里测试要读改写后的
+    // 任意資料はAPKへ同梱せず、旧データの互換テストで明示的に読み込む。
+    inputs.dir(rootProject.file("optional/china")).withPropertyName("optionalChinaFixtures")
+    // updateReadme 最初に README を書き換え、同じビルドでテストして書き換えられたものを読み取ります
     mustRunAfter(updateReadme)
-    // 循环场景的消息序列金样;-PupdateSnapshots 时重新生成(见 LoopSnapshot)
+    // ループ シナリオのメッセージ シーケンス サンプル。 -PupdateSnapshots のときに再生成されます (LoopSnapshot を参照)
     systemProperty("mika.snapshotDir", file("src/test/resources/loop-snapshots").absolutePath)
-    // 提示词表面(系统提示词、工具定义、反馈文字)的金样;同样用 -PupdateSnapshots 重新生成(见 PromptSurface)
+    // プロンプト ワード サーフェスのゴールド サンプル (システム プロンプト ワード、ツール定義、フィードバック テキスト)。 -PupdateSnapshots を使用しても再生成されます (PromptSurface を参照)
     systemProperty("mika.promptSurfaceDir", file("src/test/resources/prompt-surface").absolutePath)
     val updateSnapshots = project.hasProperty("updateSnapshots")
     inputs.property("updateSnapshots", updateSnapshots)
@@ -119,7 +121,7 @@ tasks.test {
 
 val relayGatewayBinary = tasks.register<Exec>("relayGatewayBinary") {
     group = "verification"
-    description = "构建自托管远程 MCP 网关,供跨语言集成测试使用"
+    description = "言語間の統合テスト用にセルフホストのリモートMCPゲートウェイをビルドします"
     val output = layout.buildDirectory.file("relay-check/mika-relay")
     workingDir(rootProject.file("tools/relay"))
     inputs.files(fileTree(rootProject.file("tools/relay")) { include("*.go", "go.mod", "go.sum", "web/**") })
@@ -131,7 +133,7 @@ val relayGatewayBinary = tasks.register<Exec>("relayGatewayBinary") {
 
 tasks.register<Test>("relayTest") {
     group = "verification"
-    description = "真实 Go 网关连接 Kotlin 手机隧道,验证远程 CLI / MCP 全链路"
+    description = "GoゲートウェイとKotlinの端末トンネルで、リモートCLI / MCPの経路全体を検証します"
     dependsOn(relayGatewayBinary)
     inputs.file(layout.buildDirectory.file("relay-check/mika-relay")).withPropertyName("relayGatewayBinary")
     testClassesDirs = sourceSets.test.get().output.classesDirs
@@ -142,7 +144,7 @@ tasks.register<Test>("relayTest") {
 
 val cliContractTest by tasks.registering(Test::class) {
     group = "verification"
-    description = "真实 Python CLI 对接 Kotlin 任务 API,核对只走 /api/v1"
+    description = "Python CLIとKotlinタスクAPIの接続が/api/v1のみを使用することを検証します"
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.main.get().output + sourceSets.test.get().runtimeClasspath
     include("**/RemoteCliContractTest*")
@@ -150,10 +152,10 @@ val cliContractTest by tasks.registering(Test::class) {
     systemProperty("mika.python", providers.gradleProperty("mikaPython").getOrElse("python3"))
 }
 
-// 要 Python 3.10+,不挂在 check 上;需要时显式运行 ./gradlew :core:cliTest
+// には Python 3.10 以降が必要ですが、チェックでハングしません。必要に応じて ./gradlew :core:cliTest を明示的に実行します
 val cliTest by tasks.registering(Exec::class) {
     group = "verification"
-    description = "CLI 进程、假 ADB、独立 Skill 与真实 HTTP 契约测试 (Python 3.10+)"
+    description = "CLIプロセス、仮のADB、独立スキル、実際のHTTPの契約をテストします（Python 3.10以降）"
     dependsOn(cliContractTest)
     workingDir(rootProject.projectDir)
     commandLine(providers.gradleProperty("mikaPython").getOrElse("python3"), "-m", "unittest", "discover", "-s", "tools/mika/tests", "-v")

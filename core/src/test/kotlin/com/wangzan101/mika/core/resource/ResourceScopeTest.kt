@@ -25,7 +25,7 @@ class ResourceScopeTest {
         fun release() { released += name }
     }
 
-    /** 建好之后、交回调用方之前任务被取消:换线程的 withContext 交回时抛取消,资源仍归作用域,收尾时放掉。 */
+    /** が構築された後、タスクは呼び出し元に返される前にキャンセルされます。スレッドの withContext は変更され、返されるときにキャンセルされます。リソースは引き続きスコープに返され、最後に解放されます。 */
     @Test
     fun cancelledRightAfterCreationStillReleased() = runBlocking {
         val scope = ResourceScope()
@@ -53,7 +53,7 @@ class ResourceScopeTest {
         assertEquals(listOf("c", "b", "a"), released)
     }
 
-    /** 放掉也在登记时给的上下文里做(如只能在主线程关的东西)。 */
+    /** リリースは、登録時に指定されたコンテキスト (メインスレッドでのみクローズできるものなど) で実行することもできます。 */
     @Test
     fun releaseRunsInAcquireContext() = runBlocking {
         val pool = Executors.newSingleThreadExecutor { Thread(it, "owner-thread") }
@@ -68,7 +68,7 @@ class ResourceScopeTest {
         }
     }
 
-    /** 一个放不掉,其余照放;第一个错误在全部放完后抛出。 */
+    /** 1 つを解放できない場合は、残りも解放されます。すべてが解放された後に最初のエラーがスローされます。 */
     @Test
     fun failingReleaseDoesNotSkipOthers() = runBlocking {
         val scope = ResourceScope()
@@ -84,7 +84,7 @@ class ResourceScopeTest {
         assertEquals(listOf("c", "a"), released)
     }
 
-    /** 作用域已关:再建出来的立即放掉,调用方拿到错误而不是一个没人管的资源。 */
+    /** スコープが閉じられています。新しく作成されたリソースはすぐに破棄され、呼び出し元は管理対象外のリソースではなくエラーを受け取ります。 */
     @Test
     fun acquireAfterCloseReleasesImmediately() = runBlocking {
         val scope = ResourceScope()
@@ -98,7 +98,7 @@ class ResourceScopeTest {
         assertEquals(listOf("late"), released)
     }
 
-    /** 多个线程同时登记、同时关:每个恰好放一次。 */
+    /** 複数のスレッドが同時に登録および終了します。各スレッドは 1 回だけ解放されます。 */
     @Test
     fun concurrentAcquireAndCloseReleaseEachOnce() = runBlocking {
         repeat(50) { round ->

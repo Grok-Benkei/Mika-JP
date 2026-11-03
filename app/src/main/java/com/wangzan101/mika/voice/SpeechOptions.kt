@@ -5,27 +5,27 @@ import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.settings.Provider
 
 /**
- * 设置 › 模型 里「语音转文字」用到的纯逻辑:选择页怎么给服务商分组、用途卡片右边写什么。
- * 不碰界面和网络,所以能直接单测。
+ * 設定 › モデルの「音声テキスト変換」で使用される純粋なロジック: 選択ページでサービス プロバイダーをグループ化する方法と、使用状況カードの右側に何を書くか。
+ * はインターフェイスやネットワークに触れないため、直接テストできます。
  */
 object SpeechOptions {
     /**
-     * 选择页里的一组:[models] 只放像语音模型的。每组下面都另有一个手填入口(界面负责):
-     * 服务商的模型列表常常不全,语音模型尤其容易漏掉,也可能根本不提供列表。
+     * ページ内のグループを選択します: [models] 音声モデルのみを表示します。各グループの下に別の手動エントリがあります (インターフェイスが担当します)。
+     * サービス プロバイダーのモデル リストは不完全であることが多く、特に音声モデルは見落とされやすいか、リストがまったく提供されない場合があります。
      */
     data class Group(val provider: Provider, val models: List<String>)
 
-    /** 能做转写的服务商各一组;列表里只留像语音模型的。 */
+    /** 文字起こしできるサービス プロバイダーのグループは 1 つあります。音声モデルを持つものだけがリストに残ります。 */
     fun groups(providers: List<Provider>): List<Group> = providers.filter(Transcriber::supports).map { p ->
         Group(p, p.models.orEmpty().filter(Transcriber::looksLikeSpeech).map { it.id })
     }
 
-    /** 卡片右边两行:[title] 是选了什么,[sub] 是补充(可能没有),[subOk] 为真时补充用「可用」的绿色。 */
+    /** カードの右側の 2 行: [title] は選択されたもの、[sub] は補足 (利用できない場合があります)、[subOk] は true の場合「利​​用可能」の緑色で補足されます。 */
     data class Summary(val title: String, val sub: String?, val subOk: Boolean)
 
     fun summary(choice: SpeechChoice, system: SystemCapability, providers: List<Provider>): Summary {
         val unset = Summary(tr(R.string.settings_not_set), null, false)
-        // 系统说有、试过却不响应
+        // システムは「はい」と言っていますが、試しても応答がありません
         val silent = Summary(tr(R.string.speech_system), tr(R.string.speech_system_silent), false)
         return when (choice) {
             SpeechChoice.Off -> Summary(tr(R.string.models_off), null, false)
@@ -36,7 +36,7 @@ object SpeechOptions {
                 else -> unset
             }
             SpeechChoice.System -> when {
-                // 明确选了手机自带、现在却用不了:照实说,不悄悄换别的
+                // 携帯電話と一緒に持ち込むことにしたのは明らかですが、今は使えません。実を言うと、黙って別の携帯電話に変更しないでください。
                 system.usable -> systemSummary(system)
                 system.available -> silent
                 else -> Summary(tr(R.string.speech_system), tr(R.string.speech_system_gone), false)

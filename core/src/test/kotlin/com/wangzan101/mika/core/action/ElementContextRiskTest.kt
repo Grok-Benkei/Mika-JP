@@ -11,7 +11,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** 元素做的是什么只按它自己的上下文判(名字、同一行),不按整屏的字。 */
+/** 要素の動作は、画面全体の単語ではなく、独自のコンテキスト (名前、同じ行) に従ってのみ判断されます。 */
 class ElementContextRiskTest {
     private fun screen(vararg e: UiElement) = ScreenSnapshot("s1", "com.any", e.toList(), 1080, 2400)
 

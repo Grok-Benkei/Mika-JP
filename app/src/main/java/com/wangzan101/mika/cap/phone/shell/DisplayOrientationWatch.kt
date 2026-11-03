@@ -9,9 +9,9 @@ import android.os.Parcel
 import android.util.Log
 
 /**
- * 只在有虚拟屏时监听任务方向、窗口大小变化;不读应用内容,不改变任务焦点。
- * 注册不上任务监听时退回每 [POLL_MS] 扫一次,只在 [active](还有 Mika 的屏)为真时扫;
- * 屏放完后由 [close] 停下,[active] 变假时轮询也自己停。
+ * は、仮想画面がある場合にタスクの方向とウィンドウ サイズの変更のみを監視します。アプリケーションのコンテンツは読み取られず、タスクのフォーカスも変更されません。
+ * をタスク監視に登録できない場合、[POLL_MS] ごとに 1 回スキャンに戻り、[active] (およびミカの画面) が true の場合にのみスキャンします。
+ * 画面が表示された後、[close]で停止します。 [active] が false になると、ポーリングも自動的に停止します。
  */
 @SuppressLint("PrivateApi")
 internal class DisplayOrientationWatch(

@@ -48,6 +48,6 @@ class DownloadAddressPolicyTest {
     @Test fun addressClasses() {
         assertTrue(DownloadAddressPolicy.blockedAddress(InetAddress.getByName("198.18.0.1")))
         assertFalse(DownloadAddressPolicy.blockedAddress(InetAddress.getByName("1.1.1.1")))
-        assertTrue(DownloadAddressPolicy.blockedAddress(InetAddress.getByName("64:ff9b::a00:1"))) // NAT64 里的 10.0.0.1
+        assertTrue(DownloadAddressPolicy.blockedAddress(InetAddress.getByName("64:ff9b::a00:1"))) // NAT64 の 10.0.0.1
     }
 }

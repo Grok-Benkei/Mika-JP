@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="rec_a11y">Turn on accessibility for me</string>
-    <string name="rec_default_on">On by default</string>
-    <string name="rec_a11y_body">Mika uses Accessibility to read the text and buttons on screen. With this on, Mika turns on its own accessibility service in system settings for you; other accessibility services you have on aren’t affected. Turn this off and Mika turns its own service off.</string>
-    <string name="rec_battery">Unrestricted battery</string>
-    <string name="rec_battery_body">With this on, Mika adds itself to the system’s battery optimization exceptions, so it isn’t stopped in the background to save power and phone control drops less often. It may use a bit more battery. Turn it off to go back to the system default.</string>
-    <string name="rec_boot">Restore after restart</string>
-    <string name="rec_boot_body">“Wireless debugging” turns itself off after a restart. With this on, Mika turns it back on at startup and reconnects. This needs the “Modify system settings” permission, used only to turn on Wireless debugging, and works only on Wi-Fi you’ve trusted. Turning this off or unpairing returns the permission.</string>
-    <string name="rec_auto_wireless">Turn on Wireless debugging automatically</string>
-    <string name="rec_auto_wireless_body">After Wi-Fi drops or the phone restarts, the system turns “Wireless debugging” off. Phone control normally doesn’t need it — only when restarting (for example after a Mika update). With this on, in those moments and while on Wi-Fi, Mika turns it on and reconnects, but never turns it off for you. This uses the same “Modify system settings” permission as “Restore after restart” and works only on Wi-Fi you’ve allowed. Turn it off and Mika stops doing this.</string>
-    <string name="rec_need_setup">Finish phone control setup first</string>
-    <string name="rec_failed">Couldn’t finish. Make sure phone control is ready and try again.</string>
-    <string name="rec_working">Working…</string>
-    <string name="rec_restarted_at">The accessibility service was restarted automatically at %1$s.</string>
-    <string name="rec_not_allowed_here">Wireless debugging isn’t allowed on this Wi-Fi yet, so Mika can’t turn it on. Turn it on once yourself and tick “Always allow on this network” when asked; after that Mika can turn it on by itself.</string>
-    <string name="rec_refused">This phone doesn’t let Mika turn on Wireless debugging. Turn it on yourself when needed and Mika will connect.</string>
-    <string name="rec_gave_up">Mika turned on Wireless debugging a few times but phone control still didn’t start, so it stopped. Switch Wi-Fi or tap Retry in Phone control and Mika will try again.</string>
-    <string name="rec_permission_missing">At the last startup the permission was gone, so it couldn’t restore. Turn this switch off and on again.</string>
-    <string name="rec_setting_unavailable">This phone doesn’t let Mika turn on Wireless debugging at startup. After a restart, turn it on yourself and Mika will connect.</string>
-    <string name="rec_not_recovered">Couldn’t reconnect automatically at the last startup. Make sure you’re on trusted Wi-Fi with Wireless debugging on, and Mika will connect.</string>
-    <string name="rec_needs_pairing">Only works after pairing Wireless debugging. The helper was started with the USB command, so run the command again after a phone restart.</string>
+    <string name="rec_a11y">ユーザー補助を自動でオンにする</string>
+    <string name="rec_default_on">デフォルトでオン</string>
+    <string name="rec_a11y_body">Mika は、ユーザー補助を使って画面上のテキストやボタンを読み取ります。これをオンにすると、Mika が自分のユーザー補助サービスをシステム設定で代わりにオンにします。オンにしているほかのユーザー補助サービスには影響しません。これをオフにすると、Mika は自分のサービスをオフにします。</string>
+    <string name="rec_battery">バッテリーを制限しない</string>
+    <string name="rec_battery_body">オンにすると、Mika がシステムのバッテリー最適化の対象外に自分を追加します。節電のためにバックグラウンドで停止されにくくなり、スマホの操作が途切れにくくなります。バッテリーの消費が少し増えることがあります。オフにすると、システムのデフォルトに戻ります。</string>
+    <string name="rec_boot">再起動後に復元</string>
+    <string name="rec_boot_body">「ワイヤレス デバッグ」は、再起動するとオフになります。これをオンにすると、Mika が起動時にそれをオンに戻して再接続します。「システム設定の変更」権限が必要で、ワイヤレス デバッグをオンにするためだけに使い、信頼済みの Wi-Fi でだけ動作します。これをオフにするか、ペア設定を解除すると、権限を返します。</string>
+    <string name="rec_auto_wireless">ワイヤレス デバッグを自動でオンにする</string>
+    <string name="rec_auto_wireless_body">Wi-Fi が切れたりスマホを再起動したりすると、システムが「ワイヤレス デバッグ」をオフにします。スマホの操作に通常これは不要で、再起動するとき(Mika のアップデート後など)だけ必要です。これをオンにすると、そのようなときに Wi-Fi に接続していれば、Mika がオンにして再接続します。ただし、Mika が自分でオフにすることはありません。「再起動後に復元」と同じ「システム設定の変更」権限を使い、許可済みの Wi-Fi でだけ動作します。オフにすると、Mika はこの動作をやめます。</string>
+    <string name="rec_need_setup">先にスマホの操作の設定を済ませてください</string>
+    <string name="rec_failed">完了できませんでした。スマホの操作の準備ができているか確認して、もう一度お試しください。</string>
+    <string name="rec_working">処理中…</string>
+    <string name="rec_restarted_at">ユーザー補助サービスは %1$s に自動で再起動しました。</string>
+    <string name="rec_not_allowed_here">この Wi-Fi では、まだワイヤレス デバッグが許可されていないため、Mika はオンにできません。一度ご自身でオンにして、確認が出たら「このネットワークで常に許可」にチェックを入れてください。それ以降は、Mika が自分でオンにできます。</string>
+    <string name="rec_refused">このスマホでは、Mika がワイヤレス デバッグをオンにできません。必要なときにご自身でオンにすると、Mika が接続します。</string>
+    <string name="rec_gave_up">Mika はワイヤレス デバッグを何度かオンにしましたが、スマホの操作がまだ始まらなかったため、あきらめました。Wi-Fi を切り替えるか、「スマホの操作」で「再試行」をタップすると、Mika がもう一度試します。</string>
+    <string name="rec_permission_missing">前回の起動時に権限がなくなっていたため、復元できませんでした。このスイッチをいったんオフにして、もう一度オンにしてください。</string>
+    <string name="rec_setting_unavailable">このスマホでは、Mika が起動時にワイヤレス デバッグをオンにできません。再起動後はご自身でオンにすると、Mika が接続します。</string>
+    <string name="rec_not_recovered">前回の起動時に自動で再接続できませんでした。信頼済みの Wi-Fi に接続して、ワイヤレス デバッグがオンになっているか確認してください。Mika が接続します。</string>
+    <string name="rec_needs_pairing">ワイヤレス デバッグのペア設定後にだけ使えます。ヘルパーは USB コマンドで起動したため、スマホの再起動後はもう一度コマンドを実行してください。</string>
 </resources>

@@ -62,8 +62,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import com.wangzan101.mika.core.cap.web.KeptPageClose
 
 /**
- * 这条通知照发、照进通知栏,但不响、不振、不弹横幅:用系统的分组提醒规则(只让组摘要提醒,这条是组里的普通通知,
- * 组里没有摘要),和系统自己的「静音通知」是同一个做法;不换频道、不新建频道。安卓 8 起都有,Mika 支持的系统都能用。
+ * この通知は引き続き送信され、通知バーで点灯しますが、音も振動もせず、バナーもポップアップしません。 システムのグループ リマインダー ルールを使用します (グループ サマリー リマインダーのみが許可されます。これはグループ内の通常の通知です)。
+ * グループには要約はありません)。これは、システム独自の「サイレント通知」と同じです。チャンネル変更も新しいチャンネルもありません。 Android 8 以降で利用可能で、Mika がサポートするすべてのシステムで使用できます。
  */
 internal fun Notification.Builder.alertQuietly(): Notification.Builder =
     setGroup(QUIET_GROUP).setGroupAlertBehavior(Notification.GROUP_ALERT_SUMMARY)
@@ -71,22 +71,22 @@ internal fun Notification.Builder.alertQuietly(): Notification.Builder =
 private const val QUIET_GROUP = "com.wangzan101.mika.quiet"
 
 /**
- * 前台服务:在 Agent 虚拟屏上跑任务,单个任务的状态与执行在 [TaskRun],运行中的任务登记在 [TaskRegistry]。
- * 开关 parallelTasks 关着时同一时间只跑一个,别的对话交来的任务排在后面(不论从哪里交来,都不丢);
- * 打开时不同对话的任务可以同时跑,各占一块虚拟屏,上限见 [ParallelCapability],超出的排队。
- * 每个任务各有一组通知(编号与按钮请求码按 [TaskRun.slot] 分开,按钮带着对话编号),
- * 前台常驻通知是其中一个任务的进度通知,同时有几个任务时注明「n 个任务进行中」。
- * 任务在跑时屏幕常亮([KeepAwake],不改系统设置和亮度);任务期间目标 App 静音(原模式持久化,异常退出后下次启动恢复),
- * AgentLoop 的 gate 由 [TaskGate] 实现:熄屏/锁屏等待解锁,App 被挪到主屏或手机操作助手断开则暂停到用户点「继续」。
- * Agent 请求接管或提问时另发一条醒目的通知,接管流程见 [Takeover]。
+ * フロントエンド サービス: エージェント仮想画面でタスクを実行します。単一タスクのステータスと実行は [TaskRun] にあり、実行中のタスクは [TaskRegistry] に登録されます。
+ * スイッチのParallelTask​​s がオフになっている場合、一度に 1 つだけが実行され、他の会話から渡されたタスクは後ろのキューに入れられます (どこに渡されたとしても、タスクは失われません)。
+ * を開くと、さまざまな会話のタスクを同時に実行でき、それぞれが仮想画面を占有します。上限は[ParallelCapability]の通りで、超過分はキューイングされます。
+ * 各タスクには一連の通知があります (番号とボタンのリクエスト コードは [TaskRun.slot] で区切られ、ボタンには会話番号が表示されます)。
+ * フロント常駐通知は、タスクの 1 つの進捗通知です。同時に複数のタスクがある場合は、「n 個のタスクが進行中」と表示されます。
+ * タスクの実行中は画面が常にオンになります ([KeepAwake]、システム設定と明るさは変更されません)。ターゲット アプリはタスク中にミュートされます (元のモードは永続的であり、異常終了後の次回の起動時に復元されます)。
+ * AgentLoop のゲートは [TaskGate] によって実装されます。画面はオフになるかロックが解除されるのを待ってロックされ、アプリはホーム画面に移動するかモバイル操作アシスタントが切断され、ユーザーが「続行」をクリックするまで一時停止されます。
+ * エージェントは、引き継ぎを要求したり質問したりするときに、別の目を引く通知を送信します。引き継ぎプロセスについては、「[Takeover]」を参照してください。
  *
- * 前台服务类型用 specialUse:dataSync 在安卓 15 有每日 6 小时上限且语义不符;
- * specialUse 没有运行时限制,只需在清单里写明子类型。
+ * Android 15 では、specialUse:dataSync を使用するフロントエンド サービス タイプの 1 日の上限は 6 時間であり、セマンティクスが一貫していません。
+ * specialUse には実行時の制限はなく、マニフェストでサブタイプを指定するだけです。
  */
 class TaskService : Service() {
     internal val taskState: TaskCenterState get() = (application as com.wangzan101.mika.MikaApp).taskState
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    /** 最近一次 start 时读到的开关;关着时登记处上限恒为 1。 */
+    /** 前回の起動時に読み取られたスイッチ。オフの場合、レジストリの上限は常に 1 になります。 */
     @Volatile private var parallel = false
     private val center by lazy {
         TaskCenter<TaskRun>(::limit, { it.conversationId }, { it.key }, (application as com.wangzan101.mika.MikaApp).runStore,
@@ -105,14 +105,14 @@ class TaskService : Service() {
             notifyDelivery(this, delivery, resultId)
         }
     } }
-    /** 前台常驻通知属于哪个任务;收尾后留着,直到换成别的任务。 */
+    /** フロントデスク常駐通知が属するタスク。終了後も、別のタスクに変更されるまで保持してください。 */
     @Volatile private var foreground: TaskRun? = null
     private val notifyLock = Any()
     @Volatile private var lastStartId = 0
 
     internal val clipLock get() = center.clipLock
     internal val takeoverQueue get() = center.takeoverQueue
-    /** 几个任务共用的屏幕常亮锁。 */
+    /** 複数のタスクで共有される常時オンの画面ロック。 */
     internal val wakeLock by lazy { SharedWakeLock(ScreenWakeLock(this)) }
 
     private fun limit(): ParallelLimit {
@@ -122,7 +122,7 @@ class TaskService : Service() {
             .also { taskState._parallelLimit.value = it }
     }
 
-    /** 登记处里没人用的最小槽位;只在登记处的锁内调用。 */
+    /** レジストリ内の使用されていない最小のスロット。レジストリのロック内でのみ呼び出されます。 */
     private fun freeSlot(): Int {
         val used = center.runs().map { it.slot }.toSet()
         return generateSequence(0) { it + 1 }.first { it !in used }
@@ -133,7 +133,7 @@ class TaskService : Service() {
     internal suspend fun awaitPackage(pkg: String, runKey: String, timeoutMs: Long, free: suspend () -> Boolean) =
         center.awaitApp(pkg, runKey, timeoutMs, free)
 
-    /** 这个对话空着就当场开始;还有任务就留着,它收尾时([onRunEnded])交出来。查与留在同一把锁里。 */
+    /** この会話が空の場合は、その場で会話を開始してください。タスクがある場合は、それを保管し、終了したら渡します ([onRunEnded])。チェックして同じロックに留まります。 */
     internal fun deferMessage(threadId: String, text: String) {
         if (center.deferOrStart(threadId, text)) start(this, text, threadId)
     }
@@ -141,7 +141,7 @@ class TaskService : Service() {
     internal fun interaction(threadId: String) = ChannelInteraction(outbox, localChannel,
         ChannelPeer(LocalChannel.ID, "phone-owner", threadId))
 
-    /** 任务结束后留在后台的那一页(见 [com.wangzan101.mika.cap.web.PageKeeper]):留着时服务不退,前台通知换成它的。 */
+    /** タスク完了後にバックグラウンドに残されたページ ([com.wangzan101.mika.cap.web.PageKeeper] を参照): サービスは終了しても戻らず、フロント デスク通知がそれに置き換えられます。 */
     private val keeper get() = (application as com.wangzan101.mika.MikaApp).pageKeeper
 
     internal fun otherRunHasDisplay(run: TaskRun) = center.running().any { it !== run && it.displayId.value >= 0 }
@@ -160,8 +160,8 @@ class TaskService : Service() {
     override fun onCreate() {
         super.onCreate()
         ensureChannels(this)
-        // 留着的那一页变了:通知跟着换;关掉了而没有任务时退出前台、停掉服务
-        // 只跟「留着 → 换了 / 关了」:开头那个「没有」不算,免得和正在开始的任务抢着停服务
+        // 残りのページが変更されました: 通知が変更されました。オフになっていてタスクがない場合、フォアグラウンドを終了してサービスを停止します。
+        // は「維持 → 変更 / オフ」のみに従います。開始中のタスクでサービスを急いで停止しないように、先頭の「いいえ」はカウントされません。
         scope.launch {
             var had = false
             keeper.page.collect { p ->
@@ -170,7 +170,7 @@ class TaskService : Service() {
                 onKeptPage(p)
             }
         }
-        // 没结束的运行在 App 启动时就处理过了;这里只补一道(进程里只做一次),并把此刻在跑的运行排除在外
+        // 未完了の実行は、アプリの起動時に処理されました。ここではステップが 1 つだけ追加され (プロセス内で 1 回だけ実行されます)、現在実行中の実行は除外されます。
         (application as com.wangzan101.mika.MikaApp).runRecovery.recover(center.runs().map { RunId(it.key) }.toSet())
     }
 
@@ -178,7 +178,7 @@ class TaskService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         lastStartId = startId
-        // 通知按钮带着任务编号,只作用于那个任务(它已结束就不起作用);应用内的按钮作用于显示中的任务
+        // 通知ボタンにはタスク番号が含まれており、そのタスクに対してのみ動作します (タスクが終了すると有効になりません)。アプリケーションのボタンは表示されたタスクに作用します
         val run = if (intent?.hasExtra(EXTRA_RUN) == true) intent.getStringExtra(EXTRA_RUN)?.let(center::byKey) else taskState.shownRun
         when (intent?.action) {
             ACTION_START -> begin(intent.getStringExtra(EXTRA_GOAL).orEmpty(), intent.getStringExtra(EXTRA_CONVERSATION),
@@ -224,7 +224,7 @@ class TaskService : Service() {
         provenance: RunProvenance = RunProvenance(), triggerKey: String? = null,
         triggerActionGoal: String? = null, triggerThreadId: String? = null, mcpExternalId: String? = null, messageId: String? = null) {
         parallel = FeatureFlags.get(this).speedFlags().parallelTasks
-        // 同一对话里正在执行或排队的任务收到新原话时，交给它的 Inbox。
+        // 同じ会話内で実行中またはキューに入れられているタスクが新しいメッセージを受信すると、そのメッセージはその受信箱に渡されます。
         requestedConversation?.let(center::byConversation)?.let { existing ->
             if (provenance.origin == RunOrigin.Ui) {
                 if (messageId != null) existing.steer(newGoal, messageId) else existing.steer(newGoal)
@@ -232,7 +232,7 @@ class TaskService : Service() {
                 return
             }
         }
-        // 插话到的时候那个任务已经收尾:作为这个对话的下一件事,不因服务还在收尾而丢掉
+        // が割り込んだとき、タスクはすでに完了していました。この会話の次の点として、サービスがまだ完了しているからといってタスクを破棄しないでください。
         if (messageId != null && requestedConversation != null) {
             deferMessage(requestedConversation, newGoal)
             keepForeground()
@@ -243,11 +243,11 @@ class TaskService : Service() {
             keepForeground()
             return
         }
-        // 别的对话的任务正在跑、并行关着(或已到上限)时不丢:登记处让它排在后面,那个任务收尾时放出来。
-        // 对话页先等服务空下来再交过来,但查完到交到之间别处(定时、电脑)可能先开始了一个,这里同样排上
+        // 他のダイアログのタスクは、実行中または並行して閉じられたとき (または上限に達したとき) には失われません。レジストリはそのタスクをキューの最後尾に置き、タスクの終了時に解放します。
+        // 会話ページは、サービスが無料になるのを待ってから引き渡します。ただし、検索が完了してから引き渡されるまでの間に、別の場所 (タイミング、コンピューター) で別の検索が開始される可能性があり、ここでもキューに入れられます。
         val store = ConversationStore.shared(this)
         val conversationId = requestedConversation ?: store.newConversation()
-        // 定时和电脑交来的任务不丢:这个对话还有任务时排在它后面
+        // 定期的にコンピューターに渡されたタスクを失わないようにしてください。このダイアログにタスクがある場合、それらはダイアログの後ろでキューに入れられます。
         val queueHere = provenance.origin == RunOrigin.Trigger || provenance.origin == RunOrigin.Mcp
         when (val r = center.tryStart(conversationId, newGoal, queueInConversation = queueHere)) {
             StartResult.AlreadyRunningInConversation -> keepForeground()
@@ -263,9 +263,9 @@ class TaskService : Service() {
                 r.run.mcpExternalId = mcpExternalId
                 taskState._busy.value = true
                 taskState._conversationId.value = conversationId
-                // 先登记再显示:界面收到它的状态时,任务列表里已经有它(对话、原话)
+                // 最初に登録してから表示します: インターフェイスがステータスを受信すると、すでにタスク リストに含まれています (ダイアログ、オリジナルの単語)
                 publishRuns()
-                // 清空成功标准、运行编号,显示排队
+                // は成功基準、実行番号をクリアし、キューを表示します。
                 if (center.running().none { it.conversationId == conversationId }) r.run.show()
                 r.run.queue(r.position)
                 keepForeground()
@@ -274,7 +274,7 @@ class TaskService : Service() {
                 nameConversation(store, conversationId, newGoal, provenance)
                 taskState._busy.value = true
                 taskState._conversationId.value = conversationId
-                // 清空成功标准、运行编号,状态置为「正在准备」
+                // は成功基準と実行番号をクリアし、ステータスを「準備中」に設定します。
                 val run = r.run
                 run.provenance = provenance
                 run.triggerWindowKey = triggerKey
@@ -284,7 +284,7 @@ class TaskService : Service() {
                     center.store.save(it.copy(triggerWindowKey = triggerKey))
                 }
                 run.mcpExternalId = mcpExternalId
-                // 先登记再显示:界面收到它的状态时,任务列表里已经有它(对话、原话)
+                // 最初に登録してから表示します: インターフェイスがステータスを受信すると、すでにタスク リストに含まれています (ダイアログ、オリジナルの単語)
                 publishRuns()
                 run.show()
                 val fg = foreground
@@ -298,13 +298,13 @@ class TaskService : Service() {
         }
     }
 
-    /** 用户(或电脑)在新对话里交来的第一句话:后台请模型起一个标题记下(只起一次,起不出来就不记)。 */
+    /** 新しい会話でユーザー (またはコンピューター) によって渡された最初の文: バックエンドはモデルにタイトルを書き留めるように求めます (一度だけ、思いつかない場合は書き留めないでください)。 タイトル */
     private fun nameConversation(store: ConversationStore, id: String, first: String, provenance: RunProvenance) {
         if (provenance.origin != RunOrigin.Ui && provenance.origin != RunOrigin.Mcp) return
         scope.launch(Dispatchers.IO) {
             runCatching {
                 val env = TaskEnvironment.of(this@TaskService)
-                // 起标题也属于这段对话,和对话里的任务用同一个会话号
+                // もこの会話に属しており、会話内のタスクと同じ会話番号を使用します。
                 val session = ModelSession.of(id)
                 ConversationTitler.ensure(store, id, first) {
                     listOfNotNull(env.lightModelFactory(this@TaskService, session), env.modelFactory(this@TaskService, session))
@@ -313,7 +313,7 @@ class TaskService : Service() {
         }
     }
 
-    /** 已经在前台(或即将收尾)时再次进入前台:用前台那个任务的进度通知。 */
+    /** すでにフォアグラウンドにある (または終了しようとしている) 場合に、再度フォアグラウンドに入ります。フォアグラウンドでのタスクの進行状況通知を使用します。 */
     private fun keepForeground() {
         val fg = foreground
         if (fg != null) startInForeground(fg, progressNotification(fg, fg.state.value))
@@ -341,9 +341,9 @@ class TaskService : Service() {
             } catch (e: Exception) {
                 TaskState.Failed(tr(R.string.task_error, e.message ?: e::class.simpleName), FailKind.Environment)
             }
-            // shell 进程没了,虚拟屏和上面的 App 一起没了;任务没法接着做
+            // シェル プロセスが失われ、仮想画面とその上のアプリも一緒に失われます。タスクを続行できません。
             val end = if (run.shellDied && result !is TaskState.Succeeded) TaskState.Failed(SHELL_DIED, FailKind.Environment) else result
-            // 停下了:界面当场显示已停止,交代随后补上(先登记「正在整理」,界面收到终态时就知道还有话要来)
+            // 停止: インターフェースはその場で停止したことを示し、指示は後で追加されます (最初に「編成」を登録すると、インターフェースが最終ステータスを受け取るときにさらに単語が来ることがわかります)
             val draft = if (end == TaskState.Cancelled) run.draftText() else null
             val stopRunId = run.runId.value?.takeIf { end == TaskState.Cancelled && !run.conditionCheck && run.hasStopMaterial(draft) }
             stopRunId?.let { id -> taskState._summarizing.update { it + id } }
@@ -370,13 +370,13 @@ class TaskService : Service() {
             center.markResult(run, describe(end).second, deliveryId, successful = end is TaskState.Succeeded)
             run.clearTakeoverStage()
             synchronized(notifyLock) { getSystemService(NotificationManager::class.java).cancel(id(ID_ATTENTION, run)) }
-            // 先发结果通知,再在后台学(提取记忆、记技能结果、起草技能);用进程级作用域,服务退出也做完
+            // は最初に結果通知を送信し、次にバックグラウンドで学習します (メモリの抽出、スキルの結果の記憶、製図スキル)。プロセスレベルのスコープを使用すると、サービスの終了も完了します
             var delivered = false
             val app = applicationContext
             runCatching {
                 RunLearning.launchAfter(MemoryRuntime.of(this@TaskService).scope, {
                     delivered = notifyResult(run, end, deliveryId) == DeliveryState.Delivered
-                    // 定时任务的结果当场按结局记(和以前一样),判下来没办成再改记;不靠服务一直在
+                    // スケジュールされたタスクの結果は、その場でエンディングとして記録されます（以前と同じ）。完了していない場合は、再度変更されます。サービスに依存せずに常に記録されます。
                     if (delivered) run.triggerWindowKey?.let { key ->
                         runCatching {
                             if (end is TaskState.Succeeded) TriggerRuntime.delivered(app, key)
@@ -384,9 +384,9 @@ class TaskService : Service() {
                         }.onFailure { Log.w(TAG, "could not record trigger result", it) }
                     }
                 }) {
-                    // 交出之后:回答按用户的要求判结局(记进运行记录和这一轮对话),只从办成的学
+                    // 引き渡し後: 回答はユーザーの要件に応じて決定されます (走行記録と今回の対話に記録されます)。完了した学習のみ
                     val judged = runCatching { run.settleOutcome(end, store) }.onFailure { Log.w(TAG, "outcome judging failed", it) }.getOrNull()
-                    // 回答如实说没办成、只办了一部分的,和放弃一样记成没办成;没判成的照交出算
+                    // 答えが完了していないか、一部しか完了していなかった場合は、あきらめたかのように失敗として記録されます。完了していない場合は引き渡されたものとしてカウントされます。
                     val notDone = judged?.outcome == RunOutcome.Partial || judged?.outcome == RunOutcome.NotPossible
                     if (delivered && notDone && end is TaskState.Succeeded) run.triggerWindowKey?.let { key ->
                         runCatching { TriggerRuntime.actionFailed(app, key, judged?.reason?.ifBlank { null } ?: describe(end).second) }
@@ -402,8 +402,8 @@ class TaskService : Service() {
     }
 
     /**
-     * 停止之后写交代,记成这一轮的回答(结局照旧是取消)。用进程级作用域在后台写:不挡着收尾、下一件事和再点停止,服务退出也写完。
-     * 写好或写不成都从「正在整理」里拿掉。
+     * 終了後に解説を書き、このラウンドの解答として記録します（エンディングはキャンセルされたままです）。プロセス レベルのスコープを使用してバックグラウンドで書き込みます。終了をブロックせずに次の処理を実行し、もう一度 [停止] をクリックすると、サービスの終了も完了します。
+     * は、うまく書けた場合、または書けなかった場合、「整理」から削除されます。
      */
     private fun summarizeStop(run: TaskRun, runId: String, draft: String?, store: ConversationStore) {
         MemoryRuntime.of(this).scope.launch {
@@ -419,20 +419,20 @@ class TaskService : Service() {
         }
     }
 
-    /** 任务收尾之后:都结束了就退出前台;还有别的任务就把前台交给它们,并放出排队的任务。 */
+    /** タスクが完了したら: 終了したらフロントデスクを出てください。他にタスクがある場合は、フロントデスクに渡してキューにあるタスクを解放します。 */
     private fun onRunEnded(run: TaskRun, store: ConversationStore) {
         val wasShown = taskState.shownRun === run
         val started = center.onEnded(run)
         publishRuns()
         if (wasShown) started.firstOrNull { it.conversationId == run.conversationId }?.show()
-        // 对话空出来就开始留给它的话,不等别的对话的任务
+        // 他の対話タスクを待たずに、利用可能になったらすぐに対話を任せ始めます。
         val ready = center.takeReady()
         if (center.runs().isEmpty()) {
             if (ready.isNotEmpty()) {
                 ready.forEach { (threadId, message) -> begin(message, threadId) }
                 return
             }
-            // 还留着一页在后台运行:前台通知换成它的,服务不退(进程靠它撑着);关掉时由 [onKeptPage] 退出
+            // にはまだバックグラウンドで実行されているページが 1 つあります。フォアグラウンド通知はそのページに置き換えられ、サービスは戻りません (プロセスはそれによってサポートされています)。オフの場合は、[onKeptPage] によって終了します。
             val kept = keeper.page.value
             if (kept != null) {
                 synchronized(notifyLock) {
@@ -444,13 +444,13 @@ class TaskService : Service() {
                 return
             }
             stopForeground(STOP_FOREGROUND_REMOVE)
-            // 先取编号再放开:放开之后才到的新任务会带来更新的编号,这里的 stopSelf 就不会把它停掉
+            // 最初に番号を取得してから解放します。解放後に到着する新しいタスクは更新された番号をもたらしますが、ここでの stopSelf はそれを停止しません。
             val id = lastStartId
             taskState._busy.value = false
             stopSelf(id)
             return
         }
-        // 先换成「正在准备」:放出来的任务可能正好接过前台,通知不能还写着排队
+        // 最初に「準備中」に変更します。リリースされたタスクがたまたまフロント デスクに引き継がれる可能性があり、通知ではまだキュー中であるとは言えません。
         started.forEach { it.dequeue() }
         if (foreground === run) center.running().firstOrNull()?.let { next ->
             foreground = next
@@ -466,7 +466,7 @@ class TaskService : Service() {
         ready.forEach { (threadId, message) -> begin(message, threadId) }
     }
 
-    /** 排队中的任务被取消(已移出队伍):没开跑,直接记为已取消。 */
+    /** キュー内のタスクはキャンセルされました (チームから移動されました)。タスクは開始されず、キャンセルされたものとして直接記録されました。 */
     private fun cancelQueued(run: TaskRun) {
         run.handoffUnconsumed(cancelled = true)
         run.mcpExternalId?.let { (application as com.wangzan101.mika.MikaApp).remoteTasks.ended(it, TaskState.Cancelled, run.steers.value) }
@@ -477,8 +477,8 @@ class TaskService : Service() {
     }
 
     /**
-     * 留着的那一页变了:还留着就发(或换)它的常驻通知——没有任务在跑时它就是前台通知;关掉了就撤掉通知,
-     * 这时没有任务就退出前台、停掉服务。
+     * 残りのページが変更されました。ページがまだ存在する場合は、その常駐通知を送信 (または変更) します。実行中のタスクがない場合は、フォアグラウンド通知になります。オフになっている場合は、通知を削除します。
+     * 現時点でタスクがない場合は、フォアグラウンドを終了してサービスを停止します。
      */
     private fun onKeptPage(page: com.wangzan101.mika.cap.web.KeptPage?) {
         val nm = getSystemService(NotificationManager::class.java)
@@ -495,7 +495,7 @@ class TaskService : Service() {
         }
     }
 
-    /** 留在后台的那一页的常驻通知:站点、离自动关还剩多久(倒计时),按钮「关闭网页」「打开对话」。 */
+    /** バックグラウンドに残されたページの永続的な通知: サイト、自動シャットダウンまでの残り時間 (カウントダウン)、ボタン「Web ページを閉じる」および「会話を開く」。 */
     private fun keptNotification(page: com.wangzan101.mika.cap.web.KeptPage): Notification {
         val close = PendingIntent.getService(
             this, REQUEST_CLOSE_KEPT, Intent(this, TaskService::class.java).setAction(ACTION_CLOSE_KEPT_PAGE),
@@ -507,7 +507,7 @@ class TaskService : Service() {
             .setContentText(page.host)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            // 时间那里倒计时到自动关的那一刻(通知文字不会过时)
+            // 自動的にオフになるまでの時間がカウントダウンされます (通知テキストは期限切れになりません)。
             .setWhen(page.closesAt).setShowWhen(true).setUsesChronometer(true).setChronometerCountDown(true)
             .setContentIntent(openApp(page.conversationId))
             .addAction(Notification.Action.Builder(null, tr(R.string.kept_close), close).build())
@@ -516,30 +516,30 @@ class TaskService : Service() {
     }
 
     /**
-     * 给模型的上文里,留页那一轮的页面此刻是不是还开着:记着「留着」却已经不在了(Mika 中途退出过)的,按已关算。
+     * 上記のモデルの記事で、現時点で開いたままになっているページは、「キープ」とマークされていても存在しない場合（ミカが途中でやめた場合）、閉じたものとしてカウントされます。
      */
     private fun withKeptState(t: Turn): Turn =
         if (t.keptPage != null && t.keptPageClosed == null && keeper.page.value?.runId != t.runId) t.copy(keptPageClosed = KeptPageClose.AppExit.wire) else t
 
-    /** 任务结束时记一轮,后续消息可带上它作参考。写盘失败不影响任务结果。 */
+    /** タスクが完了すると 1 ラウンドが記録されます。後続のメッセージで参照できるよう、この情報を持参してください。ディスクへの書き込みに失敗しても、タスクの結果には影響しません。 */
     private fun recordTurn(store: ConversationStore, id: String, goal: String, end: TaskState, runId: String?, files: List<SharedFile> = emptyList(),
         steers: List<String> = emptyList(), groups: List<String> = emptyList(), interrupted: List<String> = emptyList(),
         finished: List<String> = emptyList()) {
         val turn = when (end) {
-            // 没核对过的(聊天、回答里没有可核对的值)和核实过的一样记成 succeeded;核对过却没能核实的才记 unverified
+            // 検証されていないもの (チャットや回答に検証可能な値がない) は、検証済みのものとして成功として記録されます。検証されたが検証されなかったものは未検証として記録されます。
             is TaskState.Succeeded -> if (end.doubtful) Turn(goal, end.answer, "unverified", end.note, unconfirmed = end.unconfirmed) else Turn(goal, end.answer, "succeeded")
             is TaskState.Failed -> Turn(goal, end.reason, "failed")
             TaskState.Cancelled -> Turn(goal, Conversation.CANCELLED_OUTCOME, "cancelled")
             else -> return
         }.copy(runId = runId, steers = steers, groups = groups, interruptedReplies = interrupted, finishedReplies = finished)
-            // 这一轮留下了一页:记下站点(已经关了的连同原因),对话页那一轮下面据此显示
+            // このラウンドにはページが残っています。サイトを書き留めてください (理由とともにすでに閉鎖されています)。そのラウンドではダイアログ ページがそれに応じて表示されます。
             .let { t -> keeper.recordFor(runId)?.let { (host, closed) -> t.copy(keptPage = host, keptPageClosed = closed) } ?: t }
         runCatching { store.append(id, turn, files) }.onFailure { Log.w(TAG, "could not save conversation turn", it) }
     }
 
     /**
-     * 按此刻的状态重画通知。多个协程都会调用,串行并在锁内取最新状态:
-     * 否则拿着旧状态的一方可能在新状态撤掉通知之后又把它发出来。
+     * 現在のステータスに応じて通知を再描画します。複数のコルーチンが連続して呼び出され、ロック内の最新のステータスを取得します。
+     * それ以外の場合、古いステータスを保持している当事者は、新しいステータスによって通知が削除された後、再度通知を送信する可能性があります。
      */
     internal fun refreshNotifications(run: TaskRun) {
         synchronized(notifyLock) {
@@ -552,14 +552,14 @@ class TaskService : Service() {
         }
     }
 
-    /** 已交还、循环还没往下走的那一小段:不再显示接管按钮。 */
+    /** 返された短いセクションですが、ループはまだ終了していません。引き継ぎボタンは表示されなくなりました。 */
     private fun awaitingUser(run: TaskRun, state: TaskState) =
         state !is TaskState.WaitingTakeover || run.takeoverStage.value != Takeover.Stage.None
 
-    /** 主屏一次只交一个 App:接管排在别的任务后面时先不给接管按钮。 */
+    /** ホーム画面では一度に 1 つのアプリのみを引き継ぎます。引き継ぎが他のタスクの後ろでキューに入れられている場合は、引き継ぎボタンを押さないでください。 */
     private fun takeoverFirst(run: TaskRun) = run.takeover?.let(takeoverQueue::isFirst) ?: true
 
-    /** 用 [run] 的进度通知编号进前台;还没有任务对象时用第一个槽位的。 */
+    /** は、進行状況通知番号 [run] を使用してフロント デスクに入ります。タスク オブジェクトがない場合は、最初のスロットが使用されます。 */
     private fun startInForeground(run: TaskRun?, n: Notification) {
         val nid = run?.let { id(ID_PROGRESS, it) } ?: ID_PROGRESS
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -599,7 +599,7 @@ class TaskService : Service() {
         return b.build()
     }
 
-    /** 忙着却还没有任务对象时(收尾被打断等)也得马上进前台。 */
+    /** 忙しいのに目的のタスクがまだない場合（エンディングが中断された場合など）、すぐにフロントに入らなければなりません。 */
     private fun preparingNotification(): Notification = Notification.Builder(this, CHANNEL_PROGRESS)
         .setSmallIcon(R.drawable.ic_notification)
         .setContentTitle("Mika")
@@ -614,8 +614,8 @@ class TaskService : Service() {
     }
 
     /**
-     * 等待接管或回答时另发的醒目通知;其余状态没有。
-     * 悬浮胶囊正显示在亮着的屏幕上时照发,但安静地进通知栏(胶囊已经变橙,见 [alertQuietly]);锁屏、胶囊关着或画不出来时照旧弹出。
+     * 引き継ぎまたは応答を待機しているときに、別の目を引く通知が送信されます。それ以外のステータスはありません。
+     * フローティング カプセルは、明るい画面に表示されているときもポップアップ表示されますが、静かに通知バーに入ります (カプセルがオレンジ色に変わりました。[alertQuietly] を参照)。画面がロックされているとき、カプセルが閉じているとき、または描画できないときにもポップアップが表示されます。
      */
     private fun attentionNotification(run: TaskRun, state: TaskState): Notification? {
         if (!awaitingUser(run, state)) return null
@@ -650,15 +650,15 @@ class TaskService : Service() {
             .setContentText(text)
             .setStyle(Notification.BigTextStyle().bigText(text))
             .setCategory(Notification.CATEGORY_REMINDER)
-            .setOnlyAlertOnce(true) // 同一次等待里换按钮不再响铃;离开等待时撤掉,下一次会重新提醒
+            .setOnlyAlertOnce(true) // 同じ待ち時間中にボタンを変更すると、ボタンは鳴りません。待機中に削除すると、次回再度通知されます。
             .setContentIntent(openApp())
         if (quiet) b.alertQuietly()
         when (state) {
             is TaskState.WaitingTakeover -> takeoverActions(run).forEach(b::addAction)
             is TaskState.WaitingInput -> {
                 b.addAction(replyAction(run, state.options))
-                // 安卓通知最多显示 3 个按钮,所以是「回复」+ 前两个选项;
-                // 全部选项都放进回复的快捷选项(RemoteInput choices),多出的选项在那里能选到
+                // Android の通知には最大 3 つのボタンが表示されるため、「返信」+最初の 2 つのオプションになります。
+                // すべてのオプションは返信ショートカット オプション (RemoteInput の選択肢) に入れられ、追加のオプションはそこで選択できます。
                 state.options.orEmpty().take(2).forEachIndexed { i, o -> b.addAction(answerAction(run, o, i)) }
             }
             else -> Unit
@@ -691,7 +691,7 @@ class TaskService : Service() {
         )
     }
 
-    /** 经由不显示界面的 Activity:从通知启动 Activity 才会收起通知栏。 */
+    /** インターフェイスを表示しないアクティビティ経由: 通知バーは、アクティビティが通知から開始された場合にのみ閉じられます。 */
     private fun takeoverAction(run: TaskRun, title: String, action: String, code: Int): Notification.Action {
         val pi = PendingIntent.getActivity(
             this, code + SLOT_STRIDE * run.slot, Intent(this, TakeoverActivity::class.java).setAction(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -706,7 +706,7 @@ class TaskService : Service() {
         val input = RemoteInput.Builder(KEY_REPLY).setLabel(getString(R.string.reply_hint))
             .apply { if (!options.isNullOrEmpty()) setChoices(options.toTypedArray()) }
             .build()
-        // 回复内容要由系统填进 Intent,只能用可变的 PendingIntent(Intent 是显式的)
+        // 応答コンテンツはシステムによってインテントに入力される必要があり、変数 PendingIntent のみを使用できます (インテントは明示的です)。
         val pi = PendingIntent.getService(
             this, 6 + SLOT_STRIDE * run.slot, Intent(this, TaskService::class.java).setAction(ACTION_ANSWER).putExtra(EXTRA_RUN, run.key),
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -743,11 +743,11 @@ class TaskService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
-        // 服务没了就撑不住进程:留着的那一页如实关掉,对话里记下
+        // サービスがなくなった場合、プロセスを続行できません。残りのページを閉じて、会話に書き留めてください。
         keeper.close(KeptPageClose.AppExit)
         getSystemService(NotificationManager::class.java).cancel(ID_KEPT)
         if (center.runs().isNotEmpty()) {
-            // 标中断后当场善后(定时窗口、补送、告知、写进对话):进程还在,不等下次启动;用 App 级作用域,服务没了也做完
+            // 中断後のその後の処理 (タイミング ウィンドウ、補足配信、通知、ダイアログへの書き込み) に対処します。プロセスはまだ存在しており、次の開始を待ちません。アプリレベルのスコープでは、サービスがなくなってもサービスは終了します
             center.store.interruptUnfinished()
             val app = application as com.wangzan101.mika.MikaApp
             center.runs().forEach { r -> r.mcpExternalId?.let { app.remoteTasks.ended(it, TaskState.Failed(tr(R.string.task_interrupted), FailKind.Interrupted), r.steers.value) } }
@@ -757,16 +757,16 @@ class TaskService : Service() {
             taskState._activeConversations.value = emptyList()
             taskState.shownRun = null
         }
-        taskState._busy.value = false // 收尾被取消时也不能一直挡着新任务
+        taskState._busy.value = false // エンディングをキャンセルすると、常に新しいタスクをブロックできなくなります。
         super.onDestroy()
     }
 
     companion object {
-        /** 建通知频道;重复建没有副作用。App 启动时的恢复也要用,所以不依赖服务实例。 */
+        /** 通知チャネルを作成します。繰り返し作成しても副作用はありません。アプリ起動時のリカバリも利用するため、サービスインスタンスに依存しません。 */
         internal fun ensureChannels(context: Context) {
             val nm = context.getSystemService(NotificationManager::class.java)
             val names = mapOf(CHANNEL_PROGRESS to tr(R.string.channel_progress), CHANNEL_RESULT to tr(R.string.channel_result), CHANNEL_ATTENTION to tr(R.string.channel_attention))
-            // 旧的结果频道建成了较低级别,App 调不高;换新 id,旧的删掉免得设置里多一项
+            // 古い結果チャンネルは低いレベルで構築されており、アプリを高いレベルに調整することはできません。設定に別の項目が追加されないように、ID を新しい ID に変更し、古い ID を削除してください。
             nm.deleteNotificationChannel(OLD_CHANNEL_RESULT)
             CHANNEL_IMPORTANCE.forEach { (id, importance) -> nm.createNotificationChannel(NotificationChannel(id, names.getValue(id), importance)) }
         }
@@ -776,15 +776,15 @@ class TaskService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-        /** 打开 Mika;给了 [threadId] 时直接到那个对话。通知和悬浮胶囊共用。 */
+        /** はミカを開きます。 [threadId] を与えると、そのダイアログに直接移動します。通知と一時停止カプセルは共有されます。 */
         internal fun openAppIntent(context: Context, threadId: String? = null): Intent = Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             .apply { if (threadId != null) putExtra(MainActivity.EXTRA_OPEN_CONVERSATION, threadId) }
 
-        /** 并行时结果通知的下一个编号(循环使用)。 */
+        /** 並列（周期的に使用）される結果通知の次の番号。 */
         internal fun nextResultId() = ID_RESULT_FIRST + resultCount.getAndIncrement() % RESULT_IDS
 
-        /** 结果与提示发成通知(服务里的与 App 启动时恢复用的共用);[resultId] 是结果通知的编号。 */
+        /** の結果とプロンプトは通知として送信されます (サービス内で共有され、アプリの起動時に回復するため)。 [resultId]は結果通知の番号です。 */
         internal fun notifyDelivery(context: Context, delivery: Delivery, resultId: Int): SendOutcome {
             val nm = context.getSystemService(NotificationManager::class.java)
             when (delivery) {
@@ -804,7 +804,7 @@ class TaskService : Service() {
             return SendOutcome.Delivered
         }
 
-        /** 追问等回答的时限:交给 AgentLoop,通知和卡片上写的分钟数也从这里来。 */
+        /** 質問と回答を待つ時間制限: AgentLoop に渡され、通知とカードに書かれた分数もここから取得されます。 */
         const val INPUT_TIMEOUT_MS = AgentLoop.DEFAULT_INPUT_TIMEOUT_MS
         const val INPUT_TIMEOUT_MINUTES = INPUT_TIMEOUT_MS / 60_000
         const val ACTION_START = "com.wangzan101.mika.task.START"
@@ -817,13 +817,13 @@ class TaskService : Service() {
         const val ACTION_HAND_BACK = "com.wangzan101.mika.task.HAND_BACK"
         const val ACTION_FINISHED_MYSELF = "com.wangzan101.mika.task.FINISHED_MYSELF"
         const val ACTION_SKIP = "com.wangzan101.mika.task.SKIP"
-        /** 网页接管界面按了系统返回键:先放着,回到等待接管。 */
+        /** Web ページ引き継ぎインターフェイスでシステムのリターン キーを押しました。そのままにして、引き継ぎを待機するために戻ります。 */
         const val ACTION_PUT_ASIDE = "com.wangzan101.mika.task.PUT_ASIDE"
-        /** 接管通知按钮带的「第几次等待」,见 [Takeover.waitKey]。 */
+        /** は、通知ボタンの「待機回数」を引き継ぎます。[Takeover.waitKey] を参照してください。 */
         const val EXTRA_WAIT_KEY = "com.wangzan101.mika.task.WAIT_KEY"
         const val ACTION_ANSWER = "com.wangzan101.mika.task.ANSWER"
         const val ACTION_APPROVE = "com.wangzan101.mika.task.APPROVE"
-        /** 关掉任务结束后留在后台的那一页(通知上的按钮)。 */
+        /** タスクが完了した後、バックグラウンドに残るページ (通知上のボタン) を閉じます。 */
         const val ACTION_CLOSE_KEPT_PAGE = "com.wangzan101.mika.task.CLOSE_KEPT_PAGE"
         const val ACTION_DECLINE = "com.wangzan101.mika.task.DECLINE"
         private const val EXTRA_GOAL = "goal"
@@ -835,16 +835,16 @@ class TaskService : Service() {
         private const val EXTRA_MCP_ID = "mcp_id"
         private const val EXTRA_ATTENDANCE = "attendance"
         private const val EXTRA_ANSWER = "answer"
-        /** 通知按钮所属任务的编号([TaskRun.key])。 */
+        /** 通知ボタンが属するタスクの番号 ([TaskRun.key])。 */
         const val EXTRA_RUN = "com.wangzan101.mika.task.RUN"
-        /** 等用户回答确认最多这么久,到时按不同意(不在手机旁时任务不会一直挂着,也绝不自动同意)。 */
+        /** ユーザーが回答を確認してから [同意しない] を押すまでに、最大でこれほど長い時間がかかることがあります (電話のそばにいないときにタスクが常にハングするとは限らず、自動的に同意されることもありません)。 */
         const val CONFIRM_TIMEOUT_MS = 15 * 60_000L
         private const val KEY_REPLY = "reply"
         const val CHANNEL_ATTENTION = "task_attention"
         const val CHANNEL_PROGRESS = "task_progress"
         const val CHANNEL_RESULT = "task_result_v2"
         internal const val OLD_CHANNEL_RESULT = "task_result"
-        /** 各通知频道建立时的级别;「需要你」(接管、提问、确认)和结果要弹出,进度保持安静。用户之后调低的,App 改不回来。 */
+        /** 確立されたときの各通知チャネルのレベル。 「あなたが必要です」（引き継ぎ、質問、確認）と結果がポップアップ表示され、進行状況は静かに保たれます。ユーザーが後で値を下げた場合、アプリは値を元に戻すことはできません。 */
         internal val CHANNEL_IMPORTANCE = mapOf(
             CHANNEL_PROGRESS to NotificationManager.IMPORTANCE_LOW,
             CHANNEL_RESULT to NotificationManager.IMPORTANCE_HIGH,
@@ -853,12 +853,12 @@ class TaskService : Service() {
         private const val ID_PROGRESS = 1
         internal const val ID_RESULT = 2
         private const val ID_ATTENTION = 3
-        /** 留在后台的那一页的常驻通知(全局只有一页,不分槽位)。 */
+        /** バックグラウンドに残されたページの常駐通知 (スロットに関係なく、グローバルにページは 1 つだけあります)。 */
         private const val ID_KEPT = 4
         private const val REQUEST_CLOSE_KEPT = 99
-        /** 第 n 个槽位的任务通知编号与请求码都加 n × 它;第一个槽位与只跑一个任务时一样。 */
+        /** n 番目のスロットのタスク通知番号と要求コードを n × it だけ増加します。最初のスロットは、タスクが 1 つだけ実行される場合と同じです。 */
         private const val SLOT_STRIDE = 100
-        /** 并行时结果通知的编号段,在槽位编号之外;循环使用,最多同时留这么多条。 */
+        /** 並列化中の結果通知の番号セグメントがスロット番号の範囲外です。循環的に使用すると、この数まで同時に残すことができます。 */
         private const val ID_RESULT_FIRST = 10_000
         private const val RESULT_IDS = 1_000
         private val resultCount = AtomicInteger()
@@ -868,11 +868,11 @@ class TaskService : Service() {
         internal val PREPARING: String get() = tr(R.string.runtime_preparing)
         val SHELL_DIED: String get() = tr(R.string.task_shell_died)
 
-        /** 循环的状态里哪些可以由发布写出去。 */
+        /** サイクル状態のうち、パブリッシュによって書き出すことができるものはどれですか。 */
         internal fun loopMayPublish(state: TaskState) = state.isActive()
 
-        /** 开始一个任务;别的对话的任务在跑而不能同时跑时排在它后面。[conversationId] 为空表示新开一个对话(编号见 [conversationId])。 */
-        /** [messageId] 给了时这是任务进行中插的话,界面按它跟这句话的去向。 */
+        /** はタスクを開始します。他のダイアログ タスクは実行中はその後ろのキューに入れられますが、同時に実行することはできません。新しい会話を開くには、[conversationId] は空です (番号については、[conversationId] を参照してください)。 */
+        /** [messageId] これが進行中のタスクの場合、インターフェイスはこの文の指示に従います。 */
         fun start(context: Context, goal: String, conversationId: String? = null, messageId: String? = null) {
             context.startForegroundService(
                 Intent(context, TaskService::class.java).setAction(ACTION_START).putExtra(EXTRA_GOAL, goal)
@@ -890,7 +890,7 @@ class TaskService : Service() {
                 .apply { if (checking) putExtra(EXTRA_TRIGGER_ACTION, goal) })
         }
 
-        /** 电脑交来的任务([RemoteTaskHub]):记在 [conversation] 这个对话里,来源记成 MCP。 */
+        /** コンピュータから渡されたタスク ([RemoteTaskHub]): ダイアログ [conversation] に記録され、ソースは MCP として記録されます。 */
         fun startMcp(context: Context, goal: String, conversation: String, externalId: String, attendance: Attendance) {
             context.startForegroundService(Intent(context, TaskService::class.java).setAction(ACTION_START_MCP)
                 .putExtra(EXTRA_GOAL, goal).putExtra(EXTRA_CONVERSATION, conversation)
@@ -904,28 +904,28 @@ class TaskService : Service() {
                 .putExtra(EXTRA_MCP_ID, externalId))
         }
 
-        /** [runKey] 见 [send];应用内的按钮带着屏上那个对话的任务编号,不会落到别的任务上。 */
+        /** [runKey] [send] を参照。アプリケーションのボタンには画面上の会話のタスク番号が表示され、他のタスクには影響しません。 */
         fun cancel(context: Context, runKey: String? = null) = send(context, ACTION_CANCEL, runKey = runKey)
 
-        /** 用户点了「继续」:被挪走的 App 会被挪回 Mika 的屏幕。 */
+        /** ユーザーが「続行」をクリックすると、削除されたアプリがミカの画面に戻ります。 */
         fun resume(context: Context, runKey: String? = null) = send(context, ACTION_RESUME, runKey = runKey)
 
-        /** 「我来处理」:把 App 挪到主屏并恢复它的声音。 */
+        /** 「私が処理します」: アプリをホーム画面に移動し、サウンドを復元します。 */
         fun takeOver(context: Context, waitKey: Int? = null, runKey: String? = null) = send(context, ACTION_TAKE_OVER, waitKey, runKey)
 
-        /** 「处理好了」:挪回虚拟屏、重新静音,Agent 先读屏核实再继续。 */
+        /** 「ハンドド」: 仮想画面に戻り、再び音声をミュートします。エージェントは続行する前に画面を読み取って確認します。 */
         fun handBack(context: Context, waitKey: Int? = null, runKey: String? = null) = send(context, ACTION_HAND_BACK, waitKey, runKey)
 
-        /** 「我自己做完了」:挪回虚拟屏,Agent 只核实结果并结束。 */
+        /** 「自分で終了しました」: 仮想画面に戻り、エージェントは結果を確認するだけで終了します。 */
         fun finishedMyself(context: Context, waitKey: Int? = null, runKey: String? = null) =
             send(context, ACTION_FINISHED_MYSELF, waitKey, runKey)
 
-        /** 「跳过」:不处理这一步,Agent 收到「没有发生交回」后自己换办法或如实汇报。 */
+        /** "スキップ": このステップは処理されません。エージェントは「返品が発生しませんでした」を受け取った後、方法を変更するか、真実を報告します。 */
         fun skip(context: Context, waitKey: Int? = null, runKey: String? = null) = send(context, ACTION_SKIP, waitKey, runKey)
 
         fun putAside(context: Context, waitKey: Int? = null, runKey: String? = null) = send(context, ACTION_PUT_ASIDE, waitKey, runKey)
 
-        /** 回答 Agent 的提问(ask_user)。 */
+        /** はエージェントの質問 (ask_user) に答えます。 */
         fun answer(context: Context, text: String, runKey: String? = null) {
             if (!stateFor(context, runKey).isActive()) return
             context.startService(
@@ -934,10 +934,10 @@ class TaskService : Service() {
             )
         }
 
-        /** 同意编号为 [key] 的那次申报([ConfirmationNotifier.requestKey]);已经换成别的申报时不算数。 */
+        /** は、[key] ([ConfirmationNotifier.requestKey]) 番号の宣言に同意します。別の宣言に変更されている場合はカウントされません。 */
         fun approve(context: Context, key: Int, runKey: String? = null) = confirm(context, ACTION_APPROVE, key, runKey)
 
-        /** 不同意:Agent 不再尝试这个操作,汇报现状后结束。 */
+        /** は同意しません。エージェントは今後この操作を試行せず、現状を報告した後に終了します。 */
         fun decline(context: Context, key: Int, runKey: String? = null) = confirm(context, ACTION_DECLINE, key, runKey)
 
         private fun confirm(context: Context, action: String, key: Int, runKey: String?) {
@@ -948,13 +948,13 @@ class TaskService : Service() {
             )
         }
 
-        /** 该任务此刻的状态;任务已不在时为 Idle(动作作废)。[runKey] 为空时是显示中的任务。 */
+        /** 現時点でのタスクのステータス。タスクが使用できなくなった場合、タスクはアイドル状態になります (アクションは無効です)。 [runKey] が空の場合、表示されているタスクです。 */
         private fun stateFor(context: Context, runKey: String?): TaskState {
             val state = (context.applicationContext as com.wangzan101.mika.MikaApp).taskState
             return if (runKey == null) state.state.value else state.runs.value.firstOrNull { it.key == runKey }?.state?.value ?: TaskState.Idle
         }
 
-        /** [runKey] 为空时作用于显示中的任务,否则只作用于该任务。 */
+        /** [runKey] が空の場合は、表示されているタスクに作用します。それ以外の場合は、そのタスクにのみ作用します。 */
         private fun send(context: Context, action: String, waitKey: Int? = null, runKey: String? = null) {
             if (!stateFor(context, runKey).isActive()) return
             context.startService(
@@ -970,7 +970,7 @@ class TaskService : Service() {
             else -> true
         }
 
-        /** 通知的标题和正文;[appLabel] 把包名换成 App 名。 */
+        /** 通知のタイトルとテキスト。 [appLabel] パッケージ名をアプリ名に置き換えます。 */
         internal fun describe(state: TaskState, appLabel: (String) -> String = { it }): Pair<String, String> = when (state) {
             TaskState.Idle -> "Mika" to ""
             is TaskState.Running -> tr(R.string.task_running) to (state.progress?.let(StatusCopy::progress) ?: when {

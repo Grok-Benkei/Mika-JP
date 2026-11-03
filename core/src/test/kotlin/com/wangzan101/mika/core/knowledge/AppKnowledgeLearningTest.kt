@@ -17,12 +17,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppKnowledgeLearningTest {
-    private val store = KnowledgeStore(KnowledgeStore.loadBundled())
+    private val store = KnowledgeStore(com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.entries())
     private val app = store.byPackage("com.taobao.idlefish")!!
     private val facts = "- 首页顶部的搜索框进入搜索页,结果分商品和用户两个标签。\n- 「我的」页里的「我发布的」列出自己挂出的商品。"
     private val unreviewed = TaskState.Succeeded("已查看", verified = false, reviewed = false)
 
-    /** [results] 每一步的结果;默认都生效。 */
+    /** [results] 各ステップの結果。デフォルトが有効です。 */
     private fun events(vararg results: String = Array(5) { """{"ok":true}""" }, extra: List<RunEvent> = emptyList()): List<RunEvent> {
         val out = mutableListOf<RunEvent>()
         val names = listOf("phone_launch_app", "phone_tap", "phone_tap", "phone_scroll", "phone_tap", "phone_back", "phone_back")
@@ -48,12 +48,12 @@ class AppKnowledgeLearningTest {
         val d = draft(m, events())!!
         assertEquals(AppKnowledgeStage.Draft, d.stage)
         assertEquals("xianyu", d.appName)
-        assertEquals("闲鱼", d.display)
+        assertEquals("Xianyu", d.display)
         assertEquals(facts, d.markdown)
         assertFalse(d.lesson)
         assertNull(d.revises)
         val req = request(m)
-        assertTrue(req, req.contains("聊一聊")) // 内置说明的正文
+        assertTrue(req, req.contains("中古品売買サービス")) // 内蔵説明の本文を含む
         assertTrue(req, req.contains("phone_tap"))
     }
 
@@ -74,7 +74,7 @@ class AppKnowledgeLearningTest {
         val d = draft(m, events(), current = current)!!
         assertEquals("d0", d.revises)
         assertTrue(request(m).contains("旧的一条"))
-        // 改完和原来一样:不算修订
+        // は変更後も前と同じです。リビジョンとはみなされません。
         assertNull(draft(model("- 旧的一条。"), events(), current = current))
     }
 
@@ -91,7 +91,7 @@ class AppKnowledgeLearningTest {
         val m = model(facts)
         assertNull(draft(m, events(), current = verified))
         assertTrue(m.requests.isEmpty())
-        // 磕绊的照样请
+        // つまずいている場合は、それでもいてください
         val bad = """{"ok":false,"error":"obscured"}"""
         assertTrue(draft(model(facts), events("""{"ok":true}""", bad, bad), current = verified) != null)
     }
@@ -115,17 +115,17 @@ class AppKnowledgeLearningTest {
     @Test fun failedAndBumpyRunsLearnLessons() {
         val bad = """{"ok":false,"error":"obscured"}"""
         val ok = """{"ok":true}"""
-        // 没办成:放弃或步数用完的,动过几步就学
+        // は失敗しました: 諦めるか手順が尽きました。数手順後に学習してください
         val gaveUp = model(facts)
         val lesson = draft(gaveUp, events(ok, bad, ok), TaskState.Failed("找不到「我发布的」入口", FailKind.GaveUp), RunOutcome.Unknown)!!
         assertTrue(lesson.lesson)
         val req = request(gaveUp)
-        assertTrue(req, req.contains("没办成") && req.contains("obscured"))
+        assertTrue(req, req.contains("結果: not_done") && req.contains("obscured"))
         assertTrue(draft(model(facts), events(ok, ok, ok), TaskState.Succeeded("只看了一部分", verified = false, reviewed = false), RunOutcome.Partial)!!.lesson)
-        // 办成了但磕绊:动作不够数也学
+        // 達成しましたが、習得すべき動きが足りず行き詰まってしまいました。
         val bumpy = draft(model(facts), events(ok, bad, bad))!!
         assertTrue(bumpy.lesson)
-        assertTrue(draft(model(facts), events(ok, ok, ok, ok, ok, ok, ok), unreviewed)!!.lesson) // 返回了两次
+        assertTrue(draft(model(facts), events(ok, ok, ok, ok, ok, ok, ok), unreviewed)!!.lesson) // が 2 回返されました
     }
 
     @Test fun runsThatTeachNothingAboutTheAppAskNoModel() {
@@ -133,10 +133,10 @@ class AppKnowledgeLearningTest {
         val cases = listOf(
             Triple(events(), TaskState.Cancelled as TaskState, RunOutcome.Unknown),
             Triple(events(), unreviewed, RunOutcome.Unknown),
-            Triple(events(), TaskState.Succeeded("ok", verified = false, note = "x"), RunOutcome.Done), // 核查跑过没通过
+            Triple(events(), TaskState.Succeeded("ok", verified = false, note = "x"), RunOutcome.Done), // は検証に合格できませんでした
             Triple(events(), TaskState.Failed("模型出错", FailKind.Model), RunOutcome.Unknown),
-            Triple(events(ok, ok, ok), unreviewed, RunOutcome.Done), // 顺利办成、动作太少
-            Triple(events(ok, ok), TaskState.Failed("x", FailKind.GaveUp), RunOutcome.Unknown), // 一两步就停下
+            Triple(events(ok, ok, ok), unreviewed, RunOutcome.Done), // 正常に完了しましたが、アクションが少なすぎます
+            Triple(events(ok, ok), TaskState.Failed("x", FailKind.GaveUp), RunOutcome.Unknown), // 1 つまたは 2 つのステップ後に停止します
             Triple(events(extra = listOf(RunEvent.Takeover(50, "login", "skipped", 10, 0))), unreviewed, RunOutcome.Done),
             Triple(events(extra = listOf(RunEvent.Takeover(50, "payment", "user_finished", 10, 4))), unreviewed, RunOutcome.Done),
             Triple(events(extra = listOf(RunEvent.Replay(50, "r", 1, 3, true, ""))), unreviewed, RunOutcome.Done),

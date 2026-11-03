@@ -8,7 +8,7 @@ class WebLoginPlanTest {
     fun domainsGoUpToTheRegistrableLevel() {
         assertEquals(listOf("a.shop.example.com", "shop.example.com", "example.com"), WebLogin.domainsFor("a.shop.example.com"))
         assertEquals(listOf("example.com"), WebLogin.domainsFor("example.com"))
-        // 拿不准的后缀不往上走到公共后缀
+        // 不確実なサフィックスはパブリック サフィックスに登録されません
         assertEquals(listOf("shop.example.co.uk", "example.co.uk"), WebLogin.domainsFor("shop.example.co.uk"))
         assertEquals(listOf("localhost"), WebLogin.domainsFor("localhost"))
     }

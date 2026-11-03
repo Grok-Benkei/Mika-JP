@@ -19,7 +19,7 @@ import org.junit.Test
 import java.util.Base64
 import com.wangzan101.mika.core.assembly.toolDispatcher
 
-/** 一屏几个按钮;[names] 决定屏上的字,截图按次计数。 */
+/** には 1 つの画面に複数のボタンがあります。 [names] は画面上の単語を判別し、スクリーンショットを 1 つずつカウントします。 */
 private class FrameScreen(var names: List<String> = listOf("搜索")) : ScreenPort by FakeScreen() {
     var shots = 0
     var secure = false
@@ -50,10 +50,10 @@ class ToolDispatcherFrameTest {
         assertEquals(1, r.images.size)
         val id = r.content.s("screenshotId")
         assertEquals(listOf<Int?>(id.toInt()), r.imageIds)
-        // 附的帧登记进回看,旧图被裁掉后还能找回
+        // 添付されたフレームはレビュー用に登録されており、トリミング後に古い画像を取得できます。
         val back = d.execute(call("view_past_screens", """{"ids":[$id]}"""))
         assertEquals(1, back.images.size)
-        // 发给模型时按统一编码:JPEG,长边 1280
+        // モデルを送信するときは、統一エンコードを使用します: JPEG、長辺 1280
         val part = d.modelImage(r.images.single(), r.imageIds.single())
         assertEquals("image/jpeg", part.mime)
         assertEquals(1280, maxOf(part.width, part.height))
@@ -61,7 +61,7 @@ class ToolDispatcherFrameTest {
         assertEquals(part.width to part.height, JvmTestImageOps.size(Base64.getDecoder().decode(part.pngBase64)))
     }
 
-    // 动作后附的画面总是连同同一时刻、可操作的元素表:按里面的 ref/snapshotId 就能点
+    // アクションに添付された画像には、同時に操作可能な要素のリストが常に伴います。内部の ref/snapshotId をクリックします。
     @Test fun frameComesWithTheActionableElementList() = runTest {
         val s = FrameScreen()
         val d = toolDispatcher(s, visionEnabled = true)
@@ -72,7 +72,7 @@ class ToolDispatcherFrameTest {
         assertEquals("搜索", el.s("name"))
         val tap = d.execute(call("phone_tap", """{"ref":"${el.s("ref")}","snapshotId":"${screen.s("snapshotId")}"}"""))
         assertEquals(tap.content.toString(), "true", tap.content.s("ok"))
-        // 付款页画面和元素表都可用
+        // 支払いページ画面と要素テーブルが利用可能
         val pay = FrameScreen(listOf("确认支付", "¥89.00"))
         val pr = toolDispatcher(pay, visionEnabled = true).execute(call("phone_back"))
         assertEquals(1, pr.images.size); assertTrue(pay.shots > 0)
@@ -85,14 +85,14 @@ class ToolDispatcherFrameTest {
         for (sid in listOf("\"$shot\"", shot)) {
             val r = d.execute(call("phone_tap", """{"ref":"@e1","snapshotId":$sid}""")).content
             assertEquals("ref_expired", r.s("error"))
-            assertTrue(r.s("message"), "is a screenshotId" in r.s("message") && "screen field" in r.s("message"))
+            assertTrue(r.s("message"), "screenshotId（view_past_screens 用の画像番号）であり、snapshotId ではない" in r.s("message") && "screen フィールド" in r.s("message"))
         }
     }
 
     @Test fun unknownArgumentSaysWhatIsAllowed() = runTest {
         val r = toolDispatcher(FrameScreen()).execute(call("phone_tap", """{"text":"搜索"}""")).content
         assertEquals("invalid_arguments", r.s("error"))
-        assertTrue(r.s("message"), "allowed: ref, snapshotId, x, y" in r.s("message") && "ref and snapshotId from the elements" in r.s("message"))
+        assertTrue(r.s("message"), "許可されるもの: ref, snapshotId, x, y" in r.s("message") && "要素の ref と snapshotId を使う" in r.s("message"))
     }
 
     @Test fun everyScreenChangingToolAttaches() = runTest {
@@ -101,7 +101,7 @@ class ToolDispatcherFrameTest {
         for ((name, args) in listOf("phone_back" to "{}", "phone_launch_app" to """{"package":"com.x"}""", "phone_swipe" to """{"startX":1,"startY":1,"endX":9,"endY":9}""")) {
             assertEquals(name, 1, d.execute(call(name, args)).images.size)
         }
-        // 只读的工具不附
+        // 読み取り専用ツールは付属しません
         assertTrue(d.execute(call("phone_list_apps")).images.isEmpty())
     }
 
@@ -125,7 +125,7 @@ class ToolDispatcherFrameTest {
         val d = toolDispatcher(pay, visionEnabled = true)
         val r = d.execute(call("phone_back"))
         assertEquals(1, r.images.size); assertTrue(pay.shots > 0); assertTrue(d.keepsRecallImages())
-        // 屏上还没有 App:没东西可截,不是错误
+        // 画面にはまだアプリがありません: キャプチャするものは何もありません。これはエラーではありません
         val empty = FrameScreen().apply { this.empty = true }
         assertTrue(toolDispatcher(empty, visionEnabled = true).execute(call("phone_back")).images.isEmpty())
     }
@@ -136,7 +136,7 @@ class ToolDispatcherFrameTest {
         d.execute(call("phone_observe"))
         val before = s.shots
         val r = d.execute(call("phone_back"))
-        // 带屏幕时用读屏那一张,不另截
+        // 画面を使用する場合は、画面を読み取るものを使用し、別のスクリーンショットを撮らないでください
         assertEquals(before + 1, s.shots)
         assertEquals(1, r.images.size)
         val screen = r.content["screen"] as JsonObject
@@ -148,12 +148,12 @@ class ToolDispatcherFrameTest {
         val d = toolDispatcher(s, visionEnabled = true, adaptiveVision = true, recordFrames = true, inlineScreen = true)
         val observed = d.execute(call("phone_observe"))
         assertTrue(observed.images.isEmpty())
-        assertEquals(1, s.shots) // 运行记录仍有画面，不等于发给模型
+        assertEquals(1, s.shots) // 走行記録には画面が残っていますが、モデルに送信されるわけではありません。
         val action = d.execute(call("phone_back"))
         assertTrue(action.images.isEmpty())
         assertTrue("snapshotId" in action.content["screen"]!!.jsonObject)
         assertEquals(2, s.shots)
-        assertEquals(1, d.execute(call("phone_screenshot")).images.size) // 模型发现歧义时仍可主动补图
+        assertEquals(1, d.execute(call("phone_screenshot")).images.size) // モデルは、あいまいさを見つけた場合でも画像を積極的に補足できます。
     }
 
     @Test fun adaptiveVisionEscalatesUnreadableControlsButExplicitElementReadStaysTextOnly() = runTest {

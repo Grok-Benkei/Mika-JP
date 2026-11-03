@@ -34,7 +34,7 @@ class ScreenDiagnosisTest {
         assertEquals("payment", ScreenDiagnosis.classify(facts(black = listOf(true, true), texts = listOf("确认支付"))).takeoverReason)
         assertEquals("captcha", ScreenDiagnosis.classify(facts(black = listOf(true, true), texts = listOf("安全验证"))).takeoverReason)
         assertEquals("login", ScreenDiagnosis.classify(facts(black = listOf(true, true), password = true)).takeoverReason)
-        // 没有窗口时的黑屏只是空白
+        // ウィンドウがないときの黒い画面はただ空白です
         assertEquals(ScreenState.BLANK, ScreenDiagnosis.classify(facts(hasWindow = false, readable = 0, black = listOf(true, true))).state)
     }
 
@@ -59,7 +59,7 @@ class ScreenDiagnosisTest {
         assertEquals("login", ScreenDiagnosis.classify(facts(password = true)).takeoverReason)
         assertEquals("login", ScreenDiagnosis.classify(facts(texts = listOf("手机号", "获取验证码"))).takeoverReason)
         assertTrue(ScreenDiagnosis.classify(facts(texts = listOf("Verify you are human"))).needsHuman)
-        // 普通设置页里的「密码」字样不算
+        // 通常設定ページの「パスワード」という単語はカウントされません。
         assertFalse(ScreenDiagnosis.classify(facts(texts = listOf("密码与安全", "隐私"))).needsHuman)
     }
 }

@@ -14,7 +14,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 有的系统默认把虚拟屏上的 App 开成小窗:Mika 的屏要是全屏模式;同时检查无障碍读到的实际窗口范围,不只检查屏的分辨率。 */
+/** 一部のシステムでは、デフォルトで仮想画面上のアプリが小さなウィンドウで開きます。Mika の画面は全画面モードである必要があります。同時に、画面の解像度だけでなく、アクセス可能な読み取りのための実際のウィンドウ範囲を確認してください。 */
 @RunWith(AndroidJUnit4::class)
 class VirtualDisplayWindowingDeviceTest {
     @Test
@@ -31,7 +31,7 @@ class VirtualDisplayWindowingDeviceTest {
         try {
             assertEquals(0, shell.startSystemAction(display.displayId, SelfCheckTargetActivity.intent(context), null))
             var lastBounds: Rect? = null
-            // 等启动动画结束,不能把从小窗展开过程中的第一帧当成最终窗口大小。
+            // 起動アニメーション終了時、小ウィンドウを拡大する途中の最初のフレームを最終的なウィンドウサイズとみなすことができません。
             val bounds = DeviceSupport.pollUntil(5_000) {
                 a11y.windowsOn(display.displayId).firstOrNull { it.root?.packageName == context.packageName }
                     ?.let { Rect().apply { it.getBoundsInScreen(this) } }

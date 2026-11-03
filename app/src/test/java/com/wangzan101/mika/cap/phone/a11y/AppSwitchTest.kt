@@ -7,7 +7,7 @@ import org.junit.Test
 
 class AppSwitchTest {
     private val pickers = setOf("com.android.permissioncontroller", "com.android.intentresolver", "com.android.documentsui")
-    // 只有系统设置提供的页面在目标任务里算任务的一部分;预装的浏览器、应用商店不算
+    // システム設定によって提供されるページのみがターゲット タスクの一部です。プリインストールされたブラウザとアプリケーション ストアはカウントされません。
     private val settings = setOf("com.android.settings")
     private fun check(current: String?, sameTask: Boolean, target: String? = "com.clock"): AppSwitch.Switch? {
         var asked = false
@@ -17,7 +17,7 @@ class AppSwitchTest {
     }
 
     @Test fun systemPageOpenedByTheTargetInItsOwnTaskIsPartOfTheTask() {
-        // 时钟「添加城市」打开的是系统设置提供的选择页,但在时钟自己的任务里
+        // 時計の「都市の追加」は、システム設定によって提供される選択ページを開きますが、時計自体のタスク内にあります
         assertNull(check("com.android.settings", sameTask = true))
     }
 
@@ -35,7 +35,7 @@ class AppSwitchTest {
 
     @Test fun anotherAppInAnotherTaskIsASwitch() {
         assertEquals(AppSwitch.Switch("com.ads", byTarget = false), check("com.ads", sameTask = false))
-        // 系统 App 但不在目标的任务里:照样算被切走
+        // システム アプリですが、ターゲットのタスクに含まれていません: 依然として削除されたものとしてカウントされます
         assertEquals(AppSwitch.Switch("com.android.settings", byTarget = false), check("com.android.settings", sameTask = false))
     }
 
@@ -46,10 +46,10 @@ class AppSwitchTest {
     }
 
     @Test fun theOtherCopyOfTheTargetAppInFrontIsASwitch() {
-        // 同一个 App 装了两份:最上面换成了不是目标的那一份
+        // 同じアプリが 2 回インストールされます。一番上のアプリがターゲットではないアプリに置き換えられます
         assertEquals(AppSwitch.Switch("com.clock", byTarget = false),
             AppSwitch.switchedTo("com.clock", "com.clock", { true }, pickers, { false }, otherCopy = { true }))
-        // 还是目标那一份,或只装了一份(不问另一份):照旧不算
+        // それはまだターゲット コピーであるか、1 つのコピーだけがインストールされています (他のコピーについては尋ねません): まだカウントされません
         assertNull(AppSwitch.switchedTo("com.clock", "com.clock", { true }, pickers, { false }, otherCopy = { false }))
         assertNull(AppSwitch.switchedTo("com.clock", "com.clock", { true }, pickers, { false }))
     }

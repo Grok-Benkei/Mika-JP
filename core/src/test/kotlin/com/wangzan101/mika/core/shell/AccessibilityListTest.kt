@@ -30,7 +30,7 @@ class AccessibilityListTest {
     @Test
     fun alreadyPresentIsNotDuplicated() {
         assertEquals("$other:$mika", AccessibilityList.with("$other:$mika", mika))
-        // 系统里存的是完整类名写法,也算已经有了
+        // 完全なクラス名の書き込みメソッドはシステムに保存されており、すでに利用可能であると考えられます。
         assertEquals("$mikaLong:$other", AccessibilityList.with("$mikaLong:$other", mika))
         assertTrue(AccessibilityList.contains(mikaLong, mika))
     }

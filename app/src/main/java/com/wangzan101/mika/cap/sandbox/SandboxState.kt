@@ -24,11 +24,11 @@ import java.nio.file.StandardCopyOption
 enum class InstallStep { Check, Extract, Configure, Skills, Done }
 
 /**
- * 沙箱状态。安装进度记在 `files/sandbox/state.json`(重置时随整个目录删掉);
- * 联网开关是用户设置,记在 `files/sandbox-settings.json`,重置后保留。
+ * サンドボックスのステータス。インストールの進行状況は `files/sandbox/state.json` に記録されます (リセット中にディレクトリ全体が削除されます)。
+ * ネットワーク スイッチはユーザー設定であり、`files/sandbox-settings.json` に記録され、リセット後も保持されます。
  *
- * 只有记录里「完成到 Done」且根文件系统里有 /bin/sh 才算就绪;装到一半(包括进程在安装中被杀)一律是 Broken,
- * 下次从记录的那一步之后继续。
+ * は、レコードに「Complete to Done」があり、ルート ファイル システムに /bin/sh がある場合にのみ準備完了とみなされます。インストールの途中 (インストール中に強制終了されるプロセスを含む) は常に壊れています。
+ * 次回は記録されたステップから続行します。
  */
 class SandboxState internal constructor(
     private val dirs: SandboxDirs,
@@ -44,12 +44,12 @@ class SandboxState internal constructor(
     private val _status = MutableStateFlow(read())
     val status: StateFlow<SandboxStatus> = _status.asStateFlow()
 
-    /** 「允许沙箱联网」,默认关。 */
+    /** 「サンドボックス ネットワークを許可する」はデフォルトではオフになっています。 */
     var networkAllowed: Boolean
         get() = settings()["networkAllowed"]?.jsonPrimitive?.booleanOrNull ?: false
         set(value) { putSetting("networkAllowed", JsonPrimitive(value)); refresh() }
 
-    /** 断网过滤器装不上时的原因(启动器自检得出);不挡安装,但断网时命令会被拒绝。 */
+    /** ネットワーク切断フィルターをインストールできない理由 (スターターセルフテストから取得)。インストールはブロックされませんが、ネットワークが切断されるとコマンドは拒否されます。 */
     val isolationIssue: String? get() = record()["isolationIssue"]?.jsonPrimitive?.contentOrNull
 
     val installedVersion: String? get() = record()["version"]?.jsonPrimitive?.contentOrNull
@@ -58,7 +58,7 @@ class SandboxState internal constructor(
     fun completedStep(): InstallStep? =
         record()["completedStep"]?.jsonPrimitive?.contentOrNull?.let { n -> InstallStep.entries.firstOrNull { it.name == n } }
 
-    /** 记下「完成到 [s]」并清掉上次的失败原因;Done 时写版本与完成时间。 */
+    /** 「[s] まで完了」を書き留め、最後の失敗理由をクリアします。完了したら、バージョンと完了時間を書き込みます。 */
     @Synchronized
     fun markStep(s: InstallStep) = markStep(s, null)
 
@@ -96,14 +96,14 @@ class SandboxState internal constructor(
         writeJson(recordFile, JsonObject(r))
     }
 
-    /** 重置开始:先删安装记录、显示「重置」,删到一半被杀也不会再显示就绪。 */
+    /** リセットが開始されます。まずインストール レコードを削除し、「リセット」を表示します。途中で削除すると準備完了と表示されなくなります。 */
     @Synchronized
     internal fun resetting() {
         Files.deleteIfExists(recordFile.toPath())
         installing(tr(R.string.sandbox_resetting), 0)
     }
 
-    /** 安装或重置结束(不论成败):撤掉进行中的状态,按记录重新算。 */
+    /** インストールまたはリセットが完了しました (成功または失敗に関係なく): 進行中のステータスをキャンセルし、記録に従って再計算します。 */
     @Synchronized
     internal fun cleared() {
         installing = null
@@ -119,7 +119,7 @@ class SandboxState internal constructor(
         val r = record()
         val step = r["completedStep"]?.jsonPrimitive?.contentOrNull
         val broken = r["broken"]?.jsonPrimitive?.contentOrNull
-        // Alpine 的 /bin/sh 是指向 /bin/busybox 的绝对链接,在宿主上解析不到:只看链接本身
+        // Alpine の /bin/sh は /bin/busybox への絶対リンクであり、ホスト上では解析できません。リンク自体を見てください。
         val hasShell = Files.exists(File(dirs.rootfs, "bin/sh").toPath(), LinkOption.NOFOLLOW_LINKS)
         return when {
             step == InstallStep.Done.name && hasShell -> SandboxStatus.Ready(network = networkAllowed)
@@ -137,17 +137,17 @@ class SandboxState internal constructor(
     private fun putSetting(key: String, value: JsonPrimitive) = writeJson(settingsFile, JsonObject(settings() + (key to value)))
 
     companion object {
-        /** 进程里那一份(App 给出):安装服务更新的状态,设置页与 Agent 看到的是同一份。 */
+        /** プロセス内のコピー (アプリによって提供される): インストール サービスの更新のステータス。設定ページとエージェントには同じコピーが表示されます。 */
         fun get(context: Context): SandboxState = SandboxOwner.of(context).sandboxState
 
         private fun readJson(f: File): Map<String, JsonElement> =
             runCatching { Json.parseToJsonElement(f.readText()).jsonObject }.getOrNull() ?: emptyMap()
 
-        /** 先写临时文件再改名,写到一半被杀不会留下坏文件。 */
+        /** 最初に一時ファイルを書き込んでから、名前を変更します。書き込みの途中で強制終了しても、不良ファイルは残りません。 */
         private fun writeJson(f: File, o: JsonObject) {
             f.parentFile?.mkdirs()
             val tmp = File(f.path + ".tmp")
-            // 落盘后再改名:断电或被杀时要么是旧记录、要么是新记录
+            // は、ディスクに配置された後に名前が変更されます。電源が切断されるか切断されると、古いレコードまたは新しいレコードになります。
             java.io.FileOutputStream(tmp).use { out -> out.write(o.toString().toByteArray()); out.fd.sync() }
             Files.move(tmp.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
         }

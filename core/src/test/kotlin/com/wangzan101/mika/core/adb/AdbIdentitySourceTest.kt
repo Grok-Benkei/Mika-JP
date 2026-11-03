@@ -32,13 +32,13 @@ class AdbIdentitySourceTest {
 
     private val crt = TestTls.client.keyPair.private as RSAPrivateCrtKey
 
-    /** 同一把钥匙,但平台给出的是不带 CRT 参数的 RSA 私钥(编码里公开指数写 0)。 */
+    /** は同じキーですが、プラットフォームは CRT パラメーターなしで RSA 秘密キーを提供します (エンコーディングの公開指数は 0 として書き込まれます)。 */
     private fun nonCrt(key: RSAPrivateCrtKey = crt): RSAPrivateKey =
         KeyFactory.getInstance("RSA").generatePrivate(RSAPrivateKeySpec(key.modulus, key.privateExponent)) as RSAPrivateKey
 
     @Test
     fun generatedKeyRoundTripsToTheIdenticalPublicKey() {
-        // 升级前存下的就是 generate() 出来的私钥编码:读回来要是同一把公钥,已配对的不用重配
+        // アップグレード前に保存されるのは、生成された秘密鍵コードです (): 同じ公開鍵で読み戻される場合、ペアになっていれば再構成する必要はありません。
         repeat(3) {
             val id = AdbIdentity.generate("mika@x")
             val back = AdbIdentity.fromPkcs8(id.keyPair.private.encoded, "mika@x")
@@ -61,10 +61,10 @@ class AdbIdentitySourceTest {
     @Test
     fun publicExponentComesFromTheEncodingWhenTheKeyObjectLacksIt() {
         assertEquals(BigInteger.valueOf(65537), Pkcs8Rsa.publicExponent(crt.encoded))
-        // 不带 CRT 的编码里指数是 0:当作不知道
+        // CRT のないコード内のインデックスは 0 です: 不明として扱われます
         assertEquals(BigInteger.ZERO, Pkcs8Rsa.publicExponent(nonCrt().encoded))
         assertNull(Pkcs8Rsa.publicExponent(byteArrayOf(0x30, 0x05, 1)))
-        // 平台给的私钥不带 CRT,编码里却有指数:用编码里的
+        // プラットフォームによって提供される秘密キーには CRT が含まれていませんが、エンコードに指数があります。エンコード内の指数を使用してください。
         assertEquals(BigInteger.valueOf(65537), AdbIdentity.publicExponent(nonCrt(), crt.encoded))
     }
 
@@ -74,7 +74,7 @@ class AdbIdentitySourceTest {
         val odd = g.generateKeyPair().private as RSAPrivateCrtKey
         val stripped = nonCrt(odd)
         assertThrows(AdbKeyUnreadableException::class.java) { AdbIdentity.fromPkcs8(stripped.encoded, "mika@x") }
-        // 编码里带着指数的照常读
+        // コードは通常どおり読み取られます。
         assertEquals(BigInteger.valueOf(65539), AdbIdentity.fromPkcs8(odd.encoded, "mika@x").publicKey.publicExponent)
     }
 
@@ -112,7 +112,7 @@ class AdbIdentitySourceTest {
         assertArrayEquals(garbage, store.bytes)
         assertEquals(0, store.writes)
 
-        // 解不开(包装密钥没了)也一样
+        // のロックが解除できない（パッケージキーがなくなっている）、同じこと
         val locked = MemKeyStore(TestTls.client.keyPair.private.encoded).apply { unreadable = true }
         assertThrows(AdbKeyUnreadableException::class.java) { AdbIdentitySource(locked, { "mika@x" }).forConnect() }
         assertEquals(0, locked.writes)
@@ -143,7 +143,7 @@ class AdbIdentitySourceTest {
         val store = MemKeyStore()
         val src = AdbIdentitySource(store, { "mika@x" })
         val forPair = src.forPairing()
-        // 存下的东西之后坏了:这个进程里仍用配对时那一把
+        // 保存したものは後で壊れました。ペアリングに使用したものはこのプロセスでも引き続き使用されます。
         store.unreadable = true
         assertSame(forPair, src.forConnect())
         assertSame(forPair, src.forPairing())

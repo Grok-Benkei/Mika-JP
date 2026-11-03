@@ -8,28 +8,28 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.CoroutineContext
 
-/** 删掉一个对话会连带什么:有没有在跑或排队的任务(会被停掉),绑在它上面的定时任务有几条(一起删)。 */
+/** 会話を削除するとどうなりますか: 実行中のタスクまたはキューに入れられたタスク (停止されます) はありますか、それに関連付けられているスケジュールされたタスクの数 (一緒に削除されます)。 */
 data class DeleteImpact(val runningTask: Boolean, val schedules: Int)
 
 /**
- * 删掉一个对话:先删绑在它上面的定时任务(不让它们再开始新任务),再停掉它在跑、排队的任务并等它收尾
- * (收尾时存进的那一轮也在删的范围里),然后删它的工作区(附件、用户发来的屏幕、任务写的文件)和对话记录。
- * 运行记录(运行统计用)是全局的,不删。
+ * 会話を削除します。まず、会話に関連付けられているスケジュールされたタスクを削除し (新しいタスクが開始されないようにする)、次に実行中のタスクとキューに入れられたタスクを停止して、会話が終了するのを待ちます。
+ * (最後に保存されたラウンドも削除の範囲内) を削除し、そのワークスペース (添付ファイル、ユーザーによって送信された画面、タスクによって書き込まれたファイル) と会話記録を削除します。
+ * 実行レコード (実行統計用) はグローバルであり、削除されません。
  */
 class ConversationDeleter(
     private val store: ConversationStore,
-    /** 有任务在跑或排队的对话。 */
+    /** 実行中またはキューに入れられたタスクとのダイアログ。 */
     private val active: StateFlow<List<String>>,
-    /** 停掉这个对话所有在跑、排队的任务。 */
+    /** この会話の実行中のタスクとキューに入れられたタスクをすべて停止します。 */
     private val cancelTasks: (conversationId: String) -> Unit,
-    /** 绑在这个对话上的定时任务的编号。 */
+    /** この会話に関連付けられたスケジュールされたタスクの番号。 */
     private val schedulesOf: (conversationId: String) -> List<String>,
     private val removeSchedule: (id: String) -> Unit,
-    /** 删掉这个对话的工作区。 */
+    /** この会話のワークスペースを削除します。 */
     private val deleteWorkspace: suspend (conversationId: String) -> Unit,
-    /** 停任务后最多等它收尾这么久;过了照删。 */
+    /** タスクを停止した後、タスクが完了するまで最大でこのくらいの時間待つことができます。その後削除してください。 */
     private val stopWaitMs: Long = 15_000,
-    /** 读写定时任务和对话记录在哪儿做。 */
+    /** スケジュールされたタスクと会話の記録を読み書きする場所。 */
     private val io: CoroutineContext = Dispatchers.IO,
     private val forgetRemoteTasks: (String) -> Unit = {},
 ) {
@@ -44,7 +44,7 @@ class ConversationDeleter(
             cancelTasks(conversationId)
             withTimeoutOrNull(stopWaitMs) { active.first { conversationId !in it } }
         }
-        // 工作区删不掉(运行环境不支持等)也照样删对话记录
+        // ワークスペースを削除できない場合（動作環境がサポートしていない場合など）、会話レコードは削除されます。
         try { deleteWorkspace(conversationId) } catch (e: CancellationException) { throw e } catch (e: Exception) { }
         withContext(io) {
             forgetRemoteTasks(conversationId)

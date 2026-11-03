@@ -51,7 +51,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-/** 展示现有连接状态,不把启用开关或监听端口当作电脑已连接。刷新仍只在本页,沿用两秒间隔。 */
+/** は既存の接続ステータスを表示し、イネーブル スイッチやリスニング ポートをコンピュータが接続されているかのように扱いません。更新は引き続きこのページのみで、2 秒間隔で行われます。 */
 @Composable
 fun McpScreen(runtime: McpRuntime, onBack: () -> Unit) {
     val context = LocalContext.current
@@ -92,7 +92,7 @@ fun McpScreen(runtime: McpRuntime, onBack: () -> Unit) {
     )
 }
 
-/** 一份只读页面快照。引导选择和折叠状态不写入连接设置。 */
+/** 読み取り専用ページのスナップショット。ブート選択と折りたたまれた状態は接続設定に書き込まれません。 */
 internal data class ComputerAccessUi(
     val server: McpServerState,
     val networkEnabled: Boolean,
@@ -263,7 +263,7 @@ private fun NetworkGuide(ui: ComputerAccessUi, mcp: Boolean, onNetworkEnabled: (
                 kind = ButtonKind.Text, size = ButtonSize.Small)
         }
         if (preview) {
-            // 预览只用占位符;真实令牌只在用户点击复制时进入剪贴板。
+            // プレビューはプレースホルダーのみを使用します。実際のトークンは、ユーザーが「コピー」をクリックしたときにのみクリップボードに移動します。
             val config = McpRuntime.clientConfig(address?.let { McpRuntime.url(it, ui.port) } ?: "<address>", "<token>")
             CommandText(config, Modifier.testTag("computer-config-preview"))
         }

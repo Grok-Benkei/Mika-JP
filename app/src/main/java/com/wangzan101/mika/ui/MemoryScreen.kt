@@ -49,11 +49,11 @@ import com.wangzan101.mika.ui.theme.MikaType
 
 private val SEGMENT_TAGS = Segment.entries.map { "segment-${it.name}" }
 
-/** 记忆按类别分组的顺序和小标题。 */
+/** は、カテゴリごとにグループ化された順序と字幕を記憶します。 */
 private val KIND_GROUPS get() = listOf(MemoryKind.fact to tr(R.string.memory_about_you), MemoryKind.preference to tr(R.string.memory_preferences), MemoryKind.procedure to tr(R.string.memory_procedures))
 private val KIND_NAMES get() = listOf(tr(R.string.memory_fact), tr(R.string.memory_preferences), tr(R.string.memory_procedures))
 
-/** 设置 →「记忆与技能」:看得见、改得了、删得掉。分三段:记忆、技能(内容在 [SkillsSection])、待确认。 */
+/** 設定→「メモリーとスキル」：閲覧・変更・削除が可能です。記憶、スキル（[SkillsSection]の内容）、確認の3つのセクションに分かれています。 */
 @Composable
 fun MemoryScreen(vm: MemoryViewModel, onBack: () -> Unit) {
     BackHandler(onBack = onBack)

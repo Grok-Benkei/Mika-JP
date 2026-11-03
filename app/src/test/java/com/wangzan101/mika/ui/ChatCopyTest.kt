@@ -20,7 +20,7 @@ class ChatCopyTest {
         assertEquals(6, ChatCopy.examples.map { it.text }.filter { it.isNotBlank() }.toSet().size)
     }
 
-    /** 分支标题:源标题后面加后缀,总长不超过 24 字;截的是源标题,后缀留着,emoji 不截半个。 */
+    /** ブランチ タイトル: ソース タイトルの後に接尾辞を追加します。合計の長さは 24 ワードを超えてはなりません。ソースのタイトルは切り取られ、サフィックスは保持され、絵文字は半分に切り取られません。 */
     @Test fun branchTitleKeepsTheSuffixWhenTruncating() {
         val suffix = " · 分支"
         val long = "一二三四五六七八九十一二三四五六七八九十一二三四五"
@@ -37,11 +37,11 @@ class ChatCopyTest {
         val first = Exchange("查车次\n附件:/workspace/inbox/a.pdf(1 KB)", emptyList(), ExchangeStatus.Working, live = true)
         assertEquals("查车次", ChatCopy.title(listOf(first, first.copy(goal = "再查"))))
         assertEquals("", ChatCopy.title(emptyList()))
-        // 只发了附件:不拿路径当标题
-        assertEquals("照片", ChatCopy.title(listOf(first.copy(goal = "附件:/workspace/inbox/a.jpg(1 KB)"))))
+        // は添付ファイルのみを送信しました: タイトルとしてパスがありません
+        assertEquals("写真", ChatCopy.title(listOf(first.copy(goal = "附件:/workspace/inbox/a.jpg(1 KB)"))))
         assertEquals("a.pdf", ChatCopy.plainTitle("附件:/workspace/inbox/a.pdf(1 KB)"))
         assertEquals(ScreenCopy.TAG, ChatCopy.plainTitle("[[screen:s1]]"))
-        // 在浏览器页上对着一页问的:页面说明不当标题
+        // ブラウザ ページ上のページについての質問: ページの説明に不適切なタイトルが付いています。
         val paged = com.wangzan101.mika.core.cap.web.AttachedPage.compose(com.wangzan101.mika.core.cap.web.AttachedPage.Page("https://a.example/", "页"), "挑一个\n第二行")
         assertEquals("挑一个", ChatCopy.plainTitle(paged))
     }
@@ -70,7 +70,7 @@ class ChatCopyTest {
         assertEquals("", s.recent.single().subtitle)
     }
 
-    /** 置顶的对话在「置顶」一段,最近置顶的在前,不在「最近」里重复;有任务在跑的只列在进行中(带图钉)。 */
+    /** 固定された会話は「トップ」セクションにあり、最近固定された会話が最初に表示され、「最近」には繰り返されません。タスクが実行中のものは、進行中としてのみリストされます (プッシュピン付き)。 */
     @Test fun drawerListsPinnedAboveRecent() {
         val all = listOf(
             ConversationSummary("a", "一", 40L),
@@ -86,13 +86,13 @@ class ChatCopyTest {
         assertTrue(s.pinned.all { it.pinned })
         assertEquals(listOf("a", "c"), s.recent.map { it.id })
         assertTrue(s.recent.none { it.pinned })
-        // 取消置顶:回到「最近」里按改动时间排的位置
+        // 固定解除：変更時刻ごとに並べられた「最近」の位置に戻ります
         val unpinned = drawerSections(all.map { if (it.id == "b") it.copy(pinnedAt = null) else it }, CurrentConversation("a", false, "一", ""), emptyList(), { null }, true, 0L, zone)
         assertEquals(listOf("e", "d"), unpinned.pinned.map { it.id })
         assertEquals(listOf("a", "b", "c"), unpinned.recent.map { it.id })
     }
 
-    /** 在浏览器页上对着一页开始的对话:侧栏那一条带着网站(画成「网页」小标签和网站名),进行中、最近两段都是。 */
+    /** 会話は、1 つのページに面したブラウザ ページで始まりました。サイドバーのページには、進行中の段落と最新の段落の両方の Web サイト (「Web ページ」という小さなラベルと Web サイトの名前として描画されます) が表示されます。 */
     @Test fun drawerMarksConversationsStartedFromAPage() {
         val page = com.wangzan101.mika.chat.PageOrigin("https://shop.example.com/s?k=1", "shop.example.com", "搜索")
         val all = listOf(ConversationSummary("a", "一", 0L, page = page), ConversationSummary("b", "二", 0L), ConversationSummary("c", "三", 0L, page = page))
@@ -101,7 +101,7 @@ class ChatCopyTest {
         assertEquals("shop.example.com", s.running.single().site)
     }
 
-    /** 分支出来的对话在侧栏带分支标记;普通对话不带。 */
+    /** 分岐した会話にはサイドバーに分岐マークが表示されます。通常の会話ではそうではありません。 */
     @Test fun drawerMarksBranchedConversations() {
         val origin = BranchOrigin("parent", 1, afterTurn = true, at = 5L)
         val all = listOf(ConversationSummary("a", "一", 0L, branchOf = origin), ConversationSummary("b", "二", 0L))
@@ -109,25 +109,25 @@ class ChatCopyTest {
         assertEquals(listOf(true, false), s.recent.map { it.branch })
     }
 
-    /** 任务进行中、没开并行:只有当前对话能点。 */
+    /** タスクは進行中ですが、並列処理が有効になっていません。クリックできるのは現在のダイアログのみです。 */
     @Test fun drawerLocksOtherConversationsWhileBusy() {
         val all = listOf(ConversationSummary("a", "一", 0L), ConversationSummary("b", "二", 0L))
         val s = drawerSections(all, CurrentConversation("a", false, "一", ""), emptyList(), { null }, canSwitch = false, now = 0L, zone = zone)
         assertEquals(listOf(true, false), s.recent.map { it.enabled })
         assertEquals(listOf(true, false), s.recent.map { it.current })
-        // 当前对话还没存进列表时(刚发出第一句)也列在进行中
+        // 現在の会話がリストに保存されていない場合 (最初の文が送信されたばかりの場合)、進行中としてもリストされます。
         val fresh = drawerSections(emptyList(), CurrentConversation(null, true, "", "正在处理"), emptyList(), { null }, false, 0L, zone)
-        assertEquals("新对话", fresh.running.single().title)
+        assertEquals("新しいチャット", fresh.running.single().title)
         assertTrue(fresh.running.single().enabled)
     }
 
     @Test fun greetingFollowsTheTimeOfDay() {
-        assertEquals("早上好", ChatCopy.greeting(7))
-        assertEquals("中午好", ChatCopy.greeting(12))
-        assertEquals("下午好", ChatCopy.greeting(15))
-        assertEquals("晚上好", ChatCopy.greeting(20))
-        assertEquals("夜深了", ChatCopy.greeting(2))
-        assertEquals("夜深了", ChatCopy.greeting(23))
+        assertEquals("おはようございます", ChatCopy.greeting(7))
+        assertEquals("こんにちは", ChatCopy.greeting(12))
+        assertEquals("こんにちは", ChatCopy.greeting(15))
+        assertEquals("こんばんは", ChatCopy.greeting(20))
+        assertEquals("夜更かしですね", ChatCopy.greeting(2))
+        assertEquals("夜更かしですね", ChatCopy.greeting(23))
     }
 
     @Test fun clockLabel() {
@@ -140,11 +140,11 @@ class ChatCopyTest {
 
     @Test fun subtitleSaysWhatIsGoingOn() {
         val working = Exchange("x", emptyList(), ExchangeStatus.Working, live = true)
-        assertEquals("正在处理" to ChatCopy.Tone.Accent, ChatCopy.subtitle(working, null))
-        assertEquals("正在操作设置" to ChatCopy.Tone.Accent, ChatCopy.subtitle(working, "设置"))
-        assertEquals("等你处理" to ChatCopy.Tone.Warn, ChatCopy.subtitle(working.copy(status = ExchangeStatus.NeedsInput("?", null)), null))
-        assertEquals("等你处理" to ChatCopy.Tone.Warn, ChatCopy.subtitle(working.copy(status = ExchangeStatus.Paused("why")), null))
-        assertEquals("等你解锁手机" to ChatCopy.Tone.Warn, ChatCopy.subtitle(working.copy(status = ExchangeStatus.WaitingUnlock), null))
+        assertEquals("作業中" to ChatCopy.Tone.Accent, ChatCopy.subtitle(working, null))
+        assertEquals("设置 で作業中" to ChatCopy.Tone.Accent, ChatCopy.subtitle(working, "设置"))
+        assertEquals("あなたの対応を待っています" to ChatCopy.Tone.Warn, ChatCopy.subtitle(working.copy(status = ExchangeStatus.NeedsInput("?", null)), null))
+        assertEquals("あなたの対応を待っています" to ChatCopy.Tone.Warn, ChatCopy.subtitle(working.copy(status = ExchangeStatus.Paused("why")), null))
+        assertEquals("ロック解除を待っています" to ChatCopy.Tone.Warn, ChatCopy.subtitle(working.copy(status = ExchangeStatus.WaitingUnlock), null))
         assertNull(ChatCopy.subtitle(working.copy(status = ExchangeStatus.Done("好", null)), "设置"))
         assertNull(ChatCopy.subtitle(null, null))
     }
@@ -152,16 +152,16 @@ class ChatCopyTest {
     @Test fun progressLineSaysPausedWhileWaitingForYou() {
         val ex = Exchange("x", emptyList(), ExchangeStatus.Working, live = true, line = "按评分排序")
         assertEquals("按评分排序", ChatCopy.progressLine(ex))
-        assertEquals("已暂停", ChatCopy.progressLine(ex.copy(status = ExchangeStatus.NeedsTakeover("login", "登录"))))
-        assertEquals("已暂停", ChatCopy.progressLine(ex.copy(status = ExchangeStatus.NeedsConfirmation("t", "b", 1))))
-        assertEquals("已暂停", ChatCopy.progressLine(ex.copy(status = ExchangeStatus.WaitingUnlock)))
-        assertEquals("正在处理", ChatCopy.progressLine(ex.copy(line = "", waitingForModel = true)))
+        assertEquals("一時停止中", ChatCopy.progressLine(ex.copy(status = ExchangeStatus.NeedsTakeover("login", "登录"))))
+        assertEquals("一時停止中", ChatCopy.progressLine(ex.copy(status = ExchangeStatus.NeedsConfirmation("t", "b", 1))))
+        assertEquals("一時停止中", ChatCopy.progressLine(ex.copy(status = ExchangeStatus.WaitingUnlock)))
+        assertEquals("作業中", ChatCopy.progressLine(ex.copy(line = "", waitingForModel = true)))
     }
 
     @Test fun placeholderFollowsTheComposer() {
         assertEquals(ChatCopy.EMPTY_PROMPT, ChatCopy.placeholder(ComposerMode.Idle, hasHistory = false))
-        assertEquals("继续说点什么…", ChatCopy.placeholder(ComposerMode.Idle, hasHistory = true))
-        assertEquals("回答 Mika 的问题", ChatCopy.placeholder(ComposerMode.Answer, hasHistory = true))
-        assertEquals("补充或改要求…", ChatCopy.placeholder(ComposerMode.Busy, hasHistory = true))
+        assertEquals("さらにひとこと…", ChatCopy.placeholder(ComposerMode.Idle, hasHistory = true))
+        assertEquals("Mika の質問に答える", ChatCopy.placeholder(ComposerMode.Answer, hasHistory = true))
+        assertEquals("補足や変更を入力…", ChatCopy.placeholder(ComposerMode.Busy, hasHistory = true))
     }
 }

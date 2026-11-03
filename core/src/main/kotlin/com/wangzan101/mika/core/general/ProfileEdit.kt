@@ -17,7 +17,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.put
 
-/** 只接受本轮用户原话支持的画像修改，失败时带出现有条目供用户选择。 */
+/** は、このラウンドではユーザーのオリジナルの音声でサポートされているポートレートの変更のみを受け入れます。失敗した場合は、既存のエントリが表示され、ユーザーが選択できます。 */
 internal object ProfileEdit : AgentTool {
     override val verb = Verb.ProfileEdit
     override val risk = Risk.Read

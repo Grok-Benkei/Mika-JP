@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * 任务要用手机、内置助手却没在运行时举一下手:对话页在任务卡片下面放一行「去设置」。
- * 网页、文件类任务不会碰到这里。由 [com.wangzan101.mika.cap.phone.PhoneServices] 建一份,任务与对话页共用。
+ * このタスクでは携帯電話の使用が必要ですが、内蔵アシスタントは操作中に手を挙げません。ダイアログ ページのタスク カードの下に「設定に移動」という行を入れます。
+ * Web ページおよびファイル タスクでは、この問題は発生しません。 [com.wangzan101.mika.cap.phone.PhoneServices] によって作成され、タスクと会話ページ間で共有されます。
  */
 class PhoneSetupPrompt(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -23,7 +23,7 @@ class PhoneSetupPrompt(context: Context) {
         _needed.value = false
     }
 
-    /** 首次打开时自动进引导;看过(完成或点了「稍后」)就不再自动进。 */
+    /** は、初めて開くときに自動的に起動します。表示した後（完了または「後で」をクリックした後）、自動的に起動しなくなります。 */
     fun guideSeen(): Boolean = prefs.getBoolean(SEEN, false)
 
     fun markGuideSeen() {

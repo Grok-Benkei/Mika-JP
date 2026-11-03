@@ -12,8 +12,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * 一个 ChatGPT 账号的登录:注册给出的 [clientId]、核对过的身份([sub]、[email])和令牌。
- * 整份按 API Key 的方式加密保存。退出登录后令牌清空([signedIn] 为假),注册和身份留着,再登录沿用同一个 client_id。
+ * ChatGPT アカウントにログインします: [clientId]、検証済みの ID ([sub]、[email])、および登録時に付与されたトークン。
+ * 全体が暗号化され、API キーの形式で保存されます。ログアウト後、トークンはクリアされ ([signedIn] は false)、登録と ID は保持され、再度ログインするときに同じ client_id が使用されます。
  */
 @Serializable
 data class ChatGptSession(
@@ -28,7 +28,7 @@ data class ChatGptSession(
 ) {
     val signedIn: Boolean get() = accessToken.isNotEmpty() || refreshToken.isNotEmpty()
 
-    /** 用户同意了用套餐额度调用。 */
+    /** ユーザーは、パッケージ クォータを使用して呼び出すことに同意しました。 */
     val planUsage: Boolean get() = ChatGptAuth.PLAN_SCOPE in scopes
 
     fun signedOut() = copy(accessToken = "", refreshToken = "", idToken = "", expiresAtMs = 0)
@@ -44,9 +44,9 @@ data class ChatGptSession(
 }
 
 /**
- * 调用时用的访问令牌:快过期(不到 [refreshAheadMs])或被拒了([BearerToken.get] 的 fresh)就用刷新令牌换一组新的,
- * 新的刷新令牌和访问令牌一起存下([save])。同一时刻只有一个在换(刷新令牌换一次就作废,并发换会互相顶掉)。
- * 刷新令牌已不能用:清掉令牌、抛 [ModelError.SignInExpired](要重新登录);网络或服务端一时出错照常抛,令牌留着。
+ * を呼び出すときに使用されるアクセス トークン: 期限切れが近づいている場合 ([refreshAheadMs] 未満)、または拒否された場合 ([BearerToken.get] 以降)、リフレッシュ トークンを使用して新しいトークンと交換します。
+ * 新しいリフレッシュ トークンはアクセス トークン ([save]) とともに保存されます。同時に交換されるのは 1 つだけです (リフレッシュ トークンは交換されると無効になり、同時交換は互いにオーバーライドされます)。
+ * リフレッシュ トークンは使用できなくなりました。トークンをクリアしてスローします。 [ModelError.SignInExpired] (再ログインが必要です)。ネットワークまたはサーバーのエラーが発生した場合は、通常どおり破棄し、トークンを保管してください。
  */
 class ChatGptTokens(
     private val auth: ChatGptAuth,
@@ -84,7 +84,7 @@ class ChatGptTokens(
                     save(s.signedOut())
                     throw ModelError.SignInExpired()
                 }
-                // 客户端配置不对等:重试没用,但也不是令牌失效,不清
+                // クライアント構成が等しくありません: 再試行は役に立ちませんが、トークンが無効であるという意味ではありません。不明瞭です
                 throw ModelError.Auth()
             }
             is TokenResult.Failed -> throw r.error
@@ -93,10 +93,10 @@ class ChatGptTokens(
 }
 
 /**
- * 走一遍登录:开本机回调 → [openBrowser] 打开授权页 → 等回调 → 核对 → 换令牌 → 验 ID 令牌 → 看有没有授予套餐额度。
- * 回调到了以后的这几步(至多 [finishTimeoutMs])做完,才把结果网页回给浏览器:[page] 收到 null 是成功,否则是失败的原因。
- * [clientId] 是以前注册过的(第一次为 null,注册成功后经 [onRegistered] 交出,换令牌前就该存下);
- * [previous] 是上次的登录(用来带上 ID 令牌和邮箱,省掉选账号)。失败抛 [SignInException]。
+ * ログイン プロセスを実行します。ローカル コールバックを開く → [openBrowser] 認証ページを開く → コールバックを待つ → チェック → トークンの変更 → ID トークンの検証 → パッケージ クォータが付与されているかどうかを確認します。
+ * は、結果の Web ページをブラウザーに返す前に、次のステップ (最大 [finishTimeoutMs]) をコールバックします: [page]。 null を受け取った場合は成功を意味し、それ以外の場合は失敗の原因となります。
+ * [clientId] は以前に登録されています (初回は null で、登録成功後に [onRegistered] によって引き渡され、トークンを変更する前に保存する必要があります)。
+ * [previous] は最後のログインです (ID トークンと電子メールを取得するために使用され、アカウントを選択する必要がなくなります)。失敗した場合は、[SignInException] をスローします。
  */
 suspend fun signInWithChatGpt(
     auth: ChatGptAuth,
@@ -124,7 +124,7 @@ suspend fun signInWithChatGpt(
     return outcome!!.getOrThrow()
 }
 
-/** 做完回调之后的几步,至多 [timeoutMs]:超时算连不上;别的异常都归成 [SignInException];取消照常往外抛。 */
+/** コールバック完了後の数ステップ、最大でも [timeoutMs]: タイムアウトは接続されたとみなされません。他の例外は [SignInException] として分類されます。キャンセルされた場合は、通常どおり破棄されます。 */
 private suspend fun finishSignIn(timeoutMs: Long, block: suspend () -> ChatGptSession): Result<ChatGptSession> = try {
     Result.success(withTimeout(timeoutMs) { block() })
 } catch (e: TimeoutCancellationException) {

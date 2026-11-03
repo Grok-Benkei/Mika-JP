@@ -48,7 +48,7 @@ class ProcRunnerArgsTest {
         assertEquals("mika-bridge-x", bridged["MIKA_BRIDGE"]); assertEquals("tok", bridged["MIKA_TOKEN"])
     }
 
-    /** 代理只在给了时出现:大小写两套变量都给(有的工具只认大写),本机地址照旧直连。 */
+    /** エージェントは、大文字と小文字の両方の変数が指定された場合にのみ表示されます (一部のツールは大文字のみを認識します)。ローカル アドレスは直接接続されたままです。 */
     @Test fun proxyIsPassedOnlyWhenGiven() {
         val none = ProcRunner.env(dirs, null, null, "conv1", proxy = "")
         assertTrue(none.keys.none { it.lowercase().endsWith("_proxy") })
@@ -72,7 +72,7 @@ class ProcRunnerArgsTest {
     }
 
     @Test fun fixedOffsetTimezonesKeepTheirSign() {
-        // POSIX 的 TZ 里 GMT+8 表示比 UTC 慢 8 小时,不能把 GMT+08:00 原样给出。
+        // の GMT+8 POSIX の TZ は UTC より 8 時間遅いことを示しており、GMT+08:00 をそのまま与えることはできません。
         val cases = mapOf(
             "GMT+08:00" to "Etc/GMT-8", "GMT-05:00" to "Etc/GMT+5", "GMT+05:45" to "<+0545>-05:45",
             "GMT-03:30" to "<-0330>03:30", "GMT" to "UTC", "UTC" to "UTC",
@@ -89,7 +89,7 @@ class ProcRunnerArgsTest {
             assertFalse(id, f.name.contains(".."))
         }
         assertEquals(dirs.workspace("x/y"), dirs.workspace("x/y"))
-        // 简单名字和哈希名字分在两个前缀下:「h-…」样子的 ID 不会撞上别的对话的哈希目录
+        // 単純名とハッシュ名は 2 つのプレフィックス「h-...」に分割されます。ID は他の会話のハッシュ ディレクトリと衝突しません。
         val hashed = dirs.workspace("a/b").name
         assertTrue(hashed, hashed.startsWith("h-"))
         assertEquals("c-$hashed", dirs.workspace(hashed).name)

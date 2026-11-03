@@ -5,20 +5,20 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 /**
- * 每次运行一份小结([RunMetrics]),一行一份存在 [file](JSON Lines),只留最近 [keep] 份;运行记录只留最近 30 次,
- * 小结不跟着清,统计看得到更多次。运行收尾时记一份,交出回答后判了结局再补上([update])。
- * 读不出的行跳过,整个文件坏了按空的算;写是整份写到临时文件再换上,写不成只丢这一次。
- * 同一个文件可能有几个实例(每个页面、每次运行各开一个),读写用进程内同一把锁。
+ * が要約 ([RunMetrics]) を実行するたびに、行ごとに 1 つのコピーが [file] (JSON 行) に存在し、最新の [keep] コピーのみが保持されます。最後の 30 回の実行のみが記録されます。
+ * 概要が明確ではなく、統計が何度も表示される可能性があります。実行の最後にメモを作成し、答えを渡し、追加する前に結末を判断します ([update])。
+ * 読み取れない行はスキップされます。ファイル全体が破損している場合は、空としてカウントされます。書き込み時には、ファイル全体が一時ファイルに書き込まれ、その後置き換えられます。書き込みに失敗すると、今度は失われるだけです。
+ * 同じファイルに複数のインスタンス (各ページおよび各実行に 1 つ) が存在する場合があり、プロセス内の同じロックが読み取りと書き込みに使用されます。
  */
 class RunMetricsStore(private val file: File, private val keep: Int = DEFAULT_KEEP) {
     init { require(keep > 0) { "keep must be positive" } }
 
-    /** 旧的在前。 */
+    /** 古い順。 */
     fun all(): List<RunMetrics> = synchronized(LOCK) { read() }
 
     /**
-     * 这几次运行的小结,按运行编号;没有的不在里面。只解析含这些编号的行(解析后再核对编号),
-     * 不把整个文件(最多 [keep] 份)都解析一遍。
+     * 実行番号ごとのこれらの実行の概要。含まれないものは含まれません。これらの数値を含む行のみを解析します (解析後に数値を確認します)。
+     * は、ファイル全体 (最大 [keep] コピーまで) を解析しません。
      */
     fun byIds(runIds: Set<String>): Map<String, RunMetrics> = synchronized(LOCK) {
         val ids = runIds.filter { it.isNotEmpty() }
@@ -31,15 +31,15 @@ class RunMetricsStore(private val file: File, private val keep: Int = DEFAULT_KE
             .associateBy { it.runId }
     }
 
-    /** 最近 [n] 份(旧的在前);[n] 为 null 时全部。 */
+    /** 最新の [n] コピー (古いものから順)。 [n] が null の場合はすべて。 */
     fun recent(n: Int?): List<RunMetrics> = all().let { if (n == null) it else it.takeLast(n) }
 
-    /** 记一份;同一次运行已有的换掉。 */
+    /** コピーを 1 部覚えておいてください。同じ実行内で既存のものを置き換えます。 */
     fun append(m: RunMetrics) = synchronized(LOCK) {
         write(read().filter { m.runId.isEmpty() || it.runId != m.runId } + m)
     }
 
-    /** 改一次运行的那一份;没有就不动。 */
+    /** 一度実行されるコピーを変更します。そうでなければ動きません。 */
     fun update(runId: String, change: (RunMetrics) -> RunMetrics) = synchronized(LOCK) {
         val list = read()
         if (list.none { it.runId == runId }) return@synchronized
@@ -67,7 +67,7 @@ class RunMetricsStore(private val file: File, private val keep: Int = DEFAULT_KE
         private val LOCK = Any()
         val JSON = Json { ignoreUnknownKeys = true }
 
-        /** 导出给人分析用:一个 JSON 数组,旧的在前。 */
+        /** は人間による分析用にエクスポートされます。JSON 配列として、最も古いものから順にエクスポートされます。 */
         fun export(list: List<RunMetrics>): String = EXPORT.encodeToString(ListSerializer(RunMetrics.serializer()), list)
 
         private val EXPORT = Json { encodeDefaults = true }

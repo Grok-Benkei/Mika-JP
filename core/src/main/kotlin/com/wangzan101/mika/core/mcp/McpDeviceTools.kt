@@ -7,7 +7,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** 主屏准备是独立的确定性流程。工具不接收凭据,凭据只能在手机设置。沿用 MCP 的认证门口。 */
+/** ホーム画面の準備は、別の決定的なプロセスです。このツールは資格情報を受け入れません。資格情報は電話でのみ設定できます。 MCP の認定された出入り口に従ってください。 */
 internal class McpDeviceTools(private val device: DeviceAccess) {
     private val schema = buildJsonObject {
         put("type", "object"); put("properties", JsonObject(emptyMap()))

@@ -1,6 +1,6 @@
 package com.wangzan101.mika.core.run
 
-/** 运行状态的最小持久化记录。运行中断后只告知并允许重跑，不从屏幕中途续跑。 */
+/** 実行ステータスの最小永続レコード。操作が中断された後は、通知されて再実行が許可されるだけであり、画面から実行を再開することはできません。 */
 data class StoredRun(
     val id: RunId,
     val threadId: String,
@@ -18,7 +18,7 @@ interface RunStore {
     fun get(id: RunId): StoredRun?
     fun all(): List<StoredRun>
 
-    /** 重启时逐个标记中断，不能静默把工具调用再跑一遍。[live] 里是此刻还在跑的运行,不动它们。 */
+    /** は再起動中に中断を 1 つずつマークするため、サイレントにツールを呼び出して再度実行することはできません。 [live] には、現時点でまだ実行中のものが含まれているため、移動しないでください。 */
     fun interruptUnfinished(live: Set<RunId> = emptySet()): List<StoredRun> {
         val interrupted = all().filter { it.phase != RunPhase.Ended && it.phase != RunPhase.Interrupted && it.id !in live }
         interrupted.forEach { save(it.copy(phase = RunPhase.Interrupted)) }

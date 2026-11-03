@@ -13,27 +13,27 @@ import java.time.LocalDate
 import java.time.LocalTime
 
 /**
- * 一次 web_read_page 要什么:[url] 为 null 读当前标签,给了在临时后台标签里读;[unfold] 为真时收起的列表块也全文给出
- * (分段的 offset 按同一种 unfold 算)。
+ * web_read_page で一度必要なもの: [url] は、現在のタグを読み取るために null であり、一時的なバックグラウンド タグで読み取られます。 [unfold] が true の場合、折りたたまれたリスト ブロックの全文も表示されます
+ * (セグメントのオフセットは同じ展開に従って計算されます)。
  */
 data class PageRead(
     val maxChars: Int,
     val offset: Int,
     val unfold: Boolean = false,
     val url: String? = null,
-    /** 读之前滚一遍触发懒加载、等正文稳定;核查取证时为 false,只读不动页面。 */
+    /** 読む前にスクロールして遅延読み込みをトリガーし、テキストが安定するまで待ちます。証拠を検証して収集するとき、それは虚偽であり、ページは移動せずに読むことしかできません。 */
     val lazy: Boolean = true,
 )
 
-/** 这页读出来怎么样:正文够不够、要不要先登录、被不被拒、内容是不是主要在图里。[wire] 是给模型的写法。 */
+/** このページの読み方: テキストは十分ですか、最初にログインする必要がありますか、拒否されますか、コンテンツは主に写真ですか? [wire] はモデルの記述方法です。 */
 enum class ReadVerdict(val wire: String) {
     OK("ok"), THIN("thin"), NEEDS_SIGN_IN("needs_sign_in"), REFUSED("refused"), IMAGE_TEXT("image_text"),
 }
 
 /**
- * 读页的质量信号:[chars] 是整页正文字数(按这次的收起方式),[textDensity] 是正文里不是链接文字的比例,
- * [cause] 是判定依据的简短说明;[published]/[updated] 是页面自己声明的时间;[dialogs] 是开着的对话框个数(放在正文最前),
- * [folded] 是收起成一行的列表块个数。
+ * ページ読み取りの品質信号: [chars] はページ全体のテキスト数 (今回の折り方による)、[textDensity] は本文中の非リンクテキストの割合、
+ * [cause] は、判断根拠の簡単な説明です。 [published]/[updated] はページ自体によって宣言された時間です。 [dialogs] は開いているダイアログ ボックスの数です (テキストの先頭に置かれます)。
+ * [folded] は、1 行に折りたたまれたリスト ブロックの数です。
  */
 data class ReadQuality(
     val chars: Int,
@@ -47,54 +47,54 @@ data class ReadQuality(
 )
 
 /**
- * 页面脚本的整页读取结果(page.js 的 digest)交到这里:决定哪些列表块收起、拼出正文、判定质量、挑出声明的时间。
- * 页面脚本只按结构采集(地标角色、链接占比、重复的子结构、图片的位置),判断都在这里,不按网站区分。
- * 页面脚本挑候选块用的门槛也从这里给([scriptOptions]),两边只有一份。
+ * ページ スクリプト (page.js ダイジェスト) のページ全体の読み取り結果がここに渡されます。どのリスト ブロックを折りたたむかを決定し、テキストを詳しく説明し、品質を判断し、ステートメントの時間を抽出します。
+ * ページのスクリプトは構造 (ランドマークの役割、リンクの割合、繰り返しの下部構造、画像の位置) に従ってのみ収集され、判断はすべてここにあり、Web サイトによって区別されません。
+ * ページ スクリプトの候補ブロックを選択するためのしきい値もここで指定され ([scriptOptions])、両側にコピーが 1 つだけ存在します。
  */
 object PageDigest {
-    /** 正文短于它算 thin。 */
+    /** テキストが薄いと思われるよりも短いです。 */
     const val THIN_CHARS = 200
-    /** 候选块:至少这么多个链接,链接文字至少占这么多(页面脚本按它挑候选,这里再细判)。 */
+    /** 候補ブロック: 少なくともこの数のリンク、および少なくともこれだけのリンク テキストを占めています (ページ スクリプトはそれに応じて候補を選択します。ここでは慎重に判断します)。 */
     const val CANDIDATE_MIN_LINKS = 5
     const val CANDIDATE_LINK_SHARE = 0.5
-    /** 链接文字占一块文字的比例到这里,就是一串链接列表(推荐、目录)。 */
+    /** テキストに対するリンク テキストの比率は、リンク (推奨事項、ディレクトリ) のリストです。 */
     const val LINK_LIST_SHARE = 0.7
-    /** 子元素重复同一结构(卡片列表)时,链接占比到这里就够。 */
+    /** サブ要素が同じ構造 (カード リスト) を繰り返す場合、リンク率は十分です。 */
     const val REPEATED_LINK_SHARE = 0.5
     const val MIN_REPEAT = 5
-    /** 地标块(导航、页脚、侧栏)链接至少占这么多才收起;以文字为主的侧栏、页脚照读。 */
+    /** ランドマーク ブロック (ナビゲーション、フッター、サイドバー) へのリンクは、折りたたまれる前に少なくともこの長さである必要があります。テキストベースのサイドバーとフッターは、それに応じて読む必要があります。 */
     const val LANDMARK_LINK_SHARE = 0.3
-    /** 一个列表块占地标以外文字的比例到这里,它就是正文本身(目录页、搜索结果页),不收起。 */
+    /** リストブロックとランドマーク以外のテキストの比率はこちらです。テキストそのもの（カタログページ、検索結果ページ）であり、閉じられていません。 */
     const val DOMINANT_SHARE = 0.4
-    /** 收起之后至少要留下这么多比例的文字;不够就从最大的块起放回。 */
+    /** 折りたたんだ後、少なくともこの量のテキストを残す必要があります。そうでない場合は、最大のブロックから始めて元に戻します。 */
     const val MIN_LEFT_SHARE = 0.1
-    /** 图片、画布盖住页面开头的比例到这里,而字又少,算 image_text。 */
+    /** ページの先頭を占める写真とキャンバスの割合はここまでで、単語が少ないため、image_text とみなされます。 */
     const val PICTURE_SHARE = 0.5
     const val PICTURE_MAX_CHARS = THIN_CHARS * 4
-    /** 小于这个边长(CSS 像素)的图不算:图标、头像、分隔线。 */
+    /** アイコン、アバター、ディバイダーなど、この辺の長さ (CSS ピクセル) より小さい画像はカウントされません。 */
     const val MIN_PICTURE_PX = 48
-    /** 登录框(密码框所在的那一块)的文字占整页文字的比例到这里,这页就是登录页。 */
+    /** ページ全体のテキストに対するログイン ボックス (パスワード ボックスがある領域) のテキストの割合は次のとおりです。このページはログインページです。 */
     const val SIGN_IN_BOX_SHARE = 0.5
     private const val COVER_GRID = 64
     private const val PREVIEW_ITEMS = 6
     private const val PREVIEW_CHARS = 120
     private val LANDMARKS = setOf("navigation", "footer", "complementary")
 
-    /** 登录框、标题、对话框里出现这些字,且有密码框,就是要先登录。比对时去掉空白、不分大小写。 */
+    /** これらの単語がログイン ボックス、タイトル、ダイアログ ボックスに表示され、パスワード ボックスがある場合は、最初にログインする必要があります。空白スペースは削除され、比較時に大文字と小文字は区別されません。 */
     private val SIGN_IN_WORDS = listOf("登录", "登入", "登陆", "signin", "login", "logon", "账号", "帐号", "密码", "password")
 
-    /** 页面脚本 digest 的参数(候选块门槛)。 */
+    /** ページ スクリプト ダイジェスト パラメーター (候補ブロックしきい値)。 */
     val scriptOptions: String get() = """{"minLinks":$CANDIDATE_MIN_LINKS,"linkShare":$CANDIDATE_LINK_SHARE}"""
 
-    /** 一个链接:[group] 是它所在的列表块(不在块里为 -1)。 */
+    /** リンク: [group] は、それが含まれるリスト ブロックです (ブロック内にない場合は -1)。 */
     data class Link(val text: String, val url: String, val group: Int)
 
-    /** 正文的一段:一行文字,或一个可收起的列表块。 */
+    /** テキストの段落: テキストの行、または折りたたみ可能なリスト ブロック。 */
     sealed interface Part {
         data class Line(val text: String) : Part
         /**
-         * [kind] 为 navigation/footer/complementary(按地标)或 links(按链接占比认出的列表);[lines] 是块里的文字,
-         * [chars]/[linkChars] 是块里全部文字和链接文字的字数,[repeat] 是同一结构的子元素个数,[links] 是块里的链接个数。
+         * [kind] は、ナビゲーション/フッター/補完 (ランドマークによる) またはリンク (リンクの割合によって認識されるリスト) です。 [lines] はブロック内のテキストです。
+         * [chars]/[linkChars] はブロック内のすべてのテキストとリンク テキストの数、[repeat] は同じ構造内のサブ要素の数、[links] はブロック内のリンクの数です。
          */
         data class Group(
             val kind: String, val label: String, val lines: List<String>,
@@ -105,26 +105,26 @@ object PageDigest {
         }
     }
 
-    /** 一张图在页面上的位置(文档坐标,CSS 像素)。 */
+    /** ページ上の画像の位置 (ドキュメント座標、CSS ピクセル)。 */
     data class Box(val x: Int, val y: Int, val w: Int, val h: Int)
 
-    /** 判定用的页面迹象(都来自页面脚本)。 */
+    /** 判定に使用されるページサイン（すべてページスクリプトから来ています）。 */
     data class Signals(
         val passwordFields: Int = 0,
-        /** 登录框(密码框往上、不含正文的最大那一块,遇到表单或对话框就停)自己的文字占整页文字的比例。 */
+        /** ページ全体のテキストに対するログイン ボックス自体のテキストの比率 (テキストを除く、パスワード ボックスから上の最​​大のブロック。フォームまたはダイアログ ボックスに遭遇すると停止します)。 */
         val signInBoxShare: Double = 0.0,
-        /** 找登录字样的地方:登录框的文字、页面标题、对话框开头。 */
+        /** 「ログイン」という単語が見つかる場所: ログイン ボックスのテキスト、ページ タイトル、ダイアログ ボックスの先頭。 */
         val signInText: List<String> = emptyList(),
-        /** 醒目处的文字(标题、h1–h3、对话框开头),给拦截判定用。 */
+        /** 目を引く場所のテキスト (タイトル、h1 ～ h3、ダイアログ ボックスの先頭) は、傍受と判定に使用されます。 */
         val prominent: List<String> = emptyList(),
-        /** 页面开头的区域(宽, 高)和里面的图片、画布、视频。 */
+        /** ページの先頭の領域 (幅、高さ) とその内部の写真、キャンバス、ビデオ。 */
         val regionW: Int = 0,
         val regionH: Int = 0,
         val pictures: List<Box> = emptyList(),
         val frames: List<String> = emptyList(),
         val textChars: Int = 0,
         val linkChars: Int = 0,
-        /** 页面声明的时间:(来源, 原值),来源如 ld:datePublished、meta:article:published_time、itemprop:dateModified、time。 */
+        /** ページで宣言された時刻: (ソース、元の値)、ソースは ld:datePublished、meta:article:published_time、itemprop:dateModified、time などです。 */
         val dates: List<Pair<String, String>> = emptyList(),
     )
 
@@ -138,10 +138,10 @@ object PageDigest {
         val signals: Signals,
     )
 
-    /** 拼好的结果;[folded] 是这次收起了几块。 */
+    /** はまとめた結果です。今回数個片付けた結果が[folded]です。 */
     data class Rendered(val text: String, val links: List<Pair<String, String>>, val folded: Int)
 
-    // ---------- 解析 ----------
+    // ---------- 分析 ----------
 
     fun parse(o: JsonObject): Digest {
         fun str(e: JsonElement?) = (e as? JsonPrimitive)?.takeIf { it.isString }?.content.orEmpty()
@@ -195,12 +195,12 @@ object PageDigest {
         )
     }
 
-    // ---------- 收起 ----------
+    // ---------- 閉じる ----------
 
     /**
-     * 哪些块收起(按块在 [Digest.parts] 里的序号,只数块)。地标块链接够多就收;链接列表要链接占得多,
-     * 且不能占了地标以外文字的大头(那是正文本身);最大的块是链接列表、又比块外的文字还多时它就是正文,不收;
-     * 收完剩下的文字不到 [MIN_LEFT_SHARE] 时从最大的块起放回。
+     * どのブロックが折りたたまれているか ([Digest.parts] のブロックのシリアル番号に従って、ブロックのみがカウントされます)。十分なリンクがある場合、ランドマーク ブロックが収集されます。リンク リストには、できるだけ多くのリンクが含まれます。
+     * であり、ランドマーク (つまりテキスト自体) 以外のテキストの大部分を占めることはできません。最大のブロックがリンク リストで、ブロックの外側のテキストよりも多くのテキストがある場合、それがメイン テキストとなり、含まれません。
+     * が収集され、残りのテキストが [MIN_LEFT_SHARE] 未満の場合は、最大のブロックから順に戻されます。
      */
     fun foldSet(parts: List<Part>): Set<Int> {
         val groups = parts.filterIsInstance<Part.Group>()
@@ -215,7 +215,7 @@ object PageDigest {
             val wanted = if (g.landmark) g.linkShare >= LANDMARK_LINK_SHARE
             else (g.linkShare >= LINK_LIST_SHARE || (g.repeat >= MIN_REPEAT && g.linkShare >= REPEATED_LINK_SHARE)) &&
                 g.size() < outsideLandmarks * DOMINANT_SHARE
-            // 最大的块若是链接列表、又比块外的文字还多,它就是正文(地标按页面自己的声明照收)
+            // 最大のブロックがリンク リストで、ブロックの外側のテキストよりも多くのテキストがある場合、それがメイン テキストになります (ランドマークはページ自身のステートメントに従って受け入れられます)
             wanted && !(i == largest && !g.landmark && g.size() > free)
         }.toMutableSet()
         while (fold.isNotEmpty() && total - fold.sumOf { groups[it].size() } < total * MIN_LEFT_SHARE) {
@@ -224,7 +224,7 @@ object PageDigest {
         return fold
     }
 
-    /** 拼正文:对话框在最前,收起的块各占一行。链接表只要还看得见的,同一地址只留一次。 */
+    /** はテキストを綴ります。ダイアログ ボックスが前面にあり、折りたたまれたブロックがそれぞれ 1 行を占めます。リンクテーブルが表示されている限り、同じアドレスは一度だけ残ります。 */
     fun render(d: Digest, unfold: Boolean): Rendered {
         val folded = if (unfold) emptySet() else foldSet(d.parts)
         val lines = ArrayList<String>()
@@ -252,11 +252,11 @@ object PageDigest {
         return "<<collapsed $name · $count · $sample>>"
     }
 
-    // ---------- 判定 ----------
+    // ---------- 判決 ----------
 
     /**
-     * 判定这页读得怎么样。[check] 是网页障碍判定(用醒目处的文字、跨源框架、HTTP 状态做的,见 [barrierFacts]),
-     * [httpStatus] 是主文档的 HTTP 错误状态。先看拒绝,再看登录,再看是不是图,最后看字数。
+     * このページがどの程度読みやすいかを判断します。 [check] は、Web ページの障害物判定です (目を引くテキスト、クロスソース フレームワーク、および HTTP ステータスを使用して行われます。[barrierFacts] を参照)。
+     * [httpStatus] は、メインドキュメントの HTTP エラーステータスです。まず拒否を確認し、次にログインを確認し、次に写真かどうかを確認し、最後に文字数を確認します。
      */
     fun verdict(chars: Int, s: Signals, check: ScreenCheck?, httpStatus: Int?): Pair<ReadVerdict, String?> {
         val reason = check?.takeoverReason
@@ -281,8 +281,8 @@ object PageDigest {
     }
 
     /**
-     * 页面开头区域里被图盖住的比例:在区域上铺一张格子,数格子中心落在哪张图里;重叠的图只算一次,
-     * 边长小于 [MIN_PICTURE_PX] 的不算。
+     * 画像で覆われているページ先頭の領域の割合: 領域全体にグリッドを広げ、グリッドの中心がどの画像に当たるかを数えます。重なった写真は 1 回だけカウントされます。
+     * の辺の長さが [MIN_PICTURE_PX] より小さい場合はカウントされません。
      */
     fun pictureShare(s: Signals): Double {
         val w = s.regionW
@@ -301,7 +301,7 @@ object PageDigest {
         return covered.toDouble() / (rows * cols)
     }
 
-    /** 给 [WebBarrier.classify] 的事实:只拿醒目处的文字(文章里提到「验证码」不算),密码框另判。 */
+    /** から [WebBarrier.classify] までの事実: 目立つ場所のテキストのみ (記事中の「認証コード」の記載はカウントされません)、パスワード ボックスは個別に判断されます。 */
     fun barrierFacts(d: Digest, httpStatus: Int?, host: String?): WebFacts = WebFacts(
         base = ScreenFacts(
             currentApp = host, hasWindow = true, readableElements = 1, changing = false, blackFrames = emptyList(),
@@ -310,18 +310,18 @@ object PageDigest {
         httpStatus = httpStatus, frameUrls = d.signals.frames, host = host,
     )
 
-    /** 正文里不是链接文字的比例,两位小数;没有字为 0。 */
+    /** テキスト内のリンクではないテキストの割合（小数点以下 2 桁）。言葉は0です。 */
     fun density(s: Signals): Double {
         if (s.textChars <= 0) return 0.0
         val share = 1.0 - s.linkChars.coerceAtMost(s.textChars).toDouble() / s.textChars
         return Math.round(share * 100) / 100.0
     }
 
-    // ---------- 时间 ----------
+    // ---------- 時間 ----------
 
     /**
-     * 页面声明的发布时间与更新时间:先看结构化的声明(JSON-LD,再 meta,再 itemprop),最后才看正文里的 <time>;
-     * 同一类里按出现先后。读不懂的值跳过。
+     * ページ ステートメントのリリース時間と更新時間: 最初に構造化ステートメント (JSON-LD、次にメタ、次に itemprop) を確認し、最後にテキスト内の <time> を確認します。
+     * 同じカテゴリ内で、表示されている順に押してください。判読できない値はスキップされます。
      */
     fun dates(s: Signals): Pair<String?, String?> {
         fun rank(src: String) = when {
@@ -343,7 +343,7 @@ object PageDigest {
     private val UPDATED_HINTS = listOf("modified", "updated", "lastmod", "revised")
     private val PLAIN_DATE_KEYS = setOf("meta:date", "meta:dc.date")
 
-    /** 整页读取的质量。 */
+    /** 全ページ読み取り品質。 */
     fun quality(d: Digest, r: Rendered, check: ScreenCheck?, httpStatus: Int?): ReadQuality {
         val (v, cause) = verdict(r.text.length, d.signals, check, httpStatus)
         val (pub, upd) = dates(d.signals)
@@ -352,8 +352,8 @@ object PageDigest {
 }
 
 /**
- * 页面上写的时间读成 ISO-8601。按顺序取出数字段:四位的年、月、日,再可能有时、分、秒(小数秒丢掉),
- * 时间后面跟 Z 或 ±时[:分] 就是时区。年月日之间是什么符号都行(-、/、.、年月日)。认不出年月日、数值不成立为 null。
+ * のページに書かれている時刻はISO-8601です。数値フィールドを順番に取り出します: 4 桁の年、月、日、および場合によっては時、分、秒 (秒の小数部は切り捨てられます)。
+ * 時間の後に Z または ±時間[:分] が続くのがタイムゾーンです。年、月、日の間の任意の記号 (-、/、.、年、月、日) を使用できます。年、月、日が認識できない場合、値が無効であれば null になります。
  */
 object DeclaredTime {
     private class Scan(val s: String) {
@@ -374,7 +374,7 @@ object DeclaredTime {
         sc.skipNonDigits()
         val year = sc.digits().takeIf { it.length == 4 }?.toInt() ?: return null
         val nums = ArrayList<Int>()
-        // 月、日:中间隔一个分隔符
+        // 月と日：セパレータで区切る
         repeat(2) {
             val sep = sc.peek() ?: return null
             if (sep.isDigit() || sep.isWhitespace() && nums.isEmpty()) return null
@@ -384,7 +384,7 @@ object DeclaredTime {
         }
         val date = runCatching { LocalDate.of(year, nums[0], nums[1]) }.getOrNull() ?: return null
         if (sc.peek() == '日') sc.i++
-        // 时间:T 或空格后的 时:分[:秒]
+        // 時刻: T またはスペースの後に時: 分 [: 秒]
         val tStart = sc.i
         if (sc.peek() == 'T' || sc.peek() == 't' || sc.peek() == ' ') sc.i++ else return date.toString()
         val hour = sc.digits().takeIf { it.length in 1..2 }?.toInt()
@@ -402,7 +402,7 @@ object DeclaredTime {
         return local + (zone(sc) ?: "")
     }
 
-    /** Z、+08:00、+0800、-05 这样的时区;没有为 null。 */
+    /** Z、+08:00、+0800、-05 などのタイムゾーン。 nullではありません。 */
     private fun zone(sc: Scan): String? {
         while (sc.peek() == ' ') sc.i++
         val c = sc.peek() ?: return null

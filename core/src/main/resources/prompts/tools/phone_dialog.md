@@ -1,1 +1,1 @@
-Inspect the top dialog's text and visible buttons. Leave buttonText empty to inspect. Give an exact button label to click it through the normal phone action path. If no dialog or a nonunique button is found, no click occurs.
+最前面のダイアログの文面と見えるボタンを確認する。buttonText を空にして確認する。正確なボタンのラベルを渡すと、通常のスマートフォンの操作経路でクリックする。ダイアログがない場合や、一意でないボタンが見つかった場合は、クリックは行われない。

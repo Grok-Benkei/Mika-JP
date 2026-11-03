@@ -8,8 +8,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import com.wangzan101.mika.core.tool.Verb
 
 /**
- * 运行记录的脱敏:密码框里输入的字、形如 API Key 的串一律记为 `***`。
- * 调用方不确定目标是不是密码框时应按是处理(宁可少记)。
+ * の実行記録の感度を解除: パスワード ボックスに入力された単語と API キーの形の文字列は、`***` として記録されます。
+ * 呼び出し元がターゲットがパスワード ボックスであるかどうかわからない場合は、「はい」として処理する必要があります (覚えておくことは少ない方が良いです)。
  */
 object Redactor {
     const val MASK = "***"
@@ -17,12 +17,12 @@ object Redactor {
     private val SK_KEY = Regex("""\bsk-[A-Za-z0-9_\-]{16,}""")
     private val BEARER = Regex("""\bBearer\s+[A-Za-z0-9._~+/=\-]{8,}""")
     private val GOOGLE_KEY = Regex("""\bAIza[0-9A-Za-z_\-]{30,}""")
-    /** Google 新格式的认证 Key:`AQ.` 开头,后面一长串 base64url 字符。 */
+    /** Google の新しい形式の認証キーは `AQ.` で始まり、その後にbase64url 文字の長い文字列が続きます。 */
     private val GOOGLE_AUTH_KEY = Regex("""\bAQ\.[0-9A-Za-z_\-]{20,}""")
     private val GITHUB_TOKEN = Regex("""\bgh[pousr]_[A-Za-z0-9]{20,}""")
 
-    /** [secretField]:端口报告这次输入的目标是密码框。 */
-    /** [verb]:调用的工具做的动作(不认识的工具为 null)。 */
+    /** [secretField]: ポートは、この入力のターゲットがパスワード ボックスであることを報告します。 */
+    /** [verb]: 呼び出されたツールによって実行されたアクション (不明なツールの場合は null)。 */
     fun args(verb: Verb?, argsJson: String, secretField: Boolean): String {
         if (verb == Verb.MemorySave) return maskFields(argsJson, MEMORY_ARGS)
         if (verb == Verb.Script) return script(argsJson)
@@ -33,12 +33,12 @@ object Redactor {
             Json.parseToJsonElement(argsJson) as? JsonObject
         } catch (e: SerializationException) {
             null
-        } ?: return MASK // 解析不了就整段不记,宁可丢信息
+        } ?: return MASK // 解析できない場合は、段落全体が記憶されません。むしろ情報をなくしたほうが良いでしょう。
         val masked = if ("text" in o) JsonObject(o + ("text" to JsonPrimitive(MASK))) else o
         return text(masked.toString())
     }
 
-    /** 条件式手机命令里的输入内容可能是密码,整段按字段打码。 */
+    /** 条件モバイルコマンドの入力内容はパスワードの場合があり、セクション全体がフィールドごとにコード化されています。 */
     private fun phoneRun(argsJson: String): String {
         val o = try { Json.parseToJsonElement(argsJson) as? JsonObject } catch (e: SerializationException) { null } ?: return MASK
         val commands = o["commands"] as? JsonArray ?: return text(argsJson)
@@ -51,8 +51,8 @@ object Redactor {
     }
 
     /**
-     * web_script 的源码:脚本里要输入的字可能写成任何形式(交给 mika.type、先存进变量、拼接),
-     * 和 type_text 一样不知道是不是密码框,一律按是处理:源码里每个字符串字面量都打码,只留引号种类(模板字符串留 `${…}` 的位置)。
+     * web_script のソース コード: スクリプトに入力する単語は、任意の形式で記述できます (mika.type に指定、最初に変数に格納、結合)。 type_text と同様、
+     * がパスワード ボックスであるかどうかは不明なので、「はい」として扱います。ソース コード内のすべての文字列リテラルはコーディングされ、引用符の種類のみが残ります (テンプレート文字列は `${…}` の位置を残します)。
      */
     private fun script(argsJson: String): String {
         val o = try { Json.parseToJsonElement(argsJson) as? JsonObject } catch (e: SerializationException) { null } ?: return MASK
@@ -67,7 +67,7 @@ object Redactor {
         return text(JsonObject(o + ("code" to JsonPrimitive(masked))).toString())
     }
 
-    /** 工具结果进运行记录前:记忆的内容、用户交回时写的备注不记(编号、种类照记)。 */
+    /** ツールの結果が実行記録に入力される前: 記憶された内容とユーザーが戻ったときに書いたコメントは記録されません (番号と種類は記憶されます)。 */
     fun result(verb: Verb?, content: JsonObject): JsonObject = when (verb) {
         Verb.MemorySearch -> (content["memories"] as? JsonArray)?.let { arr ->
             JsonObject(content + ("memories" to JsonArray(arr.map { m ->
@@ -89,24 +89,24 @@ object Redactor {
     }
 
     private val STRING_LITERAL = Regex("""'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`""")
-    /** 模板字符串里的 ${…}:表达式不是字面量,位置留着,前后的字打码。 */
+    /** テンプレート文字列の ${…}: 式はリテラルではなく、位置は予約されており、前後の文字はコード化されています。 */
     private val TEMPLATE_HOLE = Regex("""\$\{[^}]*\}""")
     private val MEMORY_ARGS = setOf("content", "quote", "keywords")
 
-    /** 一次性码一类的词。 */
+    /** はワンタイムコードのような単語です。 */
     private val CODE_WORD = Regex("""验证|校验码|动态码|动态密码|确认码|安全码|短信|口令|(?i:\b(?:code|otp|passcode|pin|2fa)\b)""")
-    /** 4–8 位数字,中间可以隔单个空格或连字符(「4 8 2 9 1 3」「482-913」)。 */
+    /** 単一のスペースまたはハイフンで区切られた 4 ～ 8 桁 (「4 8 2 9 1 3」「482-913」)。 */
     private val CODE_DIGITS = Regex(
         """(?<![\d.¥$€£])(?<!\d,)(?<![¥$€£] )\d(?:[ \-]?\d){3,7}(?!\d)(?!\.\d)(?!,\d{3}(?!\d))""" +
-            // 后面跟着单位、年份、货币的是量,不是码
+            // 単位、年、通貨の後に続くのはコードではなく数量です。
             """(?!\s*(?:年|元|块|角|分钟|小时|秒|天|月|日|号|次|个|人|件|条|米|公里|千米|克|公斤|千克|斤|吨|度|℃|°|%|‰|[¥$€£]|(?i:km|kg|mb|gb|kb|ms|cm|mm|mah|rmb|usd|cny)\b))""",
     )
-    /** 码和这类词之间至多隔几个字(哪一边都算)。 */
+    /** コードとそのような単語の間には、最大でも数文字が存在します (どちら側がカウントされるかは関係ありません)。 */
     private const val CODE_WINDOW = 24
 
     /**
-     * 证据账本里的材料(读屏、网页、命令输出)进账前经它:[text] 认得的 Key 之外,一次性码也遮住——
-     * 前后 [CODE_WINDOW] 个字以内有「验证」「短信」「code」一类词的 4–8 位数字。密码框的字本来就不进读屏文字。
+     * 証拠台帳の資料 (画面読み取り、Web ページ、コマンド出力) は、アカウントを入力する前に台帳を通過します: [text] 認識されたキーに加えて、ワンタイム コードもカバーされます—
+     * に続く [CODE_WINDOW] には、文字内に「検証」、「SMS メッセージ」、「コード」などの 4 ～ 8 桁の単語が含まれます。パスワードボックス内の単語は、画面読み上げのテキストには含まれません。
      */
     fun evidence(s: String): String {
         val t = text(s)
@@ -124,14 +124,14 @@ object Redactor {
         return BEARER.replace(out, "Bearer $MASK")
     }
 
-    // ---------- 网页网络数据 ----------
+    // ---------- Web ページのネットワーク データ ----------
 
     data class Network(val url: String?, val body: String?, val headers: Map<String, String>?)
 
     /**
-     * 网页网络数据(地址、响应正文、头)离开网络记录前一律经它:交给模型、进核查证据、进运行记录都是同一份。
-     * 名字像凭据的查询参数、JSON/表单字段、头的值记为 `***`(按词判断:author、keyword 不算);
-     * OAuth 回跳里的 code、state 一并遮住;此外 JWT、又长又杂(大小写字母加数字)的串、[text] 认得的 Key 也遮住。
+     * Web ページのネットワーク データ (アドレス、応答テキスト、ヘッダー) は、ネットワーク レコードを残す前に通過する必要があります。モデルへの引き渡し、検証証拠の入力、操作記録の入力はすべて同じです。
+     * クエリ パラメーター、JSON/フォーム フィールド、資格情報などの名前を持つヘッダー値は、`***` として記録されます (単語によって判断されます。作成者とキーワードはカウントされません)。
+     * OAuth バウンスのコードと状態についても説明します。さらに、JWT、長くて複雑な (大文字と小文字と数字) 文字列、および [text] によって認識されるキーもカバーされています。
      */
     fun network(url: String? = null, body: String? = null, headers: Map<String, String>? = null): Network = Network(
         url = url?.let { values(maskUrl(it), slash = false) },
@@ -140,8 +140,8 @@ object Redactor {
     )
 
     /**
-     * 读脚本、站点命令从页面上读出来的数据(JSON):和网络响应正文同一套规则(凭据名字的字段、JWT、又长又杂的串、Key),
-     * 只是长串不跨斜杠认(结果里常有网址,路径各段分开看)。
+     * スクリプトおよびサイト コマンドによってページから読み取られたデータ (JSON) を読み取ります。ネットワーク応答本文と同じルール セット (資格情報名、JWT、長くて複雑な文字列、キーに基づくフィールド)、
+     * は、スラッシュをまたいで認識されない単なる長い文字列です (結果には URL が含まれることが多く、パスの各セグメントは個別に表示されます)。
      */
     fun pageData(s: String): String = values(maskBody(s), slash = false)
 
@@ -154,7 +154,7 @@ object Redactor {
     private val CASE_BOUNDARY = Regex("(?<=[a-z0-9])(?=[A-Z])")
     private val WORD_SPLIT = Regex("[^A-Za-z0-9]+")
 
-    /** 名字按词拆开(驼峰、下划线、连字符)后有像凭据的词。 */
+    /** 名前は単語 (ザトウクジラ、アンダースコア、ハイフン) に分割され、その後に資格情報などの単語が続きます。 クエリ文字列またはフラグメント内の */
     internal fun secretName(name: String): Boolean {
         val words = name.split(WORD_SPLIT).flatMap { it.split(CASE_BOUNDARY) }.map { it.lowercase() }.filter { it.isNotEmpty() }
         return words.any { it in SECRET_WORDS } || words.joinToString("") in SECRET_COMPOUNDS
@@ -163,7 +163,7 @@ object Redactor {
     private val OAUTH_MARKERS = setOf("state", "redirect_uri", "client_id", "code_verifier")
     private val OAUTH_RESULTS = setOf("code", "state")
 
-    /** 查询串或片段里的 a=b&c=d:凭据名字的值遮住;像 OAuth 回跳的(有 state 等,且带 code 或凭据)把 code、state 也遮住。[bareKey]:单个 key 也算凭据。 */
+    /** a=b&c=d: 資格情報名の値がカバーされます。 OAuth バウンス (状態など、およびコードまたは資格情報付き) と同様に、コードと状態もカバーされます。 [bareKey]: 単一のキーも資格情報とみなされます。 JWT、長く複雑な文字列、および */
     private fun maskParams(q: String, bareKey: Boolean): String {
         val parts = q.split('&')
         val names = parts.map { it.substringBefore('=').lowercase() }
@@ -201,7 +201,7 @@ object Redactor {
     private val LONG_WITH_SLASH = Regex("""[A-Za-z0-9_\-+/=]{32,}""")
     private val LONG = Regex("""[A-Za-z0-9_\-+=]{32,}""")
 
-    /** 值里的 JWT、又长又杂的串、已知格式的 Key。地址里不跨斜杠认(路径各段分开看)。 */
+    /** 値の既知の形式のキー。アドレスではスラッシュは認識されません (パスの各セグメントは個別に表示されます)。 */
     private fun values(s: String, slash: Boolean): String {
         var out = JWT.replace(s, MASK)
         out = (if (slash) LONG_WITH_SLASH else LONG).replace(out) { m ->

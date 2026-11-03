@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** 一次自检此刻的样子:[results] 按 [SelfCheck] 的顺序,每项一条。 */
+/** セルフテストは次のようになります。 [results] 項目ごとに 1 つずつ、[SelfCheck] の順序に従います。 */
 data class SelfCheckState(
     val phase: Phase = Phase.Idle,
     val results: List<CheckResult> = SelfCheck.entries.map { CheckResult(it) },
@@ -20,14 +20,14 @@ data class SelfCheckState(
 
     fun of(check: SelfCheck): CheckResult = results[check.ordinal]
 
-    /** 跑完或取消了:可以出报告。 */
+    /** 終了またはキャンセル: レポートを発行できます。 */
     val ended: Boolean get() = phase == Phase.Done || phase == Phase.Cancelled
 }
 
 /**
- * 按顺序跑完 [SelfCheck] 的每一项:先要过的没过就跳过并写明缺哪一项;每项有自己的时限,整次还有总时限 [budgetMs],
- * 时间用完了余下的都记为跳过。出错按失败记,不中断后面的项。不论跑完、出错还是被取消,最后都调 [SelfCheckPort.release]。
- * [state] 随时给出进度,界面照着画。一个实例只跑一次。
+ * [SelfCheck] の各項目を順番に実行します。渡されない場合は最初の項目をスキップし、どの項目が欠落しているかを示します。各アイテムには独自の制限時間があり、[budgetMs] の時間全体の合計制限時間もあります。
+ * 時間がなくなると残りはスキップとして記録されます。エラーが発生した場合は失敗として記録され、以降の項目は中断されません。品切れ、エラー、キャンセルに関わらず、最終的には[SelfCheckPort.release]が調整されます。
+ * [state] はいつでも進行状況を表示し、インターフェイスは図面に従います。 An instance only runs once.
  */
 class SelfCheckRunner(
     private val port: SelfCheckPort,
@@ -55,12 +55,12 @@ class SelfCheckRunner(
     private suspend fun step(c: SelfCheck, start: Long) {
         val results = _state.value.results
         c.needs.firstOrNull { !results[it.ordinal].status.passed }?.let { blocker ->
-            set(CheckResult(c, CheckStatus.Skipped, "needs ${blocker.key} (${results[blocker.ordinal].status.name.lowercase()})", blockedBy = blocker))
+            set(CheckResult(c, CheckStatus.Skipped, "前提項目「${blocker.displayName}」が未達成です（${SelfCheckReport.label(results[blocker.ordinal].status)}）", blockedBy = blocker))
             return
         }
         val left = budgetMs - (now() - start)
         if (left <= 0) {
-            set(CheckResult(c, CheckStatus.Skipped, "out of time", Advice.OutOfTime))
+            set(CheckResult(c, CheckStatus.Skipped, "診断全体の制限時間に達しました", Advice.OutOfTime))
             return
         }
         set(CheckResult(c, CheckStatus.Running))
@@ -68,14 +68,14 @@ class SelfCheckRunner(
         val limit = minOf(c.timeoutMs, left)
         val outcome = try {
             withTimeoutOrNull(limit) { if (c == SelfCheck.DEVICE) device() else port.check(c) }
-                ?: CheckOutcome.fail("timed out after ${seconds(limit)} s", Advice.TimedOut)
+                ?: CheckOutcome.fail("${seconds(limit)} 秒でタイムアウトしました", Advice.TimedOut)
         } catch (e: TimeoutCancellationException) {
-            // 端口里自己的时限到了(不是这次自检被取消)
-            CheckOutcome.fail("timed out inside the check", Advice.TimedOut)
+            // ポート内での独自の制限時間が経過しました (このセルフテストがキャンセルされたわけではありません)
+            CheckOutcome.fail("診断項目の内部処理がタイムアウトしました", Advice.TimedOut)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            CheckOutcome.fail("error: ${e.javaClass.simpleName}", Advice.Error)
+            CheckOutcome.fail("エラー: ${e.javaClass.simpleName}", Advice.Error)
         }
         set(CheckResult(c, outcome.status, outcome.detail, outcome.advice, durationMs = now() - t0))
         _state.value = _state.value.copy(elapsedMs = now() - start)
@@ -92,33 +92,33 @@ class SelfCheckRunner(
         _state.value = s.copy(results = s.results.map { if (it.check == r.check) r else it })
     }
 
-    /** 结束:还没结论的(取消时正在跑的和后面的)都记为跳过。 */
+    /** 終了：まだ終了していないもの（キャンセル時に実行中の内容とその後の内容）はスキップされたものとして記録されます。 */
     private fun finish(phase: SelfCheckState.Phase, start: Long) {
         val s = _state.value
         _state.value = s.copy(
             phase = phase,
             elapsedMs = now() - start,
-            results = s.results.map { if (it.status.final) it else CheckResult(it.check, CheckStatus.Skipped, "cancelled", Advice.Cancelled) },
+            results = s.results.map { if (it.status.final) it else CheckResult(it.check, CheckStatus.Skipped, "キャンセルされました", Advice.Cancelled) },
         )
     }
 
     companion object {
-        /** 整次自检的总时限:各项的时限加起来比这长,正常情况下远用不完。 */
+        /** The total time limit of the entire self-test: the total time limit of each item is longer than this, which is far from being used up under normal circumstances. */
         const val TOTAL_BUDGET_MS = 90_000L
 
         private fun seconds(ms: Long) = (ms + 999) / 1000
 
         /**
-         * 「设备」这一项:安卓 12 以下手机操作用不了;这个环境没有能起助手的路也用不了;
-         * 没有无线调试只能用电脑启动,算部分可用。
+         * 「デバイス」項目: Android 12 未満の携帯電話の操作には使用できません。この環境でアシスタントをアクティブにする方法がない場合は使用できません。
+         * にはワイヤレス デバッグがなく、一部利用可能なコンピューターでのみ起動できます。
          */
         fun judgeDevice(f: DeviceFacts): CheckOutcome {
-            val detail = "Android ${f.androidRelease} (SDK ${f.sdk}), ${f.abis.firstOrNull() ?: "unknown ABI"}" +
-                ", wireless debugging ${when (f.wirelessDebugging) { true -> "present"; false -> "missing"; null -> "unknown" }}"
+            val detail = "Android ${f.androidRelease}（SDK ${f.sdk}）, ${f.abis.firstOrNull() ?: "ABI不明"}" +
+                "、ワイヤレスデバッグ: ${when (f.wirelessDebugging) { true -> "あり"; false -> "なし"; null -> "不明" }}"
             return when {
-                f.sdk < DeviceFacts.MIN_PHONE_SDK -> CheckOutcome.fail("$detail; phone control needs Android 12+", Advice.PhoneTooOld)
+                f.sdk < DeviceFacts.MIN_PHONE_SDK -> CheckOutcome.fail("$detail。スマートフォン操作にはAndroid 12以降が必要です", Advice.PhoneTooOld)
                 f.phoneControlUnavailable -> CheckOutcome.fail(
-                    "$detail, developer options page missing; phone control unavailable in this environment", Advice.PhoneControlUnavailable,
+                    "$detail。開発者向けオプションがないため、この環境ではスマートフォンを操作できません", Advice.PhoneControlUnavailable,
                 )
                 f.wirelessDebugging == false -> CheckOutcome.partial(detail, Advice.NoWirelessDebugging)
                 else -> CheckOutcome.pass(detail)

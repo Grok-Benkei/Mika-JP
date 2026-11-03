@@ -4,9 +4,9 @@ import okhttp3.Request
 import java.util.UUID
 
 /**
- * 一段对话对外的会话号:同一段对话的每个请求(主模型、看图、轻量、起标题、核查、意图判断、停止后的交代)都用同一个,
- * 服务商据此把请求路由到一处、复用提示词缓存。由对话 id 推出(UUID v3,不可逆),不把对话 id 本身发出去。
- * 不属于任何对话的请求(连接测试、列模型)每次用 [fresh] 的新号。
+ * 会話の外部セッション番号：同一会話の各リクエスト（メインモデル、画像閲覧、軽量化、タイトル作成、検証、意図判断、停止後の説明）は同じものを使用します。
+ * これに基づいて、サービス プロバイダーはリクエストを 1 か所にルーティングし、プロンプト ワード キャッシュを再利用します。会話 ID (UUID v3、不可逆) から推定されるため、会話 ID 自体は送信されません。
+ * どの会話にも属さないリクエスト (接続テスト、列モデル) は、毎回新しい番号 [fresh] を使用します。
  */
 @JvmInline
 value class ModelSession(val id: String) {
@@ -18,11 +18,11 @@ value class ModelSession(val id: String) {
     }
 }
 
-/** 发给模型服务的每个请求都带的头;Key 的头由各适配器自己加。 */
+/** モデル サービスに送信される各リクエストにはヘッダーが含まれます。 Key ヘッダーは各アダプターによって追加されます。 */
 object ClientHeaders {
     /**
-     * [userAgent] 标明是 Mika 哪个版本(由 App 给,core 不写版本号);[sessionHeader] 是服务商声明要放会话号的头名,
-     * 没声明(null 或空)就不发会话号。
+     * [userAgent] は、Mika のバージョンを示します (アプリによって与えられ、コアはバージョン番号を書き込みません)。 [sessionHeader] は、サービス プロバイダーによって宣言されたセッション番号の名前です。
+     * ステートメントがない場合 (null または空)、セッション番号は送信されません。
      */
     fun of(userAgent: String, sessionHeader: String?, session: ModelSession): Map<String, String> = buildMap {
         put("User-Agent", userAgent)

@@ -11,7 +11,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import com.wangzan101.mika.R
 
-/** Mika 的标志:圆角方块里的图标画。圆角默认按边长的 0.28(36dp 约 10,76dp 约 22)。 */
+/** Mika のロゴ: 角丸の四角の中のアイコン画。角丸は既定で辺の長さの 0.28（36dp なら約 10、76dp なら約 22）。 */
 @Composable
 fun MikaLogo(size: Dp, modifier: Modifier = Modifier, corner: Dp = size * 0.28f) {
     Image(

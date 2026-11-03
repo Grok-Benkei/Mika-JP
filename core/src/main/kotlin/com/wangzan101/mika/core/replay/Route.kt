@@ -11,9 +11,9 @@ import com.wangzan101.mika.core.tool.ToolIndex
 import com.wangzan101.mika.core.tool.Verb
 
 /**
- * 路线里认元素的办法:编号只在一次读屏内有效,换成角色、名字、资源 ID、位置(0–999)和同类中的序号。
- * [name] 为空表示不按名字认;形如 `{1}` 表示名字取自本次原话的槽。
- * [uniqueAtRecord]:记录时按这些特征在那一屏里只找到它一个。
+ * ルート内の要素を識別する方法: 番号は 1 つの画面読み取り内でのみ有効です。これを、同じタイプのロール、名前、リソース ID、位置 (0 ～ 999)、およびシリアル番号に置き換えます。
+ * [name] 空の場合は、名前で認識されないことを意味します。 `{1}` の形式の場合、名前がこの元のスピーチのスロットから取得されたことを意味します。
+ * [uniqueAtRecord]: 録画中にこれらの機能を押すと、その画面上で 1 つの機能のみが表示されます。
  */
 @Serializable
 data class Selector(
@@ -25,15 +25,15 @@ data class Selector(
     val uniqueAtRecord: Boolean = false,
 )
 
-/** 一屏的锚点:前台包名 + 最多 [RouteAnchors.MAX] 段稳定文字。 */
+/** 1 つの画面のアンカー ポイント: フロントエンド パッケージ名 + 最大 [RouteAnchors.MAX] の安定したテキスト。 */
 @Serializable
 data class Anchors(val packageName: String?, val texts: List<String>)
 
-/** [argsJson] 已去掉编号,输入文字里的槽写成 `{1}`。 */
+/** [argsJson] 番号が削除され、入力テキストのスロットは `{1}` として書き込まれます。 */
 @Serializable
 data class RouteStep(val tool: String, val argsJson: String, val target: Selector?, val before: Anchors, val after: Anchors)
 
-/** 一条办成过的做法。[template] 是把原话里的槽值换成 `{n}` 之后的句子。 */
+/** 実績のある方法。 [template] は、元の文のスロット値を `{n}` に置き換えた後の文です。 */
 @Serializable
 data class Route(
     val id: String,
@@ -49,13 +49,13 @@ data class Route(
     val lastUsedMs: Long,
 )
 
-/** 路线的大小上限:步数和落盘字节数。 */
+/** ルートのサイズの上限: ステップ数とドロップされたバイト数。 */
 const val MAX_ROUTE_STEPS = 60
 const val MAX_ROUTE_BYTES = 64 * 1024
 
 /**
- * 改名前记下的路线:步骤里的旧工具名换成现在能记进路线的那个工具(几块屏都有的动词,取能回放的那一套)。
- * 现在的名字不动;认不出的留着,回放时按「不是可回放的动作」停下。
+ * 名前変更前に記録されたルート: 手順内の古いツール名は、ルートを記録できるツールに置き換えられます (複数の画面で使用できる動詞、再生できるセットを取得します)。
+ * 現在の名前は変更されません。認識できないものは残ります。再生中に「再生できないアクション」を押すと停止します。
  */
 fun Route.withCurrentToolNames(legacy: LegacyNames, tools: ToolIndex): Route {
     if (steps.all { tools[it.tool] != null }) return this
@@ -70,11 +70,11 @@ object RouteCodec {
     fun decode(s: String): Route = json.decodeFromString(Route.serializer(), s)
 }
 
-/** 从读屏里取选择器和锚点。 */
+/** 画面読み取りからセレクターとアンカーポイントを取得します。 */
 object RouteAnchors {
     const val MAX = 3
     private const val MAX_LEN = 12
-    /** 数字、时间、金额一类每次都可能变,不当锚点。 */
+    /** 数値、時間、金額は毎回変更される可能性があるため、アンカー ポイントとして使用しないでください。 */
     private val VOLATILE = Regex("[0-9０-９¥￥$€£%]")
     private val LIST_ROLES = setOf("list", "grid", "recycler", "scroll")
 
@@ -89,8 +89,8 @@ object RouteAnchors {
         e.bounds[0] >= c.bounds[0] && e.bounds[1] >= c.bounds[1] && e.bounds[2] <= c.bounds[2] && e.bounds[3] <= c.bounds[3]
 
     /**
-     * 可当锚点的文字,按屏上顺序去重,有资源 ID 的排前面。列表、可滚动区里的条目是内容(联系人、消息、商品),
-     * 输入框里的字是用户写的,都不算——只取页面的固定框架(标题栏、标签、按钮)。
+     * アンカーポイントとして使用できるテキストは画面上の順序で重複排除され、リソースIDを持つテキストが優先されます。リストおよびスクロール可能な領域内の項目はコンテンツ (連絡先、メッセージ、製品)、
+     * 入力ボックス内の単語がユーザーによって書き込まれた場合、それらはカウントされません。ページの固定フレーム (タイトル バー、ラベル、ボタン) のみが取得されます。
      */
     fun texts(s: ScreenSnapshot): List<String> {
         val boxes = s.elements.filter(::container)
@@ -106,15 +106,15 @@ object RouteAnchors {
         return Anchors(s.packageName, texts(s).filter { it != self }.take(MAX))
     }
 
-    /** 动作后新出现的文字(动作前那一屏没有的)。 */
+    /** アクションの後に表示される新しいテキスト (アクションの前には画面に表示されませんでした)。 */
     fun after(before: ScreenSnapshot?, after: ScreenSnapshot): Anchors {
         val old = before?.let(::texts)?.toSet().orEmpty()
         return Anchors(after.packageName, texts(after).filter { it !in old }.take(MAX))
     }
 
     /**
-     * 选择器里的名字:输入框只留提示语(没有就空),那是界面不是用户写的字;
-     * 其余元素的名字要像锚点一样稳定(短、无数字),否则不存名字,只靠角色、资源 ID 和序号认。
+     * セレクター内の名前: 入力ボックスにはプロンプトのみが残ります (そうでない場合は空になります)。これは、インターフェースがユーザーによって書かれた単語ではないことを意味します。
+     * 他の要素の名前は、アンカー ポイントと同じくらい安定している必要があります (短く、数字なし)。そうでない場合、名前は保存されず、ロール、リソース ID、シリアル番号によってのみ識別されます。
      */
     fun storedName(e: UiElement): String = when {
         e.editable -> if (e.hint && stable(e.name)) e.name.trim() else ""
@@ -124,24 +124,24 @@ object RouteAnchors {
 
     fun selector(s: ScreenSnapshot, e: UiElement): Selector {
         val name = storedName(e)
-        // 按存下来的特征认:名字没存就只比角色和资源 ID
+        // 保存された特性によると、名前が保存されていない場合は、キャラクターおよびリソース ID とのみ比較されます。
         fun same(x: UiElement) = x.role == e.role && x.resourceId == e.resourceId && (name.isEmpty() || x.name.trim() == e.name.trim())
         val ordinal = s.elements.takeWhile { it !== e }.count(::same)
         return Selector(e.role, name, e.resourceId, e.bounds, ordinal, uniqueAtRecord = s.elements.count(::same) == 1)
     }
 
-    /** 包含该点(0–999)的最小元素;同样小时先取能点的。 */
+    /** には、点の最小要素 (0 ～ 999) が含まれます。エネルギーポイントは同じ時間で最初に取得されます。 */
     fun elementAt(s: ScreenSnapshot, x: Int, y: Int): UiElement? = s.elements
         .filter { it.bounds.size == 4 && x in it.bounds[0]..it.bounds[2] && y in it.bounds[1]..it.bounds[3] }
         .minWithOrNull(compareBy<UiElement> { (it.bounds[2] - it.bounds[0]).toLong() * (it.bounds[3] - it.bounds[1]) }.thenBy { !it.clickable })
 }
 
-/** 生效的写操作:ok 且界面变了,或输入回读一致;启动 App、打开链接成功即算(端口已等到目标在前台)。 */
+/** 有効な書き込み操作: OK、インターフェイスが変更されているか、入力リードバックが一貫しています。アプリを起動してリンクを開くと成功したとみなされます (ポートはターゲットがフォアグラウンドになるまで待機します)。 */
 fun effectiveWrite(verb: Verb?, result: JsonObject): Boolean {
     if (result["ok"] != JsonPrimitive(true)) return false
     return result["changed"] == JsonPrimitive(true) || result["verification"] == JsonPrimitive("match") ||
         (verb in OPENS && result["changed"] != JsonPrimitive(false))
 }
 
-/** 打开 App、打开链接:成功就是到了目标那里。 */
+/** アプリを開いてリンクを開きます。成功とは目標に到達することを意味します。 */
 internal val OPENS = setOf(Verb.LaunchApp, Verb.OpenLink)

@@ -18,11 +18,11 @@ import com.wangzan101.mika.ui.theme.animationsOff
 import com.wangzan101.mika.ui.theme.systemBarsFor
 
 /**
- * App 里的文件查看页:网页、Markdown、PDF、图片和文本类文件在这里直接看,不用另找 App。
- * 自成一个 Activity,对话里的文件卡片之外,别处(悬浮胶囊、通知)也能用 [FileViewer.open] 打开。
+ * アプリのファイル表示ページ: Web ページ、マークダウン、PDF、画像、テキスト ファイルは、別のアプリを探すことなく、ここで直接表示できます。
+ * は独自のアクティビティです。会話内のファイル カードに加えて、他の場所 (一時停止中のカプセルや通知) も [FileViewer.open] で開くことができます。
  */
 class FileViewerActivity : ComponentActivity() {
-    // 安卓 12 及以前套上 App 里选的语言;13 起系统自己套
+    // Android 12 以前の場合、アプリで選択した言語が適用されます。 13 以降、システムは単独で適用できます。
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLanguage.wrap(newBase))
     }
@@ -48,7 +48,7 @@ class FileViewerActivity : ComponentActivity() {
     }
 }
 
-/** 打开文件的入口:能在 App 里看的进 [FileViewerActivity],其余交给系统里能打开它的 App。 */
+/** ファイルを開く入り口: [FileViewerActivity] はアプリで表示でき、残りはシステムで開くことができるアプリに任せられます。 */
 object FileViewer {
     fun kindOf(context: Context, uri: Uri, name: String): ViewerKind? =
         ViewerKinds.of(runCatching { context.contentResolver.getType(uri) }.getOrNull(), name)
@@ -61,14 +61,14 @@ object FileViewer {
         context.startActivity(intent)
     }
 
-    /** 用其他应用打开:系统的选择面板,没有能打开的 App 时提示一句。 */
+    /** 他のアプリケーションで開く: 開けるアプリがない場合、システム選択パネルにメッセージが表示されます。 */
     fun openElsewhere(context: Context, uri: Uri, name: String) {
         val intent = Intent(Intent.ACTION_VIEW).setDataAndType(uri, mimeOf(context, uri))
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
         start(context, Intent.createChooser(intent, name), tr(R.string.viewer_no_open_app))
     }
 
-    /** 分享:把文件发给别的 App(带读取授权)。 */
+    /** 共有: ファイルを他のアプリに送信します (読み取り権限あり)。 */
     fun share(context: Context, uri: Uri, name: String) {
         val intent = Intent(Intent.ACTION_SEND).setType(mimeOf(context, uri)).putExtra(Intent.EXTRA_STREAM, uri)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

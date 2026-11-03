@@ -1,6 +1,6 @@
 package com.wangzan101.mika.core.access
 
-/** 应用分类仅用于整理列表,不决定执行权限。名字按界面语言放在 app 侧资源里(values/strings_appaccess.xml)。 */
+/** アプリケーション分類はリストを整理するためにのみ使用され、実行権限を決定するものではありません。名前は、インターフェイス言語に従ってアプリ側のリソース (values/strings_appaccess.xml) に配置されます。 */
 enum class AppCategory {
     Finance, Social, Game, Shopping, Productivity, Media, Other, Unknown;
 }
@@ -24,7 +24,7 @@ data class AppAccessState(
     fun canShare(packageName: String): Boolean = available && (packageName !in blocked || packageName in shareAllowed)
 }
 
-/** 每次读取最新状态,不在任务开始时冻结权限。 */
+/** は毎回最新のステータスを読み取り、タスクの開始時に権限をフリーズしません。 */
 fun interface AppAccessPolicy {
     fun current(): AppAccessState
 
@@ -36,19 +36,19 @@ fun interface AppAccessPolicy {
 class AppAccessDenied(val code: String, val packageName: String?) : RuntimeException(
     when (code) {
         "app_blocked" ->
-            "Application $packageName is disabled by the user in Application access. Do not retry it, read it again, or try to bypass this with shell or another app. " +
-                "Reconsider the plan: if another app, screen, share target or web route can still achieve the user's goal, continue there. " +
-                "If this app is required, stop and tell the user plainly that this app is disabled in Settings > Application access and can be allowed there; do not repeat this error or show its code."
+            "アプリ「$packageName」はユーザーが「アプリのアクセス」で無効にしています。再試行・再読み取りや、シェル・別のアプリによる回避は行わないでください。" +
+                "別のアプリ・画面・共有先・ウェブ経路でユーザーの目的を達成できる場合は、その方法で続けてください。" +
+                "このアプリが必須なら停止し、「設定 › アプリのアクセス」で無効になっており、そこで許可できることをユーザーに説明してください。このエラーやコードをそのまま繰り返さないでください。"
         "app_access_protected" ->
-            "This is an authorization or screen-sharing interface that only the user may operate. Stop and ask the user to handle this step. Do not tap or type here."
+            "この認証・画面共有の画面は、ユーザー本人だけが操作できます。停止して、この手順をユーザーに依頼してください。ここでタップや入力は行わないでください。"
         "app_access_unavailable" ->
-            "Application access settings are unavailable, so permission cannot be checked. Do not use phone tools. Tell the user to repair or reset Application access in Settings."
+            "アプリのアクセス設定を読み取れないため、権限を確認できません。スマートフォンの操作ツールは使わず、設定から「アプリのアクセス」を修復またはリセットするようユーザーへ案内してください。"
         else ->
-            "Cannot verify which application is in front. This operation was not performed and no permission was changed. Observe the screen again to identify the app; if it stays uncertain, stop and ask the user."
+            "前面のアプリを確認できないため、この操作は実行しておらず、権限も変更していません。画面を再度読み取ってアプリを確認し、引き続き不明な場合は停止してユーザーに尋ねてください。"
     },
 ) {
     companion object {
-        /** 应用访问拒绝不是普通操作失败:要交给模型,不能当成任务异常。 */
+        /** アプリケーションのアクセス拒否は通常の操作の失敗ではありません。モデルに引き渡す必要があり、タスクの例外とみなされません。 */
         fun isAppAccessCode(code: String): Boolean = code == "app_blocked" || code.startsWith("app_access_")
     }
 }

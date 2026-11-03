@@ -1,9 +1,9 @@
 package com.wangzan101.mika.core.cap.phone
 
 /**
- * 系统命令在做专门工具做的事(点、滑、打字、按键、打开 App)时,结果里提醒换回那个工具:专门工具在 Mika 的屏上做,
- * 做完会核实效果,shell 发的输入不核实。第一次只提醒、照样执行;本任务提醒过之后,再做这几类事的命令不执行,
- * 只回那句提醒([refuses])。用 shell 分享文字一律不执行,指向分享文字的工具。查状态、读设置一类的命令不受影响。
+ * システム コマンドを使用して特別なツールが実行すること (クリック、スライド、入力、キーを押す、アプリを開く) を実行すると、結果によってそのツールに戻るように通知されます。特別なツールはミカの画面で実行されます。
+ * は完了後に効果を検証しますが、シェルによって送信された入力は検証されません。初めて通知されたときも、それは実行されます。このタスクがリマインドされると、これらの種類の処理を実行するコマンドは実行されなくなります。
+ * はそのリマインダー ([refuses]) にのみ返信します。シェルを使用したテキストの共有は実行されず、テキストを共有するツールが参照されます。ステータスの確認や設定の読み取りなどのコマンドには影響しません。 コマンド
  */
 internal object CommandSteer {
     enum class Purpose(val feedbackKey: String) {
@@ -11,21 +11,21 @@ internal object CommandSteer {
         Share("system_command.use_share"),
     }
 
-    /** [purpose] 的命令这回不执行:分享一律不执行;其余在本任务已提醒过([steered])之后不执行。 */
+    /** [purpose] は今回は実行されません。共有は実行されません。このタスクが通知された後は残りは実行されません ([steered])。 */
     fun refuses(purpose: Purpose?, steered: Boolean): Boolean = purpose == Purpose.Share || (purpose != null && steered)
 
-    /** 命令里每一段 `input …` 的子命令(前面可带输入源和 -d 屏号)。 */
+    /** コマンドの各セクションは、`input …` のサブコマンドです (入力ソースと -d 画面番号を前に付けることができます)。 */
     private val INPUT = Regex("""(?:^|[;&|(\s])input\s+(?:(?:touchscreen|touchpad|keyboard|mouse|stylus|trackball|dpad|gamepad|joystick|rotaryencoder|touchnavigation)\s+)?(?:-d\s+\S+\s+)?([a-z]+)""")
     private val LAUNCH = Regex("""(?:^|[;&|(\s])(?:am\s+(?:start|start-activity)\b|cmd\s+activity\s+start(?:-activity)?\b|monkey\s+(?:.*\s)?-p\s)""")
     private val GESTURES = setOf("tap", "swipe", "draganddrop", "motionevent", "press", "roll")
-    /** 启动的是分享:动作写全(android.intent.action.SEND)或只写 -a SEND。 */
+    /** は共有を開始します: すべてのアクション (android.intent.action.SEND) を書き込むか、-a SEND だけを書きます。 */
     private val SHARE = Regex("""(?:android\.intent\.action\.SEND|-a\s+["']?SEND)(?![A-Za-z_])""")
-    /** 分享的是文件(带 STREAM):分享文字的工具做不了,按一般的启动算。 */
+    /** はファイルを共有しています (STREAM と): テキスト共有ツールは使用できず、通常の起動としてカウントされます。 */
     private const val STREAM = "android.intent.extra.STREAM"
 
     /**
-     * 命令在模仿哪一类专门工具;都不是为 null。打字和点同在一条命令里时按打字算(要说的是打字该用什么);
-     * 分享文字排在最前:它一律不执行。
+     * コマンドがエミュレートしている特殊なツールのタイプ。どちらも null ではありません。入力とクリックが同じコマンド内にある場合、それらは入力としてカウントされます (ここで話したいのは、入力時に何を使用するかについてです)。
+     * 最初にテキストを共有します: 実行されることはありません。
      */
     fun purpose(command: String): Purpose? {
         val subs = INPUT.findAll(command).map { it.groupValues[1] }.toSet()

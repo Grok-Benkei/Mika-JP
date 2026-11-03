@@ -43,25 +43,25 @@ import org.commonmark.parser.Parser
 import com.wangzan101.mika.ui.theme.LightColors
 import com.wangzan101.mika.ui.theme.MikaColors
 
-/** 回答里的 Markdown 解析成的显示模型:块级结构 + 带样式的行内文字。纯数据,不依赖界面。 */
+/** の回答の Markdown によって解析された表示モデル: ブロック レベルの構造 + スタイル付きのインライン テキスト。純粋なデータであり、インターフェースに依存しません。 */
 sealed interface MdBlock {
     data class Para(val text: AnnotatedString) : MdBlock
     data class Heading(val level: Int, val text: AnnotatedString) : MdBlock
     data class Code(val info: String, val code: String) : MdBlock
     data class Quote(val blocks: List<MdBlock>) : MdBlock
-    /** [start] 为 null 是无序列表;每个列表项是一组块。 */
+    /** [start] は null で、順序なしリストです。各リスト項目はブロックのセットです。 */
     data class ListBlock(val start: Int?, val tight: Boolean, val items: List<List<MdBlock>>) : MdBlock
-    /** 每行的格数都补齐到表头的列数。 */
+    /** 各行のセルの数がヘッダーの列数に達します。 */
     data class Table(val header: List<AnnotatedString>, val rows: List<List<AnnotatedString>>) : MdBlock
     data object Rule : MdBlock
 }
 
 object MarkdownModel {
-    /** 嵌套再深的引用、列表就按纯文字显示,免得递归太深。 */
+    /** 参照やリストがどれほど深くネストされていても、深すぎる再帰を避けるためにそれらはプレーン テキストとして表示されます。 */
     private const val MAX_DEPTH = 12
     private val LINK_SCHEMES = setOf("http", "https", "mailto", "tel")
 
-    /** 行内代码和链接的样式;颜色跟着深浅色,由显示的地方按当前配色给。 */
+    /** インライン コードとリンクのスタイル。色は暗い色と明るい色に従い、表示される現在のカラー マッチングによって与えられます。 */
     class Styles(val code: SpanStyle, val link: TextLinkStyles) {
         companion object {
             fun of(c: MikaColors) = Styles(
@@ -77,7 +77,7 @@ object MarkdownModel {
         .extensions(listOf(TablesExtension.create(), StrikethroughExtension.create()))
         .build()
 
-    /** 解析失败(包括写到一半的流式文字导致的任何意外)时,整段按纯文字一段显示。 */
+    /** 解析が失敗した場合 (書きかけのストリーミング テキストによる事故を含む)、段落全体がプレーン テキストとして表示されます。 */
     fun parse(markdown: String, styles: Styles = Styles.Light): List<MdBlock> = try {
         blocks(parser.parse(markdown), 0, styles)
     } catch (e: Exception) {
@@ -86,12 +86,12 @@ object MarkdownModel {
         plain(markdown)
     }
 
-    /** 流式片段可停在语法中间；只在显示时补全尾部，不修改实际回答。 */
+    /** ストリーミング スニペットは文法の途中で停止できます。表示時には末尾のみが完成しており、実際の答えは変更されません。 */
     fun parseStreaming(markdown: String, styles: Styles = Styles.Light): List<MdBlock> = parse(StreamingMarkdown.preview(markdown), styles)
 
     /**
-     * 回答去掉 Markdown 符号后的纯文字(复制、引用用):段落、标题、代码照原文,各块之间空一行;
-     * 列表每项一行,前面「• 」或「1. 」;引用每行前面「> 」;表格每行一行、格子之间用制表符;分隔线不要。
+     * は、Markdown 記号 (コピーと引用用) を削除した後のプレーン テキストに答えました。段落、タイトル、コードは元のテキストと同じで、各ブロックの間には空白行があります。
+     * リスト内の各項目は 1 行にあり、その前に「・」または「1.」が付きます。引用の各行の前には「>」が付けられます。表の各行は 1 行であり、セル間にはタブが使用されます。区切り文字は必要ありません。
      */
     fun toPlainText(markdown: String): String = blocksText(parse(markdown)).trim()
 
@@ -160,7 +160,7 @@ object MarkdownModel {
             is StrongEmphasis -> withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { appendInlines(n, s) }
             is Strikethrough -> withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) { appendInlines(n, s) }
             is Link -> link(n.destination, s) { appendInlines(n, s) }
-            // 聊天里不显示图片,只留替代文字(有可打开的地址就做成链接)
+            // チャット内に画像は表示されず、代替テキストのみが残ります（公開可能なアドレスがあればリンク化されます）
             is Image -> link(n.destination, s) { if (n.firstChild != null) appendInlines(n, s) else append(n.destination.orEmpty()) }
             is HtmlInline -> append(n.literal)
             else -> appendInlines(n, s)

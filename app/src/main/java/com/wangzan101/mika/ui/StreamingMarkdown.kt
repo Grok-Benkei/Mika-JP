@@ -1,6 +1,6 @@
 package com.wangzan101.mika.ui
 
-/** 让还没输出完的行也能按 Markdown 预览；这些临时字符不会进入消息记录。 */
+/** を使用すると、まだ出力されていない行を Markdown でプレビューできます。これらの一時文字はメッセージ レコードには入力されません。 */
 internal object StreamingMarkdown {
     private data class Open(val marker: String, val index: Int)
     private val unfinishedLink = Regex("""!?\[([^\]\n]*)\]\([^\)\n]*$""")
@@ -9,9 +9,9 @@ internal object StreamingMarkdown {
 
     fun preview(markdown: String): String {
         if (markdown.isEmpty()) return markdown
-        // 代码块里的标点就是内容，不能把尚未闭合的链接或表格当排版语法改掉。
+        // コード ブロック内の句読点はコンテンツであり、閉じられていないリンクやテーブルを組版構文として使用して変更することはできません。
         if (insideFence(markdown)) return markdown
-        // URL 尚未收完时先显示链接文字，避免 [文字](https://... 直接露出来。
+        // URLが収集されていない場合、[テキスト](https://...)が直接公開されるのを防ぐために、リンクテキストが最初に表示されます。
         val link = unfinishedLink.find(markdown) ?: unfinishedLabel.find(markdown)
         val visible = if (link == null) markdown else markdown.replaceRange(link.range, link.groupValues[1])
         return closeInline(softenPendingTable(visible))
@@ -80,7 +80,7 @@ internal object StreamingMarkdown {
             if (fence != null) { i++; continue }
             if (c == '\\') { i = (i + 2).coerceAtMost(source.length); continue }
             if (c == ']' && source.getOrNull(i + 1) == '(') {
-                // 已闭合链接的地址不是可见正文，里面的强调符号不用处理。
+                // 閉じられたリンクのアドレスは表示テキストではないため、内部の強調記号を処理する必要はありません。
                 val end = source.indexOf(')', i + 2)
                 if (end >= 0) { i = end + 1; continue }
             }

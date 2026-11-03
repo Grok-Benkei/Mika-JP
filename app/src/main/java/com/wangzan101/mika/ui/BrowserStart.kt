@@ -82,9 +82,9 @@ val BROWSER_ADD_HINT: String get() = tr(R.string.browser_add_hint)
 private const val COLUMNS = 4
 
 /**
- * 浏览器的起始页:顶栏只有返回和「浏览器」;一个大搜索框(必应),输入时下面是联想(先是搜这句话或打开这个网址,再是最近打开里对得上的);
- * 「常用网站」一行四个(图标、名字,登录着的带小绿点,最后一格「＋」),「整理」或长按进整理(图标轻轻抖,× 移除,「完成」退出);
- * 「最近打开」(搜索写成「搜索：…」,右边是时间,标题右边「清除」)。整理和输入中按返回先退出它们。
+ * ブラウザのスタート ページ: トップ バーには return と "browser" のみがあります。大きな検索ボックス (Bing) と、その下に入力時の関連付けが表示されます (最初にこの文を検索するか、この URL を開いてから、最近一致するものを開きます)。
+ * 「よく使うWebサイト」が4つ並んでいます（アイコン、名前、小さな緑色の点で登録されており、最後のボックス「+」）、「整理」または長押しで整理します（アイコンがわずかに揺れ、×で削除、「完了」で終了）。
+ * 「最近開いた」 (検索は「検索:...」と書かれ、右側に時間が表示され、タイトルの右側に「クリア」が表示されます)。並べ替え中に Return キーを押して入力し、最初に終了します。
  */
 @Composable
 fun BrowserStart(
@@ -155,7 +155,7 @@ fun BrowserStart(
     }
 }
 
-/** 大搜索框:52 高的白色胶囊,聚焦时一圈强调色;键盘上是「前往」。 */
+/** 大型検索ボックス: フォーカスするとアクセントカラーの円が表示される高さ 52 メートルの白いカプセル。キーボードの「ゴー」。 */
 @Composable
 private fun BigSearchField(value: String, onChange: (String) -> Unit, onGo: () -> Unit) {
     val c = MikaTheme.colors
@@ -198,7 +198,7 @@ private fun Caption(text: String) {
     )
 }
 
-/** 分组标题,右边可带一个小字链接([action])。 */
+/** グループ タイトルの右側に小さなリンク ([action]) がある場合があります。 */
 @Composable
 private fun SectionHeader(title: String, action: String? = null, onAction: () -> Unit = {}) {
     val c = MikaTheme.colors
@@ -222,7 +222,7 @@ private fun Legend(text: String, dot: Boolean) {
     }
 }
 
-/** 常用网站一行四格;[onAdd] 不为 null 时最后一格是「＋」。 */
+/** 一般的に使用される Web サイトには 4 つのセルが連続しています。 [onAdd] が null でない場合、最後のセルは「+」になります。 */
 @Composable
 private fun SiteGrid(
     sites: List<FavoriteSite>,
@@ -355,7 +355,7 @@ private fun SuggestionCard(list: List<Suggestion>, face: (String) -> SiteFace, o
     }
 }
 
-/** 起始页上的一行:左边 28 的小图标,标题(一行)和小字,右边可放时间。 */
+/** スタート ページの 1 行: 左側に 28 個の小さなアイコン、タイトル (1 行) と小さな単語、右側に時間が表示されます。 */
 @Composable
 private fun SmallRow(
     title: String,

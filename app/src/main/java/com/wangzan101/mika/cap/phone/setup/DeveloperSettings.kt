@@ -8,15 +8,15 @@ import android.os.Bundle
 import android.provider.Settings
 
 /**
- * 引导要看的系统开关,以及跳到对应设置页的 Intent。
- * 「USB 调试」「无线调试」没有公开的跳转入口:进开发者选项,并按原版设置的做法高亮那一行;不认这个参数的手机就停在开发者选项顶部。
+ * は、参照するシステム スイッチと、対応する設定ページにジャンプするインテントをガイドします。
+ * 「USB デバッグ」と「ワイヤレス デバッグ」には一般的なジャンプ入り口がありません。開発者向けオプションに移動し、元の設定に従ってその行を強調表示します。このパラメータを認識しない携帯電話では、開発者向けオプションの上部で停止します。
  */
 object DeveloperSettings {
-    /** 原版的全局设置项;未公开常量,按名字读。 */
+    /** オリジナルのグローバル設定項目。非公開の定数。名前で読み取られます。 */
     const val ADB_WIFI_ENABLED = "adb_wifi_enabled"
-    /** 原版开发者选项里「无线调试」一行的 key,用来高亮。 */
+    /** 元の開発者向けオプションの「ワイヤレス デバッグ」行のキーは、強調表示に使用されます。 */
     private const val WIRELESS_DEBUGGING_KEY = "toggle_adb_wireless"
-    /** 原版开发者选项里「USB 调试」一行的 key。 */
+    /** は、元の開発者向けオプションの「USB デバッグ」行のキーです。 */
     private const val USB_DEBUGGING_KEY = "enable_adb"
     private const val EXTRA_FRAGMENT_ARG_KEY = ":settings:fragment_args_key"
     private const val EXTRA_SHOW_FRAGMENT_ARGS = ":settings:show_fragment_args"
@@ -28,33 +28,33 @@ object DeveloperSettings {
     fun developerOptions(cr: ContentResolver): Boolean =
         Settings.Global.getInt(cr, Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) == 1
 
-    /** 没写过这一项(从没开过)按关着算;读不准的手机由引导页的「我已经打开了」兜底。 */
+    /** この項目が書き込まれていない（一度もオンになっていない）場合は、オフとしてカウントされます。正確に読み取ることができない携帯電話の場合は、ブート ページの「オンにしました」が使用されます。 */
     fun wirelessDebugging(cr: ContentResolver): Boolean = Settings.Global.getInt(cr, ADB_WIFI_ENABLED, 0) == 1
 
     /**
-     * 系统里没有无线调试这一项。原版(安卓 11 起)开机时总会把这项设置按当前状态写成 0 或 1,所以开着关着都读得到;
-     * 一直没有这一项,说明系统没带无线调试。读的时候出错(系统不让读)不下结论,按有算。
+     * システムにはワイヤレス デバッグはありません。元のバージョン (Android 11 以降) では、この設定がオンになったときに、現在の状態に応じて常に 0 または 1 として書き込まれるため、オンかオフかに関係なく読み取ることができます。
+     * にはこの項目がありませんでした。これは、システムにワイヤレス デバッグがないことを示しています。読み取り中にエラーが発生した場合 (システムが読み取りを許可しません)、結論を導き出さない場合は、それが正しいと仮定してください。
      */
     fun wirelessDebuggingMissing(cr: ContentResolver): Boolean =
         runCatching { Settings.Global.getString(cr, ADB_WIFI_ENABLED) == null }.getOrDefault(false)
 
     /**
-     * 系统里打不开「开发者选项」页:跳过去的 Intent 没有页面接(有的运行环境不带安卓的系统设置)。
-     * 问不到(系统不让问)不下结论,按有算。
+     * システムでは「開発者向けオプション」ページを開くことができません。スキップされたインテントへのページ接続がありません (一部のオペレーティング環境には Android システム設定がありません)。
+     * 質問できない場合 (システムが質問できない場合)、結論を引き出すことはできません。ただ、それが真実であると仮定してください。
      */
     fun developerOptionsPageMissing(pm: PackageManager): Boolean =
         runCatching { pm.resolveActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS), 0) == null }.getOrDefault(false)
 
     /**
-     * 把无线调试开关写成打开(要有修改系统设置的授权)。写入被拒(抛异常或返回 false)返回 false;
-     * 写进去之后系统还可能马上拨回去(见 [com.wangzan101.mika.core.shell.WirelessDebuggingAutoOn]),由调用方再读。
+     * ワイヤレス デバッグ スイッチを開くように書き込みます (システム設定を変更する権限が必要です)。書き込みが拒否され (例外がスローされるか false が返され)、false が返されます。
+     * が書き込まれると、システムはすぐにダイヤルバックし ([com.wangzan101.mika.core.shell.WirelessDebuggingAutoOn] を参照)、発信者は再度それを読み取ることができます。
      */
     fun turnOnWirelessDebugging(cr: ContentResolver): Boolean =
         runCatching { Settings.Global.putInt(cr, ADB_WIFI_ENABLED, 1) }.getOrDefault(false)
 
     fun usbDebugging(cr: ContentResolver): Boolean = Settings.Global.getInt(cr, Settings.Global.ADB_ENABLED, 0) == 1
 
-    /** 「关于手机」,版本号在这里(有的手机在它下面的「软件信息」里)。 */
+    /** 「携帯電話について」のバージョン番号はこちらです（一部の携帯電話ではその下の「ソフトウェア情報」に記載されております）。 */
     fun aboutPhone(): List<Intent> = listOf(Intent(Settings.ACTION_DEVICE_INFO_SETTINGS), Intent(Settings.ACTION_SETTINGS))
 
     fun developerOptionsPage(): List<Intent> = listOf(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS), Intent(Settings.ACTION_SETTINGS))

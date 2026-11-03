@@ -18,24 +18,24 @@ class RecoveryCopyTest {
     fun pendingNoteOnlyForDefaultOnesNotYetApplied() {
         val a11y = RecoveryCapability.Accessibility
         val fresh = RecoveryConsent()
-        // 还没配好手机操作:开关显示打开,下面说要先完成设置
+        // は携帯電話操作用に設定されていません。スイッチ ディスプレイがオンになっており、最初に設定を完了する必要があると次のように表示されます。
         assertNotNull(RecoveryCopy.pending(a11y, fresh, paired = false, autoFailed = emptySet()))
-        // 配好了、正在补上:不多说;补上没成功:照实说
+        // は構成されており、補足中です。詳細はありません。補足できませんでした: 本当のことを言います
         assertNull(RecoveryCopy.pending(a11y, fresh, paired = true, autoFailed = emptySet()))
         assertNotNull(RecoveryCopy.pending(a11y, fresh, paired = true, autoFailed = setOf(a11y)))
-        // 已经生效,或用户亲手关掉:什么都不说
+        // が有効になっているか、ユーザーがオフにしています。何も言いません。
         assertNull(RecoveryCopy.pending(a11y, RecoveryConsent(applied = setOf(a11y)), paired = false, autoFailed = setOf(a11y)))
         assertNull(RecoveryCopy.pending(a11y, RecoveryConsent(declined = setOf(a11y)), paired = false, autoFailed = emptySet()))
     }
 
-    /** 助手只用 USB 命令起过:靠无线调试重起助手的两项说清用不上;别的几项照旧。 */
+    /** アシスタントは、USB コマンドを使用してのみ起動されています。ワイヤレス デバッグを通じてアシスタントを再起動するための 2 つの項目は明らかに利用できません。他の項目は同じままです。 */
     @Test
     fun wirelessOnlyCapabilitiesSayTheyNeedPairingWhenStartedOverUsb() {
         val usb = HelperRestart.UsbCommand
         listOf(RecoveryCapability.RestoreAfterReboot, RecoveryCapability.AutoWirelessDebugging).forEach { c ->
             val note = RecoveryCopy.pending(c, RecoveryConsent(applied = setOf(c)), paired = true, autoFailed = emptySet(), restart = usb)
             assertNotNull(c.name, note)
-            // 用户关掉的不多说;配对过的照旧
+            // ユーザーはそれをオフにしましたが、言うことはあまりありません。ペアリングした人はそのまま残ります。
             assertNull(RecoveryCopy.pending(c, RecoveryConsent(declined = setOf(c)), paired = true, autoFailed = emptySet(), restart = usb))
             assertNull(RecoveryCopy.pending(c, RecoveryConsent(applied = setOf(c)), paired = true, autoFailed = emptySet(), restart = HelperRestart.Wireless))
         }

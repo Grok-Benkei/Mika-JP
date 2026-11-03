@@ -10,7 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 真机测试:编号只在所属快照有效,页面换了以后旧编号找不回就是 ref_expired。 */
+/** 実機テスト: この番号は、対応するスナップショットでのみ有効です。ページが変更されると、古い番号を取得できなくなり、ref_expired になります。 */
 @RunWith(AndroidJUnit4::class)
 class StaleNodeIdTest {
     private val agent = DeviceSupport.newAgent()
@@ -32,7 +32,7 @@ class StaleNodeIdTest {
         assertTrue("$went", went is ActionResult.Ok && went.changed == true)
         val page = screen.snapshot()
 
-        // 首页的「蓝牙」在 WLAN 页里没有对应元素
+        // ホームページの「Bluetooth」には、WLAN ページに対応する要素がありません
         assertEquals(ActionResult.Failed("ref_expired"), screen.tapRef(bluetooth.ref, home.snapshotId))
         assertEquals(ActionResult.Failed("ref_expired"), screen.tapRef("@e1", "no-such-snapshot"))
         assertEquals(ActionResult.Failed("ref_expired"), screen.tapRef("@e${page.elements.size + 1}", page.snapshotId))

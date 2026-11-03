@@ -15,9 +15,9 @@ import java.io.IOException
 import kotlin.coroutines.coroutineContext
 
 /**
- * 设了网络代理时的更新下载:系统下载服务不走 App 自己的代理,改由 Mika 用走代理的 [http] 在进程里下。
- * 先写到 `<目标>.part`,下完整了再改名成目标文件,所以「目标文件在」就是下好了。
- * 进程里只有一份(同一时间只下一个);进程被杀后没下完的算失败,用户重试即可。
+ * ネットワーク プロキシが設定されている場合の更新ダウンロード: システム ダウンロード サービスは、アプリ独自のプロキシを使用しません。代わりに、Mika はプロセスでプロキシ [http] を使用します。
+ * は最初に `<目标>.part` に書き込まれ、次に完全にダウンロードされてからターゲット ファイルに名前が変更されるため、「ターゲット ファイルがそこにある」ということはダウンロードされたことを意味します。 プロセス内には
+ * のコピーが 1 つだけあります (同時にダウンロードできるのは 1 つだけです)。プロセスが強制終了された後にダウンロードが完了しない場合、失敗とみなされ、ユーザーは再試行できます。
  */
 class ProxiedApkDownload(
     private val http: OkHttpClient,
@@ -40,7 +40,7 @@ class ProxiedApkDownload(
         }
     }
 
-    /** [file] 这一份的状态:正在下、下好了,或失败(没在下、也没有完整的文件)。 */
+    /** [file] このコピーのステータス: ダウンロード中、ダウンロード、または失敗 (ダウンロードされておらず、完全なファイルがありません)。 */
     fun state(file: File): ApkDownloadState = when {
         job?.isActive == true && target == file -> ApkDownloadState(DownloadPhase.Downloading, bytes, total)
         file.isFile -> ApkDownloadState(DownloadPhase.Ready, file.length(), file.length())
@@ -49,7 +49,7 @@ class ProxiedApkDownload(
 
     fun cancel() {
         job?.cancel()
-        // 连带掐断连接,不等读完这一块
+        // このセクションを読み終わるのを待たずに接続を切断します。
         call?.cancel()
         job = null
         call = null
@@ -59,7 +59,7 @@ class ProxiedApkDownload(
     companion object {
         private const val PART = ".part"
 
-        /** 把 [url] 下到 [file]:边下边报进度(已下、总共,不知道总共为 -1);不是 2xx、或没下完整就抛错,不留目标文件。 */
+        /** [url] から [file] へのダウンロード: ダウンロード中の進行状況を報告します (ダウンロード済み、合計、合計が -1 かどうかは不明)。 2xx でない場合、またはダウンロードが完了していない場合はエラーが発生し、対象のファイルは残りません。 */
         suspend fun fetch(http: OkHttpClient, url: String, file: File, onCall: (Call) -> Unit = {}, progress: (Long, Long) -> Unit) {
             val part = File(file.path + PART)
             try {

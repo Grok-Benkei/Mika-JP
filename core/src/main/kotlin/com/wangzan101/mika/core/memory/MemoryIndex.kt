@@ -4,8 +4,8 @@ import kotlin.math.ln
 import kotlin.math.max
 
 /**
- * 本机词法切词:汉字取相邻两字(单个汉字成词时保留单字),英文和数字按单词、小写。
- * [withUnigrams] 另外给出每个汉字的单字(查询用,让「辣」这类单字检索词能对上)。
+ * ネイティブ語彙単語分割: 中国語の文字は隣接する 2 つの文字から取得され (単一の漢字が単語に形成されるときに単一の文字が保持されます)、英語と数字は単語と小文字に分割されます。
+ * [withUnigrams] また、各漢字の 1 文字が与えられます (クエリ用。「辛」などの 1 文字の検索語に一致するようになります)。
  */
 object Tokenize {
     private val WORD = Regex("[A-Za-z0-9]+")
@@ -41,24 +41,24 @@ object Tokenize {
 }
 
 /**
- * content + keywords 建倒排,BM25 打分(k1=1.2,b=0.75;检索词 tf 计两倍)。
- * 记忆条数少时 IDF 按至少 [MIN_CORPUS] 条平滑,否则一两条记忆时什么都过不了阈值。
- * 只返回「相关」的条目:检索词对上了,或至少两个不同的查询词(两字/单词)命中,
- * 或唯一命中的词只有这一条有、且是它的检索词。
- * 单字只参与打分,不算进这三条判断。
+ * コンテンツ + キーワード組み込み反転、BM25 スコア (k1=1.2、b=0.75、検索語 tf は 2 回カウント)。
+ * メモリの数が少ない場合、IDF は少なくとも [MIN_CORPUS] で平滑化する必要があります。そうしないと、記憶が 1 つや 2 つあるときは、何もしきい値を超えることができません。
+ * は「関連」エントリのみを返します。検索用語が一致するか、少なくとも 2 つの異なるクエリ用語 (2 つの単語/単語) がヒットします。
+ * もしくはヒットワードはこれだけでその検索ワードです。
+ * という 1 つの単語はスコアリングにのみ関与し、これら 3 つの判定にはカウントされません。
  */
 class MemoryIndex(private val items: List<MemoryItem>) {
     private val docs: List<Map<String, Int>> = items.map { item ->
         val counts = HashMap<String, Int>()
         Tokenize.terms(item.content).forEach { counts.merge(it, 1, Int::plus) }
-        // 单字检索词(「辣」)本身就切成单字;多字检索词不另拆单字,免得单字噪声盖过两字命中
+        // 単一文字の検索語 (「スパイシー」) 自体が単一文字に分割されます。単一単語のノイズが 2 単語のヒットに影を落とすのを防ぐため、複数文字の検索語は個別の文字に分割されません。
         item.keywords.flatMap { Tokenize.terms(it) }.forEach { counts.merge(it, KEYWORD_TF, Int::plus) }
         counts
     }
     private val lengths = docs.map { d -> d.values.sum() }
     private val keywordTerms: List<Set<String>> = items.map { it.keywords.flatMap { k -> Tokenize.terms(k.lowercase()) }.toSet() }
 
-    /** 按分数从高到低。 */
+    /** スコアの高い順に並べ替えます。 */
     fun search(query: String, limit: Int, includePending: Boolean = false): List<Pair<MemoryItem, Double>> {
         val eligible = items.indices.filter { includePending || items[it].status == MemoryStatus.active }
         if (eligible.isEmpty() || limit <= 0) return emptyList()
@@ -81,7 +81,7 @@ class MemoryIndex(private val items: List<MemoryItem>) {
                 val kt = Tokenize.terms(k)
                 q.contains(k) || (kt.isNotEmpty() && kt.all { it in termSet })
             }
-            // 只撞上一个词:这个词要只此一条有,而且是这条的检索词(「以后」这类常用词撞上不算)
+            // は 1 つの単語のみヒットします。この単語はこの記事内にのみ存在し、この記事の検索語である必要があります (「後で」などの一般的な単語はカウントされません)
             val relevant = keywordHit || multi.size >= 2 ||
                 (multi.size == 1 && df.getValue(multi.single()) == 1 && multi.single() in keywordTerms[i])
             if (!relevant) return@mapNotNull null
@@ -99,7 +99,7 @@ class MemoryIndex(private val items: List<MemoryItem>) {
         const val B = 0.75
         const val KEYWORD_TF = 2
         const val MIN_CORPUS = 50
-        // 只作用于查询词:口头的虚词两字组合,几乎每句话都有,不能单凭它们算相关
+        // は、クエリ語、つまりほぼすべての文に含まれる言語機能語の組み合わせに対してのみ機能します。それらだけでは関連性があると見なすことはできません。
         val STOP_TERMS = setOf(
             "帮我", "给我", "一下", "我的", "不要", "这个", "那个", "可以", "一个", "用户",
             "今天", "这次", "现在", "什么", "怎么", "我们", "一些", "看看",

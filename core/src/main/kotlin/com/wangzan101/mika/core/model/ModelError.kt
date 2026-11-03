@@ -3,57 +3,57 @@ package com.wangzan101.mika.core.model
 import com.wangzan101.mika.core.net.ProxyFailure
 
 sealed class ModelError(message: String, cause: Throwable? = null) : Exception(message, cause) {
-    class Auth : ModelError("API Key 无效或没有权限")
-    class QuotaExceeded : ModelError("额度已用完")
-    class RateLimited(val retryAfterMs: Long?) : ModelError("请求太频繁,请稍后再试")
-    class ContextTooLong : ModelError("对话内容超出模型上下文长度")
+    class Auth : ModelError("APIキーが無効か、権限がありません")
+    class QuotaExceeded : ModelError("利用上限に達しました")
+    class RateLimited(val retryAfterMs: Long?) : ModelError("リクエストが頻繁すぎます。しばらく待ってから再試行してください")
+    class ContextTooLong : ModelError("会話がモデルのコンテキスト長を超えました")
     /**
-     * 服务商那里没有这个模型(或地址不对,请求的接口不存在);[model] 是请求的模型名,不知道时为空。
-     * [detail] 是服务端 JSON 报错里的原话(截短),没有为空:网关、中转服务还会用 404 说别的情况(比如它的上游模型这会儿都不可用),
-     * 看原话才分得出是哪一种。
+     * プロバイダーにそのモデルがない(またはアドレス誤りでリクエスト先のAPI自体がない)。[model] はリクエストしたモデル名、不明なら空。
+     * [detail] はサーバーJSONエラー内の原文(短縮済み)、なければ空。ゲートウェイや中継サービスは 404 で別の事情
+     * (上流モデルが一時的にすべて利用不可など)を伝えることもあり、原文を見なければ区別できない。
      */
     class ModelNotFound(val model: String = "", val detail: String = "") :
-        ModelError(if (model.isEmpty()) "找不到该模型" else "找不到模型「$model」")
+        ModelError(if (model.isEmpty()) "モデルが見つかりません" else "モデル「$model」が見つかりません")
     /**
-     * 服务商有这个模型,这个账号却用不了(没开通、没权限、没买);[detail] 是服务端的原话(截短),没有为空。
-     * 换一个模型或到服务商后台开通才行,重试没用。见 [ModelAccessErrors]。
+     * プロバイダーにそのモデルはあるが、このアカウントでは使えない(未開通、権限なし、未購入)。[detail] はサーバー原文(短縮済み)、なければ空。
+     * 別のモデルに変えるか、プロバイダー側で有効化しなければ直らず、再試行しても無駄である。[ModelAccessErrors] 参照。
      */
     class ModelNotAvailable(val model: String = "", val detail: String = "") :
-        ModelError(if (model.isEmpty()) "这个账号用不了该模型(没开通或没权限)" else "这个账号用不了模型「$model」(没开通或没权限)")
-    /** 服务端明说这个模型不支持调用工具(带工具的请求被拒)。Mika 干活靠工具,它当不了主模型。 */
+        ModelError(if (model.isEmpty()) "このアカウントではモデルを利用できません（未開通または権限なし）" else "このアカウントではモデル「$model」を利用できません（未開通または権限なし）")
+    /** サーバーが明示的にツール呼び出し非対応を返したモデル(ツール付きリクエストが拒否された)。Mika はツールで作業するため主モデルにはできない。 */
     class ToolsUnsupported(val model: String = "") :
-        ModelError(if (model.isEmpty()) "该模型不支持调用工具" else "模型「$model」不支持调用工具")
-    class Network(cause: Throwable? = null) : ModelError("网络连接失败", cause)
+        ModelError(if (model.isEmpty()) "このモデルはツール呼び出しに対応していません" else "モデル「$model」はツール呼び出しに対応していません")
+    class Network(cause: Throwable? = null) : ModelError("ネットワーク接続に失敗しました", cause)
     /**
-     * 走网络代理时代理那一段出的错(连不上代理,或代理拒了账号密码),不是服务商的问题。见 [com.wangzan101.mika.core.net.NetProxy]。
+     * ネットワークプロキシ経由の区間で起きたエラー(プロキシに接続できない、またはプロキシがアカウント／パスワードを拒否した)。プロバイダー側の問題ではない。[com.wangzan101.mika.core.net.NetProxy] 参照。
      */
     class Proxy(val failure: ProxyFailure, cause: Throwable? = null) : ModelError(
         when (failure) {
-            ProxyFailure.Unreachable -> "连不上网络代理"
-            ProxyFailure.AuthFailed -> "网络代理拒绝了账号或密码"
+            ProxyFailure.Unreachable -> "ネットワークプロキシに接続できません"
+            ProxyFailure.AuthFailed -> "ネットワークプロキシがアカウントまたはパスワードを拒否しました"
         },
         cause,
     )
     /**
-     * 流式回复还没收尾(没有结束标记,也没有结束原因)连接就关了:多半是途中的网关、代理空闲超时或网络切换把连接掐断。
-     * 回复不完整、不能用,重发同一个请求通常就好;和接口配置无关。
+     * ストリーミング応答が終了マーカーも終了理由もなく接続が閉じた場合。途中のゲートウェイやプロキシのアイドルタイムアウト、ネットワーク切替で切断された可能性が高い。
+     * 応答は不完全で使えず、同じリクエストを再送すれば直ることが多い。API設定とは無関係である。
      */
-    class StreamCut : ModelError("回复还没传完,连接就被断开了")
-    class Server(val status: Int) : ModelError("模型服务出错(HTTP $status)")
-    class ContentRefused : ModelError("模型拒绝处理该内容")
-    /** ChatGPT 套餐给其他 App 用的额度到了上限:不重试,等额度恢复或换模型。 */
-    class ChatGptLimitReached : ModelError("ChatGPT 额度用完了")
-    /** 这个 ChatGPT 账号不能在其他 App 里用套餐额度(套餐不符、地区或账号策略不允许):不重试。 */
+    class StreamCut : ModelError("返信が完了する前に接続が切れました")
+    class Server(val status: Int) : ModelError("モデルサービスでエラーが発生しました（HTTP $status）")
+    class ContentRefused : ModelError("モデルがこの内容の処理を拒否しました")
+    /** ChatGPTプランの他アプリ向け利用枠が上限に達した。再試行せず、枠の回復を待つかモデルを変える。 */
+    class ChatGptLimitReached : ModelError("ChatGPTの利用上限に達しました")
+    /** この ChatGPT アカウントでは他アプリでプランの利用枠を使えない(プラン不一致、地域またはアカウントポリシーで不可)。再試行しない。 */
     class ChatGptNotEligible(val detail: String = "") :
-        ModelError(if (detail.isEmpty()) "这个账号不能在其他 App 里用 ChatGPT 额度" else "这个账号不能在其他 App 里用 ChatGPT 额度: $detail")
-    /** 登录已失效(换新令牌被拒,或用户在账号里断开了这个 App),要重新登录。[account] 是哪一家的登录(界面上的名字)。 */
-    class SignInExpired(val account: String = "ChatGPT") : ModelError("登录已失效,请重新登录")
+        ModelError(if (detail.isEmpty()) "このアカウントでは他のアプリでChatGPTの利用枠を使えません" else "このアカウントでは他のアプリでChatGPTの利用枠を使えません: $detail")
+    /** ログインが失効した(トークン更新が拒否された、またはユーザーがアカウント側でこのアプリを切断した)ため、再ログインが必要。[account] はログイン先の表示名。 */
+    class SignInExpired(val account: String = "ChatGPT") : ModelError("ログインの有効期限が切れました。再度ログインしてください")
     /**
-     * 用账号登录的(如 xAI)接口回 HTTP 403:登录是成功的,这个订阅档位却不能调这个接口。不重试;
-     * 改用这家的 API Key 才行。[account] 是哪一家,[detail] 是服务端的原话(截短),没有为空。
+     * アカウントログイン(xAIなど)のAPIが HTTP 403 を返した場合。ログイン自体は成功しているが、このプランではそのAPIを呼べない。再試行しない。
+     * そのプロバイダーのAPIキーに切り替える必要がある。[account] はプロバイダー名、[detail] はサーバー原文(短縮済み)、なければ空。
      */
     class AccountPlanNotAllowed(val account: String, val detail: String = "") :
-        ModelError("你的${account}订阅档位不能用这个接口")
+        ModelError("ご利用の${account}プランではこのAPIを利用できません")
     class BadResponse(detail: String = "", cause: Throwable? = null) :
-        ModelError(if (detail.isEmpty()) "模型返回了无法解析的内容" else "模型返回了无法解析的内容: $detail", cause)
+        ModelError(if (detail.isEmpty()) "モデルの返信を解析できませんでした" else "モデルの返信を解析できませんでした: $detail", cause)
 }

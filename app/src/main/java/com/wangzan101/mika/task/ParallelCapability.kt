@@ -3,12 +3,12 @@ package com.wangzan101.mika.task
 import com.wangzan101.mika.R
 import com.wangzan101.mika.i18n.tr
 
-/** 此刻最多能同时跑几个任务;[reason] 说明为什么只能一个(设置页显示),没有限制时为空。 */
+/** は複数のタスクを同時に実行できます。 [reason] は、(設定ページに表示される) 1 つしか存在できず、制限がない場合は空になる理由を説明しています。 */
 data class ParallelLimit(val max: Int, val reason: String?)
 
 /**
- * 按设备能力决定并行几个任务:每块虚拟屏要有独立焦点(安卓 14+);低内存设备不并行;
- * 第二块屏这次运行里建失败过就不再尝试;其余按用户设定的上限,限定在 1–3。
+ * は、デバイスの機能に基づいて並列化するタスクの数を決定します。各仮想画面には独立したフォーカスが必要です (Android 14 以降)。メモリの少ないデバイスは並列化されません。
+ * 今回 2 番目の画面の構築に失敗した場合、再試行されません。残りはユーザーが設定した上限に従って 1 ～ 3 に制限されます。
  */
 object ParallelCapability {
     const val MIN_SDK = 34

@@ -26,10 +26,10 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** 查 App 与网站知识;只读目录,有目录才提供。 */
+/** アプリとウェブサイトの知識を確認します。読み取り専用ディレクトリ。ディレクトリが存在する場合にのみ提供されます。 */
 internal object KnowledgeSearch : AgentTool {
     override val verb = Verb.KnowledgeSearch
-    override val label = "查找 App/网站知识"
+    override val label = "アプリ／サイトの知識を検索"
     override val risk = Risk.Read
     override val concurrency = Concurrency.ParallelSafe
     private val KINDS = KnowledgeIndex.KINDS.filter { it in KNOWLEDGE_KINDS }
@@ -50,10 +50,10 @@ internal object KnowledgeSearch : AgentTool {
     }
 }
 
-/** 查技能(内置技能与用户在用的个人技能);只读目录,有目录才提供。 */
+/** スキル (組み込みスキルとユーザーが使用する個人スキル) を確認します。読み取り専用ディレクトリ。ディレクトリが存在する場合にのみ提供されます。 */
 internal object SkillSearch : AgentTool {
     override val verb = Verb.SkillSearch
-    override val label = "查找技能"
+    override val label = "スキルを検索"
     override val risk = Risk.Read
     override val concurrency = Concurrency.ParallelSafe
     override val def = ToolDef("skill_search", Prompts.tool("skill_search"), mapOf("query" to query("Words for the kind of task, 1-200 characters.")), listOf("query"))
@@ -64,10 +64,10 @@ internal object SkillSearch : AgentTool {
         matches(ctx, a.str("query", max = 200)!!, null, SKILL_KINDS)
 }
 
-/** 读 App 或网站知识的正文或附件。 */
+/** アプリまたはウェブサイトのナレッジのテキストまたは添付ファイルを読みます。 */
 internal object KnowledgeRead : AgentTool {
     override val verb = Verb.KnowledgeRead
-    override val label = "查看 App/网站知识"
+    override val label = "アプリ／サイトの知識を表示"
     override val risk = Risk.Read
     override val concurrency = Concurrency.ParallelSafe
     override val def = ToolDef("knowledge_read",
@@ -82,10 +82,10 @@ internal object KnowledgeRead : AgentTool {
     override suspend fun execute(a: Args, ctx: ToolContext): ToolExecution = read(a, ctx, KNOWLEDGE_KINDS)
 }
 
-/** 读技能的正文或附件,含用户的个人技能。 */
+/** ユーザーの個人スキルを含むスキルのテキストまたは添付ファイルを読み取ります。 */
 internal object SkillRead : AgentTool {
     override val verb = Verb.SkillRead
-    override val label = "查看技能"
+    override val label = "スキルを表示"
     override val risk = Risk.Read
     override val concurrency = Concurrency.ParallelSafe
     override val def = ToolDef("skill_read",
@@ -123,15 +123,15 @@ private suspend fun read(a: Args, ctx: ToolContext, among: Set<String>): ToolExe
     return when (val v = catalog.view(name, file, toolsNote(runner?.offered() == true), among)) {
         is GuideView.Failed -> fail(v.error, v.message)
         is GuideView.Found -> {
-            // 能跑脚本时列出这一条带的脚本和此刻能不能跑;scriptSource 是跑脚本时 source 要填的值
-            // 个人技能只有文字,不带脚本
+            // には、このストリップ内のスクリプトがいつ実行できるか、および現時点で実行できるかどうかがリストされます。 scriptSource は、スクリプトの実行時にソースによって入力される値です。
+            // 個人スキルにはテキストのみがあり、スクリプトはありません
             val dir = if (v.info.kind == PERSONAL_KIND) "" else catalog.scriptSource(v.info)
             val scripts = if (ready && dir.isNotEmpty()) runner!!.scripts(dir) else emptyList()
             ok {
                 put("name", v.info.name); put("kind", v.info.kind); put("file", v.file)
                 put("content", v.content); put("truncated", v.truncated)
                 put("files", JsonArray(v.info.files.map(::JsonPrimitive)))
-                // 个人技能的版本号:改写它(skill_save)时带上,中途被别处改过就对不上
+                // 個人スキルバージョン番号：書き換え（skill_save）の際にご持参ください。他の場所で変更すると、正しくなくなります。
                 if (v.info.kind == PERSONAL_KIND && v.file == v.info.files.firstOrNull())
                     ctx.config.personalSkills?.get(v.info.name)?.let { put("version", PersonalSkills.version(it.markdown)) }
                 if (scripts.isNotEmpty()) {

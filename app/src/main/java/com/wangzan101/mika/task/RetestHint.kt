@@ -5,8 +5,8 @@ import com.wangzan101.mika.core.agent.TaskState
 import com.wangzan101.mika.settings.Provider
 
 /**
- * 任务因模型失败,而主模型在它那家还没测试通过时([untested],见 [com.wangzan101.mika.settings.ProviderStore.untestedMainProvider]):
- * 在原因后面另起一行,指向那家的「重新测试」([hint] 拿服务商名字给出这一句)。别的结局原样返回。
+ * タスクが失敗し、メイン モデルがホームでのテストに合格していない場合 ([untested]、[com.wangzan101.mika.settings.ProviderStore.untestedMainProvider] を参照):
+ * 理由の後に新しい行を追加し、その会社の「再テスト」を指します ([hint] は、この文にサービス プロバイダーの名前を示します)。他のすべてのエンディングはそのまま返されます。
  */
 internal object RetestHint {
     fun apply(end: TaskState, untested: Provider?, hint: (String) -> String): TaskState =

@@ -1,11 +1,11 @@
 package com.wangzan101.mika.core.prompt
 
 /**
- * 工具结果与主循环里给模型的反馈文字(提示、错误说明、提醒、参考资料的标题),都在 prompts/feedback/ 下的 .md 文件里:
- * 每条以一行「## 键」开头,下面到下一条之前是原文(可以多行,首尾空行不算);{{name}} 由调用方填。
+ * ツールの結果と、メイン ループでモデルに与えられるフィードバック テキスト (プロンプト、エラーの説明、リマインダー、参考資料のタイトル) はすべて、prompts/フィードバック/ の下にある .md ファイル内にあります。
+ * 各エントリは「## key」の行で始まり、次のエントリの前の元のテキストが次のとおりです (複数行にすることもできます。先頭と末尾の空白行はカウントされません)。 {{name}} は呼び出し側によって入力されます。
  */
 object Feedback {
-    /** 反馈文件;键在所有文件里唯一。 */
+    /** フィードバック ファイル;キーはすべてのファイル間で一意です。 */
     val FILES = listOf("tools", "loop")
     private val HEADING = Regex("^## ([a-z0-9_.]+)$")
 
@@ -15,7 +15,7 @@ object Feedback {
         out
     }
 
-    /** 一个反馈文件里的各条(键 → 原文),按出现顺序;第一条之前的说明不算。 */
+    /** 1つのフィードバックファイルの中の各条（キー → 原文）を、出現順に; 最初の条より前の説明は含めない。 */
     fun parse(text: String): List<Pair<String, String>> {
         val out = mutableListOf<Pair<String, String>>()
         var key: String? = null
@@ -35,7 +35,7 @@ object Feedback {
 
     fun has(key: String): Boolean = key in entries
 
-    /** 键以 [prefix] 开头的各条,键去掉前缀(例如按错误码给的说明)。 */
+    /** キーが [prefix] で始まる各条で、キーから接頭辞を取り除いたもの（たとえばエラーコードごとに与えられた説明）。 */
     fun section(prefix: String): Map<String, String> =
         entries.filterKeys { it.startsWith(prefix) }.mapKeys { it.key.removePrefix(prefix) }
 

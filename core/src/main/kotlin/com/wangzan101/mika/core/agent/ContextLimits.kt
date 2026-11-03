@@ -1,31 +1,31 @@
 package com.wangzan101.mika.core.agent
 
 /**
- * 一个模型上下文窗口上的几条线。全部按**整份请求**计(系统提示词 + 工具定义 + 消息,和服务商报的输入 token 同一口径),
- * 固定开销不在这里扣,由量的那一边([UsageMeter])算进去,只算一次。触发点只在 [of] 一处算。
+ * モデル コンテキスト ウィンドウ上の数行。すべては **リクエスト全体** (システム プロンプト ワード + ツール定義 + メッセージ、サービス プロバイダーによって報告された入力トークンと同じ口径) に基づいて計算されます。
+ * の固定オーバーヘッドはここでは差し引かれず、金額 ([UsageMeter]) の側から計算され、1 回のみカウントされます。トリガーポイントは[of]でのみ計算されます。
  *
- * - [usable]:窗口扣掉给输出的预留(最多 [MAX_OUTPUT_RESERVE],小窗口按窗口的四分之一)。
- * - [margin]:触发点离 [usable] 的余量(最多 [MARGIN_TOKENS],小窗口按 [usable] 的四分之一);也是压缩后的回差,
- *   压完至少再长这么多才会再压,不会每步都压。
- * - [trigger]:当前请求超过它就压缩一次。不低于窗口的 [MIN_TRIGGER_SHARE],不高于 [usable]。
- * - [target]:一次压缩要把整份请求压到它以下([usable] 的 [AFTER_COMPACTION],且至少比触发点低一个 [margin])。
+ * - [usable]: ウィンドウは出力の予約を差し引きます (最大 [MAX_OUTPUT_RESERVE]、小さいウィンドウはウィンドウの 4 分の 1)。
+ * - [margin]: トリガーポイントと [usable] の間のマージン (最大 [MARGIN_TOKENS]、小さなウィンドウは [usable] の 4 分の 1)。それは圧縮後のヒステリシスでもあります。
+ *   は、すべてのステップではなく、押してから少なくともこの時間が経過するまで、再度押されることはありません。
+ * - [trigger]: 現在のリクエストは制限を超えると一度圧縮されます。ウィンドウの [MIN_TRIGGER_SHARE] 以上、[usable] 以下。
+ * - [target]: 1 つの圧縮は、その下のリクエスト全体 ([usable] の [AFTER_COMPACTION]、およびトリガー ポイントより下位の少なくとも 1 つの [margin]) を圧縮する必要があります。
  */
 class ContextLimits private constructor(
     val window: Int, val usable: Int, val trigger: Int, val margin: Int, val target: Int,
     val minTrigger: Int,
 ) {
     companion object {
-        /** 给模型输出预留的 token 上限。 */
+        /** モデル出力用に予約されるトークンの上限。 */
         const val MAX_OUTPUT_RESERVE = 20_000
-        /** 触发点离可用窗口留的余量上限。 */
+        /** トリガーポイントと使用可能なウィンドウの間に残されるマージンの上限。 */
         const val MARGIN_TOKENS = 13_000
-        /** 一次压缩要压到可用窗口的这个比例以下。 */
+        /** 圧縮は、使用可能なウィンドウのこの比率を下回る必要があります。 */
         const val AFTER_COMPACTION = 0.5
-        /** 触发点的下限(占窗口的比例):给了别的触发点也不会低到一开局就压。 */
+        /** トリガー ポイントの下限 (ウィンドウの比率): 他のトリガー ポイントを考慮すると、最初に抑制されるほど低くはなりません。 */
         const val MIN_TRIGGER_SHARE = 0.5
 
         /**
-         * [window]:模型上下文长度。[triggerOverride]:按模型单独给的触发点(整份请求的 token);限在下限和 [usable] 之间。
+         * [window]: モデルコンテキストの長さ。 [triggerOverride]: モデルごとに個別に指定されたトリガー ポイント (リクエスト全体のトークン)。下限値と [usable] の間に制限されます。
          */
         fun of(window: Int, triggerOverride: Int? = null): ContextLimits {
             val w = window.coerceAtLeast(0)

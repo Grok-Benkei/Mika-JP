@@ -18,8 +18,8 @@ import java.util.concurrent.TimeUnit
 class SelectorPolicyTest {
     companion object {
         /**
-         * 都是按 value 属性选元素的写法(在浏览器里对着 value 不同的两个输入框,命中的不一样)。
-         * ReadScriptEnforcementTest 拿同一批去跑页面里的 JS 版,两边要一样。
+         * は、value 属性に基づいて要素を選択する方法です (ブラウザーで異なる値を持つ 2 つの入力ボックスに直面した場合、ヒットは異なります)。
+         * ReadScriptEnforcementTest 同じバッチを使用してページ内の JS バージョンを実行します。両側が同じである必要があります。
          */
         val BY_VALUE = listOf(
             """input[value^="h"]""",
@@ -35,22 +35,22 @@ class SelectorPolicyTest {
             """input[value^='h' i]""",
             """form:has(input[value^="h"])""",
             """input:is([value^="h"])""",
-            // 引号里的注释记号不算数:只按字面去注释的话,中间那段 [value 就被当成注释吃掉了
+            // 引用符内のコメント マークはカウントされません。文字通りにコメントするだけの場合、中央の [値はコメントとして扱われます。
             """input:not([data-x="/*"])[value^="h"]:not([data-y="*/"])""",
-            // 引号里转义后面的换行算在转义里,续行的反斜杠加换行也不结束这段字
+            // 引用符内のエスケープ後の改行はエスケープに含まれますが、継続行のバックスラッシュと改行は段落を終了しません。
             "input:not([data-x=\"\\41\n\"])[value^=\"h\"]",
             "input:not([data-x=\"\\41\r\n\"])[value^=\"h\"]",
             "input:not([data-x=\"a\\\nb\"])[value^=\"h\"]",
-            // 没写完的引号和方括号,浏览器读到结尾自己补上
+            // 未完成の引用符と角括弧は、最後まで読むとブラウザによって埋められます。
             """input[value^="h""",
-            // 不带引号的 url( 到 ) 为止是一个记号,里面的注释记号、引号不算数;:is() 丢掉这一项,后面的照样生效
+            // 引用符のない URL ( まで) は記号であり、その中のコメント マークや引用符はカウントされません。 :is() はこの項目を破棄しますが、次の内容は引き続き有効になります value 属性に従って
             """input:is(url(/*),[value^="h"])""",
             """input:is(url(x"),[value^="h"])""",
             """input:where(u\72 l(/*),[value^="h"])""",
             """input:is(URL( /*),[value^="h"])""",
         )
 
-        /** 不按 value 属性选的,照常放行。 */
+        /** が選択されていない場合は、通常どおりリリースされます。 */
         val NOT_BY_VALUE = listOf(
             "li.item",
             """input[name="q"]""",
@@ -68,7 +68,7 @@ class SelectorPolicyTest {
             """[title="/*"], [data-x="*/"]""",
             """a[data-url="x"]""",
             "a.url",
-            // 引号里的 url( 不算:url( 要在还原之后找
+            // 引用符で囲まれた URL (カウントされません: url( は復元後に見つかります)
             """[style*="url("]""",
         )
     }
@@ -88,13 +88,13 @@ class SelectorPolicyTest {
         assertEquals("a b", SelectorPolicy.plain("a/* [value] */b"))
         assertEquals("a ", SelectorPolicy.plain("a/* not closed"))
         assertEquals("""[title=""][x=""]""", SelectorPolicy.plain("""[title="[value\"/*"][x='\27']"""))
-        // 换行一律按 \n 算;没转义的换行让引号里的字到此为止
+        // 改行は常に \n としてカウントされます。エスケープされていない改行は単語を引用符で囲みます。
         assertEquals("[a=\"\"\n[value]", SelectorPolicy.plain("[a=\"x\r\n[value]"))
-        // 0、代理区、超出范围的码点换成替换字符;末尾单独的反斜杠也是
+        // 0. プロキシ領域内および範囲外のコード ポイントは置換文字に置き換えられます。最後の単一のバックスラッシュについても同様です。
         assertEquals("\uFFFD\uFFFD\uFFFD\uFFFD", SelectorPolicy.plain("""\0 \D800 \110000 \"""))
     }
 
-    /** 页面里的 JS 版和 Kotlin 版判断一样:上面两组,加一批在属性名前后随机拼上容易出错的片段的。机器上没有 Node 时跳过。 */
+    /** ページの JS バージョンと Kotlin バージョンは同じ判断を持ちます。つまり、上記の 2 つのグループに加えて、属性名の前後にランダムに綴られたエラーが発生しやすいフラグメントのバッチです。マシン上にノードがない場合はスキップします。 */
     @Test fun jsVersionAgrees() {
         val node = ReadScriptEnforcementTest.node()
         assumeTrue("no node on this machine", node != null)
@@ -119,7 +119,7 @@ class SelectorPolicyTest {
         val js = runCatching { Json.parseToJsonElement(out).jsonArray.map { it.jsonPrimitive.boolean } }.getOrElse { error("node output: $out") }
         assertEquals(all.size, js.size)
         for ((i, s) in all.withIndex()) assertEquals(s, SelectorPolicy.selectsByValue(s), js[i])
-        // 随机拼的里两种结果都要有不少,不然比的只是一边
+        // ランダムなスペルでは両方の結果が多数存在する必要があります。そうでない場合、比較は片側のみになります。
         val hits = random.count { SelectorPolicy.selectsByValue(it) }
         assertTrue("$hits of ${random.size}", hits > 300 && random.size - hits > 300)
     }

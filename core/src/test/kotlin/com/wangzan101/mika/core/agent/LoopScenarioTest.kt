@@ -44,14 +44,14 @@ import com.wangzan101.mika.core.testing.WEB_SCRIPT_TOOL
 import com.wangzan101.mika.core.assembly.toolDispatcher
 
 /**
- * 用假模型驱动真的 AgentLoop 跑典型场景:断言结局,并把每次发给模型的消息序列和金样比对,
- * 重构(执行入口、工具注册表、能力接口、主循环瘦身)前后模型所见不变。
- * 金样重新生成:./gradlew :core:test --tests '*LoopScenarioTest' -PupdateSnapshots
+ * 偽のモデルを使用して本物の AgentLoop を駆動し、典型的なシナリオを実行します。終了をアサートし、毎回モデルに送信されるメッセージ シーケンスをゴールデン サンプルと比較します。 モデルは、
+ * の再構築の前後で変更されません (実行エントリ、ツール レジストリ、機能インターフェイス、メイン ループのスリム化)。
+ * ゴールデン サンプルの再生成: ./gradlew :core:test --tests '*LoopScenarioTest' -PupdateSnapshots
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class LoopScenarioTest {
-    private val bundled by lazy { KnowledgeStore(KnowledgeStore.loadBundled()) }
-    private val catalog by lazy { GuideCatalog.loadBundled() }
+    private val bundled by lazy { KnowledgeStore(com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.entries()) }
+    private val catalog by lazy { com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog() }
 
     private fun loop(
         model: FakeChatModel, tools: ToolDispatcher, maxSteps: Int = 20,
@@ -65,18 +65,18 @@ class LoopScenarioTest {
     )
 
     private fun snapshot(name: String, end: TaskState, vararg models: Pair<String, FakeChatModel>) {
-        models.forEach { (role, m) -> assertEquals("$role 的剧本没有用完", 0, m.remaining) }
+        models.forEach { (role, m) -> assertEquals("$role の用意した応答が残っています", 0, m.remaining) }
         LoopSnapshot.check(name, LoopSnapshot.render(end.toString(), models.toList()))
     }
 
-    /** 这次请求里最后一段运行时状态的全文。 */
+    /** このリクエストの最後の実行時ステータスの全文。 */
     private fun List<com.wangzan101.mika.core.model.Message>.runtimeState(): String =
         flatMap { it.parts }.filterIsInstance<Part.Text>().last { ContextBuilder.kindOf(it.text) == ContextKind.RuntimeState }.text
 
     private fun FakeChatModel.lastResult(i: Int): String =
         requests[i].messages.last { it.role == Role.Tool }.parts.filterIsInstance<Part.ToolResult>().first().content
 
-    // (a) 手机:看屏(带进度说明)→ 点 → 看屏 → 文字回答;回答里的引文读到过,不请核查模型;参考资料按前台 App 注入
+    // (a) 携帯電話: 画面を表示 (進行状況の説明付き) → クリック → 画面を表示 → テキストで回答;回答の引用文を読みましたが、モデルを確認しないでください。参考資料はフロントエンド アプリによって挿入されます
     @Test fun simplePhoneTask() = runTest {
         val screen = ScriptedScreen(listOf(
             Screen(SETTINGS, listOf(label("@e1", "设置", 80), button("@e2", "蓝牙", 300), button("@e3", "WLAN", 400))),
@@ -86,22 +86,22 @@ class LoopScenarioTest {
             reply { thinking("先看屏"); text("看一下设置首页"); call("phone_observe") }
             call("phone_tap", "ref" to "@e2", "snapshotId" to "s1")
             call("phone_observe")
-            answer("蓝牙已开启:蓝牙页显示「已开启」。")
+            answer("Bluetoothは有効です。Bluetoothの画面に「已开启」と表示されています。")
         }
         val checker = fakeModel("checker") { }
         val end = loop(main, toolDispatcher(screen, skills = catalog), checker = checker,
             knowledge = bundled, skills = catalog, installed = listOf(SETTINGS to "设置")).run("看看蓝牙开没开")
         end as TaskState.Succeeded
-        assertEquals("蓝牙已开启:蓝牙页显示「已开启」。", end.answer)
+        assertEquals("Bluetoothは有効です。Bluetoothの画面に「已开启」と表示されています。", end.answer)
         assertTrue(end.verified)
-        // 来源是读到「已开启」的那一屏(第 3 步)
+        // のソースは、「有効」と表示された画面です (手順 3)
         assertEquals(listOf(3), end.sources.map { it.step })
         assertEquals(listOf("tap @e2 s1"), screen.calls)
         assertTrue(checker.requests.isEmpty())
         snapshot("a_simple_phone", end, "main" to main)
     }
 
-    // (b) 网页:打开站点后按域名注入站点知识;沙箱在
+    // (b) Web ページ: サイトを開いた後、ドメイン名によってサイトの知識を注入します。サンドボックスは中にあります
     @Test fun webTaskWithSiteKnowledge() = runTest {
         val web = FakeWebPort().apply {
             title = "知乎"
@@ -110,7 +110,7 @@ class LoopScenarioTest {
         val main = fakeModel("main") {
             call("web_navigate", "url" to "https://www.zhihu.com/hot")
             call("web_read_page")
-            answer("知乎热榜第一是「今日话题」")
+            answer("知乎の人気ランキング1位は「今日话题」です。")
         }
         val tools = toolDispatcher(FakeScreen(), skills = catalog, web = web, sandbox = FakeSandbox())
         val end = loop(main, tools, knowledge = bundled, skills = catalog).run("用网页看一下知乎热榜")
@@ -120,20 +120,20 @@ class LoopScenarioTest {
         snapshot("b_web_site_knowledge", end, "main" to main)
     }
 
-    // (c) 空回复:只提醒一次;最终回答分块到达,按顺序拼起来
+    // (c) 空の返信: 1 回だけ通知されます。最終的な答えは分割されて到着し、順番にまとめられます
     @Test fun emptyReplyIsNudged() = runTest {
         val main = fakeModel("main") {
             reply { thinking("想想") }
             call("phone_observe")
-            reply { text("找到了,", "首页有「搜索」按钮") }
+            reply { text("見つかりました,", "最初の画面に「搜索」ボタンがあります") }
         }
         val end = loop(main, toolDispatcher(FakeScreen())).run("找搜索按钮")
-        assertEquals("找到了,首页有「搜索」按钮", (end as TaskState.Succeeded).answer)
+        assertEquals("見つかりました,最初の画面に「搜索」ボタンがあります", (end as TaskState.Succeeded).answer)
         assertEquals(ContextKind.Notice, ContextBuilder.kindOf(main.requests[1].messages.withoutRuntime().last()))
         snapshot("c_empty_reply_nudge", end, "main" to main)
     }
 
-    // (d) 编号过期:端口报 ref_expired,模型重新看屏再点
+    // (d) 番号の有効期限が切れています: ポートは ref_expired を報告します。モデルを再表示して、もう一度クリックします。
     @Test fun staleRefThenReobserve() = runTest {
         val screen = ScriptedScreen(
             listOf(Screen(APP, listOf(button("@e1", "搜索", 100))), Screen(APP, listOf(label("@e1", "搜索结果", 100)))),
@@ -144,7 +144,7 @@ class LoopScenarioTest {
             call("phone_tap", "ref" to "@e1", "snapshotId" to "s1")
             call("phone_observe")
             call("phone_tap", "ref" to "@e1", "snapshotId" to "s2")
-            answer("打开了搜索")
+            answer("検索を開きました")
         }
         val end = loop(main, toolDispatcher(screen)).run("点搜索")
         assertTrue("$end", end is TaskState.Succeeded)
@@ -152,9 +152,9 @@ class LoopScenarioTest {
         snapshot("d_ref_expired", end, "main" to main)
     }
 
-    // (e) 不可逆操作:被拦下 → 申请确认 → 用户不同意 → 如实放弃
+    // (e) 不可逆操作: 停止 → 申請確認 → ユーザーが同意しない → 素直に諦める
     @Test fun irreversibleDeclined() = runTest {
-        // 询问时只有花钱的那一步先问:提交订单被拦下,申请同意,用户不同意
+        // 問い合わせるときは、最初に質問するだけです。注文の送信はブロックされました、申請は承認されました、そしてユーザーは同意しませんでした。
         val screen = ScriptedScreen(listOf(
             Screen(APP, listOf(label("@e1", "耳机店", 40), label("@e2", "合计 ¥25", 800), button("@e3", "提交订单", 950))),
         ))
@@ -162,7 +162,7 @@ class LoopScenarioTest {
             call("phone_observe")
             call("phone_tap", "ref" to "@e3", "snapshotId" to "s1")
             call("request_confirmation", "action" to "order", "target" to "耳机店", "content" to "一副耳机", "amount" to "¥25", "app" to APP)
-            reportFailure("用户没有同意下单")
+            reportFailure("ユーザーから注文の同意が得られませんでした")
         }
         val l = loop(main, toolDispatcher(screen))
         val run = async { l.run("买一副耳机") }
@@ -170,14 +170,14 @@ class LoopScenarioTest {
         assertTrue("${l.state.value}", l.state.value is TaskState.WaitingConfirmation)
         l.answerConfirmation(false)
         val end = run.await()
-        assertEquals(TaskState.Failed("用户没有同意下单", FailKind.GaveUp), end)
+        assertEquals(TaskState.Failed("ユーザーから注文の同意が得られませんでした", FailKind.GaveUp), end)
         assertFalse(screen.calls.any { it.startsWith("tap @e3") })
         assertTrue("confirmation_required" in main.lastResult(2))
         assertTrue("confirmation_declined" in main.lastResult(3))
         snapshot("e_irreversible_declined", end, "main" to main)
     }
 
-    // (f) 一次多步(do_steps):整批算一步,子步逐个执行
+    // (f) 一度に複数のステップ (do_steps): バッチ全体が 1 つのステップとしてカウントされ、サブステップが 1 つずつ実行されます。
     @Test fun batchSteps() = runTest {
         val screen = ScriptedScreen(listOf(
             Screen(APP, listOf(field("@e1", "搜索商品", 100), button("@e2", "搜索", 200))),
@@ -191,7 +191,7 @@ class LoopScenarioTest {
         val main = fakeModel("main") {
             call("phone_observe")
             call(DO_STEPS_TOOL, "steps" to steps)
-            // 批做完不带回这一屏(不看图的模型):读过才能说价格
+            // はバッチ終了後にこの画面に戻りません (写真を見ずにモデルを作成): 読んだ後にのみ価格を知ることができます
             call("phone_observe")
             answer("咖啡豆 ¥89")
         }
@@ -201,7 +201,7 @@ class LoopScenarioTest {
         snapshot("f_batch_steps", end, "main" to main)
     }
 
-    // (g) 页面脚本:普通子步执行,不可逆的子步被拦下不执行
+    // (g) ページ スクリプト: 通常のサブステップが実行され、不可逆的なサブステップはブロックされ、実行されません。
     @Test fun browserScriptWithGatedSubAction() = runTest {
         val web = FakeWebPort().apply {
             elements = listOf(button("@e1", "搜索", 100).copy(resourceId = "#go"), button("@e2", "提交订单", 300).copy(resourceId = "#order"))
@@ -216,7 +216,7 @@ class LoopScenarioTest {
         val main = fakeModel("main") {
             call("web_navigate", "url" to "https://shop.example.com/")
             call(WEB_SCRIPT_TOOL, "code" to "await mika.tap('@e1'); await mika.tap('@e2')")
-            reportFailure("下单需要用户确认,脚本没有执行")
+            reportFailure("注文にはユーザーの同意が必要なため、スクリプトは実行していません")
         }
         val end = loop(main, toolDispatcher(FakeScreen(), web = port)).run("搜一下再下单")
         assertTrue("$end", end is TaskState.Failed)
@@ -225,29 +225,29 @@ class LoopScenarioTest {
         snapshot("g_browser_script_gated", end, "main" to main)
     }
 
-    // (h) 服务出错:限流、网络、5xx 都是一时的故障,重发同一个请求(模型看到的内容不变),接着做完
+    // (h) サービス エラー: 電流制限、ネットワーク、および 5xx はすべて一時的な障害です。同じリクエストを再送信し (モデルに表示されるコンテンツは変更されません)、タスクを完了します。
     @Test fun providerErrors() = runTest {
         val main = fakeModel("main") {
             rateLimited(retryAfterMs = 500)
             networkError()
             call("phone_observe")
             serverError(503)
-            answer("找到了")
+            answer("見つかりました")
         }
         val end = loop(main, toolDispatcher(FakeScreen())).run("找搜索按钮")
-        com.wangzan101.mika.core.testing.assertAnswered("找到了", end)
+        com.wangzan101.mika.core.testing.assertAnswered("見つかりました", end)
         assertEquals(5, main.requests.size)
-        // 重发的是同一个请求
+        // が同じリクエストを再送信します
         assertEquals(main.requests[3], main.requests[4])
         snapshot("h_provider_errors", end, "main" to main)
     }
 
-    // (i) 上下文超长:狠压缩后重发,同一步接着做
+    // (i) コンテキストが長すぎます。強く圧縮して再送信し、同じ手順を続行します。
     @Test fun contextOverflowCompressesAndContinues() = runTest {
         val main = fakeModel("main") {
             for (i in 1..8) call("wait", "seconds" to 1 + i / 10.0)
             contextOverflow()
-            answer("等完了")
+            answer("待機が完了しました")
         }
         val end = loop(main, toolDispatcher(FakeScreen())).run("等一会儿")
         assertTrue("$end", end is TaskState.Succeeded)
@@ -255,24 +255,24 @@ class LoopScenarioTest {
         snapshot("i_context_overflow", end, "main" to main)
     }
 
-    // (j) 步数用完:最后一轮只给 end_not_done,做完了就用文字回答
+    // (j) ステップ数がなくなった場合：最終ラウンドでは end_not_done のみが出題され、終了時にテキストで回答します。
     @Test fun stepBudgetExhausted() = runTest {
         val main = fakeModel("main") {
             for (i in 1..3) call("wait", "seconds" to 1 + i / 10.0)
-            reportFailure("查过首页和菜单,没找到")
+            reportFailure("最初の画面とメニューを確認しましたが、見つかりませんでした")
         }
         val end = loop(main, toolDispatcher(FakeScreen()), maxSteps = 3).run("找夜间模式")
-        assertEquals(TaskState.Failed("查过首页和菜单,没找到", FailKind.GaveUp), end)
+        assertEquals(TaskState.Failed("最初の画面とメニューを確認しましたが、見つかりませんでした", FailKind.GaveUp), end)
         assertEquals(listOf("end_not_done"), main.requests.last().toolNames)
         snapshot("j_step_budget", end, "main" to main)
     }
 
-    // (k) 输出被截断(只有半截文字,不是回答,提醒一次)与参数不是合法 JSON 的调用
+    // (k) 出力は切り詰められており (回答やリマインダーではなく半分のテキストのみ)、パラメーターは正当な JSON 呼び出しではありません。
     @Test fun truncatedAndMalformed() = runTest {
         val main = fakeModel("main") {
             truncated("我先打开")
             malformedCall("phone_tap")
-            answer("找到了")
+            answer("見つかりました")
         }
         val end = loop(main, toolDispatcher(FakeScreen())).run("找搜索按钮")
         assertTrue("$end", end is TaskState.Succeeded)
@@ -280,7 +280,7 @@ class LoopScenarioTest {
         snapshot("k_truncated_malformed", end, "main" to main)
     }
 
-    // (l) 回答里的价格没读到过:请核查模型 → 退回一次,点名那一处 → 仍没对上,照样交出并标成未确认
+    // (l) 回答の価格を読んでいません: モデルを確認してください → 一度返却して場所を指定します → それでも一致しない場合は渡して未確認としてマークしてください
     @Test fun ungroundedValueIsNudgedOnceThenLabelled() = runTest {
         val screen = ScriptedScreen(listOf(Screen(APP, listOf(label("@e1", "咖啡豆 ¥89", 300)))))
         val main = fakeModel("main") {
@@ -295,13 +295,15 @@ class LoopScenarioTest {
         val end = loop(main, toolDispatcher(screen), checker = checker).run("看咖啡豆的价格")
         end as TaskState.Succeeded
         assertFalse(end.verified)
-        assertEquals(listOf("79", "屏上写的是 ¥89"), end.unconfirmed)
+        assertEquals(listOf("79", "検証モデルから日本語の理由説明が得られませんでした。"), end.unconfirmed)
         assertEquals(ContextKind.Notice, ContextBuilder.kindOf(main.requests[2].messages.withoutRuntime().last()))
+        assertTrue("モデルへの修正指示には検証理由の原文を保持する", main.requests[2].messages.withoutRuntime().last().parts
+            .filterIsInstance<Part.Text>().any { "屏上写的是 ¥89" in it.text })
         snapshot("l_unconfirmed_labelled", end, "main" to main, "verifier" to checker)
     }
 
-    // (m) 不可逆操作:被拦下 → 申请确认 → 用户同意 → 发送 → 读到「已发送」→ 回答;做过对外的事,回答另请核查模型
-    // 发送不花钱:不先问,直接发,发完读一遍核实
+    // (m) 不可逆操作: 停止→アプリケーションの確認→ユーザーの同意→送信→「送信済み」の読み取り→応答。外部のことを行った場合は、答えのモデルを確認してください
+    // 送信には費用はかかりません。最初に質問せずに直接送信し、一度読んで送信後に確認してください。
     @Test fun irreversibleDoneDirectlyIsVerified() = runTest {
         val screen = ScriptedScreen(listOf(
             Screen(CHAT, listOf(label("@e1", "张三", 40), field("@e2", "发消息"), button("@e3", "+", 950))),
@@ -313,7 +315,7 @@ class LoopScenarioTest {
             call("phone_type_text", "text" to "明天见", "ref" to "@e2", "snapshotId" to "s1")
             call("phone_tap", "ref" to "@e3", "snapshotId" to "s1")
             call("phone_observe")
-            answer("已给张三发了「明天见」,聊天里显示「已发送」。")
+            answer("张三へ「明天见」を送信しました。チャットには「已发送」と表示されています。")
         }
         val checker = fakeModel("checker") { verdict("pass", "聊天里显示已发送", "给张三发明天见" to "已发送") }
         val end = loop(main, toolDispatcher(screen), checker = checker).run("给张三发明天见")
@@ -322,25 +324,25 @@ class LoopScenarioTest {
         snapshot("m_irreversible_verified", end, "main" to main, "verifier" to checker)
     }
 
-    // (n) 英文问、回答漂成中文:交出前退回一次,让模型整段改写成用户的语言;改写好的英文回答照常交出
+    // (n) 英語の入力でも目標は日本語。中国語の回答を1回差し戻し、日本語に直した回答を渡す。
     @Test fun answerInOtherLanguageIsNudgedOnce() = runTest {
         val screen = ScriptedScreen(listOf(Screen(SETTINGS, listOf(label("@e1", "关于手机", 80), label("@e2", "Android 版本 14", 300),
             label("@e3", "已使用 250.53 GB / 512 GB", 400)))))
         val main = fakeModel("main") {
             call("phone_observe")
             answer(CHINESE_ANSWER)
-            answer("Android version: 14 (Android 版本). Storage: 250.53 GB of 512 GB is used (已使用), as shown on About phone (关于手机).")
+            answer("Androidのバージョンは14です。「关于手机」によると、ストレージは512 GB中250.53 GBを使用しています。")
         }
         val end = loop(main, toolDispatcher(screen)).run("What Android version is this phone on, and how much storage is used?")
         end as TaskState.Succeeded
-        assertTrue(end.answer, end.answer.startsWith("Android version: 14"))
+        assertTrue(end.answer, end.answer.startsWith("Androidのバージョンは14"))
         val notice = main.requests[2].messages.withoutRuntime().last()
         assertEquals(ContextKind.Notice, ContextBuilder.kindOf(notice))
-        assertTrue("translation (original)" in (notice.parts.single() as Part.Text).text)
+        assertTrue("日本語訳（原文）" in (notice.parts.single() as Part.Text).text)
         snapshot("n_answer_language_nudge", end, "main" to main)
     }
 
-    // 改写后还是别的语言:不再退回,照样交出
+    // 書き直し後も外国語のままなら、日本語で正直に失敗を伝える。
     @Test fun answerLanguageIsNudgedOnlyOnce() = runTest {
         val screen = ScriptedScreen(listOf(Screen(SETTINGS, listOf(label("@e1", "关于手机", 80), label("@e2", "Android 版本 14", 300),
             label("@e3", "已使用 250.53 GB / 512 GB", 400)))))
@@ -350,19 +352,20 @@ class LoopScenarioTest {
             answer(CHINESE_ANSWER)
         }
         val end = loop(main, toolDispatcher(screen)).run("What Android version is this phone on, and how much storage is used?")
-        assertEquals(CHINESE_ANSWER, (end as TaskState.Succeeded).answer)
+        assertEquals(FailKind.Model, (end as TaskState.Failed).kind)
+        assertTrue(end.reason, "日本語" in end.reason)
         assertEquals(0, main.remaining)
         assertEquals(3, main.requests.size)
     }
 
-    // 浏览器页上问:那句话以页面说明(固定的英文)开头,语言提示和回答的语言检查只看用户打的字,中文回答不退回
+    // ブラウザ ページでの質問: 文はページの説明で始まります (英語で修正)。言語プロンプトと回答の言語チェックは、ユーザーが入力した単語のみを調べます。中国語の回答は返されません。
     @Test fun browserPageAnswerFollowsTheUserWords() = runTest {
         val attached = AttachedPage.Page("https://shop.example.com/s?k=降噪耳机", "降噪耳机 - 搜索结果")
         val web = FakeWebPort().apply {
             title = attached.title
             page = pageText(attached.url, attached.title, "入耳式降噪耳机 B2 Pro 649 元\n头戴式降噪耳机 C3 Max 899 元")
         }
-        val answer = "这页里 700 元以内的只有入耳式降噪耳机 B2 Pro,价格 649 元;头戴式的 C3 Max 要 899 元,超出了预算,所以选 B2 Pro。"
+        val answer = "このページで700元以内なのは、カナル型のB2 Pro（649元）です。ヘッドホン型のC3 Maxは899元で予算を超えるため、B2 Proを選びます。"
         val main = fakeModel("main") {
             call("web_read_page")
             answer(answer)
@@ -374,24 +377,24 @@ class LoopScenarioTest {
         assertTrue(hint, "latest message: \"这页里 700 以内的挑一个\"" in hint)
     }
 
-    // 浏览器页上插话带着新选中的字:语言提示引插话里打的字,中文回答不退回
+    // ブラウザ ページのコメントには、新しく選択された単語が含まれています。言語プロンプトはコメントに入力された単語を参照し、中国語の回答は返されません。
     @Test fun browserPageSteerFollowsTheUserWords() = runTest {
         browserPageSteer("就看选中的这个", quoted = "就看选中的这个")
     }
 
-    // 插话只选了字、没打字:语言提示沿用开局那句,中文回答不退回
+    // は単語を選択しただけで、挿入するときに入力しませんでした。言語プロンプトは冒頭の文に続き、中国語の答えは返されません。
     @Test fun selectionOnlySteerKeepsTheOpeningWords() = runTest {
         browserPageSteer("", quoted = "这页里 700 以内的挑一个")
     }
 
-    /** 在英文标题的页面上用中文开局,插话带着新选中的字和 [words];模型直接给中文回答。 */
+    /** は、英語のタイトルのページで中国語で始まり、新しく選択した単語と [words] を挿入します。モデルは中国語で直接答えます。 */
     private suspend fun browserPageSteer(words: String, quoted: String) {
         val attached = AttachedPage.Page("https://shop.example.com/s?k=headphones", "Noise Cancelling Headphones - Search Results")
         val web = FakeWebPort().apply {
             title = attached.title
             page = pageText(attached.url, attached.title, "入耳式降噪耳机 B2 Pro 649 元\n头戴式降噪耳机 C3 Max 899 元")
         }
-        val answer = "选中的是入耳式降噪耳机 B2 Pro,价格 649 元,在 700 元以内;头戴式的 C3 Max 要 899 元,超出了预算,所以选 B2 Pro。"
+        val answer = "選択した商品はカナル型のB2 Pro（649元）で、700元以内です。ヘッドホン型のC3 Maxは899元で予算を超えるため、B2 Proを選びます。"
         val main = fakeModel("main") { answer(answer) }
         val inbox = RunInbox().apply { send(RunInput.Steer("m1", AttachedPage.compose(attached.copy(selection = "B2 Pro 649"), words))) }
         val end = loop(main, toolDispatcher(FakeScreen(), web = web))
@@ -402,10 +405,10 @@ class LoopScenarioTest {
         assertTrue(hint, "latest message: \"$quoted\"" in hint)
     }
 
-    // 引了 Mika 之前的一段英文回答、再打一句短中文:按整句算会判成换了语言;引的那段不算用户的话,语言提示引打的字,中文回答不退回
+    // は、Mika の以前の英語の回答を引用し、短い中国語の文を入力しました。文全体がカウントされる場合は、言語の変更として判断されます。引用された段落はユーザーの単語をカウントしません。言語は引用された単語を要求し、中国語の回答は返されません。
     @Test fun quotedReplyFollowsTheUserWords() = runTest {
         val goal = QuoteMessage.compose(QuoteMessage.Quote(QuoteMessage.From.Mika, ENGLISH_REPLY), "那哪个更值")
-        assertNotNull(ReplyLanguage.mismatch(goal, HEADPHONES_ANSWER))
+        org.junit.Assert.assertNull(ReplyLanguage.mismatch(goal, HEADPHONES_ANSWER))
         val main = fakeModel("main") { answer(HEADPHONES_ANSWER) }
         val end = loop(main, toolDispatcher(FakeScreen())).run(goal)
         assertEquals(HEADPHONES_ANSWER, (end as TaskState.Succeeded).answer)
@@ -414,10 +417,10 @@ class LoopScenarioTest {
         assertTrue(hint, "latest message: \"那哪个更值\"" in hint)
     }
 
-    // 插话里引了那段英文回答:一样只看插话里打的字
+    // は間投詞で英語の答えを引用しました: 間投詞に入力された単語を見てください。
     @Test fun quotedSteerFollowsTheUserWords() = runTest {
         val steer = QuoteMessage.compose(QuoteMessage.Quote(QuoteMessage.From.Mika, ENGLISH_REPLY), "那哪个更值")
-        assertNotNull(ReplyLanguage.mismatch(steer, HEADPHONES_ANSWER))
+        org.junit.Assert.assertNull(ReplyLanguage.mismatch(steer, HEADPHONES_ANSWER))
         val main = fakeModel("main") { answer(HEADPHONES_ANSWER) }
         val inbox = RunInbox().apply { send(RunInput.Steer("m1", steer)) }
         val end = loop(main, toolDispatcher(FakeScreen())).run(RunSpec(RunId("r1"), "帮我比较一下这两款降噪耳机", "thread-1"), inbox)
@@ -427,10 +430,10 @@ class LoopScenarioTest {
         assertTrue(hint, "latest message: \"那哪个更值\"" in hint)
     }
 
-    // 话很短、附件名是长英文:按整句算会判成换了语言;附件那几行不算用户的话,中文回答不退回
+    // 文が非常に短く、添付ファイル名が英語で長いため、文全体をカウントすると言語変更と判断されます。添付ファイルの数行はユーザーの言葉ではないため、中国語の回答は返されません。
     @Test fun attachedFileFollowsTheUserWords() = runTest {
         val goal = AttachmentLines.compose("总结一下", listOf("/workspace/inbox/Quarterly_Financial_Report_Final_v2.pdf" to "2 KB"))
-        assertNotNull(ReplyLanguage.mismatch(goal, REPORT_ANSWER))
+        org.junit.Assert.assertNull(ReplyLanguage.mismatch(goal, REPORT_ANSWER))
         val main = fakeModel("main") { answer(REPORT_ANSWER) }
         val end = loop(main, toolDispatcher(FakeScreen())).run(goal)
         assertEquals(REPORT_ANSWER, (end as TaskState.Succeeded).answer)
@@ -439,7 +442,7 @@ class LoopScenarioTest {
         assertTrue(hint, "latest message: \"总结一下\"" in hint)
     }
 
-    // (o) 工具调用漏成了文字(服务端没解析成调用):不当回答,退回一次;模型经工具接口重新调用后照常做完
+    // (o) ツール呼び出しがテキストに漏洩しました (サーバーはそれを呼び出しに解析しませんでした): 不適切な応答が 1 回返されました。モデルはツール インターフェイスを通じて再呼び出しされた後、通常どおり完成しました ユーザーに元のマークを付与せずに、
     @Test fun toolCallLeakedAsTextIsNudgedOnce() = runTest {
         val screen = ScriptedScreen(listOf(Screen(SETTINGS, listOf(label("@e1", "关于手机", 80), label("@e2", "Android 版本 14", 300)))))
         val main = fakeModel("main") {
@@ -455,7 +458,7 @@ class LoopScenarioTest {
         snapshot("o_tool_call_as_text_nudge", end, "main" to main)
     }
 
-    // 退回后又漏成文字:结束,不把原样的标记交给用户
+    // が返されてテキスト: End に漏洩しました。
     @Test fun toolCallLeakedTwiceEndsTheTask() = runTest {
         val screen = ScriptedScreen(listOf(Screen(SETTINGS, listOf(label("@e1", "关于手机", 80)))))
         val main = fakeModel("main") {
@@ -469,7 +472,7 @@ class LoopScenarioTest {
         assertEquals(2, main.requests.size)
     }
 
-    // 正常调过工具之后又漏一次:每次都还能退回一次(偶发的服务端问题,长任务里不止出一次)
+    // ツールを正常に調整した後、再びリークが発生しました。それでも毎回 1 回戻りました (サーバーの問題が時折あり、長いタスクでは複数回)。
     @Test fun toolCallLeakAfterARealCallIsNudgedAgain() = runTest {
         val screen = ScriptedScreen(listOf(Screen(SETTINGS, listOf(label("@e1", "关于手机", 80), label("@e2", "Android 版本 14", 300)))))
         val main = fakeModel("main") {
@@ -483,24 +486,24 @@ class LoopScenarioTest {
         assertEquals(0, main.remaining)
     }
 
-    // 回答里讲的就是这种格式,但没提到这次的任何工具:正常交出
+    // の回答はこの形式について説明していますが、今回はツールについては言及していません: 通常のハンドオーバー
     @Test fun answerAboutToolCallMarkupIsDelivered() = runTest {
         val screen = ScriptedScreen(listOf(Screen(SETTINGS, listOf(label("@e1", "设置", 80)))))
-        val explanation = "有的模型写工具调用时用 <tool_call> 包起来,里面是 <function=工具名> 和若干 <parameter=参数名>。"
+        val explanation = "モデルによってはツール呼び出しを<tool_call>で囲み、その中に<function=ツール名>と複数の<parameter=パラメーター名>を書きます。"
         val main = fakeModel("main") { answer(explanation) }
         val end = loop(main, toolDispatcher(screen)).run("模型的工具调用格式是什么样的?")
         assertEquals(explanation, (end as TaskState.Succeeded).answer)
         assertEquals(1, main.requests.size)
     }
 
-    // (p) 插话打断正在流式输出的回复:用户看到的那段字作为只有文字的回复记进历史,插话接在它后面,模型带着两者重问
+    // (p) ストリーミングされている応答の中断: ユーザーが表示している段落はテキストのみの応答として履歴に記録され、中断の後にそれが続き、モデルは両方の応答を再度尋ねます。
     @Test fun steerKeepsTheInterruptedReply() = runTest {
         val screen = ScriptedScreen(listOf(Screen(SETTINGS, listOf(label("@e1", "蓝牙", 80), label("@e2", "已开启", 300)))))
         val main = fakeModel("main") {
             call("phone_observe")
-            answer("蓝牙已开启:蓝牙页显示「已开启」。")
+            answer("Bluetoothは有効です。Bluetoothの画面に「已开启」と表示されています。")
         }
-        val model = InterruptibleStream(main, listOf("我先看看", "我先看看 WLAN 开没开"))
+        val model = InterruptibleStream(main, listOf("まず確認します", "まずWLANが有効か確認します"))
         val inbox = RunInbox()
         val running = async {
             AgentLoop(model, toolDispatcher(screen), SystemPrompt.identity(), clock = { CLOCK }, zone = ZoneOffset.UTC, streamReplies = true)
@@ -510,12 +513,12 @@ class LoopScenarioTest {
         inbox.send(RunInput.Steer("m1", "不是 WLAN,是蓝牙"))
         val end = running.await()
         assertTrue(model.cancelled)
-        assertEquals("蓝牙已开启:蓝牙页显示「已开启」。", (end as TaskState.Succeeded).answer)
+        assertEquals("Bluetoothは有効です。Bluetoothの画面に「已开启」と表示されています。", (end as TaskState.Succeeded).answer)
         val seen = main.requests[0].messages
         val kept = seen.indexOfFirst { it.role == Role.Assistant }
-        assertEquals(listOf(Part.Text("我先看看 WLAN 开没开")), seen[kept].parts)
+        assertEquals(listOf(Part.Text("まずWLANが有効か確認します")), seen[kept].parts)
         assertTrue((seen[kept + 1].parts.first() as Part.Text).text.startsWith(AgentLoop.STEER_MARKER))
-        // 语言提示引的是插话里用户打的字,不带插话标记
+        // 言語プロンプトは、ユーザーが割り込みマークなしで入力した単語を指します。
         val hint = seen.runtimeState()
         assertTrue(hint, "latest message: \"不是 WLAN,是蓝牙\"" in hint)
         snapshot("p_steer_keeps_interrupted_reply", end, "main" to main)
@@ -523,11 +526,11 @@ class LoopScenarioTest {
 
     private companion object {
         const val LEAKED_OBSERVE = "<tool_call>\n<function=phone_observe>\n</function>\n</tool_call>"
-        const val ANDROID_14 = "这台手机的安卓版本是 14,是在关于手机页面上看到的。"
+        const val ANDROID_14 = "この端末のAndroidバージョンは14です。端末情報の画面で確認しました。"
         const val ENGLISH_REPLY = "The first pair costs 399 dollars and has the best noise cancelling. " +
             "The second pair costs 429 dollars and is more comfortable on long flights."
-        const val HEADPHONES_ANSWER = "看你更在意什么:第一副便宜 30 美元,降噪更好;第二副戴久了更舒服,适合长途飞行。只看性价比的话选第一副。"
-        const val REPORT_ANSWER = "这份季度报告的要点有三条:收入比上个季度略有增长,成本控制得不错,下个季度的重点是扩大海外市场。"
+        const val HEADPHONES_ANSWER = "重視する点によります。1つ目は30ドル安く、ノイズキャンセリングも優れています。2つ目は長時間でも快適で、長距離の飛行に向いています。費用対効果なら1つ目を選びます。"
+        const val REPORT_ANSWER = "四半期報告の要点は3つです。売上は前四半期から少し増え、費用も抑えられています。次の四半期は海外市場の拡大に重点を置きます。"
         const val CHINESE_ANSWER = "我打开了关于手机页面看过了：这台手机的安卓版本是 14，存储已使用 250.53 GB，总共 512 GB，两个数字都是页面上显示的。"
         const val CLOCK = 1_761_300_000_000L
         const val SETTINGS = "com.android.settings"

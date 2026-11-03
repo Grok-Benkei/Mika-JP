@@ -18,36 +18,36 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.net.ssl.SSLException
 
-/** Android 上的 adb 身份与 TLS:钥匙用 Keystore 里的 AES 密钥包装后放在 App 私有目录;导出密钥走平台 TLS。 */
+/** Android 上の adb ID と TLS: キーはキーストア内の AES キーでラップされ、アプリのプライベート ディレクトリに配置されます。キーをエクスポートし、プラットフォーム TLS を使用します。 */
 object AndroidAdb {
     private const val KEYSTORE = "AndroidKeyStore"
     private const val WRAP_ALIAS = "mika_adb_key_wrap"
     private const val TAG = "MikaAdbKey"
 
-    // 设备端导出时不带 context;TLS 1.3 里空 context 与不带 context 的结果相同(RFC 8446 §7.5)
+    // デバイスはコンテキストなしでエクスポートします。 TLS 1.3 では、空のコンテキストはコンテキストなしの場合と同じ結果になります (RFC 8446 §7.5)
     val exporter = KeyingMaterialExporter { socket, label, length ->
         SSLSockets.exportKeyingMaterial(socket, label, ByteArray(0), length) ?: throw SSLException("keying material export failed")
     }
 
     @Volatile private var source: AdbIdentitySource? = null
 
-    /** 本进程唯一的一份身份来源:配对和连接都从这里拿,拿到的是同一把钥匙。 */
+    /** このプロセスにおける唯一の ID ソース: ペアリングと接続の両方がここから取得され、同じキーが取得されます。 */
     fun identities(context: Context): AdbIdentitySource = source ?: synchronized(this) {
         source ?: AdbIdentitySource(keyStore(context), { "mika@${Build.MODEL}" }) { msg, e -> Log.w(TAG, msg, e) }.also { source = it }
     }
 
-    /** 连接用的身份;存着的钥匙读不出时抛 [com.wangzan101.mika.core.adb.AdbKeyUnreadableException]。 */
+    /** 接続に使用される ID。 [com.wangzan101.mika.core.adb.AdbKeyUnreadableException] は、保存されたキーを読み取れない場合にスローされます。 */
     fun identity(context: Context): AdbIdentity = identities(context).forConnect()
 
-    /** 配对用的身份:存着的钥匙读不出时换一把新的(见 [AdbIdentitySource.forPairing])。 */
+    /** ペアリングの ID: 保存されたキーを読み取れない場合は、新しいキーと置き換えます ([AdbIdentitySource.forPairing] を参照)。 */
     fun pairingIdentity(context: Context): AdbIdentity = identities(context).forPairing()
 
     fun tls(identity: AdbIdentity) = AdbTls(identity, exporter)
 
-    /** 删除钥匙和本进程里的缓存(「解除配对」用);设备那边的授权记录要由用户在系统设置里撤销。 */
+    /** このプロセスでキーとキャッシュを削除します (「ペアリング解除」のため)。デバイス上の認証レコードは、ユーザーがシステム設定で取り消す必要があります。 */
     fun forget(context: Context) = identities(context).forget()
 
-    /** 钥匙文件 + 包装它的 Keystore 密钥:清掉时两样一起删。 */
+    /** キー ファイル + それをラップするキーストア キー: クリアするときに両方を一緒に削除します。 */
     private fun keyStore(context: Context): AdbKeyStore {
         val file = WrappedKeyFile(File(context.applicationContext.noBackupFilesDir, "adb/adbkey.bin")) { wrappingKey() }
         return object : AdbKeyStore by file {

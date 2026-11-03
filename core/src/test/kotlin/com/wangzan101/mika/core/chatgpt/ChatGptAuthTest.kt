@@ -66,7 +66,7 @@ class ChatGptAuthTest {
 
     private fun query(url: String): Map<String, String> = url.toHttpUrl().let { u -> u.queryParameterNames.associateWith { u.queryParameter(it)!! } }
 
-    // ---------- 授权地址与 PKCE ----------
+    // ---------- 承認されたアドレスと PKCE ----------
 
     @Test fun eachAttemptHasFreshRandomValuesAndAnS256Challenge() {
         val a = auth.newAttempt("http://127.0.0.1:1/auth/callback")
@@ -94,7 +94,7 @@ class ChatGptAuthTest {
         assertEquals(a.nonce, q["nonce"])
         assertEquals("S256", q["code_challenge_method"])
         assertEquals(a.challenge, q["code_challenge"])
-        assertNull("第一次注册不带提示", q["id_token_hint"])
+        assertNull("初回登録ではヒントを付けません", q["id_token_hint"])
         assertNull(q["login_hint"])
     }
 
@@ -106,7 +106,7 @@ class ChatGptAuthTest {
         assertEquals("a@b.test", q["login_hint"])
     }
 
-    // ---------- 回调 ----------
+    // ---------- コールバック ----------
 
     @Test fun callbackChecksStateAndClientId() {
         val a = auth.newAttempt("r")
@@ -118,7 +118,7 @@ class ChatGptAuthTest {
         expect(SignInFailure.NoClientId) { auth.readCallback(mapOf("state" to a.state, "code" to "c"), a, null) }
     }
 
-    // ---------- 换令牌 ----------
+    // ---------- トークンの変更 ----------
 
     @Test fun exchangeAndRefreshPostTheDocumentedForms() = runTest {
         val tokens = """{"access_token":"at","refresh_token":"rt","id_token":"it","token_type":"Bearer","expires_in":3600,
@@ -161,13 +161,13 @@ class ChatGptAuthTest {
         assertEquals(SignInFailure.Region, f("unsupported_country"))
         assertEquals(SignInFailure.Blocked, f("http_403", nonJson = true))
         assertEquals(SignInFailure.Blocked, f("http_429", nonJson = true))
-        assertEquals("JSON 的 403 不算防护拦截", SignInFailure.Exchange, f("http_403"))
+        assertEquals("JSONの403は防御によるブロックとして扱いません", SignInFailure.Exchange, f("http_403"))
         assertEquals(SignInFailure.Denied, f("access_denied"))
         assertEquals(SignInFailure.Denied, f("consent_required"))
         assertEquals(SignInFailure.NoPlanScope, f("invalid_scope"))
         assertEquals(SignInFailure.NoPlanScope, f("forbidden", "Your plan does not include this"))
         assertEquals(SignInFailure.NoPlanScope, f("subscription_sharing_user_not_eligible"))
-        assertEquals("说明里的词要整词才算", SignInFailure.Exchange, f("server_error", "no explanation"))
+        assertEquals("説明中の語は単語全体が一致した場合だけ数えます", SignInFailure.Exchange, f("server_error", "no explanation"))
         assertEquals(SignInFailure.Exchange, f("invalid_client", "Client authentication failed"))
     }
 
@@ -203,7 +203,7 @@ class ChatGptAuthTest {
         assertFalse(auth.revoke("client-1", "rt"))
     }
 
-    // ---------- ID 令牌 ----------
+    // ---------- IDトークン ----------
 
     @Test fun idTokenIsVerifiedAgainstJwksAndClaims() = runTest {
         server.enqueue(jwks())
@@ -215,13 +215,13 @@ class ChatGptAuthTest {
         expectSuspend(SignInFailure.IdToken) { auth.verifyIdToken(jwt(claims(exp = clock / 1000 - 3600)), "client-1", "n") }
         val stranger = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
         expectSuspend(SignInFailure.IdToken) { auth.verifyIdToken(jwt(claims(), key = stranger), "client-1", "n") }
-        // 不认识的 kid:再取一次 JWKS,还是没有就不认
+        // わかりません。JWKS をもう一度試してください。まだ存在しない場合は、認識しないでください。
         server.enqueue(jwks())
         expectSuspend(SignInFailure.IdToken) { auth.verifyIdToken(jwt(claims(), kid = "k2"), "client-1", "n") }
         assertEquals(2, server.requestCount)
     }
 
-    // ---------- 访问令牌 ----------
+    // ---------- アクセストークン ----------
 
     private fun session(expiresAt: Long = clock + 3_600_000) = ChatGptSession(
         clientId = "client-1", sub = "user-1", email = "a@b.test", accessToken = "at", refreshToken = "rt", idToken = "it",
@@ -238,12 +238,12 @@ class ChatGptAuthTest {
         assertEquals("at2", tokens.get(false))
         assertEquals("rt2", stored!!.refreshToken)
         assertEquals(clock + 3_600_000, stored!!.expiresAtMs)
-        // 被拒了就换,哪怕还没到期
+        // が拒否された場合は、有効期限が切れていなくても変更してください。
         server.enqueue(MockResponse().setBody("""{"access_token":"at3","expires_in":3600}"""))
         assertEquals("at3", tokens.get(true))
         assertEquals("rt2", stored!!.refreshToken)
         server.takeRequest()
-        assertEquals("用换来的新刷新令牌", "rt2", form(server.takeRequest().body.readUtf8())["refresh_token"])
+        assertEquals("交換で取得した新しいリフレッシュトークンを使います", "rt2", form(server.takeRequest().body.readUtf8())["refresh_token"])
     }
 
     @Test fun deadRefreshTokenSignsOutButTemporaryFailuresKeepIt() = runTest {
@@ -265,7 +265,7 @@ class ChatGptAuthTest {
         assertNull(ChatGptSession.fromJson("not json"))
     }
 
-    // ---------- 本机回调 ----------
+    // ---------- ローカル コールバック ----------
 
     @Test fun loopbackBindsLocalhostAndHandlesOneCallback() = runBlocking {
         LoopbackCallback.open().use { cb ->
@@ -276,7 +276,7 @@ class ChatGptAuthTest {
                 val miss = client.newCall(Request.Builder().url("http://127.0.0.1:${cb.port}/favicon.ico").build()).execute()
                 assertEquals(404, miss.code); miss.close()
                 val stranger = client.newCall(Request.Builder().url("${cb.redirectUri}?code=x&state=other").build()).execute()
-                assertEquals("不是这次登录的回调不收", 400, stranger.code); stranger.close()
+                assertEquals("今回のサインイン以外のコールバックは受け取りません", 400, stranger.code); stranger.close()
                 val hit = client.newCall(Request.Builder().url("${cb.redirectUri}?code=a%20b&state=s").build()).execute()
                 assertEquals(200, hit.code)
                 assertEquals("<p>ok a b</p>", hit.body!!.string())
@@ -292,12 +292,12 @@ class ChatGptAuthTest {
         assertNull(cb.await(400) { "" })
         cb.close()
         val refused = runCatching { Socket("127.0.0.1", port).close() }.isFailure
-        assertTrue("关掉之后端口不再收连接", refused)
+        assertTrue("閉じた後はポートが接続を受け付けません", refused)
     }
 
-    // ---------- 整个登录 ----------
+    // ---------- ログイン全体 ----------
 
-    /** 授权服务:换令牌时按这次的 nonce 签一张 ID 令牌;[scope] 是授予的权限。 */
+    /** 認証サービス: トークンを変更する場合、このノンスを押して ID トークンに署名します。 [scope] は付与された権限です。 */
     private fun authServer(nonce: () -> String, scope: String) {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
@@ -310,7 +310,7 @@ class ChatGptAuthTest {
         }
     }
 
-    /** 「浏览器」:读授权地址,带着授权码和 [extra] 跳回回调地址;回调页的内容放进 [shown]。 */
+    /** "ブラウザ": 認証アドレスを読み取り、認証コードと [extra] を含むコールバック アドレスにジャンプします。コールバック ページの内容を [shown] に入れます。 トークンが交換され、ID トークンが検証された後、 */
     private fun browser(
         seen: MutableMap<String, String>,
         shown: java.util.concurrent.CompletableFuture<String> = java.util.concurrent.CompletableFuture(),
@@ -334,7 +334,7 @@ class ChatGptAuthTest {
             auth, "urn:uuid:h", clientId = null, previous = null,
             openBrowser = browser(seen, shown) { q -> "code=c1&state=${q["state"]}&client_id=issued-1" },
             onRegistered = { registered = it },
-            // 网页在换完令牌、验完 ID 令牌之后才给出:这时 JWKS 和换令牌都已请求过
+            // Web ページが表示されます。この時点で、JWKS とトークン交換が要求されています。
             page = { f -> "result=${f?.reason ?: "ok"} requests=${server.requestCount}" }, now = { clock },
         )
         assertEquals("result=ok requests=2", shown.get(5, java.util.concurrent.TimeUnit.SECONDS))
@@ -354,7 +354,7 @@ class ChatGptAuthTest {
             signInWithChatGpt(
                 auth, "urn:uuid:h", clientId = "issued-1", previous = null,
                 openBrowser = browser(seen) { q -> "code=c1&state=${q["state"]}" },
-                onRegistered = { fail("已注册过") }, page = { "done" }, now = { clock },
+                onRegistered = { fail("すでに登録済みです") }, page = { "done" }, now = { clock },
             )
             fail()
         } catch (e: SignInException) {

@@ -34,11 +34,11 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * 旧版 MCP 传输(HTTP+SSE,2024-11-05):先 GET 一条 SSE 流,服务端发 `endpoint` 事件给出 POST 地址;
- * 之后 JSON-RPC 请求都 POST 到该地址,响应从 SSE 流回来。
+ * 古いバージョンの MCP 送信 (HTTP+SSE、2024-11-05): まず SSE ストリームを GET し、サーバーは `endpoint` イベントを送信して POST アドレスを指定します。
+ * の後、すべての JSON-RPC リクエストがこのアドレスに POST され、応答が SSE から返されます。
  *
- * 只在用户明确选择旧版、或服务端只支持旧版时使用。和 [HttpMcpEndpoint] 一样:目录连接时冻结,
- * `tools/call` 不自动重试,关闭时取消 SSE 连接并让进行中的调用失败。
+ * は、ユーザーが古いバージョンを明示的に選択した場合、またはサーバーが古いバージョンのみをサポートしている場合にのみ使用されます。 [HttpMcpEndpoint] と同じ: ディレクトリ接続がフリーズします。
+ * `tools/call` 自動的に再試行されず、シャットダウン時に SSE 接続がキャンセルされ、実行中の通話が失敗します。
  */
 class LegacySseMcpEndpoint private constructor(
     override val serverId: String,
@@ -283,7 +283,7 @@ class LegacySseMcpEndpoint private constructor(
             }
         }
 
-        /** endpoint 事件会给绝对或相对地址;不允许跳协议、带 userinfo 或换主机。 */
+        /** エンドポイント イベントは、絶対アドレスまたは相対アドレスを与えます。プロトコル ジャンプ、ユーザー情報、ホストの変更は許可されません。 */
         private fun resolveEndpoint(base: HttpUrl, payload: String): HttpUrl? {
             val url = base.resolve(payload.trim()) ?: return null
             if (url.scheme != "http" && url.scheme != "https") return null
@@ -295,7 +295,7 @@ class LegacySseMcpEndpoint private constructor(
     }
 }
 
-/** 工具结果解析和 HTTP 传输保持一致;单独放一处,避免两边分叉。 */
+/** ツールの結果分析は HTTP 送信と一致します。両側が分岐しないように、別々の場所に置きます。 */
 private object LegacyResultReader {
     fun resultToResource(result: JsonObject): McpResult = mcpResourceResult(result)
     fun resultToPrompt(result: JsonObject): McpResult = mcpPromptResult(result)

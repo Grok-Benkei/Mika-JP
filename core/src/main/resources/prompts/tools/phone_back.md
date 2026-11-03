@@ -1,1 +1,1 @@
-Press Back on the phone's virtual display. If nothing changes, use the app's visible back control instead of repeating. effect.kind is place_changed (the app in effect.to) when back left the app, no_effect when nothing changed.
+スマートフォンの仮想表示で戻る操作を行う。何も変わらない場合は、繰り返さず、アプリの見える戻る操作を使う。effect.kind は、戻る操作でアプリを出た場合は place_changed（アプリは effect.to）、何も変わらなかった場合は no_effect。

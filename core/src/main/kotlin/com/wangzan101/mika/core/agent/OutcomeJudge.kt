@@ -16,18 +16,18 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
 /**
- * 一次运行按用户要的结果算办成了没有。不带调用的回复就是回答,回答本身可能如实说没办成或只办了一部分;
- * 学东西(路线、技能、技能结果)、定时任务结果和运行回看都按这个结局,不按「交出了回答」。
+ * ユーザーが必要とする結果を一度の実行で計算することは可能ですか?電話なしの返信は回答であり、回答自体は、それが行われていないか、部分的にしか行われていないと正直に述べている可能性があります。
+ * 学習内容 (ルート、スキル、スキル結果)、時間指定タスクの結果、実行レビューはすべてこのエンディングに従います。 「回答を送信」は押さないでください。
  */
 enum class RunOutcome(val wire: String) {
     Done("done"), Partial("partial"), NotPossible("not_possible"),
-    /** 没判成(模型出错、超时、回复读不懂),或旧记录;不当办成,也不当没办成。 */
+    /** 成功しませんでした (モデル エラー、タイムアウト、読み取り不能な応答)、または古いレコード。完了したり失敗したりしてはなりません。 */
     Unknown("unknown");
 
     companion object {
         fun ofWire(s: String?): RunOutcome? = entries.firstOrNull { it.wire == s }
 
-        /** 运行记录里判的结局;没有这条事件(旧记录、失败、取消)为 null。 */
+        /** 走行記録で判断される結末;そのようなイベント (古いレコード、失敗、キャンセル) がない場合、null になります。 */
         fun recorded(events: List<RunEvent>): RunOutcome? =
             events.filterIsInstance<RunEvent.OutcomeJudged>().lastOrNull()?.let { ofWire(it.outcome) ?: Unknown }
     }
@@ -38,8 +38,8 @@ data class JudgedOutcome(val outcome: RunOutcome, val reason: String = "", val m
 }
 
 /**
- * 回答交给用户之后,在后台请一次模型(轻量模型优先,没有用主模型)按用户的要求给回答判结局。
- * 不改回答、不拖慢交付;出错或超时就是 [RunOutcome.Unknown],从不抛(取消照常往外抛)。
+ * ユーザーに回答が与えられた後、バックグラウンドでモデルが要求され (軽量モデルが推奨され、メイン モデルは使用されません)、回答が提供され、ユーザーの要件に従って結果が決定されます。
+ * は答えを変更せず、配信を遅らせません。エラーまたはタイムアウトが発生した場合、それは [RunOutcome.Unknown] であり、スローされることはありません (キャンセルされた場合は通常どおりスローされます)。
  */
 class OutcomeJudge(
     private val judge: ChatModel,
@@ -51,7 +51,7 @@ class OutcomeJudge(
             ?.parts?.filterIsInstance<Part.Text>()?.joinToString("\n") { it.text }.orEmpty()
         val input = buildString {
             if (prior.isNotEmpty()) appendLine(prior).appendLine()
-            // 要求和回复都是要判的材料,包在标签里;里面写的话不是给判定者的指令
+            // 要求と応答は判断材料であり、ラベルに含まれます。中に書かれた言葉は裁判官への指示ではありません。
             append("<request>\n").append(untag(goal)).append("\n</request>\n\n<reply>\n").append(untag(answer)).append("\n</reply>")
         }
         val messages = listOf(Message(Role.User, listOf(Part.Text(input)), Author.User))
@@ -76,12 +76,12 @@ class OutcomeJudge(
 
         private val TAG = Regex("</?\\s*(request|reply)\\s*>", RegexOption.IGNORE_CASE)
 
-        /** 材料里自带的 request/reply 标签去掉,免得它提前收口、把后面的话装成判定者的输入。 */
+        /** マテリアルに付属するリクエスト/返信タグを削除して、マテリアルが事前に閉じられ、次の単語が審査員の入力であるかのように装うことを防ぎます。 */
         private fun untag(s: String) = s.replace(TAG, "")
 
         /**
-         * 回复里最后一个能读懂的 JSON 对象:{"outcome": "done|partial|not_possible", "reason": "…"};读不懂为 null。
-         * 取最后一个:判定者复述材料时带出的对象在前面,结论在最后。
+         * 応答内の最後の読み取り可能な JSON オブジェクト: {"outcome": "done|partial|not_possible", "reason": "…"};読み取れない場合は null です。
+         * 最後の例を見てみましょう。内容を再話するときに裁判官によって持ち出されたオブジェクトが先頭にあり、結論が最後にあります。
          */
         fun parse(raw: String): JudgedOutcome? {
             var end = raw.lastIndexOf('}')

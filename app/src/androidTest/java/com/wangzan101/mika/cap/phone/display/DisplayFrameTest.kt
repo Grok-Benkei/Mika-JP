@@ -10,7 +10,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class DisplayFrameTest {
     @Test fun allFourRotationsRestorePixelsAndExcludeRowPadding() {
-        // 物理内容 2×3,每行末尾另有一个填充像素。
+        // 物理コンテンツ 2×3、各行の終わりに 1 つのパディング ピクセル。
         val source = Bitmap.createBitmap(intArrayOf(
             Color.RED, Color.GREEN, Color.MAGENTA,
             Color.BLUE, Color.YELLOW, Color.MAGENTA,

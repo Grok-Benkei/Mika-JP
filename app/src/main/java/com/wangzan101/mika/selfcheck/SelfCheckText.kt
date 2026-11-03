@@ -3,9 +3,9 @@ package com.wangzan101.mika.selfcheck
 import java.util.Locale
 
 /**
- * 自检认自检页上的文字时用的比法。读屏给的文字不一定和页面上写的一字不差:按钮默认会被系统主题显示成全大写,
- * 读屏读到的就是大写;空白也可能多一个、少一个,或者换成不断行空格。所以先把两边都规整一遍再比:
- * 前后空白去掉、中间的空白并成一个普通空格、大小写不分。
+ * セルフテスト ページ上のテキストを認識するためにセルフテストで使用される比較方法。スクリーン リーダーによって提供されるテキストは、ページに書かれているものとまったく同じではない場合があります。デフォルトでは、ボタンはシステム テーマによってすべて大文字で表示されます。
+ * 画面の読み取りでは大文字が読み取られます。スペースが 1 つ増えたり、1 つ減ったり、または連続したスペースが存在する場合があります。したがって、まず両側をまっすぐにしてから比較してください。
+ * 大文字と小文字に関係なく、先頭と末尾の空白が削除され、中央の空白が通常のスペースに結合されます。
  */
 internal object SelfCheckText {
     private val SPACES = Regex("[\\s\\p{Z}]+")
@@ -17,8 +17,8 @@ internal object SelfCheckText {
     fun contains(text: String, part: String): Boolean = normalize(text).contains(normalize(part))
 
     /**
-     * 带一个数字的文字(「点了 %d 次」「计时 %d」「第 %d 行」)。[template] 是把数字换成 [sentinel] 后的整句;
-     * 认的时候数字前后两段照上面的比法比,中间只能是数字。
+     * 数字を含むテキスト (「クリック %d 回」、「時間 %d」、「行 %d」)。 [template] は、数字を [sentinel] に置き換えた後の文全体です。
+     * を識別する場合、上記の比較方法に従って番号の前後 2 つのセクションが比較されます。真ん中には数字しか入れられません。
      */
     class Numbered(template: String, sentinel: String) {
         private val parts = normalize(template).split(normalize(sentinel))

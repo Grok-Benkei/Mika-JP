@@ -1,1 +1,1 @@
-Wait briefly for an app to load or an animation to finish.
+アプリの読み込みやアニメーションの終了を短時間待つ。

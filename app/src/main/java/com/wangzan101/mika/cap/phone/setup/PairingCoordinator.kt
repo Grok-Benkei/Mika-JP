@@ -26,25 +26,25 @@ import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.launch
 
 /**
- * 一次配对的全过程:找配对窗口、无障碍开着时自己读配对码([PairingCodeReader])、
- * 读不到就弹带输入框的通知、把码交给内置助手 [control]、显示结果。
- * 跟着进程走,不跟界面(用户在系统设置里看配对码时 Mika 的界面已经不在前台):由 [com.wangzan101.mika.cap.phone.PhoneServices] 建一份。
+ * ペアリングの全プロセス: ペアリング ウィンドウを見つけ、障害物がなく開いたら自分でペアリング コード ([PairingCodeReader]) を読み取ります。
+ * がポップアップ入力ボックスの通知を読み取ることができない場合は、コードを組み込みアシスタント [control] に渡し、結果を表示します。
+ * はインターフェイスではなくプロセスに従います (ユーザーがシステム設定でペアリング コードを見ると、Mika のインターフェイスは最前面に表示されなくなります): [com.wangzan101.mika.cap.phone.PhoneServices] でコピーを作成します。
  */
 class PairingCoordinator(context: Context, private val control: BuiltinShellControl) {
     private val app = context.applicationContext
-    /** 配对、重试、解除配对这类动作也放这里跑:界面关了也要做完。 */
+    /** ペアリング、再試行、ペアリング解除などのアクションもここで実行されます。これらのアクションは、インターフェイスが閉じている場合でも完了する必要があります。 */
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var watch: Job? = null
     private val deadline = SlidingDeadline(WINDOW_MS) { SystemClock.elapsedRealtime() }
-    /** 通知上此刻显示的;再次提醒前对一下,已经换成别的(比如刚填了码)就不再弹旧的。 */
+    /** 通知に現在表示されているもの; 再度知らせる前に照合し、別の内容に変わっていれば（たとえばコードが入力された直後）古い内容は出さない。 */
     @Volatile private var shown: PairingNotice? = null
     private val _repairing = MutableStateFlow(false)
-    /** 用户点了「重新配对」且新的配对还没开始:助手即便在运行也要等新配对。 */
+    /** ユーザーが「再ペアリング」をタップし、新しいペアリングがまだ始まっていない: ヘルパーが動作中でも新しいペアリングを待つ。 */
     val repairing: StateFlow<Boolean> = _repairing
     /**
-     * 填了码、配对还没开始([submit] 起,到 [pair] 把状态改成「正在配对」为止):这段时间通知一律是「正在配对」。
-     * [submit] 里的 [begin] 让找窗口的状态当场回到「在找」,不这样的话通知会按填码前的状态再算一条
-     * (配对失效时是「配对失效了」,填错码后重填时是又响一次的输入框)。跟着状态更新通知也不在这时结束,见 [PairingNotice.follow]。
+     * コードが入力され、ペアリングがまだ始まっていない（[submit] から [pair] が状態を「ペアリング中」に変えるまで）: この間、通知はすべて「ペアリング中」になる。
+     * [submit] 内の [begin] により、ウィンドウを探す状態はその場で「探している」へ戻る。そうしないと、通知がコード入力前の状態で再計算されてしまう
+     * (ペアリングに失敗した場合は、「ペアリングに失敗しました」という意味です。間違ったコードを入力して再入力すると、入力ボックスから再びビープ音が鳴ります)。ステータス更新通知はこの時点では終了しません。[PairingNotice.follow] を参照してください。
      */
     @Volatile private var submitted = false
 
@@ -52,7 +52,7 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
 
     fun cancelRepair() { _repairing.value = false }
 
-    /** 开始一次配对:状态一变成「正在配对」就结束重新配对的等待(免得被运行中的旧状态抢先判成已完成)和填码后的等待([submitted])。 */
+    /** はペアリングを開始します。ステータスが「ペアリング中」に変わるとすぐに、再ペアリングの待機 (古い実行ステータスによって完了と判断されるのを避けるため) とコード ([submitted]) を入力した後の待機を終了します。 */
     suspend fun pair(code: String, port: Int?) = coroutineScope {
         val job = launch(start = CoroutineStart.UNDISPATCHED) { control.startPairing(code, port) }
         _repairing.value = false
@@ -60,7 +60,7 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
         job.join()
     }
 
-    /** 开始看着配对;已经在看就把时限从现在起重新算 [WINDOW_MS],不重来一遍(免得通知又从头弹)。 */
+    /** はペアリングの確認を開始します。すでにご覧になっている場合は、[WINDOW_MS] 以降、最初からやり直すことなく、制限時間がリセットされます (通知されずに最初からやり直されるため)。 */
     @Synchronized
     fun begin() {
         deadline.extend()
@@ -69,9 +69,9 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
         watch = scope.launch {
             val reader = launch { PairingCodeReader.run(app, control, this@PairingCoordinator) }
             val notices = launch {
-                // 三样各由一个协程送进 combine,送到的先后不一定是改的先后(先改的「正在配对」可能后到):每次都按此刻的值算。
-                // 按写入的反序读,读到后写的值时先写的也一定读得到:submit 先写 submitted 再让找窗口的状态回到「在找」,
-                // pair 先写「正在配对」再清 repairing 和 submitted
+                // 3 つの項目はそれぞれ、コルーチンによって結合するために送信されます。送信の順序は必ずしも変更の順序ではありません (最初に変更された「ペアリング」が後で到着する可能性があります)。毎回、現在の値に従って計算されます。
+                // は書き込みと逆の順序で読み出されます。後で書き込まれた値を読み取る場合、最初に書き込まれた値も読み取られます: submit。最初に submit と書いてから、検索ウィンドウのステータスを「検索中」に戻します。
+                // ペア 最初に「ペアリング」と書き込み、次に修復をクリアして送信します
                 combine(control.status, control.pairingDiscovery, _repairing) { _, _, _ ->
                     val d = control.pairingDiscovery.value
                     val pending = submitted
@@ -80,7 +80,7 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
                 }
                     .distinctUntilChanged()
                     .transformWhile { emit(it.first); !it.second }
-                    // 状态一变就丢掉还没到点的弹出和再次提醒
+                    // ステータスが変化すると、その時点に到達していないポップアップとリマインダーは破棄されます。
                     .collectLatest { notice -> notice?.let { post(it) } }
             }
             if (!deadline.await(notices)) {
@@ -92,7 +92,7 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
         }
     }
 
-    /** 发出 [notice];没人理就隔一阵再弹,次数有上限。 */
+    /** は [notice] を送信します。誰も気にしなければ、しばらくすると再び再生されます。回数には上限があります。 */
     private suspend fun post(notice: PairingNotice) {
         delay(PairingNotice.delayBefore(notice, autoRead = ScreenAccessibility.instance.value != null))
         show(notice)
@@ -124,7 +124,7 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
         cancelNotice()
     }
 
-    /** 通知或引导页里填的码。不是 6 位数字就原地提示重填、不去试;对的话马上换成「正在配对」,免得输入框一直转圈。 */
+    /** 通知またはガイダンス ページに入力されたコード。数字が 6 桁でない場合は、試さずに補充するように求められます。正しければ、入力ボックスがぐるぐる回転するのを防ぐために、すぐに「ペアリング」に変更されます。 */
     fun submit(raw: String, port: Int?): Boolean {
         val code = PairingCode.normalize(raw)
         if (code == null) {
@@ -139,12 +139,12 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
     }
 
     private companion object {
-        /** 配对窗口开着的时间有限;从最后一次 [begin] 起超过这么久没配上就不再找,下次 [begin] 再开始。 */
+        /** のペアリング期間は期間限定で公開されています。最後の [begin] から長い間一致しなかった場合、再度検索されることはなく、次回 [begin] から再度検索されます。 */
         const val WINDOW_MS = 10 * 60_000L
     }
 }
 
-/** 通知输入框的落点。 */
+/** 入力ボックスの着地点を通知します。 */
 open class PairingCodeInput : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val code = RemoteInput.getResultsFromIntent(intent)?.getCharSequence(PairingNotifier.KEY_CODE)?.toString() ?: return

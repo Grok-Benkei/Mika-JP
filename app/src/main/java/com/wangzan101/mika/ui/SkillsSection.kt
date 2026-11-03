@@ -37,8 +37,8 @@ import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 
 /**
- * 技能相关的两块内容。[pending] 为假是「技能」段:已收下的个人技能(开关即启用/停用)和在用的 App 知识;
- * 为真是「待确认」段里的部分:新技能草稿(看全文、改一改再收下、收下、不要)和 App 知识草稿。
+ * のスキルに関するコンテンツが 2 つあります。 [pending] が false の場合、それは「スキル」セクションです。収集された個人スキル (有効/無効に切り替え) と使用中のアプリの知識。
+ * は、実際には「確認予定」セクションの部分です。新しいスキルのドラフト (全文を読んで変更を加え、承認、承認、希望しない) とアプリのナレッジのドラフトです。
  */
 @Composable
 internal fun SkillsSection(vm: MemoryViewModel, ui: SkillsUi, pending: Boolean) {
@@ -120,7 +120,7 @@ internal fun SkillsSection(vm: MemoryViewModel, ui: SkillsUi, pending: Boolean) 
     }
 }
 
-/** 一条 App 知识:点开看全文;草稿可收下试用,没核实的可归档;被试用中的修订暂时顶替的那份只看不动。 */
+/** アプリの豆知識: クリックして全文を読んでください。下書きは試用のために受け入れることができ、未検証のものはアーカイブすることができます。試行中のリビジョンによって一時的に置き換えられたコピーは表示できません。 */
 @Composable
 private fun AppKnowledgeItem(vm: MemoryViewModel, row: AppKnowledgeRow, first: Boolean, expanded: Boolean, onToggle: () -> Unit) {
     val stage = if (row.replaced) tr(R.string.skills_app_replaced) else when (row.stage) {
@@ -140,11 +140,11 @@ private fun AppKnowledgeItem(vm: MemoryViewModel, row: AppKnowledgeRow, first: B
     }
 }
 
-/** 技能行下面:更新草稿改了哪几行,展开时再加全文。 */
+/** スキル行の下: ドラフトで変更された行を更新し、展開時に全文を追加します。 */
 @Composable
 private fun SkillBody(r: SkillRow, expanded: Boolean) = ChangesAndText(r.changedLines, r.markdown, expanded)
 
-/** 一行下面:这份草稿改了哪几行([changed]),展开时再加全文。 */
+/** 行の下: このドラフト ([changed]) で変更された行と、展開時に全文を追加します。 */
 @Composable
 private fun ChangesAndText(changed: List<String>, markdown: String, expanded: Boolean) {
     val c = MikaTheme.colors

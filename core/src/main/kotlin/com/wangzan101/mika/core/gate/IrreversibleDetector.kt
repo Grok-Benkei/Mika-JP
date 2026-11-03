@@ -24,78 +24,102 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-/** [matched]:命中的那段文字(按钮名、资源 ID、target 参数、输入框或滑动的起点)。 */
+/** [matched]: ヒットしたテキスト (ボタン名、リソース ID、ターゲット パラメーター、入力ボックス、またはスライドの開始点)。 */
 data class Irreversible(val action: IrrevAction, val matched: String)
 
 /**
- * 写操作执行前的词表兜底:只认按钮名、回车/确认键、横滑列表行这几种信号,不做语义理解。
- * 拿不准时宁可多拦(模型补一次 request_confirmation 就能继续),只有 submit 故意只认完全相等。
+ * 書き込み操作を実行する前の単語リスト: ボタン名、入力/確認キー、および水平スライド リスト ライン信号のみを認識し、意味的な理解はありません。
+ * よくわからない場合は、さらにブロックすることをお勧めします (モデルは request_confirmation を一度入力した後に続行できます)。意図的にのみ提出することは、完全な平等を認識するだけです。
  *
- * 读屏:[classify] 的 snapshot 是 ref 所属的那次读屏(没有 ref 时是最近一次),fresh 是此刻重新读的一屏。
- * 坐标、回车、滑动按 fresh 判(读不到才退回 snapshot);ref 两份都判,任一命中就算。
+ * 画面読み取り: [classify] のスナップショットは ref が属する画面読み取り (ref がない場合は最新のもの)、Fresh は現時点で再読み取りされている画面です。
+ * 座標、Enter キーを押し、スライドして新規キーを押して判断します (読み取れない場合のみスナップショットに戻ります)。審判は両方のコピーを判断し、どちらかがカウントされます。 名前 (短縮名、または綴り名のすべての段落) に
  */
 object IrreversibleDetector {
     /**
-     * 名字里出现就算(短名字,或拼起来的名字里的每一段);但前面是「待」「已」、
-     * 后面是 [STATUS_SUFFIXES] 的是订单状态或入口(待付款、付款成功、购买记录),不算。
+     * が含まれている場合でも、ただし、その前に「ワイ」、「すでに」が付いています。
+     * に続く [STATUS_SUFFIXES] は注文ステータスまたはエントリ (支払い保留中、支払い成功、購入記録) であり、カウントされません。
      */
     val STRONG: Map<String, IrrevAction> = linkedMapOf(
+        "支払い" to IrrevAction.pay, "振込" to IrrevAction.pay, "振り込" to IrrevAction.pay, "送金" to IrrevAction.pay,
+        "送信取消" to IrrevAction.delete, "削除" to IrrevAction.delete, "退会" to IrrevAction.delete,
+        "送信" to IrrevAction.send,
+        "購入" to IrrevAction.order, "注文を確定" to IrrevAction.order, "注文確定" to IrrevAction.order,
+        "注文する" to IrrevAction.order, "注文をキャンセル" to IrrevAction.order, "予約を確定" to IrrevAction.order,
         "支付" to IrrevAction.pay, "付款" to IrrevAction.pay, "转账" to IrrevAction.pay,
         "删除" to IrrevAction.delete, "撤回" to IrrevAction.delete,
         "下单" to IrrevAction.order, "购买" to IrrevAction.order, "结算" to IrrevAction.order, "结账" to IrrevAction.order,
         "取消订单" to IrrevAction.order, "确认收货" to IrrevAction.order, "退款" to IrrevAction.order,
         "转发" to IrrevAction.send,
-    )
+    ).mapKeys { (word, _) -> Hant.fold(word) }
     private const val STRONG_MAX_LEN = 12
     private val STATUS_PREFIXES = listOf('待', '已')
-    val STATUS_SUFFIXES = listOf("成功", "记录", "售后", "明细", "方式", "列表", "中心", "入口", "码")
+    val STATUS_SUFFIXES = listOf("成功", "记录", "售后", "明细", "方式", "列表", "中心", "入口", "码", "履歴", "済み", "完了", "方法", "一覧", "情報", "設定", "手続きの説明").map(Hant::fold)
 
-    /** 这些付款词只认按钮本身,或前面是「立即」「确认」「去」(「充值中心」「话费充值」「优惠买单」是入口,不算)。 */
-    val EXACT_PAY = listOf("收银台", "买单", "充值", "储值", "提现", "转出", "打赏", "缴费")
+    /** これらの支払い単語はボタン自体のみを認識するか、「即時」、「確認」、「実行」が前に付いています (「リチャージ センター」、「電話リチャージ」、「割引支払い」は入り口であり、カウントされません)。 */
+    val EXACT_PAY = listOf("收银台", "买单", "充值", "储值", "提现", "转出", "打赏", "缴费", "支払う", "支払いを確定", "決済する", "決済を確定", "送金する", "振り込む", "振込実行", "チャージする", "チャージを確定", "出金する").map(Hant::fold)
     private val EXACT_PAY_PREFIXES = listOf("", "立即", "确认", "去")
 
-    /** 红包只认按钮上的这几种说法(「微信红包」一类是聊天里的气泡)。 */
+    /** 赤い封筒はボタン上の単語のみを認識します (「WeChat 赤い封筒」はチャット内のバブルです)。 */
     val RED_PACKET = listOf("红包", "发红包", "塞钱进红包")
 
-    /** 中文:等于词,或以词开头且只多出几个字(如「发送(1)」)。 */
+    /** 中国語: word に等しい、または word で始まり、さらにいくつかの単語のみが含まれます (「送信 (1)」など)。 */
     val PREFIX_WORDS: Map<IrrevAction, List<String>> = linkedMapOf(
-        IrrevAction.send to listOf("发送", "传送", "发布", "发表"),
-        IrrevAction.delete to listOf("清空", "移除", "注销", "退出群聊"),
-        IrrevAction.order to listOf("提交订单"),
-    )
+        IrrevAction.send to listOf("发送", "传送", "发布", "发表", "送信", "投稿", "ポスト", "公開", "返信する", "リポスト"),
+        IrrevAction.delete to listOf("清空", "移除", "注销", "退出群聊", "削除", "すべて削除", "アカウントを削除"),
+        IrrevAction.order to listOf("提交订单", "注文を確定", "購入を確定", "購入する", "予約を確定"),
+    ).mapValues { (_, words) -> words.map(Hant::fold) }
     private const val PREFIX_SLACK = 4
 
-    /** 等于词,或后面只跟标点(「评论(23)」「回复 3」是入口和计数,不算)。 */
-    val PUNCT_WORDS: Map<IrrevAction, List<String>> = linkedMapOf(IrrevAction.send to listOf("评论", "回复"))
+    /** 操作ラベルと具体的な確認文だけに使う。単独の「キャンセル」や、説明・履歴・設定への入口は含めない。 */
+    private val JAPANESE_ORDER_TARGETS = listOf("予約", "注文", "申込", "申し込み").map(Hant::fold).toSet()
+    private const val JP_ORDER_TARGET = "予約|注文|申込|申し込み"
+    private const val JP_DATA_TARGET = "データ|すべてのデータ|全てのデータ|履歴|記録|設定|アカウント|契約|送信"
+    private val JAPANESE_CANCEL_LABEL = Regex(Hant.fold("(?:$JP_ORDER_TARGET)を(?:キャンセル(?:する)?|取り消す|取消す)"))
+    private val JAPANESE_DELETE_LABEL = Regex(Hant.fold(
+        "(?:(?:$JP_DATA_TARGET)を)?(?:取り消す|取消す|キャンセルする|解約(?:する)?|消去(?:する)?|初期化(?:する)?|リセット(?:する)?|(?:すべて|全て)を?クリア)",
+    ))
+    private val JAPANESE_CONFIRM = Regex(Hant.fold(
+        "(?:この|選択した|選択中の)?($JP_ORDER_TARGET|$JP_DATA_TARGET)を" +
+            "(取り消|取消|キャンセル|解約|消去|初期化|リセット|(?:すべて|全て)クリア)(?:しますか|しても(?:よろしい|いい)ですか)",
+    ))
+    private val JAPANESE_NO_ACTION = Regex(Hant.fold(
+        "(?:この)?(?:(?:$JP_ORDER_TARGET|$JP_DATA_TARGET)を)?" +
+            "(?:(?:キャンセル|解約|消去|初期化|リセット|クリア)(?:しない|しません)|(?:取り消|取消)(?:さない|しません))(?:でください)?",
+    ))
+    /** 「記録」「一覧」の状態語除外より優先する、従来の明確な削除ラベルだけ。 */
+    private val CLEAR_RECORD_LABELS = setOf("清空记录", "清空列表").map(Hant::fold).toSet()
 
-    /** 等于词,或前面是「立即」「确认」。 */
-    val BOOKING_WORDS = listOf("预约", "报名")
+    /** は単語に等しいか、句読点のみが続きます (「コメント (23)」と「返信 3」はエントリおよびカウントであり、カウントされません)。 */
+    val PUNCT_WORDS: Map<IrrevAction, List<String>> = linkedMapOf(IrrevAction.send to listOf("评论", "回复", "返信")).mapValues { (_, words) -> words.map(Hant::fold) }
+
+    /** は単語と等しいか、「immediately」または「confirm」が前に付きます。 */
+    val BOOKING_WORDS = listOf("预约", "报名", "予約する", "予約を確定する", "申し込む", "申込を確定する", "申し込みを確定する").map(Hant::fold)
     private val BOOKING_PREFIXES = listOf("", "立即", "确认")
 
-    /** 只认完全相等:「提交搜索」一类不拦。 */
-    val SUBMIT_WORDS = listOf("提交", "确认提交", "送出", "submit")
+    /** は完全な同等性のみを認識します。「検索の送信」カテゴリはブロックされません。 */
+    val SUBMIT_WORDS = listOf("提交", "确认提交", "送出", "submit", "提出", "提出する", "送信する", "応募する", "応募を確定", "申し込む").map(Hant::fold)
 
     /**
-     * 一点就替用户联系别人、投出申请的按钮(点下去网站就把招呼语、简历发给对方),按提交算:
-     * 等于词,或前面是「立即」「马上」「一键」「去」,后面只跟标点。
-     * 「继续沟通」「已投递」「沟通记录」「联系客服」「联系我们」「私信」「消息」不算:是已有的对话、记录、客服页,
-     * 或只是打开写消息的地方(真发出去的是之后的发送)。
+     * ボタンをクリックして他の人に連絡し、ユーザーの申請を送信し (Web サイトをクリックして挨拶と履歴書を相手に送信します)、[送信] をクリックします。
+     * は単語と等しいか、「immediately」、「immediately」、「one click」、「go」が前にあり、その後に句読点のみが続きます。
+     * 「コミュニケーションを続ける」、「送信済み」、「コミュニケーション記録」、「カスタマーサービスに連絡する」、「お問い合わせ」、「プライベートメッセージ」、「メッセージ」はカウントされません。これらは既存の会話、記録、カスタマーサービスページです。
+     * または、メッセージが書かれている場所を開くだけです (実際に送信されるのはその後の送信です)。
      */
     val CONTACT_WORDS = listOf(
         "沟通", "打招呼", "打个招呼", "发起聊天", "发起沟通", "联系ta", "联系他", "联系她", "联系对方",
         "投递", "投简历", "投递简历", "应聘",
     )
     private val CONTACT_PREFIXES = listOf("", "立即", "马上", "一键", "去")
-    /** 「申请」本身太泛(申请退款、申请权限):只认这几种说法。 */
+    /** 「申請」自体が一般的すぎます（返金申請、許可申請）：私はこれらの用語しか認識していません。 */
     val APPLY_WORDS = listOf("立即申请", "一键申请", "申请职位", "申请岗位", "申请该职位")
-    /** 英文:整个名字等于这些(不分大小写、空白合并、去掉末尾标点);单独的 Apply(筛选面板的应用)、Contact、Message 不算。 */
+    /** 英語: 名前全体はこれらと同じです (大文字と小文字は区別されず、空白で結合され、末尾の句読点が削除されます)。個別の適用（フィルターパネルの適用）、連絡先、およびメッセージはカウントされません。 */
     val CONTACT_ENGLISH = listOf(
         "say hi", "say hello", "send greeting", "apply now", "easy apply", "quick apply", "apply for this job", "apply to this job",
         "submit application", "contact now", "contact recruiter", "contact employer", "contact seller", "contact host", "contact owner",
         "contact landlord", "contact agent",
     )
 
-    /** 英文:名字以这个词开头(按单词边界,不分大小写),不限长度,如「Send message」「Delete conversation」。 */
+    /** 英語: 名前はこの単語で始まり (大文字と小文字は関係なく単語の境界に従って)、「メッセージを送信する」や「会話を削除する」など、長さに制限はありません。 */
     val ENGLISH: Map<String, IrrevAction> = linkedMapOf(
         "send" to IrrevAction.send, "post" to IrrevAction.send, "reply" to IrrevAction.send,
         "pay" to IrrevAction.pay,
@@ -103,27 +127,46 @@ object IrreversibleDetector {
         "place order" to IrrevAction.order, "buy now" to IrrevAction.order, "checkout" to IrrevAction.order,
     )
 
-    /** 弹窗、底部面板上的通用确认:同一屏上有强词或金额时才算。 */
-    val GENERIC = listOf("确认", "确定", "ok", "完成", "confirm")
-    private val AMOUNT = Regex("[¥￥$＄]\\s*\\d|\\d+(\\.\\d+)?\\s*元")
-    /** 带这些字的金额是合计,不论在不在可滚动区里都算上下文。 */
-    val TOTAL_LABELS = listOf("合计", "实付", "应付", "总计")
-    /** 同屏有金额时,这些字说明是付款面板(付款方式、收银台、验密)。 */
-    val PAY_SHEET_WORDS = listOf("支付方式", "付款方式", "支付宝", "银行卡", "收银台", "免密")
-    /** 这几个字在普通页面上也常见(账户余额、登录密码):只在下半屏、同一区域有确认/支付一类按钮时才算付款面板。 */
-    val WEAK_PAY_SHEET_WORDS = listOf("余额", "密码", "指纹", "零钱")
-    /** 介绍付款方式的字样(商品页、规格面板上常见),不是付款动作,先去掉再判。 */
+    /** ポップアップ ウィンドウ、下部パネルの普遍的な確認: 同じ画面上に強い単語や金額がある場合のみカウントされます。 */
+    val GENERIC = listOf("确认", "确定", "ok", "完成", "confirm", "確認", "確定", "実行", "完了", "はい").map(Hant::fold)
+    private const val AMOUNT_NUMBER = "[0-9０-９][0-9０-９,，]*(?:[.．][0-9０-９]+)?"
+    private const val CURRENCY_CODE = "(?:JPY|CNY|USD|RMB|ＪＰＹ|ＣＮＹ|ＵＳＤ|ＲＭＢ)"
+    private const val CURRENCY_PREFIX = "(?:[¥￥$＄]|(?<![A-Za-zＡ-Ｚａ-ｚ])$CURRENCY_CODE)"
+    private const val CURRENCY_SUFFIX = "(?:元|円|$CURRENCY_CODE(?![A-Za-zＡ-Ｚａ-ｚ]))"
+    private const val NUMBER_ATOM = "(?:$AMOUNT_NUMBER|[〇零一二三四五六七八九壱弐参]+)"
+    /** 換算に未対応の数表記。数字・空白・位取りだけを結合し、件数などの語をまたいで通貨へ結び付けない。 */
+    // 空白は直前の数字・位取りにだけ属させ、反復の境界で同じ空白を分け合わない。
+    private const val UNSCALED_AMOUNT_NUMBER = "(?:$NUMBER_ATOM\\s*)?(?:[十拾百佰千仟万萬億亿兆京]\\s*(?:$NUMBER_ATOM\\s*)?)+"
+    /** 金額の申告欄では通貨の書き方に依存せず位取りを検出する。 */
+    internal val UNSCALED_NUMBER = Regex(UNSCALED_AMOUNT_NUMBER)
+    /** [com.wangzan101.mika.core.action.ClassifiedRisk] と共有する通貨付き金額。全角数字・桁区切り・通貨コードも認識します。 */
+    internal val AMOUNT = Regex(
+        "$CURRENCY_PREFIX\\s*(?:$UNSCALED_AMOUNT_NUMBER|$AMOUNT_NUMBER)|(?:$UNSCALED_AMOUNT_NUMBER|$AMOUNT_NUMBER)\\s*$CURRENCY_SUFFIX",
+        RegexOption.IGNORE_CASE,
+    )
+    /** 認識済み通貨の位取り付き金額は、未換算の数値部分だけで承認しない。 */
+    internal val UNSCALED_AMOUNT = Regex(
+        "$CURRENCY_PREFIX\\s*$UNSCALED_AMOUNT_NUMBER|$UNSCALED_AMOUNT_NUMBER\\s*$CURRENCY_SUFFIX",
+        RegexOption.IGNORE_CASE,
+    )
+    /** これらの単語が含まれる金額は合計であり、スクロール可能領域内にあるかどうかに関係なく、コンテキストとみなされます。 */
+    val TOTAL_LABELS = listOf("合计", "实付", "应付", "总计", "合計", "お支払い金額", "支払金額", "ご請求額", "注文合計").map(Hant::fold)
+    /** 同じ画面に金額がある場合、これらの文字は支払いパネル (支払い方法、レジ係、パスワード認証) を示します。 */
+    val PAY_SHEET_WORDS = listOf("支付方式", "付款方式", "支付宝", "银行卡", "收银台", "免密", "支払い方法", "お支払い方法", "決済方法", "クレジットカード", "振込先").map(Hant::fold)
+    /** という単語は、通常のページ (アカウント残高、ログイン パスワード) にもよく見られます。画面の下半分と同じ領域に確認/支払いボタンがある場合にのみ、支払いパネルとみなされます。 */
+    val WEAK_PAY_SHEET_WORDS = listOf("余额", "密码", "指纹", "零钱", "残高", "暗証番号", "指紋").map(Hant::fold)
+    /** お支払い方法を紹介する文言（商品ページや仕様パネルによくあります）は、お支払い行為ではありませんので、削除してからご判断ください。 */
     private val PAYMENT_ADS = Regex("支持[^\\s，,。]{0,8}?(?:付款|支付)|货到付款|先用后付|花呗|分期|付款方式说明")
-    /** 页面上有这些下单按钮时,是商品页或规格面板:不按付款面板字样判。 */
-    private val ORDER_CONTEXT = listOf("立即购买", "加入购物车", "立即下单")
-    /** 0–999 里这条线以下算屏幕底部区域(付款面板、底部弹层)。 */
+    /** ページにこれらの注文ボタンがある場合、それは商品ページまたは仕様パネルです。支払いパネルという言葉で判断しないでください。 */
+    private val ORDER_CONTEXT = listOf("立即购买", "加入购物车", "立即下单", "カートに入れる", "今すぐ買う", "購入手続きへ").map(Hant::fold)
+    /** 0–999 では、この行は画面の下部領域 (支払いパネル、下部ポップアップ レイヤー) をカウントします。 */
     private const val BOTTOM_REGION = 500
     private val PAY_SHEET_ENGLISH = Regex("(?<![A-Za-z0-9_])(pay|payment|checkout total)(?![A-Za-z0-9_])", RegexOption.IGNORE_CASE)
 
-    /** 先从名字里去掉,再判强词:付款方式的选项不是付款动作。 */
-    val EXCLUDED = listOf("支付宝", "支付方式", "支付设置")
+    /** まず名前から削除してから、支払い方法のオプションは支払いアクションではないということを強く主張します。 */
+    val EXCLUDED = listOf("支付宝", "支付方式", "支付设置", "支払い方法", "お支払い方法", "支払い設定", "購入履歴", "振込先", "送金履歴", "支払履歴", "支払方法", "送信先", "送信設定", "送信履歴").map(Hant::fold)
 
-    /** 资源 ID 按 _ - . 和驼峰拆开后的单词;submit、post 不在这里(资源 ID 里太常见)。 */
+    /** リソース ID は、_ - で区切られた単語です。そしてキャメルケース。 submit と post はここにはありません (リソース ID ではあまりにも一般的です)。 */
     private val RESOURCE_WORDS: Map<String, IrrevAction> = mapOf(
         "send" to IrrevAction.send, "reply" to IrrevAction.send,
         "pay" to IrrevAction.pay,
@@ -131,9 +174,9 @@ object IrreversibleDetector {
         "checkout" to IrrevAction.order,
     )
 
-    /** 输入框明确是搜索框才不算发送:其余输入框里回车一律按发送拦。提示语里找这些字,资源 ID 里按单词找 search。 */
-    private val SEARCH_FIELD = listOf("search", "搜索", "搜寻")
-    private val SEARCH_BUTTONS = setOf("搜索", "搜寻", "search")
+    /** 入力ボックスが明らかに検索ボックスの場合は送信されません。他の入力ボックスで Enter を押した場合は、送信を押します。プロンプトでこれらの単語を検索し、リソース ID で単語で検索します。 */
+    private val SEARCH_FIELD = listOf("search", "搜索", "搜寻", "検索", "探す", "キーワード").map(Hant::fold)
+    private val SEARCH_BUTTONS = setOf("搜索", "搜寻", "search", "検索", "探す").map(Hant::fold).toSet()
 
     private const val KEY_ENTER = 66
     private const val KEY_NUMPAD_ENTER = 160
@@ -143,50 +186,50 @@ object IrreversibleDetector {
     private const val KEY_FORWARD_DEL = 112
     private val ACTIVATING_KEYS = setOf(KEY_ENTER, KEY_NUMPAD_ENTER, KEY_DPAD_CENTER, KEY_SPACE)
 
-    /** 横滑超过屏宽这个比例(0–999)、从列表行上起手,按「滑动删除」算。 */
+    /** 画面幅の比率（0～999）を超えて水平にスワイプし、リスト行から開始して「スライドして削除」を押します。 */
     private const val SWIPE_DELETE_MIN = 400
-    /** 宽度超过这个(0–999)的可点元素算列表行。 */
+    /** 幅がこれ (0 ～ 999) を超えるポイント可能な要素の数テーブル行。 */
     private const val ROW_MIN_WIDTH = 600
-    /** 比这高(0–999)的元素不算「同一行」(容器、大段文字)。 */
+    /** これより高い要素 (0 ～ 999) は、「同じ行上」 (コンテナー、テキストの大きなブロック) とみなされません。 */
     private const val ROW_MAX_HEIGHT = 150
-    /** 比这矮(0–999)的可滚动区按轮播算。 */
+    /** これより短いスクロール可能領域 (0 ～ 999) はカルーセルとしてカウントされます。 */
     private const val CAROUSEL_MAX_HEIGHT = 400
 
-    /** 输入框旁「清空」一类按钮的名字(去空白、小写)。 */
+    /** 入力ボックスの横にある「クリア」ボタンの名前 (空白と小文字を削除)。 */
     private val FIELD_CLEAR_WORDS = setOf("清空", "清除", "清空输入", "清除输入", "清空搜索", "清除搜索", "清空内容", "清除内容",
         "clear", "cleartext", "clearsearch", "clearquery", "×", "✕", "x")
-    /** 清空键离输入框左右边至多这么远(0–999)。 */
+    /** クリア キーは、入力ボックスの左端と右端から最大でこの距離 (0 ～ 999) にあります。 */
     private const val FIELD_NEAR = 80
 
-    // 判哪些、按什么判,由工具声明([GateTarget],只有 External 的工具有);返回、清空输入框、打开 App 不会提交任何东西,不判
-    /** 改选中项的键:方向键、Home/End、翻页。 */
+    // 何を判断するか、何を判断するかはツールによって宣言されます ([GateTarget]、外部ツールのみがこれを持っています)。戻って入力ボックスをクリアし、アプリを開いても何も送信されず、判定は行われません。
+    /** 選択した項目を変更するためのキー: 方向キー、Home/End、ページ送り。 */
     private val SELECTION_KEYS = setOf(19, 20, 21, 22, 122, 123, 92, 93)
-    /** 改了选中项就可能触发页面动作(onchange 提交)的控件。 */
+    /** 選択された項目が変更されたときにページ アクション (変更送信時) をトリガーするコントロール。 */
     private val SELECTION_ROLES = setOf("combobox", "listbox", "option", "radio", "radiogroup", "menu", "menubar", "menuitem",
         "menuitemradio", "menuitemcheckbox", "tree", "treeitem")
     private val OPTION_ROLES = setOf("option", "radio", "menuitem", "menuitemradio", "menuitemcheckbox", "treeitem")
 
-    /** 这次调用要不要判(要判才去读屏)。 */
+    /** このコールを判定する必要があるかどうか (判定された場合のみ画面を読み取ります)。 */
     fun needsCheck(target: GateTarget?, args: JsonObject): Boolean = when (target) {
-        // 上传要点文件控件,和点击一样判
+        // アップロードキーファイルコントロール、判定はクリックと同じです
         GateTarget.Tap, GateTarget.FileControl -> true
-        // 打字带回车时判;往一点上打字时那一下点击也判(点到的可能是发送一类的按钮)
+        // 入力してキャリッジを戻すと、間違った値になります。ポイントに入力するとき、クリックも間違っています（クリックされたボタンは送信ボタンである可能性があります）
         GateTarget.Enter -> bool(args, "pressEnter") || atPoint(args)
         GateTarget.Key -> key(args) in ACTIVATING_KEYS
         GateTarget.Swipe -> horizontal(args) != null
-        // 网页上能触发提交的交互都判:每个组合键按焦点判,拖动按起点和终点(滑动支付、拖进删除区),
-        // 下拉选择按下拉框和选中的那一项(页面可能一改就提交);悬停不会提交
+        // Web ページ上で送信をトリガーできるインタラクション: 各キーの組み合わせでフォーカスを押し、開始点と終了点に従ってドラッグします (スライドして支払い、削除領域にドラッグします)。
+        // ドロップダウン選択 ドロップダウン ボックスと選択した項目を押します (ページは変更され次第送信されます)。ホバリングは送信されません
         GateTarget.Interact -> when (str(args, "action")) {
             "key" -> combo(args) != null
             "drag", "select" -> true
-            // 点页面弹框的「确定」可能就是提交(确认删除、确认付款):按弹框的字判;取消不判
+            // ページ上のポップアップ ボックスで [OK] をクリックすると、送信 (削除の確認、支払いの確認) が行われる場合があります。ポップアップ ボックス内の単語を押して判断します。キャンセルは判断されません
             "dialog" -> str(args, "answer") == "accept"
             else -> false
         }
         null -> false
     }
 
-    /** null = 不是不可逆操作。 */
+    /** null = 取り消し可能な操作ではありません。 */
     fun classify(target: GateTarget?, args: JsonObject, snapshot: ScreenSnapshot?, fresh: ScreenSnapshot? = null): Irreversible? {
         if (!needsCheck(target, args)) return null
         return when (target) {
@@ -207,17 +250,17 @@ object IrreversibleDetector {
 
     private fun combo(args: JsonObject) = str(args, "key")?.let(CdpKeys::parseCombo)
 
-    /** 打字给的是一个点(坐标,或换成坐标之前的 @vN),不是树里的元素。 */
+    /** 入力するのは点 (座標、または座標に変更する前の @vN) であり、ツリー内の要素ではありません。 */
     private fun atPoint(args: JsonObject) = args["x"] != null || str(args, "ref")?.let(LOCATED_REF::matches) == true
 
     /**
-     * 组合键按它能对焦点做什么来判:
-     * 回车、空格(带不带修饰键)会激活焦点,按 press_key 的回车/空格规则判(和点它一样,输入框里的空格是打字);
-     * 方向键、Home/End、翻页会改选中项,只在焦点是选择类控件时判,按控件和它能选到的项判(同 select);
-     * 焦点不在输入框时,页面可能把删除、退格、单个字母数字、Ctrl/Alt/Meta+字母数字当命令:焦点在元素上按点它判
-     * (选择类控件上的字母是按首字跳选,按控件和可选项判);焦点在页面本身(没有焦点元素)时删除、退格一律拦,
-     * 其余命令键只在页面声明了它是哪个控件的快捷键(aria-keyshortcuts、accesskey)时按那个控件判;
-     * Tab、Escape 等只挪焦点或关闭,输入框里的键是编辑,都不判。
+     * キーの組み合わせを押して、フォーカスに対して何ができるかを判断します。
+     * Enter またはスペース (修飾キーの有無にかかわらず) はフォーカスをアクティブにし、press_key の Enter/スペース ルールに従って判断されます (クリックするのと同じ、入力ボックス内のスペースは入力です)。
+     * 方向キー、Home/End、ページめくりで、選択した項目が変更されます。これは、フォーカスが選択コントロールにある場合にのみ発生します。コントロールを押して項目を選択します (選択と同じ)。
+     * フォーカスが入力ボックスにない場合、ページは削除、バックスペース、単一の英数字、Ctrl/Alt/Meta+英数字をコマンドとして扱うことがあります。フォーカスが要素にある場合は、それをクリックします。
+     * (選択コントロール上の文字は最初の文字に従ってジャンプ選択され、コントロールとオプション項目に従って判断されます);フォーカスがページ自体にある場合 (フォーカス要素がない場合)、削除とバックスペースはブロックされます。
+     * 他のコマンド キーは、ページがどのコントロールのショートカット キー (aria-keyshortcuts、accesskey) であるかを宣言しているときに、そのコントロールを押すことによってのみ判断されます。
+     * Tab、Escape等はフォーカスの移動や閉じるだけであり、入力ボックス内のキーは編集中かどうかの判定はされません。
      */
     private fun comboHit(args: JsonObject, snapshot: ScreenSnapshot?, s: ScreenSnapshot?): Irreversible? {
         val combo = combo(args)!!
@@ -226,7 +269,7 @@ object IrreversibleDetector {
         val screen = s ?: snapshot ?: return null
         val focused = screen.elements.firstOrNull { it.focused }
         if (focused?.editable == true) return null
-        // 选择控件上改选中项的键(方向键、按首字跳选)按控件和它能选到的项判
+        // コントロールのキーを選択して、選択した項目を変更します (方向キー、最初の単語を押すと選択項目にジャンプします)。コントロールを押して項目を選択します。
         fun selection(e: UiElement) = selectionTargets(e, screen).firstNotNullOfOrNull { elementHit(it, screen) }
         if (code in SELECTION_KEYS) return focused?.takeIf { it.role in SELECTION_ROLES }?.let(::selection)
         val deleting = code == KEY_DEL || code == KEY_FORWARD_DEL
@@ -241,35 +284,35 @@ object IrreversibleDetector {
         return declaredHit(combo, screen)
     }
 
-    /** 页面声明了这个组合键的控件(aria-keyshortcuts、accesskey),按点它判。 */
+    /** ページでは、このキーの組み合わせ (aria-keyshortcuts、accesskey) の制御を宣言しており、それをクリックして判断します。 */
     private fun declaredHit(combo: KeyCombo, s: ScreenSnapshot): Irreversible? = s.elements
         .filter { e -> e.keyShortcuts.any { sameCombo(CdpKeys.parseCombo(it), combo) } }
         .firstNotNullOfOrNull { elementHit(it, s) }
 
     private fun sameCombo(a: KeyCombo?, b: KeyCombo) = a != null && a.key.code == b.key.code && a.modifiers.toSet() == b.modifiers.toSet()
 
-    /** 选择类控件和它能选到的项:控件里面的选项,焦点本身是选项时还有同类的其它选项(单选组、菜单)。 */
+    /** 選択タイプのコントロールと選択できる項目: コントロールのオプション。フォーカス自体がオプションの場合、同じタイプの他のオプション (ラジオ グループ、メニュー) があります。 */
     private fun selectionTargets(focused: UiElement, s: ScreenSnapshot): List<UiElement> {
         val inside = s.elements.filter { it !== focused && it.role in OPTION_ROLES && inside(it, focused) }
         val peers = if (focused.role in OPTION_ROLES) s.elements.filter { it !== focused && it.role == focused.role } else emptyList()
         return listOf(focused) + inside + peers
     }
 
-    /** 确定页面弹框:弹框的字按按钮名判(通用的「确定」看同屏上下文),再按整句里的强词判。 */
+    /** ページポップアップボックスの確認：ボタン名を押してポップアップフレーム内の単語を判定し（一般的な「OK」については同画面のコンテキストを参照）、文全体の中で強い単語をクリックして判定します。 */
     private fun dialogHit(s: ScreenSnapshot?): Irreversible? {
         val message = s?.web?.dialog?.message?.trim()?.takeIf { it.isNotEmpty() } ?: return null
         val action = matchName(message, s) ?: message.split(Regex("[\\s，,。.！!？?：:；;]+")).firstNotNullOfOrNull { strong(it) } ?: return null
         return Irreversible(action, "dialog:${message.take(40)}")
     }
 
-    /** 下拉选择:下拉框按点击判,选中的那一项的文字按按钮名判。 */
+    /** ドロップダウン選択：ドロップダウンボックスをクリックして判定し、ボタンをクリックして選択した項目のテキストを判定します。 */
     private fun selectHit(args: JsonObject, snapshot: ScreenSnapshot?, fresh: ScreenSnapshot?): Irreversible? {
         tapHit(args, snapshot, fresh)?.let { return it }
         val option = str(args, "option") ?: return null
         return matchName(option, fresh ?: snapshot)?.let { Irreversible(it, "option:${option.trim()}") }
     }
 
-    /** 拖动的起点、终点各按一次点击来判(编号共用 snapshotId)。 */
+    /** ドラッグの開始点と終了点は、それぞれ 1 回のクリックで決定されます (数値は snapshotId を共有します)。 */
     private fun dragHit(args: JsonObject, snapshot: ScreenSnapshot?, fresh: ScreenSnapshot?): Irreversible? {
         fun end(ref: String, x: String, y: String) = buildJsonObject {
             val r = str(args, ref)
@@ -286,8 +329,8 @@ object IrreversibleDetector {
     }
 
     /**
-     * 这一屏是付款页或付款面板:有确认支付、支付密码一类字样,或有金额且像付款面板
-     * (商品页、规格面板不算)。返回命中的依据;不是为 null。
+     * この画面は支払いページまたは支払いパネルです。支払いの確認や支払いパスワードなどの文字があったり、金額があり支払いパネルのように見えます。
+     * （商品ページおよび仕様パネルは付属しておりません）。ヒットの根拠を返します。 nullではありません。
      */
     fun paymentPage(s: ScreenSnapshot): String? {
         ScreenDiagnosis.paymentText(s.elements.map { it.name })?.let { return it }
@@ -296,25 +339,30 @@ object IrreversibleDetector {
         return if (amount && paySheet(shown)) "payment sheet with an amount" else null
     }
 
-    /** 点击找不到作用在哪个元素上(读屏缺失、编号不属于这次读屏、坐标处没有元素);供运行记录留痕。 */
+    /** クリックがどの要素に作用しているのかが見つかりません (画面読み取り値が欠落しており、数値がこの画面読み取り値に属しておらず、座標に要素がありません)。実行記録に痕跡を残すため。 */
     fun unresolved(target: GateTarget?, args: JsonObject, snapshot: ScreenSnapshot?, fresh: ScreenSnapshot? = null): Boolean =
         target == GateTarget.Tap && tapTargets(args, snapshot, fresh).isEmpty()
 
     /**
-     * 按钮名匹配词表;[screen] 给了时,通用的「确认/确定」看同屏有没有强词或金额。
-     * [hit] 是被点的元素(知道时):可滚动区里的金额只在被点的元素不在那个区里时才不算。
+     * ボタン名一致単語リスト; [screen] 指定されたら、一般的な「確認/確認」を使用して、同じ画面に強い単語や金額があるかどうかを確認します。
+     * [hit] は、クリックされた要素 (既知の場合) です。スクロール可能な領域内の量は、クリックされた要素がその領域にない場合にのみカウントされません。 名前
      */
     fun matchName(name: String, screen: ScreenSnapshot? = null, hit: UiElement? = null): IrrevAction? {
         val raw = Hant.fold(name).trim()
         if (raw.isEmpty()) return null
         val n = raw.filterNot(Char::isWhitespace).lowercase()
+        if (n in EXCLUDED) return null
+        if (n in setOf("送信しない", "削除しない", "購入しない", "注文しない", "予約しない", "支払わない", "キャンセル").map(Hant::fold)) return null
+        if (JAPANESE_NO_ACTION.matches(n.trimEnd { !it.isLetterOrDigit() })) return null
+        japaneseDestructive(raw)?.let { return it }
+        if (n.trimEnd { !it.isLetterOrDigit() } in CLEAR_RECORD_LABELS) return IrrevAction.delete
         if (n in SUBMIT_WORDS) return IrrevAction.submit
         if (contacts(raw)) return IrrevAction.submit
         if (n in RED_PACKET) return IrrevAction.pay
         if (EXACT_PAY.any { w -> EXACT_PAY_PREFIXES.any { n == it + w } }) return IrrevAction.pay
         strong(raw)?.let { return it }
         for ((action, words) in PREFIX_WORDS) for (w in words) {
-            if (n.startsWith(w) && n.length <= w.length + PREFIX_SLACK) return action
+            if (n.startsWith(w) && n.length <= w.length + PREFIX_SLACK && actionAt(n, w, 0)) return action
         }
         for ((action, words) in PUNCT_WORDS) for (w in words) {
             if (n.startsWith(w) && n.drop(w.length).none { it.isLetterOrDigit() }) return action
@@ -328,7 +376,7 @@ object IrreversibleDetector {
         return null
     }
 
-    /** 名字是联系别人、投申请的按钮(见 [CONTACT_WORDS])。 */
+    /** は、他の人に連絡して申請するためのボタンです ([CONTACT_WORDS] を参照)。 */
     private fun contacts(raw: String): Boolean {
         val n = raw.filterNot(Char::isWhitespace).lowercase().trimEnd { !it.isLetterOrDigit() }
         if (n in APPLY_WORDS || CONTACT_WORDS.any { w -> CONTACT_PREFIXES.any { n == it + w } }) return true
@@ -336,9 +384,12 @@ object IrreversibleDetector {
         return e in CONTACT_ENGLISH
     }
 
-    /** 短名字整体、或拼起来的名字的每一段里出现强词;先去掉付款方式一类的词。 */
+    /** 短い名前全体、または綴りの名前の各段落に強い単語が含まれています。まず支払い方法などの単語を削除してください。 */
     private fun strong(label: String): IrrevAction? {
         val folded = Hant.fold(label)
+        val whole = folded.filterNot(Char::isWhitespace).trimEnd { !it.isLetterOrDigit() }
+        if (JAPANESE_NO_ACTION.matches(whole)) return null
+        japaneseDestructive(folded)?.let { return it }
         for (p in listOf(folded) + folded.split(Regex("\\s+"))) {
             var t = p.filterNot(Char::isWhitespace).replace(PAYMENT_ADS, "")
             EXCLUDED.forEach { t = t.replace(it, "") }
@@ -348,9 +399,18 @@ object IrreversibleDetector {
         return null
     }
 
+    private fun japaneseDestructive(label: String): IrrevAction? {
+        val n = Hant.fold(label).filterNot(Char::isWhitespace).trimEnd { !it.isLetterOrDigit() }
+        if (JAPANESE_CANCEL_LABEL.matches(n)) return IrrevAction.order
+        if (JAPANESE_DELETE_LABEL.matches(n)) return IrrevAction.delete
+        val confirmation = JAPANESE_CONFIRM.matchEntire(n) ?: return null
+        return if (confirmation.groupValues[1] in JAPANESE_ORDER_TARGETS &&
+            confirmation.groupValues[2] in listOf("取り消", "取消", "キャンセル").map(Hant::fold)) IrrevAction.order else IrrevAction.delete
+    }
+
     private fun occurrences(t: String, w: String) = generateSequence(t.indexOf(w).takeIf { it >= 0 }) { i -> t.indexOf(w, i + 1).takeIf { it >= 0 } }
 
-    /** 这一处是动作,不是状态:前面不是「待」「已」,后面(跳过标点)不是状态词。 */
+    /** これは状態ではなくアクションです。前部は「待機中」または「すでに」ではなく、後部 (句読点をスキップする) はステータス単語ではありません。 */
     private fun actionAt(t: String, w: String, i: Int): Boolean {
         if (i > 0 && t[i - 1] in STATUS_PREFIXES) return false
         val rest = t.substring(i + w.length).dropWhile { !it.isLetterOrDigit() }
@@ -358,10 +418,10 @@ object IrreversibleDetector {
     }
 
     /**
-     * 同屏(弹窗、底部面板)的上下文:有付款词就是付款;否则按第一个非下单类强词(如删除确认框);
-     * 有金额且同屏有付款方式、收银台、验密一类字样(或任意长度的一段里有支付/付款)也是付款;
-     * 再否则有下单词或金额,按下单(下单的同意要和屏上金额对得上,见 [ConfirmationGate]);都没有就不是。
-     * 金额:合计一类总算;别的金额在可滚动区里、而被点的元素不在那个区里时不算(筛选面板的价格档、商品列表)。
+     * 同じ画面のコンテキスト (ポップアップ ウィンドウ、下部パネル): 支払いの単語がある場合、それは支払いを意味します。それ以外の場合は、順序のない最初の強い単語を押します (確認ボックスの削除など)。
+     * 同じ画面上に金額と支払い方法、レジ担当者、パスワード認証などの単語がある場合 (または任意の長さの段落に支払い/支払いがある場合)、それも支払いです。
+     * 入力する単語または金額がある場合は、注文を押します (注文確認は画面上の金額と一致する必要があります。[ConfirmationGate] を参照)。どちらでもない場合は、そうではありません。
+     * 金額: 1 つのカテゴリの合計。他の金額は、スクロール可能な領域にあり、クリックされた要素がその領域 (価格ファイル、フィルター パネルの製品リスト) にない場合にはカウントされません。
      */
     private fun contextAction(screen: ScreenSnapshot, hit: UiElement?): IrrevAction? {
         val found = screen.elements.mapNotNull { strong(it.name) }
@@ -370,7 +430,7 @@ object IrreversibleDetector {
         val shown = screen.elements.filter { !it.editable && !it.hint }
         val scrollables = screen.elements.filter { it.scrollable }
         val amount = shown.any { e ->
-            // 合计一类字样总算(金额可能拆在后面几段里,也可能还没加载出数);别的按整行拼起来认金额
+            // は、単語の 1 つのカテゴリを合計します (量は次のいくつかの段落に分割されるか、数値がまだロードされていない可能性があります)。それ以外の場合は、行全体をまとめることで金額を決定できます。
             TOTAL_LABELS.any { it in Hant.fold(e.name) } ||
                 (AMOUNT.containsMatchIn(rowText(e, shown)) && scrollables.none { s -> inside(e, s) && hit != null && !inside(hit, s) })
         }
@@ -379,9 +439,9 @@ object IrreversibleDetector {
     }
 
     /**
-     * 有金额的这一屏像不像付款面板:付款方式、收银台、验密一类字样,或任意长度的一段里有支付/付款
-     * (先去掉「支持花呗付款」「货到付款」一类介绍);页面上有立即购买、加入购物车时不按这些判。
-     * 余额、密码、指纹、零钱只在下半屏、且下半屏有确认/支付一类按钮时才算。
+     * 金額を表示する画面は支払いパネルのようには見えません: 支払い方法、レジ係、パスワード認証などの単語、または支払い/支払いに関する任意の長さの段落
+     * (最初に「Huabei 支払いのサポート」と「代金引換」の紹介を削除します);ページに [今すぐ購入] ボタンがある場合は、ショッピング カートに追加するときにクリックしないでください。
+     * 残高、パスワード、指紋、釣銭は、画面の下半分に確認/支払いボタンがある場合にのみカウントされます。
      */
     private fun paySheet(shown: List<UiElement>): Boolean {
         if (shown.any { e -> ORDER_CONTEXT.any { it in Hant.fold(e.name).filterNot(Char::isWhitespace) } }) return false
@@ -399,8 +459,8 @@ object IrreversibleDetector {
     }
 
     /**
-     * 从 [start] 起同一行、在它右边的各段按横向顺序拼起来(「实付 | ¥ | 39.90」)。
-     * 同一行:两者的纵向中心都落在对方的上下边之间,整屏的大容器不会把别的行拼进来。
+     * [start] 以降の同一行のセグメントを横方向にまとめます（「実際の支払金額 | ¥ | 39.90」）。
+     * 同じ行内: 両方の垂直方向の中心が互いの上端と下端の間にあり、画面全体の大きなコンテナが他の行をブロックしません。
      */
     internal fun rowText(start: UiElement, elements: List<UiElement>): String {
         if (start.bounds.size != 4) return start.name
@@ -416,13 +476,13 @@ object IrreversibleDetector {
 
     private fun matchResource(id: String): IrrevAction? = resourceWords(id).firstNotNullOfOrNull { RESOURCE_WORDS[it] }
 
-    /** 资源 ID 按 _ - . 和驼峰拆成的单词。 */
+    /** リソース ID は、_ - で区切られた単語です。そしてキャメルケース。 */
     private fun resourceWords(id: String): List<String> =
         id.substringAfterLast('/').replace(Regex("([a-z0-9])([A-Z])"), "$1_$2").lowercase().split('_', '-', '.')
 
     /**
-     * 改输入框里的字本身不会提交任何东西:点输入框(只是聚焦,框里的字是打进去的内容)、点框里没名字的小图标
-     * (清空 ×、语音)或清空键,或紧挨着框、同一行、名字是清空一类的按钮,都是编辑。提交的是之后的回车、发送、搜索。
+     * 入力ボックス内の単語を変更しても何も送信されません。入力ボックスをクリックし (フォーカスするだけです。ボックス内の単語は入力された内容です)、ボックス内に名前のない小さなアイコンをクリックします。
+     * （クリア×、音声）またはクリアキー、またはボックスの横にある、同じ行にある、「クリア」という名前のボタンはすべて編集です。送信されるのは、後続の復帰、送信、および検索です。
      */
     internal fun editsField(e: UiElement, s: ScreenSnapshot): Boolean {
         if (e.editable) return true
@@ -430,7 +490,7 @@ object IrreversibleDetector {
         val fields = s.elements.filter { it.editable && it.bounds.size == 4 && it !== e }
         val n = Hant.fold(e.name).filterNot(Char::isWhitespace).lowercase()
         val clears = n in FIELD_CLEAR_WORDS || e.resourceId?.let { r -> "clear" in resourceWords(r) } == true
-        // 框里没名字的小图标(清空 ×、语音):资源 ID 也说不出是发送一类时才算编辑;有名字的按钮(网页编辑区里的「发送」)照常判
+        // ボックス内に名前のない小さなアイコン (透明)
         val bareIcon = n.isEmpty() && e.resourceId?.let(::matchResource) == null
         if ((clears || bareIcon) && fields.any { inside(e, it) }) return true
         if (!clears) return false
@@ -449,25 +509,25 @@ object IrreversibleDetector {
 
     private fun tapHit(args: JsonObject, snapshot: ScreenSnapshot?, fresh: ScreenSnapshot?): Irreversible? {
         val targets = tapTargets(args, snapshot, fresh)
-        // 点的是输入框或它的清空键:编辑,不看模型写的 target(「清空搜索框」)
+        // は、モデルに書かれたターゲットを見ずに、入力ボックスまたはそのクリア キーをクリックします (「検索ボックスをクリア」)。
         if (targets.isNotEmpty() && targets.all { (e, s) -> editsField(e, s) }) return null
         for ((e, s) in targets) elementHit(e, s)?.let { return it }
-        // 坐标点上没有带名字的元素(自绘界面、没名字的图标,看图找到的点常这样):按同一行的文字判
+        // 座標点に名前の付いた要素がありません (自作のインターフェイス、名前のないアイコン、これは写真を見て見つけた点によくあります): 同じ行のテキストに基づいて判断します
         if (str(args, "ref") == null && targets.all { (e, s) -> withChildren(e, s).all { it.name.isBlank() } }) {
             val s = fresh ?: snapshot
             val y = num(args, "y")
             if (s != null && y != null) rowHit(s, y)?.let { return it }
         }
-        // 元素找不到、或是没有文字的图标时,模型自己写的 target 也算数;
-        // 看图找到的点另带找的原文(text)和模型看到的字(seen),一样判
+        // 要素が見つからない場合、またはアイコンにテキストがない場合は、モデル自体によって書き込まれたターゲットもカウントされます。
+        // 絵を見て見つけたポイントに、元の文字（テキスト）とモデルが見た単語（見えた）を添えます。同様の判断がなされる。
         return listOf("target", "text", "seen").firstNotNullOfOrNull { k ->
             str(args, k)?.let { t -> matchName(t, fresh ?: snapshot)?.let { Irreversible(it, t.trim()) } }
         }
     }
 
     /**
-     * 点击作用的元素(连同它所在的那一屏):ref → 原读屏里的元素,加上此刻它中心位置上的元素;
-     * 坐标 → 此刻那一点上最小的可点元素。
+     * クリックされた要素 (その上の画面とともに): ref → 元の読み取り画面の要素に、現時点での中央位置にある要素を加えたもの。
+     * 座標 → 現時点でのその点の最小のポイント可能要素。
      */
     private fun tapTargets(args: JsonObject, snapshot: ScreenSnapshot?, fresh: ScreenSnapshot?): List<Pair<UiElement, ScreenSnapshot>> {
         val ref = str(args, "ref")
@@ -483,7 +543,7 @@ object IrreversibleDetector {
         return listOfNotNull(at(s, x, y)?.let { it to s })
     }
 
-    /** 纵向跨过 [y] 的矮元素(一行里的文字、按钮)的名字里有没有不可逆的词。 */
+    /** [y] を縦にまたがる短い要素 (行内のテキスト、ボタン) の名前に元に戻せない単語はありますか? */
     private fun rowHit(s: ScreenSnapshot, y: Int): Irreversible? =
         rowElements(s, y).filterNot { editsField(it, s) }.firstNotNullOfOrNull { e -> matchName(e.name, s, e)?.let { Irreversible(it, e.name.trim()) } }
 
@@ -495,19 +555,24 @@ object IrreversibleDetector {
         return under.filter { it.clickable }.minByOrNull(::area) ?: under.minByOrNull(::area)
     }
 
-    /** 没有名字的可点容器连同落在它里面、不可点的文字子元素一起判;不可点的空白节点(如整屏的根)不展开。 */
+    /** 名前のないクリック可能なコンテナは、その中に含まれるクリック不可能なテキストのサブ要素とともに判断されます。クリックできない空白のノード (画面全体のルートなど) は展開されません。 */
     private fun withChildren(e: UiElement, s: ScreenSnapshot): List<UiElement> {
         if (e.name.isNotBlank() || !e.clickable) return listOf(e)
         return listOf(e) + s.elements.filter { it !== e && !it.clickable && it.name.isNotBlank() && inside(it, e) }
     }
 
     /**
-     * 回车、确认键、空格作用在焦点上:焦点是输入框时,除非明确是搜索框,一律按发送算(空格只是打字,不算);
-     * 焦点是按钮时按词表判;看不出焦点在哪时,屏上的输入框全是搜索框才放行,否则算命中。
-     * type_text 给了 ref 时,作用的就是那个输入框。输入法的「搜索」回车键类型读不到,不作依据。
+     * 入力、確認、スペースはフォーカスに作用します。フォーカスが入力ボックスの場合、それが明らかに検索ボックスでない限り、送信としてカウントされます (スペースは入力しているだけでカウントされません)。
+     * ボタンにフォーカスがある場合は単語リストに従って判定されます。フォーカスがどこにあるのかが明確でない場合、画面上の入力ボックスはすべて検索ボックスです。それ以外の場合は成功します。
+     * refにtype_textを与えると入力ボックスが使用されます。入力メソッドの「検索」エンターキータイプは読み取れないため、基準として使用できません。
      */
     private fun enterHit(args: JsonObject, snapshot: ScreenSnapshot?, s: ScreenSnapshot?, key: Int): Irreversible? {
-        val keyName = if (key == KEY_SPACE) "空格" else "回车"
+        val keyName = when (key) {
+            KEY_SPACE -> "Space"
+            KEY_DPAD_CENTER -> "DPAD_CENTER"
+            KEY_NUMPAD_ENTER -> "NUMPAD_ENTER"
+            else -> "Enter"
+        }
         val ref = str(args, "ref")
         val field = if (ref == null) null
         else snapshot?.takeIf { it.snapshotId == str(args, "snapshotId") }?.elements?.firstOrNull { it.ref == ref }
@@ -525,12 +590,12 @@ object IrreversibleDetector {
     }
 
     /**
-     * 按元素自己的语义认搜索框:端口认出的搜索框控件、角色里有 search(网页 searchbox,安卓的搜索框控件类)、
-     * 提示语(打了字也还在的那份,或此刻显示的)或资源 ID 里有搜索字样,或同一行有可点的「搜索」按钮。
-     * 输入框里有字时名字就是打进去的字(「帮我搜索一下」是消息),只有提示语才看名字。在搜索框里回车是查找,可以撤回,不是发送。
+     * は、要素の独自のセマンティクスに従って検索ボックスを認識します。ポートによって認識される検索ボックス コントロール。役割には検索 (Web ページの検索ボックス、Android の検索ボックス コントロール クラス) が含まれます。
+     * プロンプト (入力中のコピー、または現在表示されているコピー) またはリソース ID に検索語があるか、同じ行にクリック可能な「検索」ボタンがあります。
+     * 入力ボックスに単語がある場合、名前は入力された単語 (「検索を手伝ってください」がメッセージ) となり、名前はプロンプトにのみ表示されます。検索ボックスで Enter キーを押すと、送信ではなく検索が行われ、取り消すことができます。
      */
     private fun isSearch(e: UiElement, s: ScreenSnapshot?): Boolean {
-        // 同一行有发送一类的按钮:是发消息的框(「搜索或提问」的聊天框),提示语说搜索也照样按发送判
+        // 同じ行に送信ボタンがあります。これはメッセージを送信するためのボックス (「検索または質問する」ためのチャット ボックス) であり、プロンプトには、検索は送信によって判断されることが示されています。
         if (s != null && ElementContext.row(e, s).any { b -> b.clickable && !b.editable && sendLike(b.name) }) return false
         if (e.searchField || "search" in e.role.lowercase()) return true
         val hint = Hant.fold(listOfNotNull(e.name.takeIf { e.hint }, e.placeholder).joinToString(" ")).lowercase()
@@ -543,7 +608,7 @@ object IrreversibleDetector {
         }
     }
 
-    /** 按钮上是发送一类的字(发送、发布、发表、send)。 */
+    /** ボタンには、送信 (送信、公開、公開、送信) のような文字が表示されます。 */
     private fun sendLike(name: String): Boolean {
         val n = Hant.fold(name).filterNot(Char::isWhitespace).lowercase()
         if (n.isEmpty()) return false
@@ -551,20 +616,20 @@ object IrreversibleDetector {
     }
 
     /**
-     * 横滑够长、起手点在列表行(宽的可点元素,本身不可滚动)上:很多 App 的列表这样删除一行。
-     * 读屏里没有容器方向信息:只认出矮的可滚动区(轮播);整屏高的横向容器上的长滑仍会被拦(提示词里让模型改用短滑)。
+     * 水平スライドは十分な長さで、開始点はリスト行 (幅の広いクリック可能な要素、それ自体はスクロール不可) 上にあります。多くのアプリ リストはこの方法で行を削除します。
+     * 画面読み取りにはコンテナの方向情報がありません。短いスクロール可能な領域 (カルーセル) のみが認識されます。画面全体の高さの水平コンテナ上の長いスライドは依然としてブロックされます (プロンプト ワードはモデルに代わりに短いスライドを使用するように指示します)。
      */
     private fun swipeHit(args: JsonObject, s: ScreenSnapshot?): Irreversible? {
         val (sx, sy) = horizontal(args) ?: return null
         s ?: return null
-        // 起手点在矮的可滚动区里(横向轮播一类),是翻页不是删除
+        // 開始点は短いスクロール可能な領域 (水平カルーセル タイプ) にあります。これは、削除ではなくページ送りを意味します。
         if (s.elements.any { it.scrollable && contains(it, sx, sy) && height(it) < CAROUSEL_MAX_HEIGHT }) return null
         val row = s.elements.filter { contains(it, sx, sy) && it.clickable && !it.scrollable && width(it) >= ROW_MIN_WIDTH }
             .minByOrNull(::area) ?: return null
-        return Irreversible(IrrevAction.delete, "swipe on ${label(row)}")
+        return Irreversible(IrrevAction.delete, "スワイプ: 「${label(row)}」")
     }
 
-    /** 够长的横滑的起点(0–999);不是横滑或不够长为 null。scroll 按分发器的换算算出手指起点。 */
+    /** 十分な長さの水平スライドの開始点 (0 ～ 999)。水平方向にスライドしない場合、または十分な長さがない場合は、null になります。スクロールはディストリビュータの変換に従って指の開始点を計算します。 */
     private fun horizontal(args: JsonObject): Pair<Int, Int>? {
         if (args.containsKey("startX")) {
             val x1 = num(args, "startX") ?: return null; val y1 = num(args, "startY") ?: return null
@@ -605,7 +670,7 @@ object IrreversibleDetector {
 
     private fun str(o: JsonObject, k: String) = (o[k] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
-    /** 和 tap 一样容忍 [a,b](取中点)。 */
+    /** は、タップと同じように [a,b] (中点を取る) を許容します。 */
     private fun num(o: JsonObject, k: String): Int? {
         fun d(e: JsonElement?) = (e as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull()
         val v = o[k]

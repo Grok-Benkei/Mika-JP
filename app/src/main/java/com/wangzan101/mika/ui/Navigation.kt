@@ -8,35 +8,35 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 
-/** App 里的页面。对话是根页面,其余都从它(或从设置)进去,返回时回到进来的那一页。 */
+/** アプリのページ。ダイアログはルート ページであり、他のすべてはそこから (または設定から​​) 入力され、戻るときは元のページに戻ります。 */
 enum class Route { Chat, Settings, Memory, Plans, Browser, Run, Source, PhoneSetup, Models, SpeechModel, Welcome, ModelSetup, About, License, Screens }
 
 /**
- * 页面栈:最底下永远是对话页。[push] 进一页,[back] 回上一页(已在对话页时返回 false,交给系统退出)。
- * 返回键和页面上的返回按钮走同一个 [back],所以两者总是一致。
+ * ページ スタック: 一番下は常に会話ページです。 [push] は次のページに進み、[back] は前のページに戻ります (すでにダイアログ ページにある場合は false を返し、終了はシステムに任せます)。
+ * リターン キーとページ上のリターン ボタンは同じ [back] を使用するため、この 2 つは常に一貫しています。
  */
 @Stable
 class NavStack(initial: List<Route> = listOf(Route.Chat), fromDrawer: Boolean = false) {
     var stack: List<Route> by mutableStateOf(normalize(initial))
         private set
 
-    /** 这一串页面是从侧栏进去的:退回对话页时要回到打开的侧栏。 */
+    /** この一連のページはサイドバーから入ります。会話ページに戻るときは、開いているサイドバーに戻る必要があります。 */
     private var fromDrawer = fromDrawer && stack.size > 1
 
-    /** 刚从侧栏进去的页面退回到了对话页,侧栏该重新打开;打开后调 [drawerReopened]。 */
+    /** サイドバーから入ったばかりのページが会話ページに戻ります。サイドバーを再度開く必要があります。開いたら、[drawerReopened] を呼び出します。 */
     var reopenDrawer: Boolean by mutableStateOf(false)
         private set
 
     val current: Route get() = stack.last()
     val canGoBack: Boolean get() = stack.size > 1
 
-    /** 进一页;已经在这一页时不重复压栈。 */
+    /** 次のページに進みます。すでにこのページにいる場合は、スタックを再度プッシュしないでください。 */
     fun push(route: Route) {
         if (route == Route.Chat) return reset()
         if (current != route) stack = stack + route
     }
 
-    /** 从侧栏进一页:之后一路退回对话页时,侧栏是打开的。 */
+    /** サイドバーからページに入る: 会話ページまで戻ると、サイドバーが開きます。 */
     fun pushFromDrawer(route: Route) {
         fromDrawer = true
         push(route)
@@ -56,13 +56,13 @@ class NavStack(initial: List<Route> = listOf(Route.Chat), fromDrawer: Boolean = 
         reopenDrawer = false
     }
 
-    /** 只留对话页和 [route] 两层(首次上手的每一步用)。 */
+    /** では、ダイアログ ページと [route] (初めて開始するすべてのステップで使用されます) の 2 つのレイヤーのみが残ります。 */
     fun show(route: Route) {
         fromDrawer = false
         stack = normalize(listOf(route))
     }
 
-    /** 回到对话页(打开某个对话时)。 */
+    /** 会話ページに戻ります (会話を開始する場合)。 */
     fun reset() {
         fromDrawer = false
         reopenDrawer = false

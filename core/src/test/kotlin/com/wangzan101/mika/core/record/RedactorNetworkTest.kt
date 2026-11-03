@@ -15,7 +15,7 @@ class RedactorNetworkTest {
             url("https://a.test/cb?access_token=abc123&page=2&sig=zz&X-Amz-Signature=ff00&sessionId=42"),
         )
         assertEquals("https://a.test/p?key=***&q=shoes", url("https://a.test/p?key=AIzaShort&q=shoes"))
-        // 片段里的 OAuth 隐式授权结果
+        // フラグメントが発生する
         assertEquals("https://a.test/#id_token=***&state=***", url("https://a.test/#id_token=x.y.z&state=s1"))
     }
 
@@ -44,7 +44,7 @@ class RedactorNetworkTest {
         val jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
         assertEquals("""{"x":"***"}""", body("""{"x":"$jwt"}"""))
         assertEquals("""{"blob":"***"}""", body("""{"blob":"Qm9vT2p5ZWxsb3dXb3JsZDEyMzQ1Njc4OTBhYmNkZWZn"}"""))
-        // 小写十六进制(哈希、编号)和普通长文本照留
+        // 小文字の16進数（ハッシュや識別番号）と、通常の長い文章は保持する。
         val hex = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
         assertEquals("""{"etag":"$hex"}""", body("""{"etag":"$hex"}"""))
         assertEquals("https://a.test/r/***", url("https://a.test/r/Qm9vT2p5ZWxsb3dXb3JsZDEyMzQ1Njc4OTBhYmNkZWZn"))

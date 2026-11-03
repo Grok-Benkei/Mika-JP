@@ -75,7 +75,7 @@ class UpdateCheckerTest {
         assertEquals("0.1.0", c.state.value.latest?.version)
     }
 
-    /** GitHub 限流(403)就是这次没查到:只问 GitHub 一次,不去别处找。 */
+    /** 今回は GitHub の現在の制限 (403) が見つかりませんでした。GitHub に一度問い合わせるだけで、他の場所を探す必要はありません。 */
     @Test
     fun gitHubRateLimitIsAFailure() = runTest {
         github = MockResponse().setResponseCode(403).setBody("""{"message":"API rate limit exceeded"}""")
@@ -95,7 +95,7 @@ class UpdateCheckerTest {
         assertNull(c.state.value.update)
     }
 
-    /** 自动检查失败不改界面上的状态;每次打开都查,只挡住两分钟内连着来的。 */
+    /** 自動チェックが失敗した場合、インターフェイスのステータスは変更されません。開くたびにチェックされ、2 分以内に来たものだけがブロックされます。 */
     @Test
     fun autoCheckIsSilentAndRunsOnEveryOpenButNotInBursts() = runTest {
         val c = checker()
@@ -113,7 +113,7 @@ class UpdateCheckerTest {
         assertEquals(CheckStatus.Idle, c.state.value.status)
     }
 
-    /** 查到的版本存盘:重开 App 不联网也有红点;装上新版后红点消失;上次自动检查的时间也记着。 */
+    /** 見つかったバージョンを保存します。アプリがインターネットに接続されていない場合でも赤い点が表示されます。新しいバージョンをインストールすると、赤い点が消えます。最後の自動チェックの時間も記憶されます。 */
     @Test
     fun foundUpdateSurvivesRestart() = runTest {
         github = release("v0.2.0")
@@ -131,7 +131,7 @@ class UpdateCheckerTest {
         assertNotNull(upgraded.state.value.latest)
     }
 
-    /** 同时进来的两次自动检查(查还没完)只真的查一次;隔十分钟再打开照样查。 */
+    /** 同時に行われる 2 つの自動チェック (チェックはまだ終了していません) は、実際には 1 回だけチェックされます。 10 分後に開いた後もチェックされます。 */
     @Test
     fun concurrentAutoChecksHitGitHubOnce() = runTest {
         github = release("v0.2.0")

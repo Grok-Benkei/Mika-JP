@@ -4,7 +4,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 自检认页面文字:读屏给的大小写、空白和页面上写的不一样时照样认得出,别的文字不认错。 */
+/** ページ テキストを認識するためのセルフテスト: スクリーン リーダーによって与えられた大文字、小文字、空白スペースがページに書かれているものと異なっていても、それは認識でき、他のテキストは誤認識されません。 */
 class SelfCheckTextTest {
     @Test
     fun buttonTextReadBackInCapitalsStillMatches() {

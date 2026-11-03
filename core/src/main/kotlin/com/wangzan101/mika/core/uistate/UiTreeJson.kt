@@ -7,7 +7,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** 给模型看的手机窗口层级;节点完整保留,只省去空字段和默认状态。 */
+/** モデルに表示される携帯電話のウィンドウ レベル。ノードは完全に保持され、空のフィールドとデフォルト状態のみが省略されます。 */
 object UiTreeJson {
     fun windows(s: ScreenSnapshot): JsonArray = buildJsonArray {
         for (w in s.windows) add(buildJsonObject {
@@ -44,14 +44,14 @@ object UiTreeJson {
         if (n.wheel) put("wheel", true)
     }
 
-    /** 路径按窗口和子节点序号定位;同一路径的属性变化只发该节点,新增节点发完整子树。 */
+    /** パスはウィンドウとサブノードのシリアル番号に従って配置されます。同じパス上の属性の変更はそのノードにのみ送信され、新しいノードはサブツリー全体に送信されます。 */
     fun changes(before: ScreenSnapshot, current: ScreenSnapshot): JsonObject {
         val old = index(before.windows)
         val now = index(current.windows)
         val updated = buildJsonArray {
             for ((path, n) in now) {
                 val previous = old[path]
-                if (previous == null && parent(path) in now && parent(path) !in old) continue // 新父节点已经带上完整子树
+                if (previous == null && parent(path) in now && parent(path) !in old) continue // 新しい親ノードは完全なサブツリーをもたらしました
                 if (previous == null || shallow(previous) != shallow(n)) add(buildJsonObject {
                     put("path", path)
                     put("node", if (previous == null) node(n) else shallow(n))

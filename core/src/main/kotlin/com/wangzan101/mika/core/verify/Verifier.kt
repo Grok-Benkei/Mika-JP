@@ -1,5 +1,6 @@
 package com.wangzan101.mika.core.verify
 
+import com.wangzan101.mika.core.agent.JapaneseOutput
 import com.wangzan101.mika.core.model.Author
 import com.wangzan101.mika.core.observation.ObsKind
 import com.wangzan101.mika.core.observation.Observation
@@ -23,24 +24,24 @@ import com.wangzan101.mika.core.vision.ImageOps
 import com.wangzan101.mika.core.vision.ModelImage
 
 /**
- * 核查时对照的标准:[items] 是做成之后应当看得到的事实;[kind] 为 read / irreversible(做过发送、提交、下单、删除、付款一类收不回的事)。
- * [fallback] 表示没有另列标准,[items] 只是用户原话本身(任务路径上一向如此,不另花一次模型调用去列)。
+ * チェック時の比較基準: [items] は作成後に確認されるべき事実です。 [kind] は読み取り/取り消し不可です (送信、送信、注文、削除、支払いなど、回復できない操作が実行されました)。
+ * [fallback] は、他にリストする標準がないことを意味し、[items] はユーザーのオリジナルの単語そのものです (これはタスク パスでは常に当てはまり、リストするための別のモデル呼び出しは必要ありません)。
  */
 data class Criteria(val items: List<String>, val kind: String, val fallback: Boolean) {
     companion object {
-        /** 任务路径用的标准:用户原话本身。 */
+        /** タスク パスに使用される標準: ユーザーのオリジナルの単語そのもの。 */
         fun of(goal: String, irreversible: Boolean) = Criteria(listOf(goal), if (irreversible) "irreversible" else "read", fallback = true)
     }
 }
 
 enum class Verdict(val wire: String) { Pass("pass"), Fail("fail"), CannotVerify("cannot_verify") }
 
-/** 一条标准的核对结果;[status] 为 met / unmet / unknown,[quote] 是支持它的屏幕原文。 */
+/** は標準のチェック結果です。 [status] は満たされている / 満たされていない / 不明であり、[quote] はそれをサポートする元の画面テキストです。 */
 data class CriterionCheck(val criterion: String, val status: String, val quote: String?)
 
 /**
- * [groundedBy] 为 "image":文字证据里找不到的只有画面上的状态(不带数字的引文),由看过截图的核查器判 pass;
- * 运行记录里与按文字核实的 pass 区分开。[notFound] 是兜底在任何证据来源里都没找到的回答事实。
+ * [groundedBy] は「画像」です。画面上のステータス (数字のない引用) のみがテキスト証拠では見つかりません。スクリーンショットを見た検証者が合格します。
+ * は、走行記録のテキストによって検証されたパスとは区別されます。 [notFound] は、どの証拠ソースにも見つからない答えです。
  */
 data class Verification(
     val verdict: Verdict,
@@ -48,18 +49,21 @@ data class Verification(
     val reason: String,
     val groundedBy: String? = null,
     val notFound: List<String> = emptyList(),
+    /** 表示文を日本語へ置き換えた場合の原文。作業モデルへの修正指示にだけ使う。 */
+    val originalReason: String? = null,
 ) {
-    /** 没满足的标准;核查器判 fail 却没指出哪条时用它给的理由。 */
+    val feedbackReason: String get() = originalReason ?: reason
+    /** 基準が満たされていません。ベリファイアが失敗した場合に示された理由を使用しますが、どの理由であるかは示されていません。 */
     val unmet: List<String>
         get() = checks.filter { it.status == "unmet" }.map { it.criterion }.ifEmpty { if (verdict == Verdict.Fail) listOf(reason) else emptyList() }
 }
 
 /**
- * 交给核查器的证据。[fresh] 是回答之后由最近在用的那个能力重新看的一眼([com.wangzan101.mika.core.capability.Capability.freshLook]:
- * 界面状态、网页正文的开头……),[freshImage] 是同一时刻的画面(只在要附图时有);
- * [ledger] 是本次任务读到的全部观察(证据账本,见 [EvidenceLedger];核查时按回答挑出相关的条目),
- * [actions] 是精简的动作清单(「第3步 tap(搜索) 生效」)。
- * [protected] 表示此刻的页面受防截屏保护。[appOpened] 为 false 表示本次任务没有成功打开过 App。
+ * 証拠が検証者に渡されました。 [fresh] は、回答後に私が最近使用している能力を示しています ([com.wangzan101.mika.core.capability.Capability.freshLook]:
+ * インターフェイスのステータス、Web ページのテキストの先頭...)、[freshImage] は同時に画面です (画像を添付する場合にのみ利用可能)。
+ * [ledger] は、このタスクで読み取られたすべての観察です (証拠台帳、[EvidenceLedger] を参照。検証中の回答に従って関連エントリを選択します)。
+ * [actions] は、簡略化されたアクション リストです (「ステップ 3 タップ (検索) が有効になります」)。
+ * [protected] は、現時点でページがスクリーンショットから保護されていることを示します。 [appOpened] が false の場合、このタスクでアプリが正常に開かれていないことを意味します。
  */
 class Evidence(
     val fresh: List<Observation>,
@@ -68,81 +72,84 @@ class Evidence(
     val actions: List<String>,
     val protected: Boolean,
     val appOpened: Boolean = true,
-    /** 每次接管的结局,不随动作清单滚出(跳过、超时说明用户没有处理)。 */
+    /** 各テイクオーバーの終了は、アクション リストとともにロールアウトされません (スキップまたはタイムアウトは、ユーザーが処理しなかったことを示します)。 */
     val takeovers: List<String> = emptyList(),
-    /** 用户给的事实:记忆检索结果、本次任务里对提问的回答。 */
+    /** ユーザーから提供された事実: メモリ検索結果、このタスクの質問への回答。 */
     val userFacts: List<String> = emptyList(),
-    /** 运行时钟:核查当下的时刻和时区。回答正文里紧挨着「明天」「周日」的日期按它换算核对(见 [Grounding.check])。 */
+    /** 稼働時計: 現在の時刻とタイムゾーンを確認します。回答テキストの「明日」と「日曜日」の隣の日付は、それに応じて変換され、チェックされる必要があります ([Grounding.check] を参照)。 */
     val nowMs: Long = System.currentTimeMillis(),
     val zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
 ) {
-    /** 运行时钟的日期。 */
+    /** 時計が動作している日付。 */
     val today: java.time.LocalDate get() = java.time.Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()
 
-    /** 再看一眼读到的文字,一条观察一段。 */
+    /** 読んだテキストをもう一度見て、各段落を観察してください。 */
     val freshText: String get() = fresh.joinToString("\n") { it.text }
 
-    /** 没打开 App、也没读到任何界面、网页或命令输出:回答只能凭对话或常识,没有可对照的材料。 */
+    /** はアプリを開いておらず、インターフェイス、Web ページ、またはコマンド出力も読みませんでした。答えは会話または常識に基づいてのみ可能であり、参考資料はありません。 */
     val nothingRead: Boolean get() = !appOpened && !protected && freshText.isBlank() && ledger.isEmpty && userFacts.isEmpty()
 
-    /** 账本里某几类观察的原文,按读到的先后(看账本记了什么用)。 */
+    /** 台帳内の特定の種類の観察の元のテキスト (台帳に記録されている内容を参照) が読み取られた順序で表示されます。 */
     fun read(vararg kinds: ObsKind): List<String> = ledger.all.filter { it.kind in kinds }.map { it.text }
 
-    /** 能对照回答的全部文字,一次读的一处:再看的一眼、账本里挑出的条目 [chosen](全文)、用户给的每条事实。 */
+    /** は、回答の全文を比較し、一度に 1 か所ずつ読み取ります。台帳 [chosen] (全文) 内の選択されたエントリ、ユーザーが指定した各事実をもう一度確認します。 */
     fun sources(chosen: List<Observation>): List<String> =
         (listOf(freshText) + chosen.map { it.text } + userFacts).filter { it.isNotBlank() }
 }
 
 /**
- * 最终回答交出前的独立核查(只在做过不可逆、对外的事,或字面核对有对不上的时候才请它,见 AnswerReview):一次新的模型调用,不带工具、不带干活模型的历史,只看目标、标准、回答和证据。
- * 有截图且配了视觉模型时用 [visionModel] 并附图,否则用 [textModel]。
- * 分工:代码兜底([Grounding])只核字面——模型判 pass 但回答里的具体事实(引文、带单位的数、编号、日期)在证据文字里找不到
- * → cannot_verify;附了截图、找不到的只是画面上的状态 → pass,记为看图核实。一个值是不是属于回答说的那个东西
- * (哪个页面、哪个商品、哪一行)由核查模型判:交给它的账本条目是节选([EvidenceLedger.excerpt]),带着来处。
- * 出错、回复解析不了 → cannot_verify;超时按证据多少放宽([timeoutMs]),超时后精简证据再问一次,还超时才 cannot_verify。
- * 什么也没读过的任务([Evidence.nothingRead])没有材料可对照,不做这条兜底,只告诉核查器没有读到任何材料,由它判断回答是否切题。
+ * 最終的な回答が渡される前の独立した検証 (不可逆的なまたは外部的な何かを行った場合、または文字通りの検証が正しくない場合にのみ質問してください。AnswerReview を参照): 新しいモデルの呼び出し。ツールや作業モデルの履歴は使用せず、目標、基準、回答、証拠のみを確認します。
+ * スクリーンショットとビジュアル モデルがある場合は、[visionModel] を使用して写真を添付し​​、そうでない場合は [textModel] を使用します。
+ * 分業: コード概要 ([Grounding]) は文字通りの意味のみを検証します - モデルは合格しますが、回答内の特定の事実 (引用、単位付きの数字、数値、日付) が証拠テキストで見つかりません。
+ * → 検証できません。スクリーンショットが添付されていますが、唯一見つけられないのは、画面上のステータス→パス、写真を見て確認としてマークされています。値は回答に記載されているものに属しますか?
+ * (どのページ、どの製品、どの行) は検証モデルによって判断されます。検証モデルに渡される台帳エントリは抜粋 ([EvidenceLedger.excerpt]) であり、出典が記載されています。
+ * エラー、応答を解析できません →Cannot_verify;タイムアウトは証拠の量に応じて緩和されます ([timeoutMs])。タイムアウト後、証拠は整理されて再度質問され、タイムアウトが継続するまで検証できません。
+ * 何も読んでいないタスク ([Evidence.nothingRead]) には、比較する材料がありません。これは行われていません。チェッカーには資料が読まれていないことだけが通知され、回答が適切かどうかが判断されます。
  */
 class Verifier(
     private val textModel: ChatModel,
     private val visionModel: ChatModel?,
-    /** 截图按 [ModelImage] 的统一编码发出;为空时原样发。 */
+    /** のスクリーンショットは、[ModelImage] の統一コードに従って送信されます。空の場合はそのまま送信されます。 */
     private val ops: ImageOps? = null,
 ) {
-    /** 有视觉模型时才值得附画面。 */
+    /** に画像を添付する価値があるのは、ビジュアル モデルがある場合のみです。 */
     val wantsImage: Boolean get() = visionModel != null
 
     /**
-     * [earlierGoals] 是本对话之前几轮用户说的话(只有用户原话,没有干活模型的任何东西),追问时用来理解指代。
-     * 目标、回答、读屏、动作清单都是不可信的材料,编成一个 JSON 对象发出,里面的换行伪造不出新的段落。
+     * [earlierGoals] は、このダイアログの前のラウンドでユーザーが言ったこと (作業モデルからのものは何も含まず、ユーザーのオリジナルの言葉のみ) であり、質問するときに参照を理解するために使用されます。
+     * ターゲット、回答、画面読み上げ、アクションリストはすべて信頼できない資料です。これらは JSON オブジェクトにコンパイルされて送信されます。改行を入れても新しい段落は作成できません。
      */
     suspend fun verify(goal: String, criteria: Criteria, answer: String, evidence: Evidence, earlierGoals: List<String> = emptyList()): Verification {
         val chosen = evidence.ledger.forAnswer(goal, answer)
         val reads = evidence.sources(chosen)
-        if (evidence.protected && reads.isEmpty()) return cannot("结果页受系统防截屏保护,看不到画面,没法核实")
+        if (evidence.protected && reads.isEmpty()) return cannot("結果画面はシステムのスクリーンショット保護により読み取れないため、確認できません")
         val image = evidence.freshImage?.takeIf { visionModel != null && !evidence.protected }
         val model = if (image != null) visionModel!! else textModel
-        val v = when (val first = ask(model, goal, criteria, answer, evidence, chosen, EvidenceLedger.EXCERPT_CHARS, earlierGoals, image)) {
+        val original = when (val first = ask(model, goal, criteria, answer, evidence, chosen, EvidenceLedger.EXCERPT_CHARS, earlierGoals, image)) {
             is Asked.Done -> first.v
             is Asked.Failed -> return cannot(first.reason)
-            // 证据多的长任务容易超时:精简后再问一次
+            // 大量の証拠を伴う長いタスクはタイムアウトになりやすいです。合理化してもう一度質問してください
             Asked.TimedOut -> when (val second = ask(model, goal, criteria, answer, trimmed(evidence), chosen, TRIM_EXCERPT_CHARS, earlierGoals, image)) {
                 is Asked.Done -> second.v
                 is Asked.Failed -> return cannot(second.reason)
-                Asked.TimedOut -> return cannot("核查超时")
+                Asked.TimedOut -> return cannot("検証がタイムアウトしました")
             }
         }
-        return when (v.verdict) {
+        val v = original
+        val result = when (v.verdict) {
             Verdict.Pass -> when {
-                // 没有逐条核对每一条标准的 pass 不算数
+                // 各規格を一つ一つチェックしないパスはカウントされません。
                 v.checks.size < criteria.items.size -> v.copy(verdict = Verdict.CannotVerify, reason = NOT_EVERY_CRITERION)
                 evidence.nothingRead -> v
                 else -> backstop(v, goal, answer, reads, imageSent = image != null, evidence.today)
             }
-            // 接着上文的追问没列出标准,只能对照一句没头没尾的原话,判 fail 不可靠
+            // 上記のフォローアップの質問には基準が記載されていませんでした。始まりと終わりのない原文との比較しかできず、不合格は信頼性が低いと判断されました。
             Verdict.Fail -> if (criteria.fallback && earlierGoals.isNotEmpty()) v.copy(verdict = Verdict.CannotVerify, reason = FOLLOW_UP_UNCLEAR)
                 else if (v.reason.isBlank()) v.copy(reason = FAIL_WITHOUT_REASON) else v
             Verdict.CannotVerify -> v
         }
+        return if (result.reason.isBlank() || JapaneseOutput.isJapaneseProse(result.reason)) result
+            else result.copy(reason = "検証モデルから日本語の理由説明が得られませんでした。", originalReason = result.reason)
     }
 
     private fun cannot(reason: String) = Verification(Verdict.CannotVerify, emptyList(), reason)
@@ -162,24 +169,24 @@ class Verifier(
         var unparsed = false
         return try {
             withTimeoutOrNull(timeoutMs(body.length, if (image != null) 1 else 0)) {
-                // 回复走容错解析;读不出来时再问一次、只要 JSON;还不行才算解析不了
+                // はフォールトトレラントな解析で応答します。読み取れない場合は、JSON のみを再度尋ねます。それでも失敗する場合は、解析できないとみなされます。
                 ModelJson.completeParsed(model, PROMPT, listOf(Message(Role.User, parts, Author.Mika)), ::parse).also { unparsed = it == null }
-            }?.let { Asked.Done(it) } ?: if (unparsed) Asked.Failed("核查器的回复无法解析") else Asked.TimedOut
+            }?.let { Asked.Done(it) } ?: if (unparsed) Asked.Failed("検証モデルの応答を解析できません") else Asked.TimedOut
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Asked.Failed("核查器出错:${e.message ?: e::class.simpleName}")
+            Asked.Failed("検証モデルでエラーが発生しました:${e.message ?: e::class.simpleName}")
         }
     }
 
-    /** 超时那次重问用的精简证据:此刻一屏和截图保留,动作只留最近的,每段截短;账本条目的节选另按更小的字数上限([TRIM_EXCERPT_CHARS])。 */
+    /** タイムアウト後の再検査のための合理化された証拠: 現時点では、1 つの画面とスクリーンショットが保持され、最新のアクションのみが保持され、各段落は切り詰められます。台帳エントリの抜粋には、より短い文字数制限 ([TRIM_EXCERPT_CHARS]) が適用されます。 */
     private fun trimmed(e: Evidence) = Evidence(
         trimmedFresh(e.fresh), e.freshImage, e.ledger,
         e.actions.takeLast(TRIM_ACTIONS), e.protected, e.appOpened, e.takeovers,
         e.userFacts.map { it.take(TRIM_CHARS) }, e.nowMs, e.zone,
     )
 
-    /** 再看的一眼合起来至多 [TRIM_FRESH_CHARS] 字(按先后截)。 */
+    /** もう一度見ると、[TRIM_FRESH_CHARS] 個の単語になります (順番に切り取っていきます)。 */
     private fun trimmedFresh(fresh: List<Observation>): List<Observation> {
         var room = TRIM_FRESH_CHARS
         return fresh.mapNotNull { o ->
@@ -192,10 +199,10 @@ class Verifier(
             put("goal", goal)
             if (earlierGoals.isNotEmpty()) put("earlierGoals", JsonArray(earlierGoals.map(::JsonPrimitive)))
             put("criteria", JsonArray(c.items.map(::JsonPrimitive)))
-            if (c.fallback) put("criteriaNote", "没有另列标准,criteria 只是用户原话本身,请对照用户的目标核对")
+            if (c.fallback) put("criteriaNote", "個別の基準はありません。criteriaはユーザーの依頼の原文です。ユーザーの目標に照らして検証してください")
             put("kind", c.kind)
             put("answer", answer)
-            put("freshLook", if (e.nothingRead) NOTHING_READ else freshShown(goal, answer, e).ifBlank { if (e.protected) "(页面受防截屏保护,读不到)" else "(没读到文字)" })
+            put("freshLook", if (e.nothingRead) NOTHING_READ else freshShown(goal, answer, e).ifBlank { if (e.protected) "（スクリーンショット保護のため読み取れません）" else "（文字を読み取れませんでした）" })
             put("ledger", JsonArray(shown.map { r ->
                 buildJsonObject {
                     if (r.step > 0) put("step", r.step)
@@ -210,11 +217,11 @@ class Verifier(
             if (e.takeovers.isNotEmpty()) put("takeovers", JsonArray(e.takeovers.map(::JsonPrimitive)))
             if (e.userFacts.isNotEmpty()) put("userFacts", JsonArray(e.userFacts.map(::JsonPrimitive)))
         }
-        return "下面是待核对的材料(JSON,字段说明见系统提示):\n$material"
+        return "次の資料を検証してください（JSON。フィールドの説明はシステム指示を参照）:\n$material"
     }
 
     companion object {
-        /** 核查不该把任务拖住:基础等待时间;证据多时按 [timeoutMs] 放宽,最多 [MAX_TIMEOUT_MS]。 */
+        /** 検証によりタスクが遅れてはなりません: 基本的な待ち時間。 [MAX_TIMEOUT_MS] までの証拠がたくさんある場合は、[timeoutMs] を押してリラックスします。 */
         const val TIMEOUT_MS = 60_000L
         const val MAX_TIMEOUT_MS = 150_000L
         private const val PER_IMAGE_MS = 20_000L
@@ -223,26 +230,26 @@ class Verifier(
         private const val TRIM_CHARS = 3_000
         private const val TRIM_ACTIONS = 10
         private const val TRIM_EXCERPT_CHARS = EvidenceLedger.EXCERPT_CHARS / 2
-        /** 再看的一眼长过这么多字时只给节选(开头和对上回答事实的行)。 */
+        /** 二度見がこの文字数より長い場合は、抜粋（冒頭と事実を答える行）のみが表示されます。 */
         private const val FRESH_CHARS = 4_000
         const val IMAGE = "image"
 
-        /** 等多久与要读的东西成正比:基础 60 秒,每张图、每 KB 文字另加,封顶 150 秒。 */
+        /** 待ち時間は読みたい内容に比例します。基本 60 秒に加え、各画像と KB のテキストごとに追加され、上限は 150 秒です。 */
         fun timeoutMs(textChars: Int, images: Int): Long =
             minOf(MAX_TIMEOUT_MS, TIMEOUT_MS + images * PER_IMAGE_MS + textChars / 1024 * PER_KB_MS)
-        const val NOT_IN_READS = "回答的依据在读到的界面、网页或命令输出里都找不到"
-        const val NOT_EVERY_CRITERION = "核查器没有逐条核对每一条标准"
-        const val FAIL_WITHOUT_REASON = "核查器认为没有做成,但没有指出哪条标准没满足"
-        const val FOLLOW_UP_UNCLEAR = "这是接着上文的追问,没能列出具体标准,核查判不准"
-        const val NOTHING_READ = "本次任务没有打开 App,也没有读到任何材料"
-        const val TRUNCATED = "回答依据的是屏上被截断的文字(以…结尾),只看到了一部分,没能完整核实"
+        const val NOT_IN_READS = "読み取った画面・ページ・コマンド出力に回答の根拠が見つかりません"
+        const val NOT_EVERY_CRITERION = "検証モデルが各基準を個別に確認していません"
+        const val FAIL_WITHOUT_REASON = "検証モデルは未完了と判断しましたが、未達成の基準を示していません"
+        const val FOLLOW_UP_UNCLEAR = "前の会話への追加質問で、具体的な基準を設定できないため、正確に検証できません"
+        const val NOTHING_READ = "このタスクではアプリを開いておらず、資料も読み取っていません"
+        const val TRUNCATED = "回答の根拠は画面上で省略された文字（末尾が…）です。一部しか読み取れておらず、全体を確認できません"
         private val STATUSES = setOf("met", "unmet", "unknown")
 
         val PROMPT: String by lazy { Prompts.role("verifier") }
 
         /**
-         * 交给核查模型的账本条目:每条换成节选([EvidenceLedger.excerpt]),对上回答事实的行一定留下,条目一条不丢。
-         * 先按前后各 [EvidenceLedger.EXCERPT_CONTEXT] 行取,总字数超过 [budget] 就减少前后的行数,还超就把每条截到平均的份额(至少 [EvidenceLedger.MIN_EXCERPT] 字)。
+         * 検証モデルに送信された台帳エントリ: 各エントリは抜粋 ([EvidenceLedger.excerpt]) に置き換えられ、事実に答える行は残される必要があり、エントリは失われません。
+         * まず前後の[EvidenceLedger.EXCERPT_CONTEXT]行を抽出します。総ワード数が[budget]を超える場合は前後の行数を減らしてください。それを超える場合は、各行を平均シェア (少なくとも [EvidenceLedger.MIN_EXCERPT] ワード) にカットします。
          */
         internal fun excerpts(goal: String, answer: String, chosen: List<Observation>, budget: Int, today: java.time.LocalDate? = null): List<Observation> {
             val hits = chosen.map { Grounding.hitLines(goal, answer, it.text, today) }
@@ -254,7 +261,7 @@ class Verifier(
             return chosen.mapIndexed { i, r -> r.copy(text = EvidenceLedger.excerpt(r.text, hits[i], 0, cap)) }
         }
 
-        /** 交给核查模型的再看一眼:不长时原样,长了给开头和对上回答事实的行。 */
+        /** 別の外観のためにモデルをチェックした人にそれを渡します。それは長い間そのままではありませんが、最初と右側に事実に答えるためのより長い行があります。 合格判定後の */
         private fun freshShown(goal: String, answer: String, e: Evidence): String {
             val t = e.freshText
             if (t.length <= FRESH_CHARS) return t
@@ -262,16 +269,16 @@ class Verifier(
         }
 
         /**
-         * 模型判 pass 之后的兜底(规则见 [Grounding.check]):只核字面,不判断值属于哪个东西。文字对不上时:附了截图、没对上的只有画面上的状态(不带数字的引文;
-         * 引文还要求回答别处已在文字里对上),看过图的 pass 算数,记为看图核实;数和日期能写成文字,对不上就否决。
-         * [today] 是运行时钟的日期(相对日期按它换算,见 [Grounding.check])。离线重算录下来的运行也用它。
+         * モデル (ルールについては、[Grounding.check] を参照): リテラルのみをチェックし、値が何に属するかは判定しません。本文が一致しない場合：スクリーンショットが添付されており、画面上のステータスのみが一致しません（数字なしの引用。
+         * 引用では、回答がテキスト内の他の場所で一致していることも必要です)。写真を見たことがある場合はパスがカウントされ、写真を見ることで認証として記録されます。数字と日付を文字で書くこともできますが、一致しない場合は拒否されます。
+         * [today] は、実行中のクロックの日付です (相対日付はそれに応じて変換されます。[Grounding.check] を参照)。記録された実行のオフライン再計算にも使用されます。
          */
         internal fun backstop(v: Verification, goal: String, answer: String, screens: List<String>, imageSent: Boolean, today: java.time.LocalDate? = null): Verification {
             val g = Grounding.check(goal, answer, screens, today)
             val ok = when (g.found) {
                 true -> true
                 false -> false
-                // 回答里没有可核对的东西,或只有数对上、没有引文定位:至少要有一条 met 的引文真在屏上
+                // 回答にチェックするものが何もないか、ペアが数個しかなく、引用の配置がありません。少なくとも 1 つの一致する引用が画面上に存在する必要があります。
                 null -> v.checks.any { it.status == "met" && it.quote != null && Grounding.quoteInReads(it.quote, screens) }
             }
             val missing = g.unmatched.map { it.text }
@@ -281,13 +288,13 @@ class Verifier(
                     v.copy(groundedBy = IMAGE, notFound = missing)
                 else -> v.copy(verdict = Verdict.CannotVerify, reason = NOT_IN_READS, notFound = missing)
             }
-            // 依据是屏上被截断的文字(以 … 结尾):只看到了一部分,核实不了全貌
+            // は、画面上の切り詰められたテキスト (... で終わる) に基づいています。一部のみが表示され、全体像を確認することはできません。
             return if (result.verdict == Verdict.Pass && Grounding.builtOnTruncated(answer, screens)) result.copy(verdict = Verdict.CannotVerify, reason = TRUNCATED) else result
         }
 
         /**
-         * 回复里第一个能读的 JSON 对象(见 [ModelJson]:容忍代码块、前后的话、键名写法);结论缺失或不认识时返回 null。
-         * 各条结论和总结论矛盾时按各条算。
+         * 応答内の最初の読み取り可能な JSON オブジェクト ([ModelJson]: 許容コード ブロック、前後の単語、キー名の書き込みを参照)。結論が欠落しているか不明な場合は null を返します。
+         * 各結論と一般的な結論の間に矛盾がある場合は、個別の結論が考慮されます。
          */
         internal fun parse(text: String): Verification? {
             val obj = ModelJson.firstObject(text) ?: return null

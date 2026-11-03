@@ -23,7 +23,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** App 级唯一实例:设置页与经过认证的 MCP 共用,不经过模型、屏幕工具或运行记录。 */
+/** アプリレベルのみのインスタンス: 設定ページは、モデル、画面ツール、または実行ログを経由せずに、認定された MCP と共有されます。 */
 class AndroidDeviceAccess(context: Context, helper: () -> IMikaShell?) {
     val settings = DeviceAccessSettings(File(context.filesDir, "settings"), KeystoreKeyCipher("mika-device-access"))
     val access = DeviceAccess(AndroidDeviceAccessPort(context, helper), settings)
@@ -43,10 +43,10 @@ internal class AndroidDeviceAccessPort(context: Context, private val helper: () 
     override suspend fun dismiss(): Boolean = withContext(Dispatchers.IO) { runCatching { helper()?.dismissDeviceKeyguard() == true }.getOrDefault(false) }
 
     /**
-     * 只认主屏 SystemUI 中唯一、类型匹配的密码框。SIM PIN/无法识别的厂商页不尝试。
-     * 凭据按键要只投给 SystemUI 的窗口,靠安卓 13 起的定向注入;更早的系统在占位之前就报不支持,不留下暂停。
-     * 输入框没拿到焦点时先请它聚焦,不行再点它一下;都不行但它所在的 SystemUI 窗口就是系统的输入焦点窗口,
-     * 也算准备好(按键本来就只投给那个窗口,由锁屏页自己接)。认不出时在日志里记一句原因,不含屏上文字。
+     * は、メイン画面の SystemUI でタイプが一致する一意のパスワード ボックスのみを認識します。 SIM PIN/認識されないメーカーページは試行されません。
+     * 認証情報ボタンは、Android 13 以降のディレクショナル インジェクションに依存して、SystemUI ウィンドウにのみキャストされる必要があります。以前のシステムでは、スペースを占有する前にサポートされていないことが報告され、一時停止が発生しませんでした。
+     * 入力ボックスにフォーカスが設定されていない場合は、まず入力ボックスにフォーカスを設定します。動作しない場合は、もう一度クリックしてください。たとえ動作しなくても、それが配置されている SystemUI ウィンドウがシステムの入力フォーカス ウィンドウになります。
+     * も準備完了とみなされます (ボタンは元々そのウィンドウにのみ割り当てられており、ロック画面ページがそれを単独で使用します)。認識できない場合は、画面上のテキストを表示せずに、ログに理由を書き留めてください。
      */
     override suspend fun credentialReady(kind: CredentialKind): Boolean = withContext(Dispatchers.IO) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return@withContext false

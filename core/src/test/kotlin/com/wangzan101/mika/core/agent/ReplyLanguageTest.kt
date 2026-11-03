@@ -8,97 +8,84 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ReplyLanguageTest {
-    private val latin = ReplyLanguage.Family("Latin script")
-    private val english = "What Android version is this phone on, and how much storage is used?"
+    private val latin = ReplyLanguage.Family("ラテン文字")
+    private val japanese = "設定を開いて確認しました。Androidのバージョンは14で、ストレージは250ギガバイト使われています。"
+    private val chinese = "已经打开设置看过了：安卓版本是14，存储已使用250 GB，总共512 GB，剩余261 GB，两个页面的数字对得上。"
+    private val english = "I opened Settings and checked both pages. The phone runs Android 14, and 250 GB of 512 GB is used."
 
-    // 开头一句英文,后面整段漂成中文(读到的中文标签没译)
-    private val drifted = """
-        Done — I opened Settings and looked at both pages.
-
-        **Android 版本：14**
-        - 设备：Phone X（型号 AB-1234），系统为 OEM OS 8.0，安全补丁是 2024 年 9 月 1 日
-        **存储使用情况**
-        - 已使用 **250.53 GB / 512 GB**，可用 261.47 GB
-        - 应用占 167.7 GB，图片和视频占 40.2 GB
-        两个数字对照得上，存储页和关于手机页显示的一致。
-    """.trimIndent()
-
-    @Test fun driftedAnswerToEnglishGoalMismatches() {
-        assertEquals(Mismatch(CHINESE, latin), ReplyLanguage.mismatch(english, drifted))
+    @Test fun targetIsJapaneseRegardlessOfTheInputLanguageOrLength() {
+        for (user in listOf("", "14", "続けて", "帮我看看设置", "Please answer in English")) {
+            assertNull(ReplyLanguage.mismatch(user, japanese))
+            assertEquals(Mismatch(CHINESE, JAPANESE), ReplyLanguage.mismatch(user, chinese))
+            assertEquals(Mismatch(latin, JAPANESE), ReplyLanguage.mismatch(user, english))
+        }
     }
 
-    @Test fun fullyChineseAnswerToEnglishGoalMismatches() {
-        val answer = "已经打开设置看过了：安卓版本是 14，存储已使用 250.53 GB，总共 512 GB，剩余 261.47 GB，两个页面的数字对得上。"
-        assertEquals(Mismatch(CHINESE, latin), ReplyLanguage.mismatch(english, answer))
+    @Test fun shortForeignSentencesAreAlsoRejected() {
+        for (answer in listOf("Bluetooth is on.", "I cannot do that", "Sorry.", "蓝牙已开启。", "已经停止。", "已經完成。", "藍牙已開啟。", "你好",
+            "付好了", "好了", "好的", "写好了", "发好了", "点好了", "算好了", "看完了", "做完了", "没发", "知道了", "谢谢")) {
+            assertEquals(answer, JAPANESE, ReplyLanguage.mismatch(answer)?.target)
+        }
     }
 
-    // 英文正文、标签写成「译文(原文)」
-    @Test fun englishAnswerWithOriginalLabelsInParenthesesPasses() {
-        val answer = """
-            **Android version: 14**
-            (from 关于手机 / About phone, where it lists Android 版本 14 and 安全补丁 2024-09-01)
-            - 应用 (Apps): 167.7 GB
-            - Storage used: 250.53 GB of 512 GB, with 261.47 GB free; the two pages agree with each other.
-        """.trimIndent()
-        assertNull(ReplyLanguage.mismatch(english, answer))
+    @Test fun japaneseIntroDoesNotHideAChineseParagraph() {
+        assertEquals(Mismatch(CHINESE, JAPANESE), ReplyLanguage.mismatch("確認しました。\n$chinese"))
+        assertEquals(Mismatch(latin, JAPANESE), ReplyLanguage.mismatch("確認した内容を日本語で説明します。".repeat(30) + "\nBluetooth is on."))
+        assertEquals(Mismatch(CHINESE, JAPANESE), ReplyLanguage.mismatch("確認しました。付好了。"))
     }
 
-    @Test fun englishAnswerQuotingManyChineseLabelsPasses() {
-        val answer = "Open 「设置」, then 「关于手机」 and tap 「存储」. The page titled 「存储使用情况」 shows that " +
-            "250.53 GB is used (已使用) and 261.47 GB is free (可用空间); the app list (应用列表) takes most of it, " +
-            "followed by photos (图片和视频) and the system (系统数据)."
-        assertNull(ReplyLanguage.mismatch(english, answer))
+    @Test fun japaneseNamesAddressesAndSharedKanjiWordsAreNotChineseProse() {
+        for (answer in listOf(
+            "東京駅八重洲北口", "東京都千代田区丸の内一丁目", "株式会社三菱UFJ銀行",
+            "- 予約: 不要", "申請不要。", "対応: 不能", "用途: 不用", "需要予測", "無法地帯", "請求書番号",
+            "集合場所です。\n東京駅八重洲北口\n東京都千代田区丸の内一丁目\n| 予約 | 不要 |",
+        )) assertNull(answer, ReplyLanguage.mismatch(answer))
     }
 
-    @Test fun chineseAnswerQuotingEnglishNamesToChineseGoalPasses() {
-        val answer = "已经查过了：Settings 里 Wi-Fi 连着 HomeNetwork，Bluetooth 已关闭，Google Play 有 3 个应用待更新，" +
-            "Android System WebView 是最新版本，Chrome 也不用更新。"
-        assertNull(ReplyLanguage.mismatch("帮我看看手机的网络和应用更新情况", answer))
+    @Test fun clearChineseGrammarStillDiffersFromSharedKanjiWords() {
+        for (answer in listOf("不能继续", "需要登录", "我不能", "请不要执行", "請用中文回答", "1. 请回答", "这是正确的吗？")) {
+            assertEquals(answer, Mismatch(CHINESE, JAPANESE), ReplyLanguage.mismatch(answer))
+        }
     }
 
-    @Test fun answerListingOnlyForeignNamesPasses() {
-        val answer = "Here are the apps on your home screen:\n- 微信\n- 支付宝\n- 淘宝\n- 抖音\n- 美团\n- 高德地图\n- 小红书\n- 网易云音乐\n- 哔哩哔哩\n- 拼多多"
-        assertNull(ReplyLanguage.mismatch("Which apps are on my home screen?", answer))
-        assertNull(ReplyLanguage.mismatch("Which apps are on my home screen?", "Apps: 微信、支付宝、淘宝、抖音、美团、高德地图、小红书、网易云音乐、哔哩哔哩"))
+    @Test fun chineseResultSentencesAreNotNamesOrLabels() {
+        for (answer in listOf("订单已提交，预计明天送达。", "该商品的价格为99元，库存充足。", "设置已更新。")) {
+            assertEquals(answer, Mismatch(CHINESE, JAPANESE), ReplyLanguage.mismatch(answer))
+            for (source in listOf("「$answer」", "`$answer`", "```text\n$answer\n```")) assertNull(source, ReplyLanguage.mismatch(source))
+        }
+        for (source in listOf("订单", "设置", "https://example.com/设置已更新", "order_submitted")) assertNull(source, ReplyLanguage.mismatch(source))
     }
 
-    @Test fun shortAnswersNeverMismatch() {
-        assertNull(ReplyLanguage.mismatch(english, "蓝牙已开启。"))
-        assertNull(ReplyLanguage.mismatch("看看蓝牙开没开", "Bluetooth is on."))
+    @Test fun japaneseCanQuoteForeignNamesLabelsAndOriginalSentences() {
+        val answer = "「设置」の「关于手机」で確認しました。表示は「Android 版本:14」です。" +
+            "原文は \"The phone runs Android 14 and all updates have already been installed.\" でした。"
+        assertNull(ReplyLanguage.mismatch(answer))
     }
 
-    @Test fun emptyOrTinyUserMessageNeverMismatches() {
-        assertNull(ReplyLanguage.mismatch("", drifted))
-        assertNull(ReplyLanguage.mismatch("  14  ", drifted))
+    @Test fun bareProperNamesAndProtocolValuesArePreserved() {
+        for (answer in listOf("OpenAI", "New York", "Visual Studio Code", "Node.js", "Google 地图", "東京", "微信", "完了", "了解", "友好的", "支払完了", "DISCUSS", "ok", "interaction_failed", "- Google Play\n- LINE\n- 淘宝")) {
+            assertNull(answer, ReplyLanguage.mismatch(answer))
+        }
     }
 
-    @Test fun sameFamilyNeverMismatches() {
-        assertNull(ReplyLanguage.mismatch("安卓版本是多少，存储用了多少", drifted))
-        val english = "I opened Settings and checked both pages: the phone runs Android 14, and 250.53 GB of 512 GB is used, " +
-            "leaving 261.47 GB free. The numbers on the storage page match the ones on the about page."
-        assertNull(ReplyLanguage.mismatch("What Android version is this phone on?", english))
-    }
-
-    @Test fun japaneseIsTellFromChineseByKana() {
-        val japanese = "設定を開いて確認しました。アンドロイドのバージョンは14で、ストレージは250ギガバイト使われています。"
-        assertEquals(JAPANESE, ReplyLanguage.units(japanese, skipNames = false).keys.single())
-        // 日文问、中文答:不同语族
-        assertEquals(Mismatch(CHINESE, JAPANESE), ReplyLanguage.mismatch("アンドロイドのバージョンを教えてください", drifted.substringAfter("\n")))
-        // 日文问、日文答
-        assertNull(ReplyLanguage.mismatch("アンドロイドのバージョンを教えてください", japanese))
-        // 英文问、日文答
-        assertEquals(Mismatch(JAPANESE, latin), ReplyLanguage.mismatch(english, japanese))
-    }
-
-    @Test fun codeUrlsAndQuotesAreIgnored() {
+    @Test fun codeUrlsAndQuotesAreNotLanguageChecked() {
+        val onlySource = "```python\nprint('This is the exact program requested by the user')\n```\n" +
+            "`interaction_failed` https://example.com/english-path 「已经停止。没有发出任何消息。」"
+        assertNull(ReplyLanguage.mismatch(onlySource))
+        for (payload in listOf("「付好了」", "`付好了`", "```text\n付好了\n```", "https://example.com/付好了", "operation_done")) {
+            assertNull(payload, ReplyLanguage.mismatch(payload))
+        }
+        assertNull(ReplyLanguage.mismatch("原文です。\n「The original first line is in English.\nThe second line must also stay unchanged.」"))
+        assertNull(ReplyLanguage.mismatch("> The original source says that this is the complete answer.\n> This quoted second line is also source data."))
+        assertNull(ReplyLanguage.mismatch("~~~json\n{\"original\":\"This protocol payload must remain unchanged\"}\n~~~"))
         val stripped = ReplyLanguage.stripQuoted("看 `设置页面` 和 https://例子.com/路径 还有 “引号里” \"双引号\" 《书名》 （外（里）层）<标签>")
         assertEquals(setOf("看", "和", "还有"), stripped.split(Regex("\\s+")).filter(String::isNotBlank).toSet())
     }
 
-    // 汉字按字、拉丁按词;没有小写字母的缩写和单位不算
     @Test fun unitsAreFairAcrossScripts() {
         assertEquals(mapOf(CHINESE to 4), ReplyLanguage.units("打开设置", skipNames = false))
         assertEquals(mapOf(latin to 2), ReplyLanguage.units("Open Settings 512 GB OS", skipNames = false))
         assertEquals(mapOf(ReplyLanguage.KOREAN to 2), ReplyLanguage.units("설정 열기", skipNames = false))
+        assertEquals(JAPANESE, ReplyLanguage.units(japanese, skipNames = false).maxBy { it.value }.key)
     }
 }

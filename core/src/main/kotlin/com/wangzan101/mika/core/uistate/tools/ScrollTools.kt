@@ -24,12 +24,12 @@ import com.wangzan101.mika.core.uistate.action
 import com.wangzan101.mika.core.uistate.lastOrSnapshot
 import com.wangzan101.mika.core.uistate.screen
 
-/** 滑动(横滑可能是「滑动删除」,要按目标判不可逆)。 */
+/** スライディング (横方向のスライディングは「削除するためのスライディング」である可能性があり、元に戻せないかどうかをターゲットが判断する必要があります)。 */
 internal class Scroll(f: ScreenFamily) : ScreenTool(f, "scroll") {
     override val verb = Verb.Scroll
     override val batchable = true
     override val routable = f.routable
-    override val label = "滚动"
+    override val label = "スクロール"
     override val risk = Risk.External
     override val gateTarget = GateTarget.Swipe
     override val showsScreenAfter = true
@@ -50,18 +50,18 @@ internal class Scroll(f: ScreenFamily) : ScreenTool(f, "scroll") {
         val x = a.coord("x"); val y = a.coord("y")
         if ((x == null) != (y == null)) throw ArgError("x", "give both x and y or neither")
         val cx = x ?: 500; val cy = y ?: 500
-        // direction 是内容移动方向,手指反向滑动。
+        // 方向がコンテンツの移動方向となり、指は逆方向にスライドします。
         val dist = min(650, amount * 100)
         val dx = when (dir) { "left" -> dist; "right" -> -dist; else -> 0 }
         val dy = when (dir) { "up" -> dist; "down" -> -dist; else -> 0 }
         fun bound(v: Double) = max(50, min(949, v.roundToInt()))
-        // 手机默认纵向滚动先让无障碍控件执行滚动;端口找不到可滚控件时自己退到手势。
+        // 携帯電話は、最初にアクセシビリティ コントロールでスクロールを実行できるようにすることで、デフォルトで垂直スクロールになります。ポートがスクロール可能なコントロールを見つけられない場合、ポートはジェスチャに戻ります。
         val r = if (family.id == "phone" && dir in setOf("up", "down") && x == null && amount == 3)
             ctx.action(ctx.screen.scroll(null, null, dir == "down"))
         else swipeNormalized(ctx, bound(cx - dx / 2.0), bound(cy - dy / 2.0), bound(cx + dx / 2.0), bound(cy + dy / 2.0))
         if (r.content["ok"] != JsonPrimitive(true)) return r
         val finger = when (dir) { "up" -> "down"; "down" -> "up"; "left" -> "right"; else -> "left" }
-        // 没动(多半到头了)由分发器按实际效果判,结果里另标 atEnd
+        // は動いていません (おそらく終了しています)。実際の効果をもとに販売店が判断いたします。結果は atEnd としてマークされます。
         val content = r.content + mapOf("direction" to JsonPrimitive(dir), "fingerMoved" to JsonPrimitive(finger))
         return ToolExecution(JsonObject(content), changed = r.changed)
     }
@@ -73,7 +73,7 @@ internal class Swipe(f: ScreenFamily) : ScreenTool(f, "swipe") {
     override val verb = Verb.Swipe
     override val batchable = true
     override val routable = f.routable
-    override val label = "滑动"
+    override val label = "スワイプ"
     override val risk = Risk.External
     override val gateTarget = GateTarget.Swipe
     override val showsScreenAfter = true

@@ -26,7 +26,7 @@ import com.wangzan101.mika.settings.RoleChoice
 import com.wangzan101.mika.ui.components.FooterNote
 import com.wangzan101.mika.ui.components.SelectChip
 
-/** 每个用途自己的档位;跟随主模型时说明继承,显式选同一个模型仍能独立设置。 */
+/** それぞれの目的には独自のギアがあります。メイン モデルに従う場合、継承について説明します。同じモデルを明示的に選択した場合は、同じモデルを独立して設定することもできます。 */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ReasoningControl(ui: ModelSetupUi, role: ModelRole, onSelect: (String?) -> Unit) {

@@ -21,7 +21,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.ZoneOffset
 
-/** 用户发来此刻的屏幕时,模型看到的样子:那句话、截图、详情;之前几轮里的只剩一行;只发屏幕时不问意图判断。 */
+/** ユーザーが現在の画面を送信すると、モデルには次のような内容が表示されます: 文、スクリーンショット、詳細。前のラウンドから残っているのは 1 行だけです。画面のみを送信した場合は意図は判断されません。 */
 class AgentLoopUserScreenTest {
     private val at = 1_761_624_120_000L // 2025-10-28 04:02 UTC
     private val chat = UserScreen("s1", at, "com.example.chat", "聊天", lines = listOf(
@@ -29,7 +29,7 @@ class AgentLoopUserScreenTest {
     ))
     private val bank = UserScreen("s2", at, "com.example.bank", "银行", blocked = true)
     private val png = byteArrayOf(1, 2, 3)
-    private val screenAnswer = "第二句「应该去吧,怎么了」是对方说的:他在回答你问的周六聚会还去不去,意思是大概会去,又问你有什么事。"
+    private val screenAnswer = "2つ目の「应该去吧,怎么了」は相手の発言です。土曜日の集まりに行くかという質問に、たぶん行くと答え、何か用があるのかを尋ねています。"
 
     private val source = object : UserScreenSource {
         override suspend fun screen(id: String) = listOf(chat, bank).firstOrNull { it.id == id }
@@ -50,15 +50,15 @@ class AgentLoopUserScreenTest {
         loop(model, goal, vision = true).run(goal)
         val msgs = model.requests.first().withoutRuntime()
         val said = msgs.first { it.author == com.wangzan101.mika.core.model.Author.User }
-        assertEquals("The user just captured the screen they are looking at (聊天, Oct 28 04:02), with no words.", (said.parts.first() as Part.Text).text)
+        assertEquals("ユーザーが今見ている状態を撮影したばかり（聊天、Oct 28 04:02）。言葉は添えられていない。", (said.parts.first() as Part.Text).text)
         assertEquals(1, said.parts.count { it is Part.Image })
         val detail = msgs[msgs.indexOf(said) + 1]
         assertEquals(ContextKind.UserScreen, ContextBuilder.kindOf(detail))
         val body = ContextBuilder.bodyOf(detail)!!
-        assertTrue(body.contains("Screen id: s1"))
+        assertTrue(body.contains("状態の id: s1"))
         assertTrue(body.contains("(300,200) 周六那个聚会你还去吗"))
         assertTrue(body.contains("<untrusted>"))
-        assertTrue("没有附言时带上按屏幕猜意图的规矩", body.contains("without words"))
+        assertTrue("言葉が添えられていない場合は画面から意図を読み取る規則を含める必要があります", body.contains("ユーザーは言葉を添えず"))
     }
 
     @Test fun screenWithWordsHasNoExtraRuleAndNoImageWhenMainModelIsBlind() = runBlocking {
@@ -67,14 +67,14 @@ class AgentLoopUserScreenTest {
         loop(model, goal, vision = false).run(goal)
         val msgs = model.requests.first().withoutRuntime()
         val said = msgs.first { it.author == com.wangzan101.mika.core.model.Author.User }
-        assertEquals("The user just captured the screen they are looking at (聊天, Oct 28 04:02), with these words: 第二句是谁说的", (said.parts.single() as Part.Text).text)
+        assertEquals("ユーザーが今見ている状態を撮影したばかり（聊天、Oct 28 04:02）。次の言葉を添えている: 第二句是谁说的", (said.parts.single() as Part.Text).text)
         val body = ContextBuilder.bodyOf(msgs[msgs.indexOf(said) + 1])!!
-        assertFalse(body.contains("without words"))
+        assertFalse(body.contains("ユーザーは言葉を添えず"))
         assertTrue(model.offeredTools.first().contains("view_user_screen"))
     }
 
-    // 模型看到的那句是固定的英文说明加附言:语言提示和回答的语言检查只看附言,中文回答不退回
-    @Test fun languageChecksSeeTheCaptionOnly() = runBlocking {
+    // モデルに表示される文は、固定の英語の説明と追記です。言語プロンプトと回答の言語チェックは追記を読むだけで、中国語の回答は返されません。
+    @Test fun captionIsQuotedWithoutChangingTheJapaneseTarget() = runBlocking {
         val goal = UserScreenMessage.compose("s1", "第二句是谁说的")
         val model = FakeModel(answerReply(screenAnswer), repeatLast = true)
         loop(model, goal).run(goal)
@@ -83,14 +83,15 @@ class AgentLoopUserScreenTest {
         assertTrue(hint, "latest message: \"第二句是谁说的\"" in hint)
     }
 
-    // 只发了屏幕、没打字:没有可照的语言,不给语言提示,也不查
-    @Test fun screenWithoutWordsIsNotLanguageChecked() = runBlocking {
+    // は入力せずに画面を送信しただけです。撮影する言語はなく、言語のプロンプトも表示されず、チェックも行われません。
+    @Test fun screenWithoutWordsStillTargetsJapanese() = runBlocking {
         val goal = UserScreenMessage.compose("s1", "")
         val model = FakeModel(answerReply(screenAnswer), repeatLast = true)
         loop(model, goal).run(goal)
         assertEquals(1, model.requests.size)
         val hint = model.requests[0].runtimeHint()
         assertFalse(hint, "latest message" in hint)
+        assertTrue(hint, "Write to the user in Japanese." in hint)
     }
 
     private fun List<com.wangzan101.mika.core.model.Message>.runtimeHint(): String =
@@ -102,8 +103,8 @@ class AgentLoopUserScreenTest {
         loop(model, goal, vision = true).run(goal)
         val msgs = model.requests.first().withoutRuntime()
         val said = msgs.first { it.author == com.wangzan101.mika.core.model.Author.User }
-        assertTrue((said.parts.single() as Part.Text).text.contains("does not allow screenshots"))
-        assertTrue(ContextBuilder.bodyOf(msgs[msgs.indexOf(said) + 1])!!.contains("did not allow screenshots"))
+        assertTrue((said.parts.single() as Part.Text).text.contains("画像の取得を許可していない"))
+        assertTrue(ContextBuilder.bodyOf(msgs[msgs.indexOf(said) + 1])!!.contains("画像の取得を許可していない"))
     }
 
     @Test fun earlierScreensCollapseToOneLine() = runBlocking {
@@ -112,9 +113,9 @@ class AgentLoopUserScreenTest {
         loop(model, "那我怎么回", prior = prior).run("那我怎么回", prior)
         val first = model.requests.first().withoutRuntime().first().plainText()
         assertTrue(first.startsWith(Conversation.HEADER))
-        assertTrue(first.contains("(Screen s1 the user sent earlier: 聊天, Oct 28 04:02; the screen begins with 「周六那个聚会你还去吗 应该去吧,怎么了」) 看看这个"))
+        assertTrue(first.contains("（ユーザーが以前に送った状態 s1: 聊天、Oct 28 04:02。その状態は「周六那个聚会你还去吗 应该去吧,怎么了」で始まる） 看看这个"))
         assertFalse(first.contains("[[screen:"))
-        // 之前几轮里有屏幕:能按编号回看
+        // 過去ラウンド画面があり、番号に従って振り返ることができます
         assertTrue(model.offeredTools.first().contains("view_user_screen"))
     }
 
@@ -124,7 +125,7 @@ class AgentLoopUserScreenTest {
         assertFalse(model.offeredTools.first().contains("view_user_screen"))
     }
 
-    // 只发了屏幕:没有话可判,不问意图判断,提议的调用照常做
+    // は画面を送信しただけです。何も言うことはありません。意図に関係なく、提案された通話は通常どおりに行われます
     @Test fun screenWithoutWordsSkipsIntentGate() = runBlocking {
         val main = FakeModel(ModelReply(listOf(Part.ToolCall("c1", "phone_list_apps", "{}")), StopReason.ToolUse, null), answerReply("好"))
         val judge = FakeModel(answerReply("DISCUSS"))

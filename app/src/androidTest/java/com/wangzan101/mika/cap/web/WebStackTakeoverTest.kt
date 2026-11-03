@@ -38,8 +38,8 @@ import java.util.Collections
 import kotlin.coroutines.resume
 
 /**
- * 真机测试:任务里真实的网页接管路径。接管状态机 → 任务的接管端口(和 TaskRun 里同样委托给 [WebStack])
- * → 标签锁住、同一个页面到主屏 → 用户点「处理好了」→ 交还状态机 → 标签放回、解锁、计数与登录标记交给 Agent。
+ * 実機テスト: タスク内の実際の Web ページの引き継ぎパス。ステートマシン引き継ぎ → タスク引き継ぎポート (TaskRun で [WebStack] に委任されるのと同じ)
+ * → ラベルがロックされ、同じページがホーム画面に移動します。 → ユーザーが「処理済み」をクリックします。 → ステート マシンに戻ります。 → ラベルが元に戻され、ロックが解除され、カウントされ、エージェントにログインします。
  */
 @RunWith(AndroidJUnit4::class)
 class WebStackTakeoverTest {
@@ -60,7 +60,7 @@ class WebStackTakeoverTest {
                 .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(instr.context)).build()
             stack = WebStack.create(ctx, "run-1", bounds.width(), bounds.height(), ctx.resources.displayMetrics.densityDpi, listOf(loader))
         }
-        // 和 TaskRun 的接管端口一样:网页部分交给 WebStack,按钮动作交回状态机
+        // の引き継ぎポートは TaskRun と同じです。Web ページ部分は WebStack に渡され、ボタン アクションはステート マシンに戻されます。
         val port = object : TakeoverPort {
             override suspend fun agentTopTask() = -1
             override suspend fun targetTask() = -1
@@ -134,7 +134,7 @@ class WebStackTakeoverTest {
         assertTrue(takeover.handOver())
         assertNotNull(DeviceSupport.pollUntil(5_000) { displayOf(tab)?.takeIf { it == Display.DEFAULT_DISPLAY } })
         assertTrue(withContext(Dispatchers.Main) { stack.pool.isLocked(tab.id) })
-        // 用户手上的页面 Agent 动不了
+        // エージェントはユーザーの手上のページを移動できません
         assertEquals(ActionResult.Failed("handed_over"), s.tapXY(10, 10))
         assertEquals("请登录示例商城\n金额:9.90", WebHandover.session.value?.message)
         assertEquals("\"填了一半\"", js(tab, "document.getElementById('plain').value"))

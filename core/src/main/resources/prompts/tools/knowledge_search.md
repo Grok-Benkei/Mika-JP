@@ -1,1 +1,1 @@
-Search the App and website knowledge when you are not sure which app or site something is, or whether Mika knows it. Narrow it with kind app or site. You get up to 10 matches as {name, display, kind, description}; read one with knowledge_read.
+どのアプリやサイトか分からない場合、または Mika がそれを知っているか分からない場合に、アプリとウェブサイトの知識を検索する。kind を app または site にして絞る。最大10件の {name, display, kind, description} が返る。knowledge_read で1件を読む。

@@ -13,10 +13,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * 真机:有能用的另一份用户(分身、工作资料)时,把装在那里的一个 App 开到 Mika 的屏上,最上面的任务属于那份用户,主屏不变。
- * 要测哪一个由参数定:`-Pandroid.testInstrumentationRunnerArguments.copyPackage=<包名>`(可再给 copyUser=<用户编号>);
- * 不给就用列出的第一份。系统先问打开哪一个时,由打开那一步自己点选项、认出要的那份。
- * 没有另一份用户、或那里没有要的 App 时跳过。只打开,不在 App 里做任何操作。
+ * 実機: 利用可能な別のユーザー (クローン、仕事用プロファイル) がある場合、そこにインストールされているアプリをミカの画面で開きます。一番上のタスクはそのユーザーに属し、ホーム画面は変更されません。
+ * テスト対象はパラメータで決める: `-Pandroid.testInstrumentationRunnerArguments.copyPackage=<パッケージ名>`（追加で copyUser=<ユーザー番号> も指定できる）;
+ * 指定がなければ一覧の最初のコピーを使う。システムが最初にどれを開くか尋ねる場合は、開く手順の側で選択肢をタップして目的のコピーを特定する。
+ * 別のユーザーがいない、またはそこに目的の App がない場合はスキップする。開くだけで、App 内では何も操作しない。
  */
 @RunWith(AndroidJUnit4::class)
 class AppCopyDeviceTest {
@@ -47,7 +47,7 @@ class AppCopyDeviceTest {
         assertEquals(copy.userId, shell.userOfTask(top))
         assertEquals(copy.userId, agent.screen.target.value?.userId)
         assertEquals("main screen changed", main, DeviceSupport.mainScreenState(shell))
-        // 不在能用之列的用户一律不启动
+        // 利用可能でないユーザーは一切起動しない
         assertEquals(ShellService.START_USER_NOT_ALLOWED, shell.startAppInUser(agent.display.displayId, copy.packageName, 99_999, false))
     }
 }

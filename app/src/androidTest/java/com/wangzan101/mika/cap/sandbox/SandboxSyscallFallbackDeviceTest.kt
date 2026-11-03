@@ -12,10 +12,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * 有的安卓版本给 App 装的 seccomp 策略对新系统调用(io_uring、clone3、faccessat2、epoll_pwait2、rseq……)
- * 发 SIGSYS,有的直接放行。两种平台上沙箱里的程序都不能被信号杀掉:被拦下的调用收到「不支持」(ENOSYS)
- * 走自己的退路,放行的调用拿到内核自己的结果;带路径的调用无论哪种都必须按沙箱内的路径判断。
- * 全部经产品路径 AndroidSandbox.run → mikarun → PRoot。
+ * 一部の Android バージョンでは、アプリが新しいシステム コール (io_uring、clone3、faccessat2、epoll_pwait2、rseq...) を行うために seccomp ポリシーをインストールします。
+ * は SIGSYS を送信し、一部は直接解放されます。サンドボックス内のプログラムは、両方のプラットフォームのシグナルによって強制終了できません。ブロックされた呼び出しは「サポートされていません」(ENOSYS) を受け取ります。
+ * は独自の撤退を行い、解放された呼び出しはカーネル独自の結果を取得します。パスを含む呼び出しは、サンドボックス内のパスに従って判断する必要があります。
+ * すべて製品パス AndroidSandbox.run → mikarun → PRoot 経由。
  */
 @RunWith(AndroidJUnit4::class)
 class SandboxSyscallFallbackDeviceTest {
@@ -45,7 +45,7 @@ class SandboxSyscallFallbackDeviceTest {
         assertEquals("read:written", r.output.trim())
     }
 
-    /** musl 的 faccessat(…, AT_EACCESS) 先试 faccessat2;答案必须和真实权限一致。 */
+    /** musl の faccessat(..., AT_EACCESS) まず faccessat2 を試してください。答えは実際の権限と一致している必要があります。 */
     @Test fun effectiveAccessChecks() {
         val script = """
             import os
@@ -66,11 +66,11 @@ class SandboxSyscallFallbackDeviceTest {
     }
 
     /**
-     * 进程活着,每个调用都返回 -1:平台拦下的答 ENOSYS;平台放行的由内核按这里的无效参数报错(EINVAL)。
-     * io_uring_setup 由 PRoot 自己答 ENOSYS(io_uring 的路径操作不经系统调用,PRoot 无法转换),与平台无关。
+     * プロセスは生きており、各呼び出しは -1 を返します: プラットフォームによってブロックされている場合は ENOSYS。プラットフォームによってリリースされた場合、カーネルはここでの無効なパラメータに従ってエラー (EINVAL) を報告します。
+     * io_uring_setup は、PRoot 自体の ENOSYS によって応答されます (io_uring のパス操作はシステムによって呼び出されず、PRoot によって変換できません)。これはプラットフォームとは関係ありません。
      */
     @Test fun trappedSyscallsReturnEnosys() {
-        // io_uring_setup, clone3, epoll_pwait2, rseq(arm64 编号)
+        // io_uring_setup、clone3、epoll_pwait2、rseq(arm64 番号)
         val script = """
             import ctypes, errno
             libc = ctypes.CDLL(None, use_errno=True)

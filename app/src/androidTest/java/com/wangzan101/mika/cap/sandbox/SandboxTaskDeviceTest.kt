@@ -33,8 +33,8 @@ import com.wangzan101.mika.task.testTasks
 import com.wangzan101.mika.task.TaskEnvironment
 
 /**
- * 沙箱接进任务:脚本模型在任务里写文件、跑命令、跑技能脚本。需要沙箱已装好(设置 → 沙箱 → 安装),没装就跳过。
- * 真模型的一次(-e liveSandbox 1,用已配置的模型)记录它有没有用 run_command。
+ * サンドボックス アクセス タスク: スクリプト モデルは、タスク内でファイルの書き込み、コマンドの実行、およびスキル スクリプトの実行を行います。サンドボックスをインストールする必要があります (設定 → サンドボックス → インストール)。インストールされていない場合はスキップしてください。
+ * 実際のモデル (-e liveSandbox 1、構成されたモデルを使用) は、run_command があるかどうかを記録します。 サンドボックス ステップは、
  */
 @RunWith(AndroidJUnit4::class)
 class SandboxTaskDeviceTest {
@@ -82,12 +82,12 @@ class SandboxTaskDeviceTest {
         model.answer("55")
         val end = awaitEnd()
         assertTrue("$end", end is TaskState.Succeeded && "55" in end.answer)
-        // 任务卡片上显示过沙箱这一步
+        // タスク カードに表示されます。
         assertTrue(states.toString(), states.any { it is TaskState.Running && it.note.startsWith("正在处理文件:python3 sum.py") })
     }
 
     @Test fun scriptArgsWithSpacesReachScript() {
-        // 测试技能经「打包的那份」加进去:清单和脚本核对都以打包的为准,直接写进沙箱目录的会被换回去
+        // テスト スキルは「パッケージ化されたコピー」を通じて追加されます。リストとスクリプトの検証はパッケージ化されたものに基づいており、サンドボックス ディレクトリに直接書き込まれたものは置き換えられます。
         SkillsSync.extraForTests = mapOf(
             "skills/mika-device-test/scripts/manifest.json" to """[{"file":"scripts/echo.py","runnable":true}]""".toByteArray(),
             "skills/mika-device-test/scripts/echo.py" to "import sys\nfor a in sys.argv[1:]:\n    print(a)\n".toByteArray(),
@@ -107,7 +107,7 @@ class SandboxTaskDeviceTest {
         }
     }
 
-    /** 真模型(已在 App 里配好的那个):算 1 到 100 的平方和,记下有没有用沙箱。只在 -e liveSandbox 1 时跑。 */
+    /** 実際のモデル (アプリで構成されたモデル): 1 から 100 までの平方和を計算し、サンドボックスが使用されているかどうかをメモします。 -e liveSandbox 1 を指定してのみ実行します。 */
     @Test fun liveModelUsesSandboxForArithmetic() {
         assumeTrue("pass -e liveSandbox 1 to run", args.getString("liveSandbox") == "1")
         testTasks.modelFactory = TaskEnvironment.defaultModelFactory

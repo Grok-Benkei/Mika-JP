@@ -5,16 +5,16 @@ import com.wangzan101.mika.settings.McpUsbSettings
 import com.wangzan101.mika.settings.RelaySettings
 
 /**
- * 局域网和 USB 共用的本地监听:局域网开着就绑所有网卡,只有 USB 开着就只绑回环。
- * 远程网关用独立的出站通道,不改变本地监听范围;三个开关各管各的,通知「关闭」会一起关闭。
- * 不碰安卓接口,在电脑上测。
+ * LAN と USB で共有されるローカル監視: LAN がオンの場合はすべてのネットワーク カードをバインドし、USB がオンの場合のみループバックをバインドします。
+ * リモート ゲートウェイは、ローカルの監視範囲を変更しない独立した送信チャネルを使用します。 3 つのスイッチはそれぞれ独自のタスクを管理し、「閉じる」通知は一緒に閉じられます。
+ * は Android インターフェイスには触れず、コンピューターでテストされます。
  */
 object McpModes {
-    /** 电脑经 adb 打开 USB 方式(`am start-foreground-service -a`)。 */
+    /** コンピューターは、adb (`am start-foreground-service -a`) 経由で USB モードを開きます。 adb 経由で */
     const val ACTION_USB_ON = "com.wangzan101.mika.mcp.USB_ON"
-    /** 电脑经 adb 关掉 USB 方式。 */
+    /** コンピューターの USB モードをオフにします。 */
     const val ACTION_USB_OFF = "com.wangzan101.mika.mcp.USB_OFF"
-    /** 通知上的「关闭」:本地监听和远程通道都关。 */
+    /** 通知の「閉じる」: ローカル モニタリングとリモート チャネルの両方がオフになります。 */
     const val ACTION_TURN_OFF = "com.wangzan101.mika.mcp.TURN_OFF"
 
     enum class Listen { Off, LoopbackOnly, PrivateNetworks }
@@ -25,7 +25,7 @@ object McpModes {
         else -> Listen.Off
     }
 
-    /** 服务收到的动作改哪个开关;别的动作(含没有动作)不改,只按开关现状来。 */
+    /** サービスが受信したアクションに対してどのスイッチが変更されるか。他のアクション (アクションなしを含む) は変更されず、スイッチの現在のステータスのみが変更されます。 */
     fun apply(action: String?, network: McpSettings, usb: McpUsbSettings, relay: RelaySettings? = null) {
         when (action) {
             ACTION_USB_ON -> usb.enable()

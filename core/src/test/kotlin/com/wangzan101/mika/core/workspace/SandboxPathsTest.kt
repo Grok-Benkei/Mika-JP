@@ -44,7 +44,7 @@ class SandboxPathsTest {
 
         assertNull(SandboxPaths.resolveHost(root, "x"))
         assertNull(SandboxPaths.resolveHost(root, "x/secret"))
-        // 指向外面、目标还不存在的链接:写下去就会落到外面
+        // 外部を指すリンクがあり、ターゲットはまだ存在しません。これを記述すると、外部に落ちます。
         assertNull(SandboxPaths.resolveHost(root, "dangling"))
         assertEquals(File(root, "inner/f").canonicalFile, SandboxPaths.resolveHost(root, "ok/f"))
         assertEquals(File(root, "new/file.txt").canonicalFile, SandboxPaths.resolveHost(root, "new/file.txt"))

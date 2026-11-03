@@ -20,11 +20,11 @@ class RunMetricsTest {
     private fun activity(at: Long, step: Int, kind: String, label: String, callId: String, source: String = "model") =
         RunEvent.Activity(at, step, kind, label, source = source, callId = callId)
 
-    /** 打开 App、读一屏、交回答:每一项都能对上。 */
+    /** アプリを開いて画面を読み、回答を送信してください。すべての項目が正しいです。 */
     @Test fun computesEachFieldFromASimpleRun() {
         val events = listOf(
             started(),
-            // 第 1 步:回复 3.2 秒时到手,执行完才记
+            // ステップ 1: 3.2 秒で取得し、実行後に記憶します
             result(3_900, 1, "phone_launch_app", 700, "c1"),
             activity(3_900, 1, "act", "phone_launch_app", "c1"),
             reply(3_900, 1, "phone_launch_app", latency = 2_000, repliedAt = 3_200, input = 1_000, output = 50, cached = 600),
@@ -119,7 +119,7 @@ class RunMetricsTest {
     @Test fun firstFeedbackSkipsRejectedLightRepliesAndUsesReplyArrival() {
         val m = RunMetrics.of(listOf(
             started(1_000),
-            // 轻量模型的回复改派掉了,用户没看到
+            // 軽量モデルの返信はスケジュール変更されており、ユーザーには表示されませんでした。
             reply(1_500, 1, "phone_tap", role = "light_rejected"),
             result(4_000, 1, "phone_observe", 500, "c1"),
             activity(4_000, 1, "observe", "phone_observe", "c1"),
@@ -148,7 +148,7 @@ class RunMetricsTest {
         assertEquals(0, m.modelCalls)
     }
 
-    /** 一批动作:外层的耗时含子步,子步里的读计入读,其余算操作,不重复计。 */
+    /** アクションのバッチ: 時間のかかる外側のレイヤーにはサブステップが含まれており、サブステップの読み取りは読み取りとしてカウントされ、残りの計算操作は繰り返されません。 */
     @Test fun batchSplitsItsInnerStepsWithoutDoubleCounting() {
         val m = RunMetrics.of(listOf(
             started(0),
@@ -165,7 +165,7 @@ class RunMetricsTest {
         assertEquals(1, m.actCalls)
     }
 
-    /** 一批里各步做完后按条件等界面的时间(外层的 waitMs)算等待,落在其他里,不算操作。 */
+    /** バッチ内の各ステップが完了した後、条件に従ってインターフェイスを待機した時間 (外層の waitMs) が待機としてカウントされます。他のバッチに該当する場合は操作としてカウントされません。 */
     @Test fun batchConditionWaitsAreWaitingNotActing() {
         val m = RunMetrics.of(listOf(
             started(0),
@@ -194,7 +194,7 @@ class RunMetricsTest {
     }
 
     @Test fun pacedDwellCountsAsWaitNotAction() {
-        // 网页换页前补的停留记在 waitMs:算等待,不算操作
+        // ページ変更前の一時停止は waitMs に記録されます。操作としてではなく、待機としてカウントされます。
         val m = RunMetrics.of(listOf(
             started(0),
             result(5_000, 1, "web_tap", 5_000, "c1", wait = 4_000),
@@ -220,7 +220,7 @@ class RunMetricsTest {
         assertEquals(4, m.allCalls)
         assertEquals(900L, m.allInputTokens)
         assertEquals(30L, m.allOutputTokens)
-        // 收尾后的那一条不改总时长
+        // 最後のものは合計期間を変更しません
         assertEquals(100L, m.totalMs)
     }
 

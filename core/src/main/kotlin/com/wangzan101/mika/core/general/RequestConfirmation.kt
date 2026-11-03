@@ -25,12 +25,12 @@ import com.wangzan101.mika.core.uistate.lastSnapshot
 import com.wangzan101.mika.core.uistate.session
 
 /**
- * 花钱的那一步(下单、屏上有应付金额时的提交等)前请用户同意;询问时只有这一种要问。付款本身不在这里,交给用户亲手付。
- * 申报的前台核对用此刻重新读的一屏(不登记编号,不动模型手里的 ref)。
+ * お金を使うステップ（注文の発注、画面上に金額が表示された場合の送信など）の前に、ユーザーに同意を求めてください。質問するときはこれが唯一の質問方法です。支払い自体はここではなく、ユーザーが手で支払うことに任されています。
+ * レポートのフロントエンドチェックは、このときに再読み込みされる画面を使用します（番号を登録せず、モデルハンド内の参照を移動しません）。
  */
 internal object RequestConfirmation : SurfaceAware {
     override val verb = Verb.RequestConfirmation
-    override val label = "请你同意"
+    override val label = "同意をお願いする"
     override val risk = Risk.Read
     override val def = ToolDef("request_confirmation",
         Prompts.tool("request_confirmation"),
@@ -42,7 +42,7 @@ internal object RequestConfirmation : SurfaceAware {
             "app" to str(APP_NOTE),
         ), listOf("action", "target", "content", "amount", "app"))
 
-    /** app 参数写什么按本任务的屏说:一块屏时写那块的写法,几块屏时各写一句。 */
+    /** アプリのパラメータは、このタスクの画面に合わせて記述します。画面が 1 つの場合はその部分の記述方法を記述し、画面が複数ある場合はそれぞれに 1 文を記述します。 */
     override fun def(ctx: ToolContext): ToolDef {
         val base = super.def(ctx)
         val surfaces = ctx.focus.surfaces
@@ -63,7 +63,7 @@ internal object RequestConfirmation : SurfaceAware {
                 a.str("amount", max = 10000)?.let(::capField), a.str("app")!!.trim())
             return fail("payment_requires_takeover", HINT_PAYMENT_TAKEOVER)
         }
-        // 只有花钱要问:写不出金额的操作不用申请,直接做
+        // お金だけお願いします: 金額を書けない場合は申請する必要はありません、直接申請してください
         if (a.str("amount")?.any(Char::isDigit) != true) throw ArgError("amount",
             "required: the total the user will pay, as shown on screen. An action that spends no money needs no approval: do it directly")
         val app = ctx.confirmTarget(a.str("app")!!.trim())

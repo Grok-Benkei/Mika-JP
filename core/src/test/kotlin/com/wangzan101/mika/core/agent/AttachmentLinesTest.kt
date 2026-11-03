@@ -3,17 +3,17 @@ package com.wangzan101.mika.core.agent
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** 附件行的写法:话在前、每个附件一行在后,拆回来;旧对话里的写法,只是看着像附件行的话。 */
+/** 添付ファイル行の書き方: 単語が最初に来て、添付ファイルごとに 1 行が後に来て、その後に分割されます。古いダイアログでの書き方は、添付ファイルの行の言葉と同じように見えます。 */
 class AttachmentLinesTest {
     @Test fun composeWritesWhatParseReads() {
         val files = listOf("/workspace/inbox/a.png" to "3 KB", "/workspace/inbox/b.docx" to "1.0 MB")
         val text = AttachmentLines.compose("查一下", files)
-        assertEquals("查一下\n附件:/workspace/inbox/a.png(3 KB)\n附件:/workspace/inbox/b.docx(1.0 MB)", text)
+        assertEquals("查一下\n添付:/workspace/inbox/a.png(3 KB)\n添付:/workspace/inbox/b.docx(1.0 MB)", text)
         assertEquals(AttachmentLines.Parsed(files, "查一下"), AttachmentLines.parse(text))
-        assertEquals("附件:/workspace/inbox/a.png(3 KB)", AttachmentLines.compose("", listOf("/workspace/inbox/a.png" to "3 KB")))
+        assertEquals("添付:/workspace/inbox/a.png(3 KB)", AttachmentLines.compose("", listOf("/workspace/inbox/a.png" to "3 KB")))
     }
 
-    // 旧对话里存下的写法:名字里带括号、只有附件没有话、大小是字节
+    // 古い会話に保存された書き込み方法: 括弧付きの名前、単語なしの添付ファイルのみ、バイト単位のサイズ
     @Test fun oldMessagesParseTheSameWay() {
         assertEquals(
             AttachmentLines.Parsed(listOf("/workspace/inbox/报表 (1).csv" to "2 KB", "/workspace/inbox/x" to "512 B"), ""),

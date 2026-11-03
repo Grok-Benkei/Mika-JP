@@ -1,8 +1,8 @@
 package com.wangzan101.mika.core.record
 
 /**
- * 读已经存下的运行记录(只读):概要(run.json)和事件(events.jsonl)。记录落盘时已脱敏、截短,读出来原样给。
- * 记录已被清掉、编号不认识或读不出时返回 null / 空表,不抛异常。由 app 一侧按落盘的记录实现。
+ * 保存された実行レコード (読み取り専用): 概要 (run.json) とイベント (events.jsonl) を読み取ります。レコードはディスクに置かれたときに感度が下げられ、切り詰められており、そのまま読み取られます。
+ * レコードがクリアされ、番号が不明または読み取れず、例外がスローされない場合は、null/空のテーブルを返します。アプリ横のレコードを押すことで実現します。
  */
 interface RunRecords {
     suspend fun summary(runId: String): RunSummary?

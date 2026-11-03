@@ -10,7 +10,7 @@ import com.wangzan101.mika.core.uistate.IdleScroll
 import com.wangzan101.mika.core.uistate.PageLimitReached
 import com.wangzan101.mika.core.uistate.PlacePace
 
-/** 一页一页看的节奏:第一页不等、停够了不等、换网站不等,停留有上下限且随看过的页数变长。 */
+/** ページごとの読書のリズム: 最初のページから最後のページまで、十分に停止したときから、Web サイトを変更するときまで、さまざまです。滞在時間には上限と下限があり、読んだページ数に応じて長くなります。 */
 class PagePacingTest {
     private val limits = PagePacing.Limits()
 
@@ -30,7 +30,7 @@ class PagePacingTest {
             val dwell = p.noteLoad("https://shop.example.com/list?page=2", 1_000)
             assertTrue("$dwell", dwell in limits.firstDwellMs)
             assertEquals(dwell, p.waitBefore("shop.example.com", 1_000))
-            // 模型自己想、读花掉的时间算在停留里
+            // モデルを考えたり読んだりした時間は滞在に含まれます
             assertEquals(dwell - 1_500, p.waitBefore("shop.example.com", 2_500))
             assertEquals(0, p.waitBefore("shop.example.com", 1_000 + dwell))
             assertEquals(0, p.waitBefore("shop.example.com", 100_000))
@@ -61,9 +61,9 @@ class PagePacingTest {
         val p = PagePacing.human(Random(3))
         p.noteLoad("https://www.shop.example.com/", 0)
         p.noteLoad("https://m.shop.example.com/item/1", 100)
-        // 同一个可注册域名:第二页
+        // 同一登録可能ドメイン名：2ページ目
         assertTrue(p.waitBefore("example.com", 200) > 0)
-        // 别的网站:不等;到了别的网站之后,回原网站的动作也不按原网站那一页等
+        // 他の Web サイト: 待つ必要はありません。他の Web サイトに到達した後、元の Web サイトに戻る動作は、元の Web サイトのページに従って待機しません。
         assertEquals(0, p.waitBefore("news.example.org", 200))
         assertEquals(0, p.noteLoad("https://news.example.org/", 300))
         assertEquals(0, p.waitBefore("shop.example.com", 400))
@@ -73,7 +73,7 @@ class PagePacingTest {
     fun `pages outside the window no longer count`() {
         val p = PagePacing.human(Random(5))
         p.noteLoad("https://shop.example.com/", 0)
-        // 过了时间窗,再来又是这个网站的第一页
+        // 時間枠が過ぎると、再びこの Web サイトの最初のページになります。
         assertEquals(0, p.noteLoad("https://shop.example.com/again", limits.windowMs + 1))
     }
 
@@ -94,7 +94,7 @@ class PagePacingTest {
         d.onWait = { waited += it }
         d.seen("https://shop.example.com/")
         assertEquals(0, d.before())
-        // 同一页(只差 #)不算新的一页
+        // 同じページ (# だけが異なる) は新しいページとみなされません
         d.seen("https://shop.example.com/#top")
         assertEquals(0, d.before())
         d.seen("https://shop.example.com/list?page=2")
@@ -103,12 +103,12 @@ class PagePacingTest {
         assertTrue("$w", w in (limits.firstDwellMs.first - 1_000)..(limits.firstDwellMs.last - 1_000))
         assertEquals(listOf(w), slept)
         assertEquals(listOf(w), waited)
-        // 停够了:下一个动作不再等
+        // 十分に停止しました: 次のアクションを待つ必要はもうありません
         assertEquals(0, d.before())
-        // 加载了更多:又是一页
+        // がさらに読み込まれました: 別のページ
         d.loadedMore()
         assertTrue(d.before() > 0)
-        // 打开别的网站不等
+        // は他の Web サイトを開くのを待ちません
         d.seen("https://shop.example.com/list?page=3")
         assertEquals(0, d.before("https://news.example.org/"))
     }
@@ -126,7 +126,7 @@ class PagePacingTest {
                 t += 40_000
             }
         }
-        // 普通网站的范围不变
+        // 通常のウェブサイトの範囲は変わりません
         val p = PagePacing.human(Random(2))
         p.noteLoad("https://shop.example.com/", 0)
         assertTrue(p.noteLoad("https://shop.example.com/2", 1) in limits.firstDwellMs)
@@ -139,17 +139,17 @@ class PagePacingTest {
         repeat(limits.pageCap - 1) { p.noteLoad("https://shop.example.com/p$it", it * 60_000L) }
         assertFalse(p.capReached("shop.example.com"))
         p.noteLoad("https://www.shop.example.com/last", 3_000_000)
-        // 过了时间窗的页也算:上限按整个任务数
+        // 時間枠を経過したページもカウントされます。上限はタスク全体の数に基づきます
         assertTrue(p.capReached("m.shop.example.com"))
         assertEquals(limits.pageCap, p.pagesOn("shop.example.com"))
-        // 别的网站另算
+        // その他のWebサイトは別途料金がかかります。
         assertFalse(p.capReached("news.example.org"))
         p.userAnswered()
         assertFalse(p.capReached("shop.example.com"))
-        // 限制浏览快慢的网站上限更低
+        // 閲覧速度を制限する Web サイトには下限値があります
         repeat(PagePacing.Limits.CAREFUL.pageCap) { p.noteLoad("https://jobs.example.com/p$it", it.toLong(), PlacePace.CAREFUL) }
         assertTrue(p.capReached("jobs.example.com", PlacePace.CAREFUL))
-        // 不设节奏时也不设上限
+        // リズムなしの場合は上限なし
         repeat(50) { PagePacing.Off.noteLoad("https://shop.example.com/p$it", 0) }
         assertFalse(PagePacing.Off.capReached("shop.example.com"))
     }
@@ -161,12 +161,12 @@ class PagePacingTest {
         repeat(limits.pageCap) { p.noteLoad("https://shop.example.org/p$it", it * 1_000L) }
         assertTrue(p.capReached("jobs.example.com"))
         p.outwardDone("www.jobs.example.com")
-        // 做过对外动作:这个网站(同一可注册域名)不再设上限,停留照旧
+        // は外部アクションを実行しました: この Web サイト (同じ登録可能なドメイン名) には上限がなくなり、滞在期間は変わりません。
         assertFalse(p.capReached("m.jobs.example.com"))
         val d = p.noteLoad("https://jobs.example.com/more", 100_000)
         assertTrue("$d", d > 0)
         assertEquals(d, p.waitBefore("jobs.example.com", 100_000))
-        // 用户答话后照样不设;别的网站不受影响
+        // ユーザーが応答した後も設定されていません。他のウェブサイトは影響を受けません
         p.userAnswered()
         repeat(limits.pageCap * 2) { p.noteLoad("https://jobs.example.com/x$it", 200_000L + it) }
         assertFalse(p.capReached("jobs.example.com"))
@@ -180,7 +180,7 @@ class PagePacingTest {
         val d = PageDwell(PagePacing.human(Random(9), limits = PagePacing.Limits(pageCap = 2)), clock = { now }, sleep = { now += it })
         for (i in 1..2) { d.seen("https://jobs.example.com/p$i"); now += 60_000 }
         assertTrue(runCatching { d.before() }.exceptionOrNull() is PageLimitReached)
-        // 正在做的对外动作不拦;没做成的不解除上限
+        // 実行される外部アクションはブロックされません。未完了のアクションについては上限は解放されません。
         d.outwardStart("jobs.example.com")
         d.before()
         d.outwardEnd("jobs.example.com", done = false)
@@ -188,7 +188,7 @@ class PagePacingTest {
         d.outwardStart("jobs.example.com")
         d.outwardEnd("jobs.example.com", done = true)
         d.seen("https://jobs.example.com/p3")
-        // 解除之后照样补足停留
+        // が宿泊料金を補填します。
         assertTrue(d.before() > 0)
     }
 
@@ -200,10 +200,10 @@ class PagePacingTest {
         val e = runCatching { d.before() }.exceptionOrNull()
         assertTrue("$e", e is PageLimitReached && e.pages == 3 && e.cap == 3 && e.site == "shop.example.com")
         assertTrue(runCatching { d.before("https://shop.example.com/p4") }.exceptionOrNull() is PageLimitReached)
-        // 往下滚(不看上限)和别的网站照常
+        // 下にスクロール (上限は見ずに) し、他の Web サイトも通常どおりにスクロールします
         assertEquals(0, d.before(gate = false))
         assertEquals(0, d.before("https://news.example.org/"))
-        // 用户答过话:接着看
+        // ユーザーが返信しました: 続きを読んでください
         d.userAnswered()
         assertEquals(0, d.before())
     }
@@ -218,7 +218,7 @@ class PagePacingTest {
         d.seen("https://www.jobs.example.com/b")
         val w = d.before()
         assertTrue("$w", w in PagePacing.Limits.CAREFUL.firstDwellMs)
-        // 同一个主机只问一次
+        // 同じホストに対して 1 回だけ要求します
         assertEquals(listOf("jobs.example.com"), asked)
     }
 
@@ -233,17 +233,17 @@ class PagePacingTest {
         d.seen("https://shop.example.com/")
         d.seen("https://shop.example.com/2")
         val w = d.before(port = port)
-        // 停够的总时长不变,滚了 1–3 下
+        // 停止時間の合計は変わらず、ロールは 1 ～ 3 回です。
         assertEquals(w, slept.sum())
         val scrolls = port.calls.filter { it.startsWith("idle ") }
         assertTrue("$scrolls", scrolls.size in 1..3)
         assertEquals(scrolls.size, idled)
-        // 按坐标做的动作(不给端口)不滚
+        // 座標に基づくアクション (ポートが指定されていない) がロールされません
         d.seen("https://shop.example.com/3")
         port.calls.clear()
         d.before()
         assertTrue(port.calls.isEmpty())
-        // 端口说这会儿不便滚:滚一下都不成就不再试,照样停够
+        // ポートは、現時点ではロールするのが不便であることを示しています。動作しない場合は、再試行しないでください。停止するだけで十分です。
         d.seen("https://shop.example.com/4")
         port.calls.clear(); slept.clear(); idled = 0
         port.idleOk = false

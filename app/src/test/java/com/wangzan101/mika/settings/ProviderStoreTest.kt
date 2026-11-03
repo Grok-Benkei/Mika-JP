@@ -41,6 +41,48 @@ class ProviderStoreTest {
         FakeModel(cfg.capabilities)
     }
 
+    @Test fun explicitSelfHostedIntentSurvivesReloadAndNameChanges() {
+        val s = store()
+        val p = s.connect("Ollama", ProviderConfig.Kind.OpenAiCompat, "https://models.example.com/v1", "test-key", emptyList(), explicitSelfHosted = true)
+        assertTrue(p.explicitSelfHosted)
+        // 同じ接続を再検査しても、本人が選んだ自己ホストの意図を消さない。
+        assertTrue(s.connect(p.name, p.kind, p.baseUrl, null, emptyList()).explicitSelfHosted)
+        val file = File(tmp.root, "providers.json")
+        file.writeText(file.readText().replace("\"name\":\"Ollama\"", "\"name\":\"My renamed models\""))
+        val reloaded = store().provider(p.id)!!
+        assertEquals("My renamed models", reloaded.name)
+        assertTrue(reloaded.explicitSelfHosted)
+        assertTrue(ModelOptions.allowsChineseModels(reloaded))
+    }
+
+    @Test fun newOrdinaryProxyDoesNotBecomeSelfHostedAfterReload() {
+        val s = store()
+        val p = s.connect("Ollama", ProviderConfig.Kind.OpenAiCompat, "https://relay.example.com/v1", "test-key", emptyList())
+        assertFalse(p.explicitSelfHosted)
+        assertFalse(store().provider(p.id)!!.explicitSelfHosted)
+        assertFalse(ModelOptions.allowsChineseModels(store().provider(p.id)!!))
+    }
+
+    @Test fun oldJsonInfersOnlyRecognisedSelfHostedPresetsAndKeepsProxyDefaultsFalse() {
+        File(tmp.root, "providers.json").writeText(
+            """{"services":[
+                {"id":"old-local","name":"Ollama","kind":"OpenAiCompat","baseUrl":"https://model-host.example.com/v1"},
+                {"id":"old-proxy","name":"Gateway","kind":"OpenAiCompat","baseUrl":"https://relay.example.com/v1"},
+                {"id":"known-cloud","name":"Ollama","kind":"OpenAiCompat","baseUrl":"https://openrouter.ai/api/v1"},
+                {"id":"explicit-false","name":"Ollama","kind":"OpenAiCompat","baseUrl":"https://other-host.example.com/v1","explicitSelfHosted":false},
+                {"id":"malformed","name":"Ollama","kind":"OpenAiCompat","baseUrl":"https://third-host.example.com/v1","explicitSelfHosted":{}}
+            ],"providers":[],"uses":{}}""",
+        )
+        val loaded = store()
+        assertTrue(loaded.provider("old-local")!!.explicitSelfHosted)
+        assertFalse(loaded.provider("old-proxy")!!.explicitSelfHosted)
+        assertFalse(loaded.provider("known-cloud")!!.explicitSelfHosted)
+        assertFalse(loaded.provider("explicit-false")!!.explicitSelfHosted)
+        assertFalse(loaded.provider("malformed")!!.explicitSelfHosted)
+        assertTrue(store().provider("old-local")!!.explicitSelfHosted)
+        assertFalse(store().provider("old-proxy")!!.explicitSelfHosted)
+    }
+
     private fun cfg(id: String, tools: Boolean = true, vision: Boolean = false) = ProviderConfig(
         id = id, kind = ProviderConfig.Kind.OpenAiCompat, baseUrl = "https://example.test/v1", model = "m-$id",
         capabilities = Capabilities(toolCalls = tools, vision = vision, contextTokens = 64_000, reasoning = false),
@@ -49,7 +91,7 @@ class ProviderStoreTest {
 
     private val none = Capabilities(toolCalls = false, vision = false, contextTokens = 64_000, reasoning = false)
 
-    /** 存一条配置并让它当主模型(没人用的配置会被清掉)。 */
+    /** 構成を保存し、それをメイン モデルにします (誰も使用しない構成はクリアされます)。 */
     private fun ProviderStore.saveAsMain(c: ProviderConfig, apiKey: String?) {
         save(c, apiKey)
         assertTrue(choose(ModelRole.Main, RoleChoice.Model(c.id)))
@@ -58,7 +100,7 @@ class ProviderStoreTest {
     private fun connected(s: ProviderStore, name: String = "P", key: String = "k") =
         s.connect(name, ProviderConfig.Kind.OpenAiCompat, "https://${name.lowercase()}.test/v1", key, listOf(ListedModel("m1"), ListedModel("m2")))
 
-    // ---------- 用途的选择 ----------
+    // ---------- アプリケーションの選択 ----------
 
     @Test fun modelContextSurvivesPruningAndIsSharedOnlyWithinTheSameProviderAndModel() {
         val s = store()
@@ -149,10 +191,10 @@ class ProviderStoreTest {
         val s = store()
         s.saveAsMain(cfg("a", vision = true), "sk-a")
         assertEquals("a", s.configFor(ModelRole.Light)?.id)
-        // 不再有「主模型能看图就兼任看图」的隐含规则
+        // には、「メインモデルが画像を表示できる場合は、メインモデルも画像を表示できる」という暗黙のルールがなくなりました。
         assertNull(s.configFor(ModelRole.Vision))
         val m = s.modelFor(ModelRole.Main)
-        assertEquals("套上计量后能力照旧", cfg("a", vision = true).capabilities, m?.capabilities)
+        assertEquals("使用量計測でラップしても能力を維持する", cfg("a", vision = true).capabilities, m?.capabilities)
         assertEquals("a" to "sk-a", built.single().first.id to built.single().second)
     }
 
@@ -163,15 +205,15 @@ class ProviderStoreTest {
         assertTrue(s.choose(ModelRole.Vision, RoleChoice.SameAsMain))
         val v = s.configFor(ModelRole.Vision)!!
         assertEquals("a", v.id)
-        assertTrue("用户说主模型能看图,看图这一路照发截图", v.capabilities.vision)
+        assertTrue("メインモデルを画像対応と指定した場合、画像用の経路でもスクリーンショットを送る", v.capabilities.vision)
         s.modelFor(ModelRole.Vision)
         assertTrue(built.last().first.capabilities.vision)
         assertEquals("sk-a", built.last().second)
-        assertTrue("用户说了主模型能看图,主模型自己办事也直接看截图", s.configFor(ModelRole.Main)!!.capabilities.vision)
-        // 重开仍在
+        assertTrue("メインモデルを画像対応と指定した場合、メインモデル自身の作業でもスクリーンショットを直接参照する", s.configFor(ModelRole.Main)!!.capabilities.vision)
+        // はまだ再開しています
         assertEquals(RoleChoice.SameAsMain, store().roles.value.vision)
         assertTrue(s.choose(ModelRole.Vision, RoleChoice.Off))
-        assertFalse("换走了就回到存着的标记", s.configFor(ModelRole.Main)!!.capabilities.vision)
+        assertFalse("別のモデルへ切り替えたら保存済みのフラグに戻す", s.configFor(ModelRole.Main)!!.capabilities.vision)
     }
 
     @Test
@@ -182,10 +224,10 @@ class ProviderStoreTest {
         assertTrue(s.use(ModelRole.Vision, p.id, "m1", none))
         assertTrue(s.configFor(ModelRole.Main)!!.capabilities.vision)
         s.modelFor(ModelRole.Main)
-        assertTrue("建出来的主模型附图", built.last().first.capabilities.vision)
+        assertTrue("生成したメインモデルには画像を添付する", built.last().first.capabilities.vision)
         assertTrue(s.use(ModelRole.Vision, p.id, "m2", none))
-        assertFalse("看图换成别的模型,主模型回到列表和初值说的", s.configFor(ModelRole.Main)!!.capabilities.vision)
-        assertFalse("没改存着的配置", store().list().first { it.model == "m1" }.capabilities.vision)
+        assertFalse("画像用を別モデルへ変更したら、メインモデルは一覧と初期値の能力に戻す", s.configFor(ModelRole.Main)!!.capabilities.vision)
+        assertFalse("保存済みの設定を変更しない", store().list().first { it.model == "m1" }.capabilities.vision)
     }
 
     @Test
@@ -193,13 +235,13 @@ class ProviderStoreTest {
         val s = store()
         val p = connected(s)
         assertTrue(s.use(ModelRole.Main, p.id, "m1", none))
-        assertFalse("列表没写,按初值", s.configFor(ModelRole.Main)!!.capabilities.vision)
+        assertFalse("一覧に記載がなければ初期値を使う", s.configFor(ModelRole.Main)!!.capabilities.vision)
         assertTrue(s.setModelVision(p.id, "m1", true))
         assertTrue(s.configFor(ModelRole.Main)!!.capabilities.vision)
         val reopened = store()
         assertEquals(mapOf("m1" to true), reopened.provider(p.id)!!.visionOverrides)
-        assertTrue("重开仍在", reopened.configFor(ModelRole.Main)!!.capabilities.vision)
-        // 用户也能关掉:看图用主模型时主模型也按用户说的不附图,看图这一路照旧
+        assertTrue("開き直しても保持される", reopened.configFor(ModelRole.Main)!!.capabilities.vision)
+        // ユーザーはこれをオフにすることもできます。メイン モデルを使用して写真を表示する場合、メイン モデルはユーザーが言ったように写真を添付せず、写真を表示するプロセスは同じままです。
         assertTrue(s.choose(ModelRole.Vision, RoleChoice.SameAsMain))
         assertTrue(s.setModelVision(p.id, "m1", false))
         assertFalse(s.configFor(ModelRole.Main)!!.capabilities.vision)
@@ -236,7 +278,7 @@ class ProviderStoreTest {
         assertFalse(s.choose(ModelRole.Main, RoleChoice.SameAsMain))
         assertFalse(s.choose(ModelRole.Main, RoleChoice.Off))
         assertFalse(s.choose(ModelRole.Light, RoleChoice.Off))
-        assertFalse("不存在的配置", s.choose(ModelRole.Main, RoleChoice.Model("zzz")))
+        assertFalse("存在しない設定", s.choose(ModelRole.Main, RoleChoice.Model("zzz")))
         assertEquals(RoleChoices(main = "a"), s.roles.value)
     }
 
@@ -249,9 +291,9 @@ class ProviderStoreTest {
         val main = s.configFor(ModelRole.Main)!!
         val vision = s.configFor(ModelRole.Vision)!!
         assertEquals("m1" to "m2", main.model to vision.model)
-        assertTrue("选作主模型就记工具调用", main.capabilities.toolCalls)
-        assertTrue("选作看图就算能看图", vision.capabilities.vision)
-        // 轻量不要求任何能力
+        assertTrue("メインモデルに選んだらツール呼び出し対応として記録する", main.capabilities.toolCalls)
+        assertTrue("画像用に選んだら画像対応として扱う", vision.capabilities.vision)
+        // は軽量で、何の能力も必要ありません
         assertTrue(s.use(ModelRole.Light, p.id, "m2", none))
         assertEquals(vision.id, s.configFor(ModelRole.Light)?.id)
         assertFalse(s.use(ModelRole.Main, "missing", "m1", none))
@@ -282,7 +324,7 @@ class ProviderStoreTest {
         assertEquals("m1", built.single().first.model)
     }
 
-    // ---------- 没人用的配置删掉 ----------
+    // ---------- 誰も使用していない設定を削除 ----------
 
     @Test
     fun configsNoRoleUsesAreDeletedButTheProviderKeyStays() {
@@ -291,10 +333,10 @@ class ProviderStoreTest {
         s.use(ModelRole.Main, p.id, "m1", none)
         s.use(ModelRole.Light, p.id, "m2", none)
         assertEquals(listOf("m1", "m2"), s.list().map { it.model })
-        // 轻量改回用主模型:m2 没人用了
+        // 軽量をメインモデルに戻しました: m2 はもう誰も使っていません
         assertTrue(s.choose(ModelRole.Light, RoleChoice.SameAsMain))
         assertEquals(listOf("m1"), s.list().map { it.model })
-        // 换主模型:m1 没人用了
+        // がメインモデルを変更しました: m1 はもう誰も使用しません
         s.use(ModelRole.Main, p.id, "m2", none)
         assertEquals(listOf("m2"), s.list().map { it.model })
         assertEquals("k", s.providerKey(p.id))
@@ -321,7 +363,7 @@ class ProviderStoreTest {
         assertEquals(2, s.list().size)
         val reopened = store()
         assertEquals(listOf("a"), reopened.list().map { it.id })
-        // 手改坏的文件:看图指向不存在的配置,退回不用
+        // 手動で変更されたファイル: 画像は存在しない構成を指しています。それを返し、使用しないでください。
         val f = File(tmp.root, "providers.json")
         f.writeText(f.readText().replace("\"Vision\":{\"use\":\"none\"}", "\"Vision\":{\"use\":\"model\",\"config\":\"gone\"}"))
         assertEquals(RoleChoice.Off, store().roles.value.vision)
@@ -356,7 +398,7 @@ class ProviderStoreTest {
         assertNull(ProviderStore(tmp.root, AesGcmKeyCipher { otherKey }).apiKey("a"))
     }
 
-    /** 试调用通过的模型名随服务商存下;再连一次同一家时合并;旧文件没有这一项时为空。 */
+    /** トライアル コールに合格したモデル名はサービス プロバイダーに保存されます。同じプロバイダーに再度接続するとマージされます。古いファイルにこの項目がない場合は空になります。 */
     @Test
     fun verifiedModelsPersist() {
         val s = store()
@@ -376,70 +418,70 @@ class ProviderStoreTest {
         val s = store()
         val listed = listOf(ListedModel("a", displayName = "A", toolCalls = true, contextTokens = 128_000), ListedModel("b", vision = false))
         val p = s.connect("DeepSeek", ProviderConfig.Kind.OpenAiCompat, "https://api.deepseek.com", "sk-d", listed)
-        assertTrue("连上了还没选模型", s.list().isEmpty())
+        assertTrue("接続済みでも、まだモデルは選択されていない", s.list().isEmpty())
         assertNull(s.roles.value.main)
         val reopened = store()
         assertEquals(listOf(p), reopened.providers.value)
         assertEquals(listed, reopened.providers.value.single().models)
         assertEquals("sk-d", reopened.providerKey(p.id))
-        // 同一家再连一次:更新 Key 和列表,不重复添加
+        // 同じ会社に再度接続します: キーとリストを更新します。繰り返し追加しないでください。
         val again = s.connect("DeepSeek", ProviderConfig.Kind.OpenAiCompat, "https://api.deepseek.com/", "sk-new", listOf(ListedModel("c")))
         assertEquals(p.id, again.id)
         assertEquals(1, s.providers.value.size)
         assertEquals("sk-new", s.providerKey(p.id))
         assertEquals(listOf("c"), store().providers.value.single().models!!.map { it.id })
-        // 没列过的是 null,列过但没有的是空列表
+        // リストされていない場合は、null です。リストされていてもリストされていない場合、それは空のリストです。
         s.rememberModels(p.id, emptyList())
         assertEquals(emptyList<ListedModel>(), store().providers.value.single().models)
     }
 
-    // ---------- 跳过测试直接存下 ----------
+    // ---------- テストをスキップして直接保存 ----------
 
-    /** 跳过测试存下的那家带标记;重新读文件也在(旧版本的文件没有这一项,按测过算)。 */
+    /** はテストをスキップし、マークを付けて保存します。ファイルの再読み込みも含まれます (古いバージョンのファイルにはこの項目はありません。テストに基づいて計算されます)。 */
     @Test
     fun untestedProviderPersistsItsFlag() {
         val s = store()
         val p = s.connect("X", ProviderConfig.Kind.OpenAiCompat, "https://x.test/v1", "k", emptyList(), untested = true)
         assertTrue(p.savedUntested)
-        assertTrue("重新读入还在", store().provider(p.id)!!.savedUntested)
-        // 不是跳过测试存下的那些没有这个标记
+        assertTrue("再読み込み後も保持される", store().provider(p.id)!!.savedUntested)
+        // テストをスキップせずに保存したものにはこのマークがつきません
         val other = s.connect("Y", ProviderConfig.Kind.OpenAiCompat, "https://y.test/v1", "k", emptyList())
         assertFalse(other.savedUntested)
         assertFalse(store().provider(other.id)!!.savedUntested)
     }
 
-    /** 列过一次模型、或试通过一个模型,「没测过」就不再成立。 */
+    /** モデルがリストに掲載されるか、モデルがテストされると、「未テスト」は無効になります。 */
     @Test
     fun listingOrVerifyingClearsTheUntestedFlag() {
         val s = store()
         val listed = s.connect("X", ProviderConfig.Kind.OpenAiCompat, "https://x.test/v1", "k", emptyList(), untested = true)
         s.rememberModels(listed.id, listOf(ListedModel("m1")))
-        assertFalse("列出来了就算测过", store().provider(listed.id)!!.savedUntested)
+        assertFalse("一覧を取得できたらテスト済みとする", store().provider(listed.id)!!.savedUntested)
 
         val verified = s.connect("Z", ProviderConfig.Kind.OpenAiCompat, "https://z.test/v1", "k", emptyList(), untested = true)
         assertTrue(s.provider(verified.id)!!.savedUntested)
         s.markVerified(verified.id, "m1")
-        assertFalse("核实过就算测过", s.provider(verified.id)!!.savedUntested)
+        assertFalse("動作確認済みならテスト済みとする", s.provider(verified.id)!!.savedUntested)
         assertEquals(setOf("m1"), s.provider(verified.id)!!.verifiedModels)
     }
 
-    /** 主模型在它那家还没测试通过(没有列表、手填、没核实)时给出那一家;核实过、或这家有列表时不算。 */
+    /** のメインモデルは、メーカーがテストに合格していない場合（リストなし、手動入力、検証なし）に与えられます。認証されている場合、または企業がリストを持っている場合はカウントされません。 */
     @Test
     fun untestedMainProviderFollowsTheMainModel() {
         val s = store()
-        assertNull("没有主模型", s.untestedMainProvider())
+        assertNull("メインモデルがない", s.untestedMainProvider())
         val p = s.connect("X", ProviderConfig.Kind.OpenAiCompat, "https://x.test/v1", "k", emptyList(), untested = true)
         s.markTyped(p.id, "m1")
         s.use(ModelRole.Main, p.id, "m1", none)
         assertEquals(p.id, s.untestedMainProvider()?.id)
         s.markVerified(p.id, "m1")
-        assertNull("试通过了", s.untestedMainProvider())
+        assertNull("テストに合格した", s.untestedMainProvider())
         val listed = s.connect("Y", ProviderConfig.Kind.OpenAiCompat, "https://y.test/v1", "k", listOf(ListedModel("m2")))
         s.use(ModelRole.Main, listed.id, "m2", none)
-        assertNull("从列表里选的不算", s.untestedMainProvider())
+        assertNull("一覧から選んだものは対象外", s.untestedMainProvider())
     }
 
-    /** 跳过测试再存一次已经列过模型的那家:已有的列表留着,不要被空表盖掉,也仍然是「测过」。 */
+    /** テストをスキップし、すでにモデルをリストしている企業用に再度保存します。既存のリストを保持し、空のリストで上書きしないでください。それでも「テスト済み」です。 */
     @Test
     fun savingUntestedAgainKeepsAnExistingModelList() {
         val s = store()
@@ -447,7 +489,7 @@ class ProviderStoreTest {
         val again = s.connect("X", ProviderConfig.Kind.OpenAiCompat, "https://x.test/v1", "k2", emptyList(), untested = true)
         assertEquals(p.id, again.id)
         assertEquals(listOf("m1"), again.models!!.map { it.id })
-        assertFalse("已经列过列表的不算没测过", again.savedUntested)
+        assertFalse("一覧を取得済みなら未テストとは扱わない", again.savedUntested)
         assertEquals("k2", s.providerKey(p.id))
     }
 
@@ -461,7 +503,7 @@ class ProviderStoreTest {
         assertEquals(listOf("k2", "k2"), s.list().map { s.apiKey(it.id) })
         s.modelFor(ModelRole.Main)
         assertEquals("k2", built.last().second)
-        // Key 文件里只有一份(按服务商存)
+        // キー ファイルのコピーは 1 つだけです (サービス プロバイダーによる)
         val keys = kotlinx.serialization.json.Json.parseToJsonElement(File(tmp.root, "provider-keys.json").readText())
         assertEquals(setOf(p.id), (keys as kotlinx.serialization.json.JsonObject).keys)
     }
@@ -481,7 +523,7 @@ class ProviderStoreTest {
         assertEquals(1, s.configs.value.size)
     }
 
-    // ---------- 删除服务商 ----------
+    // ---------- サービスプロバイダーの削除 ----------
 
     @Test
     fun removeProviderDropsItsModelsAndKeyAndResetsItsRoles() {
@@ -496,7 +538,7 @@ class ProviderStoreTest {
         assertEquals(RoleChoices(main = "other", vision = RoleChoice.Off, light = RoleChoice.SameAsMain), s.roles.value)
         assertNull(s.providerKey(p.id))
         assertEquals(listOf("P other"), s.providers.value.map { it.name })
-        // 重开后数据一致
+        // データは再起動後も一貫しています
         val reopened = store()
         assertEquals(listOf("other"), reopened.list().map { it.id })
         assertEquals(s.roles.value, reopened.roles.value)
@@ -514,12 +556,12 @@ class ProviderStoreTest {
         s.removeProvider(a.id)
         assertNull(s.roles.value.main)
         assertEquals(b.id, s.configFor(ModelRole.Vision)?.providerId)
-        // 重开时不会把剩下的那条当成主模型(那是旧版本的规则)
+        // は再起動時に残りの1台をメインモデルとみなしません（旧バージョンのルールです）
         assertNull(store().roles.value.main)
         assertEquals(b.id, store().configFor(ModelRole.Vision)?.providerId)
     }
 
-    // ---------- 旧版本的文件 ----------
+    // ---------- 古いバージョンのファイル ----------
 
     private fun enc(k: String): String = java.util.Base64.getEncoder().encodeToString(AesGcmKeyCipher { key }.encrypt(k.toByteArray()))
 
@@ -527,7 +569,7 @@ class ProviderStoreTest {
         """{"id":"$id","name":"$name","kind":"OpenAiCompat","baseUrl":"$url","model":"$model","toolCalls":true,"vision":$vision,""" +
             """"contextTokens":64000,"reasoning":false,"groundingVerified":false,"promptCaching":"implicit"}"""
 
-    /** 旧版本的文件:只有模型配置,Key 按配置 id 存,角色只记显式指定的。 */
+    /** 古いバージョンのファイル: モデル設定のみ。キーは設定 ID に従って保存され、明示的に指定されたロールのみが記憶されます。 */
     private fun writeLegacyFiles(roles: String = """{"Main":"c2","Vision":"c3"}""") {
         File(tmp.root, "providers.json").writeText(
             """{"providers":[""" +
@@ -546,25 +588,25 @@ class ProviderStoreTest {
         assertEquals(listOf("DeepSeek", "192.168.1.5"), s.providers.value.map { it.name })
         val ds = s.providers.value[0]
         val local = s.providers.value[1]
-        assertNull("还没列过模型", ds.models)
-        // Key 归到服务商
+        assertNull("モデル一覧はまだ取得していない", ds.models)
+        // キーがサービスプロバイダーに返されます
         assertEquals("sk-ds", s.providerKey(ds.id))
         assertEquals("sk-local", s.providerKey(local.id))
-        // 显式指定的照旧;没人用的 c1 删掉
+        // 明示的に指定されたものは通常どおり残ります。誰も使用していない c1 は削除されます。
         assertEquals(RoleChoices(main = "c2", vision = RoleChoice.Model("c3"), light = RoleChoice.SameAsMain), s.roles.value)
         assertEquals(listOf("c2", "c3"), s.list().map { it.id })
         assertEquals(listOf(ds.id, local.id), s.list().map { it.providerId })
         assertEquals("deepseek-reasoner", s.configFor(ModelRole.Main)?.model)
         s.modelFor(ModelRole.Vision)
         assertEquals("c3" to "sk-local", built.last().first.id to built.last().second)
-        // 按配置 id 存的旧 Key 清掉了
+        // 構成 ID に従って保存された古いキーがクリアされました。
         val keys = kotlinx.serialization.json.Json.parseToJsonElement(File(tmp.root, "provider-keys.json").readText())
         assertEquals(setOf(ds.id, local.id), (keys as kotlinx.serialization.json.JsonObject).keys)
     }
 
     @Test
     fun legacyDefaultsAreWrittenOutAsTheyWorked() {
-        // 没指定主模型:那时用第一个配置;它不能看图,所以看图不用;轻量跟随主模型
+        // はメイン モデルを指定しません。その時点では最初の構成が使用されます。画像を表示できないため、画像を表示する必要はありません。メインモデルを軽くフォローしてください
         writeLegacyFiles(roles = "{}")
         val s = store()
         assertEquals(RoleChoices(main = "c1", vision = RoleChoice.Off, light = RoleChoice.SameAsMain), s.roles.value)
@@ -611,7 +653,7 @@ class ProviderStoreTest {
     fun interruptedMigrationIsRedoneWithoutLosingKeys() {
         writeLegacyFiles()
         store()
-        // 模拟中途断掉:配置文件回到旧格式,Key 文件里新旧两份都在
+        // シミュレーションは途中で中断されます。構成ファイルは古い形式に戻り、キー ファイルの古いコピーと新しいコピーの両方が存在します。
         val migratedKeys = File(tmp.root, "provider-keys.json").readText()
         writeLegacyFiles()
         val legacyKeys = kotlinx.serialization.json.Json.parseToJsonElement(File(tmp.root, "provider-keys.json").readText())
@@ -625,14 +667,14 @@ class ProviderStoreTest {
         assertEquals(s.providers.value.map { it.id }.toSet(), (keys as kotlinx.serialization.json.JsonObject).keys)
     }
 
-    // ---------- 看图定位已验证 ----------
+    // ---------- 画像の位置を確認しました ----------
 
     @Test
     fun groundingVerifiedFollowsTheVisionModelAndPersists() {
         val s = store()
         val p = connected(s)
         s.use(ModelRole.Main, p.id, "m1", none)
-        // 没有看图模型时不动
+        // はモデルが表示されていないときは動きません
         s.setVisionGroundingVerified(true)
         assertFalse(s.list().single().capabilities.groundingVerified)
         s.use(ModelRole.Vision, p.id, "m2", none)
@@ -640,7 +682,7 @@ class ProviderStoreTest {
         assertTrue(s.configFor(ModelRole.Vision)!!.capabilities.groundingVerified)
         assertFalse(s.configFor(ModelRole.Main)!!.capabilities.groundingVerified)
         assertTrue(store().configFor(ModelRole.Vision)!!.capabilities.groundingVerified)
-        // 看图用主模型时改的是主模型那条
+        // メインモデルを使用して画像を表示する場合、メインモデルのラインが変更されました。
         s.choose(ModelRole.Vision, RoleChoice.SameAsMain)
         assertFalse(s.configFor(ModelRole.Vision)!!.capabilities.groundingVerified)
         s.setVisionGroundingVerified(true)
@@ -659,7 +701,7 @@ class ProviderStoreTest {
         assertEquals(RoleChoices(main = null, vision = RoleChoice.SameAsMain, light = RoleChoice.SameAsMain), r.keepOnly(emptySet()))
     }
 
-    // ---------- 按模型指定的接口 ----------
+    // ---------- モデルで指定されたインターフェイス ----------
 
     private val chat = ModelEndpoint(ModelProtocol.ChatCompletions, "https://x.test/openai/v1", "reasoning_content")
     private val messages = ModelEndpoint(ModelProtocol.Messages, "https://x.test/anthropic/v1")
@@ -690,7 +732,7 @@ class ProviderStoreTest {
         store().modelFor(ModelRole.Light)
         assertEquals(listOf(messages, null), endpoints)
         assertEquals(listOf("k", "k"), built.map { it.second })
-        // 重新列出、地址换了,下次建模型用新的
+        // は再出品され、アドレスが変更されました。次回モデルを構築するときは、新しいものを使用してください。
         val moved = messages.copy(baseUrl = "https://y.test/anthropic/v1")
         s.rememberModels(p.id, listOf(ListedModel("b", endpoint = moved)))
         s.modelFor(ModelRole.Main)
@@ -709,9 +751,9 @@ class ProviderStoreTest {
         assertEquals(ProviderConfig.Kind.Anthropic to "https://api.anthropic.com", ProviderStore.adapterFor(anthropicConfig, null))
     }
 
-    // ---------- 请求头 ----------
+    // ---------- リクエストヘッダ ----------
 
-    /** 声明了会话头的服务商:同一段对话建的模型带同一个会话号,换一段对话就换;User-Agent 每个都带。 */
+    /** は、セッション ヘッダーのサービス プロバイダーを宣言します。同じ会話で構築されたモデルは同じセッション番号を持ち、会話が変更されるとセッション番号も変更されます。それぞれに User-Agent が含まれます。 */
     @Test
     fun sessionHeaderIsStableWithinAConversationAndDiffersAcross() {
         val s = store()
@@ -725,7 +767,7 @@ class ProviderStoreTest {
         assertTrue(setups.all { it.headers["User-Agent"] == "Mika/1.2.3" })
     }
 
-    /** 列表把模型指到 Responses 的(同一服务商下只说这一种协议的模型):走真的 Responses 适配器,照样带客户端标识和会话号。 */
+    /** リストは、モデルが応答を指します (このプロトコルのモデルのみが同じサービス プロバイダーの下で言及されています)。実際の応答アダプターにはクライアント ID とセッション番号がまだあります。 */
     @Test
     fun responsesRoutedModelCarriesTheSessionHeader() = runTest {
         val server = okhttp3.mockwebserver.MockWebServer().also { it.start() }
@@ -758,7 +800,7 @@ class ProviderStoreTest {
         assertEquals(mapOf("User-Agent" to "Mika/1.2.3"), setups.single().headers)
     }
 
-    /** 会话头随服务商存下;旧版本存下的(没有这一项)按地址对得上的预设补上,预设的地址就会带。 */
+    /** セッション ヘッダーはサービス プロバイダーとともに保存されます。古いバージョン (この項目なし) で保存されている場合は、一致するデフォルトのアドレスを入力すると、デフォルトのアドレスが使用されます。 */
     @Test
     fun sessionHeaderPersistsAndIsFilledFromThePresetForOldFiles() {
         val goUrl = ProviderPresets.all.first { it.sessionHeader != null }
@@ -773,7 +815,7 @@ class ProviderStoreTest {
         assertTrue("written back", f.readText().contains("sessionHeader"))
     }
 
-    /** 试调用走真的适配器:带客户端标识和声明的会话头、带一个试用的工具;回了工具调用才算通过,服务端的报错原样带回。 */
+    /** 実際のアダプター (クライアントの識別と宣言を含むセッション ヘッダー、および試用版ツール) を呼び出してみます。ツール呼び出しは、ツール呼び出しが返された後でのみ渡され、サーバー側のエラー レポートはそのまま戻されます。 */
     @Test
     fun probeGoesThroughTheRealAdapterWithHeaders() = runTest {
         val server = okhttp3.mockwebserver.MockWebServer().also { it.start() }
@@ -792,14 +834,14 @@ class ProviderStoreTest {
             assertEquals("Bearer sk", req.getHeader("Authorization"))
             val body = req.body.readUtf8()
             assertTrue(body, body.contains("\"tools\"") && body.contains("get_time"))
-            assertFalse("Chat Completions 不给回复上限", body.contains("max_tokens"))
+            assertFalse("Chat Completions には応答上限を指定しない", body.contains("max_tokens"))
 
             server.enqueue(okhttp3.mockwebserver.MockResponse().setResponseCode(400).setBody("""{"error":{"type":"MissingSessionID"}}"""))
             val e = s.probe(ProviderConfig.Kind.OpenAiCompat, url, "sk", null, "m", null, none) as ProbeResult.Failed
             assertTrue(e.error.message.orEmpty(), e.error.message.orEmpty().contains("MissingSessionID"))
             assertNull(server.takeRequest().getHeader("x-test-session"))
 
-            // Responses 不给回复上限;回了函数调用就算通过
+            // 応答には応答の上限がありません。関数呼び出しが返された場合、それは渡されます
             server.enqueue(okhttp3.mockwebserver.MockResponse().setHeader("Content-Type", "text/event-stream").setBody(
                 "data: {\"type\":\"response.output_item.done\",\"item\":{\"type\":\"function_call\",\"call_id\":\"c1\",\"name\":\"get_time\",\"arguments\":\"{}\"}}\n\n" +
                     "data: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\"}}\n\n",
@@ -816,7 +858,7 @@ class ProviderStoreTest {
         }
     }
 
-    /** 接口通、模型只回了话不调用工具:不是失败,但要分得出来。 */
+    /** インターフェイスは開いており、モデルはツールを呼び出さずに応答するだけです。これは失敗ではありませんが、区別する必要があります。 */
     @Test
     fun probeThatGetsOnlyTextReportsNoToolCall() = runTest {
         val server = okhttp3.mockwebserver.MockWebServer().also { it.start() }
@@ -830,7 +872,7 @@ class ProviderStoreTest {
         }
     }
 
-    /** 试调用给 Messages 的回复上限留得够一次工具调用(16 个 token 装不下)。 */
+    /** トライアルコールのメッセージに対する返信の上限は、ツールコール1回分です（16トークンは収容できません）。 */
     @Test
     fun probeLeavesRoomForAToolCall() = runTest {
         val server = okhttp3.mockwebserver.MockWebServer().also { it.start() }
@@ -848,7 +890,7 @@ class ProviderStoreTest {
         }
     }
 
-    // ---------- 用量 ----------
+    // ---------- 投与量 ----------
 
     @Test
     fun everyModelHandedOutIsMeteredUnderTheRoleItWasAskedFor() = runTest {

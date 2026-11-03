@@ -42,9 +42,9 @@ import com.wangzan101.mika.core.tool.failCode
 import com.wangzan101.mika.core.capability.Paced
 
 /**
- * 所有改变外部世界的动作唯一的执行入口:[ToolDispatcher.execute] 要一张 [ActionPass],只有这里有。
- * 每个来源都按同一顺序:操作守卫 → 锁屏/被拿走的关卡(写操作)→ 不可逆判定与同意核对(按过关卡之后此刻的屏幕)→
- * 执行 → 守卫核对(失败熔断、画面变化、重读)→ 运行记录。来源之间有意的不同只写在 [OriginPolicy] 里。
+ * 外界を変えるすべてのアクションの唯一の実行入口: [ToolDispatcher.execute] [ActionPass] が必要な場合は、ここでのみ入手可能です。
+ * 各ソースの順序は同じです: ガード操作→ロック画面・レベル取得(書き込み操作)→不可逆判定と同意チェック(レベルを押した瞬間の画面)→
+ * 実行→ガードチェック(故障ヒューズ、画面変更、再読み込み)→走行記録。ソース間の意図的な差異は、[OriginPolicy] にのみ記述されます。
  */
 class ActionExecutor(
     private val tools: ToolDispatcher,
@@ -52,38 +52,38 @@ class ActionExecutor(
     confirmations: ConfirmationGate?,
     private val gate: suspend () -> Unit,
     val recorder: ActionRecorder,
-    /** 不动屏幕的工具的守卫;没有为 null。 */
+    /** 画面を動かさないツール用のガード。そうでない場合は null。 */
     private val offScreen: OffScreenGuard? = null,
     approvals: ApprovalSettings = ApprovalSettings.ASK,
     provenance: RunProvenance = RunProvenance(),
     selfPackage: String? = null,
     autonomous: Boolean = false,
-    /** 同一网站、App 里连着做对外动作(发送、提交)时两次之间的间隔(见 [OutwardPacing]);默认不等。 */
+    /** 同じ Web サイトまたはアプリ上での 2 つの連続する外部アクション (送信、送信) 間の間隔 ([OutwardPacing] を参照)。デフォルトは等しくありません。 */
     private val pacing: OutwardPacing = OutwardPacing.Off,
 ) {
     private val decision = ConfirmDecision(tools, confirmations, approvals, recorder = recorder, provenance = provenance, selfPackage = selfPackage, autonomous = autonomous)
     private val pass = ActionPass()
 
-    /** 配了确认关卡(付款能经用户同意后做)。 */
+    /** には確認レベル（ユーザー同意後の決済可能）が搭載されています。 */
     val confirms: Boolean = confirmations != null
 
-    /** 不动屏幕的工具的守卫叫停的结论;没叫停为 null。 */
+    /** 画面を動かさないツールのガードは停止を要求するという結論。ツールが停止しない場合は null になります。 */
     val offScreenStop: GuardVerdict? get() = offScreen?.stop
 
     suspend fun run(call: Part.ToolCall, origin: Origin, followUp: FollowUp = FollowUp.NONE): ActionOutcome =
         run(call, origin, followUp, reads = null)
 
-    /** [reads]:页面脚本一次调用里的读单独计数的范围(来源要求隔离时);那里的动作仍按任务计。 */
+    /** [reads]: ページ スクリプトの 1 回の呼び出しで個別にカウントされる読み取りの範囲 (ソースが分離を必要とする場合)。そこでのアクションはタスクに従ってカウントされます。 */
     private suspend fun run(call: Part.ToolCall, origin: Origin, followUp: FollowUp, reads: GuardScope?): ActionOutcome {
         val args = parseArgs(call.argsJson)
-        // 不动屏幕的工具(沙箱一类):不进屏幕守卫,由各自的守卫另管
+        // 画面を動かさないツール（サンドボックスタイプ）：画面ガードには入らず、それぞれのガードによって管理されます。
         val offScreen = tools.offScreen(call.name)
         val verb = tools.verb(call.name)
-        // 用了另一块屏的编号的:不判不做、不记成在操作哪块屏,直接交给分发器说明该用哪个工具
+        // は別の画面の番号を使用します。判断なし、アクションなし、どの画面が操作されているかの記録なし、どのツールを使用するかを説明するためにディストリビュータに直接渡されます。
         if (tools.misaimed(call.name, args) != null) {
             return ran(Step(call, args, origin, emptyList(), writing = false, offScreen, verb, null, followUp, reads))
         }
-        // 之后的关卡、判定都按这次调用的那块屏(到这次调用结束)
+        // 以降のレベルと判定は今回呼び出された画面による（この呼び出しが終了するまで）
         tools.aim(call.name, args)
         try {
             return aimed(call, origin, followUp, reads, args, offScreen, verb)
@@ -92,12 +92,12 @@ class ActionExecutor(
                 put("ok", false); put("error", e.code); put("message", e.message); put("retryable", false)
                 e.packageName?.let { put("package", it) }
             }
-            // 单步:作为这次工具调用的结果交给模型,让它换路线或向用户说明;批和脚本按 Refused 自己处理
+            // シングル ステップ: このツール呼び出しの結果として、モデルに渡されて、ルートを変更したり、ユーザーに説明したりします。バッチとスクリプトは拒否に従って自動的に処理されます
             if (origin.policy.recordsRefusal) followUp.refused(content)
             recorder.result(origin.step, call.name, verb, content, content, null, null, 0, origin.policy.source, call.id)
             return ActionOutcome.Refused(e.code, content, emptyList())
         } finally {
-            // 成功与否由分发器记;这里只结束这一层
+            // 成功または失敗はディストリビュータによって記録されます。この層だけがここで終わる
             tools.release(false)
         }
     }
@@ -105,7 +105,7 @@ class ActionExecutor(
     private suspend fun aimed(
         given: Part.ToolCall, origin: Origin, followUp: FollowUp, reads: GuardScope?, givenArgs: JsonObject, offScreen: Boolean, verb: Verb?,
     ): ActionOutcome {
-        // 按描述指的目标先换成此刻那一屏里的编号:之后的判定、审批、执行和按编号的完全一样;找不到或不唯一就不做
+        // 説明によると、まず対象をその時点でその画面上の番号に変更します。その後の判断、承認、実行は番号に従って行うのと全く同じです。見つからない場合、または一意でない場合は実行されません。
         var call = given
         var args = givenArgs
         var note: JsonObject? = null
@@ -126,7 +126,7 @@ class ActionExecutor(
         if (policy.stopOnGuardWarning && before.isNotEmpty()) return refuse("guard_warning", origin, before)
         val writing = tools.writesScreen(call.name)
         if (writing && !policy.gatedByCaller) gate()
-        // 没有可用的同意就不执行,也不计入失败熔断
+        // は同意がなければ実行されず、障害が発生したサーキット ブレーカーにはカウントされません。
         val d = decision.judge(call.name, args, origin)
         when (d) {
             is Decision.Required -> return blocked(call, args, origin, before, d.hit, null, followUp)
@@ -136,15 +136,15 @@ class ActionExecutor(
             Decision.OwnApp -> return ownApp(call, args, origin, before, followUp)
             else -> Unit
         }
-        // 对外动作:和同一网站、App 里的上一次隔开(等的时候任务还能取消,动作还没开始)
+        // 外部アクション: 同じ Web サイトまたはアプリでの前回のアクションから分離されています (待機中にタスクをキャンセルできますが、アクションはまだ開始されていません)
         val site = decision.outwardSite
         val paced = site?.let { pacing.waitBefore(it, recorder.now()) }?.takeIf { it > 0 } ?: 0L
-        // 等间隔时用户插了话:这次不做,先让模型读那句话。间隔从上一次做完算起,下次再做时余下的照样补上
+        // ユーザーは等間隔で割り込みました。今回はやりません。最初にモデルにその文を読んでもらいます。間隔は最後に実行したときから計算され、残りは次回実行したときに補われます。
         if (paced > 0 && waitOrSteer { delay(paced) } == null) {
             return ran(Step(call, args, origin, before, writing = false, offScreen, verb, null, followUp, reads, preset = failCode(SKIPPED_FOR_NEW_MESSAGE)))
         }
-        // 改动屏幕的动作:按这块屏的能力的节奏先停一会儿(App 里见 AppDwell),单步、一批里的每一步都在这里停;
-        // 组合动作(脚本)本身不停,里面的每一步经这里各自停。到了屏数上限、停留中用户插了话就不做
+        // 画面を変更するアクション: 画面の機能のリズムに従ってしばらく停止し (アプリの AppDwell を参照)、単一ステップまたはバッチの各ステップでここで停止します。
+        // 結合されたアクション (スクリプト) 自体は停止せず、その中の各ステップはここで停止します。画面数の上限に達し、滞在中にユーザーが中断した場合は完了しません。
         val screenPaced = writing && !offScreen && !tools.composite(call.name)
         val dwelt = if (screenPaced) tools.beforeWrite(call.name, outward = site != null) else Paced.NONE
         dwelt.stop?.let { stop ->
@@ -156,8 +156,8 @@ class ActionExecutor(
         }
         val step = Step(call, args, origin, before, writing, offScreen, verb, (d as? Decision.Traced)?.detail, followUp, reads, note = note,
             pacedMs = paced + dwelt.waitMs, idleScrolls = dwelt.idleScrolls, outward = site != null)
-        // 动作一旦开始就做完并记下:脚本超时、任务取消都不能把它掐在半中间、漏掉记录
-        // 对外动作告诉这块屏的能力(网页的页数上限只管浏览,见 PageDwell)
+        // アクションが開始されたら、それを完了して書き留めます。たとえスクリプトがタイムアウトしたり、タスクがキャンセルされたとしても、途中で捕らえられたり、記録が失われたりすることはありません。
+        // この画面の外部アクションを伝える機能 (Web ページのページ数の上限は閲覧のみです。PageDwell を参照)
         site?.let(tools::outwardStart)
         var done = false
         try {
@@ -176,15 +176,15 @@ class ActionExecutor(
     private class Step(
         val call: Part.ToolCall, val args: JsonObject, val origin: Origin, val before: List<GuardVerdict>, val writing: Boolean,
         val offScreen: Boolean, val verb: Verb?, val traced: String?, val followUp: FollowUp, val reads: GuardScope?,
-        /** 没交给工具就有的结果(按描述找不到目标)。 */
+        /** ツールを与えずに結果が得られます（説明によるとターゲットが見つかりません）。 */
         val preset: ToolExecution? = null,
-        /** 附进结果的说明(按描述对上的是谁)。 */
+        /** 結果の説明を添付します (説明に従って一致した人)。 */
         val note: JsonObject? = null,
-        /** 执行前为对外动作的间隔、这块屏的节奏等了多久;算进这次调用的等待。 */
+        /** 実行前に外部アクションの間隔とこの画面のリズムを待つ時間。この呼び出しの待機も含まれます。 */
         val pacedMs: Long = 0,
-        /** 执行前的停留里轻轻滚了几下;只进运行记录。 */
+        /** は、実行前の一時停止中に数回ロールされました。走行記録を入力するだけです。 */
         val idleScrolls: Int = 0,
-        /** 不可逆判定认出是对外动作(发送、提交);记进这次的活动。 */
+        /** 不可逆的な判断は、それが外部アクション (送信、送信) であることを認識します。このアクティビティを記録します。 */
         val outward: Boolean = false,
     )
 
@@ -192,7 +192,7 @@ class ActionExecutor(
         val call = s.call
         val policy = s.origin.policy
         val n = s.origin.step
-        // 页面脚本里的每个动作经这里回来,同样走完整个入口;脚本里的读只在这一次调用里计数
+        // ページ スクリプトの各アクションはここに戻り、入り口全体も完了します。スクリプト内の読み取りは、この呼び出しでのみカウントされます。
         val subVerdicts = mutableListOf<GuardVerdict>()
         val sub = if (tools.composite(call.name)) {
             val script = Origin.Script(n)
@@ -205,14 +205,14 @@ class ActionExecutor(
             }
         } else null
         val started = recorder.now()
-        // 改状态的动作:记下执行前账本的位置,之后(含这次结果自带的那一屏)有没有重新读过由回答前的核对来看
+        // ステータスを変更するアクション: 実行前に台帳の位置を書き留めます。その後（この結果に伴う画面も含めて）再読したかどうかを回答前に確認します。
         val changes = tools.declaredRisk(call.name) != Risk.Read && (s.offScreen || ClassifiedRisk.changesState(s.verb))
         val mark = tools.ledgerMark()
         val raw = (s.preset ?: offScreen?.exhausted(call.name)?.let { ToolExecution(it) } ?: execute(s, sub))
             .let { r -> s.note?.let { r.with(content = JsonObject(r.content + it)) } ?: r }
             .let { r -> if (s.pacedMs > 0) r.with(waitMs = r.waitMs + s.pacedMs) else r }
             .let { r -> if (s.idleScrolls > 0) r.with(record = JsonObject(r.record + ("idleScrolls" to JsonPrimitive(s.idleScrolls)))) else r }
-        // 报了失败、也没说界面变了的动作什么也没改成:回答前不用为它再读一遍
+        // は障害を報告しましたが、インターフェイスが変更されたとは述べていません。このアクションによって何も変更はありません。回答する前にもう一度読む必要はありません。
         val failed = raw.content["ok"] == JsonPrimitive(false) && raw.changed != true
         if (changes && s.preset == null && !failed) recorder.noteChange(mark)
         val durationMs = recorder.now() - started
@@ -221,7 +221,7 @@ class ActionExecutor(
 
         val after = subVerdicts.toMutableList()
         after += if (s.offScreen) offScreen?.result(call.name, s.args, resolved.content).orEmpty() else guards.result(call.name, resolved.content)
-        // 动作报回的实际效果先记(没有效果、换了地方),接着的画面就不再按指纹重复记
+        // アクションレポートの実際の効果が最初に記録され（効果なし、場所が変更されました）、次の画面では指紋が再度記録されません。
         ((resolved.content["effect"] as? JsonObject)?.get("kind") as? JsonPrimitive)?.takeIf { !s.offScreen }?.let { after += guards.effect(it.content) }
         val elements = resolved.screenElements ?: resolved.content["elements"] as? JsonArray
         val beforeFrameProgress = guards.progressVersion
@@ -229,7 +229,7 @@ class ActionExecutor(
         if (guards.progressVersion != beforeFrameProgress) after.removeAll { it.code == "no_progress" }
         if (!s.offScreen) {
             if (s.verb in PAGE_READ_VERBS) {
-                // 读到画面上次变化以来没读到过的内容(新的一屏、整页换了起点、脚本给出新结果)不算重读
+                // 画面の最後の変更（新しい画面、ページ全体の開始点の変更、新しい結果を与えるスクリプト）以降に読み取られていないコンテンツの読み取りは、再読み取りとしてカウントされません。
                 val fp = elementsHash(elements) ?: resultFingerprint(resolved.content)
                 val beforeReadProgress = guards.progressVersion
                 after += if (s.reads != null) guards.read(call.name, guards.firstSeen(fp, s.reads), s.reads, fp)
@@ -241,7 +241,7 @@ class ActionExecutor(
         }
         val (exec, content) = s.followUp.present(resolved, s.before + after)
 
-        // 画面:模型单步交给调用方按它的顺序存;子步界面变了才当场存;回放不存
+        // 画面: モデルは 1 ステップで発信者に渡され、その順序で保存されます。サブステップインターフェイスは、インターフェイスが変更されたときにのみその場で保存されます。再生は保存されません
         val picture = if (policy.frames == Frames.Caller && s.verb != Verb.ViewPastScreens && !s.offScreen) exec.image ?: exec.frame else null
         val shotId = when (policy.frames) {
             Frames.Caller -> picture?.let { recorder.nextShot() }
@@ -259,19 +259,19 @@ class ActionExecutor(
     private suspend fun execute(s: Step, sub: SubActions?): ToolExecution {
         val call = if (s.offScreen && offScreen != null) offScreen.capTimeout(s.call, s.args) else s.call
         val cap = s.origin.policy.actionCapMs ?: return tools.execute(call, pass, s.origin.step, sub)
-        // 动作自己有上限
+        // アクションには独自の上限があります
         return withTimeoutOrNull(cap) { tools.execute(call, pass, s.origin.step, sub) } ?: ToolExecution(buildJsonObject {
             put("ok", false); put("error", "action_timeout"); put("message", "the action did not finish within ${cap / 1000} s; read the screen before going on")
         })
     }
 
     /**
-     * 开着回放时记路线要的目标元素和前后锚点(动作后多读一屏,返回它)。
-     * 取不到目标、动作却生效了:路线不能缺步,标 incomplete,整条路线不记。
+     * 再生がオンになっているときは、ルートのターゲット要素と前後のアンカー ポイントを覚えておいてください (アクションの後にもう 1 画面読んで、そこに戻ります)。
+     * ターゲットを取得できませんが、アクションは有効です。ルートにステップが欠落していたり​​、不完全とマークされていてはならず、ルート全体が記録されません。
      */
     private suspend fun routeTarget(call: Part.ToolCall, verb: Verb?, origin: Origin, exec: ToolExecution): ScreenSnapshot? {
         if (!tools.captureTargets || tools.index[call.name]?.routable != true) return null
-        // 只有端口明确说「不是密码框」才记原文
+        // ポートに「パスワード ボックスではありません」と明確に表示されている場合にのみ、元のテキストを思い出すことができます。
         val secret = (exec.content["secret"] as? JsonPrimitive)?.booleanOrNull != false
         val args = Redactor.args(verb, call.argsJson, secret)
         val effective = effectiveWrite(verb, exec.content)
@@ -291,7 +291,7 @@ class ActionExecutor(
         return seen
     }
 
-    /** 作用在 Mika 自己身上:不做;模型单步照常拿到说明、记进运行记录。 */
+    /** はミカ自身に影響を与えます。モデルは通常どおり各ステップの指示を受け取り、実行記録に記録します。 */
     private fun ownApp(call: Part.ToolCall, args: JsonObject, origin: Origin, before: List<GuardVerdict>, followUp: FollowUp): ActionOutcome {
         val content = Refusals.content(Refusals.OWN_APP, origin.policy.refusals, before, null, null)
         if (origin.policy.recordsRefusal) {

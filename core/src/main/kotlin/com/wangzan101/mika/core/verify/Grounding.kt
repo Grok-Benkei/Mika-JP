@@ -1,74 +1,78 @@
 package com.wangzan101.mika.core.verify
 
 /**
- * 代码兜底:核查器判 pass 之后,用一条与模型无关的规则再对一遍文字证据。代码只核它核得准的——字面上有没有,
- * 不判断一个值是不是属于回答说的那个东西(那是核查模型的事,见 verifier 提示词)。回答正文(「依据:」之前)里:
- * - 引号里的原文(「…」『…』“…”"…"‘…’,题目里本来就有的除外)要在某一处材料里找到;
- *   引号里用一个字母代替回答自己写过的数(「今日 +N」指正文里的「今日 +2,271」),是在说回答自己的写法,不是屏上的字;
- * - 带单位、货币、百分号或数量级(万/亿/千)的数,小数,三位以上的整数,夹在字母里的编号,要按整个词在某处材料里找到;
- * - 日期和时刻(10月23日、2026-10-23、14:05)同样要找到。
- * 「依据:」里只核引文:每段引文都要在某一处材料里找到(引文里的 … 把它分成几段,各段都要在同一处);
- * 依据里其余的字(来源、网址、读取时间、叙述里的计数)不是要核对的事实,对上了可以帮着定位,对不上也不否决。
- * 两位以内、不带单位的整数无论在哪都不要求。题目里的数和原文视为已知。
- * 另外两种来源也算已知,各自只证它证得了的:题目或证据里写了「明天」「周二」,按运行时钟换算出的那一天;
- * 回答里写明的算式(a 运算符 b = c,a、b 都在证据里对上)的结果,和明说是约数(约、≈)的取整。
- * 比对前两边统一写法:全角半角(NFKC)、零宽字符、引用编号与脚注、千分位、万/亿折算、标点与空白;两边都按行比,
- * 回答的一行不和下一行拼起来(行首的列表编号按行去掉),材料不拼成一整串;「当前 App:」这一行不算屏上文字。
- * 引用编号的边界用显式的前后断言,不用 \b:Java 的 \b 把汉字当作单词字符,「@e46显示」里的 46 会被当成回答里的数。
+ * コードの詳細: 検証者が合格した後、モデルとは関係のないルールを使用してテキスト証拠を再度チェックします。コードは、それがリテラルであるかどうかなど、検証する内容のみを検証します。
+ * は、値が回答の内容に属するかどうかを判断しません (これはモデルの検証の問題です。検証者のプロンプト ワードを参照してください)。回答の本文 (「ベース:」の前):
+ * - 引用符で囲まれた元のテキスト ("..." "..." "..." "..." '...'、タイトルに既に含まれているものを除く) は、特定のマテリアル内に存在する必要があります。
+ *   引用符内の文字を使用して、回答に書いた数字を置き換えます (「今日 +N」は本文中の「今日 +2,271」を指します)。つまり、画面上の単語ではなく、回答の書き方を意味します。
+ * - 単位、通貨、パーセント記号または大きさ (百万/十億/千) を含む数値、小数、3 桁を超える整数、文字で挟まれた数値。これらは、単語全体として一部の資料内に存在する必要があります。
+ * - 日付と時刻 (2026 年 10 月 23 日、14:05) も見つかります。
+ * "Based on:" では引用のみがチェックされます。各引用は資料内のどこかにある必要があります (引用内の... は複数の段落に分割され、各段落は同じ場所にある必要があります)。
+ * 根拠内の残りの単語 (ソース、URL、読み取り時間、説明内のカウント) は確認すべき事実ではありません。それらが正しければ、位置決めに役立ちます。正しくない場合でも拒否されません。
+ * 単位なしの 2 桁以内の整数はどこにも必要ありません。質問内の数字と原文は既知のものとみなされます。
+ * 他の 2 つの情報源も知られており、それぞれがそれが達成されたことを証明するだけです。「明日」と「火曜日」は質問または証拠に書かれており、その日は実行中の時計に従って計算されます。
+ * 回答に記載されている計算式（a演算子b=c、a、bは根拠で全て一致）の結果は、約数の四捨五入（近似、≒）であると明記されています。
+ * 比較の最初の 2 つの側面は同じ方法で記述されます: 全角と半角 (NFKC)、ゼロ幅文字、参照番号と脚注、1000 分の 1、100 万と 10 億の変換、句読点と空白。両側を線で比較します。
+ * 解答行は次の行でスペルアウトされず (行頭のリスト番号は行ごとに削除されます)、資料は文字列全体としてスペルアウトされません。 「現在のアプリ:」という行は、画面上のテキストとしてカウントされません。
+ * は、\b を使用せずに、参照番号の境界に明示的な事前アサーションと事後アサーションを使用します。Java の \b は中国語の文字を単語文字として扱い、「@e46 表示」の 46 は答えの数字とみなされます。
  */
 internal object Grounding {
     private val QUOTED = Regex("「([^」]*)」|『([^』]*)』|“([^”]*)”|\"([^\"]*)\"|‘([^’]*)’")
-    private val EVIDENCE = Regex("依据\\**\\s*[:：]")
+    /** 日本語は見出しの位置だけを認識し、引用内のラベルを本文から切り離さない。旧「依据」は従来どおり認識する。 */
+    private val EVIDENCE = Regex(
+        "依据\\**\\s*[:：]|(?:^|\\n|[。.!！?？]\\s*)[\\s*#>\\-]*(?:根拠|出典)\\**\\s*[:：]",
+    )
     /**
-     * 数后面的亿/万/千是数量级(中间只能隔空白,App 常排成「1561 万热度」;隔了标点就不是);
-     * 「千米」「千克」「千瓦」里的千是单位的一部分,不是数量级。行首、引文开头的序号(「5 千与千寻」)先按 [ORDINAL] 去掉。
+     * 数字の後の数億/百万/千は桁違いです (間に区切ることができるのはスペースのみで、アプリでは多くの場合「1,561 万ホット」として配置されます。句読点がある場合はそうではありません)。
+     * 「キロメートル」、「キログラム」、「キロワット」の 1,000 は単位の一部であり、桁数ではありません。まず、[ORDINAL] を押すと、行頭と引用頭のシリアル番号 (「5 千と千尋の神隠し」) が削除されます。
      */
     private val NUMBER = Regex("(?<!\\d)(?<!\\d[.,])\\d+(?:[.,]\\d+)*(?!\\d)([ \\t]*(?:[亿万]|千(?![米克瓦卡帕焦])))?")
     private val THOUSANDS = Regex("^\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?$")
     private val DIGITS = Regex("\\d+")
-    /** 紧跟在数后面、说明它是个量的字(序号后面不会是它们):单位、数量级、量词。 */
+    /** 数値の直後に続く単語で、それが数量であることを示します (これらはシリアル番号の後にはありません): 単位、大きさ、数量子。 */
     private const val UNIT_WORDS = "公里|千米|米|厘米|毫米|公斤|千克|斤|克|吨|元|块|角|小时|分钟|秒|岁|度|分|人|次|个|条|件|万|亿|千[米克瓦卡帕焦]|[A-Za-z%℃°]"
 
-    /** 序号不是要核对的数:第N条/步/名…、前N个/条…、Top N、No.N、#N、行首的列表编号(1. 2、 3))。「第2026届」是值,不算。 */
+    /** シリアル番号はチェック対象の番号ではありません: N 番目の項目/ステップ/名前...、最初の N/項目...、上位 N、No.N、#N、行頭のリスト番号 (1. 2, 3))。 「2026 番目」は値ですが、カウントされません。 */
     private val ORDINAL = Regex(
         "第[ \\t]*\\d+[ \\t]*(?=[条个集页项张篇步名位行章节轮次题])|前[ \\t]*\\d+[ \\t]*(?=[个条名位项篇张])|(?i:top)[ \\t]*\\d+|(?i:no)\\.[ \\t]*\\d+|#\\d+" +
             "|(?m)^[ \\t]*\\d+[ \\t]*[.、)）](?!\\d)" +
-            // 行首或引文开头的序号后面隔个空格就是名字(「5 千与千寻…」):不是值
+            // 名前は、行頭または引用符の先頭のシリアル番号の後にスペースで区切られています (「5 千と千尋の神隠し...」): 値ではありません
             "|(?m)(?:^|(?<=[「『“\"‘]))[ \\t]*\\d{1,3}[ \\t]*[.、](?!\\d)|(?m)(?:^|(?<=[「『“\"‘]))[ \\t]*\\d{1,3}[ \\t]+(?=\\p{L})(?!$UNIT_WORDS)",
     )
-    /** 日期和时刻;用 . 分隔的只认年.月.日三段,免得把 1561.5 当成日期。 */
+    /** 日付と時刻。 . で区切ると、1561.5 を日付として認識しないように、年、月、日の 3 つのセグメントのみが認識されます。 数字の後に */
     private val DATE = Regex(
         "(?<!\\d)(?:\\d{4}\\s*[-/年]\\s*\\d{1,2}(?:\\s*[-/月]\\s*\\d{1,2}\\s*[日号]?)?|\\d{4}\\.\\d{1,2}\\.\\d{1,2}" +
             "|\\d{1,2}\\s*月\\s*\\d{1,2}\\s*[日号]?|\\d{1,2}\\s*:\\s*\\d{2}(?:\\s*:\\s*\\d{2})?)(?!\\d)",
     )
-    /** 紧跟在数后面、说明它是个量值的单位(计数用的量词「条」「个」不算:那是回答自己数出来的)。 */
+    /** が続き、それが大きさの単位であることを示します (カウントに使用される数量詞「バー」と「個」はカウントされません。これらは自分でカウントされます)。 */
     private val UNIT_AFTER = Regex(
         "^\\s*(?:%|‰|元|块|角|美元|欧元|日元|港元|英镑|℃|°|度|公里|千米|米|厘米|毫米|公斤|千克|斤|克|吨|小时|分钟|秒|毫秒|岁|英寸|寸|折|星" +
             "|(?:km|cm|mm|kg|mAh|GB|MB|KB|TB|Hz|ms|[kKwWmgGM])(?![A-Za-z]))",
     )
     private val CURRENCY_BEFORE = Regex("[¥$€£]\\s*$")
     private val ZERO_WIDTH = Regex("[\\u200B\\u200C\\u200D\\uFEFF\\u2060]")
-    /** 回答里的强调与代码标记(**粗**、__粗__、~~删~~、`码`)只是排版,不是内容;单个 * 可能是乘号,不动。 */
+    /** 回答内の強調とコードマーク (**bold**、__bold__、~~delete~~、`码`) は単なるレイアウトであり、内容ではありません。単一の * は乗算記号である可能性があり、移動しません。 */
     private val MARKUP = Regex("\\*\\*|__|~~|`")
     private val FRAGMENT_BREAK = Regex("[^\\p{L}]+")
     private val PIECE_BREAK = Regex("[^\\p{L}\\p{N}]+")
     /**
-     * 不同模型引用的写法:元素编号(@e16、@v2,可能套在括号里)、方括号脚注([1]、[^2]、【3】)。
-     * 不是回答的内容,比对前去掉。边界用前后断言:后面紧跟汉字(@e46显示)也要认出来。
+     * さまざまなモデル参照の記述方法: 要素番号 (@e16、@v2、括弧で囲まれる場合があります)、角括弧脚注 ([1]、[^2]、[3])。
+     * は答えの一部ではないため、比較前に削除されます。境界は前後に主張されます。境界の後に中国語文字が続く場合も認識される必要があります (@e46 で示されます)。
      */
     private val REF_CITATION = Regex(
         "[(\\[【]\\s*@[ev]\\d+(?:\\s*[,、]\\s*@[ev]\\d+)*\\s*[)\\]】]|(?<![A-Za-z0-9_])@[ev]\\d+(?!\\d)",
     )
     private val FOOTNOTE = Regex("\\[\\^?\\d{1,3}]|【\\d{1,3}】")
     private val MAGNITUDE = mapOf("亿" to 8, "万" to 4, "千" to 3)
-    const val APP_HEADER = "当前 App:"
-    /** 依据里的文字片段太短会碰巧和任何屏幕都对得上(「屏上」「设置」),不算。 */
+    const val APP_HEADER = "現在のアプリ:"
+    private fun isAppHeader(line: String): Boolean = line.startsWith(APP_HEADER) || line.startsWith("当前 App:")
+    /** ベースのテキスト フラグメントは短すぎて、どの画面 (「画面上」「設定」) にも収まる可能性があるため、カウントされません。 */
     private const val MIN_FRAGMENT = 4
-    /** 屏上的一行出现在依据里时,这一行至少要有几个字。 */
+    /** 画面上の行がベースに表示される場合、この行には少なくとも複数の単語が含まれている必要があります。 */
     private const val MIN_LINE_IN_BASIS = 2
 
     private data class Num(val value: String, val magnitude: String) {
-        /** 带单位折算后的值(5.3万 与 53000 相同);算不出为 null。 */
+        /** は単位変換後の値です (53,000 は 53000 と同じです)。計算できない場合は null です。 */
         val scaled: String? = value.toBigDecimalOrNull()?.let { v ->
             (MAGNITUDE[magnitude]?.let { v.movePointRight(it) } ?: v).stripTrailingZeros().toPlainString()
         }
@@ -76,45 +80,45 @@ internal object Grounding {
             (scaled != null && scaled == screen.scaled)
     }
 
-    /** [Token]:夹在英文字母里的编号(G7541、a3f899c),整个按一个词比,不按数比。[Quote] 含依据里的引文。 */
+    /** [Token]: 英字に挟まれた数字(G7541、a3f899c)は、数字ではなく単語単位で比較されます。 [Quote] には根拠に引用が含まれています。 */
     enum class Kind { Quote, Number, Date, Token }
 
-    /** 回答里的一条具体事实。数和日期是能写成文字的值;不带数字的引文才可能只在画面上(如单选框选中的状态)。 */
+    /** の回答にある特定の事実。数値と日付はテキストとして書き込むことができる値です。数字のない引用は、画面上にのみ表示されることがあります (ラジオ ボタンが選択されている場合など)。 */
     data class Claim(val kind: Kind, val text: String) {
         val visualOnly: Boolean get() = kind == Kind.Quote && text.none(Char::isDigit)
     }
 
     /**
-     * 兜底的结果。[unmatched] 是在哪个证据来源里都找不到的事实;[anchored] 表示至少有一条事实或依据里的一处对上了。
-     * [found]:对得上 true,对不上 false,回答里没有可核对的东西(或只有数对上、没有引文或依据定位)null。
-     * [items] 是回答里有据可查的条目数(评测的 answer_grounded 用,见 [check])。
+     * 全てを知った結果。 [unmatched] は、どの証拠ソースにも見つからない事実です。 [anchored] は、少なくとも 1 つの事実または根拠の 1 つが一致することを意味します。
+     * [found]: true、false ではありません。回答にはチェックするものは何もありません (または数値のみ、引用や根拠の位置付けはありません)。
+     * [items] は、回答内の適切に文書化されたエントリの数です (レビュー内の回答の根拠については、[check] を参照してください)。
      */
     class Result(
         val found: Boolean?, val claims: List<Claim>, val unmatched: List<Claim>, val anchored: Boolean, val located: Boolean = false, val items: Int = 0,
     )
 
-    /** NFKC 之后 … 已是 ...。 */
+    /** NFKCの後は…です。 */
     private const val CUT = "..."
-    /** 回答里紧挨着 ... 的那段字(至少几个字才拿去比)。 */
+    /** 回答内の... の隣の単語 (比較には少なくともいくつかの単語が使用されます)。 */
     private val BEFORE_CUT = Regex("([^\\n.「」『』“”\"]{2,20})\\.\\.\\.")
 
     private fun isCut(line: String) = line.trimEnd().endsWith(CUT)
 
     /**
-     * 回答是不是建立在被截断的文字上:回答里紧挨着 ... 的那段字、引号里的原文(去掉首尾的 ...),在屏上只出现在被截断的行里,
-     * 而且一直连到截断处。截断的文字只是值的一部分,不能当完整的值核实。
-     * 只看屏上的字是否被截断:回答自己用 ... 省略引文的后半句,而屏上那一行是完整的,不算截断。
+     * 回答は切り詰められたテキストに基づいています: 回答内の... の隣の単語と、引用符で囲まれた元のテキスト (最初と最後の... を削除) は、画面上の切り詰められた行にのみ表示されます。
+     * であり、カットオフポイントに接続されています。切り詰められたテキストは値の一部にすぎず、完全な値として検証することはできません。
+     * 画面上の単語が切り詰められているかどうかを確認してください。次のように答えてください。引用の後半を省略すると、画面上の行は完全になり、切り詰めとはみなされません。
      */
     fun builtOnTruncated(answer: String, screens: List<String>): Boolean {
         val a = canon(answer)
-        val raw = screens.flatMap { canon(it).lines() }.filter { it.isNotBlank() && !it.startsWith(APP_HEADER) }
+        val raw = screens.flatMap { canon(it).lines() }.filter { it.isNotBlank() && !isAppHeader(it) }
         fun onlyOnCutLines(piece: String): Boolean {
             val p = norm(piece)
             if (p.length < 2) return false
             val hits = raw.filter { p in norm(it) }
             return hits.isNotEmpty() && hits.all { l -> isCut(l) && norm(l.trimEnd().removeSuffix(CUT)).endsWith(p) }
         }
-        // 引文以 ... 开头(屏上那一行前半截被截掉):这段字只出现在以 ... 开头的行里
+        // 引用文は ... で始まります (画面上の行の前半が切り取られています): この単語は ... で始まる行にのみ表示されます。
         fun onlyOnHeadCutLines(piece: String): Boolean {
             val p = norm(piece)
             if (p.length < 2) return false
@@ -125,7 +129,7 @@ internal object Grounding {
         if (quoted.any { q -> q.endsWith(CUT) && onlyOnCutLines(q.removeSuffix(CUT)) }) return true
         if (quoted.any { q -> q.startsWith(CUT) && onlyOnHeadCutLines(q.removePrefix(CUT).removeSuffix(CUT)) }) return true
         if (quoted.any(::onlyOnCutLines)) return true
-        // 紧挨着 ... 的字前面可能连着回答自己的话(「要求 Kotlin + Jetpack...」):取在屏上出现过的最长的那段尾巴来比
+        // の後に、単語... の直前に独自の回答 (「Kotlin + Jetpack が必要です...」) を続けることができます。これまでに画面に表示された最長のテールを取得して比較します。
         return BEFORE_CUT.findAll(a).any { m ->
             val cap = m.groupValues[1]
             val tail = cap.indices.map { cap.substring(it) }.firstOrNull { t -> norm(t).length >= 2 && raw.any { norm(t) in norm(it) } }
@@ -133,16 +137,16 @@ internal object Grounding {
         }
     }
 
-    /** 去掉引用编号与脚注(不是回答的内容)。 */
+    /** 参照番号と脚注を削除します (回答の内容ではありません)。 */
     fun stripRefs(s: String): String = s.replace(REF_CITATION, " ").replace(FOOTNOTE, " ")
 
-    /** 两边比对前统一写法:全角半角(NFKC)、零宽字符、排版标记、引用编号与脚注。 */
+    /** 全角と半角（NFKC）、ゼロ幅文字、組版マーク、参照番号、脚注など、両面を比較する前に表記方法を統一してください。 */
     private fun canon(s: String): String =
         stripRefs(java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFKC).replace(ZERO_WIDTH, "").replace(MARKUP, ""))
 
     private fun norm(s: String) = s.filter { it.isLetterOrDigit() }
 
-    // 空引号(JSON 里的 ""、「」)没有可核对的原文:跳过,不能让整个任务因此异常中断
+    // 空の引用符 (JSON の ""、"") には検証可能な元のテキストがありません: スキップされ、タスク全体が異常に中断されることはありません。
     private fun quotes(s: String) = QUOTED.findAll(s).mapNotNull { m -> m.groupValues.drop(1).firstOrNull { it.isNotEmpty() } }.toList()
 
     private fun num(m: MatchResult): Num {
@@ -153,8 +157,8 @@ internal object Grounding {
     private fun numbers(s: String): List<Num> = NUMBER.findAll(s).map(::num).toList()
 
     /**
-     * [s] 里算作事实的数:带数量级、单位或货币符号的,小数,三位以上的整数。
-     * 两位以内不带单位的整数是计数、序号、排名,不算。
+     * [s] でファクトとしてカウントされる数値: 大きさ、単位または通貨記号、小数、および 3 桁を超える整数を含む数値。
+     * 2桁以内の単位のない整数は個数、通し番号、ランキングとなりカウントされません。 画面上の
      */
     private fun valueNumbers(s: String, known: Set<String>): List<Num> = NUMBER.findAll(s).mapNotNull { m ->
         val n = num(m)
@@ -172,9 +176,9 @@ internal object Grounding {
     private fun Char.isAsciiAlnum() = isAsciiLetter() || this in '0'..'9'
 
     /**
-     * 屏上 [s] 里 [start] 到 [end](不含)这个数是不是完整的一个词:前一个字不能是英文字母或数字;后面紧跟英文字母时,
-     * 只能是一串字母就结束(单位,如 128GB),不能再接数字。哈希、网址里的编号、a3f899c 这类 id 里的数字不算屏上的数。
-     * 数里面的小数点、千分位不影响。
+     * [s] [start] ～ [end] (排他的) 数字は完全な単語ですか。最初の単語は英語の文字や数字であってはなりません。その後に英語の文字が続く場合、
+     * は文字列 (128GB などの単位) でのみ終わることができ、それ以上の数字を追加することはできません。ハッシュ内の数値、URL 内の数値、a3f899c などの ID は画面上ではカウントされません。
+     * 数値の小数点と 1000 の位は影響を受けません。
      */
     private fun wholeToken(s: String, start: Int, end: Int): Boolean {
         if (s.getOrNull(start - 1)?.isAsciiAlnum() == true) return false
@@ -184,7 +188,7 @@ internal object Grounding {
     }
 
     /**
-     * [text] 里哪几行(按 [text] 的行号)对上了回答里的事实:给核查模型看节选时,这些行一定留下([EvidenceLedger.excerpt])。不是核对规则。
+     * [text] ([text] の行番号による) のどの行が回答の事実と一致しますか: 検証モデルに抜粋を表示する場合、これらの行は残す必要があります ([EvidenceLedger.excerpt])。ルールを確認していない。
      */
     fun hitLines(goal: String, answer: String, text: String, today: java.time.LocalDate? = null): Set<Int> {
         val r = check(goal, answer, listOf(text), today)
@@ -194,7 +198,7 @@ internal object Grounding {
         val raw = canon(text).lines()
         return raw.indices.filter { i ->
             val l = raw[i]
-            if (l.isBlank() || l.startsWith(APP_HEADER)) return@filter false
+            if (l.isBlank() || isAppHeader(l)) return@filter false
             val line = lines(listOf(l)).single()
             pieces.any { it in line.text } || ok.any { c ->
                 when (c.kind) {
@@ -208,13 +212,13 @@ internal object Grounding {
         }.toSet()
     }
 
-    /** 屏上一行里完整的数(见 [wholeToken])。 */
+    /** 画面上の 1 行の完全な番号 ([wholeToken] を参照)。 */
     private fun screenNumbers(s: String): List<Num> = NUMBER.findAll(s).mapNotNull { m ->
         val n = num(m)
         n.takeIf { wholeToken(s, m.range.first, m.range.first + m.value.length - m.groupValues[1].length) }
     }.toList()
 
-    /** 屏上一行里完整的数字串(对日期用)。 */
+    /** 画面上の 1 行の完全な数値文字列 (日付用)。 */
     private fun screenComponents(s: String) = DIGITS.findAll(s).filter { wholeToken(s, it.range.first, it.range.last + 1) }
         .map { it.value.trimStart('0').ifEmpty { "0" } }.toList()
 
@@ -222,12 +226,12 @@ internal object Grounding {
 
     private val ALNUM_RUN = Regex("[A-Za-z0-9]+")
 
-    /** 一行里的英文字母数字串(比编号用,不分大小写)。 */
+    /** 1 行の英数字の文字列 (大文字と小文字は関係なく、数字に使用されます)。 */
     private fun alnumRuns(s: String) = ALNUM_RUN.findAll(s).map { it.value.lowercase() }.toSet()
 
     /**
-     * [s] 里夹在英文字母里的编号(数不是完整的词,见 [wholeToken]),和把它们换成等长空白后的文字:
-     * 编号整个当一个值核对,里面的数字不再当数。
+     * [s] 英語の文字で挟まれた数字 (数字は完全な単語ではありません。[wholeToken] を参照)、およびそれらを同じ長さの空白に置き換えた後のテキスト:
+     * の数値全体が検証用の 1 つの値として扱われ、内部の数値はカウントされなくなります。
      */
     private fun idTokens(s: String): Pair<List<String>, String> {
         val ids = NUMBER.findAll(s).filterNot { m -> wholeToken(s, m.range.first, m.range.first + m.value.length - m.groupValues[1].length) }
@@ -244,24 +248,24 @@ internal object Grounding {
     }
 
     private fun lines(screens: List<String>) = screens.flatMap { canon(it).lines() }
-        .filter { it.isNotBlank() && !it.startsWith(APP_HEADER) }.map { Line(norm(it), screenNumbers(it), screenComponents(it), alnumRuns(it)) }
+        .filter { it.isNotBlank() && !isAppHeader(it) }.map { Line(norm(it), screenNumbers(it), screenComponents(it), alnumRuns(it)) }
 
-    /** 引文(可能跨几行)里至少有一行能在屏上的某一行里找到。 */
+    /** 画面上の特定の行に、引用文の少なくとも 1 行 (複数行にわたる場合があります) が見つかります。 */
     fun quoteInReads(quote: String, screens: List<String>): Boolean {
         val ls = lines(screens)
         return canon(quote).lines().map(::norm).filter { it.length >= 2 }.any { q -> ls.any { q in it.text } }
     }
 
-    /** 对得上返回 true,对不上返回 false;回答里没有可核对的东西时返回 null。 */
+    /** 正しい場合は true を返し、正しくない場合は false を返します。回答にチェックするものが何もない場合は null を返します。 */
     fun found(goal: String, answer: String, screens: List<String>): Boolean? = check(goal, answer, screens).found
 
-    /** 相对的日子:今天、明天、后天、昨天,周X / 星期X。 */
+    /** 相対日: 今日、明日、明後日、昨日、第 X 週 / 第 X 週。 */
     private val RELATIVE_DAY = Regex("今天|今日|明天|明日|后天|昨天|昨日|(?:周|星期|礼拜)([一二三四五六日天])")
     private val WEEKDAY_CHARS = "一二三四五六日"
-    /** 周X 换算成具体日期时看的范围:昨天到一周后。 */
+    /** Week X 特定の日付に変換される範囲: 昨日から 1 週間後。 */
     private const val WEEK_AHEAD = 7L
 
-    /** [word] 按 [today] 换算出的日期(周X 在昨天到一周后之间可能有两个)。 */
+    /** [word] [today] に従って変換された日付 (週 X には、昨日と 1 週間後の間に 2 つある場合があります)。 */
     private fun resolve(word: MatchResult, today: java.time.LocalDate): List<java.time.LocalDate> = when (word.value) {
         "今天", "今日" -> listOf(today)
         "明天", "明日" -> listOf(today.plusDays(1))
@@ -274,7 +278,7 @@ internal object Grounding {
         }
     }
 
-    /** 日期写法里的年、月、日;只有年月、或是时刻时为 null。 */
+    /** 日付の書き込みにおける年、月、日。年、月、または時刻のみがある場合は null になります。 */
     private fun dateParts(d: String): Triple<Int?, Int, Int>? {
         if (':' in d) return null
         val c = DIGITS.findAll(d).map { it.value.toInt() }.toList()
@@ -286,9 +290,9 @@ internal object Grounding {
     }
 
     /**
-     * 运行时钟能作证的日期:题目或证据里的某一行写了「明天」「周二」这类说法,按 [today] 换算出的那一天,
-     * 回答正文(引文和「依据:」以外)写成具体日期时由时钟作证。只出现在回答里的相对说法什么也不证;时刻、引文里的日期、
-     * 依据里的日期(回答说是从页面读到的)都不由时钟作证。
+     * 時計が証明できる日付: 質問または証拠の特定の行に「明日」または「火曜日」と記載されており、日付は [today] に従って変換されます。
+     * 回答のテキスト (引用符と「基準:」を除く) が特定の日付に書かれている場合、時計がそれを証明します。回答にのみ現れる相対的な記述は何も証明しません。引用符内の時刻、日付、
+     * ベース内の日付 (答えはページから読み取られたものです) は時計によって検証されません。
      */
     private fun clockDates(body: String, basis: String, said: List<String>, today: java.time.LocalDate?): Set<String> {
         today ?: return emptySet()
@@ -305,21 +309,21 @@ internal object Grounding {
     }
 
     private const val NUM_TOKEN = "(\\d+(?:,\\d{3})*(?:\\.\\d+)?)"
-    /** 一个操作数:可带货币符号、紧跟的单位(字母、℃、°、%),和括号里写的出处(「399(商品页)」)。 */
+    /** 1 つのオペランド: 通貨記号、次の単位 (文字、℃、°、%)、および括弧内に記述されたソース (「399 (製品ページ)」) を含めることができます。 */
     private const val OPERAND = "([¥$€£]?)\\s*$NUM_TOKEN\\s*([\\p{L}℃°%]{0,4})\\s*(?:[(（][^()（）\\n]{1,20}[)）])?\\s*"
     /**
-     * 回答里写明的一步运算:a 运算符 b = c(或 ≈ c,= 约 c);运算符是 + - − × * ÷ /。c 后面带 % 时,÷ 和 / 的结果按百分数比。
+     * の回答に記載されているワンステップ操作: a 演算子 b = c (または ≈ c,= 約 c);演算子は + - − × * ÷ / です。 c の後に % が続く場合、÷ と / の結果はパーセンテージとして計算されます。
      */
     private val EXPRESSION = Regex(
         OPERAND + "([+\\-−×*÷/])\\s*" + OPERAND + "(=|≈)\\s*(约|≈)?\\s*([¥$€£]?)\\s*$NUM_TOKEN(\\s*%)?\\s*([\\p{L}℃°]{0,4})",
     )
 
-    /** 一个标准单位:量纲和换算到基本单位的倍数。 */
+    /** 標準単位: 寸法と倍数を基本単位に換算したもの。 */
     private class Unit(val dimension: String, val factor: java.math.BigDecimal)
 
     /**
-     * 标准单位的同义写法和换算(封闭的一张表,不做别的猜测):公里/千米/km,米/m,元/块/¥/RMB/人民币,克/g,千克/公斤/kg,
-     * 小时/h,分钟/min,%/百分之。最长的写法先认。
+     * 標準単位の同義表記と変換 (非公開テーブル、他の推測なし): キロメートル/キロメートル/km、メートル/m、元/ブロック/¥/RMB/人民元、グラム/g、キログラム/kg/kg、
+     * 時間/時、分/分、%/パーセント。最も長い書き方が最初に認識されます。
      */
     private val UNITS: List<Pair<String, Unit>> = listOf(
         "公里" to Unit("length", java.math.BigDecimal(1000)), "千米" to Unit("length", java.math.BigDecimal(1000)), "km" to Unit("length", java.math.BigDecimal(1000)),
@@ -333,19 +337,19 @@ internal object Grounding {
         "百分之" to Unit("percent", java.math.BigDecimal.ONE), "%" to Unit("percent", java.math.BigDecimal.ONE),
     ).sortedByDescending { it.first.length }
 
-    /** 货币符号和数后面的字里认出的标准单位;认不出为 null(按没写单位算)。 */
+    /** 通貨記号と数値の後の単語で認識される標準単位。認識されない場合は null (単位は書き込まれません)。 */
     private fun unitOf(before: String, after: String): Unit? =
         UNITS.firstOrNull { (k, _) -> before == k }?.second ?: UNITS.firstOrNull { (k, _) -> after.startsWith(k, ignoreCase = k.all { it.isAsciiLetter() }) && !after.drop(k.length).take(1).any { it.isAsciiLetter() } }?.second
 
-    /** 算式里操作数的单位:表里有的按标准单位;写了表里没有的(美元符号、英里……)各算一种量纲,只和自己同类。 */
+    /** 式のオペランドの単位: 表内のオペランドの単位は標準単位です。表にないもの (ドル記号、マイルなど) は、それ自体と同じ 1 つの次元で書かれています。 */
     private fun operandUnit(before: String, after: String): Unit? =
         unitOf(before, after) ?: (before + after.trim()).takeIf { it.isNotBlank() }?.let { Unit("other:" + it.lowercase(), java.math.BigDecimal.ONE) }
-    /** 紧挨在数前面、明说是约数的记号。 */
+    /** は数値の直前にある記号で、それが約数であることを示します。 */
     private val APPROX_BEFORE = Regex("(?:约|≈)\\s*[¥$€£]?\\s*$")
 
     /**
-     * [x] 是 [d] 取整的结果:不是约数时只认按 [x] 写出的最后一位取整(整数要相等,小数按小数位);
-     * 明说是约数(约、≈)时末尾的 0 也算精度(900 取到百位),且相对误差不超过 [MAX_ROUND_ERROR]。
+     * [x] は、[d] の丸め結果です。これが約数ではない場合、[x] に書き込まれた最後の桁のみが丸められます (整数は等しい必要があり、小数点以下の桁は四捨五入する必要があります)。
+     * が約数 (およそ、≈) であると明示されている場合、末尾の 0 も正確であるとみなされ (百の位は 900 となります)、相対誤差は [MAX_ROUND_ERROR] を超えません。
      */
     private fun roundsTo(x: java.math.BigDecimal, d: java.math.BigDecimal, approx: Boolean): Boolean {
         val diff = (x - d).abs()
@@ -367,8 +371,8 @@ internal object Grounding {
     private fun plainValue(s: String) = s.replace(",", "").toBigDecimalOrNull()
 
     /**
-     * 回答里写明了算式、两个操作数都在证据里对上的结果(「6363−5464=899」):返回结果的写法(和回答里的数的写法一致)。
-     * [grounded] 判断一个数在证据里对得上(不含题目里的数)。
+     * 解答には、根拠にある計算式と両オペランドの一致結果（「6363−5464=899」）、つまり返される結果の書き方（解答の数値の書き方と一致します）が記載されています。
+     * [grounded] 数字が証拠と一致するかどうかを判断します (質問内の数字を除く)。
      */
     private fun computed(body: String, grounded: (String) -> Boolean): Set<String> = body.lines().flatMap { EXPRESSION.findAll(it).toList() }.mapNotNull { m ->
         val g = m.groupValues
@@ -381,7 +385,7 @@ internal object Grounding {
         var b = plainValue(bRaw) ?: return@mapNotNull null
         var c = plainValue(cRaw) ?: return@mapNotNull null
         val mc = java.math.MathContext.DECIMAL64
-        // 加减要同一个量纲:写了单位的按标准单位换算(公里和千米是一回事,公里和米差 1000 倍);量纲不同的算式不算数
+        // 加算と減算は同じ次元でなければなりません。単位が記述されている場合は、標準単位に従って変換します (キロメートルとキロメートルは同じもので、キロメートルとメートルの差は 1000 倍です)。次元が異なる数式はカウントされません
         if (op in setOf("+", "-", "−")) {
             val ua = operandUnit(aCur, aUnit)
             val ub = operandUnit(bCur, bUnit)
@@ -405,11 +409,11 @@ internal object Grounding {
         cRaw.replace(",", "").takeIf { roundsTo(c, result, approx) }
     }.toSet()
 
-    /** 引文里代替数的一个字母(「今日 +N」的 N)。 */
+    /** 引用符内の数字を置き換える文字 (「Today +N」の N)。 */
     private val PLACEHOLDER = Regex("(?<![A-Za-z])[A-Za-z](?![A-Za-z])")
 
     /**
-     * 引文 [q] 是在说回答自己的写法:里面有代替数的字母,把字母换成数后,正好是回答正文(引号以外)里写过的一段(「今日 +N」对「今日 +2,271」)。
+     * 引用 [q] は、独自の答えの書き方について話しています。数字の代わりに文字が含まれています。文字を数字に変更すると、それは回答のテキストに書かれた段落になります (引用符を除く) (「Today +N」と「Today +2,271」)。
      */
     private fun template(q: String, plain: String): Boolean {
         if (!PLACEHOLDER.containsMatchIn(q)) return false
@@ -420,11 +424,11 @@ internal object Grounding {
     }
 
     private val EMPHASIS = Regex("\\*\\*|__|`")
-    /** 行首的列表记号(1. 2、 3) ① - * •)。 */
+    /** 行の先頭にトークンをリストします (1. 2, 3) ① - * •)。 */
     private val LIST_MARK = Regex("^[ \\t]*(?:\\(?\\d{1,3}[.、)）:：]|（\\d{1,3}）|[①-⑳]|[-*•·])[ \\t]*")
-    /** 列表里「标签:值」的值。 */
+    /** リスト内の「タグ:値」の値。 */
     private val LABEL_VALUE = Regex("^[^:：]{1,12}[:：]\\s*(.+)$")
-    /** 一个条目至少要有几个字(单字、标点哪屏都有,不能拿来凑数)。 */
+    /** エントリには少なくとも数語が必要です (単一の単語と句読点はどの画面でも使用でき、数値を構成するために使用することはできません)。 */
     private const val MIN_ITEM = 2
 
     fun check(goal: String, answer: String, screens: List<String>, today: java.time.LocalDate? = null): Result {
@@ -433,7 +437,7 @@ internal object Grounding {
         val ls = entries.flatten()
         val g = canon(goal)
         val goalNums = numbers(g).map { it.value }.toSet()
-        // 题目里的数按值比(1000.0 和 1000 是同一个数)
+        // 質問内の数値は値によって比較されます (1000.0 と 1000 は同じ数値です)
         val goalValues = numbers(g).mapNotNull { it.scaled }.toSet()
         val goalText = norm(g)
         val at = EVIDENCE.find(a)
@@ -441,16 +445,16 @@ internal object Grounding {
         val body = at?.let { a.substring(0, it.range.first) } ?: a
 
         fun numOnScreen(n: Num) = ls.any { l -> l.nums.any(n::matches) }
-        /** [q] 在 [where] 这些行里:整段在某一行,或按标点空白分开的每段各在某一行(其中的数按整个数比)。 */
+        /** [q] これらの行 [where]: 段落全体が特定の行にあるか、句読点スペースで区切られた各段落が特定の行にあります (数値は整数に比例します)。 */
         fun textIn(q: String, where: List<Line>): Boolean {
             val t = norm(q)
             if (t.isEmpty() || where.any { t in it.text }) return true
             val pieces = q.split(PIECE_BREAK).map(::norm).filter(String::isNotEmpty)
-            // 行首的序号(「5 千与千寻」)、夹在字母里的数字(AQ3A)不是数,不拿去比
+            // 行頭のシリアルナンバー（『5 千と千尋の神隠し』）と文字の間に挟まれた数字（AQ3A）は数字ではないため比較対象外となります。
             return pieces.size > 1 && pieces.all { p -> where.any { p in it.text } } &&
                 screenNumbers(ORDINAL.replace(q.trim(), " ")).all { n -> where.any { l -> l.nums.any(n::matches) } }
         }
-        /** 引文在某一处材料里:被 ... 分开的几段各自对得上,而且在同一处。 */
+        /** 引用は資料内の特定の場所にあります。... で区切られた段落は互いに一致し、同じ場所にあります。 */
         fun quoteFound(q: String): Boolean {
             val parts = q.split(CUT).filter { norm(it).isNotEmpty() }.ifEmpty { listOf(q) }
             return entries.any { e -> parts.all { textIn(it, e) } }
@@ -461,7 +465,7 @@ internal object Grounding {
             return variants.any { v -> ls.any { l -> l.digits.windowed(v.size).any { it == v } } }
         }
 
-        // 一行一行地取值:回答的一行不和下一行拼起来,行首的列表编号按行去掉
+        // 値は行ごとに取得されます。回答行は次の行と結合されず、行先頭のリスト番号が行ごとに削除されます。
         fun values(line: String): List<Claim> {
             val dates = DATE.findAll(line).map { it.value }.filter { d -> components(d).any { it !in goalNums } }.toList()
             val (ids, plain) = idTokens(ORDINAL.replace(DATE.replace(line, " "), " "))
@@ -475,7 +479,7 @@ internal object Grounding {
         val lineClaims = bodyLines.map(::values)
         val claims = (bodyQuotes.map { Claim(Kind.Quote, it) } + lineClaims.flatten() + basisQuotes.map { Claim(Kind.Quote, it) }).distinct()
 
-        // 证据里写了「明天」「周二」的地方:题目、证据里的每一行
+        // 証拠に「明日」と「火曜日」と書かれている箇所：タイトルと証拠の各行
         val byClock = clockDates(body, basis, listOf(g) + ls.map { it.text }, today)
         fun matched(c: Claim) = when (c.kind) {
             Kind.Quote -> quoteFound(c.text)
@@ -483,11 +487,11 @@ internal object Grounding {
             Kind.Date -> dateOnScreen(c.text) || c.text in byClock
             Kind.Token -> ls.any { c.text.lowercase() in it.tokens }
         }
-        // 证据里对得上的数(题目里的数不算:题目给的数算出来的结果仍要在屏上读到)
+        // 証拠と一致する数字 (質問内の数字はカウントされません。質問内の数字の計算結果は画面上で読み取る必要があります)
         fun grounded(n: Num) = (n.scaled == null || n.scaled !in goalValues) && numOnScreen(n)
         fun groundedRaw(raw: String) = numbers(raw).firstOrNull()?.let(::grounded) == true
         val known = a.lines().flatMap { numbers(ORDINAL.replace(DATE.replace(it, " "), " ")) }.filter(::grounded).mapNotNull { it.scaled?.toBigDecimalOrNull() }
-        // 写明算式的结果,和明说是约数(约、≈)、按写出的精度取整后等于某个对得上的数的数
+        // 計算結果を述べ、それが約数 (近似値、≈)、つまり、書かれた精度に丸めた後、一致する特定の数値に等しい数値であることを述べます。
         val derivedNums = computed(body, ::groundedRaw) + body.lines().flatMap { line ->
             NUMBER.findAll(line).mapNotNull { m ->
                 val n = num(m)
@@ -498,7 +502,7 @@ internal object Grounding {
         }
         val unmatched = claims.filterNot { matched(it) || (it.kind == Kind.Number && it.text in derivedNums) }
 
-        // 依据里引文以外的字只帮着定位(对上一处即可),对不上不否决
+        // 引用文以外の文言によると、位置決めに役立つだけ（前のものと一致するだけ）で、一致しない場合は拒否されません。
         val basisNorm = norm(basis)
         val fragments = QUOTED.replace(basis, " ").split(FRAGMENT_BREAK).map(::norm).filter { it.length >= MIN_FRAGMENT }
         val located = (basisQuotes.isNotEmpty() && basisQuotes.all(::quoteFound)) || fragments.any { f -> ls.any { f in it.text } } ||
@@ -508,12 +512,12 @@ internal object Grounding {
         val found = when {
             unmatched.isNotEmpty() -> false
             quoteMatched || located -> true
-            // 没有引文、依据也没定位到:只有数对上,数可能碰巧在屏上,单靠它们不算对上
+            // には出典も根拠も場所もありません。正しいのは数字だけです。数字が画面上に表示されることがあります。それらだけではカウントされません。
             else -> null
         }
 
-        // 有据可查的条目:回答里有对上的事实的行(内容相同的行只算一次),和不带值的列表条目里整段在某一行里的;
-        // 取它和对上的不同事实数里大的那个
+        // 適切に文書化されたエントリ: 回答内で事実が一致する行 (同じ内容の行は 1 回のみカウントされます)、段落全体が特定の行に含まれる値のないエントリのリスト。
+        // それと上記のペアの間でより多くの異なるファクトを取得します。
         val okClaims = claims.filter { it !in unmatched }.toSet()
         val rows = mutableSetOf<String>()
         val bare = mutableSetOf<String>()

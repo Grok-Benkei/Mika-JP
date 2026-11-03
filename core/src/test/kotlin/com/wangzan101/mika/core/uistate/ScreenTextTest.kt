@@ -36,7 +36,7 @@ class ScreenTextTest {
         val o = arr[0].jsonObject
         assertEquals("@e1", o["ref"]!!.jsonPrimitive.content)
         assertEquals("a:id/x", o["resourceId"]!!.jsonPrimitive.content)
-        // 像素 (540,120) 在 1080x2400 上,与 tap 坐标同为 0–999
+        // ピクセル (540,120) (1080x2400)、タップ座標 0 ～ 999 と同じ
         assertEquals(500, o["center"]!!.jsonObject["x"]!!.jsonPrimitive.content.toInt())
         assertEquals(50, o["center"]!!.jsonObject["y"]!!.jsonPrimitive.content.toInt())
     }

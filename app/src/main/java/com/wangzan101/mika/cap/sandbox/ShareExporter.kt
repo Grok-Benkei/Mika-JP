@@ -20,12 +20,12 @@ import java.io.InputStream
 
 class FileTooLarge(val bytes: Long) : Exception("file is larger than ${ShareRules.MAX_BYTES shr 20} MB")
 
-/** 把工作区里的文件存到手机的「下载/Mika」(MediaStore,不需要存储权限)。 */
+/** ワークスペース内のファイルを携帯電話の「Download/Mika」(MediaStore、ストレージ権限は必要ありません)に保存します。 */
 class ShareExporter(private val context: Context) {
     /**
-     * [file] 已过关口核实(不跟随链接打开一次,按句柄确认在它自己的工作区里、是普通文件、只有一个硬链接);
-     * 这里再看大小不超过 100 MB,然后从这同一个句柄复制。检查之后被换成链接或别的文件也读不到外面的东西。
-     * 返回导出的文件,其中 savedAs 是 "Download/Mika/<实际名字>"(重名时系统加序号);不会把 Mika 的私有路径交出去。
+     * [file] はチェックポイント検証に合格しました (一度リンクをたどって開かないでください。ハンドルを押して、それが独自のワークスペースにあることを確認します。これは通常のファイルであり、ハード リンクは 1 つだけです)。
+     * ここでも、サイズは 100 MB を超えず、この同じハンドルからコピーされます。確認後にリンクや別のファイルに置き換えても外部のコンテンツを読み込むことはできません。
+     * は、savedAs が「Download/Mika/<実際の名前>」であるエクスポートされたファイルを返します (名前が重複する場合、システムはシリアル番号を追加します)。ミカさんの私道は引き継がれません。
      */
     suspend fun export(file: GatedFile, requestedName: String): SharedFile = withContext(Dispatchers.IO) {
         if (!ShareRules.plainName(requestedName)) throw SandboxError("invalid_arguments", "name: must be a plain file name", recoverable = true)
@@ -51,12 +51,12 @@ class ShareExporter(private val context: Context) {
             resolver.openOutputStream(uri)!!.use { out ->
                 val buf = ByteArray(64 * 1024)
                 while (true) {
-                    // 会话关了(任务取消、命令结束)就不再写下去
+                    // セッションが閉じられると (タスクがキャンセルされ、コマンドが終了すると)、それ以上の書き込みは行われません。
                     currentCoroutineContext().ensureActive()
                     val n = input.read(buf)
                     if (n < 0) break
                     size += n
-                    // 检查之后文件又变大了:同样按上限算
+                    // 確認後、ファイルが再び大きくなりました。上限に基づいて同じ計算が行われます。
                     if (size > ShareRules.MAX_BYTES) throw FileTooLarge(size)
                     out.write(buf, 0, n)
                 }
@@ -72,7 +72,7 @@ class ShareExporter(private val context: Context) {
     }
 
     /**
-     * 删掉本 App 在「下载/Mika」里留下的、没写完的条目(写到一半进程被杀会留下 IS_PENDING 的空壳)。启动时调用。
+     * このアプリが「Download/Mika」に残した未完了のエントリを削除します（書き込み途中でプロセスが強制終了すると、IS_PENDINGの空のシェルが残ります）。起動時に呼び出されます。
      */
     fun cleanPending() {
         val resolver = context.contentResolver

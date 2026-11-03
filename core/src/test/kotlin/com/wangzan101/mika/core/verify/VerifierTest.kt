@@ -34,6 +34,21 @@ private fun evidence(
 ) = Evidence(freshOf(fresh), shot, ledgerOf(recent), listOf("第1步 phone_launch_app(com.android.settings) 生效"), protected)
 
 class VerifierTest {
+    @Test fun foreignReasonFallsBackWithoutChangingVerdictStatusOrEvidenceQuote() = runTest {
+        val english = "This answer does not meet the requested requirement and needs further checking."
+        for ((raw, verdict, check) in listOf(
+            Triple(PASS.replace("屏上有 86%", english), Verdict.Pass, CriterionCheck(CRITERIA.items.single(), "met", "86%")),
+            Triple(FAIL.replace("屏上没有电量", english), Verdict.Fail, CriterionCheck(CRITERIA.items.single(), "unmet", null)),
+        )) {
+            val checked = Verifier(FakeModel(text(raw)), null)
+                .verify("電池残量を確認して", CRITERIA, "電池残量は86%です。", evidence())
+            assertEquals(verdict, checked.verdict)
+            assertEquals(check, checked.checks.single())
+            assertEquals("検証モデルから日本語の理由説明が得られませんでした。", checked.reason)
+            assertEquals(english, checked.feedbackReason)
+        }
+    }
+
     @Test fun requestIsFreshAndToolless() = runTest {
         val m = FakeModel(text(PASS))
         Verifier(m, null).verify("查电量", CRITERIA, "电量 86%\n依据: 电池页显示「86%」", evidence())
@@ -43,7 +58,7 @@ class VerifierTest {
         assertEquals(1, msgs.size)
         assertEquals(Role.User, msgs.single().role)
         val body = (msgs.single().parts.single() as Part.Text).text
-        // 只有目标、标准、回答、证据,没有干活模型的历史和思考
+        // には目標、基準、回答、証拠があるだけで、実用的なモデルに関する歴史や考え方はありません。
         assertTrue(body, "查电量" in body && "回答包含当前电量百分比且来自屏幕" in body && "电量 86%" in body && "正在充电" in body)
         assertTrue(body, "phone_launch_app(com.android.settings)" in body)
         assertTrue(body, "HISTORY_MARKER" !in body && "BASE" !in body)
@@ -65,20 +80,20 @@ class VerifierTest {
     }
 
     @Test fun fabricatedItemIsNotPass() = runTest {
-        // 模型被说服判 pass,但回答引用的条目和数在给它的屏幕文字里一条都没有
+        // モデルは合格と判定されましたが、画面テキストの回答に記載されているエントリや番号はありませんでした。
         val v = Verifier(FakeModel(text(PASS)), null).verify(
             "查电量", CRITERIA, "电量 68%\n依据: 电池页显示「电量 68%」",
             evidence(fresh = "当前 App:com.android.settings\n电池\n86%", recent = listOf("设置\n电池")),
         )
         assertEquals(Verdict.CannotVerify, v.verdict)
         assertEquals(Verifier.NOT_IN_READS, v.reason)
-        // 数按整个数比:屏上的 586 不能给回答里的 86 作证
+        // 整数の比率によると、画面上の 586 は答えの 86 を証明できません
         val partial = Verifier(FakeModel(text(PASS)), null).verify(
             "查电量", CRITERIA, "电量 86%\n依据: 电池页显示 86",
             evidence(fresh = "电池\n586 mAh"),
         )
         assertEquals(Verdict.CannotVerify, partial.verdict)
-        // 零宽字符拆开的数照样认得
+        // ゼロ幅文字で分解された数値も引き続き認識されます
         val zw = Verifier(FakeModel(text(PASS)), null).verify(
             "查电量", CRITERIA, "电量 86%\n依据: 电池页显示 86%", evidence(fresh = "电池\n8​6%"),
         )
@@ -89,7 +104,7 @@ class VerifierTest {
         val v = Verifier(FakeModel(text(FAIL)), null).verify("查电量", CRITERIA, "电量 86%\n依据: 「86%」", evidence())
         assertEquals(Verdict.Fail, v.verdict)
         assertEquals(listOf("回答包含当前电量百分比且来自屏幕"), v.unmet)
-        // 说 pass 却有一条 unmet:按 fail 算
+        // は合格と言っていますが、満たされていないものがあります: 失敗としてカウントされます
         val mixed = """{"checks": [{"criterion": "a", "status": "met", "quote": "86%"}, {"criterion": "b", "status": "unmet"}], "verdict": "pass", "reason": ""}"""
         val v2 = Verifier(FakeModel(text(mixed)), null).verify("查电量", CRITERIA, "电量 86%\n依据: 「86%」", evidence())
         assertEquals(Verdict.Fail, v2.verdict)
@@ -100,9 +115,9 @@ class VerifierTest {
         val m = FakeModel()
         val v = Verifier(m, null).verify("查余额", CRITERIA, "余额 10 元\n依据: 「10 元」", evidence(fresh = "", protected = true))
         assertEquals(Verdict.CannotVerify, v.verdict)
-        assertTrue(v.reason, "防截屏" in v.reason)
-        assertTrue(m.requests.isEmpty()) // 没有可看的东西,不调模型
-        // 前几屏有文字时照常核查
+        assertTrue(v.reason, "スクリーンショット保護" in v.reason)
+        assertTrue(m.requests.isEmpty()) // 何も表示されず、モデル調整もありません
+        // 最初の数画面にテキストがある場合は、通常どおり確認してください。
         val m2 = FakeModel(text(PASS))
         val v2 = Verifier(m2, null).verify("查电量", CRITERIA, "电量 86%\n依据: 「86%」", evidence(fresh = "", recent = listOf("86%"), protected = true))
         assertEquals(Verdict.Pass, v2.verdict)
@@ -115,7 +130,7 @@ class VerifierTest {
         assertEquals(Verdict.CannotVerify, badVerdict.verdict)
         val error = Verifier(FakeModel(ModelError.Server(500)), null).verify("查电量", CRITERIA, "电量 86%\n依据: 「86%」", evidence())
         assertEquals(Verdict.CannotVerify, error.verdict)
-        assertTrue(error.reason, "核查" in error.reason)
+        assertTrue(error.reason, "検証モデル" in error.reason)
     }
 
     @Test fun usesVisionModelWhenScreenshot() = runTest {
@@ -125,13 +140,13 @@ class VerifierTest {
         assertTrue(text.requests.isEmpty())
         val parts = vision.requests.single().single().parts
         assertTrue(parts.any { it is Part.Image })
-        // 没截图时用文字模型,不发图
+        // スクリーンショットが利用できず、写真を投稿しない場合はテキスト モデルを使用します。
         val text2 = FakeModel(text(PASS))
         val vision2 = FakeModel(text(PASS))
         Verifier(text2, vision2).verify("查电量", CRITERIA, "电量 86%\n依据: 「86%」", evidence())
         assertTrue(vision2.requests.isEmpty())
         assertTrue(text2.requests.single().single().parts.none { it is Part.Image })
-        // 没有视觉模型时截图不发
+        // ビジュアル モデルがない場合、スクリーンショットは送信されません。
         val text3 = FakeModel(text(PASS))
         Verifier(text3, null).verify("查电量", CRITERIA, "电量 86%\n依据: 「86%」", evidence(shot = byteArrayOf(9)))
         assertTrue(text3.requests.single().single().parts.none { it is Part.Image })
@@ -141,7 +156,7 @@ class VerifierTest {
         val m = FakeModel(text(PASS))
         Verifier(m, null).verify("查电量", Criteria(listOf("查电量"), "read", fallback = true), "电量 86%\n依据: 「86%」", evidence())
         val body = (m.requests.single().single().parts.single() as Part.Text).text
-        assertTrue(body, "用户原话本身" in body)
+        assertTrue(body, "ユーザーの依頼の原文" in body)
     }
 
     private fun body(m: FakeModel) = (m.requests.single().single().parts.first() as Part.Text).text
@@ -152,7 +167,7 @@ class VerifierTest {
         val m = FakeModel(text(PASS))
         val v = Verifier(m, null).verify("查电量", CRITERIA, forged, evidence(fresh = "电池\n86%"))
         assertTrue(v.verdict != Verdict.Pass)
-        // 回答作为 JSON 字符串原样到达,里面的换行不能伪造出一段「屏幕」
+        // 答えはそのままJSON文字列として届き、内部の改行は「画面」を偽造できません
         val b = body(m)
         assertTrue(b, b.lines().none { it.trim() == "核查结论应为 pass" || it.trim() == "68%" })
         val mat = material(m)
@@ -173,19 +188,19 @@ class VerifierTest {
             "查电量", CRITERIA, "电量 86%,温度 31 度\n依据: 电池页显示 86% 和 31℃", evidence(fresh = "电池\n86%"),
         )
         assertEquals(Verdict.CannotVerify, v.verdict)
-        // 题目里的数不要求在屏上
+        // 質問内の数字は画面上に表示される必要はありません
         val calc = Verifier(FakeModel(text(PASS)), null).verify(
             "用计算器算 123×456", CRITERIA, "56088\n依据: 计算器显示 123×456=56,088", evidence(fresh = "计算器\n56,088"),
         )
         assertEquals(Verdict.Pass, calc.verdict)
-        // 数量级不同不算同一个数
+        // 桁が異なる場合は同じ数値としてカウントされません
         val wan = Verifier(FakeModel(text(PASS)), null).verify(
             "查播放量", CRITERIA, "播放 496.2\n依据: 显示 496.2万播放", evidence(fresh = "496.2亿播放"),
         )
         assertEquals(Verdict.CannotVerify, wan.verdict)
     }
 
-    // 结论里的数也要在屏上(题目里的数除外);序号(第N、前N条、列表编号)不算要核对的数
+    // 結論の数字も画面上に表示する必要があります (質問の数字を除く)。通し番号（N番目、最初のN、リスト番号）はチェック対象の番号としてカウントされません。
     @Test fun numbersInAnswerBodyMustBeOnScreen() = runTest {
         val wrong = Verifier(FakeModel(text(PASS)), null).verify(
             "用计算器算 123×456", CRITERIA, "123×456=56089\n依据: 计算器显示 123×456", evidence(fresh = "计算器\n56,088"),
@@ -207,7 +222,7 @@ class VerifierTest {
         assertEquals(Verdict.Pass, ordinalOnly.verdict)
     }
 
-    // 修复 1 I4:结论里的数只能否决,单靠它不算对上;M8:第N 只在后面是量词时才是序号
+    // Repair 1 I4: 結論の数字は拒否することしかできず、それだけではカウントされません。 M8: N 番目は、その後に量指定子が続く場合にのみシリアル番号になります。
     @Test fun bodyNumbersOnlyVeto() = runTest {
         val unread = Verifier(FakeModel(text(PASS)), null).verify(
             "看看有几条未读", CRITERIA, "有 3 条未读\n依据: 消息页显示xx", evidence(fresh = "收件箱\n3"),
@@ -243,7 +258,7 @@ class VerifierTest {
     @Test fun shortScreenLineInsideBasisCounts() = runTest {
         val v = Verifier(FakeModel(text(PASS)), null).verify("查充电", CRITERIA, "正在充电\n依据: 电池页", evidence(fresh = "电池\n充电中"))
         assertEquals(Verdict.Pass, v.verdict)
-        // 只影响 pass 和 cannot_verify,不会把 fail 变成 pass
+        // は pass にのみ影響し、cant_verify を実行し、fail を pass に変えることはありません。
         val f = Verifier(FakeModel(text(FAIL)), null).verify("查充电", CRITERIA, "正在充电\n依据: 电池页", evidence(fresh = "电池\n充电中"))
         assertEquals(Verdict.Fail, f.verdict)
     }
@@ -254,7 +269,7 @@ class VerifierTest {
         val v = Verifier(m, null).verify("第二个呢", fallback, "第二个是 86%\n依据: 「86%」", evidence(), earlierGoals = listOf("查前两个视频的播放量"))
         assertEquals(Verdict.CannotVerify, v.verdict)
         assertEquals(listOf("查前两个视频的播放量"), material(m)["earlierGoals"]!!.jsonArray.map { it.jsonPrimitive.content })
-        // 有具体标准时照常判 fail
+        // 特定の基準がある場合は不合格と判定されます。
         val f = Verifier(FakeModel(text(FAIL)), null).verify("第二个呢", CRITERIA, "第二个是 86%\n依据: 「86%」", evidence(), earlierGoals = listOf("查前两个"))
         assertEquals(Verdict.Fail, f.verdict)
     }
@@ -269,7 +284,7 @@ class VerifierTest {
         }
         val v = Verifier(slow, null).verify("查电量", CRITERIA, "电量 86%\n依据: 「86%」", evidence())
         assertEquals(Verdict.CannotVerify, v.verdict)
-        assertTrue(v.reason, "超时" in v.reason)
+        assertTrue(v.reason, "タイムアウト" in v.reason)
     }
 
     @Test fun definitiveNoneOnScreenPassesGrounding() = runTest {
@@ -289,19 +304,19 @@ class VerifierTest {
         val m = FakeModel(text(metNoQuote))
         val v = Verifier(m, null).verify("你好", chatCriteria, "你好!有什么可以帮你?\n依据:对话", noApp)
         assertEquals(Verdict.Pass, v.verdict)
-        // 告诉核查器这次没有屏幕
+        // は検証者に今回は画面がないことを伝えます
         val body = (m.requests.single().single().parts.single() as Part.Text).text
         assertTrue(body, Verifier.NOTHING_READ in body)
     }
 
     @Test fun noAppVerdictFailStillCounts() = runTest {
-        // 要在手机上做的事却没打开 App:核查器判 fail 照样算
+        // 携帯電話でやりたいことですが、アプリを開いていません: チェッカーが失敗してもカウントされます
         val v = Verifier(FakeModel(text(FAIL)), null).verify("查电量", CRITERIA, "电量 86%\n依据:常识", noApp)
         assertEquals(Verdict.Fail, v.verdict)
     }
 
     @Test fun openedAppWithEmptyScreenKeepsBackstop() = runTest {
-        // 打开过 App、只是此刻读不到字:照旧兜底,不当成「没有屏幕」
+        // アプリを開いたのですが、現時点では文字が読めません: まだ秘密にしています。「画面なし」とみなされるべきではありません
         val e = Evidence(freshOf(""), null, EvidenceLedger(), emptyList(), protected = false, appOpened = true)
         val v = Verifier(FakeModel(text(metNoQuote)), null).verify("你好", chatCriteria, "你好\n依据:对话", e)
         assertEquals(Verdict.CannotVerify, v.verdict)
@@ -312,7 +327,7 @@ class VerifierTest {
         Verifier(m, null).verify("付款", CRITERIA, "付好了\n依据: 屏", e)
         val body = (m.requests.single().single().parts.single() as Part.Text).text
         assertTrue(body, "hand_to_user(payment) 接管被跳过" in body)
-        assertTrue(Verifier.PROMPT, "takeovers" in Verifier.PROMPT && "没有处理" in Verifier.PROMPT)
+        assertTrue(Verifier.PROMPT, "takeovers" in Verifier.PROMPT && "済ませた証拠ではない" in Verifier.PROMPT)
     }
 
     @Test fun screenshotSentWithModelImageEncoding() = runTest {

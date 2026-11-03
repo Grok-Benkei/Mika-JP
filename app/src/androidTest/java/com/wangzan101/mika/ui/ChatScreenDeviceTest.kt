@@ -55,9 +55,9 @@ import com.wangzan101.mika.task.testTasks
 import com.wangzan101.mika.task.TaskEnvironment
 
 /**
- * 真机走一遍对话页:脚本模型在虚拟屏上打开设置,检查步骤、小窗(收起、展开、拖动、需要你时自动展开)和结果卡片,
- * 每个阶段截一张图到 App 的外部文件目录 shots/(由开发机 adb pull 出来人工查看)。
- * 需要内置助手在运行、Mika 无障碍服务已开启。
+ * 実機のダイアログ ページをウォークスルーします。仮想画面でスクリプト モデル設定を開き、手順、小さなウィンドウ (折りたたみ、展開、ドラッグ、必要に応じて自動的に展開)、および結果カードを確認します。
+ * 各段階で、アプリの外部ファイル ディレクトリshots/ に写真が撮影されます (開発マシンから adb pull によって手動で表示されます)。
+ * では、組み込みアシスタントが実行されており、Mika アクセシビリティ サービスがオンになっている必要があります。
  */
 @RunWith(AndroidJUnit4::class)
 class ChatScreenDeviceTest {
@@ -66,7 +66,7 @@ class ChatScreenDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
-    // 从界面发起的任务在第一个动作前要另问一次意图;固定答「要操作」,脚本里每一问都是任务循环本身的一步
+    // インターフェイスから開始されたタスクは、最初のアクションの前に意図について別の質問をする必要があります。決まった答えは「操作する」です。スクリプト内の各質問は、タスク サイクル自体のステップです。
     private val model = ScriptedModel().apply { intent = "ACT" }
     private val vm get() = (context.applicationContext as MikaApp).chat
     private val anyway = Prerequisites.Check(emptyList())
@@ -81,12 +81,12 @@ class ChatScreenDeviceTest {
         testTasks.lightModelFactory = { _, _ -> null }
         testTasks.visionModelFactory = { _, _ -> null }
         File(context.getExternalFilesDir(null), "shots").mkdirs()
-        // 界面状态是整个进程共用的:等上一个测试的任务全部收尾,再换成新对话,免得接上它的结束状态
+        // インターフェイスのステータスはプロセス全体で共有されます。前のテストのすべてのタスクが完了するまで待ってから、新しい会話に切り替えて、終了ステータスへの接続を回避します。
         DeviceTaskState.runs.value.forEach { it.cancel() }
         pollUntil(20_000) { DeviceTaskState.busy.value.takeIf { !it } }
-        // 并行开关是持久设置,别的测试(或中途崩掉的)可能留着 true;每个测试自己决定,默认关
+        // パラレル スイッチは永続的な設定です。他のテスト (または途中でクラッシュ) は true のままになる場合があります。各テストはそれ自体で決定され、デフォルトではオフになっています。
         FeatureFlags.get(context).let { f -> savedSpeed = f.speedFlags(); f.setSpeed(savedSpeed!!.copy(parallelTasks = false)) }
-        // 对话页还挂着上一个对话的结束状态时 newConversation 会被当成「忙」而不执行:等它回到空闲,并确认真换成了空对话
+        // 会話ページが前の会話の終了ステータスのままハングしている場合、newConversation は「ビジー」とみなされ実行されません。アイドル状態に戻るのを待ち、空の会話に置き換えられたことを確認します。
         assertNotNull("composer never went idle", pollUntil(20_000) { true.takeIf { !vm.busy() } })
         compose.runOnUiThread { vm.newConversation() }
         compose.waitForIdle()
@@ -102,7 +102,7 @@ class ChatScreenDeviceTest {
         testTasks.modelFactory = TaskEnvironment.defaultModelFactory
         testTasks.lightModelFactory = TaskEnvironment.defaultLightModelFactory
         testTasks.visionModelFactory = TaskEnvironment.defaultVisionModelFactory
-        // 把持久设置还原成本次测试之前的样子,不把设备留在测试用的开关上
+        // テストに使用したスイッチ上のデバイスを離れずに、永続的な設定をこのテスト前の状態に復元します。
         savedSpeed?.let { FeatureFlags.get(context).setSpeed(it) }
     }
 
@@ -112,17 +112,17 @@ class ChatScreenDeviceTest {
         compose.waitForIdle()
         Thread.sleep(400)
         compose.waitForIdle()
-        // 默认的 UiAutomation 会压制其他无障碍服务,Mika 的服务会被断开
+        // デフォルトの UiAutomation は他のアクセシビリティ サービスを抑制し、Mika のサービスは切断されます
         val bmp = InstrumentationRegistry.getInstrumentation()
             .getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES).takeScreenshot()
         File(context.getExternalFilesDir(null), "shots/$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
-    /** dumpsys 里此刻在前台的那个 Activity 那一行。 */
+    /** dumpsys の現時点でフォアグラウンドにあるアクティビティの行。 */
     private fun topResumed(dump: String): String? =
         dump.lineSequence().firstOrNull { it.contains("topResumedActivity") || it.contains("mResumedActivity") }
 
-    /** 前台那个 Activity 是不是本 App 的 [cls](dumpsys 里写成「包名/.相对类名」)。 */
+    /** このアプリのフォアグラウンドのアクティビティは [cls] です (dumpsys では「パッケージ名/.相対クラス名」として記述されます)。 */
     private fun onTop(cls: Class<*>): Boolean {
         val line = topResumed(sh("dumpsys activity activities")) ?: return false
         val short = "${context.packageName}/" + cls.name.removePrefix(context.packageName)
@@ -138,9 +138,9 @@ class ChatScreenDeviceTest {
 
         compose.typeAndSend("打开设置看看电池")
         if (vm.ui.value.blocked != null) {
-            // 这台手机没配模型等:被拦下的提示也截一张,再绕过检查用脚本模型跑
+            // この電話にはモデルなどが装備されていません: 停止時にプロンプ​​トのスクリーンショットを撮り、スクリプト モデルを使用して実行してチェックを回避します。
             shot("02-blocked")
-            // 绕过检查直接交给界面状态,输入框里的字界面不会替它清掉;任务开始后输入框不可编辑,所以先清
+            // はチェックをバイパスし、インターフェイスのステータスに直接転送します。入力ボックス内の単語「interface」はクリアされません。タスクの開始後は入力ボックスを編集できないため、最初に入力ボックスをクリアしてください。
             compose.onNode(hasSetTextAction()).performTextClearance()
             compose.runOnUiThread { vm.dismissBlocked(); assertTrue(vm.send("打开设置看看电池", anyway)) }
         }
@@ -151,8 +151,8 @@ class ChatScreenDeviceTest {
         model.feed("phone_observe", """{"reason":"看看设置首页有什么"}""")
         assertEquals(3, model.awaitCall().number)
         assertNotNull(pollUntil(5_000) { DeviceTaskState.frames.value })
-        // 在跑时一行此刻的进展,下面竖线列出做过的事:动作用模型自己的话,读取写看了哪里(不写模型给读取的用意)。
-        // 此刻在等模型的第 3 次调用,进展行写「正在处理」,最后一步「看了设置」是当前步
+        // が実行されている場合、行の現在の進行状況が下の垂直線にリストされます。アクションはモデル独自の言葉を使用し、参照する場所を読み取りおよび書き込みます (読み取りのためにモデルの目的を書き込まないでください)。
+        // は現在、モデルの 3 回目の呼び出しを待機しています。進捗ラインには「処理中」と表示されます。最後のステップ「設定の表示」が現在のステップです。
         compose.waitUntil(5_000) { compose.onAllNodesWithText("正在处理").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("看了设置").assertExists()
         compose.onNodeWithText(ChatCopy.BACKGROUND_NOTE).assertExists()
@@ -168,7 +168,7 @@ class ChatScreenDeviceTest {
         compose.onNodeWithContentDescription("收起").performClick()
         compose.waitForIdle()
 
-        // 小窗平时在右下角(输入栏上方):往左上甩,应吸到左上角
+        // 小さなウィンドウは通常、右下隅 (入力フィールドの上) にあります。それを上に投げて左に移動すると、左上隅に吸い込まれるはずです。
         val d = context.resources.displayMetrics.density
         val pip = compose.onNodeWithContentDescription("Mika 的虚拟屏").fetchSemanticsNode().boundsInWindow
         val x = pip.center.x
@@ -187,30 +187,30 @@ class ChatScreenDeviceTest {
         compose.onNodeWithText("已暂停").assertExists()
         shot("06-takeover")
 
-        // 展开的小窗和遮罩盖住了对话里的卡片:先收起再点卡片上的按钮
+        // 拡張された小さなウィンドウとマスクが会話中のカードを覆います。最初にカードを折り、次にカードのボタンをクリックします。
         compose.onNodeWithContentDescription("收起").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("取消任务").performClick()
         awaitState { it == TaskState.Cancelled }
-        // 停止后补上的交代(脚本模型不写,按记录直接拼)排在「已停止。」下面
+        // 停止後に追加された命令 (スクリプト モデルは書き込まれません。レコードを押して直接入力します) は、「停止」の下にリストされます。
         compose.onNodeWithText("已停止。").assertExists()
         compose.waitUntil(15_000) { compose.onAllNodesWithText("已经停下,停止前做了这些:", substring = true).fetchSemanticsNodes().isNotEmpty() }
         shot("06b-stopped-summary")
 
-        // 紧接着开新任务:服务可能还在收尾上一个,界面要等它收完再交过去
+        // 次に、新しいタスクを開始します。サービスはまだ前のタスクを終了している可能性があり、インターフェイスはタスクを引き渡す前に終了するまで待つ必要があります。
         compose.runOnUiThread { assertTrue(vm.send("设置里电池是多少", anyway)) }
-        model.awaitCall() // 脚本模型的调用编号接着上一个任务往下数
+        model.awaitCall() // スクリプトモデルの呼び出し番号は前のタスクからカウントダウンされます。
         model.feed("phone_launch_app", """{"package":"$SETTINGS"}""", say = "打开设置")
         model.awaitCall()
         model.answer("脚本演示:电池信息在「设置 › 电池」里。")
         awaitState { it is TaskState.Succeeded }
         compose.waitForIdle()
         compose.onNodeWithText("来源", substring = true).assertExists()
-        // 取消的那一问和办成的这一问各有一个「查看过程」
+        // キャンセルされた質問と完了した質問にはそれぞれ「閲覧処理」がございます
         assertEquals(2, compose.onAllNodesWithText("查看过程").fetchSemanticsNodes().size)
         shot("07-done")
 
-        // 侧栏:对话页上返回(侧滑)先打开侧栏;五个入口和最近的对话
+        // サイドバー: 会話ページ (サイド スライド) に戻り、最初にサイドバーを開きます。 5 つの入り口と最近の会話
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
         compose.waitForIdle()
         compose.onNodeWithTag("drawer").assertIsDisplayed()
@@ -221,7 +221,7 @@ class ChatScreenDeviceTest {
         shot("08-drawer")
     }
 
-    /** 附件按钮只在沙箱不是「此设备不支持」时出现(未安装、安装中、坏了都还能装、能修)。 */
+    /** アクセサリ ボタンは、サンドボックスが「このデバイスでサポートされていない」場合 (インストールされていない、インストール中、インストールできる、または壊れている場合は修復できる) 場合にのみ表示されます。 */
     @Test
     fun attachButtonHiddenOnlyWhenSandboxUnsupported() {
         val unsupported = SandboxState.get(context).status.value is SandboxStatus.Unsupported
@@ -230,7 +230,7 @@ class ChatScreenDeviceTest {
         assertEquals("sandbox unsupported=$unsupported", !unsupported, nodes.isNotEmpty())
     }
 
-    /** 文件卡片显示名字和大小;点开文本文件进 App 里的查看页(不再交给系统选 App),看得到文件内容,返回回到对话。 */
+    /** ファイル カードには名前とサイズが表示されます。テキスト ファイルをクリックしてアプリの表示ページに入ります (アプリの選択をシステムに任せることはなくなりました)。ファイルの内容を確認してダイアログに戻ることができます。 */
     @Test
     fun fileCardOpens() {
         val ws = SandboxDirs(context).workspace("card-device-test").apply { mkdirs() }
@@ -246,7 +246,7 @@ class ChatScreenDeviceTest {
             compose.onNodeWithText(card.name).performClick()
             val shown = pollUntil(5_000) { true.takeIf { onTop(FileViewerActivity::class.java) } }
             assertNotNull("file viewer did not open: ${topResumed(sh("dumpsys activity activities"))}", shown)
-            // 查看页是另一个 Activity,但和对话页在同一个进程里,它的界面这里也查得到:名字在顶栏,内容按原样显示
+            // 表示ページは別のアクティビティですが、会話ページと同じプロセスにあります。そのインターフェースもここにあります。名前はトップバーにあり、内容はそのまま表示されます。
             compose.waitUntil(5_000) { compose.onAllNodesWithTag("viewer.text").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("hello", substring = true, useUnmergedTree = true).assertIsDisplayed()
             shot("file-viewer")
@@ -259,15 +259,15 @@ class ChatScreenDeviceTest {
         }
     }
 
-    /** 并行开关打开:两个对话各跑一个任务,菜单上有小圆点,侧栏「进行中」里点另一个对话切过去。 */
+    /** 並列スイッチがオンになっています。2 つの会話のそれぞれがタスクを実行します。メニューに小さな点があります。 「進行中」サイドバーにある他の会話をクリックして、その会話に切り替えます。 */
     @Test
     fun otherTaskChipSwitches() {
         val flags = FeatureFlags.get(context)
         val prior = flags.speedFlags()
         flags.setSpeed(prior.copy(parallelTasks = true))
         val models = listOf(ScriptedModel().apply { intent = "ACT" }, ScriptedModel().apply { intent = "ACT" })
-        // 模型工厂不只任务开工时取:新对话起标题也在后台另取一次,先后不定。按次数轮换会让第一个任务拿到第二个模型;
-        // 改成第一个任务真的问过模型之前都给第一个,之后都给第二个(起标题的那一问哪个模型都固定回答)
+        // モデル ファクトリは、タスクの開始時にフェッチされるだけではありません。新しいダイアログのタイトルもバックグラウンドで別の時間にフェッチされますが、順序は不確かです。カウントによって回転すると、最初のタスクが 2 番目のモデルを取得します。
+        // が最初のタスクに変更されました。本当にモデルについて尋ねたら、私は前に1番目のモデルを、その後に2番目のモデルを答えるでしょう。 (タイトルの質問で、どのモデルの答えが決まっていますか)
         val firstStarted = AtomicBoolean(false)
         testTasks.modelFactory = { _, _ -> if (firstStarted.get()) models[1] else models[0] }
         try {
@@ -285,7 +285,7 @@ class ChatScreenDeviceTest {
 
             compose.onNodeWithContentDescription("菜单").performClick()
             compose.waitForIdle()
-            // 「进行中」既是分段标题,也是另一个对话那一行下面的小字:按位置分开认——标题在上,下面是那一行(标题和小字合在一个可点的节点里)
+            // 「進行中」は、セグメントのタイトルと、別の会話の行の下にある小さな文字の両方です。位置によって個別に認識されます - タイトルが上部にあり、行が下にあります (タイトルと小さな文字は、クリック可能なノードに結合されています)
             val inDrawer = hasAnyAncestor(hasTestTag("drawer"))
             val other = compose.onNode(hasText("第一个任务") and hasText("进行中") and inDrawer)
             other.assertIsDisplayed()
@@ -293,7 +293,7 @@ class ChatScreenDeviceTest {
             header.assertIsDisplayed()
             val headerTop = header.fetchSemanticsNode().boundsInWindow.top
             val otherTop = other.fetchSemanticsNode().boundsInWindow.top
-            assertTrue("running entry not under the 进行中 header: $headerTop vs $otherTop", otherTop > headerTop)
+            assertTrue("実行中の項目が「実行中」の見出しより下にない: $headerTop と $otherTop", otherTop > headerTop)
             other.performClick()
             compose.waitForIdle()
             assertEquals(first, vm.ui.value.conversationId)

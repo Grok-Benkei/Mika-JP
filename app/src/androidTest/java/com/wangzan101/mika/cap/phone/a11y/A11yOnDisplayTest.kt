@@ -29,7 +29,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import com.wangzan101.mika.a11y.MikaAccessibilityService
 
-/** 真机测试:需要内置助手在运行(已配对、无线调试开着),且 Mika 无障碍服务已开启。 */
+/** 実機テスト: 内蔵アシスタントが実行されている必要があり (ペアリング、ワイヤレス デバッグがオン)、Mika アクセシビリティ サービスがオンになっています。 */
 @RunWith(AndroidJUnit4::class)
 class A11yOnDisplayTest {
     companion object {
@@ -53,8 +53,8 @@ class A11yOnDisplayTest {
         }
 
         /**
-         * 启动测试时系统会强停本 App,无障碍服务随之被记为「已崩溃」、不再自动重绑。
-         * 已开启时把它从开启列表里摘下再放回,促使系统重新绑定到当前进程;没开启就不动。
+         * テストを開始すると、システムはアプリを強制的に停止し、ユーザー補助サービスは「クラッシュ」として記録され、自動的に再接続されなくなります。
+         * がオンになっている場合は、スタートアップ リストから削除して元に戻し、システムに現在のプロセスへの再バインドを要求します。オンにしないと動きません。
          */
         private fun rebindAccessibility() {
             if (ScreenAccessibility.instance.value != null) return
@@ -66,13 +66,13 @@ class A11yOnDisplayTest {
                 shellCommand("settings put secure $key ${enabled.filter { it != mika }.joinToString(":").ifEmpty { "\"\"" }}")
                 Thread.sleep(500)
             } finally {
-                // 无论如何恢复原来的完整列表(含其他 App 的服务)
+                // 他のアプリのサービスを含む、元の一覧全体を必ず復元する。
                 shellCommand("settings put secure $key ${enabled.joinToString(":")}")
             }
         }
 
         private fun shellCommand(cmd: String): String {
-            // 不压制其他无障碍服务,否则 Mika 的服务会在测试期间被暂停
+            // 他のユーザー補助サービスを抑制しない。抑制すると、テスト中にMikaのサービスも一時停止する。
             val ua = InstrumentationRegistry.getInstrumentation()
                 .getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
             val pfd = ua.executeShellCommand(cmd)
@@ -115,7 +115,7 @@ class A11yOnDisplayTest {
             }
         }
         assertNotNull("no WLAN/设置 node in windows on display ${d.displayId}", found)
-        // 主屏的窗口不会混进虚拟屏的列表
+        // メイン画面のウィンドウが仮想画面の一覧に混ざらないこと。
         assertTrue(a11y.windowsOn(d.displayId).none { it.displayId != d.displayId })
     }
 
@@ -129,13 +129,13 @@ class A11yOnDisplayTest {
         val a11y = service()
         val mainTop = shell.topTaskId(Display.DEFAULT_DISPLAY)
         val d = settingsOnNewDisplay()
-        // 等页面出现可点击的列表项
+        // タップ可能な一覧項目が表示されるまで待つ。
         val item = pollUntil(5_000) { clickableItem(a11y, d.displayId) }
         assertNotNull("no clickable item on display ${d.displayId}", item)
         val before = stableFrame(d)
 
         val eventDisplays = async(start = CoroutineStart.UNDISPATCHED) {
-            // 收集一段时间内的全部事件,用于检查不会混入主屏事件
+            // 一定時間のイベントをすべて集め、メイン画面のイベントが混入していないか確認する。
             val got = mutableListOf<AccessibilityEvent>()
             withTimeoutOrNull(3_000) { a11y.eventsFor(d.displayId).collect { got += it } }
             got
@@ -156,7 +156,7 @@ class A11yOnDisplayTest {
         assertEquals("main screen top task changed", mainTop, shell.topTaskId(Display.DEFAULT_DISPLAY))
     }
 
-    /** 第一个可点击的条目在屏上的中心点。 */
+    /** 最初のタップ可能な項目の、画面上での中心座標。 */
     private fun clickableItem(a11y: ScreenAccessibility, displayId: Int): Pair<Int, Int>? {
         val rect = android.graphics.Rect()
         for (w in a11y.windowsOn(displayId)) {
@@ -165,7 +165,7 @@ class A11yOnDisplayTest {
             while (queue.isNotEmpty()) {
                 val n = queue.removeFirst()
                 n.getBoundsInScreen(rect)
-                // 跳过顶部标题栏一带,点中间偏下的列表项
+                // 上部のタイトルバーを避け、中央より下の一覧項目をタップする。
                 if (n.isClickable && n.isVisibleToUser && rect.top > 300 && rect.height() in 40..400) {
                     return rect.centerX() to rect.centerY()
                 }

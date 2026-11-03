@@ -17,16 +17,16 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
-/** 一次 OpenRouter 授权的随机值:每次新生成。[callbackUrl] 是这次本机监听的回调地址。 */
+/** OpenRouter 認証のランダム値: 毎回新しく生成されます。 [callbackUrl] は、このマシンによって監視されるコールバック アドレスです。 */
 data class OpenRouterAttempt(val state: String, val verifier: String, val callbackUrl: String) {
     val challenge: String get() = Pkce.challenge(verifier)
 }
 
 /**
- * 用 OpenRouter 账号登录:OpenRouter 官方给第三方应用的 OAuth PKCE。在浏览器里打开授权页,用户同意后带着 `code`
- * 回到本机回调,再用 `code` 和校验串换一把属于这个用户的 API Key。换到的就是普通的 OpenRouter Key,
- * 之后和填 Key 的 OpenRouter 服务商一样用(列模型、调用都走 [API_BASE])。
- * Key 不进日志;异常文字里只有类别和错误代码。
+ * OpenRouter アカウントでログインします: サードパーティ アプリケーション用の OpenRouter 公式 OAuth PKCE。ブラウザで認証ページを開き、ユーザーが同意した後、`code`を持参してください
+ * はローカル コールバックに戻り、`code` とチェック文字列を使用して、このユーザーに属する API キーを交換します。置き換えられたのは通常のOpenRouter Keyですが、
+ * は、キーを入力する OpenRouter サービス プロバイダーと同じ方法で使用されます (リスト モデルと呼び出しは [API_BASE] に送信されます)。
+ * キーはログに記録されません。例外テキストには、カテゴリとエラー コードのみが含まれます。
  */
 class OpenRouterAuth(
     private val http: OkHttpClient,
@@ -37,7 +37,7 @@ class OpenRouterAuth(
 
     fun newAttempt(callbackUrl: String) = OpenRouterAttempt(Pkce.state(), Pkce.verifier(), callbackUrl)
 
-    /** 授权页地址:回调地址、S256 校验、Key 的名字(预填,用户可改)、state。 */
+    /** 認証ページのアドレス: コールバック アドレス、S256 検証、キー名 (事前入力、ユーザーは変更可能)、状態。 今回は、 */
     fun authorizeUrl(attempt: OpenRouterAttempt): String = authUrl.toHttpUrl().newBuilder()
         .addQueryParameter("callback_url", attempt.callbackUrl)
         .addQueryParameter("code_challenge", attempt.challenge)
@@ -47,8 +47,8 @@ class OpenRouterAuth(
         .build().toString()
 
     /**
-     * 本机回调收不收这一次:state 对得上的收;没带 state、没带 code、带了 `error` 的(用户在授权页拒绝时 OpenRouter 不带 state)也收,
-     * 当作没同意。别的(带 code 却没有或对不上 state,或什么都没带)不收:不是这次发起的,回 400 接着等。
+     * のローカル コールバックが収集されますか。状態が適切であれば、収集されます。状態、コードがなく、`error` (ユーザーが認証ページで拒否した場合、OpenRouter には状態がありません) の場合も収集されます。
+     * は同意されていないものとみなします。その他 (コードはあるが、状態が一貫していない、または何もない) は受け入れられません。今回は開始されていないため、400 を返して待機します。
      */
     fun accepts(params: Map<String, String>, attempt: OpenRouterAttempt): Boolean {
         val state = params["state"]
@@ -56,7 +56,7 @@ class OpenRouterAuth(
         return params["code"].isNullOrEmpty() && !params["error"].isNullOrEmpty()
     }
 
-    /** 从回调里取出 `code`;没有就是用户没同意(或授权页报了错)。 */
+    /** コールバックから `code` を取り出します。そうでない場合、ユーザーは同意しませんでした (または認証ページがエラーを報告しました)。 */
     fun readCallback(params: Map<String, String>, attempt: OpenRouterAttempt): String {
         val state = params["state"]
         if (state != null && state != attempt.state) throw AccountSignInException(AccountSignInFailure.Rejected, "state")
@@ -67,8 +67,8 @@ class OpenRouterAuth(
     }
 
     /**
-     * 用 `code` 和校验串换 Key(`POST /api/v1/auth/keys`)。400 是校验方式对不上,403 是 code 或校验串不对、或 code 过期(10 分钟)。
-     * 出错时只带回状态码,不带响应正文。
+     * は、`code` とチェックサム交換キー (`POST /api/v1/auth/keys`) を使用します。 400 は検証方法が一致しないことを意味し、403 はコードまたは検証文字列が間違っているか、コードの有効期限が切れている (10 分) ことを意味します。
+     * エラーが発生すると、応答テキストなしでステータス コードのみが返されます。
      */
     suspend fun exchange(code: String, attempt: OpenRouterAttempt): String {
         val body = buildJsonObject {
@@ -96,22 +96,22 @@ class OpenRouterAuth(
     companion object {
         const val AUTH_URL = "https://openrouter.ai/auth"
         const val KEYS_URL = "https://openrouter.ai/api/v1/auth/keys"
-        /** 换到的 Key 调用的接口根,和 OpenRouter 预设一样。 */
+        /** に切り替えられたキーによって呼び出されるインターフェイス ルートは、OpenRouter のデフォルトと同じです。 */
         const val API_BASE = "https://openrouter.ai/api/v1"
-        /** 用户在 OpenRouter 上管理(删除)Key 的页面。 */
+        /** OpenRouterのKeyを管理(削除)するためのユーザーページです。 */
         const val KEYS_PAGE = "https://openrouter.ai/settings/keys"
-        /** 授权页上预填的 Key 名字,用户在 Keys 页上靠它认出是哪一把。 */
+        /** 認証ページに事前に入力されているキー名。ユーザーはこれを使用して、キー ページでどのキーであるかを識別できます。 */
         const val KEY_LABEL = "Mika"
-        /** 回调地址用 localhost(OpenRouter 写明本机回调任意端口都可以);监听只绑 127.0.0.1。 */
+        /** は、コールバック アドレスとして localhost を使用します (OpenRouter は、このマシン上の任意のコールバック ポートを使用できることを示します)。リスニング アドレスは 127.0.0.1 にのみ関連付けられます。 */
         const val CALLBACK_HOST = "localhost"
         private val JSON_TYPE = "application/json".toMediaType()
     }
 }
 
 /**
- * 走一遍 OpenRouter 登录:开本机回调 → [openBrowser] 打开授权页 → 等回调 → 换 Key。
- * 换 Key 这一步(至多 [finishTimeoutMs])做完才把结果网页回给浏览器:[page] 收到 null 是成功,否则是失败的原因。
- * 失败抛 [AccountSignInException];取消照常往外抛。返回换到的 API Key。
+ * OpenRouter ログインを実行します。ローカル コールバックを開く → [openBrowser] 認証ページを開く → コールバックを待つ → キーを変更します。
+ * キーの変更 このステップ ([finishTimeoutMs] まで) は、結果の Web ページをブラウザーに返す前に完了します。 [page] null を受け取った場合は成功を意味し、それ以外の場合は失敗の原因となります。
+ * は失敗し、[AccountSignInException] をスローします。いつものようにキャンセルして捨てます。変更されたAPIキーを返します。
  */
 suspend fun signInWithOpenRouter(
     auth: OpenRouterAuth,

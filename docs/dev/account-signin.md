@@ -1,42 +1,42 @@
-# 用账号登录
+# アカウントでログイン
 
-「添加服务商」最上面是「用账号登录 · 不用填 Key」一组：ChatGPT、xAI / Grok、OpenRouter。点一家先弹出说明面板（会发生什么、要注意什么），点了才开始登录；登录成功后打开这一家的详情：账号、状态、可用的模型（可刷新）、设为主模型、退出登录（只清本机）。
+「サービスプロバイダーの追加」の先頭は「アカウントでログイン・キー入力不要」のグループ：ChatGPT、xAI / Grok、OpenRouterです。家族をクリックすると、まず説明パネル (何が起こるか、何に注意する必要があるか) がポップアップ表示され、クリックしてログインを開始します。ログインに成功すると、このファミリーの詳細が表示されます: アカウント、ステータス、利用可能なモデル (更新可能)、メイン モデルとしての設定、ログアウト (ローカル マシンのクリアのみ)。
 
-「用 ChatGPT 登录」保持原样（`core/chatgpt/`，授权码 + PKCE，本机回调）。这里是另外几家账号登录，以及明确不做的原因。本机回调（`core/oauth/LoopbackCallback.kt`）和 PKCE（`core/oauth/Pkce.kt`）是 ChatGPT 和 OpenRouter 共用的。
+「ChatGPT でログイン」はそのままです (`core/chatgpt/`、認可コード + PKCE、ローカル コールバック)。ここでは、他のアカウントへのログインと、それを行わない明確な理由をいくつか紹介します。ネイティブ コールバック (`core/oauth/LoopbackCallback.kt`) と PKCE (`core/oauth/Pkce.kt`) は、ChatGPT と OpenRouter に共通です。
 
-登录、加密保存、刷新、调用各家自己的接口，四步分开。访问令牌、刷新令牌、设备码不进日志、不进诊断信息、不进界面上除用户码以外的文字。会话 JSON 和 API Key 放在同一处（`provider-keys.json`），用同一套加密。
+ログイン、暗号化保存、更新、各社独自のインターフェースの呼び出し、という 4 つの別々のステップ。ログにはアクセストークン、リフレッシュトークン、デバイスコードは入力されず、診断情報も入力されず、インターフェース上のユーザーコード以外のテキストも入力されません。セッション JSON と API キーは同じ場所 (`provider-keys.json`) に配置され、同じ暗号化セットを使用します。
 
-## xAI / Grok（设备码）
+## xAI/Grok (デバイスコード)
 
-- 读 `https://auth.x.ai/.well-known/openid-configuration`。签发方必须是 `https://auth.x.ai`，设备码和令牌地址必须是 https 且主机是 `auth.x.ai`。对不上就停止，请求不发到别的主机。
-- 设备码（RFC 8628）的 scope 是 `openid profile email offline_access grok-cli:access api:access`。用户在浏览器里打开验证页、核对短码，App 轮询换令牌。验证页的主机不在允许名单（`auth.x.ai`、`accounts.x.ai`）里就改开固定的官方页。
-- 客户端是 xAI 官方命令行工具的公开登录入口（公开 client_id `b1a00492-073a-47ea-816f-4c329264a828`）。这不是 xAI 给 Mika 注册的应用，xAI 可能限制这种用法，账号有被限制的风险。界面在登录前写明，不点「继续登录」就不发生。
-- 调用走 xAI 自己的 Responses：`https://api.x.ai/v1/responses`（`ResponsesModel`），不转成别的协议。
-- 访问令牌快过期时用刷新令牌换新的，同一时刻只有一个在换。刷新被拒且不能再用时清掉本机令牌，报「登录已失效」。
-- 登录成功但调用回 HTTP 403：说明这个订阅档位不能用这个接口（`ModelError.AccountPlanNotAllowed`），不重试；详情页和任务结局里都提示改用 xAI 的 API Key。
-- 退出只清这台手机上的令牌。xAI 账号里的授权要到 xAI 的账号设置里自己断开（没有可用的公开注销）。
+- は `https://auth.x.ai/.well-known/openid-configuration` と読み取られます。発行者は `https://auth.x.ai`、デバイス コードとトークン アドレスは https、ホストは `auth.x.ai` である必要があります。一致しない場合は停止し、リクエストは他のホストに送信されません。
+- デバイス コード (RFC 8628) の範囲は `openid profile email offline_access grok-cli:access api:access` です。ユーザーがブラウザで検証ページを開き、ショート コードをチェックすると、アプリがトークン交換をポーリングします。検証ページのホストが許可リスト (`auth.x.ai`、`accounts.x.ai`) にない場合は、代わりに固定の公式ページが開きます。
+- クライアントは、xAI 公式コマンド ライン ツールのパブリック ログイン入口です (パブリック client_id `b1a00492-073a-47ea-816f-4c329264a828`)。これはxAIがMikaのために登録したアプリケーションではありません。 xAIはこの使用を制限する場合があり、アカウントが制限されるリスクがあります。インターフェースにはログインする前に明確に記載されており、「ログインを続ける」をクリックしない限りログインは行われません。
+- は、xAI 自身の応答: `https://api.x.ai/v1/responses` (`ResponsesModel`) を呼び出し、他のプロトコルに変換しません。
+- アクセス トークンの有効期限が近づいたら、リフレッシュ トークンを使用して新しいものに置き換えます。同時に交換されるのは 1 つだけです。更新が拒否されて使用できなくなると、ローカル トークンがクリアされ、「ログインの有効期限が切れました」と報告されます。
+- は正常にログインしましたが、HTTP 403 をコールバックしました。これは、このサブスクリプション レベルではこのインターフェイス (`ModelError.AccountPlanNotAllowed`) を使用できないため、再試行しないことを示します。詳細ページとタスク終了の両方で、代わりに xAI の API キーを使用するように求められます。
+- 終了すると、この電話のトークンのみがクリアされます。 xAI アカウントの認証は、xAI アカウント設定で自分で切断する必要があります (公開ログアウトは利用できません)。
 
-## OpenRouter（官方 OAuth PKCE）
+## OpenRouter (公式 OAuth PKCE)
 
-OpenRouter 官方给第三方应用的登录方式（文档：https://openrouter.ai/docs/use-cases/oauth-pkce），换到的是一把普通的 OpenRouter API Key。
+サードパーティ アプリケーションの OpenRouter 公式ログイン方法 (ドキュメント: https://openrouter.ai/docs/use-cases/oauth-pkce），换到的是一把普通的 OpenRouter API キー。
 
-- 本机回调：`LoopbackCallback` 在 `127.0.0.1` 上开系统挑的空闲端口，回调地址写成 `http://localhost:<端口>/auth/callback`（OpenRouter 写明本机回调任意端口都可以）。
-- 用系统浏览器打开 `https://openrouter.ai/auth?callback_url=…&code_challenge=…&code_challenge_method=S256&key_label=Mika&state=…`。校验串每次新生成，只在本机。
-- 回调带回 `code` 和 `state`：state 对不上的回 400、接着等；没带 code 也没带 state 的（用户在授权页拒绝）当作没同意。
-- `POST https://openrouter.ai/api/v1/auth/keys`，JSON `{code, code_verifier, code_challenge_method: "S256"}`，返回 `key`。403 是 code 或校验串不对、或 code 过期（10 分钟），400 是校验方式对不上。出错只留状态码，不留正文。换完才把结果页回给浏览器。
-- 存法：按 OpenRouter 预设存成一家 OpenAI 兼容服务商（`https://openrouter.ai/api/v1`），Key 和别的 API Key 一样经 `KeyCipher` 加密存在 `provider-keys.json`；服务商上记 `signIn = "openrouter"`（`providers.json` 的 `services[].signIn`），详情里显示成账号登录的样子。授权来的和用户自己填 Key 的 OpenRouter 各是一家（列表里授权来的写作「OpenRouter（账号登录）」），授权不会顶掉用户自己填的 Key，再登录只更新授权来的那一家。列模型、调用都和填 Key 的一样。
-- 退出登录只删本机的 Key，服务商、模型和用途留着；界面提示到 OpenRouter 的 Keys 页面（`https://openrouter.ai/settings/keys`）删掉名为 Mika 的那把。
+- ローカル コールバック: `LoopbackCallback` `127.0.0.1` でシステムによって選択されたアイドル ポートを開き、コールバック アドレスを `http://localhost:<端口>/auth/callback` として書き込みます (OpenRouter は、このマシン上の任意のポートをコールバックできると述べています)。
+- システム ブラウザを使用して `https://openrouter.ai/auth?callback_url=…&code_challenge=…&code_challenge_method=S256&key_label=Mika&state=…` を開きます。検証文字列は、このマシン上でのみ、毎回新たに生成されます。
+- コールバックは、`code` および `state` を返します。状態が一致しない場合、応答は 400 であり、待機します。コードまたは状態がない場合 (ユーザーが認証ページで拒否した場合)、同意しないものとして扱われます。
+- `POST https://openrouter.ai/api/v1/auth/keys`、JSON `{code, code_verifier, code_challenge_method: "S256"}`、`key` を返します。 403 はコードまたは検証文字列が間違っているか、コードの有効期限が切れている (10 分) ことを意味し、400 は検証方法が一致しないことを意味します。エラーが発生した場合、テキストではなくステータス コードのみが残ります。変更が完了すると、結果ページがブラウザに返されます。
+- 保存方法: OpenRouter を押して、デフォルトで OpenAI 互換サービス プロバイダー (`https://openrouter.ai/api/v1`) として保存します。他の API キーと同様に、キーは `KeyCipher` によって暗号化され、`provider-keys.json` に保存されます。サービスプロバイダーは `signIn = "openrouter"` (`providers.json`) を記録します。 `services[].signIn`)、アカウントログインとして詳細が表示されます。認可されたOpenRouterと、ユーザーが自分でKeyを入力したOpenRouterは、それぞれ同じ会社のOpenRouterです（リストでは認可されたOpenRouterを「OpenRouter（アカウントログイン）」と表記しています）。認証は、ユーザーが自分で入力したキーをオーバーライドしません。再度ログインすると、許可されたもののみが更新されます。列モデルと呼び出しは、Key を入力するのと同じです。
+- ログアウト後、ローカル キーのみが削除され、サービス プロバイダー、モデル、目的はそのまま残ります。インターフェイスにより、OpenRouter Keys ページ (`https://openrouter.ai/settings/keys`) に移動して、Mika という名前のキーを削除するよう求められます。
 
-## 不做
+## はしません
 
-### Claude 订阅
+### クロード 登録
 
-Anthropic 写明 OAuth 只给它自己的应用；第三方产品要用 Console 的 API Key 或云厂商凭证，不允许第三方 App 提供 Claude.ai 登录，也不允许把订阅额度接到自己的请求上。Mika 继续用 Anthropic 预设填 API Key。
+Anthropic は、OAuth は独自のアプリケーション専用であると述べています。サードパーティ製品は、コンソールの API キーまたはクラウド ベンダーの認証情報を使用する必要があります。サードパーティ アプリは Claude.ai ログインを提供することを許可されておらず、また、サブスクリプション クレジットを独自のリクエストに転送することも許可されていません。ミカは、デフォルトで API キーを入力するために Anthropic を引き続き使用します。
 
-### MiniMax 账号
+### MiniMax アカウント
 
-MiniMax 的官方文档没有给第三方 App 的 OAuth：没有让第三方自己登记客户端的入口，也没有公开给第三方用的 client_id。能找到的账号登录做法都要借用别家登记的客户端，Mika 不这样做。MiniMax 文档里给第三方工具的正当做法是 Token Plan（Coding Plan）的 API Key，在 Mika 里用 MiniMax 预设填 Key 即可。
+MiniMax の公式ドキュメントでは、サードパーティ アプリに OAuth が提供されていません。サードパーティ自身がクライアントを登録することも、サードパーティが使用する client_id も公開していません。見つかったアカウントのログイン方法は、いずれも他社で登録したクライアントを使用していますが、Mika ではこれを行いません。 MiniMax ドキュメント内のサードパーティ ツールの有効なメソッドは、トークン プラン (コーディング プラン) の API キーです。 Mika JP の MiniMax デフォルトを使用してキーを入力するだけです。
 
-### Google 账号（Gemini）
+### Google アカウント (Gemini)
 
-Google 不允许第三方软件借用它自家工具的 OAuth 客户端去访问后端。第三方要用 AI Studio 或 Vertex AI 的 API Key。Mika 继续用 Gemini 预设填 API Key。
+Google では、サードパーティ ソフトウェアが独自のツールの OAuth クライアントを借用してバックエンドにアクセスすることを許可していません。サードパーティは AI Studio または Vertex AI の API キーを使用する必要があります。 Mika JP は、デフォルトで API キーを入力するために Gemini を引き続き使用します。

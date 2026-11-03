@@ -10,15 +10,15 @@ import com.wangzan101.mika.core.uistate.Pace
 import kotlin.random.Random
 
 /**
- * DevTools 鼠标键盘的节奏:鼠标沿一小段弧线移过去再按、按住一会儿再抬、键与键之间有长短不一的间隔、滚轮一格一格地转。
- * 所有时长与幅度都有上下限([Limits]),一次动作的总时长因此有界。[Instant] 不加任何停顿和中间点
- * (事件序列与不加节奏时一样,测试和不需要节奏的调用方用它)。
+ * DevTools マウスとキーボードのリズム: マウスを短い円弧に沿って動かし、押し、しばらく押し続けてから持ち上げます。キー間にはさまざまな長さの間隔があり、スクロール ホイールはグリッドを 1 つずつ回転します。
+ * すべての持続時間と振幅には上限と下限 ([Limits]) があるため、アクションの合計持続時間は制限されます。 [Instant] 一時停止や中間点なし
+ * (イベント シーケンスはリズムなしと同じです。リズムを必要としないテストや呼び出し元に使用されます)。
  */
 class InputPacing(private val random: Random?, val limits: Limits = Limits()) {
     /**
-     * 上下限。时长单位毫秒,距离单位 CSS 像素。
-     * [approachPx]:不知道指针在哪时,从目标多远处移过来;[bowFraction] / [maxBowPx]:轨迹偏离直线的最大幅度(相对距离 / 绝对);
-     * [maxKeyedChars]:超过这么长的文字整段交给输入框(像粘贴),不再逐键敲。
+     * の上限と下限。期間の単位はミリ秒、距離の単位は CSS ピクセルです。
+     * [approachPx]: ポインターが不明な場合、ターゲットからの距離。 [bowFraction] / [maxBowPx]: 直線からの軌道偏差の最大振幅 (相対距離 / 絶対)。
+     * [maxKeyedChars]: この長さより長いテキストの場合は、キーごとに入力するのではなく、段落全体を入力ボックス (貼り付けなど) のままにしておきます。
      */
     data class Limits(
         val moveSteps: IntRange = 4..9,
@@ -37,7 +37,7 @@ class InputPacing(private val random: Random?, val limits: Limits = Limits()) {
         val maxKeyedChars: Int = 30,
     )
 
-    /** 有节奏(不是 [Instant])。 */
+    /** にはリズムがあります ([Instant] ではありません)。 */
     val paced: Boolean get() = random != null
 
     fun dwell(): Long = pick(limits.dwellMs)
@@ -50,7 +50,7 @@ class InputPacing(private val random: Random?, val limits: Limits = Limits()) {
 
     private fun pick(r: LongRange): Long = random?.let { Pace.pick(it, r) } ?: 0L
 
-    /** 不知道指针在哪时的起点:目标周围 [Limits.approachPx] 远的某处(坐标不小于 0)。[Instant] 时就是目标本身。 */
+    /** ポインターが不明な場合の開始点: 遠く離れたターゲット [Limits.approachPx] の周囲のどこか (座標は 0 以上)。 [Instant] はターゲットそのものです。 */
     fun origin(x: Double, y: Double): Pair<Double, Double> {
         val r = random ?: return x to y
         val dist = Pace.pick(r, limits.approachPx).toDouble()
@@ -59,8 +59,8 @@ class InputPacing(private val random: Random?, val limits: Limits = Limits()) {
     }
 
     /**
-     * 从 [from] 到 [to] 的中间点(不含起点,最后一个正好是终点):二次贝塞尔弧线,两头慢中间快。
-     * [Instant] 或距离不到 3 像素时只有终点。
+     * [from] から [to] までの中間点 (始点を除く、最後の点がちょうど終点です): 二次ベジェ円弧、両端が遅く、中央が速い。
+     * [Instant] または 3 ピクセル未満離れている場合のみエンドポイント。
      */
     fun path(from: Pair<Double, Double>, to: Pair<Double, Double>): List<Pair<Double, Double>> {
         val r = random ?: return listOf(to)
@@ -74,9 +74,9 @@ class InputPacing(private val random: Random?, val limits: Limits = Limits()) {
     }
 
     /**
-     * 把滚动距离 [distance](正为向下)分成一格一格的滚轮增量,合起来正好是 [distance]:每格 [Limits.wheelNotchPx],
-     * 最后一格是余下的零头;格数超过 [Limits.maxNotches] 时改为 [Limits.maxNotches] 格均分(每格大一些,总时长因此有界)。
-     * [Instant] 时一次滚完。0 为空表。
+     * は、転動距離 [distance] (プラスは下向き) をローラー単位で 1 つずつ分割します。合計はちょうど [distance] です: 各グリッドは [Limits.wheelNotchPx]、
+     * の最後の正方形は残りの小数です。正方形の数が [Limits.maxNotches] を超えると、[Limits.maxNotches] に変更され、正方形が均等に分割されます (各正方形が大きいため、合計期間は制限されます)。
+     * [Instant]を一気に巻きます。 0 は空のテーブルです。
      */
     fun notches(distance: Double): List<Double> {
         if (distance == 0.0) return emptyList()
@@ -89,10 +89,10 @@ class InputPacing(private val random: Random?, val limits: Limits = Limits()) {
     }
 
     companion object {
-        /** 不加停顿、不加中间点。 */
+        /** は一時停止や中間点を追加しません。 */
         val Instant = InputPacing(null)
 
-        /** 像人手的节奏;[random] 可换成固定种子(测试)。 */
+        /** は人間の手のリズムに似ています。 [random] は固定シード (テスト) に置き換えることができます。 */
         fun human(random: Random = Random.Default, limits: Limits = Limits()) = InputPacing(random, limits)
     }
 }

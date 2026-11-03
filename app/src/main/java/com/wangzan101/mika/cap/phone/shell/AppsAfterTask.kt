@@ -1,36 +1,36 @@
 package com.wangzan101.mika.cap.phone.shell
 
 /**
- * 任务结束时 Mika 屏上的 App 怎么办(外壳一侧的规则,不碰系统接口,单元测试直接测)。
+ * タスク終了時にMika画面上のアプリをどうするか（シェル側のルール、システムインターフェースに触れない、単体テストで直接テスト）。
  *
- * 默认留下:挪到主屏、排在最后面,用户在最近任务里看得到它停在 Mika 做完的那一页,下次 Mika 打开它也接着这一页。
- * 此刻正在出声(播放音视频)的默认关掉,免得任务结束、静音还原时突然响起来。模型按用户的话标过的([keep] / [close])
- * 优先于默认。Mika 自己的页面、不是普通 App 页面的(桌面、最近任务一类)一律随屏关掉。
+ * はデフォルトのままです。ホーム画面に移動して最後にランク付けされます。ユーザーは、ミカが最近のタスクで完了したページで停止しているのを確認できます。次回ミカが開いたときも、このページで続きが表​​示されます。
+ * は、タスクが終了してミュートが復元されたときに突然音が鳴らないように、デフォルトでサウンド (オーディオとビデオの再生) をオフにしています。モデルはユーザーの言葉に従ってマークされています ([keep] / [close])
+ * はデフォルトより優先されます。ミカ自身のページや通常のアプリページ以外のページ（デスクトップ、最近のタスクなど）は画面とともに閉じられます。
  */
 object AppsAfterTask {
-    /** 一个任务的去留为什么这样定;[wire] 写进结果和运行记录。 */
+    /** なぜこのようにタスクの運命が決まるのでしょうか? [wire] は結果と実行記録を書き込みます。 モデル */
     enum class Why(val wire: String) {
-        /** 模型标过。 */
+        /** がマークされています。 */
         Marked("marked"),
-        /** 此刻正在出声。 */
+        /** が現在声を上げています。 */
         Playing("playing"),
-        /** 读不到在不在出声,而它正被 Mika 静着:还原静音时可能突然响,按出声算。 */
+        /** は音が出ているかどうかを読み取ることができず、Mika によって消音されています。ミュートに戻すと突然ビープ音が鳴ることがありますが、音が出ているものとしてカウントされます。 */
         PlaybackUnknown("playback_unknown"),
-        /** 默认:留下。 */
+        /** デフォルト: そのままにします。 */
         Default("default"),
-        /** Mika 自己的页面。 */
+        /** ミカさんのページです。 */
         Own("mika"),
-        /** 不是普通 App 的页面。 */
+        /** は通常のアプリのページではありません。 */
         NotApp("not_app"),
-        /** 这台系统挪不了任务,照旧随屏关掉。 */
+        /** このシステムはタスクを移動できず、画面がオフのままです。 */
         MoveUnsupported("move_not_supported"),
-        /** 挪到主屏后等到超时还看得见:不能留在用户眼前,挪回 Mika 的屏随屏关掉。 */
+        /** ホーム画面に移動した後、タイムアウト後も画面が表示されます。ユーザーの目の前に留まることはできません。それをミカの画面に戻してオフにします。 */
         StillInFront("still_in_front"),
     }
 
     /**
-     * 屏上的一个任务:[keys] 是它的页面所属的包换成的键(见 [keyOf]),[playing] 读不到时为 null,
-     * [muted] 是它此刻正被 Mika 静着(收尾时会还原)。
+     * 画面上のタスク: [keys] は、そのページが属するパッケージによって置き換えられるキーです ([keyOf] を参照)。 [playing] は、読み取れない場合は null です。
+     * [muted] は、現在ミカによって静か化されているということです（最後には復元されます）。
      */
     data class Task(val id: Int, val keys: List<String>, val standard: Boolean, val own: Boolean, val playing: Boolean?, val muted: Boolean = false)
 
@@ -38,11 +38,11 @@ object AppsAfterTask {
         val key: String get() = task.keys.firstOrNull().orEmpty()
     }
 
-    /** 键:本来那份(Mika 所在的用户)就是包名,另一份是 包名@用户,和静音记录同一种写法([AppAudioKey])。 */
+    /** キー: 元のコピー (Mika が存在するユーザー) はパッケージ名で、もう一方のコピーはパッケージ名@ユーザーで、サイレント レコード ([AppAudioKey]) と同じ方法で書き込まれます。 */
     fun keyOf(packageName: String, userId: Int, myUser: Int): String =
         AppAudioKey.of(packageName, userId.takeIf { it != myUser && it >= 0 })
 
-    /** 模型标的键换成同一种写法:写成 Mika 所在用户的另一份等于本来那份;不合格式的丢掉。 */
+    /** モデルのターゲット キーが同じ書き込み方法に変更されます。Mika のユーザーとして書き込まれたもう 1 つのコピーは、元のコピーと同等です。フォーマットに準拠していないものは破棄されます。 */
     fun normalize(keys: Array<String>?, myUser: Int): Set<String> = keys.orEmpty().mapNotNull { k ->
         AppAudioKey.parse(k)?.let { (pkg, user) -> AppAudioKey.of(pkg, user?.takeIf { it != myUser }) }
     }.toSet()
@@ -54,21 +54,21 @@ object AppsAfterTask {
             t.keys.any { it in close } -> Fate(t, false, Why.Marked)
             t.keys.any { it in keep } -> Fate(t, true, Why.Marked)
             t.playing == true -> Fate(t, false, Why.Playing)
-            // 读不到在不在出声:没被静着的留下(它要出声早就有声了,收尾不改变什么);静着的按出声算,免得还原时突然响
+            // は音が出ているかどうかを読み取ることができません。静かに放置されていません（音を出したい場合はすでに音が出ており、エンディングは何も変わりません）。復元時に突然音がしないように静かに押した場合にカウントされます。
             t.playing == null && t.muted -> Fate(t, false, Why.PlaybackUnknown)
             else -> Fate(t, true, Why.Default)
         }
     }
 
     /**
-     * 挪过去之后再看一眼:没标过 keep、这会儿开始出声的,改成关掉(静音一还原就会响)。标过 keep 的照留。
+     * 移動後、再度確認してください。keep マークが付いていません。ノイズが発生し始めたら、オフに変更してください (ミュートが復元されるとすぐに音が鳴ります)。 「キープ」とマークされた写真は保持されます。 現在
      */
     fun recheck(fate: Fate, playingNow: Boolean?): Fate =
         if (fate.keep && fate.why != Why.Marked && playingNow == true) fate.copy(keep = false, why = Why.Playing) else fate
 
     /**
-     * `dumpsys audio` 里正在播放的那些 uid:每个播放器一行 `AudioPlaybackConfiguration piid:.. u/pid:<uid>/<pid> state:started ..`。
-     * 认不出是音频服务的输出(没有播放记录那一段)时为 null,调用方按「读不到」处理。
+     * `dumpsys audio` でプレイしている UID: プレーヤーごとに 1 行 `AudioPlaybackConfiguration piid:.. u/pid:<uid>/<pid> state:started ..`。
+     * は、オーディオ サービスの出力が認識されない (再生および録音されないセグメント) 場合には null となり、呼び出し側はそれを「読み取れない」ものとして扱います。
      */
     fun playingUids(dumpsys: String): Set<Int>? {
         if (!dumpsys.contains(PLAYBACK_SECTION)) return null
@@ -80,12 +80,12 @@ object AppsAfterTask {
             .toSet()
     }
 
-    /** 结果里关掉的那一项:键:原因。 */
+    /** 結果: キー: 理由で項目がオフになりました。 */
     fun closedEntry(f: Fate): String = "${f.key}:${f.why.wire}"
 
     /**
-     * 诊断信息里的一行:只数个数,不列包名(诊断信息不写装了什么、开过什么)。
-     * 如「kept 1, closed 1 (playing 1)」「closed 2 (move not supported)」「none」。
+     * 診断情報の行: 数をカウントするだけで、パッケージ名はリストされません (診断情報には、インストールまたは開かれた内容は含まれません)。
+     * 「キープ 1、クローズ 1 (プレイ 1)」「クローズ 2 (移動はサポートされていない)」「なし」など。
      */
     fun diagnosticsLine(kept: Int, closed: List<String>, note: String?): String {
         if (kept == 0 && closed.isEmpty()) return note?.let { "none ($it)" } ?: "none"
@@ -98,19 +98,19 @@ object AppsAfterTask {
         return parts.joinToString(", ") + (note?.let { "; $it" } ?: "")
     }
 
-    // finishDisplay 的 Bundle
+    // フィニッシュディスプレイのバンドル
     const val KEY_KEPT = "kept"
     const val KEY_CLOSED = "closed"
     const val KEY_NOTE = "note"
 
-    /** 挪不了时写进 note 的话。 */
+    /** 移動できないときはメモを書きます。 */
     const val NOTE_MOVE_UNSUPPORTED = "move not supported"
     const val NOTE_PLAYBACK_UNKNOWN = "playback unknown"
-    /** 有任务挪过去以后一直看得见,没留下。 */
+    /** はタスクが移動されて以来、タスクを表示できるようになりましたが、残されていません。 */
     const val NOTE_STILL_IN_FRONT = "still visible on main, closed"
-    /** 前面带个数:挪过去了却没能取消隐藏,最近任务里看不见,下次打开同一份时挪回来补上。 */
+    /** 先頭に数字: 移動しましたが、再表示できませんでした。最近のタスクでは見られません。次回同じコピーを開いたときに、元に戻して埋め合わせます。 */
     const val NOTE_LEFT_HIDDEN = "left hidden on main"
-    /** 读不了主屏的任务列表,没核对上留下的是不是已退到后面。 */
+    /** ホーム画面のタスク一覧が読めず、残ったタスクが一番後ろに移動しているか確認していません。 */
     const val NOTE_SETTLE_UNKNOWN = "behind check unavailable"
 
     // AudioPlaybackConfiguration.PLAYER_STATE_STARTED

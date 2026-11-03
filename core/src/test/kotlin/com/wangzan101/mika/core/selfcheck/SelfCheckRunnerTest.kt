@@ -18,7 +18,7 @@ class SelfCheckRunnerTest {
         wirelessDebugging = true, appVersion = "0.1.21", appBuild = "abc1234",
     )
 
-    /** 假端口:按表给结论,记下调用顺序;表里没写的算通过。 */
+    /** 偽ポート: 表に従って結論を出し、呼び出しシーケンスに注意してください。表に書かれていないものは合格としてカウントされます。 */
     private class FakePort(
         val facts: DeviceFacts,
         val outcomes: Map<SelfCheck, suspend () -> CheckOutcome> = emptyMap(),
@@ -54,11 +54,11 @@ class SelfCheckRunnerTest {
             assertEquals(c.name, CheckStatus.Skipped, s.of(c).status)
             assertFalse(c.name, c in port.calls)
         }
-        // 直接缺的那一项写在跳过的原因里
+        // スキップ理由には直接欠落している項目が記載されています。
         assertEquals(SelfCheck.HELPER, s.of(SelfCheck.VIRTUAL_DISPLAY).blockedBy)
-        assertEquals("needs helper (fail)", s.of(SelfCheck.VIRTUAL_DISPLAY).detail)
+        assertEquals("前提項目「操作アシスタント」が未達成です（失敗）", s.of(SelfCheck.VIRTUAL_DISPLAY).detail)
         assertEquals(SelfCheck.VIRTUAL_DISPLAY, s.of(SelfCheck.APP_LAUNCH).blockedBy)
-        // 不靠助手的照跑
+        // アシスタントに頼らず指示に従ってください
         for (c in listOf(SelfCheck.PERMISSIONS, SelfCheck.BROWSER, SelfCheck.SANDBOX)) assertEquals(c.name, CheckStatus.Pass, s.of(c).status)
     }
 
@@ -94,7 +94,7 @@ class SelfCheckRunnerTest {
         val b = s.of(SelfCheck.BROWSER)
         assertEquals(CheckStatus.Fail, b.status)
         assertEquals(Advice.TimedOut, b.advice)
-        assertEquals("timed out after 15 s", b.detail)
+        assertEquals("15 秒でタイムアウトしました", b.detail)
         assertEquals(CheckStatus.Pass, s.of(SelfCheck.SANDBOX).status)
     }
 
@@ -111,13 +111,13 @@ class SelfCheckRunnerTest {
     fun anExceptionIsAFailureWithTheClassNameOnly() = runTest {
         val port = FakePort(facts, mapOf(SelfCheck.MAIN_SCREEN to { throw IllegalStateException("secret 10.0.0.1") }))
         val s = SelfCheckRunner(port, now = { testScheduler.currentTime }).run()
-        assertEquals("error: IllegalStateException", s.of(SelfCheck.MAIN_SCREEN).detail)
+        assertEquals("エラー: IllegalStateException", s.of(SelfCheck.MAIN_SCREEN).detail)
         assertEquals(CheckStatus.Pass, s.of(SelfCheck.BROWSER).status)
     }
 
     @Test
     fun theTotalBudgetSkipsWhatIsLeft() = runTest {
-        // 每项用掉 4 秒,总时限 18 秒:前四项跑完,第五项只剩 2 秒、超时,之后的都因时间用完跳过
+        // 各項目には 4 秒かかり、合計制限時間は 18 秒です。最初の 4 つの項目が終了し、5 番目の項目は残り 2 秒でタイムアウトになり、後続の項目は時間切れのためスキップされます。
         val port = object : SelfCheckPort {
             override suspend fun facts(): DeviceFacts { delay(4_000); return facts }
             override suspend fun check(check: SelfCheck): CheckOutcome { delay(4_000); return CheckOutcome.pass("ok") }
@@ -125,7 +125,7 @@ class SelfCheckRunnerTest {
         }
         val s = SelfCheckRunner(port, now = { testScheduler.currentTime }, budgetMs = 18_000).run()
         for (c in listOf(SelfCheck.DEVICE, SelfCheck.PERMISSIONS, SelfCheck.HELPER, SelfCheck.VIRTUAL_DISPLAY)) assertEquals(c.name, CheckStatus.Pass, s.of(c).status)
-        assertEquals("timed out after 2 s", s.of(SelfCheck.APP_LAUNCH).detail)
+        assertEquals("2 秒でタイムアウトしました", s.of(SelfCheck.APP_LAUNCH).detail)
         assertEquals(SelfCheck.APP_LAUNCH, s.of(SelfCheck.SCREEN_READING).blockedBy)
         for (c in listOf(SelfCheck.MAIN_SCREEN, SelfCheck.BROWSER, SelfCheck.SANDBOX, SelfCheck.APP_COPIES)) {
             assertEquals(c.name, CheckStatus.Skipped, s.of(c).status)
@@ -168,7 +168,7 @@ class SelfCheckRunnerTest {
         val o = SelfCheckRunner.judgeDevice(f)
         assertEquals(CheckStatus.Fail, o.status)
         assertEquals(Advice.PhoneControlUnavailable, o.advice)
-        assertTrue(o.detail, o.detail.contains("developer options page missing"))
+        assertTrue(o.detail, o.detail.contains("開発者向けオプションがないため"))
         val s = SelfCheckRunner(FakePort(f), now = { testScheduler.currentTime }).run()
         assertEquals(CheckStatus.Skipped, s.of(SelfCheck.HELPER).status)
         assertEquals(CheckStatus.Pass, s.of(SelfCheck.BROWSER).status)

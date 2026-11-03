@@ -7,32 +7,32 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
-/** 打包的知识与技能文档里提到的脚本与各自目录的 `scripts/manifest.json` 对得上。 */
+/** パッケージ化された知識とスキルのドキュメントに記載されているスクリプトは、それぞれのディレクトリにある `scripts/manifest.json` のスクリプトと一致します。 */
 class BundledScriptsManifestTest {
-    /** 资源根目录(其下是 knowledge/apps、knowledge/sites、skills)。 */
+    /** リソース ルート ディレクトリ (その下にナレッジ/アプリ、ナレッジ/サイト、スキルがあります)。 */
     private val root = File(GuideCatalog::class.java.classLoader.getResource(KnowledgeIndex.RESOURCE)!!.toURI()).parentFile.parentFile
 
-    /** 文件所在的条目目录,如 `knowledge/sites/zhihu.com`、`skills/research`。 */
+    /** ファイルが配置されるエントリ ディレクトリ (`knowledge/sites/zhihu.com`、`skills/research` など)。 */
     private fun entryDir(rel: String): String = rel.split('/').let { p -> p.take(if (p[0] == "knowledge") 3 else 2).joinToString("/") }
 
     private fun entryFiles(): Sequence<File> = sequenceOf("knowledge/apps", "knowledge/sites", "skills")
         .flatMap { File(root, it).walkTopDown().filter(File::isFile) }
     private val ref = Regex("scripts/[A-Za-z0-9_./-]+\\.(py|sh|js|ts|mjs)")
 
-    /** 条目目录 → 清单;清单文件读不懂时这里就失败。 */
+    /** エントリ ディレクトリ → マニフェスト;マニフェスト ファイルを読み取れない場合、これは失敗します。 */
     private val manifests: Map<String, List<ScriptEntry>> by lazy {
         entryFiles().filter { it.name == "manifest.json" && it.parentFile.name == "scripts" }.associate { f ->
             val dir = f.parentFile.parentFile.relativeTo(root).invariantSeparatorsPath
             val text = f.readText()
             val entries = ScriptManifest.parse(text)
             assertTrue("$dir: manifest is empty or unreadable", entries.isNotEmpty())
-            // parse 会丢掉不安全的路径;这里要求一项都没丢
+            // 解析は安全でないパスを破棄します。ここでの要件はいずれも破棄されません
             assertEquals("$dir: every entry must be a safe relative path", Regex("\"file\"").findAll(text).count(), entries.size)
             dir to entries
         }
     }
 
-    /** 条目目录 → 文档里提到的脚本(LICENSE 开头的许可证文件不算)。 */
+    /** エントリ ディレクトリ → ドキュメントに記載されているスクリプト (LICENSE で始まるライセンス ファイルはカウントされません)。 */
     private fun references(): Map<String, Set<String>> {
         val out = mutableMapOf<String, MutableSet<String>>()
         entryFiles().filter { it.extension == "md" && !it.name.startsWith("LICENSE") }.forEach { f ->
@@ -44,13 +44,13 @@ class BundledScriptsManifestTest {
 
     @Test fun everyReferencedScriptHasManifestEntry() {
         val refs = references()
-        // 提到脚本的目录和有清单的目录是同一批
+        // スクリプトが記述されているディレクトリとマニフェストが配置されているディレクトリは同じバッチ内にあります。
         assertEquals(manifests.keys, refs.keys)
         for ((dir, scripts) in refs) {
             val listed = manifests[dir]?.map { it.file }.orEmpty()
             for (s in scripts) assertTrue("$dir mentions $s but its scripts/manifest.json does not list it", s in listed)
         }
-        // 反过来:清单里列的脚本都是文档里提到的
+        // 一方: リストにリストされているスクリプトはすべてドキュメントで言及されています
         for ((dir, entries) in manifests) {
             for (e in entries) assertTrue("$dir lists ${e.file} that no document mentions", e.file in refs[dir].orEmpty())
         }
@@ -58,7 +58,7 @@ class BundledScriptsManifestTest {
 
     @Test fun runnableScriptsExist() {
         val runnable = manifests.flatMap { (dir, es) -> es.filter { it.runnable }.map { dir to it } }
-        // 随包的脚本文件(索引里各目录 scripts/ 下除清单外的附件)正好是清单里标为可运行的那些
+        // に含まれるスクリプト ファイル (リストを除くインデックス内の各ディレクトリ scripts/ の下の添付ファイル) は、リスト内で実行可能としてマークされているものとまったく同じです。
         val shipped = GuideCatalog.loadBundled().rows.flatMap { r ->
             r.files.filter { it.startsWith("scripts/") && it != "scripts/manifest.json" }.map { "${KnowledgeIndex.dirOf(r.kind)}/${r.name}" to it }
         }.toSet()
@@ -69,21 +69,22 @@ class BundledScriptsManifestTest {
             assertNotNull("$dir/${e.file}: no interpreter for this type", ScriptManifest.interpreterFor(e.file))
             val head = f.readLines().take(3).joinToString("\n")
             assertTrue("$dir/${e.file} needs an Apache-2.0 header", "SPDX-License-Identifier: Apache-2.0" in head)
-            assertTrue("$dir/${e.file} needs --help", "Usage:" in f.readText())
+            val script = f.readText()
+            assertTrue("$dir/${e.file} に日本語の使い方と--helpが必要です", "使い方:" in script && "\"--help\"" in script)
         }
-        // 不可运行的给出原因;要账号授权的统一说法
+        // を実行できない理由を教えてください。アカウント認証の統一的な説明が必要
         for ((dir, es) in manifests) for (e in es.filter { !it.runnable }) {
             assertTrue("$dir/${e.file} has no reason", !e.reason.isNullOrBlank())
             if ("auth" in e.needs) assertEquals("$dir/${e.file}", AUTH_REASON, e.reason)
         }
-        // 脚本目录里只有清单和标为可运行的文件
+        // スクリプト ディレクトリには、実行可能としてマークされたマニフェストとファイルのみがあります。
         for ((dir, es) in manifests) {
             val files = File(root, "$dir/scripts").listFiles()!!.map { "scripts/${it.name}" }.toSet()
             assertEquals(dir, es.filter { it.runnable }.map { it.file }.toSet() + "scripts/manifest.json", files)
         }
     }
 
-    /** 每个随包的脚本都有测试真的跑它:某个测试文件里同时出现它的目录(run_bundled_script 的 source)和脚本路径。 */
+    /** パッケージ化された各スクリプトには、実際に実行するためのテストが含まれています。そのディレクトリ (run_bundled_script のソース) とスクリプト パスが同時にテスト ファイルに表示されます。 */
     @Test fun everyShippedScriptHasATest() {
         val catalog = GuideCatalog.loadBundled()
         val tests = listOf("src/test", "../app/src/test", "../app/src/androidTest").map(::File)
@@ -101,7 +102,7 @@ class BundledScriptsManifestTest {
 
     @Test fun manifestNeedsAreInstalled() {
         for ((dir, es) in manifests) for (e in es) {
-            // 联网与否:needs 里的 net 与 network 字段一致(run_bundled_script 按 network 拦)
+            // インターネットに接続されているかどうか: ニーズの net フィールドはネットワーク フィールドと一致しています (run_bundled_script はネットワークによってブロックされています)
             assertEquals("$dir/${e.file}: needs 'net' must match network", "net" in e.needs, e.network)
             if (!e.runnable) continue
             for (n in e.needs) {

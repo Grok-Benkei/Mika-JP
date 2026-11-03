@@ -19,7 +19,7 @@ import kotlinx.serialization.json.put
 import java.io.File
 import java.io.FileOutputStream
 
-/** 送达账本持久化；Attempting 在进程重启后是结果不明，不能自动重发。 */
+/** は永続化のために台帳に配信されます。 Attempting の結果は、プロセスが再起動された後は不明であり、自動的に再送信することはできません。 */
 class FileOutboxStore(private val file: File) : OutboxStore {
     private val records = linkedMapOf<String, DeliveryRecord>()
 

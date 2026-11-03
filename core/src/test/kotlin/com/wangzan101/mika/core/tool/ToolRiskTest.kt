@@ -14,11 +14,11 @@ import com.wangzan101.mika.core.assembly.allTools
 import com.wangzan101.mika.core.testing.SANDBOX_TOOLS
 import com.wangzan101.mika.core.testing.WEB_TOOLS
 
-/** 由工具声明的风险推出的分类,和改成声明之前按名字列的表一样;手机、网页两套屏幕工具各有一份同样的动词。 */
+/** ツールによって宣言されたリスクから導出された分類は、宣言に変更される前の名前別のリストと同じです。携帯電話用と Web ページ用の 2 つの画面ツールのセットには、それぞれ同じ動詞があります。 */
 class ToolRiskTest {
     private fun both(vararg verbs: String) = verbs.flatMap { listOf("phone_$it", "web_$it") }.toSet()
 
-    /** 原来要过锁屏/暂停关卡的工具表。 */
+    /** 本来は、ロック画面/一時停止レベル ツール リストを渡すために必要でした。 */
     private val oldWriting = both("tap", "scroll", "swipe", "type_text", "clear_text", "back", "press_key", "diagnose") + setOf(
         "phone_launch_app", "phone_share_text", "phone_gesture", "hand_to_user",
         "phone_set_alarm", "phone_set_timer", "phone_show_alarms", "phone_add_calendar_event", "phone_set_wheel",
@@ -59,8 +59,8 @@ class ToolRiskTest {
     }
 
     /**
-     * 原来 needsCheck / classify 按名字分的几支,现在按声明的目标分;每支的判法没动,
-     * 名字到目标的对应和原来一样,判定结果就一样(具体情形由 IrreversibleDetectorTest 覆盖)。
+     * NeedsCheck/classify は、名前に従ってブランチを分割するために使用されていましたが、現在は宣言された目標に従って分割されています。各支店の判定方法に変更はございません。
+     * 名からターゲットへのマッピングは以前と同じであり、判定結果も同じです (特定の状況は IrreversibleDetectorTest でカバーされます)。
      */
     @Test fun gateTargetsMatchOldNameBranches() {
         val perVerb = mapOf("tap" to GateTarget.Tap, "type_text" to GateTarget.Enter, "press_key" to GateTarget.Key, "swipe" to GateTarget.Swipe, "scroll" to GateTarget.Swipe)

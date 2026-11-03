@@ -18,14 +18,14 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** 假模型收到的一次请求(消息列表是当时的副本)。 */
+/** 偽モデルが受信したリクエスト（メッセージリストはその時のコピーです）。 */
 data class FakeRequest(val system: String, val messages: List<Message>, val tools: List<ToolSpec>) {
     val toolNames: List<String> get() = tools.map { it.name }
 }
 
 /**
- * 按剧本回复的模型:每次请求取剧本里的下一项,返回回复或抛出 [ModelError];收到的每次请求都记在 [requests]。
- * 剧本用完还被调用就报断言错误(说明循环比剧本多问了一次)。用 [fakeModel] 写剧本。
+ * スクリプトに従って応答するモデル: 各リクエストはスクリプト内の次の項目を取得し、応答を返すか、[ModelError] をスローします。受信したすべてのリクエストは [requests] に記録されます。
+ * スクリプトが終了後に呼び出されるとき、アサーション エラーが報告されます (ループがスクリプトより 1 回多く要求することを示します)。 [fakeModel] を使用してスクリプトを作成します。
  */
 class FakeChatModel(
     override val name: String,
@@ -34,13 +34,13 @@ class FakeChatModel(
 ) : ChatModel {
     private val queue = ArrayDeque(script)
     val requests = mutableListOf<FakeRequest>()
-    /** 剧本里还没用到的项数;场景结束时应为 0。 */
+    /** スクリプト内のまだ使用されていない項目の数。シーンの終わりでは 0 になるはずです。 */
     val remaining: Int get() = queue.size
 
     override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
         val req = FakeRequest(system, messages.toList(), tools.toList())
         requests += req
-        val next = queue.removeFirstOrNull() ?: throw AssertionError("$name 的剧本用完了:第 ${requests.size} 次请求没有准备回复")
+        val next = queue.removeFirstOrNull() ?: throw AssertionError("$name の用意した応答が尽きました。${requests.size}回目のリクエストに対応する応答がありません")
         return next(req)
     }
 }
@@ -56,32 +56,32 @@ fun fakeModel(
     FakeScript(name).apply(script).items.toList(),
 )
 
-/** 剧本:一项对应一次请求。 */
+/** スクリプト: 1 つの項目が 1 つのリクエストに対応します。 */
 class FakeScript internal constructor(private val prefix: String) {
     internal val items = mutableListOf<(FakeRequest) -> ModelReply>()
     private var seq = 0
     private fun nextId() = "${prefix}_${++seq}"
 
-    /** 一次回复;不写 [stop] 时有工具调用为 ToolUse,否则 EndTurn。 */
+    /** は 1 回限りの応答です。 [stop] が書かれていない場合、ツールは ToolUse と呼ばれ、それ以外の場合は EndTurn と呼ばれます。 */
     fun reply(stop: StopReason? = null, build: ReplyBuilder.() -> Unit) {
         items += { ReplyBuilder(::nextId).apply(build).build(stop) }
     }
 
-    /** 按收到的请求现算回复(例如要用上一次结果里的 snapshotId)。 */
+    /** は、受信したリクエストに従って即座に応答します (たとえば、最後の結果の snapshotId を使用します)。 */
     fun replyTo(stop: StopReason? = null, build: ReplyBuilder.(FakeRequest) -> Unit) {
         items += { req -> ReplyBuilder(::nextId).apply { build(req) }.build(stop) }
     }
 
     fun call(name: String, vararg args: Pair<String, Any?>) = reply { call(name, *args) }
     fun text(vararg chunks: String) = reply { text(*chunks) }
-    /** 不带调用的回复:交给用户的最终回答。 */
+    /** 電話なしの返信: ユーザーに与えられる最終的な回答。 */
     fun answer(text: String) = text(text)
     fun reportFailure(message: String) = call("end_not_done", "message" to message)
 
-    /** 输出到上限被截断:只有半截文字,停止原因 MaxTokens。 */
+    /** 出力は上限に達したため切り詰められます: 半分のテキストのみ、理由 MaxTokens を停止します。 */
     fun truncated(partial: String) = reply(StopReason.MaxTokens) { text(partial) }
 
-    /** 参数不是合法 JSON 的工具调用。 */
+    /** パラメーターは有効な JSON ツール呼び出しではありません。 */
     fun malformedCall(name: String, rawArgs: String = "{\"ref\":") = reply { callJson(name, rawArgs) }
 
     fun error(e: ModelError) { items += { throw e } }
@@ -90,7 +90,7 @@ class FakeScript internal constructor(private val prefix: String) {
     fun networkError() = error(ModelError.Network())
     fun contextOverflow() = error(ModelError.ContextTooLong())
 
-    /** 辅助角色:核查结论;[met] 是逐条标准与屏上的引文。 */
+    /** 補助的な役割: 検証の結論; [met] は、画面上の引用を備えた段階的な標準です。 */
     fun verdict(verdict: String, reason: String, vararg met: Pair<String, String?>) = text(buildJsonObject {
         put("checks", buildJsonArray {
             met.forEach { (c, q) -> add(buildJsonObject { put("criterion", c); put("status", if (verdict == "fail") "unmet" else "met"); put("quote", q) }) }
@@ -105,7 +105,7 @@ class ReplyBuilder internal constructor(private val nextId: () -> String) {
     private val parts = mutableListOf<Part>()
     private var usage: Usage? = null
 
-    /** 每块一个文字片段,模拟分块到达的文字(循环按顺序拼接)。 */
+    /** 各ブロックにはテキスト フラグメントがあり、ブロックに到着するテキストをシミュレートします (ループ内で順番に結合されます)。 */
     fun text(vararg chunks: String) { chunks.forEach { parts += Part.Text(it) } }
     fun thinking(text: String) { parts += Part.Thinking(text) }
     fun call(name: String, vararg args: Pair<String, Any?>) { callJson(name, JsonObject(args.associate { (k, v) -> k to json(v) }).toString()) }
@@ -124,5 +124,5 @@ private fun json(v: Any?): JsonElement = when (v) {
     is Boolean -> JsonPrimitive(v)
     is List<*> -> JsonArray(v.map(::json))
     is Map<*, *> -> JsonObject(v.entries.associate { (k, x) -> k.toString() to json(x) })
-    else -> error("不支持的参数类型:${v::class}")
+    else -> error("未対応の引数型です: ${v::class}")
 }

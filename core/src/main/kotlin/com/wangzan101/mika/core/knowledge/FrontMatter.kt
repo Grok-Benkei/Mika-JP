@@ -1,6 +1,6 @@
 package com.wangzan101.mika.core.knowledge
 
-/** 解析 APP.md 的头部:`key: value`、`key: [a, b]`、带引号字符串。值为 String 或 List<String>。 */
+/** は、APP.md のヘッダー (`key: value`、`key: [a, b]`、引用符で囲まれた文字列) を解析します。値は文字列またはList<String>です。 */
 object FrontMatter {
     fun parse(md: String): Pair<Map<String, Any>, String> {
         val text = md.removePrefix("﻿").replace("\r\n", "\n")
@@ -22,7 +22,7 @@ object FrontMatter {
         return map to lines.drop(end + 1).joinToString("\n").trim()
     }
 
-    // 引号内的逗号不分隔
+    // 引用符内のカンマは区切られていません
     private fun splitList(s: String): List<String> {
         val out = mutableListOf<String>()
         val cur = StringBuilder()

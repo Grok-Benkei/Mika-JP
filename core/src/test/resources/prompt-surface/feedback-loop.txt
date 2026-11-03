@@ -1,76 +1,76 @@
 ### empty_reply
-Your reply was empty. Continue the task with your tools, or reply with your final answer to the user in text.
+返信が空だった。手段で作業を続けるか、ユーザーへの最終回答を文面で返信する。
 ### truncated_reply
-Your reply was cut off by the output limit before it was complete. Continue the task with your tools, or reply again with a shorter final answer.
+返信が出力上限で途中で切れた。手段で作業を続けるか、より短い最終回答で再度返信する。
 ### unconfirmed_nudge
-Before this answer goes to the user:
-These items in your answer do not appear in anything you read during this task:
+この回答がユーザーへ渡る前に:
+回答の中の次の項目は、この作業で読んだ内容のどこにも現れていない:
 - ¥89
 - 「已发送」
-Check this: read the place again if you can, then reply with your corrected final answer. Anything you still cannot confirm, say plainly in the answer that you could not confirm it instead of stating it as fact. This check happens once; your next answer goes to the user.
+次を確認する。可能であればその場所を再度読み、修正した最終回答で返信する。まだ確認できないものについては、事実として述べず、確認できなかった旨を回答の中で正直に伝える。この確認は1回だけ。次の回答がユーザーへ渡る。
 ### language_nudge
-Before this answer goes to the user: it is written mostly in Chinese, but the user's latest message is in Latin script. Rewrite the whole answer in the language of the user's latest message. Translate what you read; keep the original only for proper names, or for labels the user must find on the screen, written as "translation (original)". Do not change any value: numbers, dates, amounts, units and names stay exactly as read. This check happens once; your next answer goes to the user.
+この回答がユーザーへ渡る前に: この回答は主に 中国語 で書かれている。目標の出力言語は 日本語 であり、ユーザーの入力言語にかかわらず常に日本語である。回答全体の説明、質問、見出し、要約を日本語に書き直す。値は一切変えない。数値、日付、金額、単位、名前は、読んだとおり正確に保つ。引用原文、固有名詞、コード、URL、識別子、実際の表示ラベル、ユーザーが作成や翻訳の対象として指定した原文や訳文は、データとして必要な形を保つ。外国語の引用やラベルを示す場合は日本語の説明を添える。表示上で探す必要があるラベルは「日本語訳（原文）」の形で示せる。この確認は1回だけ。次の回答がユーザーへ渡る。
 ### leaked_call_nudge
-Your last reply contained a call to the tool `ask_user` written out as plain text, so it was not run: a tool call only takes effect when it is made through tool calling. If you meant to call a tool, call it again now; otherwise reply with your final answer to the user in plain words. This check happens once.
+直前の返信に、手段 `ask_user` への呼び出しが素の文面として書かれていたため、実行されなかった。手段の呼び出しが効力を持つのは、手段呼び出しとして行われた場合だけ。手段を呼ぶつもりだった場合は、今すぐ再度呼び出す。そうでない場合は、ユーザーへの最終回答を通常の言葉で返信する。この確認は1回だけ。
 ### answer_or_failure
-If the result the task asks for needs a feature, menu, setting, page, item or value that is not there, call end_not_done listing what you checked. Only a yes/no question about whether something exists is answered by its absence: if the app's own search gave a definitive none, reply that it does not exist, quoting the text it showed.
+作業が求める結果に必要な機能、メニュー、設定、ページ、項目、値が存在しない場合は、確認した内容を列挙して end_not_done を呼び出す。存在するかどうかを尋ねる質問だけは、その不在自体が答えになる。アプリ自体の検索が明確に「ない」を返した場合は、表示された文面を引用して、存在しないと返信する。
 ### give_up_advice
-You keep repeating without progress. Stop revisiting the same places. If a specific missing choice or detail from the user would decide the next route, call ask_user and ask it once. Otherwise, continue only with a concrete untried route; if there is none, call end_not_done with the confirmed partial result, what is still missing and what you checked. If the result the task asks for needs a feature, menu, setting, page, item or value that is not there, call end_not_done listing what you checked. Only a yes/no question about whether something exists is answered by its absence: if the app's own search gave a definitive none, reply that it does not exist, quoting the text it showed.
+進展なく繰り返している。同じ場所を再訪し続けない。ユーザーからの特定の不足している選択や詳細が次の経路を決める場合は、ask_user を呼び、1回だけ尋ねる。そうでない場合は、具体的な未試行の経路だけで続ける。ない場合は、確認できた一部の結果、まだ不足しているもの、確認した内容を示して end_not_done を呼び出す。 作業が求める結果に必要な機能、メニュー、設定、ページ、項目、値が存在しない場合は、確認した内容を列挙して end_not_done を呼び出す。存在するかどうかを尋ねる質問だけは、その不在自体が答えになる。アプリ自体の検索が明確に「ない」を返した場合は、表示された文面を引用して、存在しないと返信する。
 ### repeated_input_advice
-You have already typed "外卖" 3 times in this task; typing it again will show the same result. If what you have checked shows the target is not there, stop. If the result the task asks for needs a feature, menu, setting, page, item or value that is not there, call end_not_done listing what you checked. Only a yes/no question about whether something exists is answered by its absence: if the app's own search gave a definitive none, reply that it does not exist, quoting the text it showed.
+この作業で「外卖」をすでに 3 回入力している。再度入力しても同じ結果が表示される。確認した内容で対象が存在しないことが示されている場合は、止める。 作業が求める結果に必要な機能、メニュー、設定、ページ、項目、値が存在しない場合は、確認した内容を列挙して end_not_done を呼び出す。存在するかどうかを尋ねる質問だけは、その不在自体が答えになる。アプリ自体の検索が明確に「ない」を返した場合は、表示された文面を引用して、存在しないと返信する。
 ### progress_check
-Progress check: 10 of 20 steps used and the task is not finished. If what you have checked so far (search inside the app, its main menus) shows the target is not there or cannot be reached, stop now. If the result the task asks for needs a feature, menu, setting, page, item or value that is not there, call end_not_done listing what you checked. Only a yes/no question about whether something exists is answered by its absence: if the app's own search gave a definitive none, reply that it does not exist, quoting the text it showed. Continue only if you have a concrete, untried next place to look.
+進捗確認: 20 手順のうち 10 手順を使い、作業は終わっていない。これまでに確認した内容（アプリ内の検索、その主要なメニュー）で、対象が存在しない、または到達できないことが示されている場合は、今止める。 作業が求める結果に必要な機能、メニュー、設定、ページ、項目、値が存在しない場合は、確認した内容を列挙して end_not_done を呼び出す。存在するかどうかを尋ねる質問だけは、その不在自体が答えになる。アプリ自体の検索が明確に「ない」を返した場合は、表示された文面を引用して、存在しないと返信する。 具体的な未試行の次の確認場所がある場合にだけ続ける。
 ### final_turn
-You are out of steps; no more phone actions are possible. If the task is done, reply to the user with the result in text, stating only what you read. If it is not done or only partly done, call end_not_done with the confirmed partial result, what you checked and what is missing.
+手順を使い切った。これ以上スマートフォンの操作はできない。作業が完了している場合は、読んだ内容だけを述べて、結果を文面でユーザーに返信する。完了していない場合や一部だけ完了している場合は、確認できた一部の結果、確認した内容、不足している内容を示して end_not_done を呼び出す。
 ### screenshot_note
-Current screenshot for the observation above.
+上記の確認に対する現在の画像。
 ### file_image_note
-The image file read above.
+上で読んだ画像ファイル。
 ### action_frame_note
-The screen right after the call above. Act with ref + snapshotId from the elements in that result's screen field; the image is only for understanding, and its screenshotId is for view_past_screens, never a snapshotId.
+上記の呼び出しの直後の状態。その結果の screen フィールドにある要素の ref + snapshotId で操作する。画像は理解のためだけ。その screenshotId は view_past_screens 用であり、決して snapshotId ではない。
 ### batch_view_note
-The screen after the steps above. Act with ref + snapshotId from these elements; the image (if any) is only for understanding, and its screenshotId is for view_past_screens, never a snapshotId.
+上記の手順の後の状態。これらの要素の ref + snapshotId で操作する。画像（ある場合）は理解のためだけ。その screenshotId は view_past_screens 用であり、決して snapshotId ではない。
 screen: 
 ### recalled_note
-Recalled earlier screenshots, in the order of the view_past_screens result entries marked imageAttached. They show past screens, not the current one.
+呼び戻された以前の画像。view_past_screens の結果の項目のうち imageAttached と示された順序。その時点の表示を示すものであり、現在のものではない。
 ### nudge_source
-no answer given
+回答が得られていない
 ### unconfirmed_source
-answer check
+回答の確認
 ### language_source
-answer language
+回答の言語
 ### leaked_call_source
-tool call as text
+文面としての手段呼び出し
 ### progress_source
-step check
+手順の確認
 ### final_source
-out of steps
+手順を使い切った
 ### replay_source
-earlier way of doing this
+以前の進め方
 ### approved_step_first
-Do the approved step on its own first: the user approved one action. Do exactly that action as a single tool call (not inside do_steps or web_script), then continue.
+承認された手順をまず単独で行う。ユーザーが1つの操作を承認した。その操作を正確に、単一の手段呼び出しとして行い（do_steps や web_script の中ではなく）、その後続ける。
 ### replay_screen_header
-Current screen (read result; its refs can be used directly):
+現在の状態（読み取り結果。その ref を直接使える）:
 ### replay_no_screen
-The current screen could not be read: observe first, then continue.
+現在の状態を読めなかった。まず確認してから続ける。
 ### confirmation_declined
-The user did not approve. Do not try this action again; report where things stand, then end.
+ユーザーは承認しなかった。この操作を再試行しない。現在の状況を報告して終える。
 ### confirmation_approved
-The user approved this once. Do this one action right away, without tapping anything else, scrolling, going back or switching apps in between (typing is fine). The approval is valid for 3 steps; the next matching action uses it up whether it succeeds or not, and doing it again needs a new request.
+ユーザーが今回だけ承認した。他のものをタップしたり、スクロールしたり、戻ったり、アプリを切り替えたりせず（入力は可）、直ちにこの1つの操作を行う。承認は3手順有効。次の一致する操作で、その成否にかかわらず使い切られる。再度行うには新たな依頼が必要。
 ### no_answer_message
-No answer came within the time limit.
+制限時間内に答えが来なかった。
 ### handback_note
-Getting the phone back only means control was returned; it does not mean the step succeeded. Read the current screen first to check the result, then continue or report.
+スマートフォンが戻ったことは、操作権が返されたことだけを意味し、その手順が成功したことを意味しない。まず現在の状態を読んで結果を確認してから、続けるか報告する。
 ### no_handback_note
-There was no handback. Do not say the user took care of it; report how the takeover ended as it is, and try another way or end if needed.
+引き継ぎはなかった。ユーザーが対応したとは言わない。引き継ぎがどのように終わったかをそのまま報告し、別の方法を試すか、必要であれば終える。
 ### user_finished_note
-The user says they finished it themselves.
+ユーザーが自分で終えたと言っている。
 ### user_finished_prompt
-The user says they finished it themselves. Only observe to read the app's current state and check: if it is confirmed done, answer the user directly with what you read; if you cannot confirm it, call end_not_done. Do nothing else.
+ユーザーが自分で終えたと言っている。アプリの現在の状態を読むためだけに確認する。完了が確認できれば、読んだ内容でユーザーに直接答える。確認できなければ end_not_done を呼び出す。他のことは行わない。
 ### loop result 1.o1
-{"ok":true,"currentApp":"com.x","snapshotId":"snap1","screenshotId":1,"screenChangedDuringRead":false,"viewport":{"width":1080,"height":2400},"elements":[{"ref":"@e1","role":"button","name":"搜索","center":{"x":500,"y":50},"bounds":[0,0,999,100],"resourceId":"a:id/s"}],"truncated":false,"moreTools":"From your next call on you also have the full phone tools (phone_observe, phone_list_elements, phone_tap, phone_scroll and the rest), with their descriptions and how to use them."}
+{"ok":true,"currentApp":"com.x","snapshotId":"snap1","screenshotId":1,"screenChangedDuringRead":false,"viewport":{"width":1080,"height":2400},"elements":[{"ref":"@e1","role":"button","name":"搜索","center":{"x":500,"y":50},"bounds":[0,0,999,100],"resourceId":"a:id/s"}],"truncated":false,"moreTools":"次の呼び出しからは、phone の手段一式（phone_observe, phone_list_elements, phone_tap, phone_scroll など）も、その説明と使い方とともに利用できる。"}
 ### loop result 1.o2
-{"ok":false,"error":"parallel_tool_call_skipped","message":"Phone actions run one at a time. Observe the result of the first action, then try again."}
+{"ok":false,"error":"parallel_tool_call_skipped","message":"スマートフォンの操作は一度に1つずつ実行される。最初の操作の結果を確認してから、再度試す。"}
 ### loop result 1.c
 {"ok":false,"error":"invalid_arguments","message":"amount: required","recoverable":true}
 ### loop result 2.c

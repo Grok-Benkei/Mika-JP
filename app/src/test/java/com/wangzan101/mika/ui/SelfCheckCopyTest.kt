@@ -19,7 +19,7 @@ class SelfCheckCopyTest {
 
     private val jargon = listOf("shell", "Binder", "uid", "adb", "SDK", "ABI")
 
-    /** 报告走「复制诊断信息」同一套脱敏:IP、端口、邮箱、像凭据的值都不出现。 */
+    /** は、同じ一連の「コピー診断情報」を報告します。IP、ポート、電子メール、資格情報などの値は表示されません。 */
     @Test
     fun reportIsSanitizedLikeDiagnostics() {
         val facts = DeviceFacts("Acme", "Phone 7", "14", 34, listOf("arm64-v8a"), 8L shl 30, 1080, 2400, true, "0.1.21", "abc1234")
@@ -34,6 +34,6 @@ class SelfCheckCopyTest {
         assertFalse(text.contains("192.168"))
         assertFalse(text.contains("me@example.com"))
         assertFalse(text.contains("abcdef123456"))
-        assertTrue(text.contains("3 helper: FAIL — connect <ip> failed"))
+        assertTrue(text, text.contains("3 操作アシスタント: 失敗 — connect <ip> failed"))
     }
 }

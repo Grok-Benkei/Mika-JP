@@ -4,23 +4,24 @@ import com.wangzan101.mika.R
 import com.wangzan101.mika.i18n.tr
 import java.net.URLEncoder
 
-/** Mika 对外的地址都在这里:仓库、问题、作者、X 群聊、检查更新用的两个来源。换地址只改这一处。 */
+/** ミカの外部アドレスはすべてここにあります: ウェアハウス、問題、作成者、X グループ チャット、および更新をチェックするための 2 つのソース。アドレスを変更する場合はこの部分のみ変更してください。 */
 object MikaLinks {
-    const val REPO = "https://github.com/wangzan101/Mika"
-    const val REPO_LABEL = "github.com/wangzan101/Mika"
+    const val REPO = "https://github.com/yebisu0529-ship-it/Mika-JP"
+    const val REPO_LABEL = "github.com/yebisu0529-ship-it/Mika-JP"
+    const val UPSTREAM = "https://github.com/wangzan101/Mika"
     const val README = "$REPO#readme"
     const val RELEASES = "$REPO/releases"
     const val NEW_ISSUE = "$REPO/issues/new"
-    const val X = "https://x.com/wangzan101"
-    const val X_HANDLE = "@wangzan101"
+    const val X = "https://x.com/studio_yebisu"
+    const val X_HANDLE = "@studio_yebisu"
 
-    /** X 上的 Mika 交流群:点开即申请加入(不用微信的走这里)。 */
-    const val X_GROUP = "https://x.com/i/chat/group_join/g2116926829198246025/48B52j5svL"
+    /** フォークの問い合わせ先。既存の呼び出し元と互換のため定数名を保持する。 */
+    const val X_GROUP = "$REPO/issues"
 
-    /** 检查更新只问 GitHub 发布页(不登录,每小时有次数限制)。 */
-    const val LATEST_RELEASE_API = "https://api.github.com/repos/wangzan101/Mika/releases/latest"
+    /** GitHub リリース ページでのみ更新を確認してください (ログイン不要、1 時間あたりの回数に制限があります)。 */
+    const val LATEST_RELEASE_API = "https://api.github.com/repos/yebisu0529-ship-it/Mika-JP/releases/latest"
 
-    /** 反馈时预先填进问题模板的设备与版本信息。 */
+    /** フィードバックを提供するときに、問題テンプレートのデバイスとバージョン情報を事前に入力します。 */
     data class Device(
         val manufacturer: String,
         val model: String,
@@ -30,7 +31,7 @@ object MikaLinks {
         val build: String,
     )
 
-    /** 预先填好的问题正文:机型、安卓版本、Mika 版本三行,下面留空几段给用户写。 */
+    /** 事前入力された質問テキスト: モデル、Android バージョン、Mika バージョンの 3 行。ユーザーが書き込めるように、以下にいくつかの空白の段落を残しておきます。 */
     fun issueBody(d: Device): String {
         val model = if (d.model.startsWith(d.manufacturer, ignoreCase = true)) d.model else "${d.manufacturer} ${d.model}"
         return buildString {
@@ -38,7 +39,7 @@ object MikaLinks {
         }
     }
 
-    /** 新建问题的地址,标题留空、正文预先填好;参数按 URL 编码(空格写成 %20)。 */
+    /** 新しい質問のアドレスを作成し、タイトルを空白のままにし、テキストを事前に入力します。パラメータは URL エンコードされています (スペースは %20 として書き込まれます)。 */
     fun issueUrl(d: Device): String = "$NEW_ISSUE?title=&body=${encode(issueBody(d))}"
 
     private fun encode(s: String): String = URLEncoder.encode(s, "UTF-8").replace("+", "%20")

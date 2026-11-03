@@ -6,50 +6,50 @@ import kotlin.random.Random
 import com.wangzan101.mika.core.uistate.IdleScroll
 
 /**
- * 在 App 里一步一步操作的节奏(纯逻辑,不碰时钟和界面):人点完一下总要看一眼才点下一下,到了新的一屏还要先看一会儿。
- * 每做完一个改动屏幕的动作([noteAction])按它有没有换到新的一屏定下离下一个动作至少隔多久;下一个动作之前问 [waitBefore]:
- * 还没隔够就补足余下的时间。
+ * のステップバイステップ操作のリズム (時計やインターフェースに触れずに純粋なロジック): ユーザーは何かをクリックした後、クリックする前に必ずそれを見る必要があり、新しい画面に到達したら、しばらくそれを見つめる必要があります。
+ * 画面を変更する操作 ([noteAction]) を完了した後、それを押して、新しい画面に変更されたかどうかを確認します。次のアクションまでに少なくともどのくらいの時間がかかるかを決定します。次のアクションの前に、[waitBefore] に質問してください。
+ * インターバルが十分になる前に残り時間を補ってください。
  *
- * - 同一屏上接着做(打字、拨开关、只变了一两个元素):停 [Limits.sameScreenMs] 里随机取的一段;
- * - 换到了新的一屏(界面大变、换了 App):停 [Limits.newScreenMs] 里的一段,另按这一屏上的字数加一段读的时间
- *   ([Limits.readMsPerChar],至多 [Limits.maxReadMs]);
- * - 偶尔([Limits.pauseChance])多停一会儿([Limits.pauseMs]);一次停留不超过 [Limits.maxDwellMs];
- * - 停留从上一个动作做完算起,模型想、读屏花掉的时间都算在内,只补不够的部分。
- * - App 知识说这个 App 限制浏览快慢([PlacePace.CAREFUL])时按 [careful] 的范围停(更久),
- *   一个任务里在这个 App 里换到新的一屏的次数有上限([screenCap]),到了之后 [capReached] 为真,调用方不再换屏;
- *   用户答过话([userAnswered])后重新计数;本任务在这个 App 里做成过对外动作([outwardDone],发送、提交一类)之后不再设上限。
- *   和网页一页一页看的节奏([com.wangzan101.mika.core.cap.web.PagePacing])是同一套说法。
+ * - 同じ画面上で作業を続行します (入力、スイッチの切り替え、1 つまたは 2 つの要素の変更のみ): [Limits.sameScreenMs] のランダムなセクションを停止します。
+ * - 新しい画面に切り替えました (インターフェイスが大幅に変更され、アプリが変更されました): [Limits.newScreenMs] で段落を停止し、この画面上の単語数を押して、一定期間の読書時間を追加します
+ *   ([Limits.readMsPerChar]、最大 [Limits.maxReadMs]);
+ * - 時々 ([Limits.pauseChance]) しばらく停止します ([Limits.pauseMs])。一度に [Limits.maxDwellMs] を超えて滞在しないでください。
+ * - モデルの思考や画面の読み取りに費やした時間を含め、前のアクションの完了からカウントするのをやめ、足りない部分だけを補います。
+ * - アプリの知識によると、このアプリは閲覧速度 ([PlacePace.CAREFUL]) を制限し、[careful] (長い) の範囲に応じて停止します。
+ *   本アプリのタスク内での新しい画面への切り替え回数には上限([screenCap])がございます。制限に達すると、[capReached] が true になり、呼び出し元は画面を変更しなくなります。
+ *   ユーザーが質問に回答した後にカウントが再開されます ([userAnswered])。このアプリで外部アクション ([outwardDone]、送信および送信) を実行した後、このタスクには上限がなくなります。
+ *   は、Web ページを 1 ページずつ読むリズム ([com.wangzan101.mika.core.cap.web.PagePacing]) と同じです。
  *
- * [Off] 从不等待,也不设上限(「快」、测试、不需要节奏的调用方用它)。
+ * [Off] は待機せず、上限も設定しません (「高速」、テスト、およびリズムを必要としない発信者に使用します)。
  */
 class AppPacing(
     private val random: Random?,
     val limits: Limits = Limits(),
     val careful: Limits = Limits.CAREFUL,
-    /** 限制浏览快慢的 App 一个任务里(用户答话之间)最多换到多少次新的一屏。 */
+    /** アプリの閲覧速度を制限します。ユーザーが 1 つのタスク (質問に回答する間) で新しい画面に切り替えることができる最大回数。 */
     val screenCap: Int = CAREFUL_SCREEN_CAP,
 ) {
-    /** 时长单位毫秒。 */
+    /** ミリ秒単位の継続時間。 */
     data class Limits(
-        /** 同一屏上接着做时的停留范围。 */
+        /** 同じ画面で作業を続ける場合の滞在範囲。 */
         val sameScreenMs: LongRange = 500L..1_200L,
-        /** 换到新的一屏之后的停留范围(不含读的时间)。 */
+        /** 新しい画面に切り替えた後の滞在範囲（読み取り時間を除く）。 */
         val newScreenMs: LongRange = 900L..2_000L,
-        /** 新的一屏上每个字加多少读的时间;0 为不加。 */
+        /** 新しい画面の各単語に追加される読み取り時間。 0は加算なしを意味します。 */
         val readMsPerChar: Long = 0L,
-        /** 读的时间的上限。 */
+        /** 読み取り時間の上限。 */
         val maxReadMs: Long = 0L,
-        /** 多停一会儿的机会。 */
+        /** ちょっと立ち止まるチャンス。 */
         val pauseChance: Double = 0.05,
-        /** 多停一会儿时另加的范围。 */
+        /** 一時停止時の追加航続距離。 */
         val pauseMs: LongRange = 600L..1_500L,
-        /** 一次停留的上限。 */
+        /** 1回の滞在の上限です。 */
         val maxDwellMs: Long = 3_500L,
-        /** 新的一屏上停得够久时,停留里可以轻轻滚几下(见 [com.wangzan101.mika.core.uistate.IdleScroll])。 */
+        /** 新しい画面が十分な時間停止されている場合は、そのまま数回ゆっくりスクロールすることができます ([com.wangzan101.mika.core.uistate.IdleScroll] を参照)。 */
         val idleScroll: Boolean = false,
     ) {
         companion object {
-            /** 限制浏览快慢的 App(和「像人」时所有 App):停得更久,按字数读,停留里轻轻滚几下。 */
+            /** 閲覧速度を制限するアプリ (および「いいね!」の場合はすべてのアプリ): 一時停止を長くし、単語数ごとに読み、滞在中に数回スクロールします。 */
             val CAREFUL = Limits(
                 sameScreenMs = 900L..2_200L, newScreenMs = 2_500L..5_000L, readMsPerChar = 15L, maxReadMs = 8_000L,
                 pauseChance = 0.1, pauseMs = 2_000L..5_000L, maxDwellMs = 15_000L, idleScroll = true,
@@ -61,18 +61,18 @@ class AppPacing(
 
     private var last: Last? = null
 
-    /** 本任务里(上次用户答话以来)各个限制浏览快慢的 App 换到过几次新的一屏。 */
+    /** このタスクでは (ユーザーが最後に回答して以来)、閲覧速度を制限するさまざまなアプリが何度か新しい画面に変更されました。 */
     private val screens = HashMap<String, Int>()
 
-    /** 本任务里做过对外动作的 App:屏数上限对它们不再算;用户答话也不清。 */
+    /** このタスクで外部アクションを実行したアプリ: 画面数の上限はカウントされません。ユーザーの反応も不明瞭です。 */
     private val outward = HashSet<String>()
 
-    /** 有节奏(不是 [Off])。 */
+    /** リズムがある（[Off] ではない）。 */
     val paced: Boolean get() = random != null
 
     /**
-     * 在 [app](包名;不知道为 null)里做完了一个改动屏幕的动作:[newScreen] 是换到了新的一屏,
-     * [counts] 时这一屏算进限制浏览快慢的 App 的屏数(往下滚读同一页余下的内容不算)。[pace] 是 App 知识对这个 App 浏览快慢的说法。
+     * は [app] (パッケージ名。null かどうかはわかりません) で画面を変更するアクションを完了しました: [newScreen] は新しい画面に変更されました。
+     * [counts] の場合、この画面は閲覧速度を制限するアプリの画面数にカウントされます (同じページの残りのコンテンツを読むために下にスクロールすることはカウントされません)。 [pace] は、このアプリの閲覧速度に関するアプリのナレッジの説明です。
      */
     @Synchronized
     fun noteAction(app: String?, nowMs: Long, newScreen: Boolean, pace: PlacePace = PlacePace.NORMAL, counts: Boolean = newScreen) {
@@ -85,8 +85,8 @@ class AppPacing(
     }
 
     /**
-     * 下一个动作之前还要等多久:上一个动作之后还没停够时是余下的时间,否则 0。
-     * [textChars] 是此刻这一屏上的字数:上一个动作换到了新的一屏时按它加读的时间。[Off] 恒为 0。
+     * 次のアクションまでの待機時間: 最後のアクションが十分に停止していない場合の残り時間、それ以外の場合は 0。
+     * [textChars] は、現時点でのこの画面上の単語数です。前のアクションが新しい画面に変わったら、それを押して読書時間を追加します。 [Off] は常に 0 です。
      */
     @Synchronized
     fun waitBefore(nowMs: Long, textChars: Int = 0): Long {
@@ -96,39 +96,39 @@ class AppPacing(
         return (dwell - (nowMs - l.atMs)).coerceIn(0, l.limits.maxDwellMs)
     }
 
-    /** 这次停留里可以轻轻滚几下:上一个动作换到了新的一屏,且按的范围允许。 */
+    /** この滞在中に数回スクロールできます。前のアクションが新しい画面に変わり、押す範囲が許可されます。 */
     @Synchronized
     fun idleAllowed(): Boolean = last?.let { it.newScreen && it.limits.idleScroll } == true
 
-    /** 本任务里(上次用户答话以来)[app] 换到过几次新的一屏。 */
+    /** このタスクでは (最後のユーザーが回答して以来) [app] が新しい画面に数回変更されました。 */
     @Synchronized
     fun screensIn(app: String): Int = screens[app] ?: 0
 
-    /** [app] 换到新的一屏的次数已到上限:再换屏之前要先停下(用户答应了再看)。普通 App、做过对外动作的 App、[Off] 恒为 false。 */
+    /** [app] 新しい画面への変更回数が上限に達しました。再度画面を変更する前に停止してください(ユーザーが同意した後、もう一度参照してください)。通常のアプリ、外部アクションを実行したアプリ、および [Off] は常に false です。 */
     @Synchronized
     fun capReached(app: String?, pace: PlacePace): Boolean =
         random != null && app != null && pace == PlacePace.CAREFUL && app !in outward && screensIn(app) >= screenCap
 
-    /** 本任务在 [app] 里做了一次对外动作(发送、提交):这个 App 余下的时间里不再设屏数上限。 */
+    /** このタスクは [app] で外部アクション (送信、送信) を実行しました。このアプリには残りの時間の画面制限がありません。 */
     @Synchronized
     fun outwardDone(app: String) {
         if (random != null) outward += app
     }
 
-    /** 用户答过话(回答了追问、交回了接管):各 App 的屏数重新算。 */
+    /** ユーザーの回答 (フォローアップの質問に回答し、引き継ぎを引き継ぎました): 各アプリの画面数が再計算されました。 */
     @Synchronized
     fun userAnswered() = screens.clear()
 
     private fun limitsFor(pace: PlacePace) = if (pace == PlacePace.CAREFUL) careful else limits
 
     companion object {
-        /** 限制浏览快慢的 App 一个任务里最多换到多少次新的一屏(App 里一屏比网页的一页碎:点开、返回各算一次)。 */
+        /** は、アプリの閲覧速度を制限します。 1回のタスクで新しい画面に遷移できる最大回数（アプリ内の1画面はWebページの1ページより小さいため、クリックして開く、戻るは1回とカウントされます）。 */
         const val CAREFUL_SCREEN_CAP = 24
 
-        /** 从不等待。 */
+        /** は決して待ちません。 */
         val Off = AppPacing(null)
 
-        /** 像人在 App 里一步一步操作的节奏;[random] 可换成固定种子(测试)。 */
+        /** は、アプリを段階的に操作する人のようなものです。 [random] は固定シード (テスト) に置き換えることができます。 */
         fun human(random: Random = Random.Default, limits: Limits = Limits(), careful: Limits = Limits.CAREFUL) =
             AppPacing(random, limits, careful)
     }

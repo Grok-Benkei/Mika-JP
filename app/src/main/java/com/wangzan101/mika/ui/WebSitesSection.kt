@@ -27,8 +27,8 @@ import com.wangzan101.mika.ui.components.TileTone
 import com.wangzan101.mika.ui.components.FooterNote
 
 /**
- * 设置页「网站登录」一节的数据与操作。[onOpenLogin] 为 null 时不提供「打开登录」。
- * [onLogout] 返回过期掉的 Cookie 个数。
+ * 設定ページの「Web サイト ログイン」セクションのデータと操作。 [onOpenLogin] が null の場合、「オープン ログイン」は提供されません。
+ * [onLogout] 期限切れの Cookie の数を返します。
  */
 class WebSitesState(
     val sites: List<SiteEntry>,
@@ -41,7 +41,7 @@ val WEB_LOGOUT_PARTIAL: String get() = tr(R.string.web_logout_partial)
 val WEB_CHALLENGED_NOTE: String get() = tr(R.string.web_challenged_note)
 val WEB_DATA_NOTE: String get() = tr(R.string.web_data_note)
 
-/** 设置页的「网站登录」:列出内置浏览器访问过的网站(登录过的在前),可以打开登录、退出单个网站、全部退出。 */
+/** 設定ページの「Web サイト ログイン」: 内蔵ブラウザ (最初にログイン) でアクセスした Web サイトをリストします。ログインを開いたり、1 つの Web サイトからログアウトしたり、すべてをログアウトしたりできます。 */
 @Composable
 fun WebSitesSection(state: WebSitesState, labeled: Boolean = true) {
     var picked by remember { mutableStateOf<SiteEntry?>(null) }

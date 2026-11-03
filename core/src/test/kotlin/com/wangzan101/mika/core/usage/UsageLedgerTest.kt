@@ -17,7 +17,7 @@ class UsageLedgerTest {
     private val hour = UsageLedger.HOUR_MS
     private var clock = 1_000 * hour + 123
     private val file get() = File(tmp.root, "usage/usage.json")
-    // 写出不靠后台定时:测试里直接调 flush
+    // はバックグラウンド タイミングに依存せずに書き込まれます。フラッシュはテストで直接呼び出されます。
     private fun ledger() = UsageLedger(file, now = { clock }, flushDelayMs = 60_000)
 
     private val main = UsageSource("p1", "服务商甲", "m1", UsagePurpose.Main)
@@ -66,7 +66,7 @@ class UsageLedgerTest {
         val back = ledger()
         assertEquals(l.snapshot().rows.toSet(), back.snapshot().rows.toSet())
         assertEquals(l.snapshot().providerNames, back.snapshot().providerNames)
-        assertTrue("临时文件不留下", !File(file.parentFile, file.name + ".tmp").exists())
+        assertTrue("一時ファイルを残しません", !File(file.parentFile, file.name + ".tmp").exists())
     }
 
     @Test fun flushWritesInBackgroundAfterTheDelay() {
@@ -83,10 +83,10 @@ class UsageLedgerTest {
         clock += 49 * hour
         l.record(main, Usage(2, 2))
         l.flush()
-        assertEquals("写出时丢掉两天以前的", listOf(1049L), l.snapshot().rows.map { it.hour })
+        assertEquals("書き出し時に2日より前の記録を削除します", listOf(1049L), l.snapshot().rows.map { it.hour })
         clock += 49 * hour
         val back = UsageLedger(file, now = { clock }, keepDays = 2)
-        assertTrue("读入时也丢", back.snapshot().rows.isEmpty())
+        assertTrue("読み込み時にも古い記録を削除します", back.snapshot().rows.isEmpty())
     }
 
     @Test fun corruptFileStartsEmpty() {

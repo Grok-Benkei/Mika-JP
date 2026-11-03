@@ -15,16 +15,16 @@ class HelperRestoreTest {
     fun wishFollowsCapsuleModeAndTasks() {
         assertTrue(RestoreWish.of(capsuleAlways = true, taskRunning = false, accessibilityWanted = true, accessibilityOn = true).revive)
         assertTrue(RestoreWish.of(capsuleAlways = false, taskRunning = true, accessibilityWanted = true, accessibilityOn = true).revive)
-        // 胶囊只在任务时显示、也没有任务:用户强行停止就让它停着
+        // カプセルはタスク中にのみ表示され、タスクはありません。ユーザーが強制的に停止すると停止します。
         assertEquals(RestoreWish.NONE, RestoreWish.of(capsuleAlways = false, taskRunning = false, accessibilityWanted = true, accessibilityOn = true))
     }
 
     @Test
     fun accessibilityOnlyWhenWantedAndOn() {
         assertTrue(RestoreWish.of(true, false, accessibilityWanted = true, accessibilityOn = true).accessibility)
-        // 用户在 Mika 里关掉了替我打开无障碍
+        // ユーザーがミカのアクセシビリティをオフにし、私に代わってアクセシビリティをオンにしました
         assertFalse(RestoreWish.of(true, false, accessibilityWanted = false, accessibilityOn = true).accessibility)
-        // 用户趁 Mika 活着在系统设置里关掉了
+        // ユーザーは、ミカが生きている間にシステム設定でミカをオフにしました。
         assertFalse(RestoreWish.of(true, false, accessibilityWanted = true, accessibilityOn = false).accessibility)
     }
 
@@ -43,17 +43,17 @@ class HelperRestoreTest {
         val sender = RestoreWishSender<String> { s, w -> sent += s to w; true }
         val a = "helper-a"
         sender.update(null, yes)
-        assertTrue("没有助手就不交", sent.isEmpty())
+        assertTrue("ヘルパーがなければ引き渡しません", sent.isEmpty())
         sender.update(a, yes)
         sender.update(a, yes)
         assertEquals(listOf(a to yes), sent)
         sender.update(a, RestoreWish.NONE)
         assertEquals(a to RestoreWish.NONE, sent.last())
-        // 助手换了一个(新的 Binder):再交一次,哪怕心愿没变
+        // アシスタントが新しいものに変更されました (新しいバインダー): ウィッシュが変更されていない場合でも、再度送信してください
         val b = String(charArrayOf('h'))
         sender.update(b, RestoreWish.NONE)
         assertEquals(3, sent.size)
-        // 助手没了又回来:再交
+        // アシスタントが消えて戻ってきました: もう一度送信してください
         sender.update(null, RestoreWish.NONE)
         sender.update(b, RestoreWish.NONE)
         assertEquals(4, sent.size)
@@ -68,7 +68,7 @@ class HelperRestoreTest {
         ok = true
         sender.update("h", yes)
         sender.update("h", yes)
-        assertEquals("失败的不算交过,下次再交;交到了就不重复", 2, calls)
+        assertEquals("失敗した引き渡しは次回に再試行し、成功した引き渡しは繰り返しません", 2, calls)
     }
 
     @Test
@@ -76,7 +76,7 @@ class HelperRestoreTest {
         val p = HelperRestorePolicy()
         assertEquals(HelperRestorePolicy.Decision.NotWanted, p.decide(RestoreWish.NONE, appBack = false, now = 1_000))
         assertEquals(HelperRestorePolicy.Decision.AppBack, p.decide(yes, appBack = true, now = 1_000))
-        assertTrue("没拉过", p.report(1_000).empty)
+        assertTrue("復帰を一度も試していません", p.report(1_000).empty)
         assertEquals(HelperRestorePolicy.Decision.Restore, p.decide(yes, appBack = false, now = 2_000))
         assertEquals(HelperRestoreReport(2_000, 1, 0), p.report(2_000))
     }
@@ -85,10 +85,10 @@ class HelperRestoreTest {
     fun policyBacksOffWithinWindowThenAllowsAgain() {
         val p = HelperRestorePolicy(maxAttempts = 3, windowMs = 600_000)
         repeat(3) { assertEquals(HelperRestorePolicy.Decision.Restore, p.decide(yes, false, now = 10_000L + it * 30_000)) }
-        // 拉起来又马上死:窗口内第四次不拉
+        // がプルアップしてすぐに停止します: ウィンドウは 4 回目にプルアップされません
         assertEquals(HelperRestorePolicy.Decision.BackedOff, p.decide(yes, false, now = 100_000))
         assertEquals(HelperRestoreReport(70_000, 3, 100_000), p.report(100_000))
-        // 第一次滑出窗口后又能拉一次
+        // は、初めて窓からスライドさせた後、再度引き出すことができます。
         assertEquals(HelperRestorePolicy.Decision.Restore, p.decide(yes, false, now = 610_000))
         assertEquals(3, p.report(610_000).recent)
         assertEquals(0, p.report(10 * 600_000L).recent)
@@ -111,7 +111,7 @@ class HelperRestoreTest {
             listOf("settings put secure enabled_accessibility_services '$mika'", "settings put secure accessibility_enabled 1"),
             RestoreCommands.accessibility("null", mika),
         )
-        // 已经在列表里(哪种写法都算):不重写列表,只开总开关
+        // はすでにリストにあります (カウントの書き込み方法は問わない): リストを書き換えず、メイン スイッチをオンにするだけです。
         assertEquals(listOf(RestoreCommands.ENABLE_ACCESSIBILITY), RestoreCommands.accessibility("$mika:$other", mika))
         assertEquals(
             listOf(RestoreCommands.ENABLE_ACCESSIBILITY),
@@ -125,11 +125,11 @@ class HelperRestoreTest {
         val unbound = A11yObservation(enabled = true, connected = false)
         val fine = A11yObservation(enabled = true, connected = true)
         assertEquals(A11yLoss.Removed, A11yStartCheck.loss(removed, connectedSoon = false, expected = true))
-        // 起来时被拿掉,随后修好了:照样记一次被拿掉
+        // は立ち上がるときに削除され、その後修復されました: まだ一度削除されたことが記録されています
         assertEquals(A11yLoss.Removed, A11yStartCheck.loss(removed, connectedSoon = true, expected = true))
         assertEquals(A11yLoss.Unbound, A11yStartCheck.loss(unbound, connectedSoon = false, expected = true))
-        assertNull("几秒内系统自己绑上了", A11yStartCheck.loss(unbound, connectedSoon = true, expected = true))
+        assertNull("数秒以内にシステムが自動で再接続しています", A11yStartCheck.loss(unbound, connectedSoon = true, expected = true))
         assertNull(A11yStartCheck.loss(fine, connectedSoon = true, expected = true))
-        assertNull("从没连上过(还没设置)不算", A11yStartCheck.loss(removed, connectedSoon = false, expected = false))
+        assertNull("未設定で一度も接続していない場合は対象外です", A11yStartCheck.loss(removed, connectedSoon = false, expected = false))
     }
 }

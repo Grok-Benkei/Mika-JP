@@ -7,8 +7,8 @@ import com.wangzan101.mika.cap.phone.PhoneServices
 import kotlinx.coroutines.launch
 
 /**
- * 开机广播。只有用户打开了「重启后自动恢复」、并且 Mika 还拿着修改系统设置的授权时才动手,
- * 其余情况什么都不做(判断在 [BuiltinShellRecovery.restoreAfterBoot])。
+ * ブート ブロードキャスト。ユーザーが「再起動後の自動回復」をオンにしており、ミカがシステム設定を変更する権限をまだ持っている場合にのみ、システム設定を変更します。
+ * は何もしません（判定は [BuiltinShellRecovery.restoreAfterBoot]）。
  */
 open class BootRestoreHandler : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {

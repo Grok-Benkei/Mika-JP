@@ -40,7 +40,7 @@ class RunTraceTest {
                 fun json(s: String) = MockResponse().setHeader("Content-Type", "application/json").setBody(s)
                 server.enqueue(json("""{"status":"completed","output":[{"type":"function_call","call_id":"call_apps","name":"phone_list_apps","arguments":"{}"}],"usage":{"input_tokens":3800,"output_tokens":4}}"""))
                 server.enqueue(json("""{"error":{"param":"include","message":"unsupported"}}""").setResponseCode(400))
-                server.enqueue(json("""{"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"好了"}]}],"usage":{"input_tokens":1100,"input_tokens_details":{"cached_tokens":0},"output_tokens":2}}"""))
+                server.enqueue(json("""{"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"完了しました"}]}],"usage":{"input_tokens":1100,"input_tokens_details":{"cached_tokens":0},"output_tokens":2}}"""))
                 val tools = mutableListOf<String>()
                 val screen = object : ScreenPort by FakeScreen() {
                     override suspend fun listApps() = listOf("com.example" to ("very long application label ".repeat(5000)))

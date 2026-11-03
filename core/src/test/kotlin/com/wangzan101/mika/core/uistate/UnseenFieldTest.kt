@@ -13,19 +13,19 @@ class UnseenFieldTest {
     @Test fun typedTextNewlyOnScreenMatches() {
         val after = chat + line("好的, 我 7 点到", 850)
         assertEquals(Verification.MATCH, UnseenField.verify("好的,我7点到", chat, after, changed = true))
-        // 标点、空格认得不一样也算
+        // 句読点とスペースの認識が異なっていてもカウントされます
         assertEquals(Verification.MATCH, UnseenField.verify("好的，我 7 点到。", chat, after, changed = false))
     }
 
     @Test fun textAlreadyOnScreenMustAppearOnceMore() {
-        // 打字前聊天记录里就有「明天见」:只出现那一次不算打进去了
+        // 入力する前のチャット履歴に「また明日」というメッセージが表示されます。これは 1 回だけ表示され、通話としてカウントされません。
         assertEquals(Verification.UNKNOWN, UnseenField.verify("明天见", chat, chat + line("其他", 850), changed = true))
         assertEquals(Verification.MATCH, UnseenField.verify("明天见", chat, chat + line("明天见", 850), changed = true))
     }
 
     @Test fun longTextIsCheckedByItsEnds() {
         val typed = "今天下午三点在公司楼下的咖啡店见面可以吗"
-        // OCR 把中间认错了一个字,还拆成了两行
+        // OCR が真ん中の単語を誤認識し、2 行に分割しました
         val after = chat + line("今天下午三点在公司楼下", 800) + line("的咖非店见面可以吗", 850)
         assertEquals(Verification.MATCH, UnseenField.verify(typed, chat, after, changed = true))
         assertEquals(Verification.UNKNOWN, UnseenField.verify(typed, chat, chat + line("今天下午三点", 800), changed = true))
@@ -33,11 +33,11 @@ class UnseenFieldTest {
 
     @Test fun nothingChangedIsMismatchOnlyWhenBothReadsAgree() {
         assertEquals(Verification.MISMATCH, UnseenField.verify("你好", chat, chat, changed = false))
-        // 读不到字时不猜
+        // 単語が読めないときは推測しないでください
         assertEquals(Verification.UNKNOWN, UnseenField.verify("你好", null, chat, changed = false))
         assertEquals(Verification.UNKNOWN, UnseenField.verify("你好", chat, null, changed = false))
         assertEquals(Verification.UNKNOWN, UnseenField.verify("你好", chat, chat, changed = true))
-        // 全是表情、标点:没有能比的字
+        // は表現と句読点がすべてです。これに匹敵する言葉はありません
         assertEquals(Verification.UNKNOWN, UnseenField.verify("👍!!", chat, chat + line("👍", 850), changed = true))
     }
 
@@ -46,7 +46,7 @@ class UnseenFieldTest {
         val keyboard = line("你好", 700)
         assertEquals(chat, UnseenField.outside(chat + keyboard, ime))
         assertEquals(chat + keyboard, UnseenField.outside(chat + keyboard, null))
-        // 候选词条里的字不能当成框里的字
+        // 候補エントリ内の単語はボックス内の単語とみなされません
         assertEquals(Verification.UNKNOWN, UnseenField.verify("你好", chat, UnseenField.outside(chat + keyboard, ime), changed = true))
     }
 
@@ -57,7 +57,7 @@ class UnseenFieldTest {
             assertEquals(Verification.MATCH, r.verification)
             assertEquals(Feedback["type.unseen_pasted"], r.hint)
         }
-        // 变了但找不到这段字:不猜,照样交出
+        // 変わったけどこの言葉が見つからない: 推測しないでとにかく渡してください
         val unknown = UnseenField.typed("好的", chat, chat + line("别的", 850), changed = true, keyboardUp = false) as ActionResult.Ok
         assertEquals(Verification.UNKNOWN, unknown.verification)
     }
@@ -66,7 +66,7 @@ class UnseenFieldTest {
         val r = UnseenField.typed("好的", chat, chat, changed = false, keyboardUp = false) as ActionResult.Failed
         assertEquals("no_focus", r.reason)
         assertEquals(Feedback["type.unseen_not_focused"], r.hint)
-        // 弹着输入法时焦点确实在框上:照旧报没打进去,由输入工具说
+        // インプットメソッドを再生するとき、フォーカスは確かにボックスにあります。依然として入力が入力されていないことが報告され、入力ツールには次のメッセージが表示されます。
         val up = UnseenField.typed("好的", chat, chat, changed = false, keyboardUp = true) as ActionResult.Ok
         assertEquals(Verification.MISMATCH, up.verification)
     }

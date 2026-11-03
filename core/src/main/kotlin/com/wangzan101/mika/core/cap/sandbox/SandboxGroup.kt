@@ -33,8 +33,8 @@ internal const val SANDBOX = "sandbox"
 private const val TIMEOUT = "Time limit in seconds, 1-600 (default 60). The command is stopped when it runs out."
 
 /**
- * 沙箱一组:设备支持时提供(运行环境没准备好时工具调用会等它)。路径都是沙箱里的路径;
- * 不是屏幕操作,不过锁屏关卡,也不进屏幕守卫(沙箱守卫另管)。执行在 [com.wangzan101.mika.core.cap.sandbox.SandboxTools] 里。
+ * サンドボックスのセット: デバイスがサポートする場合に提供されます (実行環境の準備ができていない場合、ツール呼び出しはサンドボックスを待機します)。パスはすべてサンドボックス内のパスです。
+ * は画面操作ではありませんが、画面レベルをロックし、スクリーンガードに入りません（サンドボックスガードは別問題です）。 [com.wangzan101.mika.core.cap.sandbox.SandboxTools] で実行されます。
  */
 internal interface SandboxTool : AgentTool {
     override val capability: String get() = SANDBOX
@@ -43,13 +43,13 @@ internal interface SandboxTool : AgentTool {
     override fun offered(ctx: ToolContext) = ctx.sandboxAvailable()
 }
 
-/** 命令与脚本的输出(失败的输出也是事实,照样记)、读到的文件、写入与导出的路径,都是模型可能引用的事实。 */
+/** コマンドとスクリプトの出力 (失敗した出力も事実なので、そのように覚えておいてください)、読み取られたファイル、書き込みおよびエクスポート用のパスはすべて、モデルによって参照される可能性のある事実です。 */
 private fun res(r: ToolExecution, k: String) = (r.content[k] as? JsonPrimitive)?.contentOrNull
 private fun ok(r: ToolExecution) = r.content["ok"] == JsonPrimitive(true)
 
 internal object RunCommand : SandboxTool {
     override val verb = Verb.RunCommand
-    override val label = "处理文件"
+    override val label = "ファイルを処理"
     override val risk = Risk.Write
     override val entry = Entry.Opens
     override val composite = true
@@ -66,13 +66,13 @@ internal object RunCommand : SandboxTool {
     override suspend fun execute(a: Args, ctx: ToolContext) = ctx.sandboxRunner!!.run { ws, _ -> runCommand(a, ws, ctx.callId, ctx.sub, ctx.tools) }
     override fun logTarget(o: JsonObject, r: ToolExecution, ctx: ToolContext) = o.argStr("command")
     override fun observations(o: JsonObject, r: ToolExecution, log: EvidenceLog) =
-        // 命令是助手自己写的:放在来处里,不当证据;输出里原样是命令里的字的行(echo 回显)也不算
-        listOfNotNull(res(r, "output")?.let { output("退出码 ${res(r, "exitCode")}:\n$it", Place.command("run_command「${o.argStr("command")?.take(200)}」"), o.argStr("command")) })
+        // コマンドはアシスタント自身によって書かれました。それをどこに置いたかは証拠とみなされません。コマンド内の単語 (echo echo) を含む出力内の行もカウントされません。
+        listOfNotNull(res(r, "output")?.let { output("終了コード ${res(r, "exitCode")}:\n$it", Place.command("run_command「${o.argStr("command")?.take(200)}」"), o.argStr("command")) })
 }
 
 internal object RunBundledScript : SandboxTool {
     override val verb = Verb.RunBundledScript
-    override val label = "运行自带脚本"
+    override val label = "組み込みスクリプトを実行"
     override val risk = Risk.Write
     override val composite = true
     override val logged = true
@@ -89,12 +89,12 @@ internal object RunBundledScript : SandboxTool {
     override suspend fun execute(a: Args, ctx: ToolContext) = ctx.sandboxRunner!!.run { ws, ready -> runScript(a, ws, ready.network, ctx.callId, ctx.sub, ctx.tools) }
     override fun logTarget(o: JsonObject, r: ToolExecution, ctx: ToolContext) = listOfNotNull(o.argStr("source"), o.argStr("script")).joinToString("/")
     override fun observations(o: JsonObject, r: ToolExecution, log: EvidenceLog) =
-        listOfNotNull(res(r, "output")?.let { output("退出码 ${res(r, "exitCode")}:\n$it", Place.command("run_bundled_script ${o.argStr("source")}/${o.argStr("script")}"), o["args"]?.toString()) })
+        listOfNotNull(res(r, "output")?.let { output("終了コード ${res(r, "exitCode")}:\n$it", Place.command("run_bundled_script ${o.argStr("source")}/${o.argStr("script")}"), o["args"]?.toString()) })
 }
 
 internal object ReadFile : SandboxTool {
     override val verb = Verb.ReadFile
-    override val label = "读文件"
+    override val label = "ファイルを読む"
     override val risk = Risk.Read
     override val concurrency = Concurrency.ParallelSafe
     override val def = ToolDef("read_file",
@@ -107,13 +107,13 @@ internal object ReadFile : SandboxTool {
 
     override suspend fun execute(a: Args, ctx: ToolContext) = ctx.sandboxRunner!!.run { ws, _ -> withContext(Dispatchers.IO) { readFile(a, ws) } }
     override fun observations(o: JsonObject, r: ToolExecution, log: EvidenceLog) =
-        // 读回助手自己用 write_file 写的文件,读到的是它自己写的字,不算证据
+        // write_file を使用してアシスタントによって書き込まれたファイルを読み取ります。読み取られるのはそれ自体が書いた言葉であり、証拠とはみなされません。
         listOfNotNull(if (ok(r) && res(r, "path") !in log.writtenPaths) res(r, "content")?.let { output(it, Place.file("read_file ${res(r, "path")}")) } else null)
 }
 
 internal object WriteFile : SandboxTool {
     override val verb = Verb.WriteFile
-    override val label = "写文件"
+    override val label = "ファイルを書く"
     override val risk = Risk.Write
     override val logged = true
     override val wideTarget = true
@@ -130,13 +130,13 @@ internal object WriteFile : SandboxTool {
     override fun observations(o: JsonObject, r: ToolExecution, log: EvidenceLog): List<Observation> {
         if (!ok(r)) return emptyList()
         res(r, "path")?.let { log.writtenPaths += it }
-        return listOf(output("write_file 写入 ${res(r, "path")}(${res(r, "bytesWritten")} 字节,文件现为 ${res(r, "size")} 字节)"))
+        return listOf(output("write_file で ${res(r, "path")} に書き込みました（${res(r, "bytesWritten")} バイト、現在のファイルサイズは ${res(r, "size")} バイト）"))
     }
 }
 
 internal object SearchFiles : SandboxTool {
     override val verb = Verb.SearchFiles
-    override val label = "搜索文件"
+    override val label = "ファイルを検索"
     override val risk = Risk.Read
     override val concurrency = Concurrency.ParallelSafe
     override val def = ToolDef("search_files",
@@ -159,7 +159,7 @@ internal object SearchFiles : SandboxTool {
 
 internal object ShareFile : SandboxTool {
     override val verb = Verb.ShareFile
-    override val label = "导出文件"
+    override val label = "ファイルを書き出す"
     override val risk = Risk.Write
     override val logged = true
     override val wideTarget = true
@@ -173,10 +173,10 @@ internal object ShareFile : SandboxTool {
     override suspend fun execute(a: Args, ctx: ToolContext) = ctx.sandboxRunner!!.run { ws, _ -> shareFile(a, ws) }
     override fun logTarget(o: JsonObject, r: ToolExecution, ctx: ToolContext) = o.argStr("path")
     override fun observations(o: JsonObject, r: ToolExecution, log: EvidenceLog) =
-        listOfNotNull(if (ok(r)) output("share_file 已存到 ${res(r, "savedAs")}") else null)
+        listOfNotNull(if (ok(r)) output("share_file で ${res(r, "savedAs")} に保存しました") else null)
 }
 
-/** 沙箱给出的一条观察:命令输出、文件内容、写入与导出的路径。[authored] 是助手自己写的命令(输出里的回显不记)。 */
+/** サンドボックスによって得られる観察: コマンド出力、ファイルの内容、パスの書き込みとエクスポート。 [authored] は、アシスタント自身が作成したコマンドです (出力内のエコーは記憶されません)。 */
 private fun output(text: String, place: Place? = null, authored: String? = null) =
     Observation(ObsKind.Output, text, source = SANDBOX, place = place, authored = authored)
 

@@ -1,1 +1,1 @@
-Start a countdown timer in the phone's clock app through the standard Android timer action, without opening its screens. Give the length in seconds (10 minutes = 600). The result says which app took it (handledBy). If it returns not_supported, start the timer in the clock app's own screens instead.
+表示を開かずに、標準の Android のタイマーアクションでスマートフォンの時計アプリにカウントダウンタイマーを開始する。長さを秒で渡す（10分 = 600）。結果には、どのアプリが受け付けたか（handledBy）が示される。not_supported が返る場合は、代わりに時計アプリ自体の状態でタイマーを開始する。

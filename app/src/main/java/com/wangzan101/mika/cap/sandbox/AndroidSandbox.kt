@@ -46,7 +46,7 @@ import kotlin.concurrent.thread
 private const val EXIT_TIMEOUT = 124
 private const val EXIT_LAUNCHER_ERROR = 125
 private const val EXIT_SIGKILL = 128 + 9
-/** 启动器自己有时限;Kotlin 侧多等这么久仍没结束就强杀。 */
+/** ランチャー自体には時間制限があります。長時間待っても終了しない場合、Kotlin 側がそれを強制終了します。 */
 private const val FALLBACK_GRACE_MS = 10_000L
 private const val DESTROY_GRACE_MS = 3_000L
 private const val READER_GRACE_MS = 2_000L
@@ -58,8 +58,8 @@ internal const val SHARE_MAX_FILES = 20
 internal const val SHARE_MAX_BYTES = 500L shl 20
 
 /**
- * 一个任务(一个 AndroidSandbox)的导出额度,share_file 与 `mika share` 共用。
- * 复制前按文件大小预留,复制完按实际字节结算;导出失败不占额度。
+ * はタスク (AndroidSandbox) のエクスポート クォータで、share_file は `mika share` と共有されます。
+ * は、コピー前のファイル サイズに基づいて予約され、コピー後の実際のバイト数に基づいて決定されます。エクスポートの失敗はクォータを考慮しません。
  */
 internal class ShareQuota(private val maxFiles: Int = SHARE_MAX_FILES, private val maxBytes: Long = SHARE_MAX_BYTES) {
     private var files = 0
@@ -82,36 +82,36 @@ internal class ShareQuota(private val maxFiles: Int = SHARE_MAX_FILES, private v
 }
 
 /**
- * 启动沙箱进程的专用线程,进程存活期间一直在。启动器设了 PR_SET_PDEATHSIG,
- * 它跟的是 fork 出它的那个线程:线程池回收空闲线程时,那条线程起的命令会被当成「Mika 死了」而杀掉。
- * 协程调度器把 start() 的异常交回调用方,线程本身不会因异常退出。
+ * は、サンドボックス プロセスを開始し、プロセスが生きている間はアクティブなままになる専用のスレッドです。ランチャーは PR_SET_PDEATHSIG を設定します。
+ * これは、フォークしたスレッドに従います。スレッド プールがアイドル状態のスレッドをリサイクルすると、そのスレッドによって発行されたコマンドは「Mika が死んだ」として強制終了されます。
+ * コルーチン スケジューラは start() の例外を呼び出し元に返しますが、スレッド自体は例外により終了しません。
  */
 private val launcherThread = Executors.newSingleThreadExecutor { r -> Thread(r, "mika-sandbox-launcher").apply { isDaemon = true } }
     .asCoroutineDispatcher()
 
-/** [SandboxPort] 的安卓实现:启动器 + PRoot 跑命令,文件类操作直接读写宿主目录。 */
+/** [SandboxPort] の Android 実装: ランチャー + PRoot はコマンドを実行し、ファイル操作はホスト ディレクトリを直接読み書きします。 */
 class AndroidSandbox internal constructor(
     private val dirs: SandboxDirs,
     private val currentStatus: () -> SandboxStatus,
     private val dnsServers: () -> List<String>,
-    /** 每次运行开一个桥会话;JVM 测试里没有安卓套接字,传 false。 */
+    /** は実行されるたびにブリッジ セッションを開きます。 JVM テストには Android ソケットがないため、false を渡します。 */
     private val bridges: Boolean = false,
     private val version: String = "",
-    /** 存到「下载/Mika」:(已过关口核实的文件, 保存名) → 导出的文件;为空时不能导出。 */
+    /** 「Download/Mika」に保存: (チェックポイント検証に合格したファイル、名前を保存) → エクスポートされたファイル;空の場合はエクスポートできません。 */
     private val exporter: (suspend (GatedFile, String) -> SharedFile)? = null,
-    /** 导出成功后告诉任务(文件卡片)。 */
+    /** エクスポートが成功した後にタスク (ファイル カード) に通知します。 */
     private val onShared: (SharedFile) -> Unit = {},
-    /** 每次运行前做的准备(把技能目录核对成打包的那份)。 */
+    /** 各実行前に準備します (パッケージ化されたコピーにスキル カタログが含まれていることを確認します)。 */
     private val sync: suspend () -> Unit = {},
-    /** 随 App 打包的技能脚本(技能目录下的相对路径 → 内容);清单和脚本都以它为准。 */
+    /** は、アプリにパッケージ化されているスキル スクリプトです (スキル ディレクトリ → コンテンツの下の相対パス)。リストとスクリプトの両方がその対象となります。 */
     private val skillFiles: () -> Map<String, ByteArray> = { emptyMap() },
-    /** 开始(或拿到正在进行的)运行环境准备;不需要准备为 null。 */
+    /** は実行環境の準備を開始 (または進行中) します。準備は必要なく、null です。 */
     private val startPreparing: () -> Job? = { null },
-    /** 用户的联网设置;不给时按就绪状态里的。 */
+    /** ユーザーのネットワーク設定。指定しない場合は、準備完了状態で を押します。 */
     private val allowNetwork: (() -> Boolean)? = null,
-    /** 网络代理(设置 › 网络代理,见 [NetProxyStore]);空串不用。只在允许联网的命令里给。 */
+    /** ネットワーク プロキシ (設定 › ネットワーク プロキシ、[NetProxyStore] を参照);空の文字列は使用されません。ネットワークを許可するコマンドでのみ指定されます。 */
     private val proxy: () -> String = { "" },
-    /** APK 内的桥客户端；已有运行环境也要随 APK 更新。 */
+    /** APK のブリッジ クライアント。既存の実行環境も APK で更新する必要があります。 */
     private val clientScript: () -> ByteArray? = { null },
 ) : SandboxPort {
     override val tree get() = dirs.tree
@@ -149,28 +149,28 @@ class AndroidSandbox internal constructor(
     override suspend fun runWithPhone(workspace: String, argv: List<String>, cwd: String?, timeoutMs: Long, onProgress: (String) -> Unit,
         phone: PhoneCommandHandler?): CommandResult {
         val network = (status() as? SandboxStatus.Ready)?.network == true
-        // 调用方给的 cwd 再核一遍:必须规范化后仍在工作区里
+        // 呼び出し元によって指定された cwd を再度確認してください。正規化されており、まだ作業領域にある必要があります。
         val rel = cwd?.takeIf { it.isNotEmpty() }?.let { c ->
             val n = SandboxPaths.normalize(c)?.takeIf(SandboxPaths::isWritable)
                 ?: throw SandboxError("path_outside_workspace", "cwd must be a directory inside /workspace.", recoverable = true)
             n.removePrefix(SandboxPaths.WORKSPACE).trimStart('/')
         }.orEmpty()
-        // 技能脚本没同步上不挡命令:脚本跑不了时 run_bundled_script 会照实报
+        // スキル スクリプトは同期されておらず、コマンドをブロックしません。スクリプトを実行できない場合は、run_bundled_script がその旨を報告します。
         prepare()
         val timeoutSec = ((timeoutMs + 999) / 1000).coerceIn(1, 3600).toInt()
-        // 建目录到命令结束都在许可里:命令也往工作区里写,重置要等它跑完再删
+        // ディレクトリの作成からコマンドの終了まで、権限が含まれます。コマンドはワークスペースにも書き込まれます。コマンドを削除する前に、実行が終了するまで待つ必要があります。
         val o = tree.shared {
             val ws = withContext(Dispatchers.IO) {
                 dirs.workspace(workspace).also {
                     dirs.ensureBindSources(it)
                     syncClientScript()
-                    // cwd 在工作区里不存在就建上(逐段、不跟随链接);建不了的不建,让 PRoot 自己报错
+                    // cwd がワークスペースに存在しない場合は、それをビルドします (リンクをたどらずにセクションごとに)。ビルドできない場合はビルドせず、PRoot 自身でエラーを報告させます。
                     rel.takeIf { c -> c.isNotEmpty() }?.let { c -> runCatching { files.mkdirs(it, c) } }
                     if (network) writeResolvConf()
                 }
             }
             val cmd = ProcRunner.argv(dirs, ws, rel, timeoutSec, network, standIns(), argv)
-            // 命令结束(含超时、被杀、取消)就关掉桥:旧的名字和令牌不再能用
+            // コマンド終了後 (タイムアウト、強制終了、キャンセルを含む) ブリッジがシャットダウンされます。古い名前とトークンは使用できなくなります。
             val session = if (bridges) bridgeFor(workspace, network, onProgress, phone).open() else null
             try {
                 launch(cmd, ProcRunner.env(dirs, session?.name, session?.token, workspace, if (network) proxy() else ""), timeoutSec * 1000L + FALLBACK_GRACE_MS)
@@ -196,12 +196,12 @@ class AndroidSandbox internal constructor(
     }
 
     /**
-     * 在沙箱里启动长驻 stdio 进程。和一次性命令一样先准备运行环境、建工作区、写 resolv.conf;不提供手机工具桥
-     * (stdio server 只拿它自己的 stdin/stdout)。
+     * は、サンドボックス内の常駐 stdio プロセスを開始します。ワンタイムコマンドと同様に、まず動作環境を準備し、ワークスペースを構築し、resolv.confを記述します。モバイルツールブリッジは提供されません
+     * (stdio サーバーは独自の stdin/stdout のみを受け取ります)。
      *
-     * 进程存活期间拿着树的租约([SandboxTree.lease]),不是普通的 shared:要独占的(换根文件系统、重置、清工作区)
-     * 一来就先停掉进程、收回许可,不会被一个任务里开着的 server 挡上一个小时;之后再调这个进程就报连接已断。
-     * 建目录到启动这一段另拿一次短的 shared,独占的要等它做完才删,启动完再核一次有没有被收回。
+     * プロセスは、存続期間中ツリー ([SandboxTree.lease]) のリースを保持します。これは通常の共有ではありません。排他的である必要があります (ルート ファイル システムの変更、リセット、ワークスペースのクリア)。
+     * タスクで 1 時間開いているサーバーによってブロックされないように、プロセスを停止し、アクセス許可が取得されたらすぐに取り消します。後でプロセスを調整すると、接続が切断されたことが報告されます。
+     * ディレクトリの作成から起動までを別の短い共有で取り上げます。専用のものは完了するまで削除されません。起動後に再度チェックして、再利用されているかどうかを確認します。
      */
     override suspend fun openProcess(workspace: String, argv: List<String>, cwd: String?): SandboxProcess {
         val network = (status() as? SandboxStatus.Ready)?.network == true
@@ -232,7 +232,7 @@ class AndroidSandbox internal constructor(
                     }.start()
                 }
                 started.set(p)
-                // 收回落在拿到租约和登记进程之间时 onRevoke 没看见它:这里补停
+                // 取り消しがリースの取得とプロセスの登録の間にある場合、onRevoke はそれを認識しません。ここでそれを補います。
                 if (lease.revoked) {
                     stopNow(p)
                     throw SandboxError("sandbox_busy", "The sandbox is being reset; try again later.", recoverable = true)
@@ -258,14 +258,14 @@ class AndroidSandbox internal constructor(
 
     override val files: WorkspaceFileGate get() = dirs.gate
 
-    // 只有写(调用方持有 SandboxTree 的许可)才建工作区目录:读和查路径不持有许可,建了会和重置的删除撞上
+    // ワークスペース ディレクトリは書き込み用にのみ作成できます (呼び出し元は SandboxTree のアクセス許可を保持しています)。パスの読み取りとチェックにはアクセス許可が保持されていないため、作成はリセット削除と競合します。
     override fun hostRoot(workspace: String, normalized: String, forWrite: Boolean): Pair<File, String>? = when {
         SandboxPaths.isWritable(normalized) -> dirs.workspace(workspace).also { if (forWrite) it.mkdirs() } to normalized.removePrefix(SandboxPaths.WORKSPACE).trimStart('/')
         forWrite -> null
         else -> dirs.skills to normalized.removePrefix(SandboxPaths.SKILLS).trimStart('/')
     }
 
-    /** web_upload 的路径检查:只认这个工作区里过得了关口的普通文件;技能目录和工作区外都算越界。 */
+    /** web_upload パス チェック: パスに合格したこのワークスペース内の通常のファイルのみを認識します。スキル ディレクトリとワークスペースの外側は範囲外とみなされます。 */
     fun uploadCheck(workspace: String, sandboxPath: String): WorkspacePathCheck {
         hostPath(workspace, sandboxPath, forWrite = true) ?: return WorkspacePathCheck.Outside
         val n = SandboxPaths.normalize(sandboxPath) ?: return WorkspacePathCheck.Outside
@@ -279,8 +279,8 @@ class AndroidSandbox internal constructor(
     }
 
     /**
-     * [file] 已由 ShareRules 按工作区检查过;导出时经关口打开一次(根目录是它所在的那个工作区),额度按句柄上的大小算,
-     * 复制也从这个句柄读。意外的错误只记在 Mika 这边,交出去的只有错误码和一句话,不带 Mika 的私有路径。
+     * [file] は、ワークスペースごとの ShareRules によってチェックされました。エクスポート時に、ゲートウェイ (ルート ディレクトリがエクスポート先のワークスペース) を介して一度開かれ、量はハンドルのサイズに基づいて計算されます。
+     * レプリケーションもこのハンドルから読み取ります。予期せぬエラーはミカ側でのみ記録され、ミカのプライベートパスはなく、エラーコードと文章のみが渡されます。 ワークスペース ディレクトリ (work/ の下の最初のレベル) と
      */
     override suspend fun share(file: File, name: String): String {
         val export = exporter ?: throw SandboxError("share_unavailable", "Saving files to Downloads is not available in this version.")
@@ -312,7 +312,7 @@ class AndroidSandbox internal constructor(
         else -> e
     }
 
-    /** 文件所在的那个工作区目录(work/ 下的第一层)与工作区里的相对路径;不在任何工作区里为 null。 */
+    /** ファイルが配置されているワークスペースの間の相対パス。どのワークスペースにもない場合は null です。 */
     private fun workspaceOf(file: File): Pair<File, String>? {
         val work = dirs.work.canonicalFile
         val rel = file.canonicalFile.toRelativeString(work).takeIf { !it.startsWith("..") && it.isNotEmpty() && !File(it).isAbsolute } ?: return null
@@ -322,7 +322,7 @@ class AndroidSandbox internal constructor(
 
     override fun freeBytes(): Long = dirs.root.takeIf { it.exists() }?.usableSpace ?: dirs.root.parentFile?.usableSpace ?: 0L
 
-    /** 不跟随链接地累加;缓存一分钟,本工作区跑过命令后作废。 */
+    /** はリンクをたどらなくても蓄積されます。 1 分間キャッシュされた場合、このワークスペースでコマンドが実行されると無効になります。 */
     override fun workspaceBytes(workspace: String): Long {
         val now = System.currentTimeMillis()
         sizes[workspace]?.takeIf { now - it.at < SIZE_CACHE_MS }?.let { return it.bytes }
@@ -331,7 +331,7 @@ class AndroidSandbox internal constructor(
         return bytes
     }
 
-    /** 经关口在 .mika/ 里新建(不覆盖已有的);.mika 被换成链接等时抛出,不写任何东西。 */
+    /** はパスを通じて .mika/ に作成されます (既存のものは上書きされません)。何も書かずに .mika をリンクなどに置き換えるとスローされます。 */
     @Synchronized
     override fun saveOutput(workspace: String, text: String): String {
         val root = dirs.workspace(workspace).apply { mkdirs() }
@@ -349,7 +349,7 @@ class AndroidSandbox internal constructor(
         throw IOException("cannot save output: too many files")
     }
 
-    /** 读随 App 打包的那份清单:沙箱里的那份命令改得动,不能信。 */
+    /** アプリに同梱されているリストを読んでください: サンドボックス内のコマンドは変更できるので、信じられないでしょう。 */
     override fun scriptManifest(skillPath: String): List<ScriptEntry> {
         val bytes = skillFiles()["$skillPath/scripts/manifest.json"] ?: return emptyList()
         return ScriptManifest.parse(bytes.toString(Charsets.UTF_8))
@@ -361,7 +361,7 @@ class AndroidSandbox internal constructor(
 
     private val bundledClient: ByteArray? by lazy(clientScript)
 
-    /** 已安装的根文件系统版本可能没变，但 APK 中的桥客户端已经更新。 */
+    /** インストールされているルート ファイル システムのバージョンは変更されていない可能性がありますが、APK 内のブリッジ クライアントは更新されました。 */
     private fun syncClientScript() {
         val expected = bundledClient ?: return
         val rel = "usr/local/bin/mika"
@@ -379,7 +379,7 @@ class AndroidSandbox internal constructor(
         return withContext(Dispatchers.IO) { SkillsSync.matches(dirs, rel, expected) }
     }
 
-    /** `mika share` 与 share_file 走同一套路径规则。 */
+    /** `mika share` と share_file は、同じパス規則セットに従います。 */
     private fun bridgeFor(workspace: String, network: Boolean, onProgress: (String) -> Unit, phone: PhoneCommandHandler?): SandboxBridge {
         return SandboxBridge(
         onProgress = onProgress,
@@ -395,15 +395,15 @@ class AndroidSandbox internal constructor(
     }
 
     /**
-     * 启动器超时退出码是 124,但命令自己也可能以 124 退出,启动器不另作标记。
-     * 所以只有跑满了时限(留 [TIMEOUT_SLACK_MS] 余量)的 124 才算超时;提前以 124 退出的照实算命令的退出码。
+     * ランチャーのタイムアウト終了コードは 124 ですが、コマンド自体も 124 で終了する可能性があり、ランチャーはそれ以外のマークを付けません。
+     * したがって、制限時間を超えた ([TIMEOUT_SLACK_MS] マージンを残した) 124 だけがタイムアウトとみなされます。事前に 124 で終了したものは、コマンドの実際の終了コードとしてカウントされます。
      */
     internal fun launcherTimedOut(exitCode: Int, durationMs: Long, timeoutSec: Int): Boolean =
         exitCode == EXIT_TIMEOUT && durationMs >= timeoutSec * 1000L - TIMEOUT_SLACK_MS
 
     private fun standIns(): List<String> = dirs.procStandIns.list()?.sorted().orEmpty()
 
-    /** 联网时把当前网络的 DNS 写进根文件系统:经关口整份换上(根文件系统里的东西命令改得了,原来是链接也只是被换掉)。 */
+    /** インターネットに接続するときに、現在のネットワークの DNS をルート ファイル システムに書き込みます。ゲートウェイを介してファイル全体を置き換えます (ルート ファイル システム内のコマンドは変更できますが、元のリンクのみが置き換えられます)。 */
     private fun writeResolvConf() {
         val servers = runCatching(dnsServers).getOrNull().orEmpty().ifEmpty { FALLBACK_DNS }
         files.replace(dirs.rootfs, "etc/resolv.conf", servers.joinToString("") { "nameserver $it\n" }.toByteArray())
@@ -435,16 +435,16 @@ class AndroidSandbox internal constructor(
         }
 
         /**
-         * 在专用线程上 start(),其余在 IO 线程:读输出(上限 1 MB)、等结束。到 [limitMs] 仍没结束就强杀。
-         * 协程取消时先 SIGTERM(启动器收到后清掉整个进程树),[DESTROY_GRACE_MS] 后还在就 SIGKILL。
+         * start()を専用スレッドで実行し、残りをIOスレッドで出力(上限1MB)を読み取って終了します。 [limitMs]がまだ終わっていない場合は、力づくで殺します。
+         * コルーチンがキャンセルされると、最初に SIGTERM が発行され (ランチャーは受信後にプロセス ツリー全体をクリアします)、[DESTROY_GRACE_MS] の後に SIGKILL が続きます。
          */
         internal suspend fun launch(
             cmd: List<String>, env: Map<String, String>, limitMs: Long,
             start: (ProcessBuilder) -> Process = ProcessBuilder::start,
         ): ProcOutcome {
             val begin = System.nanoTime()
-            // 启动本身不可取消。withContext 把结果交回原协程时若已取消会丢掉结果,
-            // 所以进程在块里就记下来:丢了结果也知道要杀谁
+            // 起動自体をキャンセルできません。 withContext が結果を元のコルーチンに返す場合、キャンセルされると結果は失われます。
+            // つまり、プロセスはブロックに記録されます。結果が失われても、誰を殺すべきかがわかります。
             var started: Process? = null
             try {
                 withContext(launcherThread + NonCancellable) {
@@ -458,19 +458,19 @@ class AndroidSandbox internal constructor(
                 throw e
             }
             val p = started!!
-            // 读输出用普通线程:阻塞的 read 取消不了,放在协程里会让取消一直等下去
+            // は、通常のスレッドを使用して出力を読み取ります。ブロックされた読み取りはキャンセルできません。ブロックされた読み取りをコルーチンに配置すると、キャンセルが永久に待機することになります。
             val collector = OutputCollector()
             val reader = thread(isDaemon = true, name = "mika-sandbox-output") { runCatching { p.inputStream.use(collector::drain) } }
             try {
-                // 启动期间已被取消:在这里抛出,由下面的 catch 杀掉刚起的进程
+                // は起動中にキャンセルされました: ここにスローし、次のキャッチで新しく開始されたプロセスを強制終了します。
                 currentCoroutineContext().ensureActive()
                 p.outputStream.close()
                 val finished = runInterruptible(Dispatchers.IO) { p.waitFor(limitMs, TimeUnit.MILLISECONDS) }
                 if (!finished) p.destroyForcibly()
                 val code = runInterruptible(Dispatchers.IO) { p.waitFor() }
-                // 正常时启动器退出前已清掉整个进程树,管道随之关闭;万一还有后代占着管道,不无限等
+                // 通常、ランチャーが終了する前にプロセス ツリー全体がクリアされ、パイプラインが閉じられます。パイプラインを占有している子孫がまだある場合、待機は無限にはなりません。
                 runInterruptible(Dispatchers.IO) { reader.join(READER_GRACE_MS) }
-                // 还有后代占着管道:关掉我们这一端,读线程随之结束
+                // パイプを占有している子孫がまだあります。終了をオフにすると、読み取りスレッドが終了します。
                 if (reader.isAlive) runCatching { p.inputStream.close() }
                 val (bytes, dropped) = collector.snapshot()
                 return ProcOutcome(code, bytes, dropped, !finished, (System.nanoTime() - begin) / 1_000_000)
@@ -480,7 +480,7 @@ class AndroidSandbox internal constructor(
             }
         }
 
-        /** 先 SIGTERM(启动器收到后清掉整个进程树),[DESTROY_GRACE_MS] 后还在就 SIGKILL。 */
+        /** 最初に SIGTERM (ランチャーは受信後にプロセス ツリー全体をクリアします)、[DESTROY_GRACE_MS]、次に SIGKILL。 */
         private fun abandon(p: Process) {
             p.destroy()
             thread(isDaemon = true, name = "mika-sandbox-reaper") { if (!p.waitFor(DESTROY_GRACE_MS, TimeUnit.MILLISECONDS)) p.destroyForcibly() }
@@ -488,7 +488,7 @@ class AndroidSandbox internal constructor(
     }
 }
 
-/** 先 SIGTERM 启动器(它会清掉整棵进程树),[DESTROY_GRACE_MS] 内没退就 SIGKILL;阻塞着等到进程没了。 */
+/** は最初にランチャーを SIGTERM します (プロセス ツリー全体がクリアされます)。プロセス内で終了しない場合は [DESTROY_GRACE_MS] が SIGKILL します。プロセスが終了するまでブロックされます。 */
 private fun stopNow(p: Process) {
     runCatching { p.outputStream.close() }
     p.destroy()
@@ -498,7 +498,7 @@ private fun stopNow(p: Process) {
     }
 }
 
-/** [AndroidSandbox.openProcess] 的长驻进程:关闭时先 SIGTERM 启动器(它会清掉整棵进程树),再兜底 SIGKILL,并交还租约。 */
+/** [AndroidSandbox.openProcess] の常駐プロセス: シャットダウンするときは、最初にランチャーを SIGTERM (プロセス ツリー全体をクリアします)、次に SIGKILL を実行して、リースを返します。 */
 private class SandboxProcessHandle(
     private val process: Process,
     private val lease: com.wangzan101.mika.core.workspace.SandboxTree.Lease,
@@ -510,7 +510,7 @@ private class SandboxProcessHandle(
     override fun close() {
         runCatching { process.outputStream.close() }
         runCatching { process.destroy() }
-        // 进程树退干净了才交还租约:还在写工作区的进程不该和重置撞上(重置会先收回、自己停进程,不等这里)
+        // リースはプロセス ツリーがクリアされた後にのみ返されます。まだワークスペースに書き込みを行っているプロセスはリセットと衝突してはなりません (リセットは最初に取り戻され、プロセスはここで待機せずに自動的に停止されます)。
         thread(isDaemon = true, name = "mika-sandbox-stdio-reaper") {
             try {
                 if (!process.waitFor(DESTROY_GRACE_MS, TimeUnit.MILLISECONDS)) process.destroyForcibly()

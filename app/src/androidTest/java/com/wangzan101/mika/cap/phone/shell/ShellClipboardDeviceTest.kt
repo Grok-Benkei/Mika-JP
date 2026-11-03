@@ -10,7 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 在真实 shell uid 下调用生产代码;不依赖已运行的助手是否还是旧版本。 */
+/** 実際のシェル uid で実稼働コードを呼び出します。実行中のヘルパーがまだ古いバージョンであるかどうかには依存しません。 */
 @RunWith(AndroidJUnit4::class)
 @SdkSuppress(minSdkVersion = 31)
 class ShellClipboardDeviceTest {
@@ -19,13 +19,13 @@ class ShellClipboardDeviceTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val classpath = listOf(instrumentation.targetContext, instrumentation.context)
             .joinToString(":") { it.applicationInfo.sourceDir }
-        // executeShellCommand 不经过 shell:环境变量用 env 传,不能写 VAR=… 和重定向
+        // executeShellCommand はシェルを通過しません。環境変数は env および VAR=... を介して渡され、リダイレクトは書き込めません
         val output = sh("env CLASSPATH=$classpath app_process / ${ShellClipboardProbe::class.java.name}")
         assertTrue(output, output.lineSequence().any { it == ShellClipboardProbe.PASSED })
     }
 }
 
-/** app_process 从被测 APK 加载生产代码,不依赖已运行的助手是否还是旧版本。 */
+/** app_process は、実行中のアシスタントがまだ古いバージョンであるかどうかに関係なく、テスト対象の APK から製品コードを読み込みます。 */
 object ShellClipboardProbe {
     const val PASSED = "shell-clipboard-passed"
 
@@ -43,13 +43,13 @@ object ShellClipboardProbe {
                 check(result == ShellService.CLIP_SET) { "setClipText returned $result" }
                 check(clipboard.primaryClip?.getItemAt(0)?.text?.toString() == text)
             } finally {
-                // 复用生产代码的保存/还原,不输出用户剪贴板内容。
+                // は、ユーザーのクリップボードの内容を出力せずに、再利用された製品コードを保存/復元します。
                 shell.restoreClip()
             }
             check(clipboard.primaryClip?.getItemAt(0)?.text?.toString() == originalText)
             println(PASSED)
             System.out.flush()
-            // 不走 System.exit:剪贴板服务留下的线程会让它卡住不退,测试就一直等着
+            // は System.exit を離れません: クリップボード サービスによって残されたスレッドによりスタックし、テストは待機し続けます。
             Runtime.getRuntime().halt(0)
         } catch (t: Throwable) {
             t.printStackTrace()

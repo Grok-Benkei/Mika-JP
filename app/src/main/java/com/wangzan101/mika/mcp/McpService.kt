@@ -14,14 +14,14 @@ import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.task.TaskService
 
 /**
- * 电脑连接打开期间的前台服务:只为让进程在后台活着、端口一直开着;收到的任务照旧交给 [TaskService] 去跑。
- * 任务服务没任务时会自己退出,所以监听不放在它里面。常驻通知上能直接关掉电脑连接(两种都关)。
- * 被系统回收后会重建(START_STICKY);开关都关了就当场退出。
+ * コンピューター接続のオープン中のフォアグラウンド サービス: バックグラウンドでプロセスを存続させ、ポートを常に開いたままにするためだけです。受信したタスクは引き続き [TaskService] に渡されて実行されます。
+ * タスクサービスはタスクが存在しない場合は自動的に終了するため、監視は配置されません。永続的な通知でコンピュータ接続を直接オフにすることができます (両方のタイプがオフになります)。
+ * は、システムによってリサイクルされた後、再構築されます (START_STICKY)。スイッチがオフの場合はその場で退出してください。
  *
- * 电脑经 USB 调试打开、关掉 USB 方式也是起这个服务:清单里它对外开放,但要求调用方持有
- * INTERACT_ACROSS_USERS_FULL。这个权限 shell 有,普通 App 拿不到(只给系统签名和安装器,adb 也授不了),
- * 所以只有 `adb shell am start-foreground-service` 这样以 shell 身份发起的才起得了;Mika 自己起不受限。
- * 以前台服务的方式起:安卓 12 起后台的 App 一般不能自己开前台服务,但由 shell 发起的启动不在此限。
+ * コンピューターは、USB デバッグを通じて USB をオンまたはオフにするときにもこのサービスを使用します。このサービスはリスト内で外部に公開されていますが、呼び出し元は次の権限を持っている必要があります。
+ * INTERACT_ACROSS_USERS_FULL。シェルにはこの権限がありますが、通常のアプリはそれを取得できません（システム署名とインストーラーにのみ与えられ、adb はそれを付与できません）。
+ * なので、`adb shell am start-foreground-service` のようなシェルとして開始されたものだけがそれを利用できます。ミカは自分でそれを買う余裕があります。
+ * フォアグラウンド サービス方式から起動する: Android 12 以降、バックグラウンドで実行されるアプリは通常、単独でフォアグラウンド サービスを開くことができませんが、シェルによって開始される起動はこれに限定されません。
  */
 class McpService : Service() {
     private val runtime get() = (application as MikaApp).mcp
@@ -32,7 +32,7 @@ class McpService : Service() {
         TaskService.ensureChannels(this)
         val applied = runCatching { McpModes.apply(intent?.action, runtime.settings, runtime.usb, runtime.relaySettings) }
             .onFailure { Log.w("MikaMcp", "could not update computer access settings", it) }.isSuccess
-        // startForegroundService 之后必须尽快进前台,哪怕马上就要退出;系统不让进前台时就此退出,不让进程崩
+        // startForegroundService の後は、終了しようとしている場合でも、できるだけ早くフォアグラウンドに入る必要があります。プロセスがクラッシュするのを防ぐために、システムがフォアグラウンドに入ることができない場合に終了します。
         val foreground = runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 startForeground(NOTIFICATION_ID, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
@@ -80,7 +80,7 @@ class McpService : Service() {
     }
 
     companion object {
-        /** 和任务通知(槽位编号、结果编号段)错开。 */
+        /** はタスク通知 (スロット番号、結果番号セクション) と交互に表示されます。 */
         private const val NOTIFICATION_ID = 30_001
     }
 }

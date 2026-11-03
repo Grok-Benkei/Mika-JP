@@ -100,7 +100,7 @@ class SandboxUsageConcurrencyTest {
         verifyWritesWaitForCleanup { reader.clearAll() == 0 }
     }
 
-    // 删对话时删工作区走同一条独占的路
+    // は、会話の削除時とワークスペースの削除時に同じ排他的パスを使用します。
     @Test(timeout = 10_000) fun conversationDeleteBlocksNewWorkspaceWrites() = runBlocking {
         verifyWritesWaitForCleanup { dirs.deleteWorkspace("a"); true }
     }

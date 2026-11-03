@@ -14,16 +14,16 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import com.wangzan101.mika.a11y.MikaAccessibilityService
 
-/** 真机测试共用:shell 连接、无障碍服务、虚拟屏上的 AndroidScreen。需要内置助手在运行(已配对、无线调试开着)且 Mika 无障碍服务已开启。 */
+/** 実機テスト共通: シェル接続、アクセシビリティ サービス、仮想画面上の AndroidScreen。内蔵アシスタントが実行されており (ペアリング、ワイヤレス デバッグがオン)、Mika アクセシビリティ サービスがオンになっている必要があります。 */
 object DeviceSupport {
     const val SETTINGS = "com.android.settings"
-    const val TEST_PACKAGE = "com.wangzan101.mika.test"
+    val TEST_PACKAGE: String get() = InstrumentationRegistry.getInstrumentation().targetContext.packageName + ".test"
     private var connection: ShellBinding? = null
     private val phone get() = PhoneServices.of(InstrumentationRegistry.getInstrumentation().targetContext)
 
     /**
-     * 与 App 共用进程内的那条 shell 连接并一直占着:各自绑定再各自解绑会让先解绑的一方结束 shell 服务,
-     * 另一方手里的 binder 随之失效。
+     * とアプリはプロセス内でシェル接続を共有し、常にそれを占有しています。それぞれをバインドしてからバインドを解除すると、最初にバインドを解除した側がシェル サービスを終了します。
+     * 相手の手札のバインダーは無効になります。
      */
     @Synchronized
     fun shell(): IMikaShell {
@@ -34,20 +34,20 @@ object DeviceSupport {
         return awaitShell(c)
     }
 
-    /** 等连接拿到活着的助手;等不到就带着当前状态失败,提示先配对。助手被杀后看门狗重起要一会儿,断开回调到达前也可能还拿着已死的 binder。 */
+    /** は、ライブ アシスタントを取得するための接続を待ちます。待つことができない場合は、現在のステータスで失敗し、最初にペアリングするように求められます。アシスタントが強制終了された後、ウォッチドッグが再起動するまでに時間がかかり、切断コールバックが到着する前に無効なバインダーがまだ保持されている可能性があります。 */
     fun awaitShell(c: ShellBinding, timeoutMs: Long = 30_000): IMikaShell = runBlocking {
         withTimeoutOrNull(timeoutMs) { c.shell.filterNotNull().first { it.asBinder().pingBinder() } }
     } ?: error(
-        "Mika's phone helper is not running (status=${phone.shellControl.status.value}): " +
-            "pair it once in Mika (设置手机操作) with Wireless debugging on, keep Wireless debugging on, then rerun",
+        "Mika の操作アシスタントが動作していません（状態: ${phone.shellControl.status.value}）。" +
+            "ワイヤレスデバッグをオンにして、Mika の「スマホの操作を設定」で一度ペア設定してください。ワイヤレスデバッグをオンにしたまま、もう一度テストを実行してください。",
     )
 
-    /** 服务掉线(前面的测试结束了本进程的绑定等)时先促使系统重绑,再等它连上。 */
+    /** サービスがオフラインになった場合 (前回のテストでこのプロセスのバインドが終了した場合など)、まずシステムに再バインドするように要求し、その後接続するまで待ちます。 */
     fun service(): ScreenAccessibility {
         if (ScreenAccessibility.instance.value == null) rebindAccessibility()
         return runBlocking {
             withTimeoutOrNull(10_000) { ScreenAccessibility.instance.filterNotNull().first() }
-        } ?: error("Mika accessibility service is not enabled")
+        } ?: error("Mika のユーザー補助サービスが有効になっていません")
     }
 
     class Agent(val display: AgentDisplay, val screen: AndroidScreen) {
@@ -60,12 +60,12 @@ object DeviceSupport {
         return Agent(d, AndroidScreen(service(), shell, ready(d)))
     }
 
-    /** 已经建好的屏:测试自己先建屏(还可能先往上放 App),读屏不必等 phone_launch_app。 */
+    /** すでに構築された画面: テストするには、最初に画面を構築します (最初にアプリを配置することもできます)。phone_launch_app が画面を読み取るのを待つ必要はありません。 */
     fun ready(d: AgentDisplay): LazyAgentDisplay = LazyAgentDisplay(d.width, d.height) { d }.also { runBlocking { it.get() } }
 
     /**
-     * 启动测试时系统会强停本 App,无障碍服务随之被记为已崩溃、不再自动重绑。
-     * 已开启时把它从开启列表里摘下再放回,促使系统重新绑定;没开启就不动。
+     * テストを開始すると、システムはアプリを強制的に停止し、ユーザー補助サービスはクラッシュしたと記録され、自動的に再接続されなくなります。
+     * がオンになっている場合は、スタートアップ リストから削除して元に戻し、システムに再バインドを要求します。オンにしないと動きません。
      */
     private fun rebindAccessibility() {
         if (ScreenAccessibility.instance.value != null) return
@@ -82,30 +82,30 @@ object DeviceSupport {
     }
 
     fun sh(cmd: String): String {
-        // 不压制其他无障碍服务,否则 Mika 的服务会在测试期间被暂停
+        // 他のユーザー補助サービスを抑制しない。抑制すると、テスト中にMikaのサービスも一時停止する。
         val ua = InstrumentationRegistry.getInstrumentation()
             .getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
         val pfd = ua.executeShellCommand(cmd)
         return ParcelFileDescriptor.AutoCloseInputStream(pfd).bufferedReader().use { it.readText() }
     }
 
-    /** 在虚拟屏上打开测试包里的页面(按类给,类名和清单里登记的一致)。 */
+    /** テスト用パッケージの画面を仮想画面で開く。指定するクラス名はマニフェストの登録名と一致させる。 */
     fun startTestActivity(displayId: Int, activity: Class<out android.app.Activity>) {
         sh("am start --display $displayId -n $TEST_PACKAGE/${activity.name}")
     }
 
     /**
-     * 主屏状态:系统的最上层焦点屏、0 号屏的焦点窗口与焦点 Activity、主屏最上面的任务。
-     * Agent 在虚拟屏上做任何事,这些都不应该变。
+     * メイン画面の状態: 最前面のディスプレイ、ディスプレイ0のフォーカスウィンドウとActivity、メイン画面の最上位タスク。
+     * 仮想画面上でエージェントが操作しても、これらは変化してはならない。
      */
     fun mainScreenState(shell: IMikaShell): String {
         val topDisplay = sh("dumpsys window").lines().map { it.trim() }
             .firstOrNull { it.startsWith("mTopFocusedDisplayId=") }
-        checkNotNull(topDisplay) { "mTopFocusedDisplayId not found in dumpsys window" }
+        checkNotNull(topDisplay) { "dumpsys window に mTopFocusedDisplayId が見つかりません" }
         val section = sh("dumpsys window displays").substringAfter("Display: mDisplayId=0", "")
             .substringBefore("Display: mDisplayId=").lines().map { it.trim() }
         val focus = section.firstOrNull { it.startsWith("mCurrentFocus=") }
-        checkNotNull(focus) { "mCurrentFocus not found for display 0" }
+        checkNotNull(focus) { "ディスプレイ 0 の mCurrentFocus が見つかりません" }
         val focusedApp = section.firstOrNull { it.startsWith("mFocusedApp=") }
             ?.let { Regex("u0 (\\S+)").find(it)?.groupValues?.get(1) }
         return "$topDisplay $focus focusedApp=$focusedApp topTask=${shell.topTaskId(android.view.Display.DEFAULT_DISPLAY)}"

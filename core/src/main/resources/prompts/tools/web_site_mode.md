@@ -1,1 +1,1 @@
-Pages open as the desktop version by default. Switch the current tab's site to the mobile version (or back to desktop) and reload the page; the choice is remembered for that site. Use mobile only when the desktop page does not work or is unreadable on this screen. Earlier refs become stale.
+ページは既定でデスクトップ版として開かれる。現在のタブのサイトをモバイル版に切り替え（またはデスクトップ版に戻し）、ページを再読み込みする。その選択はそのサイトについて記憶される。デスクトップ版のページがこの表示で動作しない、または読みにくい場合にだけモバイル版を使う。以前の ref は古くなる。

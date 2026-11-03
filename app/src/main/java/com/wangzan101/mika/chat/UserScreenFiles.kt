@@ -11,14 +11,14 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 
 /**
- * 用户发来的屏幕跟着对话存:放在那个对话的工作区里(`/workspace/screens/<编号>.jpg` 和 `.json`),和附件同一处,
- * 对话的工作区删掉时一起没了;沙箱里的命令也读得到这张图。读写都经工作区的文件闸门(沙箱里的命令换成链接也读写不到别处),
- * 写时拿着树锁的许可(和重置互斥)。
+ * ユーザーによって送信された画面は会話とともに保存され、その会話のワークスペース (`/workspace/screens/<编号>.jpg` および `.json`) の添付ファイルと同じ場所に配置されます。
+ * ダイアログ ワークスペースは削除されると消えます。サンドボックス内のコマンドでもこの画像を読み取ることができます。読み取りと書き込みはすべてワークスペースのファイル ゲートを通過します (サンドボックス内のコマンドがリンクに置き換えられると、他の場所では読み取りまたは書き込みができなくなります)。
+ * は、ツリー ロック許可 (およびミューテックスのリセット) を使用して書き込みます。
  */
 class UserScreenFiles(private val dirs: SandboxDirs) {
     constructor(context: Context) : this(SandboxDirs(context))
 
-    /** 存进对话 [conversationId],返回带编号的说明。 */
+    /** は会話 [conversationId] を保存し、番号付きの説明を返します。 */
     suspend fun save(conversationId: String, shot: CapturedScreen): UserScreen = dirs.tree.shared {
         withContext(Dispatchers.IO) {
             val id = "s" + UUID.randomUUID().toString().replace("-", "").take(12)
@@ -35,7 +35,7 @@ class UserScreenFiles(private val dirs: SandboxDirs) {
 
     suspend fun image(conversationId: String, id: String): ByteArray? = read(conversationId, "$id.jpg")
 
-    /** 这个对话里的屏幕,交给任务按编号取。 */
+    /** このダイアログの画面は、番号に従ってタスクに割り当てられ、取得されます。 */
     fun source(conversationId: String): UserScreenSource = object : UserScreenSource {
         override suspend fun screen(id: String) = this@UserScreenFiles.screen(conversationId, id)
         override suspend fun image(id: String) = this@UserScreenFiles.image(conversationId, id)

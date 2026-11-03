@@ -26,7 +26,7 @@ class RouteRecorderTest {
     private fun result(step: Int, tool: String, json: String, callId: String = "c$step") =
         RunEvent.ToolResult(step.toLong(), step, tool, json, true, null, callId = callId)
 
-    /** 一次核查通过的成功运行;[middle] 插在动作之间。 */
+    /** は 1 つの検証を正常に実行します。アクションの間に [middle] が挿入されます。 */
     private fun run(vararg middle: RunEvent, typed: String = "今天天气不错", typedResult: String = """{"ok":true,"typed":6,"secret":false,"verification":"match"}""",
                     goal: String = this.goal) = listOf(
         RunEvent.TaskStarted(0, goal, "m"),
@@ -39,7 +39,7 @@ class RouteRecorderTest {
         *middle,
         target(4, "phone_type_text", """{"ref":"@e9","snapshotId":"s2","text":"$typed"}""", field, before = editor, after = Anchors("com.notes", listOf("保存"))),
         result(4, "phone_type_text", typedResult),
-        // 另一次调用的结果(同一步号)不能拿来配对
+        // 別の呼び出しの結果 (同じステップ番号) はペアリングに使用できません
         result(4, "phone_type_text", """{"ok":true,"secret":false}""", callId = "other"),
         RunEvent.Verifier(5, "pass", "{}"),
         RunEvent.TaskEnded(6, "succeeded", "写好了"),
@@ -55,14 +55,14 @@ class RouteRecorderTest {
         assertEquals(listOf("phone_launch_app", "phone_tap", "phone_type_text"), r.steps.map { it.tool })
         assertEquals(listOf("com.notes"), r.packages)
         assertEquals(99, r.lastUsedMs)
-        // 编号是一次读屏内的,路线里只留选择器
+        // 番号は 1 回読み取り画面にあり、ルートにはセレクターのみが残ります。
         val tap = Json.parseToJsonElement(r.steps[1].argsJson).jsonObject
         assertFalse("ref" in tap); assertFalse("snapshotId" in tap)
         assertEquals(newBtn, r.steps[1].target)
     }
 
     @Test fun runsThatUsedTheBrowserAreNotRecorded() {
-        // 网页任务:用过 web_navigate,之后在网页上点的是共用的 tap,也不记
+        // Web ページのタスク: web_navigate を使用し、Web ページ上の共有タップをクリックしましたが、それを覚えていませんでした。
         val events = run(
             RunEvent.ModelReply(3, 3, "", "web_navigate", "{}", null, null, null),
             result(3, "web_navigate", """{"ok":true,"surface":"web"}"""),
@@ -71,7 +71,7 @@ class RouteRecorderTest {
     }
 
     @Test fun onlySucceededRunsMakeRoutes() {
-        // 办没办成由调用方按 LearnGate 判;没跑核查的运行照样记得下
+        // 完了するかどうかは、呼び出し側が LearnGate を押して決定します。検証を実行せずに実行することを忘れないでください
         assertNotNull(RouteRecorder.record(goal, run().filter { it !is RunEvent.Verifier }, 1, TOOLS))
         val ended = run().map { if (it is RunEvent.TaskEnded) RunEvent.TaskEnded(6, "failed", "x") else it }
         assertNull(RouteRecorder.record(goal, ended, 1, TOOLS))
@@ -87,7 +87,7 @@ class RouteRecorderTest {
     }
 
     @Test fun typedTextNotASlotMeansNoRoute() {
-        // 不在原话里、太短、在原话里出现不止一次、被更长的槽吞掉:都不记
+        // は元のストーリーに存在せず、短すぎます。元のストーリーに複数回登場し、長いスロットに飲み込まれています: 覚えていません
         assertNull(RouteRecorder.record(goal, run(typed = "日记"), 1, TOOLS))
         assertNull(RouteRecorder.record("写个a", run(typed = "a", goal = "写个a"), 1, TOOLS))
         val twice = "写今天天气不错,今天天气不错"
@@ -105,9 +105,9 @@ class RouteRecorderTest {
         assertEquals(2, r.slots)
         val tap = r.steps.first { it.target?.role == "button" && it.target.resourceId == null }
         assertEquals(memo.copy(name = "{1}"), tap.target)
-        // 模型写的 target 描述不存
+        // モデルによって書き込まれたターゲットの説明は存在しません
         assertFalse("target" in Json.parseToJsonElement(tap.argsJson).jsonObject)
-        // 一个字的名字碰巧在原话里:没法可靠绑槽,不记
+        // たまたま元の文に一言の名前がありました: スロットを確実に結び付ける方法はないので覚えていません。
         val one = Selector("button", "写", null, listOf(0, 0, 1, 1), 0)
         assertNull(RouteRecorder.record(goal, run(target(3, "phone_tap", "{}", one, callId = "w"), result(3, "phone_tap", """{"ok":true,"changed":true}""", callId = "w")), 1, TOOLS))
     }
@@ -136,7 +136,7 @@ class RouteRecorderTest {
             RunEvent.ToolResult(3, 3, "request_confirmation", """{"ok":false,"error":"payment_requires_takeover"}""", null, null),
             RunEvent.ModelReply(3, 3, "", "web_navigate", "{}", null, null, null),
             target(3, "web_interact", "{}"),
-            // 用过沙箱的做法:路线只记屏幕操作
+            // サンドボックス方式を採用：画面操作のみをルートに記録
             RunEvent.ToolResult(3, 3, "run_command", """{"ok":true,"exitCode":0}""", null, null),
             RunEvent.ModelReply(3, 3, "", "share_file", "{}", null, null, null),
         )
@@ -146,13 +146,13 @@ class RouteRecorderTest {
 
     @Test fun passwordInputMeansNoRoute() {
         assertNull(RouteRecorder.record(goal, run(typedResult = """{"ok":true,"typed":6,"secret":true}"""), 1, TOOLS))
-        // 端口没说不是密码框:按是处理
+        // ポートは、パスワード ボックスではないことを示しません。はいとして処理します。
         assertNull(RouteRecorder.record(goal, run(typedResult = """{"ok":true,"typed":6}"""), 1, TOOLS))
         assertNull(RouteRecorder.record(goal, run(typed = "***"), 1, TOOLS))
         val shielded = RunEvent.ToolResult(3, 3, "phone_observe", """{"ok":true,"currentApp":"com.notes","protected":true}""", null, null)
         assertNull(RouteRecorder.record(goal, run(shielded), 1, TOOLS))
         assertNull(RouteRecorder.record(goal, run(target(3, "phone_back", "{}", protected = true, callId = "p")), 1, TOOLS))
-        // 密码框核对按调用配对:配不上就不记
+        // パスワードボックスにチェックを入れて押してペアリングを呼び出します。一致しない場合は記憶されません。
         val unpaired = run().map { if (it is RunEvent.ActionTarget && it.tool == "phone_type_text") it.copy(callId = "nobody") else it }
         assertNull(RouteRecorder.record(goal, unpaired, 1, TOOLS))
     }
@@ -163,7 +163,7 @@ class RouteRecorderTest {
             if (it is RunEvent.ActionTarget && it.tool == "phone_tap") it.copy(before = noisy, after = Anchors("com.notes", listOf("今天天气不错", "新笔记"))) else it
         }
         val tap = RouteRecorder.record(goal, events, 1, TOOLS)!!.steps[1]
-        // 数字、目标自己、含输入值的字都不当锚点
+        // 入力値を含む数値、ターゲット、単語はアンカー ポイントとみなされません。
         assertEquals(listOf("备忘录"), tap.before.texts)
         assertEquals(listOf("新笔记"), tap.after.texts)
         assertTrue(RouteAnchors.stable("全部笔记"))
@@ -179,7 +179,7 @@ class RouteRecorderTest {
         val gap = RunEvent.ActionTarget(3, 3, "phone_back", "{}", null, Anchors(null, emptyList()), Anchors(null, emptyList()), true, "c3.2",
             source = "batch", incomplete = true)
         assertNull(RouteRecorder.record(goal, run(gap), 1, TOOLS))
-        // 批里取到了目标的子步和单步一样记
+        // バッチ内のターゲットを取得するサブステップは、単一ステップと同様に記録されます。
         val sub = RunEvent.ActionTarget(3, 3, "phone_back", "{}", null, editor, editor, true, "c3.2", source = "batch")
         assertEquals(listOf("phone_launch_app", "phone_tap", "phone_back", "phone_type_text"), RouteRecorder.record(goal, run(sub, result(3, "phone_back", """{"ok":true,"changed":true}""", "c3.2")), 1, TOOLS)!!.steps.map { it.tool })
     }

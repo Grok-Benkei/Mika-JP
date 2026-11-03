@@ -26,7 +26,7 @@ class BuiltinShellEngineTest {
         var wifi = true
         var pairingPort: Int? = 37000
         var pairError: AdbPairingException.Reason? = null
-        /** 每次起助手的结果:null = 成功并交接,其余抛对应异常;用完后一直成功。 */
+        /** 毎回アシスタントを開始した結果: null = 成功とハンドオーバー、残りは対応する例外をスローします。使用後は常に成功します。 */
         val launchResults = ArrayDeque<AdbConnectionException.Reason?>()
         var deliverOnLaunch = true
         var keyUnreadable = false
@@ -36,7 +36,7 @@ class BuiltinShellEngineTest {
         override fun setPaired(paired: Boolean) { pairedFlag = paired; calls += "paired=$paired" }
         override fun wirelessDebugging() = wireless
         override fun wifiConnected() = wifi
-        /** 配对窗口没开([pairingPort] 为 null)时找满时限才说没找到。 */
+        /** ペアリング ウィンドウが開いておらず ([pairingPort] が null)、見つからない前に検索時間制限を超えています。 */
         override suspend fun findPairingPort(timeoutMs: Long) = pairingPort ?: run { delay(timeoutMs); null }
         override fun pair(port: Int, code: String) {
             calls += "pair $port $code"
@@ -62,13 +62,13 @@ class BuiltinShellEngineTest {
         autoOn: WirelessDebuggingAutoOn? = null,
     ) =
         BuiltinShellEngine(
-            // 不用 backgroundScope:advanceUntilIdle 不等后台任务,看门狗的重试会被跳过
+            // backgroundScope:advanceUntilIdle がない場合、ウォッチドッグの再試行はバックグラウンド タスクを待たずにスキップされます。
             platform, helper, CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler)),
             StandardTestDispatcher(testScheduler), backoff,
             graceMs = 3_000, handoffTimeoutMs = 10_000, autoOn = autoOn,
         )
 
-    /** 替用户打开无线调试:写的是假平台的开关;[revert] 为 true 时像不允许的 Wi-Fi 那样,写完马上被系统拨回。 */
+    /** は、ユーザーのワイヤレス デバッグを有効にします。書き込みは偽のプラットフォーム スイッチです。 [revert] が true の場合、Wi-Fi が許可されていない場合と同様に、書き込み直後にシステムによってダイヤルバックされます。 */
     private var wants = true
     private var revert = false
     private var switchWrites = 0
@@ -130,7 +130,7 @@ class BuiltinShellEngineTest {
         assertEquals(BuiltinShellStatus.Failed(BuiltinShellFailure.PairingWindowClosed), e.status.value)
     }
 
-    /** 诊断信息用的最近一次出错:异常类别、原因和说明;连上后清空。 */
+    /** 診断情報に使用される最新のエラー: 例外カテゴリ、理由、および説明。接続後にクリアされます。 */
     @Test
     fun lastErrorRecordedAndClearedOnSuccess() = runTest {
         val e = engine()
@@ -154,7 +154,7 @@ class BuiltinShellEngineTest {
         runCurrent()
         assertEquals(BuiltinShellStatus.Connecting, e.status.value)
         advanceTimeBy(2_000)
-        // 还活着的助手在宽限期内交接了:不用再经 adbd 起
+        // まだ生きているアシスタントは猶予期間内に引き渡されました: もう adbd を経由する必要はありません
         helper.value = "old"
         advanceUntilIdle()
         assertEquals(BuiltinShellStatus.Running, e.status.value)
@@ -188,7 +188,7 @@ class BuiltinShellEngineTest {
         advanceTimeBy(1_001)
         assertEquals(1, launches())
         assertEquals(BuiltinShellStatus.Failed(BuiltinShellFailure.ConnectFailed), e.status.value)
-        // 第 1 次失败后等 1 s,第 2 次失败后等 2 s
+        // 最初の失敗後 1 秒待機、2 回目の失敗後 2 秒待機
         advanceTimeBy(1_001)
         assertEquals(2, launches())
         advanceTimeBy(1_000)
@@ -311,14 +311,14 @@ class BuiltinShellEngineTest {
         assertEquals(1, switchWrites)
         assertEquals(0, launches())
 
-        // 要用助手、开关又变了:不再写(每写一次系统就弹一次框)
+        // アシスタントを使用したい場合、スイッチが再び変わります。書き込みが行われなくなります (書き込みを行うたびにシステムがボックスをポップアップ表示します)。
         e.need()
         e.wirelessDebuggingChanged()
         advanceUntilIdle()
         assertEquals(1, switchWrites)
         assertEquals(BuiltinShellStatus.Failed(BuiltinShellFailure.WifiNotAllowed), e.status.value)
 
-        // 换到了允许过的 Wi-Fi:再写一次,这次开着
+        // が許可された Wi-Fi に変更されました: 再度書き込み、今度はオープンします
         revert = false
         e.wifiAvailable()
         advanceUntilIdle()
@@ -334,7 +334,7 @@ class BuiltinShellEngineTest {
         val e = engine(autoOn = autoOn())
         e.retry()
         assertEquals(1, switchWrites)
-        // 用户在系统弹框里允许了、再点重试
+        // ユーザーがシステム ポップアップ ボックスで許可したため、[再試行] をクリックします。
         revert = false
         e.retry()
         assertEquals(2, switchWrites)
@@ -407,7 +407,7 @@ class BuiltinShellEngineTest {
         assertEquals(0, launches())
     }
 
-    /** 电脑经 USB 起的助手没配对也收下:状态是运行中,并记下「是电脑起的」;手机操作和配对过的一样可用。 */
+    /** コンピューターからの USB ベースのアシスタントは、ペアリングされていない場合でも受け入れられます。ステータスは実行中であり、「コンピューターからのものである」ことに注意してください。携帯電話の操作はペアリングされているものと同じです。 */
     @Test
     fun usbStartedHelperRunsWithoutPairing() = runTest {
         val e = engine()
@@ -422,7 +422,7 @@ class BuiltinShellEngineTest {
         assertEquals(0, launches())
     }
 
-    /** 没配对时电脑起的助手停了:不当作从没设置过,说它停了;Mika 自己不去起(起不来)。 */
+    /** がペアリングされていない場合、コンピューター上で起動されたアシスタントは停止します。アシスタントは以前にセットアップされたとは見なされず、停止したとみなされます。ミカが勝手に起きない（起き上がれない）。 */
     @Test
     fun usbHelperStoppingSaysSoAndDoesNotLaunch() = runTest {
         val e = engine()
@@ -437,12 +437,12 @@ class BuiltinShellEngineTest {
         advanceUntilIdle()
         assertEquals(BuiltinShellStatus.Failed(BuiltinShellFailure.UsbHelperStopped), e.status.value)
         assertEquals(0, launches())
-        // 再运行一次命令,不是去配对无线调试
+        // ワイヤレス デバッグのペアリングではなく、コマンドを再度実行します。
         assertEquals(BuiltinShellFix.RunUsbCommand, (e.status.value as BuiltinShellStatus.Failed).fix)
         assertEquals(HelperRestart.UsbCommand, e.restart)
     }
 
-    /** 用着用着断了(比如助手正在换一个新的来交接):先显示正在连接,等一会儿还没回来才说停了。 */
+    /** は使用中に切断されました (たとえば、アシスタントが引き継ぐために新しいものに変更していました)。最初は接続中であることが示されましたが、しばらくして戻ってこないため停止したと表示されました。 */
     @Test
     fun usbHelperDropMidRunGetsAGraceBeforeStopped() = runTest {
         val e = engine()
@@ -454,7 +454,7 @@ class BuiltinShellEngineTest {
         assertEquals(BuiltinShellStatus.Connecting, e.status.value)
         advanceTimeBy(2_000)
         assertEquals(BuiltinShellStatus.Connecting, e.status.value)
-        // 换手完成:新的助手来交接,一直没有闪成「已停止」
+        // 引き継ぎが完了しました: 新しいアシスタントが引き継ぎに来ますが、「停止」が点滅しません。
         helper.value = "usb2"
         runCurrent()
         assertEquals(BuiltinShellStatus.Running, e.status.value)
@@ -463,7 +463,7 @@ class BuiltinShellEngineTest {
         assertEquals(0, launches())
     }
 
-    /** 助手停了以后靠什么再起来:没设置、只用 USB 命令起过、配对过无线调试(配对过优先,哪怕上次是用命令起的)。 */
+    /** アシスタントが停止した後に再び起動するために依存するもの: 設定なし、USB コマンドでのみ開始、ワイヤレス デバッグとペアリング (前回コマンドで開始された場合でも優先順位とペアリング)。 */
     @Test
     fun restartRouteFollowsHowTheHelperCameUp() = runTest {
         val e = engine()
@@ -477,7 +477,7 @@ class BuiltinShellEngineTest {
         assertEquals(HelperRestart.Wireless, e.restart)
     }
 
-    /** 重启后(新进程)助手没来交接:先等一会儿(还活着的会自己来),等不到才说它停了。 */
+    /** 再起動（新しいプロセス）後、アシスタントが引き継ぎに来ませんでした。しばらく待ってから（まだ生きているものは自動的にやって来ます）、その後、停止したと表示されます。 */
     @Test
     fun afterRestartUsbHelperGetsAGraceThenStopped() = runTest {
         platform.usb = true
@@ -502,7 +502,7 @@ class BuiltinShellEngineTest {
         assertEquals(BuiltinShellStatus.Running, e.status.value)
     }
 
-    /** 配对过就照旧由看门狗经无线调试重起,不提示跑命令。 */
+    /** がペアリングされた後も、コマンドの実行を求めるプロンプトが表示されることなく、ワイヤレス デバッグを通じてウォッチドッグによって再起動されます。 */
     @Test
     fun pairedUsbHelperIsRestartedWireless() = runTest {
         platform.usb = true
@@ -514,7 +514,7 @@ class BuiltinShellEngineTest {
         assertEquals(1, launches())
     }
 
-    /** 解除配对把「电脑起过」也忘掉:之后是没设置,不是「停了」。 */
+    /** ペアリングを解除して「コンピューターを起動した」ことを忘れる: 「停止」ではなく、その後の設定はありません。 */
     @Test
     fun unpairForgetsUsbStart() = runTest {
         val e = engine()
@@ -538,7 +538,7 @@ class BuiltinShellEngineTest {
         assertEquals(PairingDiscovery.Idle, e.pairingDiscovery.value)
     }
 
-    /** 还在找时再开始一次(用户又回到配对这件事上),找的时限从这时重新算,不按第一次开始的时候收工。 */
+    /** 再度検索を開始すると（ペアリングに戻ると）、その時点から検索時間が再計算され、最初の開始では作業は終了しません。 */
     @Test
     fun startingDiscoveryAgainRestartsTheSearchTime() = runTest {
         val e = engine()

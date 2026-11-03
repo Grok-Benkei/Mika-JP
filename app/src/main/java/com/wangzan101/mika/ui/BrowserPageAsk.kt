@@ -112,7 +112,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
-/** 浏览器页上「问 Mika」那一块的固定说法。 */
+/** ブラウザ ページの「ミカに聞く」セクションの固定語句。 */
 object PageAskCopy {
     val HINT: String get() = tr(R.string.browser_ask_hint)
     val FROM_PAGE: String get() = tr(R.string.browser_ask_from_page)
@@ -130,12 +130,22 @@ object PageAskCopy {
     fun continuing(title: String): String = tr(R.string.browser_ask_continuing, title)
 }
 
+/** 新旧の記録形式から、ステップが操作した画面の種類を示す。 */
+internal fun pageStepTag(target: String?): String? {
+    val place = target?.trim().orEmpty()
+    return when {
+        recordedSiteHost(place) != null -> PageAskCopy.WEB
+        PACKAGE_NAME_RE.matches(place) -> PageAskCopy.APP
+        else -> null
+    }
+}
+
 /**
- * 浏览器页上对着这一页问 Mika 的状态:这一页接着哪个对话([conversationId],同一页或同一网站最近问过的,见 [PageConversations];
- * 选了「新对话」时 [fresh])、底部那一块开着没有([open])、输入框里的字和带上的选中文字;那个对话里此刻的任务([run]、[card])
- * 和对话的来回([thread],和悬浮胶囊的对话卡片同一套排法)。
- * 发出去的第一句带上这一页的说明([AttachedPage]),页面借给那个任务([UserBrowser.lend]);任务在跑时说的话是插话(回答提问时是回答),
- * 都走任务服务现有的入口。只在主线程用。
+ * ブラウザ ページは、このページでのミカのステータスについて尋ねます。このページに続く会話は次のとおりです ([conversationId]、同じページまたは Web サイトの最新の質問については、[PageConversations] を参照してください。
+ * 「新しいダイアログ」が選択されている場合 ([fresh])、一番下のブロックが開いているかどうか ([open])、入力ボックス内の単語と選択されたテキスト。そのダイアログ内の現在のタスク ([run]、[card])
+ * とセリフの往復（[thread]、サスペンションカプセルのセリフカードと同じ配置）。
+ * によって送信された最初の文には、このページ ([AttachedPage]) の説明が含まれており、ページはそのタスク ([UserBrowser.lend]) に貸与されています。実行中にタスクが言うことは間投詞です (質問に答えるときは答えになります)。
+ * はすべて、タスク サービスの既存の入り口を使用します。メインスレッドでのみ使用されます。
  */
 @Stable
 class PageChat(private val context: Context, private val browser: UserBrowser, private val scope: CoroutineScope) {
@@ -147,17 +157,17 @@ class PageChat(private val context: Context, private val browser: UserBrowser, p
 
     var conversationId by mutableStateOf<String?>(null)
         private set
-    /** 接着的那个对话的标题(给「接着「…」」那一行)。 */
+    /** 次の会話のタイトル (「Continue "...」行に指定されます)。 */
     var title by mutableStateOf<String?>(null)
         private set
-    /** 这一页上已经问过(这个对话是这次在这一页上开始或接上的),不再显示「接着 · 新对话」。 */
+    /** はすでにこのページで質問しています (この会話は今回このページで開始または継続されました) ため、「新しい会話を続ける」は表示されなくなります。 */
     var started by mutableStateOf(false)
         private set
     var fresh by mutableStateOf(false)
     var open by mutableStateOf(false)
     var draft by mutableStateOf("")
     var selection by mutableStateOf<String?>(null)
-    /** 点了文字选择菜单里的「问 Mika」:输入框要拿焦点(每次加一)。 */
+    /** テキスト選択メニューで「ミカに聞く」をクリックしました: 入力ボックスにフォーカスが置かれる必要があります (毎回 1 つずつ増えます)。 現時点での */
     var focusAsk by mutableIntStateOf(0)
         private set
 
@@ -165,7 +175,7 @@ class PageChat(private val context: Context, private val browser: UserBrowser, p
         private set
     var thread by mutableStateOf<ChatThread?>(null)
         private set
-    /** 此刻那件事的步骤在哪(「网页」「App」),和 [CardContent.Working] 的步骤一一对应。 */
+    /** のその手順 (「ウェブページ」「アプリ」) はどこにありますか。これは、[CardContent.Working] の手順と 1 対 1 で対応しています。 */
     var stepTags by mutableStateOf<List<String?>>(emptyList())
         private set
     private var run: TaskRun? = null
@@ -180,7 +190,7 @@ class PageChat(private val context: Context, private val browser: UserBrowser, p
     val mode: PageAskMode get() = PageAskModel.mode(state?.takeIf { it.isActive() }, open)
     val target: String? get() = if (fresh) null else conversationId
 
-    /** 打开了一页(或换了一页):还没在这一页上问过时,按这一页找接着的对话。 */
+    /** がページを開きました (またはページを変更しました): このページでまだ質問していない場合は、このページをクリックして次の会話を見つけてください。 */
     fun onPage(url: String?) {
         if (url == null) {
             reset()
@@ -194,7 +204,7 @@ class PageChat(private val context: Context, private val browser: UserBrowser, p
         }
     }
 
-    /** 页面关了:回到什么都没有。 */
+    /** ページは閉じられています。何も返されません。 */
     private fun reset() {
         started = false
         fresh = false
@@ -203,13 +213,13 @@ class PageChat(private val context: Context, private val browser: UserBrowser, p
         follow(null, null)
     }
 
-    /** 选中的文字要问 Mika:带上它,输入框拿焦点。 */
+    /** 選択したテキストをミカに尋ねる必要があります。それを持ってくると、入力ボックスにフォーカスが置かれます。 */
     fun askAbout(text: String) {
         selection = AttachedPage.clip(text)
         focusAsk++
     }
 
-    /** 发出输入框里的话:那件事在跑时是插话(在问你时是回答),否则在这一页上开始(带上页面说明,借出页面)。 */
+    /** は入力ボックスに単語を出力します。実行中のそれは間投詞 (質問されたときの答え) であり、それ以外の場合はこのページから始まります (ページの説明を表示し、ページを貸します)。 */
     fun send() {
         val words = draft.trim()
         val sel = selection
@@ -218,7 +228,7 @@ class PageChat(private val context: Context, private val browser: UserBrowser, p
             if (words.isEmpty() && sel == null) return
             if (live.state.value is TaskState.WaitingInput) TaskService.answer(context, words.ifEmpty { sel.orEmpty() }, live.key)
             else {
-                // 插话里带着新选中的字:和开头一样写成页面说明(这一页此刻的样子)
+                // は新しく選択された単語を挿入します: 冒頭のようにページの説明を書きます (このページは現時点でどのように表示されているか)
                 val text = sel?.let { browser.pageInfo()?.let { p -> AttachedPage.compose(p.copy(selection = it), words) } } ?: words
                 TaskService.start(context, text, live.conversationId, messageId = UUID.randomUUID().toString())
             }
@@ -241,7 +251,7 @@ class PageChat(private val context: Context, private val browser: UserBrowser, p
         follow(id, title.takeIf { id == conversationId })
     }
 
-    /** 换成跟着对话 [id]:读它记下的轮次,盯着它此刻的任务。 */
+    /** 会話をフォローするように変更します [id]: 記録されたターンを読み、現在のタスクを見つめます。 */
     private fun follow(id: String?, title: String?) {
         this.title = title
         if (id == conversationId && watching != null) return
@@ -276,7 +286,7 @@ class PageChat(private val context: Context, private val browser: UserBrowser, p
             val r = pair?.first
             if (r != null) run = r
             val c = pair?.second ?: card?.run?.takeIf { !it.state.isActive() } ?: run?.let { gone ->
-                // 任务已从列表里拿掉:按它最后的状态留着,等这一轮记进对话
+                // タスクはリストから削除されました。タスクを最後の状態に保ち、このラウンドがダイアログに記録されるまで待ちます。
                 CapsuleRun(gone.key, gone.conversationId, gone.state.value, Takeover.Stage.None, gone.goal, exchange, runId = gone.runId.value)
             }
             val next = c?.let(model::cardRunOf)
@@ -295,19 +305,14 @@ class PageChat(private val context: Context, private val browser: UserBrowser, p
         return ChatViewModel.reduce(before.copy(activities = acts), s, ::appLabel, toolLabels::label).also { exchange = it }
     }
 
-    // 每一步在哪:那一步的活动对象是「网站 …」的是网页,是包名的是 App
+    // 各ステップの場所: そのステップのアクティビティ オブジェクトは「website...」です。名前が付いているものは Web ページであり、パッケージ名が付いているものはアプリです。
     private fun tagsOf(c: CardRun?): List<String?> {
         val ex = c?.run?.exchange ?: return emptyList()
         val content = CapsuleCards.content(c) as? CardContent.Working ?: return emptyList()
         val rows = ex.steps
         return content.steps.mapIndexed { i, _ ->
             val row = rows.getOrNull(i) ?: return@mapIndexed null
-            val target = ex.activities.lastOrNull { it.step == row.step }?.target?.trim().orEmpty()
-            when {
-                target.startsWith(SITE_PREFIX) -> PageAskCopy.WEB
-                PACKAGE_NAME_RE.matches(target) -> PageAskCopy.APP
-                else -> null
-            }
+            pageStepTag(ex.activities.lastOrNull { it.step == row.step }?.target)
         }
     }
 
@@ -336,7 +341,7 @@ class PageChat(private val context: Context, private val browser: UserBrowser, p
 
     private fun appLabel(pkg: String): String = appLabels.getOrPut(pkg) { ConfirmationNotifier.appLabel(context, pkg) }
 
-    /** 面板、小卡片上的按钮:都走任务服务现有的动作,带着那件事的编号。 */
+    /** パネルと小さなカードのボタンはすべて、その番号を使用してタスク サービスの既存のアクションを実行します。 */
     val actions = object : CardActions {
         override fun collapse() { open = false }
         override fun stop(runKey: String) = TaskService.cancel(context, runKey)
@@ -364,7 +369,7 @@ class PageChat(private val context: Context, private val browser: UserBrowser, p
         override fun dropScreen() = Unit
     }
 
-    /** 界面测试用:不跟任何任务,直接显示 [card] 和 [thread](对话 [id])。 */
+    /** インターフェイス テスト: タスクなしで、[card] および [thread] を直接表示します (ダイアログ [id])。 */
     @androidx.annotation.VisibleForTesting
     internal fun show(id: String?, card: CardRun?, thread: ChatThread?) {
         watching?.cancel()
@@ -376,26 +381,24 @@ class PageChat(private val context: Context, private val browser: UserBrowser, p
         lastState = card?.run?.state
     }
 
-    /** 交还接手的页面(「处理好了」)。 */
+    /** は、引き継がれた (「処理された」) ページを返します。 */
     fun handBack() {
         val r = run ?: return
         TaskService.handBack(context, waitKey = r.takeover?.waitKey, runKey = r.key)
     }
 
-    /** 用户亲手摸了页面。 */
+    /** ユーザーが自分の手でページに触れました。 */
     fun touched() = browser.userTouched()
 
     private companion object {
         const val TAG = "MikaPageChat"
-        /** 运行记录里网页那一屏的对象写成「网站 <域名>」。 */
-        const val SITE_PREFIX = "网站 "
     }
 }
 
 /**
- * 网页视图的容器:手指一按下就告诉 [onTouch]。只有经窗口送来的真实触摸会经过这里;Mika 自己的输入(DevTools 的鼠标键盘直接进页面,
- * 原生触摸直接发给网页视图)不经过它,所以不会把自己的动作当成用户在操作。
- * 网页的文字选择菜单里加一项「问 Mika」([onAsk]),点了先读出选中的字,读完调它给的 done 收起菜单。
+ * Web ビュー用コンテナ: 指で押すと [onTouch] と伝えます。窓を通して送信された実際のタッチだけがここを通過します。ミカ自身の入力 (DevTools のマウスとキーボードがページに直接入力され、
+ * のネイティブ タッチは Web ビューを経由せずに直接送信されるため、自身のアクションはユーザーの操作とは見なされません。
+ * Webページのテキスト選択メニューに項目「ミカに聞く」([onAsk])を追加します。クリックすると、選択した単語が最初に読み上げられます。読み取った後、呼び出してメニューを閉じます。
  */
 class PageFrame(context: Context, private val onTouch: () -> Unit, private val onAsk: (done: () -> Unit) -> Unit) : FrameLayout(context) {
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
@@ -409,12 +412,12 @@ class PageFrame(context: Context, private val onTouch: () -> Unit, private val o
     private inner class AskCallback(private val inner: ActionMode.Callback) : ActionMode.Callback2() {
         override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean = inner.onCreateActionMode(mode, menu).also { if (it) addAsk(menu) }
 
-        // 网页内核准备菜单时会清空重排:排完再加
+        // Web ページ カーネルがメニューを準備するとき、メニューはクリアされて再配置されます。配置が完了してから追加してください。
         override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean = inner.onPrepareActionMode(mode, menu).also { addAsk(menu) }
 
         override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
             if (item.itemId != ASK_ID) return inner.onActionItemClicked(mode, item)
-            // 读出选中的字之后再收起菜单(收起时选中的字可能随之取消)
+            // メニューを閉じる前に選択した単語を読み上げます（閉じると選択した単語がキャンセルされる場合があります）
             onAsk { mode.finish() }
             return true
         }
@@ -436,8 +439,8 @@ class PageFrame(context: Context, private val onTouch: () -> Unit, private val o
 }
 
 /**
- * 盖在网页上的那几样(放在网页区域的 Box 里):干活时四周的光边;你在页面上动手、Mika 暂停时顶上一条「继续」;
- * 面板开着时下半截的对话面板([PagePanel]),收着、那件事还没结束时底部的小卡片([PageCard])。平时的输入条不在这里(在网页下面)。
+ * Web ページでカバーされているもの (Web ページ領域のボックスに配置): 作業中の周囲のライトエッジ。ページで作業しているときにミカが一時停止すると、「続行」というメッセージが表示されます。
+ * パネルが開いているときは下半分の対話パネル ([PagePanel])、物事がまだ終わっていないときは下部の小さなカード ([PageCard])。通常の入力バーはここ (Web ページの下) にはありません。
  */
 @Composable
 fun BoxScope.PageAskOverlay(chat: PageChat, site: String, pageTitle: String) {
@@ -453,10 +456,10 @@ fun BoxScope.PageAskOverlay(chat: PageChat, site: String, pageTitle: String) {
     }
 }
 
-/** 对话面板占网页区域的高度比例:上面露出来的网页就是 Mika 在操作的那一页。 */
+/** Web ページ領域に対するダイアログ パネルの高さの比率: 上で公開されている Web ページは、Mika が操作しているページです。 */
 private const val PANEL_SHARE = 0.58f
 
-/** 页面四周的一圈淡紫光边:Mika 正在这一页上干活。不挡触摸。 */
+/** ページの周りのラベンダー色の境界線: ミカがこのページの作業を行っています。タッチを妨げません。 */
 @Composable
 fun PageGlow(modifier: Modifier = Modifier) {
     Box(
@@ -475,12 +478,12 @@ fun PageGlow(modifier: Modifier = Modifier) {
 }
 
 private const val GLOW_LAYERS = 4
-/** Mika 在页面上干活时光边的颜色(淡紫,和页面本身的颜色分得开)。 */
+/** ミカがページで作業しているときの周囲の色 (ラベンダー、ページ自体の色とは別)。 */
 private val GlowColor = Color(0xFF7B5CFF)
 
 /**
- * 平时浏览器页底部那一条:「✦ 问问 Mika…」输入框;这一页有接着的对话时上面一行「接着「…」 · 新对话」;
- * 选中文字问的时候上面一条「选中的文字」和 ×。
+ * ブラウザ ページの下部にある通常の行:「✦ Ask Mito...」入力ボックス。このページに後続の会話がある場合、「Continue "..." · 新しい会話」の上の行が表示されます。
+ * テキストを選択すると上に「選択されたテキスト」と×が表示されます。
  */
 @Composable
 fun PageAskBar(chat: PageChat, modifier: Modifier = Modifier) {
@@ -509,13 +512,13 @@ fun PageAskBar(chat: PageChat, modifier: Modifier = Modifier) {
 
 private const val TITLE_MAX = 16
 
-/** 卡片里「新对话」「接着上次聊」的说法(和悬浮胶囊同一套字)。 */
+/** カード内の「新しい会話」と「最後の会話の続き」という単語 (サスペンション カプセルと同じ単語のセット)。 */
 private object CardCopyText {
     val NEW_CHAT: String get() = tr(R.string.chat_new)
     val CONTINUE_LAST: String get() = tr(R.string.card_continue_last)
 }
 
-/** 输入框上面带着的选中文字:淡色一条,右边 × 不带它。 */
+/** 入力ボックスで選択されたテキスト: 明るい色のバー、右側のバーなしの ×。 */
 @Composable
 private fun SelectionChip(text: String, onRemove: () -> Unit) {
     val c = MikaTheme.colors
@@ -536,7 +539,7 @@ private fun SelectionChip(text: String, onRemove: () -> Unit) {
     }
 }
 
-/** 输入框:左边 ✦,写了字(或带着选中的字)右边是发送;有 [stop] 时右边一直有停止键。 */
+/** 入力ボックス: 左側に✦、右側に書かれた単語 (または選択した単語) が送信用です。 [stop] がある場合、右側に常に停止ボタンがあります。 */
 @Composable
 private fun AskField(chat: PageChat, hint: String, stop: (() -> Unit)?) {
     val c = MikaTheme.colors
@@ -575,10 +578,10 @@ private val PanelShape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
 private val CardShape = RoundedCornerShape(16.dp)
 
 /**
- * 半屏对话面板:盖在网页下半截,上面露出来的网页就是 Mika 正在操作的那一页。顶上是网站名、「从这一页开始 · 页面标题」、
- * 「在聊天中打开」和收起;中间是这个对话的来回(和悬浮胶囊的对话卡片同一套排法);干活中下面是步骤,标出那一步在网页还是 App 上;
- * 要你点的按钮(回答的选项、同意、接手、继续)固定在下面;最下面是输入框:在跑时说的话是插话(右边停止键),Mika 问你时是回答,
- * 结束后是在这一页上接着问。页面在你手上(接手中)时是「处理好了」。
+ * 半画面ダイアログパネル: Web ページの下半分を覆っており、上に露出している Web ページがミカが操作しているページです。一番上にはサイト名「このページから始める・ページタイトル」、
+ * 「チャットで開いて」閉じます。真ん中はこの会話の前後です（浮遊カプセルの会話カードと同じ配置）。以下は作業中の手順です。Web ページまたはアプリ上でどの手順であるかをマークしてください。
+ * クリックするボタン (回答オプション、同意、引き継ぎ、続行) は下部に固定されています。一番下は入力ボックスです。走っているときに言うことは中断することです（右側の停止ボタン）。ミカが尋ねたら、それは答えることです、
+ * の後には、このページの質問が続きます。ページは、ユーザーの手に渡されたとき (管理下にあるとき)、「処理」されます。
  */
 @Composable
 fun PagePanel(chat: PageChat, site: String, pageTitle: String, modifier: Modifier = Modifier) {
@@ -619,7 +622,7 @@ fun PagePanel(chat: PageChat, site: String, pageTitle: String, modifier: Modifie
             ) { Icon(MikaIcons.Close, null, Modifier.size(17.dp), tint = c.ink3) }
         }
         Box(Modifier.fillMaxWidth().height(0.5.dp).background(c.hair))
-        // 步骤紧接在对话来回的最后一条(「网站 · 在干活」那一行)下面,和对话页一样跟着往下长,不压到面板底部
+        // ステップはダイアログの最終行 (「Web サイト・作業中」行) のすぐ下にあり、パネルの一番下まで押すことなく、会話ページと同じ長さで進みます。
         val steps: (@Composable () -> Unit)? = if (content is CardContent.Working && content.steps.isNotEmpty()) {
             { Box(Modifier.padding(bottom = 6.dp)) { Steps(content.steps, StepsMax, chat.stepTags) } }
         } else null
@@ -651,7 +654,7 @@ fun PagePanel(chat: PageChat, site: String, pageTitle: String, modifier: Modifie
 private val StepsMax = 132.dp
 
 /**
- * 面板收起时底部的小卡片:那件事此刻在做什么,点一下展开。你在页面上动手而暂停时写「已暂停」和「继续」。
+ * パネルが格納されているときに下部にある小さなカード: あれは今何をしているのでしょうか?クリックして展開します。ページの作業中に一時停止する場合は、「一時停止」と「続行」を書きます。
  */
 @Composable
 fun PageCard(chat: PageChat, modifier: Modifier = Modifier) {
@@ -678,7 +681,7 @@ fun PageCard(chat: PageChat, modifier: Modifier = Modifier) {
     }
 }
 
-/** 你在页面上动手、Mika 停下时顶上那一条:「你在操作，Mika 已暂停 · 继续」。 */
+/** あなたがページ上で何かをしていてミカが停止すると、一番上の行は「あなたは操作中です、ミカは一時停止して続行しました。」です。 */
 @Composable
 fun PausedBanner(onResume: () -> Unit, modifier: Modifier = Modifier) {
     Row(
@@ -697,7 +700,7 @@ fun PausedBanner(onResume: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-/** 对话页上那句话是在浏览器页上对着一页问的:气泡上面一小块「网页 · 网站」,带着选中的字时下面是那段字。 */
+/** 会話ページ上の文はブラウザ ページ上のページに質問されました。バブルの上には「Web ページ・Web サイト」の小さな部分があり、その下に選択された単語がその単語です。 */
 @Composable
 internal fun SentPage(page: AttachedPage.Page, maxWidth: androidx.compose.ui.unit.Dp) {
     val c = MikaTheme.colors

@@ -7,7 +7,7 @@ import com.wangzan101.mika.core.run.ChannelPeer
 import com.wangzan101.mika.core.run.Delivery
 import com.wangzan101.mika.core.run.SendOutcome
 
-/** 手机上的任务卡片和通知：任务服务仍绘制现有界面，此适配器承接送达账本。 */
+/** 携帯電話上のタスク カードと通知: タスク サービスは引き続き既存のインターフェイスを描画し、このアダプターが台帳の配信を引き継ぎます。 現時点では、 */
 class LocalChannel(private val deliverLocal: suspend (ChannelPeer, Delivery) -> SendOutcome) : Channel {
     override val id = ID
     override val confirms = true

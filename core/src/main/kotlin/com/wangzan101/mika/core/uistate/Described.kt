@@ -3,24 +3,24 @@ package com.wangzan101.mika.core.uistate
 import kotlin.math.hypot
 
 /**
- * 不给编号、按描述指一个元素:[text] 是它显示的字或无障碍名字(打字时也可以是输入框的提示语),[role] 可选,
- * [field] 为真时只找输入框(打字用)。
+ * は番号を与えず、説明に従って要素を参照します。 [text] は表示される単語またはアクセス可能な名前 (入力時の入力ボックスのプロンプトになることもあります)、[role] はオプションです。
+ * [field] が true の場合、入力ボックス (入力用) のみが見つかります。
  */
 data class ElementQuery(val text: String, val role: String? = null, val field: Boolean = false)
 
 sealed interface DescribedMatch {
-    /** [exact]:名字(或提示语)和描述完全相同;否则是按开头或包含找到的,结果里要说清实际对上的是谁。 */
+    /** [exact]: 名前 (またはプロンプト) と説明はまったく同じです。それ以外の場合は、で始まるか、またはを含むことによって検索され、その結果によって実際に誰が一致するかが明らかになるはずです。 */
     data class Found(val element: UiElement, val exact: Boolean) : DescribedMatch
-    /** 对得上的不止一个;[candidates] 能操作的在前,其余按读屏顺序。 */
+    /** は複数の用途に適しています。最初に操作できるのは[candidates]で、残りは画面読み上げ順となります。 */
     data class Ambiguous(val candidates: List<UiElement>) : DescribedMatch
     data object None : DescribedMatch
 }
 
 /**
- * 在一屏里按描述找唯一的元素。比较前去掉空白、不分大小写。按从严到宽分层找,哪一层先有结果就用哪一层:
- * 名字(或提示语)完全相同 → 名字以描述开头 → 名字包含描述(这一层只认能操作的元素,免得一段正文里碰巧含这几个字)。
- * 同一层里能操作的(打字看能不能输入,其余看能不能点;不可用的不算)优先:恰好一个就是它;
- * 好几个、或一个能操作的都没有却有好几个对上,是 [DescribedMatch.Ambiguous],不猜。[role] 给了时只看这个角色。
+ * 説明によって画面内の唯一の要素を検索します。比較の前に空白を削除し、大文字と小文字を区別しません。厳密なレイヤーから広範なレイヤーまで検索し、最初に結果が得られたレイヤーを使用します。
+ * 名前 (またはプロンプト) がまったく同じ → 名前が説明で始まる → 名前に説明が含まれます (テキストに誤ってこれらの単語が含まれることを避けるために、このレイヤーは操作可能な要素のみを認識します)。
+ * 同じレイヤーで操作できるもの（入力できるかどうかをタイプするもの、クリックできるかどうかを確認するもの、使用できないものはカウントされません）が優先されます。
+ * が複数ある、もしくはどれも操作できないが一致するものが複数ある。それは [DescribedMatch.Ambiguous] です、推測ではありません。 [role] このキャラクターが与えられた場合のみ見てください。
  */
 object DescribedTarget {
     fun match(elements: List<UiElement>, q: ElementQuery): DescribedMatch {
@@ -46,16 +46,16 @@ object DescribedTarget {
         return DescribedMatch.None
     }
 
-    /** 能操作:打字看能不能输入,其余看能不能点或输入;页面标了不可用的不算。 */
+    /** の操作は、タイプで入力できるかどうかを確認し、その他の項目をクリックまたは入力できるかどうかを確認します。利用不可としてマークされたページはカウントされません。 */
     fun usable(e: UiElement, field: Boolean): Boolean =
         UiStates.DISABLED !in e.states && (if (field) e.editable else e.clickable || e.editable)
 
-    /** 离 [e] 最近的另一段有名字的字(和它不同名):候选同名时靠它分辨是哪一个。 */
+    /** は、[e] に最も近い名前を持つ別の文字です (名前は異なります)。これは、候補が同じ名前を持つ場合にどの文字であるかを識別するために使用できます。 */
     fun neighbour(e: UiElement, elements: List<UiElement>): String? = elements
         .filter { it !== e && it.name.isNotBlank() && norm(it.name) != norm(e.name) }
         .minByOrNull { hypot((it.centerX - e.centerX).toDouble(), (it.centerY - e.centerY).toDouble()) }?.name
 
-    /** 元素能被描述的字:名字;输入框还有它自己的提示语。 */
+    /** 要素を説明できる単語: 名前;入力ボックスにも独自のプロンプトがあります。 */
     private fun labels(e: UiElement, field: Boolean): List<String> =
         listOfNotNull(e.name, e.placeholder.takeIf { field || e.editable }).map(::norm).filter { it.isNotEmpty() }
 

@@ -48,12 +48,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.random.Random
 
-/** 插话是补充:撤掉等着的模型请求、提前结束纯等待、收尾前到的话接着做;做过的一概保留,节奏保护不丢。 */
+/** は以下を追加しました: 待機中のモデル要求をキャンセルし、純粋な待機を事前に終了し、終了前であれば継続します。これまでに行ったことをすべて維持すれば、リズムの保護が失われることはありません。 */
 class SteerInterruptTest {
     private fun spec() = RunSpec(RunId("r1"), "看看", "thread-1")
     private fun call(id: String, name: String, args: String = "{}") = ModelReply(listOf(Part.ToolCall(id, name, args)), StopReason.ToolUse, null)
 
-    /** 第 n 次请求(从 1 数)交给 [reply];收到的消息另存一份。 */
+    /** は、n 番目のリクエスト (1 から数えます) を [reply] に配信します。受信したメッセージは別のコピーに保存されます。 */
     private class Scripted(private val reply: suspend (Int) -> ModelReply) : ChatModel {
         override val capabilities = Capabilities(toolCalls = true, vision = false, contextTokens = 128_000, reasoning = false)
         val requests = mutableListOf<List<Message>>()
@@ -74,7 +74,7 @@ class SteerInterruptTest {
         val events = mutableListOf<RunEvent>()
         val model = Scripted { n ->
             if (n == 1) { entered.complete(Unit); awaitCancellation() }
-            else answerReply("只整理今天的消息")
+            else answerReply("今日のメッセージだけ整理します")
         }
         val run = spec().copy(provenance = RunProvenance(RunOrigin.Mcp, Attendance.Reachable))
         val agent = AgentLoop(model, toolDispatcher(FakeScreen()), "BASE", sink = object : RunSink {
@@ -104,7 +104,7 @@ class SteerInterruptTest {
         }
         val running = async { AgentLoop(model, toolDispatcher(FakeScreen()), "BASE").run(spec(), inbox) }
         entered.await()
-        // 普通插话(不是 Redirect)也撤掉等着的请求
+        // 通常の割り込み (リダイレクトではない) も待機中のリクエストをキャンセルします
         assertEquals(InputReceipt.Accepted, inbox.send(RunInput.Steer("m1", "顺便看看价格")))
         val end = running.await()
         assertTrue(cancelled)
@@ -112,13 +112,13 @@ class SteerInterruptTest {
         assertEquals(3, model.requests.size)
         val cut = model.requests[1]
         val again = model.requests[2]
-        // 撤掉的那次请求发过的消息原样留在前面(包括第一步的工具结果),插话接在后面
+        // キャンセルされたリクエストによって送信されたメッセージが先頭にそのまま残り（最初のステップのツール結果を含む）、後ろに間投詞が追加されます。
         assertEquals(cut, again.take(cut.size))
         assertTrue(cut.results().any { it.callId == "c1" })
         assertEquals(cut.size, again.steerIndex("顺便看看价格"))
     }
 
-    /** 后退要等 [release] 才做完。 */
+    /** は [release] が撤退を完了するまで待つ必要があります。 */
     private class SlowBack : ScreenPort by FakeScreen() {
         val entered = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Unit>()
@@ -167,9 +167,9 @@ class SteerInterruptTest {
                 if (e is RunEvent.ToolResult && e.callId == "c1") runBlocking { inbox.send(RunInput.Steer("m1", "换个办法试试")) }
             }
         }
-        val model = Scripted { n -> if (n == 1) call("c1", "end_not_done", """{"message":"找不到入口"}""") else answerReply("换了办法,办好了") }
+        val model = Scripted { n -> if (n == 1) call("c1", "end_not_done", """{"message":"找不到入口"}""") else answerReply("方法を変えて完了しました") }
         val end = AgentLoop(model, toolDispatcher(FakeScreen()), "BASE", sink = sink).run(spec(), inbox)
-        assertEquals("换了办法,办好了", (end as TaskState.Succeeded).answer)
+        assertEquals("方法を変えて完了しました", (end as TaskState.Succeeded).answer)
         assertTrue(model.requests[1].results().any { it.callId == "c1" })
         assertTrue(model.requests[1].steerIndex("换个办法试试") >= 0)
     }
@@ -177,7 +177,7 @@ class SteerInterruptTest {
     @Test fun steerBeforeTheAnswerIsHandedOverContinuesAndOnlyAClosedRunTakesNextTasks() = runTest {
         val inbox = RunInbox()
         var asked = 0
-        // 回答已经写完、正要交出时到的话:不收尾,带着它接着做
+        // 答えを書き終えて手渡そうとしている場合は、書き終えずにそのまま受け取り、作業を続けてください。
         val loop = AgentLoop(Scripted { n -> answerReply("第${n}次") }, toolDispatcher(FakeScreen()), "BASE", beforeAccept = {
             if (++asked == 1) inbox.send(RunInput.Steer("m1", "再加一条"))
             com.wangzan101.mika.core.agent.BeforeAccept.Accept
@@ -197,7 +197,7 @@ class SteerInterruptTest {
         assertEquals(InputReceipt.NextTask, inbox.send(RunInput.Steer("m3", "三")))
     }
 
-    /** 一屏只有一个「立即沟通」;记下点了几次。 */
+    /** 1 つの画面に「今すぐ通信」は 1 つだけあります。何回クリックしたかを書き留めます。 */
     private class GreetPage : ScreenPort by FakeScreen() {
         val taps = mutableListOf<String>()
         private val shown = listOf(UiElement("@e1", "button", "立即沟通", 900, 300, listOf(800, 100, 999, 160), null, true, false, false))
@@ -226,7 +226,7 @@ class SteerInterruptTest {
         assertEquals(JsonPrimitive(SKIPPED_FOR_NEW_MESSAGE), cut.exec.content["error"])
         assertEquals(1_000L, currentTime - t0)
         assertEquals(listOf("@e1"), screen.taps)
-        // 模型读到插话之后还要发:余下的间隔照样补上再做
+        // モデルは、間投詞を読んだ後に投稿する必要があります。投稿する前に、残りのギャップを埋める必要があります。
         inbox.takeSteers()
         assertEquals(gap - 1_000, pacing.waitBefore("com.jobs", currentTime))
         tap("c3")
@@ -246,7 +246,7 @@ class SteerInterruptTest {
         assertTrue("$stopped", stopped is DwellInterrupted)
         assertEquals(1_000L, currentTime)
         inbox.takeSteers()
-        // 没停够的那部分不算停过:下次换页之前补足
+        // 十分に停止していない部分は停止したとみなされません。次のページ変更の前に補います。
         assertEquals(owed - 1_000, withContext(inbox.signal) { d.before() })
         assertEquals(owed, currentTime)
         assertEquals(0, d.before())

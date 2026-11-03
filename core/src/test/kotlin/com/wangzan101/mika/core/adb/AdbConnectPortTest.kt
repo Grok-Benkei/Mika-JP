@@ -34,7 +34,7 @@ class AdbConnectPortTest {
 
     @Test
     fun cachedFirstThenPropertyAndMdnsNotAskedWhenItWorks() = runTest {
-        // 缓存的旧端口被拒得很快,接着试属性
+        // キャッシュされた古いポートはすぐに拒否されました。プロパティを試してください。
         val cache = Cache(1111)
         assertEquals("conn@4000", chain(4000, 5000, cache).connect(opener(4000)))
         assertEquals(listOf(1111, 4000), attempts)
@@ -57,13 +57,13 @@ class AdbConnectPortTest {
 
     @Test
     fun stalePortsAreSkippedAndDuplicatesTriedOnce() = runTest {
-        // 缓存、属性都是旧端口(都连不上),mDNS 又给了同一个旧端口,最后一个才对
+        // キャッシュと属性はすべて古いポートです (接続できません)。mDNS は同じ古いポートを再度提供しました。最後のポートは正しいです。
         val cache = Cache(4000)
         assertEquals("conn@6000", chain(4000, null, cache, mdnsAll = listOf(4000, 6000)).connect(opener(6000)))
         assertEquals(listOf(4000, 6000), attempts)
     }
 
-    /** 前 [rejectFirst] 次连 [port] 时 TLS 被拒([reason]),之后连得上;别的端口照 [rest]。 */
+    /** [rejectFirst] [port] への 2 回目の接続時に TLS が拒否されました ([reason])。その後、接続は成功しました。他のポートは [rest] でした。 */
     private fun flaky(port: Int, rejectFirst: Int, rest: (String, Int) -> String, reason: Reason = Reason.UNAUTHORIZED): (String, Int) -> String {
         var left = rejectFirst
         return { host, p ->
@@ -78,7 +78,7 @@ class AdbConnectPortTest {
 
     @Test
     fun tlsRejectionOnceIsRetriedOnTheSamePort() = runTest {
-        // 有的系统让另一个服务先接住第一次 TLS 握手、对谁的证书都拒;紧接着再连就落到 adbd
+        // 一部のシステムでは、別のサービスが最初の TLS ハンドシェイクを最初に受信し、証明書を拒否することを許可しています。その後、次の接続は adbd に落ちます。
         val cache = Cache()
         assertEquals("conn@4000", chain(4000, 5000, cache).connect(flaky(4000, 1, opener(4000))))
         assertEquals(listOf(4000, 4000), attempts)
@@ -98,7 +98,7 @@ class AdbConnectPortTest {
 
     @Test
     fun rejectedEverywhereIsUnauthorized() = runTest {
-        // 唯一一个回话的端口试两次都拒,其余是旧端口:钥匙确实不被认,要重新配对;不再扫本机端口
+        // 応答用の唯一のポートが 2 回試行した後拒否されました。残りは古いポートです。キーは実際には認識されないため、再度ペアリングする必要があります。ローカルポートをスキャンしなくなりました。
         val scanner = FakeScanner(mapOf("127.0.0.1" to listOf(41000)), setOf(AdbEndpoint("127.0.0.1", 41000)))
         val port = AdbConnectPort(
             { 4000 }, { _, _ -> listOf(5000) }, Cache(3000),
@@ -135,14 +135,14 @@ class AdbConnectPortTest {
 
     @Test
     fun everyMdnsPortIsTriedWhenAStaleRecordComesFirst() = runTest {
-        // 关了又开无线调试:旧端口的记录还在,新的和它一起回来
+        // ワイヤレス デバッグをオフにしてからオンにします。古いポートの記録はまだ存在しており、新しいポートも一緒に戻ります。
         val cache = Cache(4000)
         assertEquals("conn@5000", chain(null, null, cache, mdnsAll = listOf(4000, 5000)).connect(opener(5000)))
         assertEquals(listOf(4000, 5000), attempts)
         assertEquals(5000, cache.port)
     }
 
-    /** 每次连接结束都报一次各来源给了几个候选:连上的、全失败的都报。 */
+    /** 接続が終了するたびに、1 回レポートされます。各情報源はいくつかの候補を提示しており、接続されたものと失敗したものの両方が報告されています。 */
     @Test
     fun reportsCandidateCounts() = runTest {
         val seen = mutableListOf<ConnectCandidates>()
@@ -160,7 +160,7 @@ class AdbConnectPortTest {
         assertEquals(ConnectCandidates(0, 0, 0, connected = false), seen.single())
     }
 
-    /** 假扫描:[open] 是各地址上开着的端口,[adb] 里的才回 STLS;记下扫了哪些地址、跳过了哪些端口。 */
+    /** フェイク スキャン: [open] は各アドレスの開いているポートで、[adb] は STLS を返します。どのアドレスがスキャンされ、どのポートがスキップされたかを記録します。 */
     private class FakeScanner(val open: Map<String, List<Int>>, val adb: Set<AdbEndpoint>) : LocalPortScanner {
         val swept = mutableListOf<String>()
         var skipped: Set<Int> = emptySet()
@@ -187,12 +187,12 @@ class AdbConnectPortTest {
         assertEquals("conn@41235", port.connect(opener(41235)))
         assertEquals(listOf(39000, 41235), attempts)
         assertEquals(41235, cache.port)
-        // 已经试过的缓存端口不再扫;本机地址上找到了,不再扫 Wi-Fi 地址
+        // 試行されたキャッシュ ポートはスキャンされなくなりました。 Wi-Fi アドレスがローカル アドレスで見つかった場合、そのアドレスはスキャンされなくなりました。
         assertTrue(39000 in scanner.skipped)
         assertEquals(listOf("127.0.0.1"), scanner.swept)
         assertEquals(listOf(true, false), progress)
         assertEquals(ConnectCandidates(0, 0, 1, connected = true, scanned = true, scanOpen = 2, scanAdb = 1), seen.single())
-        // 下次缓存直接连上,不再扫
+        // 次回はキャッシュが直接接続され、それ以上のスキャンは行われません。
         attempts.clear()
         assertEquals("conn@41235", port.connect(opener(41235)))
         assertEquals(listOf(41235), attempts)
@@ -224,7 +224,7 @@ class AdbConnectPortTest {
         val port = AdbConnectPort({ null }, { _, _ -> emptyList() }, Cache(), scan = LocalPortScan(scanner, { listOf("127.0.0.1") }))
         assertEquals("conn@41000", port.connect(opener(41000, 42000)))
         assertEquals(listOf(41000), attempts)
-        // 第一个握手失败就试下一个
+        // 最初のハンドシェイクが失敗した場合は、次のハンドシェイクを試してください。
         attempts.clear()
         assertEquals("conn@42000", port.connect(opener(42000)))
         assertEquals(listOf(41000, 42000), attempts)

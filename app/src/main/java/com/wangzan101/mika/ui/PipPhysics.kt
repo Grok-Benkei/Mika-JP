@@ -6,16 +6,16 @@ import kotlin.math.hypot
 import kotlin.math.pow
 
 /**
- * 画中画小窗的手势物理,单位是像素和秒,与界面无关以便测试。
- * 松手时按速度投射落点(像列表惯性滚动减速到停),再找最近的角;
- * 归位用临界阻尼弹簧(阻尼比 1、响应 0.4 秒):不回弹,并能从当前速度接着走,随时可打断。
+ * ピクチャー・イン・ピクチャーの小ウィンドウのジェスチャー物理学、単位はピクセルと秒で、テスト用のインターフェースとは関係ありません。
+ * 手を放すと、速度に応じて着地点を投影し（リストの慣性スクロールのように、停止するまで減速します）、最も近いコーナーを見つけます。
+ * 戻り用臨界減衰スプリング（減衰比1、応答0.4秒）：リバウンドがなく、現在の速度から歩行を継続でき、いつでも中断できます。
  */
 object PipPhysics {
     enum class Corner { TopStart, TopEnd, BottomStart, BottomEnd }
 
     /**
-     * 小窗可停的区域:[width]×[height] 是整块画面,[pipWidth]×[pipHeight] 是小窗当前大小;
-     * [top]/[bottom] 是要让开的顶栏和输入框高度,[margin] 是离边的距离。
+     * 小ウィンドウを駐車できる領域: [width]×[height] は画面全体、[pipWidth]×[pipHeight] は小ウィンドウの現在のサイズです。
+     * [top]/[bottom] は遠ざけるトップバーと入力ボックスの高さ、[margin] は端からの距離です。
      */
     data class Bounds(
         val width: Float,
@@ -26,7 +26,7 @@ object PipPhysics {
         val top: Float,
         val bottom: Float,
     ) {
-        /** 地方不够(窗口太窄或太矮,比如键盘弹出)时宁可靠左上,也不钻到顶栏下面。 */
+        /** 十分なスペースがない場合 (キーボードがポップアップする場合など、ウィンドウが狭すぎるか短すぎる場合)、トップバーの下にドリルで穴を開けるよりも、左上に固定する方が良いでしょう。 */
         fun position(c: Corner): Pair<Float, Float> {
             val left = margin
             val right = maxOf(left, width - pipWidth - margin)
@@ -43,10 +43,10 @@ object PipPhysics {
 
     private const val DECELERATION = 0.998f
 
-    /** 以 [velocity](像素/秒)甩出后,按每毫秒衰减到 0.998 倍的减速,最终还能滑多远。 */
+    /** が [velocity] (ピクセル/秒) でスローされた後、1 ミリ秒あたり 0.998 回まで減速して、最終的にどこまでスライドできるかを決定します。 */
     fun project(velocity: Float): Float = (velocity / 1000f) * DECELERATION / (1f - DECELERATION)
 
-    /** 从 ([x],[y]) 以速度 ([vx],[vy]) 松手后应吸附的角。 */
+    /** 速度 ([vx]、[vy]) で ([x]、[y]) から手を放した後にスナップするはずのコーナー。 */
     fun snapCorner(x: Float, y: Float, vx: Float, vy: Float, bounds: Bounds): Corner {
         val px = x + project(vx)
         val py = y + project(vy)
@@ -56,14 +56,14 @@ object PipPhysics {
         }
     }
 
-    /** 一维弹簧的状态:位置与速度。 */
+    /** 一次元ばねの状態: 位置と速度。 */
     data class Motion(val position: Float, val velocity: Float)
 
     class Spring(response: Float = 0.4f, dampingRatio: Float = 1f) {
         private val stiffness = (2 * PI / response).pow(2).toFloat()
         private val damping = (4 * PI * dampingRatio / response).toFloat()
 
-        /** 前进 [dt] 秒(半隐式欧拉;单帧最长按 32 毫秒算,掉帧时不至于发散)。 */
+        /** [dt] 秒転送します (半暗黙的オイラー。最長の単一フレームは 32 ミリ秒として計算され、フレームがドロップされても発散しません)。 */
         fun step(m: Motion, target: Float, dt: Float): Motion {
             val t = dt.coerceIn(0f, MAX_DT)
             val v = m.velocity + (-stiffness * (m.position - target) - damping * m.velocity) * t

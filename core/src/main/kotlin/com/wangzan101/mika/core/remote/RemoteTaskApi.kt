@@ -15,7 +15,7 @@ import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import java.net.URLDecoder
 
-/** 普通 HTTP/JSON 适配器。无需 MCP 握手、工具发现或 tools/call;认证由 RemoteHost 统一执行。 */
+/** 共通の HTTP/JSON アダプター。 MCP ハンドシェイク、ツール検出、ツール/呼び出しは必要ありません。認証は RemoteHost によって一律に実行されます。 */
 class RemoteTaskApi(
     private val service: RemoteTaskService,
     private val serverVersion: String,

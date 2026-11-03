@@ -2,6 +2,7 @@ package com.wangzan101.mika.core.action
 
 import com.wangzan101.mika.core.risk.IrrevAction
 import com.wangzan101.mika.core.gate.Irreversible
+import com.wangzan101.mika.core.gate.IrreversibleDetector
 import com.wangzan101.mika.core.uistate.ScreenSnapshot
 import com.wangzan101.mika.core.uistate.UiElement
 import kotlinx.serialization.json.JsonObject
@@ -10,23 +11,23 @@ import kotlinx.serialization.json.contentOrNull
 import com.wangzan101.mika.core.tool.Verb
 
 /**
- * 一个动作的风险。[hit] 是不可逆判定的结果(不用判或没命中为 null);[screen] 是判定所依据的那一屏,用到时才读。
- * 工具自己声明风险之后换掉实现即可,判定和审批不用改。
+ * 1 つのアクションのリスク。 [hit] は不可逆判定の結果です (判定なしまたはヒットなしは null)。 [screen] は判定の元となる画面ですので、使用する場合のみお読みください。
+ * ツール自身がリスクを申告して実装を差し替えられます。判定や承認を変更する必要はありません。
  */
 fun interface RiskJudge {
     fun assess(verb: Verb?, hit: Irreversible?, screen: () -> ScreenSnapshot?): Risk
 }
 
-/** 按现有的不可逆判定和读屏信号分级;花不花钱按动作类别和屏上的金额认,不按 App。 */
+/** 既存の不可逆判定と画面の情報で分類します。支出を伴うかはアプリではなく、アクションの分類と画面上の金額で判断します。 */
 object ClassifiedRisk : RiskJudge {
-    /** 改界面上东西的动作;其余写操作(返回、滑动、打开 App、打开网址)只是在界面间移动。 */
+    /** はインターフェース上の動作を変更します。他の書き込み操作 (戻る、スライド、アプリを開く、URL を開く) はインターフェイス間を移動するだけです。 */
     private val CHANGE_VERBS = setOf(Verb.Tap, Verb.TypeText, Verb.ClearText, Verb.PressKey, Verb.Upload, Verb.Interact)
 
-    /** 这个动作会改界面上的东西(不只是在界面间移动);不可逆、对外的动作也都是这几种动作做出来的。 */
+    /** このアクションは、インターフェイス上の内容を変更します (インターフェイス間を移動するだけではありません)。これらのアクションによって、不可逆的な外部アクションも行われます。 */
     fun changesState(verb: Verb?): Boolean = verb in CHANGE_VERBS
 
-    /** 屏上带币种(¥、元、$)的金额:这时提交、删除一类的动作按花钱算(结算页上的「确认」「去支付」);发消息不花钱,不算。 */
-    private val AMOUNT = Regex("[¥￥$＄]\\s*\\d|\\d+(\\.\\d+)?\\s*元")
+    /** 不可逆判定と同じ通貨・数字表記を使います。金額のある画面での提出・削除は支出として扱い、通常のメッセージ送信は除外します。 */
+    private val AMOUNT = IrreversibleDetector.AMOUNT
 
     override fun assess(verb: Verb?, hit: Irreversible?, screen: () -> ScreenSnapshot?): Risk {
         val level = when (hit?.action) {
@@ -37,11 +38,13 @@ object ClassifiedRisk : RiskJudge {
         }
         if (hit == null) return Risk(level)
         val payment = hit.action == IrrevAction.pay || hit.action == IrrevAction.order ||
-            hit.action != IrrevAction.send && screen()?.elements?.any { !it.editable && AMOUNT.containsMatchIn(it.name) } == true
+            hit.action != IrrevAction.send && screen()?.elements?.filter { !it.editable && !it.hint }?.let { shown ->
+                shown.any { AMOUNT.containsMatchIn(IrreversibleDetector.rowText(it, shown)) }
+            } == true
         return Risk(level, payment)
     }
 
-    /** 动作落在哪个元素上:带编号的按编号找,打字落在有焦点的输入框,坐标点击取包含该点的最小元素。 */
+    /** アクションが該当する要素: 番号付きの要素を番号で検索し、フォーカスされた入力ボックスに入力し、座標をクリックして、その点を含む最小の要素を取得します。 */
     fun target(verb: Verb?, args: JsonObject, s: ScreenSnapshot): UiElement? {
         fun str(k: String) = (args[k] as? JsonPrimitive)?.contentOrNull
         str("ref")?.let { ref -> return s.elements.firstOrNull { it.ref == ref } }

@@ -39,21 +39,21 @@ import com.wangzan101.mika.core.uistate.withPortRef
 
 private const val KEYCODE_ENTER = 66
 
-/** 输入、清空另收的参数:一个点的坐标(ref 也可以是看图找到的 @vN),树读不到输入框时直接往那一点打字。 */
+/** 追加パラメータを入力してクリアします: 点の座標 (参照は、@vN の画像を見ることで見つけることもできます)。ツリーが入力ボックスを読み取れない場合は、その箇所に直接入力します。 */
 private val POINT_ARGS = mapOf(
     "x" to int("Instead of a ref: the input box's point (e.g. a visibleText center), tapped before typing. $COORD", 0, 999),
     "y" to int(COORD, 0, 999),
 )
 
-/** 往哪儿打字:树里的元素(编号),或一个点(像素;[located] 是看图找到的 @vN,不是为 null)。 */
+/** 入力する場所: ツリー内の要素 (数値)、またはポイント (ピクセル。[located] は、ピクチャ @vN を調べて見つかりました。null ではありません)。 */
 private sealed interface FieldAim {
     data class Ref(val ref: Pair<String, String>?) : FieldAim
     data class Point(val x: Int, val y: Int, val located: String?) : FieldAim
 }
 
 /**
- * 按参数定往哪儿打字:没给点时是编号(或焦点所在的框);给了坐标或 @vN 时是那一点,@vN 要和找到时的画面对得上。
- * 不能用的 @vN 返回给模型的失败结果。
+ * パラメータに従って入力する場所を決定します。点が指定されていない場合、それは数値 (またはフォーカスがあるフレーム) です。座標または @vN が指定されている場合、それが点であり、@vN は見つかったときに画像と一致する必要があります。
+ * 使用不可 @vN 失敗の結果がモデルに返されました。
  */
 private suspend fun aim(a: Args, ctx: ToolContext): Pair<FieldAim?, ToolExecution?> {
     val ref = a.ref(located = true)
@@ -72,7 +72,7 @@ private suspend fun aim(a: Args, ctx: ToolContext): Pair<FieldAim?, ToolExecutio
     return FieldAim.Ref(ref) to null
 }
 
-/** 往看图找到的点上打字、清空时结果里写上找的是什么;没佐证的点标出来。 */
+/** 画像を見て見つけた点を入力し、クリアするときに結果で探している内容を書き込みます。裏付けとなる証拠なしに要点をマークします。 */
 private fun located(ctx: ToolContext, aim: FieldAim?, r: ToolExecution): ToolExecution {
     val ref = (aim as? FieldAim.Point)?.located ?: return r
     val info = ctx.locatedInfo[ref] ?: return r
@@ -80,12 +80,12 @@ private fun located(ctx: ToolContext, aim: FieldAim?, r: ToolExecution): ToolExe
     return if (extra.isEmpty()) r else r.with(content = JsonObject(r.content + extra))
 }
 
-/** 输入(带回车时可能是发送,要按目标判不可逆)。 */
+/** 入力(台車を持ち帰る際に送信される場合があり、対象に応じて不可逆と判断する必要があります)。 */
 internal class TypeText(f: ScreenFamily) : ScreenTool(f, "type_text") {
     override val verb = Verb.TypeText
     override val batchable = true
     override val routable = f.routable
-    override val label = "输入文字"
+    override val label = "テキストを入力"
     override val risk = Risk.External
     override val gateTarget = GateTarget.Enter
     override val showsScreenAfter = true
@@ -124,7 +124,7 @@ internal class TypeText(f: ScreenFamily) : ScreenTool(f, "type_text") {
             put("recoverable", true)
         })
         val switched = typed.appSwitched
-        // 读不回来就不按回车:可能把没打进去的内容提交出去;前台被切走时回车会打到别的 App 上
+        // 読み返せない場合は、Enter キーを押さないでください。入力されていないコンテンツが送信される可能性があります。フロントデスクが切り替わったときに Enter を押すと、他のアプリに入力されます。
         val pressEnter = enter && v != Verification.UNKNOWN && switched == null
         if (pressEnter) {
             val k = screen.pressKey(KEYCODE_ENTER)
@@ -150,7 +150,7 @@ internal class TypeText(f: ScreenFamily) : ScreenTool(f, "type_text") {
 
     override fun logTarget(o: JsonObject, r: ToolExecution, ctx: ToolContext) = refTarget(o, r, ctx.lastSnapshot) ?: pointTarget(o)
 
-    // 只有端口明确说不是密码框才写出输入的字
+    // ポートがパスワード ボックスではないことを明確に示している場合にのみ、入力された単語が書き込まれます。
     override fun logTyped(o: JsonObject, r: ToolExecution) =
         o.argStr("text")?.takeIf { r.content["secret"] == JsonPrimitive(false) }?.let { "「${it.take(40)}」" }
 }
@@ -159,7 +159,7 @@ internal class ClearText(f: ScreenFamily) : ScreenTool(f, "clear_text") {
     override val verb = Verb.ClearText
     override val batchable = true
     override val routable = f.routable
-    override val label = "清空输入框"
+    override val label = "入力欄をクリア"
     override val risk = Risk.Write
     override val showsScreenAfter = true
     override val reportsEffect = true
@@ -179,5 +179,5 @@ internal class ClearText(f: ScreenFamily) : ScreenTool(f, "clear_text") {
     override fun logTarget(o: JsonObject, r: ToolExecution, ctx: ToolContext) = refTarget(o, r, ctx.lastSnapshot) ?: pointTarget(o)
 }
 
-/** 往坐标点上打字、清空时动作清单里写的对象。 */
+/** 座標点を入力してクリアするときにアクション リストに書き込まれるオブジェクト。 */
 private fun pointTarget(o: JsonObject): String? = o["x"]?.let { x -> "${x},${o["y"]}" }

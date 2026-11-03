@@ -15,7 +15,7 @@ import kotlinx.serialization.json.contentOrNull
 import com.wangzan101.mika.core.tool.ToolIndex
 import com.wangzan101.mika.core.tool.Verb
 
-/** [estimate]:[messages] 的 token 粗估(未校准),发出后和真实用量比对用。[rewritten]:这次是否改写了请求前缀。 */
+/** [estimate]: [messages] のトークンは概算 (未校正) であり、発行後に実際の使用量と比較するために使用されます。 [rewritten]: 今回リクエストのプレフィックスが書き換えられたかどうか。 */
 data class Compressed(
     val messages: List<Message>,
     val foldedSteps: Int,
@@ -24,59 +24,59 @@ data class Compressed(
 )
 
 /**
- * 请求按缓存分区:区 0 系统提示词与工具(任务内不变)→ 区 1 开局上下文(只写一次)→ 区 2 历史(只追加)→ 区 3 尾部
- * (这一步的结果、画面、运行时状态)。服务商按前缀缓存,所以发过的消息平常一律原样再发。
+ * リクエストはキャッシュによって分割されます: エリア 0 システム プロンプト ワードおよびツール (タスク内で変更なし) → エリア 1 デプロイメント コンテキスト (1 回のみ書き込まれます) → エリア 2 履歴 (追加のみ) → エリア 3 末尾
+ * (このステップの結果、画面、実行時ステータス)。サービスプロバイダーはプレフィックスごとにキャッシュするため、通常、一度送信されたメッセージはそのまま再送信されます。
  *
- * 只在整份请求的大小([UsageMeter]:最近一次真实用量 + 之后的估算)越过触发点([ContextLimits.trigger])时压缩一次:
- * 先把最近 [keepRecent] 次工具往返之前的旧结果、旧图缩短
- * ([HistoryPruner.prune]),还超就把这些往返折成一条确定性的「之前的步骤」摘要(不调模型);任务原话、插话、参考资料、
- * 交回与追问的往返不折。压缩要压到 [ContextLimits.target] 以下(压不到就用能压到的最小一级),
- * 之后的请求 = 这次压缩的结果 + 其后追加的消息,只追加,直到再次越过触发点(压完至少再长一个 [ContextLimits.margin])。
- * 往返整段删除,调用与结果的配对始终完整。
- * 只返回副本,调用方的完整历史不变。一个任务一个实例;状态按上下文大小分开记。
+ * は、リクエスト全体のサイズ ([UsageMeter]: 最新の実際の使用量 + その後の推定値) がトリガー ポイント ([ContextLimits.trigger]) を超えるときに 1 回だけ圧縮されます。
+ * 最近の [keepRecent] ツールの往復の前に、まず古い結果と古い画像を短縮します。
+ * ([HistoryPruner.prune])、Huancao は、これらの往復を (モデルを調整せずに) 決定論的な「以前のステップ」の要約に折り畳みます。タスクの元の単語、中断、参考資料、
+ * 引き渡しから尋問までの往復に妥協はありません。圧縮は [ContextLimits.target] 未満である必要があります (圧縮できない場合は、圧縮できる最小レベルを使用します)。
+ * 以降のリクエスト = この圧縮の結果 + 後続の追加メッセージ。トリガー ポイントを再度通過するまでのみ追加されます (圧縮後に少なくとも 1 つ以上の [ContextLimits.margin] が追加されます)。
+ * ラウンドトリップはセグメント全体を削除し、呼び出しと結果のペアリングは常に完了します。
+ * コピーのみが返され、呼び出し元の完全な履歴は変更されません。タスクごとに 1 つのインスタンス。ステータスはコンテキスト サイズに応じて個別に記録されます。
  *
- * [structured]:摘要写成「目标 / 已确认的事实 / 进展 / 下一步」([StepSummary])。
- * [diffScreens]:动作结果带差异屏幕(inlineScreen)。
+ * [structured]: 概要は「目標/確認された事実/進捗状況/次のステップ」([StepSummary]) として記述されます。
+ * [diffScreens]: 差分画面(inlineScreen)でのアクション結果。
  */
 class ContextCompressor(
-    /** 按调用的工具名查它做的动作。 */
+    /** 呼び出されたツール名によって実行されるアクションを確認します。 */
     private val tools: ToolIndex,
     private val keepRecent: Int = 12,
     private val structured: Boolean = false,
     private val diffScreens: Boolean = false,
     private val triggerOverride: Int? = null,
 ) {
-    /** 「真实 / 粗估」比值:每次用量回来就平滑更新([TokenEstimate.calibrated]);只决定什么时候压缩、压到哪一级,不改发过的内容。 */
+    /** 「実際/概算」比率: 使用量が戻るたびにスムーズに更新されます ([TokenEstimate.calibrated])。圧縮する時期とレベルを決定するだけであり、送信されたコンテンツは変更されません。 */
     private var observed: Double? = null
-    /** 估算乘的比值:校准过用校准值,还没有真实用量时用偏保守的 [UNCALIBRATED_SCALE]。消息和固定开销都乘它。 */
+    /** 推定乗算比: 校正後の校正値を使用し、実際の投与量が利用できない場合は保守的な [UNCALIBRATED_SCALE] を使用します。メッセージと固定オーバーヘッドの両方にそれが乗算されます。 */
     internal val scale: Double get() = observed ?: UNCALIBRATED_SCALE
 
-    /** 上一次压缩:它覆盖的完整历史开头 [covered],压成的 [base](粗估 [estimate]);[aggressive]:按模型报超长那一档压的。 */
+    /** 最終圧縮: [covered] から始まる完全な履歴をカバーし、[base] (おおよその推定値 [estimate]) に圧縮されます。 [aggressive]: モデルに応じて超長距離で圧縮されます。 */
     private class View(val covered: List<Message>, val base: List<Message>, val folded: Int, val aggressive: Boolean) {
         val estimate = TokenEstimate.of(base)
     }
     private val views = HashMap<Int, View>()
 
-    /** 一次请求发出后:[estimated] 是这次请求的粗估(含固定开销),[actual] 是服务商报的输入 token。 */
+    /** リクエストの送信後: [estimated] はこのリクエストの概算値 (固定オーバーヘッドを含む)、[actual] はサービス プロバイダーによって報告された入力トークンです。 */
     fun calibrate(estimated: Int, actual: Int) {
         observed = TokenEstimate.calibrated(observed, estimated, actual)
     }
 
-    /** 新任务:压缩状态清空(校准比值留着,同一个模型)。 */
+    /** 新しいタスク: 圧縮状態をクリアします (キャリブレーション比を維持、同じモデル)。 */
     fun forget() = views.clear()
 
     private fun tokens(ms: List<Message>) = TokenEstimate.of(ms) * scale
 
-    /** 上一次压缩之后实际会发出的消息(没有压缩过就是完整历史);调用方据此算当前上下文大小。 */
+    /** 最後の圧縮後に実際に送信されるメッセージ (圧縮されていない場合は、完全な履歴です)。呼び出し元はこれに基づいて現在のコンテキスト サイズを計算します。 */
     fun current(history: List<Message>, contextTokens: Int): List<Message> =
         sent(valid(views[contextTokens], history), history)
 
     /**
-     * [currentTokens]:整份请求的大小(含固定开销,见 [UsageMeter]);null 时按 [current] 加 [fixedOverhead] 全量估算。越过触发点才压缩。
-     * [aggressive]:模型已报上下文超长,不看估算,按只留最近 [AGGRESSIVE_KEEP] 次往返压一次(之后照样只追加)。
-     * [fixedOverhead]:每次都要发、但不在 [history] 里的部分(基础提示词、工具定义)的估算(未乘比值);
-     * 只在估算整份请求、以及算消息能占多少时用,触发点本身不扣它。
-     * [maxImages]:服务商一次请求最多收几张图(发过的图平常不换成占位,超过它才从最早的换)。
+     * [currentTokens]: リクエスト全体のサイズ (固定オーバーヘッドを含む、[UsageMeter] を参照)。 null の場合、[current] と [fixedOverhead] を加算して全額を推定します。トリガーポイントを越えるまで圧迫は起こりません。
+     * [aggressive]: モデルはコンテキストが長すぎると報告しました。見積もりは見ないでください。最新の [AGGRESSIVE_KEEP] 往復押しを 1 回だけ保持するには、これを押します (その後は追加のみ)。
+     * [fixedOverhead]: 毎回送信する必要があるが、[history] には含まれていない部分 (基本的なプロンプト ワード、ツール定義) の推定 (比率は乗算されません)。
+     * は、リクエスト全体を見積もり、メッセージが占めることができる量を計算する場合にのみ使用されます。トリガーポイント自体は減点されません。
+     * [maxImages]: サービス プロバイダーは、一度に最大数の画像を受信できます (送信された画像は通常、プレースホルダーに置き換えられず、それを超える場合は最も古い画像に置き換えられます)。
      */
     fun compress(
         history: List<Message>,
@@ -91,7 +91,7 @@ class ContextCompressor(
         val view = valid(last, history)
         val sent = sent(view, history)
         val size = currentTokens ?: UsageMeter.of(sent, fixedOverhead, scale)
-        // 回差:压缩之后至少再长一个 margin 才再压,压不到触发点以下的历史也不会每步都压;但不越过可用窗口,越过了每步都得压
+        // ヒステリシス: 圧縮後、再度圧縮する前に少なくとも 1 つのマージンが必要になります。履歴をトリガー ポイントより下に圧縮できない場合、ステップごとに圧縮されるわけではありません。ただし、利用可能なウィンドウを超えることはなく、ステップごとに圧縮されます。
         val trigger = view?.let {
             maxOf(limits.trigger, UsageMeter.estimate(it.estimate + fixedOverhead, scale) + limits.margin).coerceAtMost(limits.usable)
         } ?: limits.trigger
@@ -103,8 +103,8 @@ class ContextCompressor(
     }
 
     /**
-     * 模型报了上下文超长:从完整历史重新按狠的一档压一次(上次狠压之后历史又长了也重压)。
-     * 压出来的比刚发出的小才换上并返回 true(调用方据此重发一次);一样大说明压不动了,返回 false。
+     * モデルは、コンテキストが長すぎることを報告します。完全な履歴から最初のレベルを再度押します (履歴は長くなり、最後に強く押した後の圧力はさらに重くなります)。
+     * 押されたものが今送信したものより小さい場合は、それを置き換えて true を返します (呼び出し側はそれに応じてそれを再送信します)。同じサイズの場合は押せないことを意味するので false を返します。
      */
     fun overflow(history: List<Message>, contextTokens: Int, fixedOverhead: Int = 0): Boolean {
         val current = sent(valid(views[contextTokens], history), history)
@@ -114,19 +114,19 @@ class ContextCompressor(
         return true
     }
 
-    /** 压缩覆盖的那段历史没被改过才接着用;否则(不会发生在正常流程里)重新压。 */
+    /** 圧縮の対象となる履歴が変更されていない場合にのみ使用します。それ以外の場合は (通常のプロセスでは起こりません)、再圧縮します。 */
     private fun valid(v: View?, history: List<Message>) = v?.takeIf { it.covered.size <= history.size && history.subList(0, it.covered.size) == it.covered }
 
-    /** 总是副本:调用方的历史随后还会追加。 */
+    /** 常にコピー: 発信者の履歴は後で追加されます。 */
     private fun sent(view: View?, history: List<Message>) =
         if (view == null) history.toList() else view.base + history.subList(view.covered.size, history.size)
 
     /**
-     * 一次压缩,从轻到重,取第一个让整份请求压到 [ContextLimits.target] 以下的(都压不到取最重的):
-     * 只缩短最近 [keepRecent] 次往返之前的旧结果 → 再把它们折进摘要 → 只留最近一次往返原样、其余缩短后再折,
-     * 原样留的往返依次为 [keepRecent]、[AGGRESSIVE_KEEP]、1 次。模型报过超长时从 [AGGRESSIVE_KEEP] 起。
-     * 最重的一级整份请求仍超过 [ContextLimits.usable](最近的结果本身太大)时,从最新的开始缩短大结果,直到放得下。
-     * 比较的是消息的估算:目标和可用窗口先扣掉固定开销(同一个比值),固定开销只算这一次。
+     * は軽いものから重いものへと 1 回圧縮され、最初のリクエストは [ContextLimits.target] 以下のリクエスト全体を圧縮するために使用されます (最も重いリクエストは圧縮できません)。
+     * 最新の[keepRecent]往復前の古い結果のみを短縮→サマリーに折り込み→最新の往復だけ残し、残りを短縮して折り込みます。
+     * の往復は[keepRecent]、[AGGRESSIVE_KEEP]、1回となります。モデルが長すぎると報告された場合、モデルは [AGGRESSIVE_KEEP] から始まります。
+     * 最も重い第 1 レベルのリクエスト全体が依然として [ContextLimits.usable] を超える場合 (最新の結果自体が大きすぎる)、最新の結果から始めて、対応できるまで大きな結果を短縮します。
+     * はメッセージの推定値を比較します。ターゲット ウィンドウと利用可能なウィンドウから最初に固定オーバーヘッド (同じ比率) が差し引かれ、今回は固定オーバーヘッドのみがカウントされます。
      */
     private fun compact(history: List<Message>, limits: ContextLimits, fixedOverhead: Int, aggressive: Boolean): View {
         val overhead = UsageMeter.estimate(fixedOverhead, scale)
@@ -147,26 +147,26 @@ class ContextCompressor(
             if (tokens(c.messages) <= target) break
         }
         if (tokens(chosen.messages) > window) chosen = chosen.copy(messages = HistoryPruner.shrinkOversized(chosen.messages) { tokens(it) <= window })
-        // 副本:什么都没裁时 chosen 可能就是调用方那份还会追加的历史
+        // コピー: 何もカットされない場合、追加される発信者の履歴が選択される可能性があります。
         return View(history.toList(), chosen.messages.toList(), chosen.foldedSteps, aggressive)
     }
 
     private fun fold(pruned: List<Message>, keep: Int, aggressive: Boolean): Compressed {
-        // 一个往返 = 一条助手消息及其后到下一条助手消息之前的消息;之前的是开头(任务原话、标准等)
+        // 往復 = アシスタント メッセージと次のアシスタント メッセージの前のメッセージ。前のものが始まり（タスクオリジナルの言葉、基準など）
         val starts = pruned.indices.filter { pruned[it].role == Role.Assistant }
         if (starts.isEmpty()) return Compressed(pruned, 0)
         val toolStarts = starts.filter { i -> pruned[i].parts.any { it is Part.ToolCall } }
         if (toolStarts.size <= keep) return Compressed(pruned, 0)
         val cut = toolStarts[toolStarts.size - keep]
-        // 动作自带屏幕:折叠边界前最近一次全量读屏和它之后的差异链不折,差异要靠它们才看得懂(狠压缩时照折,分发器随后发全量);
+        // アクションには画面が付属しています。折りたたみ境界線の前の最新の全画面表示とその後の違いは密接に関連しており、その違いを理解するのはそれらに依存します (ハード圧縮時に折りたたむと、ディストリビューターは全画面を送信します)。
         val rounds = starts.mapIndexed { k, start -> pruned.subList(start, starts.getOrElse(k + 1) { pruned.size }) }
         val screenRounds = rounds.map(::screenKind)
         val before = starts.count { it < cut }
         val anchor = if (aggressive || !diffScreens) -1 else (0 until before).lastOrNull { screenRounds[it] == ScreenKind.FULL } ?: -1
 
         val out = ArrayList<Message>(pruned.subList(0, starts.first()))
-        // 每段连续折叠的往返各得一条摘要,放在这一段原来的位置;中间保留的往返把段隔开。
-        // 结构化时只有一份摘要,放在第一段的位置,各段的步骤依次并进去
+        // 連続して折り畳まれたラウンドトリップごとに要約が取得され、このセクションの元の位置に配置されます。途中で予約された往復がセクションを区切ります。
+        // が構造化されている場合、概要は 1 つだけあり、最初の段落に配置され、各段落のステップが順番に含まれます。
         var block: MutableList<String>? = null
         var blockAt = 0
         var folded = 0
@@ -179,7 +179,7 @@ class ContextCompressor(
         starts.takeWhile { it < cut }.forEachIndexed { k, start ->
             val end = starts.getOrElse(k + 1) { pruned.size }
             val round = pruned.subList(start, end)
-            // 每轮只执行第一个调用,其余都以 parallel_tool_call_skipped 退回,所以按第一个调用判断要不要保留
+            // は各ラウンドの最初の呼び出しのみを実行し、残りはParallel_tool_call_skippedで返されるため、最初の呼び出しに基づいて保持するかどうかを判断します
             val call = round.first().parts.filterIsInstance<Part.ToolCall>().firstOrNull()
             if (tools.verb(call?.name) in PINNED_VERBS || (anchor >= 0 && k >= anchor && screenRounds[k] != ScreenKind.NONE)) {
                 closeBlock()
@@ -205,7 +205,7 @@ class ContextCompressor(
 
     private enum class ScreenKind { NONE, FULL, DIFF }
 
-    /** 这一轮的结果里有没有屏幕:observe/list_elements 的完整元素列表或 screen.full 为真算全量,其余 screen 算差异。 */
+    /** このラウンドの結果に画面はありますか。observe/list_elements の完全な要素リスト、または screen.full が true の場合、全額がカウントされ、残りの画面は差分としてカウントされます。 */
     private fun screenKind(round: List<Message>): ScreenKind {
         val verbs = round.flatMap { it.parts }.filterIsInstance<Part.ToolCall>().associate { it.id to tools.verb(it.name) }
         var kind = ScreenKind.NONE
@@ -225,20 +225,20 @@ class ContextCompressor(
 
     private fun notice(text: String) = Message(Role.User, listOf(Part.Text(ContextBuilder.envelope(ContextKind.Notice, SUMMARY_SOURCE, text))), Author.Mika)
 
-    /** 开头里用户的原话(不在上下文外壳里的那条)。 */
+    /** 先頭のユーザーの元の単語 (コンテキスト シェルにない単語)。 */
     private fun goal(head: List<Message>): String = head.firstOrNull { it.author == Author.User }
         ?.parts?.filterIsInstance<Part.Text>()?.firstOrNull()?.text?.replace('\n', ' ')?.trim()?.let { if (it.length <= GOAL_LIMIT) it else it.take(GOAL_LIMIT) + "…" }
         .orEmpty()
 
-    /** 这一轮成功的工具结果。 */
+    /** このラウンドのツールの結果は成功しました。 */
     private fun okResults(round: List<Message>): List<JsonObject> = round.flatMap { it.parts }.filterIsInstance<Part.ToolResult>()
         .filter { !it.isError }.mapNotNull { parse(it.content) }.filter { (it["ok"] as? JsonPrimitive)?.booleanOrNull != false }
 
-    /** 模型这一轮说的话。 */
+    /** モデルがこのラウンドで言ったこと。 */
     private fun said(round: List<Message>): String? =
         round.first().parts.filterIsInstance<Part.Text>().joinToString(" ") { it.text }.trim().takeIf { it.isNotEmpty() }
 
-    /** 折叠时随轮次保留的上下文(参考资料、技能等,见 [ContextKind.pinned])。 */
+    /** 折りたたまれたときにラウンドとともに保持されるコンテキスト (参考資料、スキルなど、[ContextKind.pinned] を参照)。 */
     private fun isPinnedContext(m: Message) = ContextBuilder.kindOf(m)?.pinned == true
 
 
@@ -247,8 +247,8 @@ class ContextCompressor(
         val result = round.firstNotNullOfOrNull { m ->
             m.parts.firstNotNullOfOrNull { (it as? Part.ToolResult)?.takeIf { r -> r.callId == call.id } }
         }
-        // 读屏留下截图编号,折叠后仍能用 view_past_screens 回看
-        // 写操作结果带的屏幕(screen)也有截图编号;没带屏幕时动作后附的画面编号在结果顶层
+        // は画面を読み取り、スクリーンショット番号を残します。この番号は、view_past_screens レビューを折りたたんだ後も使用できます。
+        // 書き込み操作結果の画面にはスクリーンショット番号も付いています。画面がない場合、アクションに関連付けられた画面番号が結果の最上位に表示されます。
         val shot = result?.let { parse(it.content) }?.let { o -> if (tools.verb(call.name) in OBSERVATIONS) o["screenshotId"] else (o["screen"] as? JsonObject)?.get("screenshotId") ?: o["screenshotId"] }
             ?.let { it as? JsonPrimitive }?.contentOrNull?.let { " #$it" }.orEmpty()
         return "Step $step ${clip(call.name)}$target$shot → ${outcome(result)}"
@@ -258,13 +258,13 @@ class ContextCompressor(
         r ?: return NO_RESULT
         val obj = parse(r.content)
         if (obj == null) {
-            // 不是 JSON:出错时能认出错误码就写错误码
+            // は JSON ではありません: エラーが発生したときに認識できる場合はエラー コードを書き込みます
             val code = r.content.trim().takeIf { CODE.matches(it) }
             return if (r.isError) code ?: FAILED else APPLIED
         }
         fun s(k: String) = (obj[k] as? JsonPrimitive)?.contentOrNull
         return when {
-            // 只认错误码;说明文字可长可短,不进摘要
+            // はエラー コードのみを認識します。説明テキストは長くても短くてもよく、要約は含まれません。
             r.isError || (obj["ok"] as? JsonPrimitive)?.booleanOrNull == false -> (s("error") ?: s("reason"))?.takeIf { CODE.matches(it) } ?: FAILED
             (obj["changed"] as? JsonPrimitive)?.booleanOrNull == false -> UNCHANGED
             else -> APPLIED
@@ -296,7 +296,7 @@ class ContextCompressor(
         private const val SUMMARY_SOURCE = "earlier steps"
         const val AGGRESSIVE_KEEP = 6
         /**
-         * 还没有真实用量可校准时估算乘的比值。粗估对英文、JSON 常偏少(分词器切得更碎),宁可早一点压,不要先超长再狠压。
+         * 校正時に乗算比を推定するための実際の量はありません。大まかに見積もると、英語と JSON は小さすぎることがよくあります (トークナイザーはそれらをより小さな部分に分割します)。最初に長く押しすぎてから強く押すよりも、早めに押す方が良いです。
          */
         const val UNCALIBRATED_SCALE = 1.2
         private const val APPLIED = "applied"
@@ -306,7 +306,7 @@ class ContextCompressor(
         private const val TARGET_LIMIT = 20
         private const val GOAL_LIMIT = 120
         private val CODE = Regex("[a-z][a-z0-9_:]{0,63}")
-        /** 交回、追问与确认的结果(不论回答是工具结果还是随后的用户消息)整段保留。 */
+        /** 提出、質問、確認の結果 (回答がツールの結果であるか、後続のユーザー メッセージであるかに関係なく) は完全に保持されます。 */
         private val OBSERVATIONS = setOf(Verb.Observe, Verb.ListElements)
         private val PINNED_VERBS = setOf(Verb.HandToUser, Verb.AskUser, Verb.RequestConfirmation)
         private val TARGET_KEYS = listOf("target", "text", "package", "query", "direction", "key", "name", "ref", "seconds")

@@ -13,19 +13,19 @@ import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import java.io.File
 
-/** 最近打开的一页:网址、标题(读不到时为空)、打开的时间。 */
+/** 最近開いたページ: URL、タイトル (読めない場合は空白)、開始時刻。 */
 data class RecentPage(val url: String, val title: String, val openedAtMs: Long)
 
 /**
- * 浏览器页「最近打开」:用户在 Mika 的浏览器页里打开过的网页,最近的在前,至多 [limit] 条。
- * 同一网址(不计 # 后面的部分)只留一条,再打开时挪到最前、标题换成新的。
- * 存在 App 私有目录的一个 JSON 文件里;文件坏了就从空表重新开始。
+ * ブラウザ ページ「最近開いた」: ユーザーがミカのブラウザ ページで開いた Web ページ (最新のものから [limit] まで)。
+ * 同じURL(#以降を除く)は1つだけ残ります。再度開くと最前面に移動し、タイトルが新しいものに置き換わります。 最初に近いのは
+ * は、アプリのプライベート ディレクトリ内の JSON ファイルに保存されます。ファイルが破損している場合は、空のテーブルからやり直してください。
  */
 class RecentPages(dir: File, private val limit: Int = LIMIT, private val clock: () -> Long = System::currentTimeMillis) {
     private val file = File(dir, FILE)
     private val _entries = MutableStateFlow(load())
 
-    /** 最近的在前。 */
+    /** です。 */
     val entries: StateFlow<List<RecentPage>> = _entries.asStateFlow()
 
     @Synchronized
@@ -37,7 +37,7 @@ class RecentPages(dir: File, private val limit: Int = LIMIT, private val clock: 
         save((listOf(page) + rest).take(limit))
     }
 
-    /** 当前页标题后到时补上:只改已有的那一条,不挪位置。 */
+    /** 必要に応じて、現在のページの後にタイトルを追加します。既存のページのみを変更し、位置は移動しないでください。 */
     @Synchronized
     fun retitle(url: String, title: String) {
         val key = key(url)
@@ -70,7 +70,7 @@ class RecentPages(dir: File, private val limit: Int = LIMIT, private val clock: 
         _entries.value = list
         file.parentFile?.mkdirs()
         val json = JsonArray(list.map { buildJsonObject { put("url", it.url); put("title", it.title); put("at", it.openedAtMs) } }).toString()
-        // 先写临时文件再改名,写到一半被杀不会留下半个文件
+        // 最初に一時ファイルを書き込んでから、名前を変更します。書き込みの途中で強制終了すると、ファイルの半分も残りません。
         val tmp = File(file.parentFile, "$FILE.tmp")
         tmp.writeText(json)
         if (!tmp.renameTo(file)) {

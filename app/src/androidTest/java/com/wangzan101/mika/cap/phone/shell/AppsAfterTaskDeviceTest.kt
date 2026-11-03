@@ -21,9 +21,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * 任务结束时 Mika 屏上的 App 怎么办(IMikaShell.finishDisplay):没出声的留下,挪到主屏最后面、不到用户眼前;
- * 下次经启动入口打开时同一个任务挪回 Mika 的屏;正在出声的、标了 close 的随屏关掉;标了 keep 的出声也留下。
- * 需要外壳已连上。用户的主屏不该有任何变化(焦点、焦点窗口都不变,留下的任务看不见)。
+ * タスクが終了したときに、Mika 画面上のアプリをどうするか (IMikaShell.finishDisplay): アプリを静かに放置し、ホーム画面の後ろに移動し、ユーザーの正面にいないようにします。
+ * 次回スタートアップ ポータルを開いたときに、同じタスクがミカの画面に戻されます。鳴っていて「閉じる」とマークされている音は、画面とともにオフになります。 keep マークが付いている音も残ります。
+ * はハウジングの取り付けが必要です。ユーザーのホーム画面は変更しないでください (フォーカスとフォーカス ウィンドウは変更されず、残りのタスクは表示されません)。
  */
 @RunWith(AndroidJUnit4::class)
 class AppsAfterTaskDeviceTest {
@@ -36,14 +36,14 @@ class AppsAfterTaskDeviceTest {
 
     @After fun tearDown() {
         screens.forEach { runCatching { it.close() } }
-        // 留在主屏后面的探针任务:挪回一块新屏再随屏关掉(就是下次打开的那条路)
+        // メイン画面の後ろに残されたプローブ タスク: 新しい画面を元の位置に移動し、画面と一緒に閉じます (つまり、次回開く方法)
         runCatching { ParityScreen(shell, 720, 1600, 320).use { s -> shell.startApp(s.id, TEST_PACKAGE); Thread.sleep(500) } }
         runCatching { probe.close() }
     }
 
     private fun newScreen() = ParityScreen(shell, 720, 1600, 320).also { screens += it }
 
-    /** 主屏此刻的焦点(最上层焦点屏、焦点窗口、焦点 Activity),不含「最上面的任务」:有的系统按最近使用排任务。 */
+    /** 現時点でのメイン画面のフォーカス (トップ フォーカス画面、フォーカス ウィンドウ、フォーカス アクティビティ) には、「トップ タスク」が含まれていません。一部のシステムは、最近の使用状況に応じてタスクを配置します。 */
     private fun mainFocus(): String = DeviceSupport.mainScreenState(shell).substringBefore(" topTask=")
 
     private fun Bundle.kept() = getStringArray(AppsAfterTask.KEY_KEPT)?.toList().orEmpty()
@@ -65,21 +65,21 @@ class AppsAfterTaskDeviceTest {
         assertNotNull(result)
         val note = result!!.getString(AppsAfterTask.KEY_NOTE)
         if (note?.contains(AppsAfterTask.NOTE_MOVE_UNSUPPORTED) == true) {
-            // 这台系统挪不了:照旧随屏关掉
+            // このシステムは移動できません。画面とともに電源を切る必要があります。
             assertEquals(listOf("$TEST_PACKAGE:${AppsAfterTask.Why.MoveUnsupported.wire}"), result.closed())
             assertNotNull(pollUntil(5_000) { true.takeIf { shell.displayOfTask(task) == -1 } })
             return
         }
         assertEquals("note=$note closed=${result.closed()}", listOf(TEST_PACKAGE), result.kept())
         assertEquals(Display.DEFAULT_DISPLAY, pollUntil(5_000) { shell.displayOfTask(task).takeIf { it == Display.DEFAULT_DISPLAY } })
-        // 不到用户眼前:看不见、焦点没变
+        // はユーザーには表示されません: 非表示、フォーカスは変化しません。 最近のタスクの
         assertFalse("kept task is visible on the main screen", shell.visibleOnMainScreen(TEST_PACKAGE, AppCopyReader.myUser))
         assertEquals("main screen focus changed", before, mainFocus())
-        // 在最近任务里:系统的任务列表里还有它
-        // 最近任务的记录里每个任务写成 Task{… #<编号> …}
+        // : システム タスク リストにもあります
+        // 最近のタスク レコード内の各タスクは、Task{… #<number> …} として書き込まれます。
         assertTrue("kept task is gone from recents", Regex("#$task\\b").containsMatchIn(sh("dumpsys activity recents")))
 
-        // 下次打开:同一个任务挪回 Mika 的新屏
+        // 次回開く: 同じタスクをミカの新しい画面に戻します
         val s2 = newScreen()
         probe.clear()
         assertEquals(ShellService.START_OK, shell.startApp(s2.id, TEST_PACKAGE))
@@ -92,7 +92,7 @@ class AppsAfterTaskDeviceTest {
     @Test fun playingAppIsClosedByDefault() {
         val s = newScreen()
         val task = probeOn(s.id, AUDIO_PROBE)
-        // 播放器报到音频服务要一会儿
+        // プレーヤーがオーディオ サービスに登録されるまでに時間がかかります。
         Thread.sleep(PLAYER_SETTLE_MS)
         val result = shell.finishDisplay(s.id, emptyArray(), emptyArray())!!
         assertEquals("kept=${result.kept()}", listOf("$TEST_PACKAGE:${AppsAfterTask.Why.Playing.wire}"), result.closed())

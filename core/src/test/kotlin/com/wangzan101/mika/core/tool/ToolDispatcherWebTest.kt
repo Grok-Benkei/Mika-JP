@@ -61,7 +61,7 @@ class ToolDispatcherWebTest {
         assertEquals("unknown_tool", plain.execute(call("web_observe")).content.s("error"))
         val o = plain.execute(call("phone_observe")).content
         assertFalse("surface" in o); assertEquals("com.x", o.s("currentApp"))
-        // 网页的整套工具都在(看图的几个要有看图模型,站点命令要有声明了命令的站点知识)
+        // Web ページのツール セット全体が利用可能です (画像を表示する人は画像表示モデルを持っている必要があり、サイト コマンドにはコマンドを宣言するサイトの知識が必要です)。
         val vision = setOf(Verb.Screenshot, Verb.Describe, Verb.FindVisually, Verb.SiteCommand)
         assertEquals(WEB_TOOLS.filter { verb(it) !in vision }.toSet(), d().definitions().map { it.name }.filter { it.startsWith("web_") }.toSet())
     }
@@ -80,22 +80,22 @@ class ToolDispatcherWebTest {
     @Test fun keepOpenMarksThePageAndSaysSo() = runTest {
         val web = FakeWebPort()
         val t = d(web = web)
-        // 没有留页的那一份:报不可用,不假装留下了
+        // 左ページのないページ: レポートは利用できません。レポートから離れるふりをしないでください。
         assertEquals("keep_open_unavailable", t.execute(call("web_keep_open", """{"reason":"接着播放"}""")).content.s("error"))
         web.keepAvailable = true
         val r = t.execute(call("web_keep_open", """{"reason":"接着播放"}""")).content
         assertEquals("true", r.s("ok")); assertEquals("true", r.s("keep")); assertEquals("shop.example.com", r.s("site")); assertEquals("2", r.s("hours"))
         assertFalse("replaces" in r)
-        // 已经留着别的网站的一页:说明那一页会被关掉
+        // が別の Web サイトからページを離れました: そのページは閉じられることを意味します
         web.keptHost = "course.example.org"
         val replaced = t.execute(call("web_keep_open", """{"reason":"接着播放"}""")).content
         assertEquals("course.example.org", replaced.s("replaces"))
         assertTrue(replaced.s("hint")!!.contains("course.example.org"))
-        // 撤销
+        // キャンセル
         val back = t.execute(call("web_keep_open", """{"reason":"不用了","keep":false}""")).content
         assertEquals("false", back.s("keep")); assertFalse("hours" in back)
         assertEquals(listOf("keepOpen true 接着播放", "keepOpen true 接着播放", "keepOpen false 不用了"), web.calls)
-        // 用户自己的页面不用留;崩了的报 tab_crashed;缺理由是参数错
+        // ユーザー自身のページを保存する必要はありません。クラッシュしたレポート tab_crashed;見つからない理由はパラメータエラーです
         web.usersPage = true
         assertEquals("users_page", t.execute(call("web_keep_open", """{"reason":"x"}""")).content.s("error"))
         web.usersPage = false; web.crash = true
@@ -116,7 +116,7 @@ class ToolDispatcherWebTest {
         t.execute(call("web_tap", """{"ref":"@e1","snapshotId":"${o.s("snapshotId")}"}"""))
         t.execute(call("web_back"))
         assertEquals(listOf("navigate https://shop.example.com/cart false", "snapshot", "tapRef @e1 wt1-1", "historyBack"), web.calls)
-        // 打开网页之后手机那一套照样作用在手机上
+        // Web ページを開いた後も、同じ携帯電話設定セットが携帯電話に適用されます。
         t.execute(call("phone_observe"))
         assertEquals(PHONE, t.surface)
         assertEquals(2, phone.snapshots); assertTrue(phone.calls.isEmpty())
@@ -131,12 +131,12 @@ class ToolDispatcherWebTest {
         val r = t.execute(call("web_tap", """{"ref":"@e1","snapshotId":"$sid"}""")).content
         assertEquals("obscured", r.s("error"))
         assertTrue(r.s("message"), r.s("message").contains("Covered by 「接受 Cookie」."))
-        assertTrue(r.s("message"), r.s("message").contains("covering"))
+        assertTrue(r.s("message"), "別のものがその要素を覆っている" in r.s("message") && "まずそれを閉じるか受け入れてから" in r.s("message"))
         for (code in listOf("offscreen", "key_not_allowed", "no_tab_open", "focus_moved")) {
             web.result = ActionResult.Failed(code)
             val f = t.execute(call("web_tap", """{"ref":"@e1","snapshotId":"$sid"}""")).content
             assertEquals(code, f.s("error"))
-            assertFalse(f.s("message"), f.s("message").startsWith("The action failed"))
+            assertFalse(f.s("message"), f.s("message").startsWith("その操作が失敗した"))
         }
     }
 
@@ -150,17 +150,17 @@ class ToolDispatcherWebTest {
         val w = t.execute(call("web_observe")).content
         val webSid = w.s("snapshotId")
         assertEquals("w1", webSid)
-        // 手机那一屏的编号交给网页的工具:不交给端口,说明它属于手机、该用哪个工具
+        // 携帯電話の画面の番号は、Web ページ上のツールに与えられます。ポートに与えられていない場合は、それが携帯電話に属し、どのツールを使用する必要があるかを意味します。
         val r = t.execute(call("web_tap", """{"ref":"@e1","snapshotId":"$phoneSid"}""")).content
         assertEquals("wrong_surface", r.s("error"))
         assertTrue(r.s("message"), "phone_tap" in r.s("message") && "web_observe" in r.s("message"))
         assertTrue(web.calls.none { it.startsWith("tapRef") })
-        // 反过来也一样
+        // およびその逆
         val back = t.execute(call("phone_tap", """{"ref":"@e1","snapshotId":"$webSid"}""")).content
         assertEquals("wrong_surface", back.s("error"))
         assertTrue(back.s("message"), "web_tap" in back.s("message") && "phone_observe" in back.s("message"))
         assertTrue(phone.calls.none { it.startsWith("tap") })
-        // 各自的编号照常翻译成端口编号(编号空间各归各的,@e1 在两块屏上可以同时有)
+        // のそれぞれの番号は、通常どおりポート番号に変換されます (番号付けスペースは独自のものに属し、@e1 は 2 つの画面に同時に存在できます)。 画面を数回読み取った後も、
         val webRefs = w["elements"]!!.jsonArray.map { it.jsonObject.s("ref") }.toSet()
         t.execute(call("web_tap", """{"ref":"${webRefs.first()}","snapshotId":"$webSid"}"""))
         assertTrue(web.calls.any { it.startsWith("tapRef @e") })
@@ -173,11 +173,11 @@ class ToolDispatcherWebTest {
         t.execute(call("web_read_page", """{"offset":5000}"""))
         web.eval = EvalJs.Ok("\"G7501\"", false)
         t.execute(call("web_evaluate_js", """{"script":"page.title"}"""))
-        // 好几次读屏之后也还在:不被读屏挤掉
+        // がまだ存在します: 画面の読み取りによって絞り出されません
         repeat(5) { t.execute(call("web_observe")) }
         val seen = t.evidence().read(ObsKind.Read, ObsKind.Reply).joinToString("\n")
         assertTrue(seen, seen.contains("第二段正文:车次 G7311"))
-        assertTrue(seen, seen.contains("从第 5000 字起"))
+        assertTrue(seen, seen.contains("5000 文字目から"))
         assertTrue(seen, seen.contains("G7501"))
     }
 
@@ -194,7 +194,7 @@ class ToolDispatcherWebTest {
         assertEquals("downloads_unavailable", t.execute(call("web_downloads")).content.s("error"))
     }
 
-    /** 裁定:网页数据脚本只读运行,轻量模型也可以用。 */
+    /** ルール: Web データ スクリプトは読み取り専用でのみ実行でき、軽量モデルも使用できます。 */
     @Test fun evaluateJsStaysAllowedForTheLightModel() {
         assertFalse(com.wangzan101.mika.core.agent.ModelRouter.mainOnly("web_evaluate_js", verb("web_evaluate_js")))
     }
@@ -222,12 +222,12 @@ class ToolDispatcherWebTest {
         t.go()
         val r = t.execute(call("web_tap", """{"ref":"@e1","snapshotId":"$phoneSid"}""")).content
         assertEquals("wrong_surface", r.s("error"))
-        assertTrue(r.s("message"), r.s("message").contains("use phone_tap with that snapshot") && r.s("message").contains("call web_observe"))
+        assertTrue(r.s("message"), "そのスナップショットで phone_tap を使う" in r.s("message") && "web_observe を呼び" in r.s("message"))
         val webSid = t.execute(call("web_observe")).content.s("snapshotId")
         t.execute(call("phone_launch_app", """{"package":"com.x"}"""))
         val r2 = t.execute(call("phone_type_text", """{"text":"a","ref":"@e1","snapshotId":"$webSid"}""")).content
         assertEquals("wrong_surface", r2.s("error"))
-        assertTrue(r2.s("message"), r2.s("message").contains("use web_type_text with that snapshot"))
+        assertTrue(r2.s("message"), "そのスナップショットで web_type_text を使う" in r2.s("message"))
         assertTrue(web.calls.none { it.startsWith("tapRef") || it.startsWith("type") })
         assertTrue(phone.calls.none { it.startsWith("tapRef") || it.startsWith("type") })
     }
@@ -249,7 +249,7 @@ class ToolDispatcherWebTest {
         for (u in listOf("intent://x#Intent;package=com.example.app;end", "weixin://dl/scan")) {
             assertEquals(u, "external_app_link", t.go(u).s("error"))
         }
-        // 失败的调用不改最近操作的屏
+        // 呼び出しが失敗しても、最新の操作の画面が変更されない
         assertTrue(web.calls.isEmpty()); assertEquals(PHONE, t.surface)
     }
 
@@ -259,7 +259,7 @@ class ToolDispatcherWebTest {
         val r = t.go("https://shop.example.com/pay")
         assertEquals("false", r.s("ok")); assertEquals("external_app_link", r.s("error"))
         assertEquals("com.example.pay", r.s("package")); assertEquals("true", r.s("recoverable"))
-        assertEquals("This link wants to open an app. If the task needs that app, open it on the phone by this package.", r.s("message"))
+        assertEquals("このリンクはアプリを開こうとしている。作業にそのアプリが必要な場合は、このパッケージでスマートフォンで開く。", r.s("message"))
         assertEquals(PHONE, t.surface)
         web.externalLink = null; web.crash = true
         assertEquals("tab_crashed", t.go().s("error"))
@@ -286,7 +286,7 @@ class ToolDispatcherWebTest {
         assertEquals("2026-01-02", r.s("published")); assertEquals("2", r.s("folded")); assertEquals("1", r.s("openDialogs"))
         assertEquals("true", r.s("background")); assertEquals("https://news.example.com/a", r.s("url"))
         assertEquals(listOf("readUrl https://news.example.com/a unfold"), web.calls.filter { it.startsWith("readUrl") })
-        // 当前标签没被动过:没有新的导航
+        // 現在のラベルはタッチされていません: 新しいナビゲーションはありません
         assertEquals(1, web.calls.count { it.startsWith("navigate") })
         web.quality = web.quality!!.copy(verdict = com.wangzan101.mika.core.cap.web.ReadVerdict.THIN)
         val thin = t.execute(call("web_read_page", """{"url":"https://news.example.com/b"}""")).content
@@ -414,7 +414,7 @@ class ToolDispatcherWebTest {
                 }
             })
         loop.run("t")
-        // 第 0 步 navigate、第 5 步 tabs、第 6 步 upload 过关卡;读页、执行脚本、下载列表不过
+        // ステップ 0 でナビゲート、ステップ 5 でタブ、ステップ 6 でアップロードしてレベルに合格します。ページの読み取り、スクリプトの実行、リストのダウンロードはできません。
         assertEquals(listOf(0, 5, 6), gated)
         for (name in listOf("web_navigate", "web_tabs", "web_upload")) assertTrue(name, isWritingTool(name, JsonObject(emptyMap())))
         for (name in listOf("web_read_page", "web_evaluate_js", "web_downloads")) assertFalse(name, isWritingTool(name, JsonObject(emptyMap())))
@@ -453,7 +453,7 @@ class ToolDispatcherWebTest {
         for (bad in listOf("https://shop.example.com", "shop.example.com/x", "localhost", "a b.com")) {
             assertEquals(bad, "invalid_arguments", t.execute(ask(bad)).content.s("error"))
         }
-        // 手机上照旧要包名
+        // では、携帯電話では依然としてパッケージ名が必要です
         val phone = d()
         assertEquals("invalid_arguments", phone.execute(ask("1bad.pkg")).content.s("error"))
         assertEquals("com.x", (phone.execute(ask("com.x")).outcome as Outcome.Confirm).request.app)
@@ -470,7 +470,7 @@ class ToolDispatcherWebTest {
         val web = FakeWebPort(); val t = d(web = web); t.webSid()
         t.execute(call("web_tabs", """{"action":"switch","tabId":"t2"}"""))
         t.execute(call("web_tap", """{"x":500,"y":500,"target":"中间"}"""))
-        assertEquals("换了标签后坐标点击先重读一屏", 2, web.reads)
+        assertEquals("タブを切り替えた後は座標でクリックする前に画面を再読み取りします", 2, web.reads)
         t.execute(call("web_tabs", """{"action":"close","tabId":"t1"}"""))
         t.execute(call("web_tap", """{"x":500,"y":500,"target":"中间"}"""))
         assertEquals(3, web.reads)
@@ -478,15 +478,15 @@ class ToolDispatcherWebTest {
 
     @Test fun evidenceOnWebAddsPageTextWithoutScrolling() = runTest {
         val web = FakeWebPort(); val t = d(web = web)
-        assertFalse("网页正文" in t.evidence().freshText)
+        assertFalse("Webページ本文" in t.evidence().freshText)
         t.go()
         val ev = t.evidence()
-        assertTrue(ev.freshText, ev.freshText.startsWith("当前网页:https://shop.example.com/cart"))
-        assertTrue(ev.freshText, ev.freshText.endsWith("网页正文(开头):\n正文"))
+        assertTrue(ev.freshText, ev.freshText.startsWith("現在のページ:https://shop.example.com/cart"))
+        assertTrue(ev.freshText, ev.freshText.endsWith("Webページ本文（冒頭）:\n正文"))
         assertEquals(listOf("readPage 3000 0 noscroll"), web.calls.filter { it.startsWith("readPage") })
     }
 
-    /** 工具结果里屏幕文字以外的事实(网页标题、网址、HTTP 状态,打开的 App 和名字)进证据;给干活模型的提示不进。 */
+    /** ツールの結果には、画面テキスト以外の事実 (Web ページのタイトル、URL、HTTP ステータス、開いているアプリと名前) が証拠として含まれます。作業モデルのヒントは含まれていません。 */
     @Test fun toolResultFactsReachTheEvidence() = runTest {
         val web = FakeWebPort().apply { title = "Example Domain"; url = "https://example.com/" }
         val phone = FakeScreen()
@@ -497,12 +497,12 @@ class ToolDispatcherWebTest {
         val label = apps.first().jsonObject.s("label")
         t.execute(call("phone_launch_app", """{"package":"$pkg"}"""))
         val ev = t.evidence()
-        assertTrue(ev.read(ObsKind.Fact).toString(), ev.read(ObsKind.Fact).any { "网页标题「Example Domain」" in it && "https://example.com/" in it })
-        assertTrue(ev.read(ObsKind.Fact).toString(), ev.read(ObsKind.Fact).any { "phone_launch_app 打开了 $pkg" in it && label in it })
+        assertTrue(ev.read(ObsKind.Fact).toString(), ev.read(ObsKind.Fact).any { "Webページタイトル「Example Domain」" in it && "https://example.com/" in it && "HTTPステータス 200" in it })
+        assertTrue(ev.read(ObsKind.Fact).toString(), ev.read(ObsKind.Fact).any { "phone_launch_app が $pkg を開きました" in it && label in it })
         assertTrue(ev.sources(ev.ledger.all).any { "Example Domain" in it })
     }
 
-    // 模型看到的每一项都要能被核查器对照:没有可读元素的网页,读屏里的网址和标题照样是材料;读网页给的链接和图片说明也是
+    // モデルで表示されるすべての項目は、検証者によって比較できなければなりません。読み取り可能な要素のない Web ページの場合、読み取り画面の URL とタイトルは依然としてマテリアルです。閲覧中の Web ページにあるリンクや画像の説明も同様です。
     @Test fun everyFieldOfAPageReadReachesTheEvidence() = runTest {
         val web = FakeWebPort().apply { title = "只有标题的页"; elements = emptyList() }
         web.page = web.page.copy(text = "", links = listOf("查看说明" to "https://shop.example.com/help"), images = listOf("商品主图" to "https://img.example.com/1.jpg"))
@@ -511,8 +511,8 @@ class ToolDispatcherWebTest {
         t.execute(call("web_observe"))
         t.execute(call("web_read_page"))
         val ev = t.evidence()
-        assertTrue(ev.freshText, ev.freshText.lines().contains("网页标题:只有标题的页"))
-        assertTrue(ev.read(ObsKind.Read, ObsKind.Reply).toString(), ev.read(ObsKind.Read, ObsKind.Reply).any { it.lines().contains("网页标题:只有标题的页") })
+        assertTrue(ev.freshText, ev.freshText.lines().contains("ページのタイトル:只有标题的页"))
+        assertTrue(ev.read(ObsKind.Read, ObsKind.Reply).toString(), ev.read(ObsKind.Read, ObsKind.Reply).any { it.lines().contains("ページのタイトル:只有标题的页") })
         val seen = ev.sources(ev.ledger.all).joinToString("\n")
         assertTrue(seen, "查看说明" in seen && "https://shop.example.com/help" in seen)
         assertTrue(seen, "商品主图" in seen)
@@ -522,7 +522,7 @@ class ToolDispatcherWebTest {
         val web = FakeWebPort().apply { title = "Example Domain" }
         val t = d(web = web)
         t.go()
-        assertTrue(t.evidence().freshText.lines().contains("网页标题:Example Domain"))
+        assertTrue(t.evidence().freshText.lines().contains("ページのタイトル:Example Domain"))
     }
 
     @Test fun uploadGoesThroughIrreversibleCheck() = runTest {
@@ -540,7 +540,7 @@ class ToolDispatcherWebTest {
         assertTrue(web.calls.none { it.startsWith("upload") })
     }
 
-    /** 打开网址、换标签进动作清单(核查器看得到去过哪);网页上动作自带的 screen 报的是站点,不是 App。 */
+    /** Web サイトを開き、タブを変更してアクション リストを入力します (チェッカーは、あなたがどこにいたかを確認できます)。 Web ページ上のアクションに付属する画面は、アプリではなくサイトを報告します。 */
     @Test fun browserActionsAreLogged() = runTest {
         val t = d()
         t.go("https://shop.example.com/cart")
@@ -561,7 +561,7 @@ class ToolDispatcherWebTest {
         assertEquals("devtools_unavailable", t.execute(call("web_capture")).content.s("error"))
         assertEquals("devtools_unavailable", t.execute(call("web_capture", """{"id":"1"}""")).content.s("error"))
         assertEquals("devtools_unavailable", t.execute(call("web_wait_for", """{"condition":"network_idle"}""")).content.s("error"))
-        // 文字、地址条件不需要 DevTools
+        // のテキストとアドレスの条件には DevTools は必要ありません
         assertEquals("true", t.execute(call("web_wait_for", """{"condition":"text_present","value":"已加入"}""")).content.s("met"))
     }
 
@@ -605,12 +605,12 @@ class ToolDispatcherWebTest {
         val sid = t.execute(call("web_observe")).content.s("snapshotId")
         val r = t.execute(call("web_tap", """{"ref":"@e1","snapshotId":"$sid"}""")).content
         assertEquals("false", r.s("settled"))
-        assertTrue(r.s("hint"), r.s("hint").contains("still loading"))
+        assertTrue(r.s("hint"), "まだ読み込み中または変化中" in r.s("hint") && "web_wait_for" in r.s("hint"))
         web.result = ActionResult.Ok(changed = true, settled = true)
         assertFalse("settled" in t.execute(call("web_tap", """{"ref":"@e1","snapshotId":"$sid"}""")).content)
     }
 
-    /** 凭据字段、JWT、带凭据的查询参数:交给模型的结果和核查证据里都看不到。 */
+    /** 資格情報フィールド、JWT、および資格情報を含むクエリ パラメーター: モデルに送信された結果や検証証拠には表示されません。 */
     @Test fun captureSecretsNeverLeaveTheLedger() = runTest {
         val jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
         val web = FakeWebPort().apply {
@@ -641,16 +641,16 @@ class ToolDispatcherWebTest {
         val web = FakeWebPort()
         val t = toolDispatcher(FakeScreen(), web = web, workspacePath = { WorkspacePathCheck.Ok },
             webPacing = { PagePacing.human(kotlin.random.Random(1)) })
-        // 第一页、第二页的打开都不等(第一页不停留)
+        // 1ページ目、2ページ目の開きを待たない(1ページ目は滞留しない)
         assertEquals(0, t.execute(call("web_navigate", """{"url":"https://shop.example.com/list"}""")).waitMs)
         assertEquals(0, t.execute(call("web_navigate", """{"url":"https://shop.example.com/list?page=2"}""")).waitMs)
         val sid = t.execute(call("web_observe")).content.s("snapshotId")
-        // 第二页没看够就点:先补足停留,记成这次调用的等待
+        // 2 番目のページが十分に表示されない場合は、次をクリックしてください: 最初に停留所を作成し、この通話の待ち時間として記録します。
         val tap = t.execute(call("web_tap", """{"ref":"@e1","snapshotId":"$sid"}"""))
         assertTrue("${tap.waitMs}", tap.waitMs in 1..PagePacing.Limits().firstDwellMs.last)
-        // 停够了:同一页上的下一个动作不等;打字从不等
+        // 十分に停止しました: 同じページ上の次のアクションは決して待機しません。タイピングは待ち時間なし
         assertEquals(0, t.execute(call("web_tap", """{"ref":"@e1","snapshotId":"$sid"}""")).waitMs)
-        // 别的网站不等
+        // 他のウェブサイトは異なります
         assertEquals(0, t.execute(call("web_navigate", """{"url":"https://news.example.org/"}""")).waitMs)
     }
 
@@ -660,7 +660,7 @@ class ToolDispatcherWebTest {
             webPacing = { PagePacing.human(kotlin.random.Random(1), limits = PagePacing.Limits(pageCap = 2)) })
         assertEquals(JsonPrimitive(true), t.go("https://shop.example.com/a")["ok"])
         assertEquals(JsonPrimitive(true), t.go("https://shop.example.com/b")["ok"])
-        // 这个网站本任务里已经两页:打开、点都不做,说明为什么停
+        // この Web サイトには、このタスクに関する 2 ページがすでにあります。ページを開いてクリックし、停止した理由を説明します。
         val nav = t.go("https://shop.example.com/c")
         assertEquals("page_limit", nav.s("error"))
         assertTrue(nav.s("message"), nav.s("message").contains("ask_user") && nav.s("message").contains("shop.example.com"))
@@ -668,14 +668,14 @@ class ToolDispatcherWebTest {
         val sid = t.execute(call("web_observe")).content.s("snapshotId")
         assertEquals("page_limit", t.execute(call("web_tap", """{"ref":"@e1","snapshotId":"$sid"}""")).content.s("error"))
         assertFalse(web.calls.any { it.startsWith("tapRef") })
-        // 读这一页、去别的网站照常
+        // このページを読んで、通常どおり他の Web サイトにアクセスしてください
         assertEquals(JsonPrimitive(true), t.go("https://news.example.org/")["ok"])
-        // 用户答过话:接着看
+        // ユーザーが返信しました: 続きを読んでください
         t.noteUserAnswer("还要接着看吗?", "继续")
         assertEquals(JsonPrimitive(true), t.go("https://shop.example.com/c")["ok"])
     }
 
-    // 页数上限只管浏览:在这个网站上做了对外动作(「立即沟通」)之后,成批往下做不再被它打断,停留照旧;别的网站照算
+    // ページの最大数は閲覧に制限されています。この Web サイトで外部アクション (「即時通信」) を実行した後、バッチで実行し続けても、そのアクションによって中断されることはなくなり、滞在時間も変わりません。他のウェブサイトは通常通り継続します。
     @Test fun pageLimitIsLiftedOnASiteAfterAnOutwardAction() = runTest {
         val web = FakeWebPort().apply {
             elements = listOf(
@@ -691,21 +691,21 @@ class ToolDispatcherWebTest {
         t.go("https://jobs.example.com/a")
         t.go("https://jobs.example.com/b")
         var sid = t.execute(call("web_observe")).content.s("snapshotId")
-        // 只是浏览:到了上限照样不做
+        // 閲覧のみ：上限に達しても何もしない
         assertEquals("page_limit", run("web_tap", """{"ref":"@e2","snapshotId":"$sid"}""").content.s("error"))
-        // 对外动作本身不拦
+        // は外部アクションをブロックしません
         assertEquals(JsonPrimitive(true), run("web_tap", """{"ref":"@e1","snapshotId":"$sid"}""").content["ok"])
         assertTrue(web.calls.any { it.startsWith("tapRef @e1") })
-        // 之后在这个网站上换页照常,换来的页照样停留
+        // その後、この Web サイト上のページの変更は通常どおり機能し、変更されたページはそのまま残ります。
         assertEquals(JsonPrimitive(true), run("web_navigate", """{"url":"https://jobs.example.com/c"}""").content["ok"])
         sid = t.execute(call("web_observe")).content.s("snapshotId")
         val next = run("web_tap", """{"ref":"@e2","snapshotId":"$sid"}""")
         assertEquals(JsonPrimitive(true), next.content["ok"])
         assertTrue("${next.waitMs}", next.waitMs > 0)
-        // 用户答过话也不再设
+        // ユーザーは回答したため、今後は設定しません
         t.noteUserAnswer("接着吗?", "继续")
         for (i in 1..3) assertEquals(JsonPrimitive(true), run("web_navigate", """{"url":"https://jobs.example.com/d$i"}""").content["ok"])
-        // 别的网站照算
+        // 他の Web サイトでも同様のことが行われます。
         t.go("https://shop.example.org/1")
         t.go("https://shop.example.org/2")
         assertEquals("page_limit", t.go("https://shop.example.org/3").s("error"))
@@ -722,7 +722,7 @@ class ToolDispatcherWebTest {
         val sid = t.execute(call("web_observe")).content.s("snapshotId")
         val tap = t.execute(call("web_tap", """{"ref":"@e1","snapshotId":"$sid"}"""))
         assertTrue("${tap.waitMs}", tap.waitMs in PagePacing.Limits.CAREFUL.firstDwellMs)
-        // 停留里轻轻滚过:只进运行记录,不给模型
+        // は滞在中をゆっくりとスクロールしました。モデルではなく、ランニング記録のみを入力してください
         val idle = web.calls.count { it.startsWith("idle ") }
         assertTrue("$idle", idle in 1..3)
         assertEquals(JsonPrimitive(idle), tap.record["idleScrolls"])
@@ -748,12 +748,12 @@ class ToolDispatcherWebTest {
         t.go("https://shop.example.com/list")
         t.go("https://shop.example.com/list?page=2")
         val sid = t.execute(call("web_observe")).content.s("snapshotId")
-        // 停留里滚动让元素往上挪;点本身什么也没改(端口不报变没变)
+        // 要素を上に移動するには、滞在中にスクロールします。クリック自体には何も変化しません (ポートは何も変化を報告しません)
         web.onIdle = { web.elements = web.elements.map { it.copy(centerY = it.centerY - 40, bounds = listOf(it.bounds[0], it.bounds[1] - 40, it.bounds[2], it.bounds[3] - 40)) } }
         web.result = com.wangzan101.mika.core.uistate.ActionResult.Ok()
         val tap = t.execute(call("web_tap", """{"ref":"@e1","snapshotId":"$sid"}"""))
         assertTrue(web.calls.any { it.startsWith("idle ") })
-        // 动作前的样子在滚完之后重看过:点没改什么就照实说没效果;模型手里那屏的位置已不准,标成过时
+        // は、スクロール後のアクション前の外観を再確認しました。何も変更せずに真実を伝える効果はありません。モデルの手のスクリーンの位置は正確ではなくなり、古いものとしてマークされます
         assertEquals(tap.content.toString(), "no_effect", tap.content["effect"]!!.jsonObject.s("kind"))
         assertEquals(JsonPrimitive(true), tap.content["interfaceStale"])
     }

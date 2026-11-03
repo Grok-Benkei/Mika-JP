@@ -7,14 +7,14 @@ import com.wangzan101.mika.core.uistate.AppProfiles
 import com.wangzan101.mika.core.uistate.UserProfile
 import com.wangzan101.mika.shell.IMikaShell
 
-/** 问内置助手:能打开的另一份 App(装在分身、工作资料一类的另一份用户里)。 */
+/** は、組み込みアシスタントに、開くことができる別のアプリ (アバターや仕事用プロファイルなど、別のユーザーにインストールされている) を尋ねました。 */
 internal object AppCopyReader {
-    /** Mika 所在的用户:本来那份 App 在这里;别的用户里的是另一份。 */
+    /** ミカがいるユーザー: オリジナルのアプリはここにあります。他のユーザーは別のコピーを持っています。 */
     val myUser: Int get() = android.os.Process.myUid() / 100_000 // UserHandle.PER_USER_RANGE
 
     /**
-     * 内置助手判哪几份用户能用(规则见 [AppCopies]),再查那几份用户里装了什么,和当前用户能打开的 [apps] 对上;
-     * 名字取 `pm list users` 里系统给的(随系统语言)。问不到为 null,没有另一份为空。
+     * には、ユーザーが使用できるコピーを決定するためのアシスタントが組み込まれており (ルールについては、[AppCopies] を参照)、それらのユーザー コピーに何がインストールされているかを確認し、現在のユーザーが開くことができる [apps] とそれらを照合します。
+     * という名前は、システムによって `pm list users` で与えられます (システム言語に応じて)。要求されない場合は null となり、他にコピーがない場合は空になります。
      */
     fun read(shell: IMikaShell, apps: List<Pair<String, String>>): List<AppCopy>? {
         val ids = shell.appCopyUsers()?.getIntArray(ShellService.KEY_COPY_USERS) ?: return null

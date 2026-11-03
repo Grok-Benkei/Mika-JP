@@ -1,1 +1,1 @@
-Set an alarm in the phone's clock app at a 24-hour local hour and minute, one call per alarm, without opening the clock's screens; the result says whether the system confirms it.
+時計アプリの表示を開かずに、24時間制の現地の時と分で、スマートフォンの時計アプリにアラームを設定する。アラームごとに1回呼び出す。結果に、システムが確認したかどうかが示される。

@@ -9,21 +9,21 @@ import kotlin.math.roundToLong
 import kotlin.random.Random
 
 /**
- * 手机手势的节奏:手指落下前停一下、点按按住的时长有长有短、落点在元素中心附近略有偏差(始终在元素里)、
- * 滑动沿一小段弧线走、先加速后减速、时长在给定值上下浮动。所有时长与幅度都有上下限([Limits]),一次动作的总时长因此有界。
- * [Instant] 不加任何停顿、偏差和弧度,时长和以前一样(点按 [TAP_MS]、双击间隔 [DOUBLE_TAP_GAP_MS]、滑动按给定时长匀速走直线)。
+ * 携帯電話のジェスチャーのリズム: 指を置く前に一時停止し、タップとホールドの長さが変化し、着地点が要素の中心付近からわずかにずれます (常に要素内)。
+ * は小さな円弧に沿ってスライドし、最初に加速してから減速し、持続時間は指定された値を中心に変動します。すべての持続時間と振幅には上限と下限 ([Limits]) があるため、アクションの合計持続時間は制限されます。
+ * [Instant] は一時停止、偏差、ラジアンを追加せず、継続時間は以前と同じです ([TAP_MS] をクリックし、間隔 [DOUBLE_TAP_GAP_MS] をダブルクリックし、スライドして指定された継続時間一定の速度で直線を歩きます)。
  */
 class GesturePacing(private val random: Random?, val limits: Limits = Limits()) {
     /**
-     * 上下限。时长单位毫秒,距离单位像素。
-     * [approachMs]:手指落下前的停顿;[pressMs]:单击按住;[doublePressMs] / [doubleGapMs]:双击每下按住、两下之间
-     * (系统认双击要两下间隔 40–300 毫秒);[jitterFraction] / [maxJitterPx] / [minJitterSpanPx]:点元素时落点偏离中心
-     * 不超过元素宽(高)的这一比例和这么多像素,比 [minJitterSpanPx] 窄(矮)的方向不偏;[pointJitterPx]:按坐标点时的偏差;
-     * [durationJitter]:滑动时长上下浮动的比例;[holdStretch]:原地按住(起终点几乎重合,如长按)只加长、不缩短,至多加这一比例;
-     * [stillPx]:起终点相距不到这么远算原地按住;[bowFraction] / [maxBowPx]:弧线偏离直线的最大幅度;
-     * [sampleMs]:手指移动时相邻两点的时间间隔;[maxPoints]:一笔最多这么多点;
-     * [dragMs]:不短于这个时长的滑动当慢拖,末尾减速到停、松手时不甩;更短的当快滑,松手时的速度为平均速度的 [flingEndSpeed] 倍
-     * (和以前匀速滑动的松手速度相当,滚动的远近不变)。
+     * の上限と下限。期間の単位はミリ秒、距離の単位はピクセルです。
+     * [approachMs]: 指が落ちる前に一時停止します。 [pressMs]: 1 回クリックして押し続けます。 [doublePressMs] / [doubleGapMs]: 2 回のクリックの間、ダブルクリックして押し続けます。
+     * (システムはダブルクリックの間隔が 40 ～ 300 ミリ秒であると認識します)。 [jitterFraction] / [maxJitterPx] / [minJitterSpanPx]: 要素をクリックすると、着地点が中心から外れます
+     * は、要素の幅 (高さ) と多くのピクセルの比率を超えず、[minJitterSpanPx] よりも狭い (短い)。 [pointJitterPx]: 座標点を押したときの偏差。
+     * [durationJitter]: 上下のフローティングに対するスライド時間の比率。 [holdStretch]: 所定の位置で押し続けると (長押しなど、始点と終点がほぼ一致します)、長くなるだけで、短くならず、最大でもこの比率が加算されます。
+     * [stillPx]: 開始点と終了点の距離がこれよりも小さい場合、所定の位置に保持されているとみなされます。 [bowFraction] / [maxBowPx]: 直線からの円弧の最大偏差。
+     * [sampleMs]: 指が動くときの 2 つの隣接する点の間の時間間隔。 [maxPoints]: 1 つのストロークで最大数のポイント。
+     * [dragMs]: この長さ以上のスライドをスロードラグとして使用し、手を離すとブレることなくエンドが減速して停止します。短いスライドは速いスライドとして使用され、手を離したときの速度は平均速度の [flingEndSpeed] 倍になります。
+     * （リリース速度は従来の一定スライド速度と同等、転がり距離は変わりません）。
      */
     data class Limits(
         val approachMs: LongRange = 30L..120L,
@@ -45,15 +45,15 @@ class GesturePacing(private val random: Random?, val limits: Limits = Limits()) 
         val flingEndSpeed: ClosedFloatingPointRange<Double> = 0.9..1.0,
     )
 
-    /** 一笔里的一个点:相对落下时刻 [t] 毫秒时手指在([x],[y])。 */
+    /** ストローク内のポイント: 指が ([x]、[y]) にあるときの相対的な下降時間 [t] ミリ秒。 */
     data class Point(val x: Double, val y: Double, val t: Long)
 
-    /** 一笔:从按下到抬起的点(第一个 t 为 0,最后一个是抬起的时刻和位置)。 */
+    /** 1 ストローク: 押してから持ち上げるまでの点 (最初の t は 0、最後の t は持ち上げる瞬間と位置)。 */
     data class Stroke(val points: List<Point>) {
         val durationMs: Long get() = points.last().t
     }
 
-    /** 有节奏(不是 [Instant])。 */
+    /** にはリズムがあります ([Instant] ではありません)。 */
     val paced: Boolean get() = random != null
 
     fun approach(): Long = pick(limits.approachMs, 0L)
@@ -64,8 +64,8 @@ class GesturePacing(private val random: Random?, val limits: Limits = Limits()) 
     private fun pick(r: LongRange, instant: Long): Long = random?.let { Pace.pick(it, r) } ?: instant
 
     /**
-     * 点元素([left],[top])–([right],[bottom])(右、下不含)时的落点:中心(和 Rect.centerX/centerY 一样取整)附近,
-     * 偏离不超过宽(高)的 [Limits.jitterFraction] 与 [Limits.maxJitterPx],靠中心的更多;窄的方向不偏。落点总在元素里。
+     * が要素([left]、[top])-([right]、[bottom])を指すときの着地点(右と下は含まれません)：中心付近(Rect.centerX/centerYのように丸められます)、
+     * は、中心に近い [Limits.jitterFraction] および [Limits.maxJitterPx] の幅 (高さ) を超えて逸脱することはありません。狭い方向はずれません。配置ポイントは常に要素内にあります。
      */
     fun within(left: Int, top: Int, right: Int, bottom: Int): Pair<Int, Int> {
         val cx = (left + right) shr 1
@@ -76,27 +76,27 @@ class GesturePacing(private val random: Random?, val limits: Limits = Limits()) 
             (cy + offset(r, reach(bottom - top))).coerceIn(top, maxOf(top, bottom - 1))
     }
 
-    /** 按坐标点时的落点:给定点附近 [Limits.pointJitterPx] 以内(不到 1dp,不会点偏到别的控件);坐标不小于 0。 */
+    /** 座標点を押したときの着地点: 指定された点の近くの [Limits.pointJitterPx] 以内 (1dp 未満、点は他のコントロールに偏向しません)。座標は 0 未満ではありません。 */
     fun near(x: Int, y: Int): Pair<Int, Int> {
         val r = random ?: return x to y
         return (x + offset(r, limits.pointJitterPx)).coerceAtLeast(0) to (y + offset(r, limits.pointJitterPx)).coerceAtLeast(0)
     }
 
-    // 两个均匀数之和(三角分布):落在中心附近的多,不超过 ±reach
+    // 2 つの均一な数の合計 (三角分布): ほとんどが中心付近にあり、±reach を超えない
     private fun offset(r: Random, reach: Int): Int =
         if (reach <= 0) 0 else ((r.nextDouble() + r.nextDouble() - 1.0) * reach).roundToInt().coerceIn(-reach, reach)
 
-    /** 几根手指一起动的手势(不经 [stroke] 排点)的时长:给定值上下浮动 [Limits.durationJitter]。 */
+    /** 複数の指が一緒に動くジェスチャの継続時間 ([stroke] 配置なし): 指定された値は [Limits.durationJitter] で上下に変動します。 */
     fun duration(durationMs: Long): Long {
         val r = random ?: return durationMs
         return (durationMs * (1 + r.nextDouble(-limits.durationJitter, limits.durationJitter))).roundToLong().coerceAtLeast(1)
     }
 
     /**
-     * 一根手指沿 [path](至少两个点)走 [durationMs] 左右的一笔。起点、终点不变;[bow] 为 true 时两点之间走一小段弧线
-     * (只对两个点的路径,多点路径是调用方画好的,照着走)。[bounds] 给了(宽,高)时点都夹在屏内。
-     * 起终点几乎重合时是原地按住:只有起点和终点,时长只加长不缩短(长按仍然够长)。
-     * [Instant]:点就是 [path],按路径长短匀速分配时间,时长正是 [durationMs]。
+     * 1 本の指を使用して、[path] に沿って [durationMs] の周りにストロークを移動します (少なくとも 2 点)。開始点と終了点は変更されません。 [bow] が true の場合、2 点間に短い円弧が作成されます。
+     * (2 点のパスの場合のみ、複数点のパスは呼び出し元によって描画され、それに従う)。 [bounds](幅、高さ)を与えると、すべての点が画面内に挟まれます。
+     * 開始点と終了点がほぼ重なったら、その場で長押しします。存在するのは開始点と終了点のみで、継続時間は伸びるだけで短縮されません（長押しでも十分な長さです）。
+     * [Instant]: ポイントは [path] で、時間はパスの長さに応じて均一に配分され、時間は正確に [durationMs] になります。
      */
     fun stroke(path: List<Pair<Double, Double>>, durationMs: Long, bow: Boolean = false, bounds: Pair<Int, Int>? = null): Stroke {
         require(path.size >= 2) { "a stroke needs at least two points" }
@@ -131,21 +131,21 @@ class GesturePacing(private val random: Random?, val limits: Limits = Limits()) 
     }
 
     companion object {
-        /** 不加节奏时点按按住的时长。 */
+        /** リズムを追加しないときにクリックしたままにする時間の長さ。 */
         const val TAP_MS = 50L
 
-        /** 弧线拆成这么多小段再按时间取点。 */
+        /** 円弧は非常に多くの小さなセグメントに分割され、時間に従って点が取得されます。 */
         private const val CURVE_SEGMENTS = 32
 
-        /** 不加停顿、偏差和弧度。 */
+        /** は、一時停止、偏差、ラジアンを追加しません。 */
         val Instant = GesturePacing(null)
 
-        /** 像人手的节奏;[random] 可换成固定种子(测试)。 */
+        /** は人間の手のリズムに似ています。 [random] は固定シード (テスト) に置き換えることができます。 */
         fun human(random: Random = Random.Default, limits: Limits = Limits()) = GesturePacing(random, limits)
 
         /**
-         * 时间走到 [u](0..1)时走过的路程比例:三次 Hermite,起步速度 0,收尾速度为平均速度的 [endSpeed] 倍(0..3 之间单调)。
-         * [endSpeed] 为 0 时两头慢中间快、停稳再抬手;为 1 时松手速度和匀速一样。
+         * 時間が [u] (0..1) に達したときの移動距離の割合: 3 つのエルミート、開始速度 0、終了速度 [endSpeed] に平均速度を掛けたもの (0..3 の間で単調)。
+         * [endSpeed] 0の場合は両端が遅く、中間が速くなります。立ち止まってから手を挙げてください。 1の場合は一定速度と同じ速度で手を放します。
          */
         internal fun progress(u: Double, endSpeed: Double): Double {
             val u2 = u * u
@@ -161,7 +161,7 @@ class GesturePacing(private val random: Random?, val limits: Limits = Limits()) 
             return out
         }
 
-        /** 沿折线走过 [s] 时的位置。 */
+        /** は、[s] をポリラインに沿って通過させたときの位置です。 */
         private fun at(path: List<Pair<Double, Double>>, cum: DoubleArray, s: Double): Pair<Double, Double> {
             var i = 1
             while (i < path.size - 1 && cum[i] < s) i++
@@ -172,7 +172,7 @@ class GesturePacing(private val random: Random?, val limits: Limits = Limits()) 
             return x0 + (x1 - x0) * f to y0 + (y1 - y0) * f
         }
 
-        /** 不加节奏时的一笔:就是给定的点,时间按路程匀速分配(和系统按一条路径匀速走的一样)。 */
+        /** リズムのないストローク: それは与えられた点であり、時間は距離に応じて均一な速度で分布します (システムがパスに沿って均一な速度で歩くのと同じです)。 */
         private fun uniform(path: List<Pair<Double, Double>>, total: Long): List<Point> {
             val cum = cumulative(path)
             val length = cum.last()

@@ -2,19 +2,19 @@ package com.wangzan101.mika.core.uistate
 
 enum class ScreenState(val wire: String) {
     NORMAL("normal"),
-    /** 没有窗口或没有可读元素。 */
+    /** にはウィンドウや読み取り可能な要素がありません。 */
     BLANK("blank"),
-    /** 界面在持续变化,还没加载完。 */
+    /** インターフェースは常に変化しており、読み込みが完了していません。 */
     LOADING("loading"),
-    /** 防截屏页面:画面全黑但有窗口。 */
+    /** スクリーンショット対策ページ: 画面は真っ黒ですが、ウィンドウはあります。 */
     PROTECTED("protected"),
-    /** 登录、验证码、支付等需要用户亲自处理的页面。 */
+    /** ログイン、確認コード、支払い、およびユーザーが個人的に処理する必要があるその他のページ。 */
     NEEDS_HUMAN("needs_human"),
 }
 
 /**
- * [takeoverReason] 是建议 hand_to_user 使用的 reason;[cause] 是判定依据的简短说明。
- * 例外:[ScreenDiagnosis.UNSUPPORTED_BROWSER](网站拒绝内置浏览器)不需要人,state 为 NORMAL、needsHuman 为 false,该换路线。
+ * [takeoverReason] が hand_to_user を推奨する理由です。 [cause] は、判断根拠の短い説明です。
+ * 例外: [ScreenDiagnosis.UNSUPPORTED_BROWSER] (Web サイトが組み込みブラウザを拒否します) は人を必要としません。状態は NORMAL、needsHuman は false、ルートを変更する時期です。
  */
 data class ScreenCheck(
     val state: ScreenState,
@@ -25,9 +25,9 @@ data class ScreenCheck(
 )
 
 /**
- * 端口采集到的事实。[blackFrames] 是每次界面安静时画面是否全黑的结果,按时间顺序;拿不到画面时为空。
- * [hasWindow] 是有读得到根节点的 App 窗口;[anyWindow] 是有 App 窗口(根节点读不到也算)。
- * [foregroundApp] 是窗口读不到时按焦点窗口或最上面的任务得知的前台 App;不知道为 null。
+ * ポートによって収集された事実。 [blackFrames] は、インターフェースが静かになるたびに画面が完全に黒くなるかどうかを時系列で示した結果です。画面が取得できない場合は空になります。
+ * [hasWindow] には、ルート ノードを読み取ることができるアプリ ウィンドウがあります。 [anyWindow] には App ウィンドウがあります (ルート ノードが読み取れなくても問題ありません)。
+ * [foregroundApp] は、ウィンドウが読み取れないときにフォーカス ウィンドウまたはトップ タスクを押すことで認識されるフォアグラウンド アプリです。不明な場合は null です。
  */
 data class ScreenFacts(
     val currentApp: String?,
@@ -42,34 +42,37 @@ data class ScreenFacts(
 )
 
 object ScreenDiagnosis {
-    /** 屏上一个 App 窗口都没有(虚拟屏刚建好时就是这样)。 */
+    /** 画面にはアプリ ウィンドウがありません (これは、仮想画面が最初に構築されたときのケースです)。 */
     const val NO_WINDOW = "no window"
     const val UNREADABLE_WINDOW = "unreadable window"
-    /** 网页:网站不支持内置浏览器(要求换浏览器或下载 App)。 */
+    /** Web ページ: この Web サイトは内蔵ブラウザをサポートしていません (ブラウザを変更するか、アプリをダウンロードする必要があります)。 */
     const val UNSUPPORTED_BROWSER = "unsupported_browser"
 
     private val CAPTCHA = listOf(
+        "ロボットではありません", "私はロボットではありません", "人間であることを確認", "画像を選択してください", "セキュリティ認証",
         "captcha", "人机验证", "安全验证", "滑块验证", "拖动滑块", "向右滑动完成", "请完成验证", "verify you are human", "not a robot",
     )
     private val PAYMENT = listOf(
+        "支払い用パスワード", "決済用パスワード", "支払いを確定", "支払う", "決済を確定", "暗証番号を入力して支払",
         "支付密码", "确认支付", "确认付款", "立即支付", "输入密码支付", "payment password", "confirm payment", "pay now",
     )
     private val SMS_CODE = listOf(
+        "認証コード", "確認コード", "認証番号", "ワンタイムパスワード", "sms認証", "コードを送信",
         "获取验证码", "发送验证码", "短信验证码", "get code", "send code", "verification code",
     )
 
-    /** 屏上文字里第一个付款字样(确认支付、支付密码一类);没有为 null。 */
+    /** 画面上のテキストの最初の支払い単語 (支払いの確認、支払いパスワードなど)。そうでない場合は null。 */
     fun paymentText(texts: List<String>): String? {
         val text = Hant.fold(texts.joinToString("\n")).lowercase()
-        return PAYMENT.firstOrNull { it in text }
+        return PAYMENT.firstOrNull { Hant.fold(it) in text }
     }
 
     fun classify(f: ScreenFacts): ScreenCheck {
         val text = Hant.fold(f.texts.joinToString("\n")).lowercase()
-        fun hit(words: List<String>) = words.firstOrNull { it in text }
+        fun hit(words: List<String>) = words.firstOrNull { Hant.fold(it) in text }
         fun human(reason: String, cause: String) = ScreenCheck(ScreenState.NEEDS_HUMAN, f.currentApp, true, reason, cause)
 
-        // 页面切换时画面也可能短暂全黑:界面还在变就按加载中处理
+        // ページを切り替えるときに、画面が短時間完全に黒になる場合があります。インターフェースがまだ変化している場合は、「読み込み中」を押してください。
         if (f.changing && f.blackFrames.any { it }) {
             return ScreenCheck(ScreenState.LOADING, f.currentApp, false, cause = "black frame while the screen keeps changing")
         }
@@ -80,7 +83,7 @@ object ScreenDiagnosis {
             hit(SMS_CODE) != null -> "login" to "verification code text: ${hit(SMS_CODE)}"
             else -> null
         }
-        // 两次安静时都全黑才算防截屏,一次黑可能只是还没画出来
+        // 2 回の静かな時間中に完全に黒になる場合は、アンチスクリーンショットとみなされます。黒くなったら、まだ描画されていないだけかもしれません。
         if (f.hasWindow && f.blackFrames.size >= 2 && f.blackFrames.all { it }) {
             return ScreenCheck(ScreenState.PROTECTED, f.currentApp, true, human?.first ?: "other", "secure window: the frame stays black")
         }

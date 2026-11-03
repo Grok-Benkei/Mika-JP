@@ -18,11 +18,11 @@ import com.wangzan101.mika.core.tool.SubActions
 const val SCRIPT_CODE_MAX_CHARS = 8_000
 const val SCRIPT_DEFAULT_TIMEOUT_MS = 30_000
 const val SCRIPT_MAX_TIMEOUT_MS = 60_000
-/** 一次脚本里最多几个动作(点、输入、打开网址)。 */
+/** スクリプト内のアクション (クリック、入力、URL を開く) の最大数。 */
 const val SCRIPT_MAX_ACTIONS = 20
-/** 一次脚本里最多几次 mika.navigate;整页跳走本来就会结束脚本,这条只管同页内跳转后继续的情况。 */
+/** スクリプト内で mika.navigate を使用できる最大回数。ページ全体をジャンプするとスクリプトが終了します。これは、同じページ内でジャンプした後に継続する状況のみを考慮します。 */
 const val SCRIPT_MAX_NAVIGATIONS = 3
-/** 一次脚本里最多几次读(snapshot、read):每次都进运行记录。 */
+/** スクリプト内の読み取り (スナップショット、読み取り) の最大数: 実行レコードが入力されるたび。 */
 const val SCRIPT_MAX_READS = 40
 private const val MAX_LOGS = 50
 private const val MAX_LOG_CHARS = 500
@@ -38,12 +38,12 @@ private const val TEXT_MAX_CHARS = 30_000
 private const val TEXT_DEFAULT_CHARS = 4_000
 private const val WAIT_DEFAULT_MS = 5_000
 
-/** 这些错误一出现整个脚本就停:剩下的动作不再做,交回模型。 */
+/** これらのエラーが発生するとすぐに、スクリプト全体が停止します。残りのアクションは実行されず、モデルが返されます。 */
 private val FATAL = setOf("confirmation_required", "guard_stopped", "handed_over", "tab_crashed", "no_tab_open")
 
 /**
- * 一次 web_script 的 `mika.*` 调用:校验参数、计上限、翻译成工具调用交给 [sub](子步编号 `<callId>.<n>`),
- * 把结果整理成脚本拿到的值;记下每一步的结局,最后整理成工具结果。
+ * Web_script `mika.*` 呼び出し: 検証パラメーター、上限計算、ツール呼び出しへの変換は [sub] (サブステップ番号 `<callId>.<n>`) に渡されます。
+ * 結果をスクリプトによって取得された値に整理します。各ステップの結果を書き留めて、最終的にツールの結果にまとめます。
  */
 internal class ScriptCalls(private val callId: String, private val sub: SubActions?, private val tools: ToolIndex) : ScriptBridge {
     private val steps = mutableListOf<JsonObject>()
@@ -57,7 +57,7 @@ internal class ScriptCalls(private val callId: String, private val sub: SubActio
     private var abort: ScriptAbort? = null
     private var abortExtra: JsonObject = JsonObject(emptyMap())
 
-    /** 做这个动作的工具。 */
+    /** このアクションを実行するためのツール。 */
     private fun tool(verb: Verb): String = tools.nameOf(verb, WEB)!!
 
     override fun log(text: String) {
@@ -133,7 +133,7 @@ internal class ScriptCalls(private val callId: String, private val sub: SubActio
             }
             return fail(error ?: "failed", message)
         }
-        // 写操作之后页面变了,旧编号作废;要再点就再 snapshot
+        // 書き込み操作後にページが変更されており、古い番号は無効です。もう一度クリックしたい場合は、スナップショットを撮ってください
         if (write) snapshotId = null
         return when (op) {
             "snapshot" -> {
@@ -162,8 +162,8 @@ internal class ScriptCalls(private val callId: String, private val sub: SubActio
     }
 
     /**
-     * mika.query / queryAll / text:校验、计数,交回 `{ok, read:{mode, selector, fields, limit, maxChars}}`,由端口在读取世界里读。
-     * 按 value 属性选元素不行(能一位一位猜出隐藏字段的值),转义、注释、命名空间的写法也认([SelectorPolicy])。
+     * mika.query/queryAll/text: 検証、カウント、`{ok, read:{mode, selector, fields, limit, maxChars}}` を返し、ポートによる読み取りワールドで読み取ります。
+     * value属性による要素の選択はできません(隠しフィールドの値は逐一推測可能)、エスケープ、コメント、名前空間の記述方法も認識されます([SelectorPolicy])。
      */
     private fun pageRead(op: String, args: JsonObject): JsonObject {
         val selector = str(args, "selector")?.takeIf { it.length <= SELECTOR_MAX_CHARS } ?: return bad("mika.$op needs a CSS selector (at most $SELECTOR_MAX_CHARS characters)")
@@ -198,7 +198,7 @@ internal class ScriptCalls(private val callId: String, private val sub: SubActio
         }
     }
 
-    /** 整理成 web_script 的工具结果。 */
+    /** は web_script のツール結果にまとめられます。 */
     fun content(run: ScriptRun): JsonObject {
         val stopped = abort
         return buildJsonObject {
@@ -251,7 +251,7 @@ internal class ScriptCalls(private val callId: String, private val sub: SubActio
 
     private fun str(o: JsonObject, k: String): String? = (o[k] as? JsonPrimitive)?.takeIf { it.isString }?.content?.takeIf { it.isNotBlank() }
 
-    /** 没给为 0;给了但不合法为 null。 */
+    /** が指定されていない場合は 0 になります。指定されていても不正な場合は null です。 */
     private fun int(o: JsonObject, k: String, min: Int, max: Int): Int? {
         val v = o[k] ?: return 0
         if (v is JsonNull) return 0
