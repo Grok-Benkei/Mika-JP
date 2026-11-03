@@ -14,6 +14,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  upstream-tools:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: 上流の更新検知・差分取得ツール
+        run: python3 -m unittest discover -s tools/upstream -p 'test_*.py' -v
   android-and-jvm:
     runs-on: ubuntu-24.04
     timeout-minutes: 30

@@ -1,0 +1,51 @@
+name: 取り込み候補の差分確認
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_commit:
+        description: 比較元の40桁コミットSHA
+        required: true
+        type: string
+      candidate_commit:
+        description: 監査する候補の40桁コミットSHA
+        required: true
+        type: string
+      source:
+        description: 取得元（上流の調査はupstream、取り込みPRの最終確認はorigin）
+        required: true
+        default: upstream
+        type: choice
+        options:
+          - upstream
+          - origin
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    if: github.repository == 'yebisu0529-ship-it/Mika-JP'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: コミットを固定し、コードを実行せず差分を取得
+        env:
+          AUDIT_BASE: ${{ inputs.base_commit }}
+          AUDIT_CANDIDATE: ${{ inputs.candidate_commit }}
+          AUDIT_SOURCE: ${{ inputs.source }}
+        run: >-
+          python3 tools/upstream/guard.py audit
+          --base "$AUDIT_BASE" --candidate "$AUDIT_CANDIDATE"
+          --fetch-from "$AUDIT_SOURCE" --output-dir build/upstream-audit
+      - name: 差分・変更ファイル・通信先と権限の候補
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: upstream-audit
+          path: build/upstream-audit/
+          retention-days: 30
+          if-no-files-found: error
