@@ -135,7 +135,10 @@ object IrreversibleDetector {
     private const val CURRENCY_SUFFIX = "(?:元|円|$CURRENCY_CODE(?![A-Za-zＡ-Ｚａ-ｚ]))"
     private const val NUMBER_ATOM = "(?:$AMOUNT_NUMBER|[〇零一二三四五六七八九壱弐参]+)"
     /** 換算に未対応の数表記。数字・空白・位取りだけを結合し、件数などの語をまたいで通貨へ結び付けない。 */
-    private const val UNSCALED_AMOUNT_NUMBER = "(?:$NUMBER_ATOM)?(?:\\s*[十拾百佰千仟万萬億亿兆京]\\s*(?:$NUMBER_ATOM)?)+"
+    // 空白は直前の数字・位取りにだけ属させ、反復の境界で同じ空白を分け合わない。
+    private const val UNSCALED_AMOUNT_NUMBER = "(?:$NUMBER_ATOM\\s*)?(?:[十拾百佰千仟万萬億亿兆京]\\s*(?:$NUMBER_ATOM\\s*)?)+"
+    /** 金額の申告欄では通貨の書き方に依存せず位取りを検出する。 */
+    internal val UNSCALED_NUMBER = Regex(UNSCALED_AMOUNT_NUMBER)
     /** [com.wangzan101.mika.core.action.ClassifiedRisk] と共有する通貨付き金額。全角数字・桁区切り・通貨コードも認識します。 */
     internal val AMOUNT = Regex(
         "$CURRENCY_PREFIX\\s*(?:$UNSCALED_AMOUNT_NUMBER|$AMOUNT_NUMBER)|(?:$UNSCALED_AMOUNT_NUMBER|$AMOUNT_NUMBER)\\s*$CURRENCY_SUFFIX",

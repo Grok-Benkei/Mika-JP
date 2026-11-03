@@ -151,7 +151,8 @@ class ConfirmationGate {
      */
     private fun amountShown(amount: String?, s: ScreenSnapshot, button: String): Boolean {
         // 位取りを含む金額を先頭や末尾の数値だけで比較しない。通貨を問わず、換算に未対応の間は不一致として実行を止める。
-        if (amount?.let(::unscaledAmount) == true) return false
+        // 申告欄は金額専用なので、通貨の省略や「日本円」「ドル」でも位取りを検出する。
+        if (amount?.let { IrreversibleDetector.UNSCALED_NUMBER.containsMatchIn(currencyFree(Hant.fold(it))) } == true) return false
         val declared = amount?.let { currencyFree(it) }?.let { NUMBER.find(it)?.value }?.toBigDecimalOrNull() ?: return false
         val expectedCurrency = currencyTag(amount.orEmpty())
         fun same(x: BigDecimal) = x.compareTo(declared) == 0

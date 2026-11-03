@@ -85,6 +85,27 @@ class ConfirmationGateTest {
         }
     }
 
+    @Test fun declaredScaleDoesNotDependOnCurrencySpelling() {
+        for ((declared, visible) in listOf(
+            "1万2000" to "1円", "1万2000日本円" to "1円", "1万ドル" to "$1",
+            "1万2000人民币" to "￥1", "１万２０００" to "￥１", "一万2000" to "2000円",
+        )) {
+            val r = ConfirmationRequest(IrrevAction.order, "商品", "注文", declared, "com.a")
+            val page = ScreenSnapshot("s", "com.a", listOf(el("商品", top = 100), el(visible, top = 800)), 1080, 2400)
+            assertTrue("申告 $declared / 表示 $visible", approved(r).permits(hit(IrrevAction.order), page, 2) is Permit.Mismatch)
+        }
+        val r = ConfirmationRequest(IrrevAction.order, "商品", "注文", "980", "com.a")
+        val normal = ScreenSnapshot("s", "com.a", listOf(el("商品", top = 100), el("￥980", top = 800)), 1080, 2400)
+        assertEquals(Permit.Allowed, approved(r).permits(hit(IrrevAction.order), normal, 2))
+    }
+
+    @Test(timeout = 2_000) fun repeatedScaleWordsWithoutCurrencyDoNotBlockAnOrdinaryPrice() {
+        val r = ConfirmationRequest(IrrevAction.order, "商品", "注文", "980円", "com.a")
+        val page = ScreenSnapshot("s", "com.a", listOf(el("商品", top = 100),
+            el("万 ".repeat(80) + "件のレビュー", top = 300), el("￥980", top = 800)), 1080, 2400)
+        assertEquals(Permit.Allowed, approved(r).permits(hit(IrrevAction.order), page, 2))
+    }
+
     @Test fun splitScaledAmountsInDifferentCurrenciesRemainUnapproved() {
         for ((declared, parts) in listOf("2000円" to listOf("1億", "2000円"), "2000元" to listOf("1万", "2000元"),
             "2000 CNY" to listOf("1亿", "2000 CNY"), "USD 1" to listOf("$1", "京", "2000"),
