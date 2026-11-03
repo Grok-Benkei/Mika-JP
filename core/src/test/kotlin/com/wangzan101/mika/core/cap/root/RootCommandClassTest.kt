@@ -128,6 +128,23 @@ class RootCommandClassTest {
     )
 
     @Test
+    fun braceExpansionCannotInjectWriteOptions() = changes(
+        "sort {-o,victim}",
+        "sort {-o,victim} src",
+        "find . {-delete,-print}",
+        "logcat {-c,-d}",
+        "sort {1..3}",
+        "sort file{1..3}",
+        "sort {a,b}{c,d}",
+    )
+
+    @Test
+    fun commandGroupsMustHaveClearStandaloneBraces() {
+        readOnly("{ ls /data; ls /sdcard; }", "{ { ls /data; }; cat /data/x; }")
+        changes("{ ls /data;", "ls /data; }", "{ rm /sdcard/x; }", "'{' ls /data", "{ls /data; }")
+    }
+
+    @Test
     fun shellCommentsCannotHideFollowingCommands() = changes(
         "echo #'\nrm /sdcard/Download/victim\n#'",
         "echo #\"\nrm /sdcard/Download/victim\n#\"",
@@ -208,5 +225,10 @@ class RootCommandClassTest {
         "echo \\#",
         "echo prefix#suffix",
         "echo '#\nrm /sdcard/Download/victim\n#'",
+        "sort '{-o,victim}'",
+        "sort \"{1..3}\"",
+        "sort \\{-o,victim\\}",
+        "sort file\\{1..3\\}",
+        "echo '{' '}'",
     )
 }

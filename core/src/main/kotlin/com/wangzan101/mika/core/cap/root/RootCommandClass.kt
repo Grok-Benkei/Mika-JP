@@ -161,6 +161,7 @@ object RootCommandClass {
         var inWord = false
         var single = false
         var double = false
+        var groups = 0
         var i = 0
         fun endWord() {
             if (inWord) words += word.toString()
@@ -190,6 +191,17 @@ object RootCommandClass {
                 c == '#' && !inWord -> return null
                 // 未引用のglobは、展開後のファイル名が変更オプションになる可能性がある。
                 c in "*?[]" -> return null
+                // brace展開は変更扱い。コマンド境界の単独{ }だけをグループとして認識する。
+                c in "{}" -> {
+                    if (inWord || words.isNotEmpty() || next != null && !next.isWhitespace() && next !in ";&|()") return null
+                    if (c == '{') {
+                        if (next?.isWhitespace() != true) return null
+                        groups++
+                    } else {
+                        if (groups == 0) return null
+                        groups--
+                    }
+                }
                 c == '>' || (c == '&' && next == '>') -> {
                     // 直前の数字はファイル記述子（2>...）。
                     if (inWord && word.all(Char::isDigit)) { word.clear(); inWord = false } else endWord()
@@ -226,9 +238,8 @@ object RootCommandClass {
             }
             i++
         }
-        if (single || double) return null
+        if (single || double || groups != 0) return null
         endCommand()
-        // { と } はコマンドのグループ化として扱う。
-        return commands.map { w -> w.filter { it != "{" && it != "}" } }.filter { it.isNotEmpty() }
+        return commands
     }
 }
