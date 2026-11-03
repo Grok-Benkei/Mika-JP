@@ -126,8 +126,18 @@ class ActionExecutor(
         if (policy.stopOnGuardWarning && before.isNotEmpty()) return refuse("guard_warning", origin, before)
         val writing = tools.writesScreen(call.name)
         if (writing && !policy.gatedByCaller) gate()
-        // は同意がなければ実行されず、障害が発生したサーキット ブレーカーにはカウントされません。
-        val d = decision.judge(call.name, args, origin)
+        // 有効な承認がなければ実行せず、連続失敗にも数えない。
+        var d = decision.judge(call.name, args, origin)
+        // 画面外の確認要求（変更するrootコマンド）は、その場で本人へ確認し、承認後に同じ内容を再判定する。
+        // この実行や呼び出し元が本人へ確認できなければ実行せず、拒否として記録する。
+        val ask = if (d is Decision.Required || d is Decision.Denied) tools.approvalRisk(call.name, args)?.ask else null
+        if (ask != null) {
+            val hit = Irreversible(ask.action, ask.content)
+            val answer = (if (d is Decision.Required) followUp.approve(ask) else null)
+                ?: return declined(call, args, origin, before, hit, ToolExecution(Refusals.unavailable()), followUp, "approval_unavailable")
+            if (answer.content["ok"] != JsonPrimitive(true)) return declined(call, args, origin, before, hit, answer, followUp, "confirmation_declined")
+            d = decision.judge(call.name, args, origin)
+        }
         when (d) {
             is Decision.Required -> return blocked(call, args, origin, before, d.hit, null, followUp)
             is Decision.Mismatch -> return blocked(call, args, origin, before, d.hit, d.reason, followUp)
@@ -261,7 +271,7 @@ class ActionExecutor(
         val cap = s.origin.policy.actionCapMs ?: return tools.execute(call, pass, s.origin.step, sub)
         // アクションには独自の上限があります
         return withTimeoutOrNull(cap) { tools.execute(call, pass, s.origin.step, sub) } ?: ToolExecution(buildJsonObject {
-            put("ok", false); put("error", "action_timeout"); put("message", "the action did not finish within ${cap / 1000} s; read the screen before going on")
+            put("ok", false); put("error", "action_timeout"); put("message", "操作が${cap / 1000}秒以内に完了しませんでした。続ける前に画面で結果を確認してください")
         })
     }
 
@@ -314,6 +324,19 @@ class ActionExecutor(
             recorder.result(origin.step, call.name, tools.verb(call.name), content, tools.portRecord(call.name, args), null, null, 0, origin.policy.source, call.id)
         }
         return ActionOutcome.Refused(code, content, before, hit)
+    }
+
+    /** 確認が拒否された、または本人へ確認できない場合は、[answer] を拒否結果として記録する。 */
+    private fun declined(
+        call: Part.ToolCall, args: JsonObject, origin: Origin, before: List<GuardVerdict>, hit: Irreversible, answer: ToolExecution, followUp: FollowUp,
+        code: String,
+    ): ActionOutcome {
+        recorder.confirmation(hit, if (code == "confirmation_declined") "declined" else "denied")
+        if (origin.policy.recordsRefusal) {
+            followUp.refused(answer.content)
+            recorder.result(origin.step, call.name, tools.verb(call.name), answer.content, tools.portRecord(call.name, args), null, null, 0, origin.policy.source, call.id)
+        }
+        return ActionOutcome.Refused(code, answer.content, before, hit)
     }
 
     private fun blocked(

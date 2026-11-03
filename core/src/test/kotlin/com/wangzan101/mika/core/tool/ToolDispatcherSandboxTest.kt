@@ -215,7 +215,7 @@ class ToolDispatcherSandboxTest {
         val path = r.s("fullOutputPath")
         assertTrue(path, path.startsWith("/workspace/.mika/out-"))
         assertEquals(long, File(ws, path.removePrefix("/workspace/")).readText())
-        assertTrue(r.s("output").contains("10000 characters omitted"))
+        assertEquals("A".repeat(4000) + "\n…（10000文字を省略）…\n" + "C".repeat(12_000), r.s("output"))
         assertTrue(r.s("output").length < 16_100)
         // 1 MB を超える損失も切り捨てられたとみなされます
         sb.next = { CommandResult(0, false, false, 50, "short", 2048, false) }

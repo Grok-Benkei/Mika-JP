@@ -3,8 +3,8 @@ package com.wangzan101.mika.core.shell
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * 組み込みアシスタント (ローカルの「ワイヤレス デバッグ」を通じてシェルとして起動される特権プロセス) の現在のステータス。
- * インターフェイス、設定ページ、タスク エントリはそれのみを参照します。ペアリング、接続、およびウォッチドッグの実装はそれぞれ、これらのタイプのいずれかとして結果を書き込みます。
+ * 内蔵ヘルパーの現在の状態。端末のワイヤレスデバッグ、PC、suからshellとしての起動を要求する。
+ * 画面・設定・タスク入口はこの状態を参照し、各接続経路と監視処理が結果を書き込む。
  */
 sealed interface BuiltinShellStatus {
     /** はペアリングされていません (またはペアリングが解除されています)。ブート プロセスを実行する必要があります。 */
@@ -45,6 +45,14 @@ enum class BuiltinShellFailure(val defaultFix: BuiltinShellFix, val duringPairin
      * 起動コマンドを再度実行します。ワイヤレス デバッグについては言及しない: 一部の携帯電話では、ワイヤレス デバッグがまったく利用できません。
      */
     UsbHelperStopped(BuiltinShellFix.RunUsbCommand, duringPairing = false),
+    /** root経由の起動がsuに拒否された。自動で繰り返さず、ユーザーの再試行を待つ。 */
+    RootDenied(BuiltinShellFix.Retry, duringPairing = false),
+    /** suから応答がなかった。ユーザーが再試行するまで待つ。 */
+    RootNoAnswer(BuiltinShellFix.Retry, duringPairing = false),
+    /** root起動を有効にしたがsuが見つからない。設定を切るか、別の起動方法を使う。 */
+    RootUnavailable(BuiltinShellFix.RePair, duringPairing = false),
+    /** suで必要なshellのUID/GIDに切り替わらない場合。ワイヤレスデバッグかPCを使う。 */
+    RootNoShellUid(BuiltinShellFix.RePair, duringPairing = false),
     Unknown(BuiltinShellFix.Retry, duringPairing = false),
 }
 
@@ -74,6 +82,8 @@ enum class HelperRestart {
      * 一部の携帯電話ではワイヤレス デバッグが利用できず、このルートしか使用できないため、現時点ではワイヤレス デバッグを有効にするプロンプトは表示されません。
      */
     UsbCommand,
+    /** 明示的に有効化されたroot起動を使って再起動する。ペアリングやPCを使わず、端末再起動後も復旧を試みる。 */
+    Root,
 }
 
 /** [ペアリング コードを使用してデバイスをペアリング] ウィンドウで公開されたペアリング ポート (ローカル mDNS) の結果を見つけます。 */
@@ -94,8 +104,12 @@ interface BuiltinShellControl {
     /** はワイヤレス デバッグとペアになっています (Mika はアシスタントを起動し、アシスタントを通じてコマンドを実行できます)。アシスタントは USB 経由でコンピュータに接続されている場合もあるため、アシスタントを実行してもペアリングされたわけではありません。 */
     val paired: Boolean get() = status.value != BuiltinShellStatus.NotPaired
 
-    /** アシスタントが停止した後に再び起動するにはどうすればよいですか ([HelperRestart] を参照)。 */
+    /** root起動が有効で利用可能な場合、監視処理はsu経由の起動を先に試す。 */
+    val rootStart: Boolean get() = false
+
+    /** ヘルパー停止後の再起動経路（[HelperRestart]）。 */
     val restart: HelperRestart get() = when {
+        rootStart -> HelperRestart.Root
         status.value == BuiltinShellStatus.Failed(BuiltinShellFailure.UsbHelperStopped) -> HelperRestart.UsbCommand
         paired -> HelperRestart.Wireless
         else -> HelperRestart.None

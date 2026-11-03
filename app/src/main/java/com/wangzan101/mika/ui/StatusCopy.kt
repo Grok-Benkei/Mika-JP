@@ -128,6 +128,11 @@ object StatusCopy {
                 else if (st.reason == BuiltinShellFailure.UsbHelperStopped) BannerCopy(
                     PhoneSetupCopy.failure(st.reason).title, PhoneSetupCopy.failure(st.reason).body, tr(R.string.view),
                 )
+                // root 起動の失敗は原因と対処を示し、拒否・応答なしの場合は再試行を提示する。
+                else if (st.reason in PhoneSetupCopy.ROOT_FAILURES) BannerCopy(
+                    PhoneSetupCopy.failure(st.reason).title, PhoneSetupCopy.failure(st.reason).body,
+                    if (PhoneSetupCopy.canReconnect(st)) PhoneSetupCopy.RECONNECT else tr(R.string.view),
+                )
                 else if (st.reason == BuiltinShellFailure.WifiNotAllowed) BannerCopy(
                     PhoneSetupCopy.failure(st.reason).title, PhoneSetupCopy.WIFI_NOT_ALLOWED_LINE, tr(R.string.heads_up_action),
                 )

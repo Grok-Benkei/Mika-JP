@@ -66,6 +66,8 @@ data class DiagnosticsSnapshot(
         val adbKey: String? = null,
         /** このプロセスの最新のタスクの終了時に、Mika の画面にいくつかのアプリが残されて閉じられました (パッケージ名ではなく番号のみ)。渡されていないものは null です。 ミカは */
         val appsAfterTask: String? = null,
+        /** su の有無、2つのスイッチ、su の応答。コマンド内容は含めず、旧呼び出し元が渡さなければ null。 */
+        val root: String? = null,
     )
 
     data class Recovery(
@@ -201,6 +203,7 @@ object Diagnostics {
         line("helper restart", when (i.restart) {
             HelperRestart.Wireless -> "wireless debugging (paired)"
             HelperRestart.UsbCommand -> "USB start command"
+            HelperRestart.Root -> "root (su)"
             HelperRestart.None -> "not set up"
         })
         line("setup", "phase=${view.phase}" + (view.current?.let { ", current=${step(it)}" } ?: ""))
@@ -239,6 +242,7 @@ object Diagnostics {
         line("Wi-Fi", when (p.wifiConnected) { true -> "connected"; false -> "not connected"; null -> "unknown" })
         line("last error", p.lastError?.takeIf { it.isNotBlank() }?.take(MAX_ERROR) ?: "none")
         line("adb key status", p.adbKey ?: "unknown")
+        p.root?.let { line("root", it) }
         line("app copies", p.appCopies ?: "unknown")
         p.appsAfterTask?.let { line("apps after task", it) }
     }
@@ -275,6 +279,15 @@ object Diagnostics {
     fun host(url: String): String = runCatching { URI(url.trim()).host }.getOrNull()?.takeIf { it.isNotBlank() } ?: "(unparsed host)"
 
     private fun onOff(b: Boolean) = if (b) "on" else "off"
+
+    /**
+     * root の診断行。su がなければその旨だけを表示し、あれば起動・コマンドの各スイッチと前回の応答を表示する。
+     * 許可応答の列挙値は診断用の識別子として保持する。
+     */
+    fun rootLine(suPresent: Boolean, start: Boolean, startGrant: String, commands: Boolean, commandsGrant: String): String =
+        if (!suPresent && !start && !commands) "su が見つかりません"
+        else (if (suPresent) "su を検出" else "su が見つかりません") +
+            "; ヘルパー起動 ${if (start) "オン" else "オフ"} ($startGrant); root コマンド ${if (commands) "オン" else "オフ"} ($commandsGrant)"
 
     private fun yes(b: Boolean) = if (b) "yes" else "no"
 

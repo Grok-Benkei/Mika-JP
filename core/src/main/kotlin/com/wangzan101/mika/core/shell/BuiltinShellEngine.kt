@@ -33,11 +33,20 @@ interface BuiltinShellPlatform {
     suspend fun launchHelper()
     /** は、実行中のアシスタントに変更を元に戻して終了するように指示します。そうでない場合は、何もしません。 */
     fun stopHelper()
-    /** ペアリングキーと引き継ぎコマンドを削除します。 */
+    /** ペアリング鍵と引継ぎ用の合言葉を削除し、root起動も無効にする。解除後に監視処理がsuから復旧させない。 */
     fun forget()
     /** は、ペアリングされていない (USB 経由でコンピューターから起動された) ときにアシスタントを受け入れました。アシスタントが停止すると、セットアップされていなかったかのように扱うのではなく、再度起動する方法をユーザーに指示しました。持続性。 */
     fun usbStarted(): Boolean
     fun setUsbStarted(on: Boolean)
+    /** root起動のスイッチ、suの有無、前回の応答を返す。既定はOff。 */
+    fun rootStart(): RootStart = RootStart.Off
+    /**
+     * suへshellとしての起動を要求し、引継ぎは待たずに応答を返す。[SuAnswer.Granted] なら引継ぎをエンジンが待つ。
+     * suが見つからなければ null。その他の失敗は例外として扱う。
+     */
+    suspend fun launchHelperAsRoot(): SuAnswer? = null
+    /** suの応答を保存する。nullは、ユーザーの再試行により前回の拒否を忘れた状態。 */
+    fun setRootAnswer(answer: SuAnswer?) {}
 }
 
 /** ウォッチドッグ再起動アシスタント間隔: n 回目の失敗後、base・2^(n-1) を待ちます。上限は [maxMs] です。 [maxAttempts] の連続失敗後に停止し、誰かが変更するかスイッチが変更されるまで待ちます。 */
@@ -69,9 +78,11 @@ object BuiltinShellFailures {
 }
 
 /**
- * 内蔵アシスタント ステータスとウォッチドッグ。 [helper] 貴重なアシスタントのバインダーが手元にあります (実行中)。
- * が使用できない場合: ペアリング後、まず [graceMs] を待ち (まだ生きているアシスタントは、Mika プロセスの開始後に引き継がれます)、次に、adbd を通じてペアリングを開始します。失敗した場合は、[backoff] を押して再試行してください。
- * がアシスタントを開始しようとすると、ワイヤレス デバッグがオフになります。 [autoOn] がある場合、最初にユーザーに対して有効になります (条件と停止ルールについては、[WirelessDebuggingAutoOn] を参照してください)。
+ * 内蔵ヘルパーの状態と監視処理。[helper] があればBinderを保持している（Running）。
+ * 自力起動が可能なら [graceMs] 待ち、既存ヘルパーからの引継ぎを待つ。
+ * まず明示的に有効なsu経路を使い、利用できなければペアリング済みadbdを使う。失敗時は [backoff] に従う。
+ * suの拒否や無応答は保存し、自動では再要求せずユーザーの再試行を待つ。
+ * 起動時にワイヤレスデバッグが必要なら、[WirelessDebuggingAutoOn] の条件に従って有効化する。
  */
 class BuiltinShellEngine(
     private val platform: BuiltinShellPlatform,
@@ -102,22 +113,34 @@ class BuiltinShellEngine(
 
     override val paired: Boolean get() = platform.paired()
 
+    override val rootStart: Boolean get() = platform.rootStart() == RootStart.Ready
+
     override val restart: HelperRestart get() = when {
+        rootStart -> HelperRestart.Root
         platform.paired() -> HelperRestart.Wireless
         platform.usbStarted() -> HelperRestart.UsbCommand
         else -> HelperRestart.None
     }
 
+    /** suによる明示起動、またはペアリング済みワイヤレスデバッグによって自力起動できるか。 */
+    private fun selfStart(): Boolean = rootStart || platform.paired()
+
     private fun initialStatus(): BuiltinShellStatus = when {
         helper.value != null -> BuiltinShellStatus.Running
-        // コンピューター上で作成されたアシスタントがまだ生きていて、引き継がれるのを待っている可能性があります。
-        !platform.paired() -> if (platform.usbStarted()) BuiltinShellStatus.Connecting else BuiltinShellStatus.NotPaired
-        else -> BuiltinShellStatus.Connecting
+        selfStart() -> BuiltinShellStatus.Connecting
+        // PCから起動した既存ヘルパーがまだ生きている可能性があるため、引継ぎを待つ。
+        platform.usbStarted() -> BuiltinShellStatus.Connecting
+        else -> idleStatus()
     }
 
-    /** がペアリングされておらず、アシスタントが手元にない場合の状態: コンピューター上で起動されているアシスタントが停止している場合は、正直に言ってください。そうでない場合は、セットアップされていません。 */
-    private fun unpairedStatus(): BuiltinShellStatus =
-        if (platform.usbStarted()) BuiltinShellStatus.Failed(BuiltinShellFailure.UsbHelperStopped) else BuiltinShellStatus.NotPaired
+    /**
+     * 自力起動できずヘルパーもない状態。root起動が有効なのに使えない場合は、その理由を返す。
+     * PC起動済みのヘルパーが停止したならその状態を返し、それ以外は未設定とする。
+     */
+    private fun idleStatus(): BuiltinShellStatus {
+        platform.rootStart().failure?.let { return BuiltinShellStatus.Failed(it) }
+        return if (platform.usbStarted()) BuiltinShellStatus.Failed(BuiltinShellFailure.UsbHelperStopped) else BuiltinShellStatus.NotPaired
+    }
 
     /** はアシスタントの確認を開始しました。切断された後、アシスタントが再起動されました。機能がオンの場合にのみ呼び出されます。 */
     @Synchronized
@@ -130,17 +153,17 @@ class BuiltinShellEngine(
                 if (h != null) {
                     synchronized(this@BuiltinShellEngine) { failures = 0; retryJob?.cancel() }
                     autoOn?.reset()
-                    // はペアリングなしで到着しました。USB 経由でコンピューターに接続されました。それを書き留めてください、それが止まるまでプロンプトの方法がわかりません
-                    if (!platform.paired()) platform.setUsbStarted(true)
+                    // 自力起動できない状態で引継ぎが届いた場合は、PCからのUSB起動として記録する。
+                    if (!selfStart()) platform.setUsbStarted(true)
                     _status.value = BuiltinShellStatus.Running
-                } else if (!platform.paired()) {
-                    // アプリ 最初に起動したときにまだ生きているアシスタントは、それ自体を引き渡します。使用後に壊れた場合は、新しいものと交換できます。
-                    // インターフェースが「停止」と点滅しないように、停止したことを通知する前にしばらく待ちます。
+                } else if (!selfStart()) {
+                    // アプリ起動直後の既存ヘルパーや、入替え中の新しいヘルパーから引継ぎが届く場合がある。
+                    // すぐ停止表示へ切り替えず少し待ち、表示が点滅しないようにする。
                     if (platform.usbStarted()) {
                         _status.value = BuiltinShellStatus.Connecting
                         schedule(graceMs)
                     } else {
-                        _status.value = unpairedStatus()
+                        _status.value = idleStatus()
                     }
                 } else {
                     if (_status.value == BuiltinShellStatus.Running) _status.value = BuiltinShellStatus.Connecting
@@ -153,18 +176,32 @@ class BuiltinShellEngine(
 
     /** 誰かがアシスタントを使用したいと思っていましたが、それを持っていませんでした。私はアシスタントを起動したり、再試行するためにキューに並んだりすることなく、すぐにアシスタントを開始しました。 */
     fun need() {
-        if (helper.value != null || !platform.paired()) return
+        if (helper.value != null || !selfStart()) return
         synchronized(this) { if (retryJob?.isActive == true) return }
         if (launchLock.isLocked) return
         schedule(0)
     }
 
     /**
-     * ワイヤレス デバッグ スイッチが変更されました。スイッチをオンにして、最初からやり直してください。オフにすると、ステータスが変更されるだけで、ユーザーがすぐにオンになることはありません (ユーザーが自分でオフにすることもできます)。アシスタントを使用するまで待ちます。
-     * このスイッチを書き込んでいる間、ミカは動きません。書き込み側によっては、システムがすぐにスイッチを戻す可能性があります。
+     * root起動のスイッチやsuの応答が変わった場合、ヘルパーがなければ新しい状態で起動を試す。
+     * 自力起動できなくなった場合も状態へ反映する。
+     */
+    fun rootChanged() {
+        if (helper.value != null) return
+        synchronized(this) {
+            failures = 0
+            retryJob?.cancel()
+        }
+        if (selfStart()) schedule(0) else _status.value = idleStatus()
+    }
+
+    /**
+     * ワイヤレスデバッグが有効になれば再試行する。無効化直後は勝手に戻さず、次に必要になるまで待つ。
+     * Mika自身が書き換えている間は反応せず、システムが戻したかどうかを変更側で判定する。
      */
     fun wirelessDebuggingChanged() {
-        if (helper.value != null || !platform.paired()) return
+        // su経由の起動ではワイヤレスデバッグの状態を参照しない。
+        if (helper.value != null || !platform.paired() || rootStart) return
         if (autoOn?.writing == true) return
         if (platform.wirelessDebugging() == false) {
             _status.value = offStatus()
@@ -225,8 +262,22 @@ class BuiltinShellEngine(
 
     private suspend fun launchOnce(): Unit = launchLock.withLock {
         if (helper.value != null) return@withLock
+        // root経由を先に試し、失敗してペアリング済みならワイヤレスデバッグへ進む。
+        if (rootStart) {
+            _status.value = BuiltinShellStatus.Connecting
+            val failure = attemptRoot()
+            if (failure == null) {
+                lastError = null
+                _status.value = BuiltinShellStatus.Running
+                return@withLock
+            }
+            if (!platform.paired()) {
+                failed(failure)
+                return@withLock
+            }
+        }
         if (!platform.paired()) {
-            _status.value = unpairedStatus()
+            _status.value = idleStatus()
             return@withLock
         }
         if (platform.wirelessDebugging() == false && !turnOnWirelessDebugging()) return@withLock
@@ -237,6 +288,11 @@ class BuiltinShellEngine(
             _status.value = BuiltinShellStatus.Running
             return@withLock
         }
+        failed(failure)
+    }
+
+    /** 失敗を状態へ反映し、再試行が有効なものだけ [backoff] に従って予約する。 */
+    private fun failed(failure: BuiltinShellFailure) {
         _status.value = BuiltinShellStatus.Failed(failure)
         val next = synchronized(this) { ++failures }
         if (BuiltinShellFailures.retryable(failure)) backoff.delayAfter(next)?.let { d ->
@@ -249,10 +305,31 @@ class BuiltinShellEngine(
         }
     }
 
+    /** suで起動を一度試して引継ぎを待つ。拒否や無応答は保存し、自動で許可要求を繰り返さない。 */
+    private suspend fun attemptRoot(): BuiltinShellFailure? {
+        val answer = try {
+            withContext(io) { platform.launchHelperAsRoot() }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            lastError = describe(e)
+            return BuiltinShellFailure.Unknown
+        } ?: return BuiltinShellFailure.RootUnavailable.also { lastError = "suが見つかりません" }
+        platform.setRootAnswer(answer)
+        return when (answer) {
+            SuAnswer.Granted ->
+                if (withTimeoutOrNull(handoffTimeoutMs) { helper.first { it != null } } != null) null
+                else BuiltinShellFailure.HelperStartFailed.also { lastError = "root経由のヘルパー接続が制限時間内に完了しませんでした" }
+            SuAnswer.Denied -> BuiltinShellFailure.RootDenied.also { lastError = "suの実行が拒否されました" }
+            SuAnswer.NoAnswer -> BuiltinShellFailure.RootNoAnswer.also { lastError = "suから応答がありませんでした" }
+            SuAnswer.WrongUid -> BuiltinShellFailure.RootNoShellUid.also { lastError = "su経由の実行がshellのUID・GIDと一致しません" }
+        }
+    }
+
     private suspend fun attempt(): BuiltinShellFailure? = try {
         withContext(io) { platform.launchHelper() }
         if (withTimeoutOrNull(handoffTimeoutMs) { helper.first { it != null } } != null) null
-        else BuiltinShellFailure.HelperStartFailed.also { lastError = "helper handoff timed out" }
+        else BuiltinShellFailure.HelperStartFailed.also { lastError = "ヘルパー接続が制限時間内に完了しませんでした" }
     } catch (e: CancellationException) {
         throw e
     } catch (e: AdbConnectionException) {
@@ -296,7 +373,7 @@ class BuiltinShellEngine(
         val target = port ?: (_discovery.value as? PairingDiscovery.Found)?.port
             ?: withContext(io) { platform.findPairingPort(pairingPortTimeoutMs) }
         if (target == null) {
-            lastError = "pairing port not found"
+            lastError = "ペア設定用のポートが見つかりません"
             _status.value = BuiltinShellStatus.Failed(BuiltinShellFailure.PairingWindowClosed)
             return
         }
@@ -326,7 +403,10 @@ class BuiltinShellEngine(
             failures = 0
             retryJob?.cancel()
         }
-        // ユーザーが「再試行」をクリックしました: ユーザーのワイヤレス デバッグを有効にしたときの前回の拒否はカウントされなくなりました (システムは、許可されていないネットワーク上で再度要求します)
+        // ユーザーが再試行を選んだ場合だけ前回のsu応答を忘れ、新たに許可を求める。
+        val s = _status.value
+        if (s is BuiltinShellStatus.Failed && s.reason in ROOT_ASKABLE) platform.setRootAnswer(null)
+        // ワイヤレスデバッグの有効化が以前に拒否されていても、ユーザーの再試行時には再確認する。
         autoOn?.reset()
         if (helper.value != null) {
             _status.value = BuiltinShellStatus.Running
@@ -347,5 +427,10 @@ class BuiltinShellEngine(
             platform.setPaired(false)
             _status.value = BuiltinShellStatus.NotPaired
         }
+    }
+
+    private companion object {
+        /** ユーザーの再試行でsuへ再要求する失敗の種類。 */
+        val ROOT_ASKABLE = setOf(BuiltinShellFailure.RootDenied, BuiltinShellFailure.RootNoAnswer, BuiltinShellFailure.RootNoShellUid)
     }
 }

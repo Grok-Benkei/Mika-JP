@@ -7,6 +7,7 @@ import com.wangzan101.mika.core.shell.HelperRestart
 import com.wangzan101.mika.core.shell.RecoveryCapability
 import com.wangzan101.mika.core.shell.RecoveryConsent
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -40,6 +41,23 @@ class RecoveryCopyTest {
             assertNull(RecoveryCopy.pending(c, RecoveryConsent(applied = setOf(c)), paired = true, autoFailed = emptySet(), restart = HelperRestart.Wireless))
         }
         assertNull(RecoveryCopy.pending(RecoveryCapability.Accessibility, RecoveryConsent(), paired = true, autoFailed = emptySet(), restart = usb))
+    }
+
+    /** root 起動では無線復帰用の2項目が不要と説明し、再起動後は su で復帰することを示す。不要な設定へ誘導せず、適用済みなら説明を省く。 */
+    @Test
+    fun wirelessOnlyCapabilitiesSayTheyAreNotNeededWithRoot() {
+        val root = HelperRestart.Root
+        listOf(RecoveryCapability.RestoreAfterReboot, RecoveryCapability.AutoWirelessDebugging).forEach { c ->
+            val note = RecoveryCopy.pending(c, RecoveryConsent(), paired = false, autoFailed = emptySet(), restart = root)
+            assertNotNull(c.name, note)
+            assertNotEquals(c.name, RecoveryCopy.NEED_SETUP, note)
+            assertNull(RecoveryCopy.pending(c, RecoveryConsent(applied = setOf(c)), paired = true, autoFailed = emptySet(), restart = root))
+            assertNull(RecoveryCopy.pending(c, RecoveryConsent(declined = setOf(c)), paired = false, autoFailed = emptySet(), restart = root))
+        }
+        assertEquals(
+            RecoveryCopy.NEED_SETUP,
+            RecoveryCopy.pending(RecoveryCapability.Accessibility, RecoveryConsent(), paired = false, autoFailed = emptySet(), restart = root),
+        )
     }
 
     @Test

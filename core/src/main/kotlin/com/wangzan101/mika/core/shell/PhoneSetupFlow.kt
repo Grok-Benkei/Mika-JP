@@ -49,6 +49,7 @@ enum class PairingNotifyIssue {
  * アシスタントが停止すると、接続ステップで停止し、停止したと表示され、コマンドが与えられ、ワイヤレス デバッグ ステップには戻りません。
  * [developerSettingsMissing] はシステムの「開発者向けオプション」ページを開けません (スキップされたインテントにはページ接続がありません): [wirelessMissing] と一緒に確立されると、
  * ユーザーは、USB デバッグもワイヤレス デバッグも有効にすることができません。[PhoneSetupFlow.unavailable] を参照してください。
+ * [rootAvailable] はsuを利用できる状態です。root経由の起動には開発者向けオプションが不要なので、他の経路がない状態とはみなしません。
  */
 data class SetupInputs(
     val developerOptions: Boolean,
@@ -69,6 +70,7 @@ data class SetupInputs(
     val usbAsked: Boolean = false,
     val restart: HelperRestart = HelperRestart.None,
     val developerSettingsMissing: Boolean = false,
+    val rootAvailable: Boolean = false,
 )
 
 /** ペアリングまたは接続が失敗する場合の最も考えられる理由: [step] この読み取りステップがオフになっています。 [unreadable] はこの携帯電話では実際には読み取れません。 */
@@ -130,16 +132,19 @@ object PhoneSetupFlow {
     }
 
     /**
-     * この環境で携帯電話の操作をセットアップすることはできますか: システムで開発者向けオプション ページを開くことができず、ワイヤレス デバッグ項目がないため、アシスタントをアクティブにする方法がありません。
-     * (USB デバッグとワイヤレス デバッグは両方とも開発者向けオプションにあり、コンピューターの起動時に USB デバッグも必要です)。アシスタントはすでに実行中か、起動中、または以前に起動していました。
-     * は他の方法があることを意味するため、カウントされません。
+     * 開発者向けオプションとワイヤレスデバッグがなく、ほかの起動経路もない場合はセットアップ不可とする。
+     * ヘルパーが実行中・起動中、または過去に起動済みなら別の経路があるため対象外。
+     * suが利用可能な [rootAvailable] の場合も、開発者向けオプションを使わず起動できるため対象外。
      */
-    fun unavailable(developerSettingsMissing: Boolean, wirelessMissing: Boolean, status: BuiltinShellStatus, restart: HelperRestart): Boolean =
-        developerSettingsMissing && wirelessMissing && restart == HelperRestart.None &&
+    fun unavailable(
+        developerSettingsMissing: Boolean, wirelessMissing: Boolean, status: BuiltinShellStatus, restart: HelperRestart,
+        rootAvailable: Boolean = false,
+    ): Boolean =
+        developerSettingsMissing && wirelessMissing && restart == HelperRestart.None && !rootAvailable &&
             status != BuiltinShellStatus.Running && status != BuiltinShellStatus.Connecting
 
     fun unavailable(i: SetupInputs): Boolean =
-        unavailable(i.developerSettingsMissing, i.wirelessMissing, i.status, i.restart)
+        unavailable(i.developerSettingsMissing, i.wirelessMissing, i.status, i.restart, i.rootAvailable)
 
     /**
      * のスタック タイミングはどこでカウントされますか: ワイヤレス デバッグ ステップで停止、ペアリング ステップで停止したがペアリング ウィンドウが見つからず (システムにはペアリング サービスがない)、自動接続中です。

@@ -2,6 +2,7 @@ package com.wangzan101.mika.confirm
 
 import org.junit.Rule
 import com.wangzan101.mika.i18n.ChineseTexts
+import com.wangzan101.mika.core.cap.root.ROOT_CONFIRM_APP
 import com.wangzan101.mika.core.gate.ConfirmationRequest
 import com.wangzan101.mika.core.risk.IrrevAction
 import org.junit.Assert.assertEquals
@@ -36,5 +37,15 @@ class ConfirmationCopyTest {
         assertTrue(ConfirmationNotifier.intentData(1, true) != ConfirmationNotifier.intentData(2, true))
         assertTrue(ConfirmationNotifier.intentData(1, true) != ConfirmationNotifier.intentData(1, false))
     }
-}
 
+    /** root コマンドの確認カード。タイトルとスマホ全体を対象とする説明を示し、展開時はコマンドを省略しない。 */
+    @Test fun rootCommandCardShowsTheWholeCommand() {
+        val command = "rm -rf /sdcard/Download/" + "x".repeat(300)
+        val r = ConfirmationRequest(IrrevAction.other, "", command, null, ROOT_CONFIRM_APP)
+        assertEquals("許可が必要: root コマンド", ConfirmationCopy.title(r))
+        val detail = ConfirmationCopy.detail(r, "root")
+        assertTrue(detail, detail.startsWith("スマホ全体（root） で\n内容: rm -rf"))
+        assertTrue(detail, detail.endsWith("x".repeat(300)))
+        assertFalse(detail, "宛先:" in detail)
+    }
+}

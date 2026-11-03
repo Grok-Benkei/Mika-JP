@@ -458,4 +458,13 @@ class PhoneSetupFlowTest {
         assertFalse(PhoneSetupFlow.unavailable(noWay.copy(restart = HelperRestart.Wireless)))
         assertTrue(PhoneSetupFlow.unavailable(true, true, BuiltinShellStatus.NotPaired, HelperRestart.None))
     }
+
+    @Test
+    fun aRootedPhoneHasAWayEvenWithoutDeveloperOptions() {
+        // suがあれば開発者向けオプションなしでroot起動へ進める。
+        val v = PhoneSetupFlow.view(noWay.copy(rootAvailable = true))
+        assertEquals(SetupPhase.Guide, v.phase)
+        assertFalse(PhoneSetupFlow.unavailable(noWay.copy(rootAvailable = true)))
+        assertFalse(PhoneSetupFlow.unavailable(true, true, BuiltinShellStatus.NotPaired, HelperRestart.None, rootAvailable = true))
+    }
 }

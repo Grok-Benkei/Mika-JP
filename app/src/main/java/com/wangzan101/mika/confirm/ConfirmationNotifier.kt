@@ -1,5 +1,6 @@
 package com.wangzan101.mika.confirm
 
+import com.wangzan101.mika.core.cap.root.ROOT_CONFIRM_APP
 import com.wangzan101.mika.i18n.tr
 import android.app.Notification
 import android.app.PendingIntent
@@ -36,18 +37,21 @@ object ConfirmationCopy {
         IrrevAction.other -> tr(R.string.confirm_other)
     }
 
-    fun title(r: ConfirmationRequest) = tr(R.string.confirm_title, actionLabel(r.action))
+    /** root コマンドの確認は特定アプリ内の操作ではない。タイトルは root コマンド、対象はスマホ全体とし、コマンド全体を表示する。 */
+    private fun root(r: ConfirmationRequest) = r.app == ROOT_CONFIRM_APP
+
+    fun title(r: ConfirmationRequest) = tr(R.string.confirm_title, if (root(r)) tr(R.string.confirm_root) else actionLabel(r.action))
 
     /** は行を折りたたみます: "<App 名> · オブジェクト: <誰に> · 内容: <最初の 60 単語> · 金額: <いくら>";空のフィールドを書き込まないでください。 */
     fun body(r: ConfirmationRequest, appName: String): String = fields(r, appName, CONTENT_MAX).joinToString(" · ")
 
-    /** 拡張されたカードと通知の大きな文字: フィールドごとに 1 行、内容が完全に表示されます (最大 200 ワード)。 */
-    fun detail(r: ConfirmationRequest, appName: String): String = fields(r, appName, DETAIL_MAX).joinToString("\n")
+    /** 展開カードは1行1項目。通常は最大200文字、root コマンドは全体を表示する。 */
+    fun detail(r: ConfirmationRequest, appName: String): String = fields(r, appName, if (root(r)) Int.MAX_VALUE else DETAIL_MAX).joinToString("\n")
 
     private fun fields(r: ConfirmationRequest, appName: String, contentMax: Int): List<String> {
         val content = plain(r.content).let { if (it.length > contentMax) it.take(contentMax) + "…" else it }
         return listOfNotNull(
-            tr(R.string.confirm_in_app, plain(appName)),
+            tr(R.string.confirm_in_app, if (root(r)) tr(R.string.confirm_root_where) else plain(appName)),
             plain(r.target).takeIf { it.isNotEmpty() }?.let { tr(R.string.confirm_target, it) },
             content.takeIf { it.isNotEmpty() }?.let { tr(R.string.confirm_content, it) },
             r.amount?.let(::plain)?.takeIf { it.isNotEmpty() }?.let { tr(R.string.payment_amount, it) },
@@ -69,7 +73,7 @@ object ConfirmationNotifier {
     const val EXTRA_REQUEST = "confirmation_request"
 
     /** アプリの表示名。パッケージ名を読み取れない場合（インストールされていない場合、パッケージが表示されない場合）には、パッケージ名を使用してください。 */
-    fun appLabel(context: Context, packageName: String): String = try {
+    fun appLabel(context: Context, packageName: String): String = if (packageName == ROOT_CONFIRM_APP) tr(R.string.confirm_root_where) else try {
         val pm = context.packageManager
         pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString().ifBlank { packageName }
     } catch (_: PackageManager.NameNotFoundException) {

@@ -14,6 +14,7 @@
 - 日本語の送信・購入・決済ボタン、ログイン・認証画面の判定。
 - 日本語以外のAI回答を見つけた場合の書き直しと、日本語での停止案内。
 - 日本語のコメント・開発資料、問い合わせ先、フォーク専用の更新元。
+- root取得済み端末向けの任意機能。ヘルパーのroot起動とrootコマンドは別々の明示許可制で、既定では無効です。root実機での動作は未検証です。
 
 日付と予定には端末の実際のタイムゾーンを使います。日本語だからといって、現在地や住所を東京に決めつけません。買い物では税込・税別、送料、ポイント還元、実際の支払額を区別します。
 
@@ -35,6 +36,8 @@ Mika JPはGalaxy専用のアプリではなく、以下の条件を満たすAndr
 開発版のアプリ名は **Mika JP**、アプリIDは **jp.studioyebisu.mika** です。公式Mikaと別にインストールでき、公式版の会話や設定を消しません。公式版から認証情報や会話を自動でコピーする機能はありません。
 
 このフォークのリリースAPKがまだ公開されていない場合は、以下のビルド手順を使います。上流MikaのAPKは日本語調整版ではありません。
+
+公開候補の変更点は[変更履歴](CHANGELOG.md)、配布物と署名の準備は[公開手順](docs/release.md)にまとめています。公開APKを入手するときは、このフォークのリリースページとSHA256SUMSを確認してください。
 
 ## ビルド
 
@@ -87,3 +90,5 @@ OpenAI、Anthropic、Gemini、OpenRouter、OpenCode Go、xAI、Mistral、Groq、
 [Apache-2.0](LICENSE)、[NOTICE](NOTICE)、[第三者コンポーネント](licenses/THIRD_PARTY_NOTICES.md)を引き継いでいます。原作の著作権表示や第三者の権利は変更しません。
 
 [不具合・提案](https://github.com/yebisu0529-ship-it/Mika-JP/issues) · [Studio Yebisu](https://x.com/studio_yebisu)
+
+[データと権限の取扱い](docs/privacy.md) · [セキュリティ報告](SECURITY.md)

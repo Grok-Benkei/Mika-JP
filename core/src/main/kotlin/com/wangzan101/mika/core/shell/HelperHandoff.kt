@@ -49,11 +49,23 @@ object HelperHandoff {
      * [certPin] は、ミカの署名証明書の指紋です。これは秘密ではなく、パラメータに設定されます。
      */
     fun command(apkPath: String, packageName: String, appUid: Int, certPin: String): String =
-        "read n; (echo \"\$n\" | CLASSPATH=${quote(apkPath)} setsid app_process /system/bin " +
+        launch(apkPath, packageName, appUid, certPin, launcher = "setsid")
+
+    /** [command] と [rootCommand] に共通する起動部分。[launcher] はapp_processの前に置くコマンド。 */
+    private fun launch(apkPath: String, packageName: String, appUid: Int, certPin: String, launcher: String): String =
+        "read n; (echo \"\$n\" | CLASSPATH=${quote(apkPath)} $launcher app_process /system/bin " +
             "--nice-name=${quote(processName(packageName))} $HELPER_CLASS ${quote(packageName)} $appUid ${quote(certPin)} " +
             ">/dev/null 2>&1 &); read _"
 
     fun stdinLine(nonce: String): ByteArray = "$nonce\n".toByteArray(Charsets.UTF_8)
+
+    /**
+     * su 2000 -cへ渡すコマンド。最初にidを返し、アプリがUID/GID 2000を確認してから合言葉を標準入力へ送る。
+     * 合言葉はコマンド行に含めず、引継ぎ後に入力を閉じる。suが応答しなければ合言葉を送らない。
+     * USB起動と同じくnohupを使い、su終了時のハングアップでヘルパーが巻き込まれないようにする。
+     */
+    fun rootCommand(apkPath: String, packageName: String, appUid: Int, certPin: String): String =
+        "id; " + launch(apkPath, packageName, appUid, certPin, launcher = "nohup setsid")
 
     /** 「コンピューターで起動」というスクリプト ファイル名がアプリの外部ファイル ディレクトリに配置されます (コンピューターは USB デバッグを通じてシェルとしてそれを読み取ります)。 */
     const val USB_SCRIPT = "usb-start.sh"

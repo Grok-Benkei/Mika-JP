@@ -1,5 +1,6 @@
 package com.wangzan101.mika.core.action
 
+import com.wangzan101.mika.core.gate.ConfirmationRequest
 import com.wangzan101.mika.core.run.Attendance
 import com.wangzan101.mika.core.run.RunOrigin
 import com.wangzan101.mika.core.run.RunProvenance
@@ -14,8 +15,8 @@ enum class ActionRisk { Read, Change, External, Irreversible, Unknown;
     val outward: Boolean get() = this == External || this == Irreversible || this == Unknown
 }
 
-/** [payment] が true の場合、このステップにはお金がかかります (支払い、注文、または画面に金額がある場合の外部アクション)。質問するときに最初にユーザーに尋ねるだけです。 */
-data class Risk(val level: ActionRisk, val payment: Boolean = false)
+/** 支出を伴う場合は [payment]、画面外の操作で確認が必要な場合は [ask] を指定します。同意は内容が完全一致する1回だけに有効です。 */
+data class Risk(val level: ActionRisk, val payment: Boolean = false, val ask: ConfirmationRequest? = null)
 
 /** 確認カードでのユーザーの選択: 今回は同意するか、同意しません。 */
 enum class ConfirmChoice { Once, Deny;
@@ -29,7 +30,7 @@ fun interface ApprovalSettings {
     fun autonomous(): Boolean
 
     companion object {
-        /** 要求する (デフォルト): 最初にのみ支払いを要求します。 */
+        /** 確認モード（既定）では支出と [Risk.ask] の操作をユーザーへ確認します。 */
         val ASK = ApprovalSettings { false }
     }
 }
@@ -43,10 +44,10 @@ sealed interface Approval {
     data object Deny : Approval
 }
 
-/** レビューと決定: 純粋な機能。支払いのみを要求する必要があります。誰も対応できない場合（無人、サブタスク）、または携帯電話を使用していない場合（チャネル、スケジュール済み、MCP が開始された場合）、支払いは行われません。 */
+/** 支出とツールが申告した確認要求を判定します。確認モードで本人へ聞けない無人・非UIタスクでは実行しません。 */
 object ApprovalPolicy {
     fun decide(risk: Risk, run: RunProvenance = RunProvenance()): Approval = when {
-        !risk.payment -> Approval.Allow
+        !risk.payment && risk.ask == null -> Approval.Allow
         run.attendance == Attendance.Unattended || run.origin != RunOrigin.Ui -> Approval.Deny
         else -> Approval.Ask
     }

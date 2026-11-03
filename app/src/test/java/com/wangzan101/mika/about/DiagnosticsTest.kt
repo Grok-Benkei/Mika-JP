@@ -119,7 +119,19 @@ class DiagnosticsTest {
         assertTrue(t, t.contains("last error: AdbConnectionException(CONNECT_FAILED)"))
     }
 
-    /** マシンをスキャンすると、ユーザーはポートを入力します。番号と、入力されているかどうかのみを書き込み、ポート番号は書きません。 */
+    /** root の診断行には su の有無、各スイッチ、許可の応答だけを含め、旧呼び出し元が渡さなければ省略する。 */
+    @Test
+    fun rootLineShowsSwitchesAndSuAnswers() {
+        assertEquals("su が見つかりません", Diagnostics.rootLine(false, false, "Unknown", false, "Unknown"))
+        assertEquals("su を検出; ヘルパー起動 オン (Granted); root コマンド オフ (Unknown)", Diagnostics.rootLine(true, true, "Granted", false, "Unknown"))
+        assertEquals("su が見つかりません; ヘルパー起動 オン (Denied); root コマンド オフ (Unknown)", Diagnostics.rootLine(false, true, "Denied", false, "Unknown"))
+        val base = snapshot()
+        assertFalse(Diagnostics.render(base).contains("\nroot: "))
+        val t = Diagnostics.render(base.copy(phone = base.phone.copy(root = "su を検出; ヘルパー起動 オン (Granted); root コマンド オフ (Unknown)")))
+        assertTrue(t, t.contains("root: su を検出; ヘルパー起動 オン (Granted); root コマンド オフ (Unknown)\n"))
+    }
+
+    /** ポート番号は表示せず、スキャン結果の件数と手動入力の有無だけを記録する。 */
     @Test
     fun connectServiceShowsScanAndManualWithoutPortNumbers() {
         val c = ConnectCandidates(0, 0, 0, connected = true, scanned = true, scanOpen = 2, scanAdb = 1, manual = true)

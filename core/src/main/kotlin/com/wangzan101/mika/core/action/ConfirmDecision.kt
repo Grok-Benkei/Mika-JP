@@ -1,6 +1,7 @@
 package com.wangzan101.mika.core.action
 
 import com.wangzan101.mika.core.gate.ConfirmationGate
+import com.wangzan101.mika.core.gate.ConfirmationRequest
 import com.wangzan101.mika.core.risk.IrrevAction
 import com.wangzan101.mika.core.gate.Irreversible
 import com.wangzan101.mika.core.gate.IrreversibleDetector
@@ -22,9 +23,12 @@ sealed interface Decision {
     data class Traced(val detail: String) : Decision
     /** は、ポイントがどの要素上にあるかを見つけることができません。この情報源は盲点ではありません。 */
     data object Unresolved : Decision
-    /** この手順には費用がかかり、今回はユーザーの同意が必要ですが、これは利用できません。 */
-    data class Required(val hit: Irreversible) : Decision
-    /** は同意しましたが、このステップには対応していません。その同意は無効になりました。 */
+    /**
+     * 支出または [ask] が示す画面外の操作に今回の承認が必要だが、有効な承認がない。
+     * [ask] があれば、確認できる呼び出し元がその場で本人へ確認する（[FollowUp.approve]）。
+     */
+    data class Required(val hit: Irreversible, val ask: ConfirmationRequest? = null) : Decision
+    /** 承認した内容と今回の操作が一致せず、承認は無効になった。 */
     data class Mismatch(val hit: Irreversible, val reason: String) : Decision
     /** はお金がかかりますが、電話の隣のユーザーにこの実行を依頼することはできず、直接拒否しました。 */
     data class Denied(val hit: Irreversible) : Decision
@@ -33,8 +37,8 @@ sealed interface Decision {
 }
 
 /**
- * 不可逆的な決定、承認、同意の検証。コードベース全体では、[IrreversibleDetector] と [ConfirmationGate.permits] を呼び出す判定のみがあります。
- * (テスト済み)、各ソースでは [OriginPolicy] の違いのみが記載されています。お願いするかどうかは[ApprovalPolicy.decide]で決定します(支払いのみお願いします)。
+ * 不可逆判定と承認の照合は、ここから [IrreversibleDetector] と [ConfirmationGate.permits] を呼ぶ。
+ * 呼び出し元ごとの差は [OriginPolicy] にまとめ、確認の要否は [ApprovalPolicy.decide] で決める。
  */
 class ConfirmDecision(
     private val tools: ToolDispatcher,
@@ -59,6 +63,9 @@ class ConfirmDecision(
     suspend fun judge(tool: String, args: JsonObject, origin: Origin): Decision {
         outwardSite = null
         if (autonomous || approvals.autonomous()) {
+            // 確認待ち中に自律へ切り替わっても、その操作への承認を次回へ持ち越さない。
+            // 自律モードでは照合結果にかかわらず実行できるが、既存の1回限りの承認は消費する。
+            tools.approvalRisk(tool, args)?.ask?.let { confirmations?.permitsExactly(it, origin.step) }
             val target = tools.gateTarget(tool)
             if (IrreversibleDetector.needsCheck(target, args)) {
                 val aim = tools.interfaces.actionTarget(tools.declared(tool), args)
@@ -72,7 +79,7 @@ class ConfirmDecision(
         val aim = tools.interfaces.actionTarget(tools.declared(tool), args)
         val checked = aim.args
         if (ownApp(tool, args, aim.aimed)) return Decision.OwnApp
-        tools.approvalRisk(tool)?.let { declared ->
+        tools.approvalRisk(tool, checked)?.let { declared ->
             return approve(tool, checked, origin, null, declared, null, null, null) ?: Decision.Clear
         }
         if (confirmations == null && !policy.judgeWithoutGate) return Decision.Clear
@@ -111,8 +118,8 @@ class ConfirmDecision(
         typing: String?, seen: String?,
     ): Decision? {
         val policy = origin.policy
-        // ミスが取り返しのつかない場合 (ツール自体によって宣言されたリスク): アクションが該当する要素は「その他」として記録されます。
-        val asked = hit ?: Irreversible(IrrevAction.other,
+        // ツール自身のリスク申告がある場合はその内容を記録し、それ以外は対象要素を「other」として記録する。
+        val asked = hit ?: risk.ask?.let { Irreversible(it.action, it.content) } ?: Irreversible(IrrevAction.other,
             screen?.let { ClassifiedRisk.target(tools.verb(tool), checked, it) }?.name?.trim()?.takeIf { it.isNotEmpty() } ?: tool)
         // 外部情報、お金が必要なもの、公開されていない情報を記録します。インターフェース上の変更は記録されません。
         fun audit(decision: String) {
@@ -123,9 +130,10 @@ class ConfirmDecision(
             Approval.Deny -> return Decision.Denied(asked).also { audit("denied") }
             Approval.Ask -> Unit
         }
-        val required = Decision.Required(asked)
+        val required = Decision.Required(asked, risk.ask)
         val gate = confirmations?.takeIf { policy.usesGrant } ?: return required.also { audit("required") }
-        return when (val p = gate.permits(asked, screen, origin.step, typing, listOfNotNull(seen))) {
+        val permit = risk.ask?.let { gate.permitsExactly(it, origin.step) } ?: gate.permits(asked, screen, origin.step, typing, listOfNotNull(seen))
+        return when (val p = permit) {
             Permit.Allowed -> null.also { audit("allowed") }
             Permit.NoGrant -> required.also { audit("required") }
             is Permit.Mismatch -> Decision.Mismatch(asked, p.reason).also { audit("mismatch") }

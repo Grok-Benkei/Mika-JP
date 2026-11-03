@@ -194,7 +194,7 @@ internal class UserExchange(
             emit(event("declined_unattended"))
             return error("confirmation_declined", CONFIRMATION_DECLINED, recoverable = false)
         }
-        // 支払いは携帯電話でのみ合意されます。チャネル、タイミング、MCP によって開始されたタスクは必要ありません。
+        // 支出や画面外の変更への同意は本人が端末上で行う。チャネル・定時実行・MCPからのタスクでは確認しない。
         if (provenance.origin != RunOrigin.Ui) {
             g.decide(ConfirmChoice.Deny, step)
             emit(event("declined_remote"))

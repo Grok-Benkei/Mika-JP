@@ -20,7 +20,8 @@ class JapanDeviceTest {
 
     @Test fun freshInstallStartsInJapaneseAsASeparateApp() {
         assertEquals("jp.studioyebisu.mika", app.packageName)
-        assertEquals("0.1.33-jp.2", BuildConfig.VERSION_NAME)
+        assertEquals("0.1.33-jp.3", BuildConfig.VERSION_NAME)
+        assertEquals(36, BuildConfig.VERSION_CODE)
         assertEquals(AppLanguage.Japanese, AppLanguage.current(app))
     }
 

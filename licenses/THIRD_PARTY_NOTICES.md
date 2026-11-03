@@ -187,7 +187,7 @@ The Apache Software Foundation (https://www.apache.org/).
   `app/src/main/assets/runtime/packages.json`、アプリの「オープンソースライセンス」ページにも1つずつ記載されています。
 - 使用法: **APK でリリース**、ファイル `app/src/main/assets/runtime/rootfs.tar.xz`、`tools/sandbox/build-runtime.py`
   は、`tools/sandbox/runtime/sources.lock` に従ってアルパインの公式ソースから署名を取得して検証することによって生成されます。ミカはその中のプログラムをサブプロセスとして実行するだけで、それらをリンクしません。
-  GPL/LGPL/MPL ソフトウェア パッケージの対応するソース コード (Alpine のビルド レシピおよびアップストリーム ソース コード) は、各バージョンの `mika-<版本>-gpl-sources.tar.gz` に格納されます。
+  GPL/LGPL/MPL ソフトウェア パッケージの対応するソース コード (Alpine のビルド レシピおよびアップストリーム ソース コード) は、各バージョンの `Mika-JP-<version>-corresponding-sources.tar.gz` に格納されます。
   のメソッドについては、`tools/sandbox/README.md`を参照してください。
 
 ## Guava ListenableFuture（AndroidX経由）

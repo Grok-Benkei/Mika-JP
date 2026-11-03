@@ -6,6 +6,7 @@ import com.wangzan101.mika.core.shell.BuiltinShellFailure
 import com.wangzan101.mika.core.shell.BuiltinShellFix
 import com.wangzan101.mika.core.shell.BuiltinShellStatus
 import com.wangzan101.mika.core.shell.HelperRestart
+import com.wangzan101.mika.core.shell.RootGrant
 import com.wangzan101.mika.core.shell.SetupStep
 import com.wangzan101.mika.core.shell.SetupSuspect
 import com.wangzan101.mika.settings.Problem
@@ -27,6 +28,15 @@ class PhoneSetupCopyTest {
         BuiltinShellFailure.entries.forEach { val f = PhoneSetupCopy.failure(it); add(f.title); add(f.body) }
         BuiltinShellFix.entries.forEach { add(PhoneSetupCopy.fixLabel(it)) }
         statuses.forEach { add(PhoneSetupCopy.statusLine(it)); add(PhoneSetupCopy.statusLine(it, usbDebugging = false)); add(PhoneSetupCopy.statusValue(it).first) }
+        statuses.forEach { add(PhoneSetupCopy.statusLine(it, rootStart = true)) }
+        RootGrant.entries.forEach {
+            add(PhoneSetupCopy.rootStartLine(it)); add(PhoneSetupCopy.rootOptionLine(it))
+            add(PhoneSetupCopy.rootCommandsLine(true, it)); add(PhoneSetupCopy.rootCommandsLine(false, it))
+        }
+        addAll(listOf(
+            PhoneSetupCopy.ROOT_START, PhoneSetupCopy.ROOT_COMMANDS, PhoneSetupCopy.ROOT_COMMANDS_TITLE, PhoneSetupCopy.ROOT_COMMANDS_WARNING,
+            PhoneSetupCopy.ROOT_NOTE, PhoneSetupCopy.ROOT_OPTION, PhoneSetupCopy.ROOT_OPTION_BODY,
+        ))
         addAll(
             listOf(
                 PhoneSetupCopy.SUCCESS_LINE, PhoneSetupCopy.UNPAIR_BODY, PhoneSetupCopy.SKIP_NOTE, PhoneSetupCopy.DEGRADED_LINE, PhoneSetupCopy.PORT_FOUND,
@@ -72,7 +82,11 @@ class PhoneSetupCopyTest {
     fun reconnectOnlyWhenRetryingIsTheFix() {
         val reconnectable = statuses.filter { PhoneSetupCopy.canReconnect(it) }
         assertEquals(
-            listOf(BuiltinShellFailure.ConnectFailed, BuiltinShellFailure.HelperStartFailed, BuiltinShellFailure.Unknown),
+            // root が拒否または応答なしなら、再試行で su に要求し直す。
+            listOf(
+                BuiltinShellFailure.ConnectFailed, BuiltinShellFailure.HelperStartFailed,
+                BuiltinShellFailure.RootDenied, BuiltinShellFailure.RootNoAnswer, BuiltinShellFailure.Unknown,
+            ),
             reconnectable.map { (it as BuiltinShellStatus.Failed).reason },
         )
         reconnectable.forEach { s ->
@@ -143,5 +157,47 @@ class PhoneSetupCopyTest {
         assertEquals("ワイヤレス デバッグが見つかりませんか？", PhoneSetupCopy.USB_ASK)
         assertTrue(PhoneSetupCopy.USB_BODY.contains("USB ケーブル"))
         assertTrue(PhoneSetupCopy.USB_BODY.contains("再起動"))
+    }
+
+    /** root 起動の失敗は設定画面とバナーに理由と対処を示し、拒否や応答なしなら再試行を提示する。起動中も状態を正確に表示する。 */
+    @Test
+    fun rootStartStatusSaysWhyAndWhatToDo() {
+        val denied = BuiltinShellStatus.Failed(BuiltinShellFailure.RootDenied)
+        assertEquals("root の許可が拒否されました", PhoneSetupCopy.failure(BuiltinShellFailure.RootDenied).title)
+        assertTrue(PhoneSetupCopy.statusLine(denied).contains("再試行"))
+        assertTrue(PhoneSetupCopy.canReconnect(denied))
+        val banner = StatusCopy.banner(Problem.PhoneHelper(denied))
+        assertEquals("root の許可が拒否されました", banner.title)
+        assertEquals(PhoneSetupCopy.RECONNECT, banner.link)
+        val gone = BuiltinShellStatus.Failed(BuiltinShellFailure.RootUnavailable)
+        assertTrue(PhoneSetupCopy.statusLine(gone).contains("su が見つからなくなりました"))
+        assertFalse(PhoneSetupCopy.canReconnect(gone))
+        assertEquals("スマホのヘルパーが動いていません。root で起動しています…", PhoneSetupCopy.statusLine(BuiltinShellStatus.Connecting, rootStart = true))
+        assertEquals(PhoneSetupCopy.statusLine(BuiltinShellStatus.Connecting), PhoneSetupCopy.statusLine(BuiltinShellStatus.Connecting, rootStart = false))
+        // root 起動は Wi-Fi に依存しないため、USB デバッグがオフでも Wi-Fi 切断の警告を表示しない。
+        assertEquals(PhoneSetupCopy.statusLine(BuiltinShellStatus.Running), PhoneSetupCopy.statusLine(BuiltinShellStatus.Running, usbDebugging = false, rootStart = true))
+    }
+
+    /** 各スイッチの説明は su の応答に合わせる。root 起動が拒否または応答なしなら、タップで再要求できる。 */
+    @Test
+    fun rootSwitchLines() {
+        assertEquals(PhoneSetupCopy.ROOT_PENDING, PhoneSetupCopy.rootStartLine(RootGrant.Pending))
+        assertTrue(PhoneSetupCopy.rootStartLine(RootGrant.Denied).contains("もう一度確認"))
+        assertTrue(PhoneSetupCopy.rootStartRetries(on = true, grant = RootGrant.Denied))
+        assertTrue(PhoneSetupCopy.rootStartRetries(on = true, grant = RootGrant.NoAnswer))
+        assertFalse(PhoneSetupCopy.rootStartRetries(on = false, grant = RootGrant.Denied))
+        assertFalse(PhoneSetupCopy.rootStartRetries(on = true, grant = RootGrant.Granted))
+        assertEquals(PhoneSetupCopy.ROOT_OPTION_BODY, PhoneSetupCopy.rootOptionLine(RootGrant.Unknown))
+        assertTrue(PhoneSetupCopy.rootCommandsLine(false, RootGrant.Denied).contains("オフのまま"))
+        assertTrue(PhoneSetupCopy.rootCommandsLine(false, RootGrant.NoAnswer).contains("応答がない"))
+        assertTrue(PhoneSetupCopy.rootCommandsLine(false, RootGrant.NoShellUid).contains("root ユーザーで実行できない"))
+        assertTrue(PhoneSetupCopy.ROOT_COMMANDS_WARNING.contains("ほかのアプリのデータ"))
+        assertTrue(PhoneSetupCopy.ROOT_COMMANDS_WARNING.contains("自律モードでは確認せず実行"))
+        assertEquals("Mika に root コマンドの実行を許可", PhoneSetupCopy.ROOT_COMMANDS)
+        assertEquals("root でスマホのヘルパーを起動", PhoneSetupCopy.ROOT_START)
+        val note = PhoneSetupCopy.ROOT_NOTE
+        assertTrue(note, note.contains("シェルユーザーとしての起動"))
+        assertTrue(note, note.contains("root コマンドの実行許可は別の設定"))
+        assertTrue(note, note.contains("root 管理環境によっては利用できない"))
     }
 }
