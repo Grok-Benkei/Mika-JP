@@ -91,7 +91,21 @@ class ConfirmationGate {
         return Permit.Mismatch(reason)
     }
 
-    /** 画面読み上げ（自作インターフェース、キャンバス）に文字を含む要素はありません。 */
+    /**
+     * ツールが確認を申告した画面外の操作では、承認した申告内容と完全一致する1回だけを許可する。
+     * 承認がある場合は、判定結果にかかわらず消費する。
+     */
+    @Synchronized fun permitsExactly(ask: ConfirmationRequest, step: Int): Permit {
+        val g = grant ?: return Permit.NoGrant
+        grant = null
+        return when {
+            step - g.step > MAX_STEPS -> Permit.Mismatch("承認の有効期限（$MAX_STEPS ステップ）が切れました")
+            g.request != ask -> Permit.Mismatch("今回の操作は承認した内容と一致しません")
+            else -> Permit.Allowed
+        }
+    }
+
+    /** 読み取り画面に文字のある要素が一つもない場合（独自描画やcanvas）。 */
     private fun textless(s: ScreenSnapshot) = s.elements.none { it.name.isNotBlank() }
 
     /** 宣言されたオブジェクトは、レビューによって確認されたテキスト (少なくとも 2 単語) に表示されます。 */

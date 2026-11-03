@@ -34,6 +34,8 @@ import com.wangzan101.mika.cap.phone.a11y.LazyPhoneScreen
 import com.wangzan101.mika.cap.phone.a11y.ScreenAccessibility
 import com.wangzan101.mika.cap.phone.a11y.PhoneUnavailable
 import com.wangzan101.mika.cap.phone.PhoneServices
+import com.wangzan101.mika.cap.phone.setup.RootShell
+import com.wangzan101.mika.cap.root.RootCommands
 import com.wangzan101.mika.cap.phone.a11y.launchableApps
 import com.wangzan101.mika.confirm.ConfirmationNotifier
 import com.wangzan101.mika.MikaApp
@@ -768,9 +770,12 @@ class TaskRun(
                 childHost = childRunner,
                 // ユーザーのリクエストに応じて個人スキルを書き換えます (自習で収集したものと同じ場所に配置し、設定ですぐに確認できます)
                 personalSkills = memoryRuntime.skills(),
-                // この会話の前のラウンドの実行レコード (読み取り専用。history_read は runSpec でこの会話のラウンドのみを認識します)
+                // この会話の過去の実行記録。history_read は runSpec に含まれるラウンドだけを参照する。
                 runRecords = RunStore(service).reader(),
-                mcpServers = mcpEndpoints())
+                mcpServers = mcpEndpoints(),
+                // ユーザーが明示的に許可したときだけ root ツールを登録する。条件チェックや子タスクには渡さない。
+                root = phoneServices.shellManager.root.takeIf { !conditionCheck && it.commandsAllowed() }
+                    ?.let { r -> RootCommands(RootShell::su, r::commandsAllowed) { a -> if (a == null) r.suGone() else r.commandsDenied(a) } })
             dispatcher = tools
             val agent = AgentLoop(
                 model, tools,

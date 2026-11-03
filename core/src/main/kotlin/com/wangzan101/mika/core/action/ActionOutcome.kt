@@ -18,8 +18,9 @@ sealed interface ActionOutcome {
     val before: List<GuardVerdict>
 
     /**
-     * は実行されませんでした。 [code]: ガード停止 / ガード_警告 / 確認必須 / 確認不一致 / 承認_利用不可 / ターゲット_未解決 / 独自のアプリ。
-     * [content] が今回呼び出し元に渡される結果です（これに従ってスクリプトサブステップとモデルステップが返されます。バッチと再生は [code] で説明されます）。
+     * 実行されませんでした。[code] は guard_stopped / guard_warning / confirmation_required / confirmation_mismatch /
+     * confirmation_declined / approval_unavailable / target_unresolved / own_app。
+     * [content] は呼び出し元へ返す結果で、スクリプト・モデルの単一ステップと記録に使います。
      */
     data class Refused(
         val code: String, val content: JsonObject, override val before: List<GuardVerdict>, val hit: Irreversible? = null,
@@ -80,6 +81,12 @@ internal object Refusals {
             notRun(code, message) { hit?.let { put("action", it.action.name); put("matched", it.matched) } }
         }
         RefusalStyle.Code -> notRun(code, code)
+    }
+
+    /** 画面外の確認要求について、この実行では本人へ確認できない場合。 */
+    fun unavailable(): JsonObject = buildJsonObject {
+        put("ok", false); put("error", "approval_unavailable"); put("message", Feedback["approval.unavailable"])
+        put("executed", false); put("recoverable", false); put("counts_as_failure", false)
     }
 
     private fun required(hit: Irreversible) = buildJsonObject {

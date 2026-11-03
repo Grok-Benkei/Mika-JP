@@ -37,7 +37,9 @@ data class SystemStatus(
     val developerSettingsMissing: Boolean = false,
     /** システムの「USB デバッグ」がオンになっています: Wi-Fi アシスタントはオンになっても停止しません。 */
     val usbDebugging: Boolean = true,
-    /** システムにより、アクセシビリティが開かれない可能性があります (Android 13 以降、App Store からインストールされていないアプリは、最初に制限された設定を許可する必要があります)。 */
+    /** root でのヘルパー起動が明示的にオンで、現在利用可能。ウォッチドッグは Wi-Fi やワイヤレスデバッグに依存せず su で起動する。 */
+    val rootStart: Boolean = false,
+    /** Android 13 以降では、ストア以外から入れたアプリは制限付き設定の許可が必要になり、ユーザー補助を有効にできない場合がある。 */
     val restrictedSettings: Boolean = false,
     /** アシスタントの停止後に再び起動するために必要なもの: USB ブート コマンドのみが使用され、ワイヤレス デバッグはどこでもブートされません。コマンドを再度実行するよう明確に指示してください。 */
     val helperRestart: HelperRestart = HelperRestart.None,

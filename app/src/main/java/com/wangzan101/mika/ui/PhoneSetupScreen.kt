@@ -123,7 +123,11 @@ fun PhoneSetupScreen(status: SystemStatus, repair: Boolean, onFix: (Fix) -> Unit
     var usbAsked by rememberSaveable { mutableStateOf(false) }
     var stalledMs by remember { mutableLongStateOf(0L) }
 
-    val inputs = status.setupInputs(discovery, repairing, accessibilitySkipped, confirmed, revisit, stalledMs, usbAsked)
+    // su を検出した端末では root 起動も選べる。この場合は開発者向け設定やワイヤレスデバッグがなくても設定可能とする。
+    val root = phone.shellManager.root
+    LaunchedEffect(Unit) { root.refresh() }
+    val rootState by root.state.collectAsState()
+    val inputs = status.setupInputs(discovery, repairing, accessibilitySkipped, confirmed, revisit, stalledMs, usbAsked, rootState.suPresent)
     val view = PhoneSetupFlow.view(inputs)
     // 同じ場所でタイマーが止まり、何も進んでいない場合は、場所を変更すると最初からカウントされます。制限時間に達した場合、再度カウントする必要はありません。
     val stallPoint = PhoneSetupFlow.stallPoint(view)
@@ -168,7 +172,6 @@ fun PhoneSetupScreen(status: SystemStatus, repair: Boolean, onFix: (Fix) -> Unit
     // ブート ページを開くときに「コンピューターで開始」スクリプトを準備します (アシスタントが使用できない場合は、新しいパスワードを入力します)。 診断情報は、
     LaunchedEffect(Unit) { phone.shellManager.usbScript.refresh() }
     val usbCommand = remember { phone.shellManager.usbScript.command() }
-
     val copyUsbCommand = {
         context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText(PhoneSetupCopy.USB_TITLE, usbCommand))
         Toast.makeText(context, PhoneSetupCopy.USB_COPIED, Toast.LENGTH_SHORT).show()
@@ -218,6 +221,8 @@ fun PhoneSetupScreen(status: SystemStatus, repair: Boolean, onFix: (Fix) -> Unit
         usbCommand = usbCommand,
         onAskUsb = { usbAsked = true },
         onCopyUsbCommand = copyUsbCommand,
+        rootLine = rootState.takeIf { it.suPresent }?.let { PhoneSetupCopy.rootOptionLine(it.startGrant) },
+        onRootStart = { if (rootState.start) root.retryStart() else root.setStart(true) },
     )
     // カードのどのステップでも作成者に送信できます。ガイド ページの時点での入力が使用され、ユーザーが確認したステップも含まれます。
     if (diagnosticsOpen) {
@@ -236,6 +241,7 @@ fun PhoneSetupScreen(status: SystemStatus, repair: Boolean, onFix: (Fix) -> Unit
  * [usbCommand] は、空でない場合は「代わりにコンピューターの使用を開始します」が表示されます。通常は表示されません。ワイヤレス デバッグのステップでのみ「ワイヤレス デバッグが見つかりませんか?」という行が表示されます。 ([onAskUsb]);
  * [SetupView.usbFallback] が true の場合、現在のステップでカードが指定されます。これは、説明、コマンド、およびコピー ボタン ([onCopyUsbCommand]) です。
  * [SetupPhase.Unavailable] この環境は携帯電話の操作用にセットアップできません。説明カードと「わかりました」のみがあり、手順は記載されていません。
+ * [rootLine] がある場合は、su を検出済みの端末向けに root での起動ボタン [onRootStart] と許可状態を表示する。
  */
 @Composable
 fun PhoneSetupContent(
@@ -259,6 +265,8 @@ fun PhoneSetupContent(
     usbCommand: String? = null,
     onAskUsb: () -> Unit = {},
     onCopyUsbCommand: () -> Unit = {},
+    rootLine: String? = null,
+    onRootStart: () -> Unit = {},
 ) {
     val canRevisit = view.phase == SetupPhase.Guide || view.phase == SetupPhase.Failed
     fun revisitable(step: SetupStep) = canRevisit && step != view.current && step in PhoneSetupFlow.REVISITABLE &&
@@ -310,6 +318,7 @@ fun PhoneSetupContent(
                             }
                         }
                     }
+                    if (rootLine != null && view.phase != SetupPhase.Success) RootStartOption(rootLine, onRootStart)
                     if (SetupStep.entries.any(::revisitable)) FooterNote(PhoneSetupCopy.REVISIT_NOTE)
                     if (view.phase != SetupPhase.Success) FooterNote(PhoneSetupCopy.SKIP_NOTE)
                 }
@@ -342,6 +351,16 @@ fun PhoneSetupContent(
                 }
             }
         }
+    }
+}
+
+/** root 化済み端末向けの起動ボタン。明示的なタップで一度 su に要求し、説明または応答を添える。 */
+@Composable
+private fun RootStartOption(line: String, onStart: () -> Unit) {
+    val c = MikaTheme.colors
+    Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        MikaButton(PhoneSetupCopy.ROOT_OPTION, onStart, Modifier.testTag("setup-root"), kind = ButtonKind.Text, size = ButtonSize.Small)
+        Text(line, Modifier.padding(start = 12.dp, end = 12.dp).testTag("setup-root-line"), style = MikaType.Caption, color = c.ink2)
     }
 }
 

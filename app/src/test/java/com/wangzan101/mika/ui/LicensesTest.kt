@@ -27,9 +27,9 @@ class LicensesTest {
         assertEquals("Apache-2.0", byName.getValue("Apache Commons Compress").license)
         listOf("OkHttp", "Okio", "kotlinx.coroutines", "kotlinx.serialization", "Kotlin標準ライブラリ", "AndroidX（Jetpack Composeを含む）")
             .forEach { assertEquals(it, "Apache-2.0", byName.getValue(it).license) }
-        assertTrue(Licenses.GPL_SOURCE_OFFER.contains("gpl-sources.tar.gz"))
+        assertTrue(Licenses.GPL_SOURCE_OFFER.contains("corresponding-sources.tar.gz"))
         assertTrue(Licenses.GPL_SOURCE_OFFER.contains("PRoot") && Licenses.GPL_SOURCE_OFFER.contains("talloc"))
-        assertTrue(byName.getValue("Alpine Linux").note.contains("gpl-sources.tar.gz"))
+        assertTrue(byName.getValue("Alpine Linux").note.contains("corresponding-sources.tar.gz"))
         assertEquals("0BSD", byName.getValue("XZ for Java").license)
     }
 

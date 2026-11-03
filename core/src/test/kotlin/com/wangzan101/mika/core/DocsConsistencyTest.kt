@@ -79,11 +79,12 @@ class DocsConsistencyTest {
         !s.startsWith("/") && !s.startsWith("~") && "://" !in s &&
             ('/' in s || s.substringAfterLast('.', "").let { it in pathExtensions && s.length > it.length + 1 })
 
-    /** ドキュメントには、アプリの実行中にのみ存在し (デバイス上のディレクトリとファイル)、ウェアハウスには存在しないものについて説明されています。その理由を一つずつ説明します。 */
+    /** ビルドやアプリの実行で生成するパスは、生成元を示してソースの存在検査と区別する。 */
     private val runtimeOnly = mapOf(
         "eval/logged-in.txt" to "評価時に本人がログイン済みと示す端末内のファイルで、リポジトリには含めない",
         HelperHandoff.USB_SCRIPT to "HelperHandoffがスマホの外部ファイル領域へ生成する起動スクリプト",
         McpUsb.SCRIPT to "McpUsbがスマホの外部ファイル領域へ生成するPC接続スクリプト",
+        "app/build/outputs/apk/perf" to "appのperfビルドがassemblePerfで生成するAPK出力先",
     )
 
     /** ウェアハウスのルートにある第 1 レベルのディレクトリまたはファイルの先頭のパスと、コード クラスの短いファイル名のみがウェアハウス内の内容を参照します。残りはランタイム製品または相対表記です。 */
@@ -136,6 +137,9 @@ class DocsConsistencyTest {
     @Test fun declaredParametersAndGeneratedPathsRemainCheckedAgainstTheirContracts() {
         assertTrue("request_idはMCPの入力フィールドとして定義されている", "request_id" in parameterNames)
         assertEquals(emptyList<String>(), problems("guide.md", "`request_id`、`${HelperHandoff.USB_SCRIPT}`、`${McpUsb.SCRIPT}`"))
+        assertTrue("perfビルドが実際に定義されている", File(root, "app/build.gradle.kts").readText().contains("create(\"perf\")"))
+        assertEquals(emptyList<String>(), problems("guide.md", "`app/build/outputs/apk/perf/`"))
+        assertEquals(1, problems("guide.md", "`app/build/outputs/apk/perf-typo/`").size)
         val bad = problems("guide.md", "`request_typo`、`missing-bootstrap.sh`")
         assertEquals(2, bad.size)
         assertTrue(bad.toString(), bad.any { "request_typo" in it && "ツール名" in it })

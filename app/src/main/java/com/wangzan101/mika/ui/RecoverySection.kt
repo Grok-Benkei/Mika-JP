@@ -82,9 +82,10 @@ object RecoveryCopy {
     private val NEEDS_PAIRING = setOf(RecoveryCapability.RestoreAfterReboot, RecoveryCapability.AutoWirelessDebugging)
 
     /**
-     * はデフォルトでオンになっており、まだ有効になっていない項目は次のとおりです。 電話機が適切に設定されていない場合は、最初に設定を完了するように求められます（設定後に自動的に開きます）。
-     * 自動で開けなかった場合はそのとおり伝える; 有効になった、またはユーザーが切った場合は余計なことは言わない。
-     * ヘルパーを USB 起動コマンドでしか起動したことがない場合（[HelperRestart.UsbCommand]）、ワイヤレスデバッグでヘルパーを再起動する2項目については使えないことと、再起動後にコマンドを再実行する必要があることを明示する。
+     * 既定でオンでも未適用の項目には説明を添える。スマホ操作が未設定なら、設定後に自動適用されることを案内する。
+     * 自動適用が失敗した場合はその旨を表示し、適用済みやユーザーがオフにした場合は説明を省く。
+     * USB 起動のみ（[HelperRestart.UsbCommand]）なら、無線で復帰する2項目は使えず、再起動後はコマンドの再実行が必要と案内する。
+     * root 起動（[HelperRestart.Root]）でその2項目が未適用なら、不要であり再起動後は su 経由で復帰することを案内する。
      */
     fun pending(
         c: RecoveryCapability, consent: RecoveryConsent, paired: Boolean, autoFailed: Set<RecoveryCapability>,
@@ -92,6 +93,7 @@ object RecoveryCopy {
     ): String? = when {
         !consent.wants(c) -> null
         restart == HelperRestart.UsbCommand && c in NEEDS_PAIRING -> tr(R.string.rec_needs_pairing)
+        restart == HelperRestart.Root && c in NEEDS_PAIRING && !consent.isApplied(c) -> tr(R.string.rec_root_not_needed)
         consent.isApplied(c) -> null
         !paired -> NEED_SETUP
         c in autoFailed -> FAILED

@@ -5,6 +5,9 @@ import com.wangzan101.mika.core.agent.DO_STEPS_TOOL
 import com.wangzan101.mika.core.cap.phone.AppPacing
 import com.wangzan101.mika.core.cap.phone.PHONE
 import com.wangzan101.mika.core.cap.phone.PhoneCapability
+import com.wangzan101.mika.core.cap.root.RootCapability
+import com.wangzan101.mika.core.cap.root.RootGroup
+import com.wangzan101.mika.core.cap.root.RootPort
 import com.wangzan101.mika.core.cap.sandbox.SandboxCapability
 import com.wangzan101.mika.core.cap.sandbox.SANDBOX
 import com.wangzan101.mika.core.cap.sandbox.SandboxGroup
@@ -44,6 +47,7 @@ import com.wangzan101.mika.core.userscreen.UserScreenSource
 /**
  * 1 つのタスクのためのツール: 携帯電話、Web ページ、サンドボックスの 3 つの機能とコア ツールを備えています。ここは複数の能力が同時に認められる唯一の場所です。
  * は、ポート機能がない (ツールが提供されていない) 場合でもインストールされており、名前で宣言を検索するとツールも見つかります。
+ * rootコマンドは例外で、明示的にポートを渡した場合だけ登録します。
  */
 fun toolDispatcher(
     screen: ScreenPort,
@@ -115,6 +119,8 @@ fun toolDispatcher(
     selfConfig: com.wangzan101.mika.core.settings.SelfConfig? = null,
     /** 保存されたランニング記録。この会話が以前に実行中のラウンドを記録した場合は、history_read (前のラウンドで読み取られた内容を確認) を提供します。 */
     runRecords: RunRecords? = null,
+    /** root済みの端末でユーザーがrootコマンドを明示的に許可したときだけ渡す。nullならrootツールを登録しない。 */
+    root: RootPort? = null,
 ): ToolDispatcher {
     val config = ToolConfig(visionEnabled, skills, recordFrames, vision, inlineScreen, adaptiveVision, memory, profile, utterances, conversationId,
         imageOps, scheduleTrigger, scheduleAdmin, runSpec, childHost, userScreens, personalSkills, selfConfig, runRecords)
@@ -132,7 +138,12 @@ fun toolDispatcher(
             override fun open(spec: RunSpec) = SandboxCapability(sandbox, workspace, visionEnabled,
                 onSandboxCommand, onSandboxProgress, onSandboxPreparing, onSandboxScript)
         },
-    ) + mcpServers.map(::McpClientProvider)
+    ) + listOfNotNull(root?.let { port ->
+        object : CapabilityProvider {
+            override val id = RootCapability.KEY.name
+            override fun open(spec: RunSpec) = RootCapability(port)
+        }
+    }) + mcpServers.map(::McpClientProvider)
     return RunAssembler(providers).assemble(runSpec, config, stableRefs, FORMER_PREFIX, RENAMED, RETIRED, MOVED)
 }
 
@@ -178,7 +189,7 @@ fun recordedTools(): ToolIndex = legacyNames().let { legacy -> ToolIndex(allTool
 
 /** Mito すべてのツールは、モデルに出荷された順序で提供される場合があります。 */
 internal fun allTools(): List<AgentTool> =
-    GeneralGroup.tools + PhoneCapability.tools() + WebGroup.tools + SandboxGroup.tools
+    GeneralGroup.tools + PhoneCapability.tools() + WebGroup.tools + SandboxGroup.tools + RootGroup.tools
 
 /** ミカが提供するすべてのツールの宣言。 */
 fun knownTools(): ToolIndex = ToolIndex(allTools())

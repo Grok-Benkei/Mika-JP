@@ -3,6 +3,7 @@ package com.wangzan101.mika.ui
 import com.wangzan101.mika.R
 import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.core.shell.BuiltinShellFailure
+import com.wangzan101.mika.core.shell.RootGrant
 import com.wangzan101.mika.core.shell.BuiltinShellFix
 import com.wangzan101.mika.core.shell.BuiltinShellStatus
 import com.wangzan101.mika.core.shell.HelperRestart
@@ -117,10 +118,13 @@ object PhoneSetupCopy {
     val CONNECT_PORT_HINT: String get() = tr(R.string.phone_connect_port_hint)
     val CONNECT_PORT_SUBMIT: String get() = tr(R.string.phone_connect_port_submit)
     val SUCCESS_LINE: String get() = tr(R.string.phone_success)
-    /** 成功ページの下部にあるリマインダー: 電話機の再起動後にアシスタントを戻す方法。前回の起動方法を確認してください。 */
-    fun successNote(restart: HelperRestart): String =
-        if (restart == HelperRestart.UsbCommand) tr(R.string.phone_success_note_usb) else tr(R.string.phone_success_note)
-    /** 初めて開始する最後の成功したステップの後の一番下のボタン。設定から入るのは [SUCCESS_DONE] です。 */
+    /** 成功画面では、直近の起動方法に応じて再起動後のヘルパー復帰方法を案内する。 */
+    fun successNote(restart: HelperRestart): String = when (restart) {
+        HelperRestart.UsbCommand -> tr(R.string.phone_success_note_usb)
+        HelperRestart.Root -> tr(R.string.phone_success_note_root)
+        HelperRestart.Wireless, HelperRestart.None -> tr(R.string.phone_success_note)
+    }
+    /** 初回設定の成功後に表示するボタン。設定画面から来た場合は [SUCCESS_DONE]。 */
     val START_USING: String get() = tr(R.string.phone_start_using)
     val SUCCESS_DONE: String get() = tr(R.string.done)
 
@@ -175,6 +179,22 @@ object PhoneSetupCopy {
             tr(R.string.fail_usb_stopped),
             tr(R.string.fail_usb_stopped_body),
         )
+        BuiltinShellFailure.RootDenied -> FailureCopy(
+            tr(R.string.fail_root_denied),
+            tr(R.string.fail_root_denied_body),
+        )
+        BuiltinShellFailure.RootNoAnswer -> FailureCopy(
+            tr(R.string.fail_root_no_answer),
+            tr(R.string.fail_root_no_answer_body),
+        )
+        BuiltinShellFailure.RootUnavailable -> FailureCopy(
+            tr(R.string.fail_root_gone),
+            tr(R.string.fail_root_gone_body),
+        )
+        BuiltinShellFailure.RootNoShellUid -> FailureCopy(
+            tr(R.string.fail_root_no_shell),
+            tr(R.string.fail_root_no_shell_body),
+        )
         BuiltinShellFailure.Unknown -> FailureCopy(
             tr(R.string.fail_unknown),
             tr(R.string.fail_unknown_body),
@@ -199,9 +219,15 @@ object PhoneSetupCopy {
     val ROW_TITLE: String get() = tr(R.string.settings_phone_ops)
     val ROW_SUBTITLE: String get() = tr(R.string.phone_row_sub)
 
-    /** 設定 › 携帯電話の操作ページの下部にある完全な手順: USB 起動コマンドのみを使用してアシスタントを起動すると、再起動後にコマンドを再度実行するように表示されますが、ワイヤレス デバッグをオンにするようには表示されません。 */
-    fun usageNote(restart: HelperRestart): String =
-        if (restart == HelperRestart.UsbCommand) tr(R.string.phone_usage_note_usb) else tr(R.string.phone_usage_note)
+    /**
+     * スマホ操作設定の説明。USB 起動のみなら、再起動後はコマンドの再実行を案内し、ワイヤレスデバッグは案内しない。
+     * root 起動なら、再起動後は Mika が root でヘルパーを起動し直すことを説明する。
+     */
+    fun usageNote(restart: HelperRestart): String = when (restart) {
+        HelperRestart.UsbCommand -> tr(R.string.phone_usage_note_usb)
+        HelperRestart.Root -> tr(R.string.phone_usage_note_root)
+        HelperRestart.Wireless, HelperRestart.None -> tr(R.string.phone_usage_note)
+    }
 
     fun statusValue(s: BuiltinShellStatus): Pair<String, ValueTone> = when (s) {
         BuiltinShellStatus.Running -> tr(R.string.sandbox_ready) to ValueTone.Ok
@@ -211,23 +237,70 @@ object PhoneSetupCopy {
         is BuiltinShellStatus.Failed -> tr(R.string.phone_error) to ValueTone.Bad
     }
 
-    /** 「詳細」のステータス行の説明。 [usbDebugging] がオフになっている場合、実行中にリマインダーが表示されます。Wi-Fi が切断されると停止します。 */
-    fun statusLine(s: BuiltinShellStatus, usbDebugging: Boolean = true): String = when (s) {
+    /**
+     * 詳細設定の状態行。[usbDebugging] がオフなら Wi-Fi 切断時に停止することを示す。root 起動は Wi-Fi に依存しないため除く。
+     * [rootStart] は許可済みかつ利用可能な su 起動。接続中なら root で起動中と説明する。
+     */
+    fun statusLine(s: BuiltinShellStatus, usbDebugging: Boolean = true, rootStart: Boolean = false): String = when (s) {
         BuiltinShellStatus.Running ->
-            if (usbDebugging) tr(R.string.phone_line_running) else tr(R.string.phone_line_running_no_usb)
+            if (usbDebugging || rootStart) tr(R.string.phone_line_running) else tr(R.string.phone_line_running_no_usb)
         BuiltinShellStatus.NotPaired -> tr(R.string.phone_line_not_paired)
         BuiltinShellStatus.WirelessDebuggingOff -> tr(R.string.phone_line_wireless_off)
-        BuiltinShellStatus.Connecting -> tr(R.string.phone_connecting)
+        BuiltinShellStatus.Connecting -> if (rootStart) ROOT_STARTING_LINE else tr(R.string.phone_connecting)
         is BuiltinShellStatus.Failed -> when (s.reason) {
             BuiltinShellFailure.NoWifi -> NO_WIFI_LINE
             BuiltinShellFailure.WifiNotAllowed -> tr(R.string.phone_line_joined, failure(s.reason).title, WIFI_NOT_ALLOWED_LINE)
-            // は停止し、ユーザーにアクションを実行するよう求めました。再開する方法を直接指示しました。
-            BuiltinShellFailure.UsbHelperStopped -> failure(s.reason).body
+            // ユーザーの操作が必要な停止状態では、再起動方法を直接案内する。
+            BuiltinShellFailure.UsbHelperStopped, in ROOT_FAILURES -> failure(s.reason).body
             else -> failure(s.reason).title
         }
     }
 
     val NO_WIFI_LINE: String get() = tr(R.string.phone_no_wifi_line)
+    val ROOT_STARTING_LINE: String get() = tr(R.string.phone_root_line_starting)
+
+    /** root による起動ができない理由。状態行とバナーで理由と対処を案内する。 */
+    val ROOT_FAILURES = setOf(
+        BuiltinShellFailure.RootDenied, BuiltinShellFailure.RootNoAnswer, BuiltinShellFailure.RootUnavailable, BuiltinShellFailure.RootNoShellUid,
+    )
+
+    // ---------- root ----------
+
+    val ROOT_GROUP: String get() = tr(R.string.phone_root_group)
+    val ROOT_START: String get() = tr(R.string.phone_root_start)
+    val ROOT_COMMANDS: String get() = tr(R.string.phone_root_commands)
+    val ROOT_COMMANDS_TITLE: String get() = tr(R.string.phone_root_commands_title)
+    val ROOT_COMMANDS_WARNING: String get() = tr(R.string.phone_root_commands_warning)
+    val ROOT_COMMANDS_CONFIRM: String get() = tr(R.string.phone_root_commands_confirm)
+    val ROOT_NOTE: String get() = tr(R.string.phone_root_note)
+    val ROOT_OPTION: String get() = tr(R.string.phone_root_option)
+    val ROOT_OPTION_BODY: String get() = tr(R.string.phone_root_option_body)
+    val ROOT_PENDING: String get() = tr(R.string.phone_root_pending)
+
+    /** root 起動の説明は su の応答に合わせ、拒否や応答なしなら行をタップして再要求できるようにする。 */
+    fun rootStartLine(grant: RootGrant): String = when (grant) {
+        RootGrant.Pending -> ROOT_PENDING
+        RootGrant.Denied -> tr(R.string.phone_root_denied_sub)
+        RootGrant.NoAnswer -> tr(R.string.phone_root_no_answer_sub)
+        RootGrant.NoShellUid -> tr(R.string.phone_root_no_shell_sub)
+        RootGrant.Unknown, RootGrant.Granted -> tr(R.string.phone_root_start_sub)
+    }
+
+    /** 起動ボタンの説明。未要求または許可済みなら使い方、それ以外は su の応答を表示する。 */
+    fun rootOptionLine(grant: RootGrant): String =
+        if (grant == RootGrant.Unknown || grant == RootGrant.Granted) ROOT_OPTION_BODY else rootStartLine(grant)
+
+    /** root 起動がオンで前回が拒否または応答なしなら、行のタップで su に再要求する。 */
+    fun rootStartRetries(on: Boolean, grant: RootGrant): Boolean = on && (grant == RootGrant.Denied || grant == RootGrant.NoAnswer)
+
+    /** root コマンドの実行許可スイッチに添える説明。 */
+    fun rootCommandsLine(on: Boolean, grant: RootGrant): String = when {
+        grant == RootGrant.Pending -> ROOT_PENDING
+        !on && grant == RootGrant.NoAnswer -> tr(R.string.phone_root_commands_no_answer)
+        !on && grant == RootGrant.NoShellUid -> tr(R.string.phone_root_commands_no_root)
+        !on && grant == RootGrant.Denied -> tr(R.string.phone_root_commands_denied)
+        else -> tr(R.string.phone_root_commands_sub)
+    }
     val WIFI_NOT_ALLOWED_LINE: String get() = tr(R.string.phone_wifi_not_allowed_line)
 
     val REPAIR: String get() = tr(R.string.phone_repair)

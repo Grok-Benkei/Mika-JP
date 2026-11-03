@@ -10,6 +10,14 @@ val gitHash: String = runCatching {
     providers.exec { commandLine("git", "rev-parse", "--short=7", "HEAD") }.standardOutput.asText.get().trim()
 }.getOrNull()?.takeIf { it.isNotEmpty() } ?: "dev"
 
+// 公開用の秘密情報は環境変数からだけ受け取り、ソースやローカル設定へ書き込まない。
+val releaseSigningNames = listOf("MIKA_RELEASE_KEYSTORE", "MIKA_RELEASE_STORE_PASSWORD", "MIKA_RELEASE_KEY_ALIAS", "MIKA_RELEASE_KEY_PASSWORD")
+val releaseSigningValues = releaseSigningNames.associateWith { providers.environmentVariable(it).orNull?.takeIf(String::isNotBlank) }
+val releaseSigningReady = releaseSigningValues.values.all { it != null }
+if (releaseSigningValues.values.any { it != null } && !releaseSigningReady) {
+    throw GradleException("公開用署名の環境変数が不足しています: " + releaseSigningValues.filterValues { it == null }.keys.joinToString())
+}
+
 android {
     namespace = "com.wangzan101.mika"
     compileSdk = 36
@@ -18,8 +26,8 @@ android {
         applicationId = "jp.studioyebisu.mika"
         minSdk = 30
         targetSdk = 35
-        versionCode = 35
-        versionName = "0.1.33-jp.2"
+        versionCode = 36
+        versionName = "0.1.33-jp.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "GIT_HASH", "\"$gitHash\"")
         // 「バージョン情報」ページのバージョン番号の後のベータ マーク。正式版がリリースされたら false に変更します
@@ -53,7 +61,19 @@ android {
     // 評価タスク セット (ウェアハウス ルート ディレクトリ eval/tasks) がテスト パッケージのアセットに入力され、実機評価ランナーがそこから質問を読み取ります。
     sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("eval/tasks"))
 
+    if (releaseSigningReady) {
+        signingConfigs.create("publicRelease") {
+            storeFile = file(releaseSigningValues.getValue("MIKA_RELEASE_KEYSTORE")!!)
+            storePassword = releaseSigningValues.getValue("MIKA_RELEASE_STORE_PASSWORD")
+            keyAlias = releaseSigningValues.getValue("MIKA_RELEASE_KEY_ALIAS")
+            keyPassword = releaseSigningValues.getValue("MIKA_RELEASE_KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
+        getByName("release") {
+            if (releaseSigningReady) signingConfig = signingConfigs.getByName("publicRelease")
+        }
         // は、実機の受け入れ時に並行してインストールされ、リリース バージョンとユーザー データが保持されます。デフォルトのビルド ID は変更されません。
         if (providers.gradleProperty("devInstall").isPresent) getByName("debug") {
             applicationIdSuffix = ".dev"

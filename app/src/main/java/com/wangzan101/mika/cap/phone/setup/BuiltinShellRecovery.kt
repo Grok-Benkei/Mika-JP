@@ -186,8 +186,9 @@ class BuiltinShellRecovery(
 
     /** をオンにした後、[再起動後の自動回復] を押して、ワイヤレス デバッグを再開し、アシスタントを再起動します。アクションが必要ない場合は null を返します。 */
     suspend fun restoreAfterBoot(): RestoreOutcome? {
-        // はペアリングされていません (アシスタントは USB 経由でコンピュータから起動されます): ミカは自分でアシスタントを起動できず、ワイヤレス デバッグを使用しません
-        if (!control.paired) return null
+        // 未ペア設定の USB 起動では Mika 自身がヘルパーを再起動できないため、ワイヤレスデバッグを変更しない。
+        // root 起動ではウォッチドッグが su を使うため、ワイヤレスデバッグを変更しない。
+        if (!control.paired || control.rootStart) return null
         val holds = app.checkSelfPermission(PermissionCommands.WRITE_SECURE_SETTINGS) == PackageManager.PERMISSION_GRANTED
         when (BootRestore.gate(Build.VERSION.SDK_INT, settings.consent.value, holds)) {
             BootRestore.Gate.Skip -> return null

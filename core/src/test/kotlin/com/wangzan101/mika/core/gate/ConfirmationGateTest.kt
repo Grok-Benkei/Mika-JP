@@ -35,6 +35,21 @@ class ConfirmationGateTest {
         assertTrue(approved(req(IrrevAction.send, "com.a")).permits(hit(IrrevAction.send), null, 2) is Permit.Mismatch)
     }
 
+    @Test fun offScreenApprovalBindsTheExactCommandAndIsConsumedOnce() {
+        val r = ConfirmationRequest(IrrevAction.other, "", "  rm /sdcard/x\n", null, "root")
+        val g = approved(r)
+        assertEquals(Permit.Allowed, g.permitsExactly(r, 2))
+        assertEquals(Permit.NoGrant, g.permitsExactly(r, 2))
+        for (changed in listOf(r.copy(content = r.content.trim()), r.copy(content = "rm /sdcard/y"), r.copy(app = "another"), r.copy(action = IrrevAction.delete))) {
+            val mismatch = approved(r)
+            assertTrue(changed.toString(), mismatch.permitsExactly(changed, 2) is Permit.Mismatch)
+            assertEquals(Permit.NoGrant, mismatch.permitsExactly(r, 2))
+        }
+        val expired = approved(r)
+        assertTrue(expired.permitsExactly(r, 2 + ConfirmationGate.MAX_STEPS) is Permit.Mismatch)
+        assertEquals(Permit.NoGrant, expired.permitsExactly(r, 2))
+    }
+
     @Test fun unscaledYenUnitsCannotBeComparedAsSingleYen() {
         for ((declared, visible) in listOf("1円" to "￥1万円", "1万円" to "1円", "10000円" to "1万円", "1万円" to "1万円", "９万円" to "９円", "1円" to "JPY 1万",
             "2000円" to "1万2000円", "2000円" to "1万2,000円", "1万2000円" to "1円", "１万２，０００円" to "1円", "5円" to "￥5千円", "2000円" to "1万2千円")) {

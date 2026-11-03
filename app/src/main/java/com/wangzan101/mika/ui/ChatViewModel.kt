@@ -1470,6 +1470,7 @@ class ToolLabels(private val tools: ToolIndex, private val legacy: LegacyNames =
             Verb.PhoneDialog to R.string.tool_check_dialog,
             Verb.PhoneGesture to R.string.tool_gesture,
             Verb.PhoneCommand to R.string.tool_shell,
+            Verb.RootCommand to R.string.tool_root,
             Verb.Query to R.string.tool_find_element,
             Verb.Collect to R.string.tool_collect,
             Verb.PhoneRun to R.string.tool_phone_run,

@@ -335,7 +335,9 @@ class ToolDispatcher internal constructor(
 
     /** ツール宣言のリスク。不明な名前の場合は null。 */
     fun declaredRisk(name: String): Risk? = registry.declared(name)?.risk
-    fun approvalRisk(name: String): com.wangzan101.mika.core.action.Risk? = registry.declared(name)?.approvalRisk
+    /** 画面外のツールが今回の引数について申告した確認リスク。申告がなければ null。 */
+    fun approvalRisk(name: String, args: JsonObject = JsonObject(emptyMap())): com.wangzan101.mika.core.action.Risk? =
+        registry.declared(name)?.approvalRisk(args)
 
     /** ask_user はユーザーの回答を取得します。チェッカーはユーザーが指定した事実を比較します。 */
     /** ユーザーから送信された画面 (画面上の文言) も、回答に記載されている画面上の内容に基づいています。 */

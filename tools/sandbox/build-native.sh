@@ -2,7 +2,7 @@
 #は、サンドボックス (Android arm64) で 3 つのネイティブ プログラムをコンパイルし、製品を app/src/main/jniLibs/arm64-v8a/ に配置します。
 #libproot.so PRoot(GPL-2.0以降)、静的リンクtalloc(LGPL-3.0以降)
 #libproot_loader.so Pルートローダー (静的、-nostdlib)
-#libmikarun.so ミカのランチャー (MIT)
+#libmikarun.so Mika のランチャー (Apache-2.0)
 #
 #の使用法: tools/sandbox/build-native.sh [--check]
 #--check のみ再コンパイルして SHA-256 をウェアハウス内の製品と比較し、矛盾がある場合は 1 を終了します (ウェアハウス ファイルは上書きしません)
@@ -87,7 +87,7 @@ mkdir -p "$WORK/obj/talloc"
 TALLOC_VERSION="$(awk '$1=="talloc"{print $2}' "$SANDBOX_DIR/sources.lock")"
 IFS=. read -r TV_MAJOR TV_MINOR TV_RELEASE <<< "$TALLOC_VERSION"
 cat > "$WORK/obj/talloc/config.h" <<EOF
-/* 手写的最小配置(安卓 bionic, arm64),只覆盖 talloc.c 用到的部分 */
+/* Android bionic / arm64 の最小構成。talloc.c が使う設定だけを定義する。 */
 #define TALLOC_BUILD_VERSION_MAJOR $TV_MAJOR
 #define TALLOC_BUILD_VERSION_MINOR $TV_MINOR
 #define TALLOC_BUILD_VERSION_RELEASE $TV_RELEASE

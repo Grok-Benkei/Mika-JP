@@ -14,6 +14,7 @@ import android.os.HandlerThread
 import android.os.IBinder
 import android.os.Looper
 import android.os.Process
+import android.system.Os
 import android.util.Log
 import com.wangzan101.mika.core.shell.HelperHandoff
 import com.wangzan101.mika.core.shell.HelperRestorePolicy
@@ -25,10 +26,10 @@ import java.lang.reflect.Proxy
 import kotlin.system.exitProcess
 
 /**
- * 組み込みヘルパー プロセスへの入り口。 Mega は、ネイティブ ワイヤレス デバッグ (adbd の exec: サービス) を介してシェルとして起動します。
- * `CLASSPATH=<base.apk> app_process /system/bin --nice-name=<パッケージ名>:helper com.wangzan101.mika.shell.HelperMain <パッケージ名> <MikaのUID> <署名証明書のフィンガープリント>`、
- * ワンタイム パスワードは、標準入力から 1 行を読み取ります ([HelperHandoff.command] を参照)。これは、コンピュータが USB デバッグを通じて「コンピュータで起動」スクリプトを実行したときに起動するものでもあります。コマンドとパラメータは同じです。
- * ([HelperHandoff.usbScript] を参照)。
+ * 内蔵ヘルパープロセスの入口。端末のワイヤレスデバッグ（adbd の exec: サービス）から shell ユーザーとして起動する。
+ * `CLASSPATH=<base.apk> app_process /system/bin --nice-name=<パッケージ名>:helper com.wangzan101.mika.shell.HelperMain <パッケージ名> <Mika の UID> <署名のフィンガープリント>`,
+ * ワンタイムパスワードは標準入力の1行から読む（[HelperHandoff.command]）。USB デバッグの起動スクリプトも同じコマンドと引数を使う
+ * （[HelperHandoff.usbScript]）。root 化済み端末でも `su 2000 -c` により shell ユーザーとして同じ入口の起動を要求する（[HelperHandoff.rootCommand]）。
  *
  * の特権ロジックはすべて [ShellService] にあります。ここでは、バインダーをミカに渡すことのみを担当し、ミカのプロセスが終了した後に終了することはありません。
  * ミカが残した変更を元に戻し、ミカが再び立ち上がったときに再送信します。美香が死んでしばらく戻らず、彼女が与えた願い([RestoreWish])が引き上げられようとしたとき、
@@ -39,6 +40,10 @@ object HelperProcess {
 
     @JvmStatic
     fun main(args: Array<String>) {
+        if (!acceptsIdentity(Process.myUid(), Os.getgid())) {
+            Log.e(TAG, "ヘルパーは UID/GID 2000 の shell ユーザーで起動してください")
+            exitProcess(2)
+        }
         if (args.size < 3) {
             Log.e(TAG, "usage: HelperMain <package> <uid> <cert-sha256> (nonce on stdin)")
             exitProcess(2)
@@ -62,6 +67,10 @@ object HelperProcess {
         helper.start(launchNonce)
         Looper.loop()
     }
+
+    /** 通常ヘルパーへ root の UID/GID を持ち込まない。補助グループや SELinux の同等性は判定しない。 */
+    internal fun acceptsIdentity(uid: Int, gid: Int): Boolean =
+        uid == HelperHandoff.SHELL_UID && gid == HelperHandoff.SHELL_UID
 
     private class Helper(
         private val service: ShellService,

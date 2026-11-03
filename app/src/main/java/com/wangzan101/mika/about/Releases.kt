@@ -35,7 +35,7 @@ object Releases {
     private val json = Json { ignoreUnknownKeys = true }
 
     /**
-     * リリースでは、完全なアーキテクチャ `Mika-v<版本>.apk` に加えて、名前が `-<后缀>.apk` で終わる、特定のアーキテクチャのネイティブ ライブラリのみを含むパッケージも存在する場合があります。
+     * リリースでは、完全なアーキテクチャ `Mika-v<バージョン>.apk` に加えて、名前が `-<サフィックス>.apk` で終わる、特定のアーキテクチャのネイティブ ライブラリのみを含むパッケージも存在する場合があります。
      * キーは Android ABI 名で、値は添付ファイル名のサフィックスです。
      */
     private val ABI_APK_SUFFIX = mapOf("arm64-v8a" to "arm64")

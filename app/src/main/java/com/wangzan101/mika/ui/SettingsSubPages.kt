@@ -52,7 +52,7 @@ import com.wangzan101.mika.core.cap.phone.OperatingPace
 
 // ---------- 携帯電話操作 ----------
 
-/** 設定 › 携帯電話の操作: 権限とペアリング ステータス、再ペアリングとペアリング解除。どの項目をクリックするかという処理方法はこれまでと同様で、[onProblem]に引き継がれます。 */
+/** スマホ操作の設定。権限とペア設定の状態、再設定・解除、su を検出した端末の root 項目を表示し、問題への対応は [onProblem] に渡す。 */
 @Composable
 fun PhoneOpsScreen(
     status: SystemStatus,
@@ -81,7 +81,7 @@ fun PhoneOpsScreen(
                 ListRow(
                     MikaIcons.Link, PhoneSetupCopy.ROW_TITLE,
                     if (reconnect && helper is BuiltinShellStatus.Failed) PhoneSetupCopy.failure(helper.reason).title
-                    else PhoneSetupCopy.statusLine(helper, status.usbDebugging),
+                    else PhoneSetupCopy.statusLine(helper, status.usbDebugging, status.rootStart),
                     onClick = { onProblem(Problem.PhoneHelper(helper)) },
                 ) { if (reconnect) RowValue(PhoneSetupCopy.RECONNECT, ValueTone.Link) else RowValue(hText, hTone) }
             }
@@ -124,6 +124,8 @@ fun PhoneOpsScreen(
             }
             FooterNote(PhoneSetupCopy.usageNote(status.helperRestart))
         }
+        // su を検出した端末にだけ、ヘルパーの root 起動と root コマンドの許可を表示する。
+        RootSwitches(helperRow = status.sdkInt >= Prerequisites.MIN_SDK)
     }
     if (confirmUnpair) {
         AlertDialog(

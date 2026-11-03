@@ -33,12 +33,12 @@ object Licenses {
 
     const val GPL_SOURCE_OFFER =
         "PRoot（GPL-2.0-or-later）とtalloc（LGPL-3.0-or-later）は独立したプログラムとして同梱され、Mika本体とはリンクしません。" +
-            "ソース、チェックサム、パッチ、再ビルド手順はリポジトリのtools/sandbox/に記録しています。正式配布時の対応ソースのアーカイブ名はmika-<version>-gpl-sources.tar.gzです。" +
+            "ソース、チェックサム、パッチ、再ビルド手順はリポジトリのtools/sandbox/に記録しています。正式配布時の対応ソースのアーカイブ名はMika-JP-<version>-corresponding-sources.tar.gzです。" +
             "開発版についても、使用したソースとパッチをこの情報から確認できます。"
 
     const val RUNTIME_NOTE =
         "PythonやNodeを実行する環境としてAlpine Linux 3.22を同梱しています。以下に各パッケージとライセンスを表示します。" +
-            "GPL、LGPL、MPLのパッケージのソースとAlpineのビルド情報も対応ソースの対象です。正式配布用のアーカイブ名はmika-<version>-gpl-sources.tar.gzです。"
+            "GPL、LGPL、MPLのパッケージのソースとAlpineのビルド情報も対応ソースの対象です。正式配布用のアーカイブ名はMika-JP-<version>-corresponding-sources.tar.gzです。"
 
     /** には、実行環境のソフトウェア パッケージが付属しています (assets/runtime/packages.json、tools/sandbox/build-runtime.py によって生成)。 */
     fun runtimePackages(json: String): List<Entry> =

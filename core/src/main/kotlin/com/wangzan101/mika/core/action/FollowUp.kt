@@ -1,5 +1,6 @@
 package com.wangzan101.mika.core.action
 
+import com.wangzan101.mika.core.gate.ConfirmationRequest
 import com.wangzan101.mika.core.guard.GuardVerdict
 import com.wangzan101.mika.core.tool.ToolExecution
 import kotlinx.serialization.json.JsonObject
@@ -14,6 +15,12 @@ interface FollowUp {
 
     /** は、モデルに指示が渡された後、走行記録に記録される前に確認レベルで停止されました。 */
     fun refused(content: JsonObject) {}
+
+    /**
+     * 画面外の確認要求をその場で本人へ確認する。[request] は表示する申告内容で、承認時は ok が true。
+     * 承認は確認ゲートへ記録済みとする。本人へ確認できなければ null を返し、実行しない。
+     */
+    suspend fun approve(request: ConfirmationRequest): ToolExecution? = null
 
     companion object {
         val NONE = object : FollowUp {}

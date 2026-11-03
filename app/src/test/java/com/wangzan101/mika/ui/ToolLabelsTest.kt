@@ -28,6 +28,7 @@ class ToolLabelsTest {
             assertEquals(tool.name, tr(resource!!), labels.label(tool.name))
         }
         assertEquals("タップ", labels.label("phone_tap"))
+        assertEquals("root コマンド", labels.label("root_run_command"))
         // core の宣言とは異なる文言でも、日本語リソースを優先する。
         assertEquals("インストール済みアプリを一覧表示", labels.label("phone_list_apps"))
     }

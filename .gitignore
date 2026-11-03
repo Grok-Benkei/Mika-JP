@@ -21,3 +21,12 @@ CLAUDE.md
 __pycache__/
 *.py[cod]
 *.egg-info/
+
+# 公開用の署名鍵とローカルの認証設定
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.dpapi
+release-signing.properties
+.env.release*
