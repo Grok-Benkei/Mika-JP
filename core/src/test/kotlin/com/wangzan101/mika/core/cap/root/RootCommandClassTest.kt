@@ -44,6 +44,8 @@ class RootCommandClassTest {
         "sqlite3 -readonly /data/data/com.example.app/databases/notes.db .tables",
         "sqlite3 -readonly notes.db 'PRAGMA table_info(notes)'",
         "sqlite3 -readonly notes.db '.schema notes'",
+        "sqlite3 -header -csv -readonly notes.db 'SELECT title FROM notes'",
+        "sqlite3 -readonly notes.db 'PRAGMA schema_version'",
     )
 
     @Test
@@ -125,6 +127,43 @@ class RootCommandClassTest {
         "cat /sdcard/[ab].txt",
     )
 
+    @Test
+    fun shellCommentsCannotHideFollowingCommands() = changes(
+        "echo #'\nrm /sdcard/Download/victim\n#'",
+        "echo #\"\nrm /sdcard/Download/victim\n#\"",
+    )
+
+    /** 行継続を文字データと誤認すると、変更オプションを見落とす。引用内も含めて確認する。 */
+    @Test
+    fun lineContinuationsCannotHideWriteOptions() {
+        val backslash = "\\"
+        changes(
+            "sort " + backslash + "\n-o target src",
+            "find . " + backslash + "\n-delete",
+            "logcat " + backslash + "\n-c",
+            "sort \"" + backslash + "\n-o\" target src",
+            "find . \"-de" + backslash + "\nlete\"",
+            "logcat \"" + backslash + "\n-c\"",
+            "sort " + backslash + "\r\n-o target src",
+            "echo 'a" + backslash + "\nb'",
+        )
+    }
+
+    /** 引数の値やDB名に-readonlyがあるだけでは、readonly接続を証明できない。 */
+    @Test
+    fun sqliteReadonlyMustBeAParsedFlagBeforeTheDatabase() = changes(
+        "sqlite3 -separator -readonly db 'pragma schema_version(1)'",
+        "sqlite3 -newline -readonly db 'pragma schema_version(1)'",
+        "sqlite3 -nullvalue -readonly db 'pragma schema_version(1)'",
+        "sqlite3 -readonly -separator ',' db 'SELECT 1'",
+        "sqlite3 -cmd 'SELECT 1' -readonly db 'SELECT 1'",
+        "sqlite3 -unknown -readonly db 'SELECT 1'",
+        "sqlite3 -- -readonly db 'SELECT 1'",
+        "sqlite3 -readonly -- db 'SELECT 1'",
+        "sqlite3 db -readonly 'SELECT 1'",
+        "sqlite3 ./-readonly 'SELECT 1'",
+    )
+
     /** 不明な書式はすべて変更扱い。コマンド置換、別シェル、変数名、未閉鎖の引用、here-doc、未知の実行先を含む。 */
     @Test
     fun anythingUnclearNeedsTheUsersOk() = changes(
@@ -164,5 +203,10 @@ class RootCommandClassTest {
         "sort \\*",
         "cat /sdcard/file\\?.txt",
         "cat /sdcard/\\[ab\\].txt",
+        "echo '#'",
+        "echo \"#\"",
+        "echo \\#",
+        "echo prefix#suffix",
+        "echo '#\nrm /sdcard/Download/victim\n#'",
     )
 }

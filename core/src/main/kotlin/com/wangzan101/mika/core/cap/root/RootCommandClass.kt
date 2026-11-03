@@ -46,7 +46,6 @@ object RootCommandClass {
         "-header", "-noheader", "-csv", "-json", "-line", "-list", "-column", "-html", "-box", "-table", "-markdown", "-readonly",
         "-batch", "-bail", "-echo", "-quote", "-tabs", "-ascii",
     )
-    private val SQLITE_OPTS_WITH_VALUE = setOf("-separator", "-newline", "-nullvalue")
 
     private fun readOnly(words: List<String>): Boolean {
         // 先頭の環境変数代入は、実行先やコードを差し替えない限定的なロケール設定だけを許可する。
@@ -124,24 +123,13 @@ object RootCommandClass {
 
     /** SQLiteはreadonly接続で、SQLの全ステートメントが読み取りである場合だけ直接実行する。SQL省略や未知のオプションは変更扱い。 */
     private fun sqliteReadOnly(args: List<String>): Boolean {
-        // 接続だけでDBを作成・更新しないよう、SQLの内容だけでなくreadonlyでのオープンも必須にする。
-        if ("-readonly" !in args) return false
-        val sql = mutableListOf<String>()
-        var db: String? = null
-        var i = 0
-        while (i < args.size) {
-            val a = args[i]
-            when {
-                db == null && a in SQLITE_FLAGS -> Unit
-                db == null && a in SQLITE_OPTS_WITH_VALUE -> i++
-                db == null && a == "-cmd" -> { sql += args.getOrNull(i + 1) ?: return false; i++ }
-                db == null && a.startsWith("-") -> return false
-                db == null -> db = a
-                else -> sql += a
-            }
-            i++
-        }
-        if (db == null || sql.isEmpty()) return false
+        // DB名より前の既知・値なしオプションとして指定されたreadonlyだけを認める。
+        // 値消費オプションや--は、readonlyが値やファイル名になる可能性を避けて変更扱いにする。
+        val flags = args.takeWhile { it.startsWith("-") }
+        if ("-readonly" !in flags || flags.any { it !in SQLITE_FLAGS }) return false
+        val rest = args.drop(flags.size)
+        if (rest.size < 2 || rest[0].isBlank()) return false
+        val sql = rest.drop(1)
         val statements = sql.flatMap { it.split(';') }.map { it.trim() }.filter { it.isNotEmpty() }
         return statements.isNotEmpty() && statements.all(::sqlReadOnly)
     }
@@ -165,6 +153,8 @@ object RootCommandClass {
      * 変数・プロセス置換、here-doc、読書き両用、/dev/null以外への出力、閉じていない引用は直接実行しない。
      */
     private fun split(command: String): List<List<String>>? {
+        // シェルが除去する行継続は独自に解釈せず、引用内も含めて変更扱いにする。
+        if ("\\\n" in command || "\\\r\n" in command) return null
         val commands = mutableListOf<List<String>>()
         var words = mutableListOf<String>()
         val word = StringBuilder()
@@ -196,6 +186,8 @@ object RootCommandClass {
                 }
                 c == '\'' -> { single = true; inWord = true }
                 c == '"' -> { double = true; inWord = true }
+                // 未引用の語頭#はシェルコメントになるため、後続行を引用内のデータとして扱わない。
+                c == '#' && !inWord -> return null
                 // 未引用のglobは、展開後のファイル名が変更オプションになる可能性がある。
                 c in "*?[]" -> return null
                 c == '>' || (c == '&' && next == '>') -> {
