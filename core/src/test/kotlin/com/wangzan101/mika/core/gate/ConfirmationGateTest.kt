@@ -60,11 +60,39 @@ class ConfirmationGateTest {
     }
 
     @Test fun reviewCountsWithJapaneseNumberUnitsAreNotYenAmounts() {
-        for (parts in listOf(listOf("1万2000件のレビュー", "￥980"), listOf("1万", "2000件のレビュー", "￥980"), listOf("1万2千件のレビュー", "980円"))) {
+        for (parts in listOf(listOf("1万2000件のレビュー", "￥980"), listOf("1万", "2000件のレビュー", "￥980"), listOf("1万2千件のレビュー", "980円"), listOf("1億2000件のレビュー", "￥980"), listOf("一万2000件のレビュー", "￥980"))) {
             val elements = parts.mapIndexed { i, part -> el(part, top = 800).copy(bounds = listOf(i * 120, 800, i * 120 + 100, 860)) }
             val page = ScreenSnapshot("s", "com.a", listOf(el("商品", top = 100)) + elements, 1080, 2400)
             val r = ConfirmationRequest(IrrevAction.order, "商品", "注文", "980円", "com.a")
             assertEquals(parts.toString(), Permit.Allowed, approved(r).permits(hit(IrrevAction.order), page, 2))
+        }
+    }
+
+    @Test fun scaledUnitsAcrossCurrenciesCannotMatchTheirUnscaledDigits() {
+        for ((declared, visible) in listOf(
+            "2000円" to "1億2000円", "1億2000円" to "1円", "2000元" to "1万2000元", "1万2000元" to "1元",
+            "2000 CNY" to "1亿2000 CNY", "1亿2000 CNY" to "1 CNY", "CNY 1" to "CNY 1萬2000",
+            "USD 2000" to "1京2000 USD", "1京2000 USD" to "1 USD", "USD 1" to "$1万2000",
+            "2000 JPY" to "1兆2000 JPY", "1兆2000 JPY" to "1 JPY", "ＵＳＤ １" to "＄１億２０００",
+            "RMB 1万2000" to "1元", "2円" to "￥2百", "300円" to "2百300円", "300元" to "2十300元",
+            "2000円" to "一万2000円", "壱万2000円" to "2000円", "3円" to "三千円", "10円" to "十万円", "100円" to "百円",
+        )) {
+            val r = ConfirmationRequest(IrrevAction.order, "商品", "注文", declared, "com.a")
+            val page = ScreenSnapshot("s", "com.a", listOf(el("商品", top = 100), el(visible, top = 800)), 1080, 2400)
+            val gate = approved(r)
+            assertTrue("申告 $declared / 表示 $visible", gate.permits(hit(IrrevAction.order), page, 2) is Permit.Mismatch)
+            assertEquals(Permit.NoGrant, gate.permits(hit(IrrevAction.order), page, 2))
+        }
+    }
+
+    @Test fun splitScaledAmountsInDifferentCurrenciesRemainUnapproved() {
+        for ((declared, parts) in listOf("2000円" to listOf("1億", "2000円"), "2000元" to listOf("1万", "2000元"),
+            "2000 CNY" to listOf("1亿", "2000 CNY"), "USD 1" to listOf("$1", "京", "2000"),
+            "300円" to listOf("2百", "300円"), "300元" to listOf("2十", "300元"), "2000円" to listOf("一万", "2000円"))) {
+            val elements = parts.mapIndexed { i, part -> el(part, top = 800).copy(bounds = listOf(i * 120, 800, i * 120 + 100, 860)) }
+            val page = ScreenSnapshot("s", "com.a", listOf(el("商品", top = 100)) + elements, 1080, 2400)
+            val r = ConfirmationRequest(IrrevAction.order, "商品", "注文", declared, "com.a")
+            assertTrue(parts.toString(), approved(r).permits(hit(IrrevAction.order), page, 2) is Permit.Mismatch)
         }
     }
 

@@ -63,7 +63,7 @@ class ClassifiedRiskTest {
     }
 
     @Test fun japaneseAmountsRequireApprovalForSubmissionsAndDeletion() {
-        for (amount in listOf("月額980円", "月額９８０円", "1,980円", "１，９８０円", "9万円", "９万円", "9 万 円", "5千円", "1万2千円", "1万2000円", "JPY 980", "980 JPY", "￥９８０", "25元", "$25")) {
+        for (amount in listOf("月額980円", "月額９８０円", "1,980円", "１，９８０円", "9万円", "９万円", "9 万 円", "5千円", "1万2千円", "1万2000円", "1億2000円", "1亿2000元", "1兆2000 JPY", "1京2000 CNY", "USD 1万", "￥2百", "2十300元", "ＵＳＤ１億", "一万2000円", "三千円", "壱万2000元", "十万円", "百円", "￥一万2000", "JPY 980", "980 JPY", "￥９８０", "25元", "$25")) {
             val on = screen.copy(elements = listOf(el("@e7", "TextView", amount, listOf(0, 600, 999, 700))))
             for (action in listOf(IrrevAction.submit, IrrevAction.delete)) {
                 val risk = assess("phone_tap", Irreversible(action, "実行"), on)
@@ -81,7 +81,7 @@ class ClassifiedRiskTest {
     }
 
     @Test fun defaultDecisionRequiresConfirmationOnYenScreens() = runTest {
-        for (amount in listOf("月額980円", "月額９８０円", "JPY 980", "9万円", "5千円", "1万2千円")) for (button in listOf("提出", "削除")) {
+        for (amount in listOf("月額980円", "月額９８０円", "JPY 980", "9万円", "5千円", "1万2千円", "1億2000円", "1万2000元", "USD 1万", "百円")) for (button in listOf("提出", "削除")) {
             val on = screen.copy(elements = listOf(
                 el("@e1", "Button", button, listOf(0, 800, 999, 900)),
                 el("@e2", "TextView", amount, listOf(0, 600, 999, 700)),

@@ -67,7 +67,7 @@ class IrreversibleDetectorTest {
     }
 
     @Test fun yenAndCurrencyCodesOnConfirmationScreensAreAmounts() {
-        for (amount in listOf("980円", "９８０円", "JPY 980", "980 JPY", "5千円", "1万2千円")) {
+        for (amount in listOf("980円", "９８０円", "JPY 980", "980 JPY", "5千円", "1万2千円", "1億2000円", "1亿2000元", "1兆2000 JPY", "1京2000 CNY", "$1百", "2十300元", "一万2000円", "十万円", "百円")) {
             val dialog = snap(el("@e1", amount, listOf(0, 300, 999, 400), clickable = false), el("@e2", "はい", listOf(500, 500, 999, 600)))
             assertEquals(amount, IrrevAction.order, d.classify("phone_tap", args("""{"ref":"@e2","snapshotId":"s1"}"""), dialog)?.action)
         }

@@ -130,13 +130,20 @@ object IrreversibleDetector {
     /** ポップアップ ウィンドウ、下部パネルの普遍的な確認: 同じ画面上に強い単語や金額がある場合のみカウントされます。 */
     val GENERIC = listOf("确认", "确定", "ok", "完成", "confirm", "確認", "確定", "実行", "完了", "はい").map(Hant::fold)
     private const val AMOUNT_NUMBER = "[0-9０-９][0-9０-９,，]*(?:[.．][0-9０-９]+)?"
-    /** 換算に未対応の円の数表記。数字・空白・万/千だけを結合し、件数などの語をまたいで通貨へ結び付けない。 */
-    internal const val UNSCALED_YEN_NUMBER = "$AMOUNT_NUMBER(?:\\s*[万萬千]\\s*(?:$AMOUNT_NUMBER)?)+"
+    private const val CURRENCY_CODE = "(?:JPY|CNY|USD|RMB|ＪＰＹ|ＣＮＹ|ＵＳＤ|ＲＭＢ)"
+    private const val CURRENCY_PREFIX = "(?:[¥￥$＄]|(?<![A-Za-zＡ-Ｚａ-ｚ])$CURRENCY_CODE)"
+    private const val CURRENCY_SUFFIX = "(?:元|円|$CURRENCY_CODE(?![A-Za-zＡ-Ｚａ-ｚ]))"
+    private const val NUMBER_ATOM = "(?:$AMOUNT_NUMBER|[〇零一二三四五六七八九壱弐参]+)"
+    /** 換算に未対応の数表記。数字・空白・位取りだけを結合し、件数などの語をまたいで通貨へ結び付けない。 */
+    private const val UNSCALED_AMOUNT_NUMBER = "(?:$NUMBER_ATOM)?(?:\\s*[十拾百佰千仟万萬億亿兆京]\\s*(?:$NUMBER_ATOM)?)+"
     /** [com.wangzan101.mika.core.action.ClassifiedRisk] と共有する通貨付き金額。全角数字・桁区切り・通貨コードも認識します。 */
     internal val AMOUNT = Regex(
-        "(?:[¥￥$＄]|(?<![A-Za-z])(?:JPY|CNY|USD))\\s*$AMOUNT_NUMBER|" +
-            "$UNSCALED_YEN_NUMBER\\s*(?:円|JPY(?![A-Za-z]))|" +
-            "$AMOUNT_NUMBER\\s*(?:元|円|(?:JPY|CNY|USD)(?![A-Za-z]))",
+        "$CURRENCY_PREFIX\\s*(?:$UNSCALED_AMOUNT_NUMBER|$AMOUNT_NUMBER)|(?:$UNSCALED_AMOUNT_NUMBER|$AMOUNT_NUMBER)\\s*$CURRENCY_SUFFIX",
+        RegexOption.IGNORE_CASE,
+    )
+    /** 認識済み通貨の位取り付き金額は、未換算の数値部分だけで承認しない。 */
+    internal val UNSCALED_AMOUNT = Regex(
+        "$CURRENCY_PREFIX\\s*$UNSCALED_AMOUNT_NUMBER|$UNSCALED_AMOUNT_NUMBER\\s*$CURRENCY_SUFFIX",
         RegexOption.IGNORE_CASE,
     )
     /** これらの単語が含まれる金額は合計であり、スクロール可能領域内にあるかどうかに関係なく、コンテキストとみなされます。 */
