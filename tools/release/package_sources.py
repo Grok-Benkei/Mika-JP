@@ -147,6 +147,8 @@ def archive_tree(tree, archive, prefix):
                     raise ValueError('対応ソースにシンボリックリンクを含められません')
                 if not path.is_file():
                     continue
+                if path.name == '.gitkeep' and path.stat().st_size == 0:
+                    continue
                 relative = path.relative_to(tree).as_posix()
                 if any(part.startswith('.') for part in path.relative_to(tree).parts):
                     raise ValueError('対応ソースに非公開の隠しファイルを含められません: ' + relative)
