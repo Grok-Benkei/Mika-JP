@@ -35,6 +35,8 @@
     <string name="about_guide">日本語ガイド</string>
     <string name="about_guide_sub">導入方法、日本向けの設定、公式版との違い</string>
     <string name="about_data_note">チャットや読み取った画面は、選択したモデルプロバイダーに送られます。音声認識は選択した認識サービスを使います。Mika専用のサーバーはありません。更新確認はこの日本語版のGitHubに接続します。</string>
+    <string name="about_usage_title">上級者向け・個人運用のOSS</string>
+    <string name="about_usage_note">権限設定とAIの自動操作を理解し、自分の端末・アカウントで、ご自身の判断と責任で利用してください。本アプリは現状のまま無保証で提供します。法令で認められる範囲で、開発者・貢献者は、利用または利用不能により生じた損害・損失について一切の責任を負いません。タップして免責事項を確認できます。</string>
     <string name="about_license_link">ライセンスと著作権表示</string>
     <string name="about_author">原作: Wang Zan · 日本向け調整: Studio Yebisu</string>
     <string name="about_license_title">ライセンスと著作権表示</string>

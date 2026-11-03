@@ -141,6 +141,11 @@ fun AboutScreen(
             Text(AboutCopy.DATA_NOTE, style = MikaType.Caption, color = c.ink2)
         }
 
+        GroupCard {
+            ListRow(MikaIcons.Shield, AboutCopy.USAGE_TITLE, AboutCopy.USAGE_NOTE, first = true,
+                onClick = { onOpenUrl(MikaLinks.DISCLAIMER) }) { ExternalMark() }
+        }
+
         Column(Modifier.fillMaxWidth().padding(top = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 buildAnnotatedString {

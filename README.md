@@ -4,6 +4,8 @@
 
 会話、ウェブ閲覧、ファイル処理、アプリの操作に使えます。AIの接続先はユーザーが選びます。画面やファイルの内容を扱うため、最初は読み取りだけの依頼で動作を確認してください。
 
+**上級者向け・個人運用を想定したOSSです。** 権限設定やAIの自動操作を理解し、自分の端末・アカウントで、導入から実行結果の確認までご自身の判断と責任で利用してください。本アプリは現状のまま無保証で提供します。法令で認められる範囲で、開発者・貢献者は、利用または利用不能により生じた損害・損失について一切の責任を負いません。詳しくは[利用上の注意・免責事項](docs/disclaimer.md)を確認してください。
+
 ## 日本向けの変更
 
 - 画面、案内、エラーの表示言語と既定リソースを日本語に固定。
@@ -87,7 +89,7 @@ OpenAI、Anthropic、Gemini、OpenRouter、OpenCode Go、xAI、Mistral、Groq、
 
 原作: [Mika / Wang Zan](https://github.com/wangzan101/Mika)。日本向け調整: Studio Yebisu。
 
-[Apache-2.0原文](LICENSE)と[日本語訳](LICENSE.ja.md)、[NOTICE](NOTICE)、[第三者コンポーネント](licenses/THIRD_PARTY_NOTICES.md)を参照してください。原作の著作権表示や第三者の権利は変更しません。
+[Apache-2.0原文](LICENSE)と[日本語の参考要約](LICENSE.ja.md)、[NOTICE](NOTICE)、[第三者コンポーネント](licenses/THIRD_PARTY_NOTICES.md)を参照してください。原作の著作権表示や第三者の権利は変更しません。
 
 [不具合・提案](https://github.com/yebisu0529-ship-it/Mika-JP/issues) · [Studio Yebisu](https://x.com/studio_yebisu)
 

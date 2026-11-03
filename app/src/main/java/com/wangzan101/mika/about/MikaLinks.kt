@@ -10,6 +10,7 @@ object MikaLinks {
     const val REPO_LABEL = "github.com/yebisu0529-ship-it/Mika-JP"
     const val UPSTREAM = "https://github.com/wangzan101/Mika"
     const val README = "$REPO#readme"
+    const val DISCLAIMER = "$REPO/blob/main/docs/disclaimer.md"
     const val RELEASES = "$REPO/releases"
     const val NEW_ISSUE = "$REPO/issues/new"
     const val X = "https://x.com/studio_yebisu"

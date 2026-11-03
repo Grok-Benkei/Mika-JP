@@ -79,7 +79,7 @@ class AboutScreenTest {
         compose.onNodeWithText(AboutCopy.version("0.1.0")).assertIsDisplayed()
         compose.onNodeWithText("Beta").assertIsDisplayed()
         compose.onNodeWithText("· " + AboutCopy.buildLabel("abc1234")).assertIsDisplayed()
-        for (t in listOf(AboutCopy.CHECK, AboutCopy.CHANGELOG, AboutCopy.GROUP, AboutCopy.FEEDBACK, AboutCopy.FOLLOW, AboutCopy.REPO, AboutCopy.GUIDE, AboutCopy.DATA_NOTE, AboutCopy.AUTHOR)) {
+        for (t in listOf(AboutCopy.CHECK, AboutCopy.CHANGELOG, AboutCopy.GROUP, AboutCopy.FEEDBACK, AboutCopy.FOLLOW, AboutCopy.REPO, AboutCopy.GUIDE, AboutCopy.DATA_NOTE, AboutCopy.USAGE_TITLE, AboutCopy.USAGE_NOTE, AboutCopy.AUTHOR)) {
             scrollTo(t)
             compose.onNodeWithText(t).assertIsDisplayed()
         }
@@ -90,11 +90,11 @@ class AboutScreenTest {
     @Test
     fun externalRowsOpenLinks() {
         val calls = about()
-        for (t in listOf(AboutCopy.FOLLOW, AboutCopy.REPO, AboutCopy.GUIDE)) {
+        for (t in listOf(AboutCopy.FOLLOW, AboutCopy.REPO, AboutCopy.GUIDE, AboutCopy.USAGE_TITLE)) {
             scrollTo(t)
             compose.onNodeWithText(t).performClick()
         }
-        assertEquals(listOf(MikaLinks.X, MikaLinks.REPO, MikaLinks.README), calls.urls)
+        assertEquals(listOf(MikaLinks.X, MikaLinks.REPO, MikaLinks.README, MikaLinks.DISCLAIMER), calls.urls)
     }
 
     @Test
