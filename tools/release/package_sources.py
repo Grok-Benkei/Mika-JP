@@ -124,7 +124,7 @@ def prepare_tree(output):
         'app/src/main/cpp/mikarun', 'app/src/main/assets/sandbox/mika',
         'app/src/main/java/com/wangzan101/mika/cap/sandbox/BundledRuntime.kt', 'docs/release.md',
     ], cwd=ROOT).decode().split('\0')
-    for relative in sorted(set(tracked) | {'LICENSE', 'NOTICE', 'app/src/main/assets/runtime/packages.json'}):
+    for relative in sorted(set(tracked) | {'LICENSE', 'LICENSE.ja.md', 'NOTICE', 'app/src/main/assets/runtime/packages.json'}):
         if not relative:
             continue
         source = contained(ROOT, relative)

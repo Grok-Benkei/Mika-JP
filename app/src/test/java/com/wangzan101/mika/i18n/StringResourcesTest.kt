@@ -10,13 +10,13 @@ import javax.xml.parsers.DocumentBuilderFactory
 /**
  * 日本語専用フォークのリソース検証。
  * 既定（フォールバック）の `values/` も日本語であり、`values-ja/` と
- * 条目・プレースホルダ・複数形が一致する。日本語以外の文字列パックは存在しない。
+ * 項目・プレースホルダ・複数形が一致する。日本語以外の文字列パックは存在しない。
  */
 class StringResourcesTest {
     private val fallback = ResFileTexts.japanese
     private val ja = ResFileTexts.japaneseQualified
 
-    /** 標了 translatable="false" の条目只在默认文件里。 */
+    /** translatable="false" の項目は既定リソースだけに存在してもよい。 */
     private val fixed: Set<String> = ResFileTexts.resFiles("values").flatMap { f ->
         val nodes = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(f).getElementsByTagName("string")
         (0 until nodes.length).map { nodes.item(it) as Element }.filter { it.getAttribute("translatable") == "false" }.map { it.getAttribute("name") }

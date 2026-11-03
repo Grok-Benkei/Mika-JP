@@ -1,5 +1,7 @@
 package com.wangzan101.mika.cap.sandbox
 
+import com.wangzan101.mika.ui.appString
+import com.wangzan101.mika.R
 import com.wangzan101.mika.DeviceTaskState
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -83,7 +85,7 @@ class SandboxTaskDeviceTest {
         val end = awaitEnd()
         assertTrue("$end", end is TaskState.Succeeded && "55" in end.answer)
         // タスク カードに表示されます。
-        assertTrue(states.toString(), states.any { it is TaskState.Running && it.note.startsWith("正在处理文件:python3 sum.py") })
+        assertTrue(states.toString(), states.any { it is TaskState.Running && it.note.startsWith(appString(R.string.sandbox_command_prefix) + "python3 sum.py") })
     }
 
     @Test fun scriptArgsWithSpacesReachScript() {

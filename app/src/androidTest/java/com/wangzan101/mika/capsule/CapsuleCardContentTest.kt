@@ -1,5 +1,7 @@
 package com.wangzan101.mika.capsule
 
+import com.wangzan101.mika.ui.appString
+import com.wangzan101.mika.R
 import com.wangzan101.mika.ChineseUi
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.swipeDown
@@ -94,7 +96,7 @@ class CapsuleCardContentTest {
 
     @Test fun threadShowsScreenMessageWithTagAndWords() {
         show(CardView.Chat("c1", title = "t"), thread = idleThread("[[screen:s1]]", "[[screen:s1]]\n第三条有没有坑?", "[[screen:s2]]"))
-        val tag = "你此刻的屏幕 · 设置 · 19:42"
+        val tag = appString(R.string.screen_tag) + " · 设置 · 19:42"
         // カードが最新の文で止まります。目の前に2番目の画面(追記あり)とスクリーンショット禁止の画面があり、1番目の画面は上にありまだ排出されていません。
         compose.waitUntil(5_000) { compose.onAllNodesWithText(tag, useUnmergedTree = true).fetchSemanticsNodes().size == 1 }
         compose.onAllNodesWithTag("screen-thumb", useUnmergedTree = true).assertCountEquals(1)
@@ -150,7 +152,7 @@ class CapsuleCardContentTest {
     @Test fun runningShowsStepsElapsedStopAndLink() {
         show(detail(run("a", TaskState.Running(3, "n", "tap"), CapsuleKind.Running, "在搜牙膏", startedAt = 0L)))
         compose.onNodeWithText("买两支牙膏").assertIsDisplayed()
-        compose.onNodeWithText("在干活 · 0:23").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.capsule_running) + " · 0:23").assertIsDisplayed()
         compose.onNodeWithText("在搜牙膏").assertIsDisplayed()
         // は入力ボックス (黒い停止キー) の右側で停止し、単一のテキスト ボタンではなくなりました。
         compose.onAllNodesWithText(CardCopy.STOP).assertCountEquals(0)
@@ -180,7 +182,7 @@ class CapsuleCardContentTest {
     }
 
     @Test fun takeoverHasTakeOverAndStop() {
-        show(detail(run("a", TaskState.WaitingTakeover("payment", "请输入支付密码"), CapsuleKind.NeedTakeover, "需要你：付款")))
+        show(detail(run("a", TaskState.WaitingTakeover("payment", "请输入支付密码"), CapsuleKind.NeedTakeover, appString(R.string.capsule_needs_you, "付款"))))
         compose.onNodeWithText("请输入支付密码").assertIsDisplayed()
         compose.onNodeWithText(CardCopy.TAKE_OVER).performClick()
         compose.onNodeWithText(CardCopy.STOP).performClick()
@@ -257,7 +259,7 @@ class CapsuleCardContentTest {
 
     @Test fun idleCardContinuesOrStartsFresh() {
         show(CardView.Chat("c1", title = "买牙膏"), thread = history(1))
-        compose.onNodeWithText("接着「买牙膏」聊").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.card_continuing, "买牙膏")).assertIsDisplayed()
         compose.onNodeWithText("回答 1 第 1 行").assertIsDisplayed()
         compose.onNodeWithText(CapsuleCards.HINT_START).assertIsDisplayed()
         compose.onNodeWithText(CardCopy.NEW_CHAT).performClick()
@@ -279,7 +281,7 @@ class CapsuleCardContentTest {
         // 前回のやり取り、アプリを操作した行、回答の全文がすべてあります。段差や小さな画面はありません。
         // 会話のタイトルの最初の文は「朝」、その下の吹き出しも「朝」です: 両方の場所
         compose.onAllNodesWithText("早").assertCountEquals(2)
-        compose.onNodeWithText("✓ 购物 · 办好了").assertIsDisplayed()
+        compose.onNodeWithText("✓ 购物 · " + appString(R.string.capsule_done)).assertIsDisplayed()
         compose.onNodeWithText("牙膏下单了").assertIsDisplayed()
         compose.onAllNodesWithTag("capsule-screen").assertCountEquals(0)
         compose.onNodeWithText(CapsuleCards.HINT_CONTINUE).assertIsDisplayed()

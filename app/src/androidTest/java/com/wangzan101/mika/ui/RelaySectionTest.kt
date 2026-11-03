@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -56,17 +57,17 @@ class RelaySectionTest {
     @Test fun pairedSettingsKeepTokensHiddenAndRequireExplicitEnableAndUnpair() {
         config.value = RelayConfig(gateway = "https://relay.example/")
         page()
-        compose.onNodeWithText("已配对，远程访问未开启").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.relay_disabled)).assertIsDisplayed()
         compose.onNodeWithTag("relay-code").assertDoesNotExist()
         compose.onNodeWithTag("relay-enabled").performClick()
         assertEquals(listOf(true), changes)
         compose.onNodeWithTag("relay-device-access").performScrollTo().assertIsOff().performClick()
         assertEquals(listOf(true), deviceChanges)
-        compose.onNodeWithText("复制 MCP 地址").performScrollTo().performClick()
+        compose.onNodeWithText(appString(R.string.relay_copy_address)).performScrollTo().performClick()
         assertEquals(1, copied)
-        compose.onNodeWithText("解除网关配对").performScrollTo().performClick()
+        compose.onNodeWithText(appString(R.string.relay_unpair)).performScrollTo().performClick()
         assertEquals(0, unpaired)
-        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithText(appString(R.string.cancel)).performClick()
         assertEquals(0, unpaired)
     }
 
@@ -74,10 +75,10 @@ class RelaySectionTest {
         config.value = RelayConfig(true, "https://relay.example/")
         state.value = RelayState.Online
         page()
-        compose.onNodeWithText("网关已连接，等待 CLI / MCP 请求").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.relay_online)).assertIsDisplayed()
         compose.runOnIdle { state.value = RelayState.Unauthorized }
-        compose.onNodeWithText("配对已失效或被撤销，请重新配对网关").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.relay_unauthorized)).assertIsDisplayed()
         compose.runOnIdle { state.value = RelayState.Incompatible }
-        compose.onNodeWithText("请将 Mika 与网关更新到匹配的版本").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.relay_incompatible)).assertIsDisplayed()
     }
 }

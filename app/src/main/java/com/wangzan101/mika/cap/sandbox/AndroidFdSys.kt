@@ -17,7 +17,7 @@ import java.io.FileOutputStream
 import java.nio.channels.FileChannel
 
 /**
- * [FdSys] の Android 実装: 各ステップはオープン (O_NOFOLLOW) であり、次のセクションはオープンされたディレクトリを基準にして `/proc/self/fd/<目录句柄>/<名字>` を通過します。
+ * [FdSys] の Android 実装: 各ステップはオープン (O_NOFOLLOW) であり、次のセクションはオープンされたディレクトリを基準にして `/proc/self/fd/<ディレクトリFD>/<名前>` を通過します。
  * はパスの先頭から再解析されなくなりました。実際の場所は `/proc/self/fd/N` のリンクを読み取り、ハード リンクのタイプと数は fstat で確認できます。
  * ディレクトリも O_RDONLY|O_NONBLOCK で開き、fstat を押してタイプを決定します (OsConstants には O_DIRECTORY がなく、各アーキテクチャの値も異なります)。
  */

@@ -59,7 +59,7 @@ object SelfCheckReport {
     private fun gb(bytes: Long): String =
         if (bytes <= 0) "不明" else String.format(Locale.ROOT, "%.1f GB", bytes / (1024.0 * 1024 * 1024))
 
-    /** フィードバックの質問のタイトルは `[兼容性] Android <版本> <型号>` で、モデルはシステムによって指定されたものです (メーカー名は追加されません)。 */
+    /** フィードバックの質問のタイトルは `[互換性] Android <バージョン> <モデル名>` で、モデルはシステムによって指定されたものです (メーカー名は追加されません)。 */
     fun issueTitle(f: DeviceFacts?): String =
         if (f == null) "[互換性]" else "[互換性] Android ${f.androidRelease} ${f.model.trim()}".trim()
 

@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -32,16 +33,16 @@ class DeviceAccessSectionTest {
         val key = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
         val settings = DeviceAccessSettings(dir, AesGcmKeyCipher { key })
         compose.setContent { MikaTheme(dark = false, reduceMotion = true) {
-            PageScaffold("电脑连接", {}) { DeviceAccessSection(settings) }
+                PageScaffold(appString(R.string.mcp_title), {}) { DeviceAccessSection(settings) }
         } }
-        compose.onNodeWithText("锁屏凭据").performClick()
-        compose.onNodeWithText("保存凭据").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithText(appString(R.string.device_access_credential)).performClick()
+        compose.onNodeWithText(appString(R.string.device_access_save)).performScrollTo().assertIsNotEnabled()
         compose.onNodeWithTag("device-access-credential").performScrollTo().performTextInput("123456")
-        compose.onNodeWithText("保存凭据").assertIsNotEnabled()
+        compose.onNodeWithText(appString(R.string.device_access_save)).assertIsNotEnabled()
         compose.onNodeWithTag("device-access-repeat").performScrollTo().performTextInput("123456")
-        compose.onNodeWithText("保存凭据").performScrollTo().assertIsEnabled().performClick()
+        compose.onNodeWithText(appString(R.string.device_access_save)).performScrollTo().assertIsEnabled().performClick()
         compose.waitUntil(5_000) { settings.credentialConfigured }
-        compose.onNodeWithText("已保存 PIN · 点此更换").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.device_access_pin_saved)).performScrollTo().assertIsDisplayed()
         settings.credential()!!.use { assertEquals("123456", String(it.value)) }
         compose.onNodeWithText("123456").assertDoesNotExist()
     }

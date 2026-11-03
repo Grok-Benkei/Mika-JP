@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.assertIsDisplayed
@@ -18,10 +19,10 @@ class AppAccessScreenTest {
 
     @Test fun appAccessLoadsWithoutModelAndRecommendedCanBeCancelled() {
         compose.setContent { com.wangzan101.mika.ui.theme.MikaTheme { AppAccessScreen(onBack = {}, classifyApps = false) } }
-        compose.onNodeWithText("应用访问").assertIsDisplayed()
-        compose.onNodeWithText("推荐禁用", substring = true).performScrollTo().performClick()
-        compose.onNodeWithText("推荐禁用金融交易应用").assertIsDisplayed()
-        compose.onNodeWithText("取消").performClick()
-        compose.onNodeWithText("全部允许").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.appaccess_title)).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.appaccess_recommend), substring = true).performScrollTo().performClick()
+        compose.onNodeWithText(appString(R.string.appaccess_recommend_title)).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.appaccess_cancel)).performClick()
+        compose.onNodeWithText(appString(R.string.appaccess_allow_all)).performScrollTo().assertIsDisplayed()
     }
 }

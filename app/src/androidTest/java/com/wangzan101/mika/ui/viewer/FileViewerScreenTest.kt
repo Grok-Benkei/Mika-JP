@@ -1,5 +1,7 @@
 package com.wangzan101.mika.ui.viewer
 
+import com.wangzan101.mika.ui.appString
+import com.wangzan101.mika.R
 import com.wangzan101.mika.ChineseUi
 import android.net.Uri
 import androidx.compose.ui.test.assertIsDisplayed
@@ -52,6 +54,6 @@ class FileViewerScreenTest {
         assertNull(FileViewer.kindOf(context, uri, "archive.zip"))
         show(uri, "archive.zip")
         compose.onNodeWithTag("viewer.unsupported").assertIsDisplayed()
-        compose.onNodeWithText("用其他应用打开").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.viewer_open_elsewhere)).assertIsDisplayed()
     }
 }

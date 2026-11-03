@@ -1,6 +1,6 @@
 {
   "id": "web-usd-cny-rate",
-  "goal": "查一下今天美元兑人民币的汇率",
+  "goal": "今日の米ドル対人民元の為替レートを調べて",
   "apps": [],
   "category": "read",
   "partition": "holdout",

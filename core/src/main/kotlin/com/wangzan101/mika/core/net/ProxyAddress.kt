@@ -5,7 +5,7 @@ import java.net.Proxy
 import java.net.URI
 
 /**
- * は、`协议://[用户:密码@]主机:端口` の形式のネットワーク プロキシ アドレスです。プロトコルは、http、https、socks5、socks5h のいずれかで、背後にパスはありません。
+ * は、`スキーム://[ユーザー名:パスワード@]ホスト:ポート` の形式のネットワーク プロキシ アドレスです。プロトコルは、http、https、socks5、socks5h のいずれかで、背後にパスはありません。
  * [toString] にはアカウントのパスワードがなく、ログに書き込まれたり、インターフェイスに表示されたりしても漏洩しません。
  */
 class ProxyAddress private constructor(

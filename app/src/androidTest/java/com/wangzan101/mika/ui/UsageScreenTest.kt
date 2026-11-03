@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import com.wangzan101.mika.ChineseUi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -72,22 +73,22 @@ class UsageScreenTest {
     @Test
     fun showsTotalTrendRankingsAndNotes() {
         content()
-        compose.onNodeWithText("10 月 21 日 – 今天").assertIsDisplayed()
-        compose.onNodeWithText("总用量").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.usage_until_today, appString(R.string.date_month_day, 10, "10月", 21))).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.usage_total)).assertIsDisplayed()
         compose.onNodeWithTag("usage-total").assertTextEquals("12 万")
-        compose.onNodeWithText("10 次").assertIsDisplayed()
-        compose.onNodeWithText("每天").assertIsDisplayed()
+        compose.onNodeWithText(appPlural(R.plurals.times, 10)).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.usage_daily)).assertIsDisplayed()
         compose.onNodeWithTag("usage-chart").assertIsDisplayed()
         compose.onNodeWithTag("usage-rank-provider-p1").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("点一家看它的模型").assertExists()
+        compose.onNodeWithText(appString(R.string.usage_by_provider_hint)).assertExists()
         // 凡例、プロバイダーランキング、カプセルが各1か所
-        compose.onAllNodesWithText("旧服务商（已删除）").assertCountEquals(3)
+        compose.onAllNodesWithText("旧服务商" + appString(R.string.usage_deleted)).assertCountEquals(3)
         compose.onNodeWithTag("usage-rank-model-p1-chat-large").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("usage-rank-model-old-legacy").assertExists()
-        compose.onNodeWithText("有 2 次调用服务商没报用量，没算进去。").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(appPlural(R.plurals.usage_missing, 2)).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(UsageCopy.NOTE).performScrollTo().assertIsDisplayed()
         // 用途を区別しない
-        compose.onAllNodesWithText("主模型").assertCountEquals(0)
+        compose.onAllNodesWithText(appString(R.string.role_main)).assertCountEquals(0)
     }
 
     @Test
@@ -96,7 +97,7 @@ class UsageScreenTest {
         compose.onAllNodesWithTag("usage-chart-tip").assertCountEquals(0)
         compose.onNodeWithTag("usage-chart").performClick()
         compose.onNodeWithTag("usage-chart-tip").assertIsDisplayed()
-        compose.onNodeWithText("10 月 27 日 · 12 万").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.date_month_day, 10, "10月", 27) + " · 12 万").assertIsDisplayed()
         compose.onNodeWithText("服务商甲　11.9 万").assertIsDisplayed()
     }
 
@@ -114,7 +115,7 @@ class UsageScreenTest {
     fun customRangeOffersChangeDates() {
         var custom = 0
         content(report(UsageRange.Custom(LocalDate.of(2026, 10, 1), today)), UsagePreset.Custom, onPickCustom = { custom++ })
-        compose.onNodeWithText("10 月 1 日 – 10 月 27 日").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.date_month_day, 10, "10月", 1) + " – " + appString(R.string.date_month_day, 10, "10月", 27)).assertIsDisplayed()
         compose.onNodeWithTag("usage-change-dates").performClick()
         assertEquals(1, custom)
     }

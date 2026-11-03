@@ -60,11 +60,11 @@ private class Check(private val timeoutSec: Long, private val modelArg: String?,
     private val results = mutableListOf<Pair<String, Boolean>>()
 
     suspend fun run(): Boolean {
-        println("== Mika:用 ChatGPT 登录 · 桌面检查 ==")
-        println("工作目录:${dir.absolutePath}(令牌不打印;${if (keep) "--keep:结束时保存登录" else "默认不保存令牌"})")
+        println("== Mika: ChatGPTでログイン · デスクトップ検査 ==")
+        println("作業ディレクトリ:${dir.absolutePath}（トークンは出力しません; ${if (keep) "--keep: 終了時にログイン状態を保存" else "既定ではトークンを保存しません"}）")
         prepareDir()
         val (hostId, savedClient) = registration()
-        println("本机标识:${if (savedClient == null) "第一次运行,将注册新的 client" else "沿用已注册的 client"}")
+        println("この端末の登録:${if (savedClient == null) "初回のため、新しいclientを登録します" else "登録済みのclientを使用します"}")
 
         var session = signIn(hostId, savedClient) ?: return summary()
         val tokens = ChatGptTokens(auth, { session }, { session = it })
@@ -103,7 +103,7 @@ private class Check(private val timeoutSec: Long, private val modelArg: String?,
 
     private fun rememberClient(hostId: String, clientId: String) {
         writePrivate(hostFile, buildJsonObject { put("hostId", hostId); put("clientId", clientId) }.toString())
-        step("注册 client(client_id 已记到 ${hostFile.name})", true)
+        step("clientを登録（client_idを${hostFile.name}に保存済み）", true)
     }
 
     // ---------- 2-3.ログイン ----------
@@ -119,13 +119,13 @@ private class Check(private val timeoutSec: Long, private val modelArg: String?,
                 page = ::callbackPage,
                 timeoutMs = timeoutSec * 1000,
             )
-            step("收到回调(state 核对通过)", true)
-            step("用授权码换令牌", true)
-            step("验 ID 令牌(签名、签发方、受众、过期、nonce)", true)
-            step("授予了 ${ChatGptAuth.PLAN_SCOPE}", true)
-            println("    授予的权限:${s.scopes.joinToString(" ")}")
-            println("    账号:${s.email.ifEmpty { "(ID 令牌里没有邮箱)" }}")
-            println("    访问令牌有效期:约 ${(s.expiresAtMs - System.currentTimeMillis()) / 1000} 秒;刷新令牌:${if (s.refreshToken.isNotEmpty()) "有" else "没有"}")
+            step("コールバックを受信（stateの照合成功）", true)
+            step("認可コードをトークンへ交換", true)
+            step("IDトークンを検証（署名、発行者、対象、有効期限、nonce）", true)
+            step("${ChatGptAuth.PLAN_SCOPE} の許可を取得", true)
+            println("    付与された権限:${s.scopes.joinToString(" ")}")
+            println("    アカウント:${s.email.ifEmpty { "（IDトークンにメールアドレスがありません）" }}")
+            println("    アクセストークンの有効期間: 約 ${(s.expiresAtMs - System.currentTimeMillis()) / 1000} 秒; リフレッシュトークン:${if (s.refreshToken.isNotEmpty()) "あり" else "なし"}")
             s
         } catch (e: CancellationException) {
             throw e
@@ -133,35 +133,35 @@ private class Check(private val timeoutSec: Long, private val modelArg: String?,
             step(signInStep(e.reason), false, explain(e))
             null
         } catch (e: Exception) {
-            step("登录", false, "${e::class.simpleName}: ${e.message}")
+            step("ログイン", false, "${e::class.simpleName}: ${e.message}")
             null
         }
     }
 
     private fun openBrowser(url: String) {
-        println("授权地址(不含令牌):")
+        println("認可URL（トークンは含みません）:")
         println("    $url")
         val opened = runCatching {
             System.getProperty("os.name").lowercase().contains("mac") &&
                 ProcessBuilder("open", url).inheritIO().start().waitFor(10, TimeUnit.SECONDS)
         }.getOrDefault(false)
-        step(if (opened) "已在默认浏览器打开授权页" else "没能自动打开浏览器,请手动复制上面的地址打开", opened, null, record = false)
-        println("等待回调…(最多 $timeoutSec 秒;Ctrl+C 放弃)")
+        step(if (opened) "既定のブラウザーで認可ページを開きました" else "ブラウザーを自動で開けませんでした。上記のURLを手動で開いてください", opened, null, record = false)
+        println("コールバックを待機中…（最大 $timeoutSec 秒; Ctrl+Cで中止）")
     }
 
     private fun callbackPage(failure: SignInException?): String {
-        val text = if (failure != null) "登录没有成功(${failure.reason}),回到终端看原因。" else "登录完成,可以关掉这个页面,回到终端看结果。"
+        val text = if (failure != null) "ログインに失敗しました（${failure.reason}）。端末のコンソールで原因を確認してください。" else "ログインが完了しました。このページを閉じ、端末のコンソールで結果を確認してください。"
         return "<!doctype html><html><head><meta charset=\"utf-8\"><title>Mika</title></head>" +
             "<body style=\"font-family:system-ui;margin:3em\"><p>$text</p></body></html>"
     }
 
     private fun signInStep(r: SignInFailure): String = when (r) {
-        SignInFailure.Denied, SignInFailure.StateMismatch, SignInFailure.ClientMismatch, SignInFailure.NoClientId -> "核对回调"
-        SignInFailure.TimedOut -> "等待回调"
-        SignInFailure.Exchange, SignInFailure.CodeExpired, SignInFailure.Region, SignInFailure.Blocked -> "用授权码换令牌"
-        SignInFailure.IdToken -> "验 ID 令牌"
-        SignInFailure.NoPlanScope -> "授予 ${ChatGptAuth.PLAN_SCOPE}"
-        SignInFailure.Network -> "连接 OpenAI 登录服务"
+        SignInFailure.Denied, SignInFailure.StateMismatch, SignInFailure.ClientMismatch, SignInFailure.NoClientId -> "コールバックを照合"
+        SignInFailure.TimedOut -> "コールバックを待機"
+        SignInFailure.Exchange, SignInFailure.CodeExpired, SignInFailure.Region, SignInFailure.Blocked -> "認可コードをトークンへ交換"
+        SignInFailure.IdToken -> "IDトークンを検証"
+        SignInFailure.NoPlanScope -> "${ChatGptAuth.PLAN_SCOPE} の許可"
+        SignInFailure.Network -> "OpenAIのログインサービスへ接続"
     }
 
     // ---------- 4. コラムモデル ----------
@@ -170,37 +170,37 @@ private class Check(private val timeoutSec: Long, private val modelArg: String?,
         val listed = when (val r = ModelCatalog(http).openAiCompat(ChatGptAuth.API_BASE, accessToken)) {
             is ModelListResult.Ok -> r.models
             is ModelListResult.Failed -> {
-                step("列模型(GET /v1/models)", false, r.message)
+                step("モデル一覧を取得（GET /v1/models）", false, r.message)
                 return null
             }
         }
-        step("列模型(GET /v1/models):${listed.size} 个", listed.isNotEmpty(), if (listed.isEmpty()) "列表是空的" else null)
+        step("モデル一覧を取得（GET /v1/models）:${listed.size} 件", listed.isNotEmpty(), if (listed.isEmpty()) "一覧が空です" else null)
         listed.forEach { m ->
             val flags = listOfNotNull(
-                m.contextTokens?.let { "上下文 $it" }, m.vision?.let { if (it) "看图" else "不看图" },
-                m.reasoning?.takeIf { it }?.let { "推理" }, m.toolCalls?.let { if (it) "工具" else "无工具" },
+                m.contextTokens?.let { "コンテキスト $it" }, m.vision?.let { if (it) "画像対応" else "画像非対応" },
+                m.reasoning?.takeIf { it }?.let { "推論" }, m.toolCalls?.let { if (it) "ツール対応" else "ツール非対応" },
             )
             println("    ${m.id}${m.displayName.takeIf { it.isNotEmpty() && it != m.id }?.let { "  「$it」" }.orEmpty()}" +
                 if (flags.isEmpty()) "" else "  (${flags.joinToString(",")})")
         }
         val chosen = if (modelArg != null) {
-            listed.firstOrNull { it.id == modelArg } ?: ListedModel(modelArg).also { println("    注意:--model=$modelArg 不在列表里,照样试") }
+            listed.firstOrNull { it.id == modelArg } ?: ListedModel(modelArg).also { println("    注意: --model=$modelArg は一覧にありませんが、指定したモデルを検査します") }
         } else {
             // 推論モデルを優先します。ツールを呼び出すステップでは、暗号的思考の再生も検証する必要があります。
             listed.firstOrNull { it.usable && it.reasoning == true && it.toolCalls != false } ?: listed.firstOrNull { it.usable }
         }
-        chosen?.let { println("    用模型:${it.id}") }
+        chosen?.let { println("    使用モデル:${it.id}") }
         return chosen
     }
 
     // ---------- 5. 簡単な通話 ----------
 
     private suspend fun simpleCall(model: ResponsesModel) {
-        val name = "Responses 调用"
+        val name = "Responses呼び出し"
         try {
             val reply = model.complete("", listOf(Message(Role.User, listOf(Part.Text("Reply with the single word: pong")), Author.User)), emptyList())
             val text = reply.text()
-            step(name, text.isNotBlank(), if (text.isBlank()) "回答是空的" else null)
+            step(name, text.isNotBlank(), if (text.isBlank()) "回答が空です" else null)
             println("    回答:${text.trim().take(200)}")
             println("    ${usage(reply.usage)}")
         } catch (e: CancellationException) {
@@ -223,11 +223,11 @@ private class Check(private val timeoutSec: Long, private val modelArg: String?,
             val first = model.complete(system, history, listOf(tool))
             val call = first.parts.filterIsInstance<Part.ToolCall>().firstOrNull()
             if (call == null) {
-                step("工具调用:模型调用 get_time", false, "模型没有调用工具,直接回答了:${first.text().take(120)}")
+                step("ツール呼び出し: モデルがget_timeを呼ぶ", false, "モデルがツールを呼ばず直接回答しました:${first.text().take(120)}")
                 return
             }
-            step("工具调用:模型调用了 ${call.name}(参数 ${call.argsJson.take(80)})", call.name == tool.name)
-            println("    加密思考:${if (call.opaque != null) "有,下一轮原样回放(store:false)" else "没有(模型没给或不是推理模型)"}")
+            step("ツール呼び出し: モデルが${call.name}を呼び出しました（引数 ${call.argsJson.take(80)}）", call.name == tool.name)
+            println("    暗号化された推論データ:${if (call.opaque != null) "あり。次の呼び出しでそのまま再送します（store:false）" else "なし（モデルが返していないか、推論モデルではありません）"}")
             println("    ${usage(first.usage)}")
             val now = OffsetDateTime.now().withNano(0).toString()
             history += Message(Role.Assistant, first.parts, Author.Mika)
@@ -235,14 +235,14 @@ private class Check(private val timeoutSec: Long, private val modelArg: String?,
             val second = model.complete(system, history, listOf(tool))
             val text = second.text()
             val more = second.parts.any { it is Part.ToolCall }
-            step("工具调用:收到 function_call_output 后作答", text.isNotBlank() && !more,
-                when { more -> "模型又调用了工具"; text.isBlank() -> "回答是空的"; else -> null })
+            step("ツール呼び出し: function_call_outputを受信後に回答", text.isNotBlank() && !more,
+                when { more -> "モデルが再びツールを呼びました"; text.isBlank() -> "回答が空です"; else -> null })
             println("    回答:${text.trim().take(300)}")
             println("    ${usage(second.usage)}")
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            step("工具调用往返", false, explain(e))
+            step("ツール呼び出しの往復", false, explain(e))
         }
     }
 
@@ -253,20 +253,20 @@ private class Check(private val timeoutSec: Long, private val modelArg: String?,
         try {
             tokens.get(fresh = true)
             val after = current()
-            step("用刷新令牌换新令牌", true)
-            println("    访问令牌${if (after.accessToken != before.accessToken) "已更新" else "没变"};" +
-                "刷新令牌${if (after.refreshToken != before.refreshToken) "已轮换" else "没变"};" +
-                "新的有效期约 ${(after.expiresAtMs - System.currentTimeMillis()) / 1000} 秒")
+            step("リフレッシュトークンで新しいトークンを取得", true)
+            println("    アクセストークン${if (after.accessToken != before.accessToken) "更新済み" else "変更なし"};" +
+                "リフレッシュトークン${if (after.refreshToken != before.refreshToken) "ローテーション済み" else "変更なし"};" +
+                "新しい有効期間は約 ${(after.expiresAtMs - System.currentTimeMillis()) / 1000} 秒")
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            step("用刷新令牌换新令牌", false, explain(e))
+            step("リフレッシュトークンで新しいトークンを取得", false, explain(e))
         }
     }
 
     private fun save(session: ChatGptSession) {
         writePrivate(sessionFile, session.toJson())
-        println("已保存登录到 ${sessionFile.absolutePath}(0600)")
+        println("ログイン状態を${sessionFile.absolutePath}に保存しました（0600）")
     }
 
     // ---------- 出力 ----------
@@ -280,14 +280,14 @@ private class Check(private val timeoutSec: Long, private val modelArg: String?,
     private fun summary(): Boolean {
         val failed = results.filterNot { it.second }
         println()
-        println("== 小结:${results.size - failed.size}/${results.size} 步通过 ==")
+        println("== 結果: ${results.size - failed.size}/${results.size} 項目に合格 ==")
         failed.forEach { println("✗ ${it.first}") }
         return failed.isEmpty() && results.isNotEmpty()
     }
 
     private fun ModelReply.text() = parts.filterIsInstance<Part.Text>().joinToString("") { it.text }
 
-    private fun usage(u: Usage?) = u?.let { "用量:输入 ${it.inputTokens}(缓存 ${it.cachedInputTokens}),输出 ${it.outputTokens}" } ?: "用量:服务端没给"
+    private fun usage(u: Usage?) = u?.let { "使用量: 入力 ${it.inputTokens}（キャッシュ ${it.cachedInputTokens}）、出力 ${it.outputTokens}" } ?: "使用量: サーバーから情報がありません"
 
     private fun writePrivate(f: File, text: String) {
         val tmp = File(f.parentFile, f.name + ".tmp")
@@ -303,31 +303,31 @@ private class Check(private val timeoutSec: Long, private val modelArg: String?,
 /** 既知のエラーを言葉で表現します。 */
 private fun explain(e: Throwable): String = when (e) {
     is SignInException -> when (e.reason) {
-        SignInFailure.Denied -> "授权页返回了错误(${e.message?.substringAfter(": ", "")}):" +
-            "access_denied 是在授权页点了取消;授权页若写着「所需权限不可用」,说明账号不是 Plus 或 Pro,不能把套餐额度给其他 App"
-        SignInFailure.StateMismatch -> "回调里的 state 和这次发起的不一致(不是这次登录的回调)"
-        SignInFailure.ClientMismatch -> "回调给出的 client_id 和保存的不一致:删掉 ~/.mika-dev/chatgpt-check/host.json 里的 clientId 后重来"
-        SignInFailure.NoClientId -> "第一次注册,回调里却没有给出 client_id"
-        SignInFailure.TimedOut -> "等回调超时:浏览器里没有完成登录,或回调没回到 127.0.0.1"
-        SignInFailure.Exchange -> "换令牌被拒(${e.message?.substringAfter(": ", "")}):redirect_uri 或 PKCE 不符,或别的原因"
-        SignInFailure.CodeExpired -> "换令牌被拒(${e.message?.substringAfter(": ", "")}):授权码过期、已用过或和这次对不上"
-        SignInFailure.Region -> "换令牌被拒(${e.message?.substringAfter(": ", "")}):当前网络所在的地区不被支持"
-        SignInFailure.Blocked -> "换令牌被拒(${e.message?.substringAfter(": ", "")}):返回的是网页不是 JSON,请求被防护拦下了"
-        SignInFailure.IdToken -> "ID 令牌没通过校验(${e.message?.substringAfter(": ", "")})"
-        SignInFailure.NoPlanScope -> "没授予 ${ChatGptAuth.PLAN_SCOPE}:这个账号的套餐不能在其他 App 里用额度(需要 Plus 或 Pro),或授权时没勾选"
-        SignInFailure.Network -> "连不上 OpenAI 登录服务(${e.message?.substringAfter(": ", "")})"
+        SignInFailure.Denied -> "認可ページがエラーを返しました（${e.message?.substringAfter(": ", "")}）:" +
+            "access_deniedは認可が拒否されたことを示します。「必要な権限を利用できません」と表示された場合は、契約プランと連携権限を確認してください"
+        SignInFailure.StateMismatch -> "コールバックのstateが今回のリクエストと一致しません（今回のログインへのコールバックではありません）"
+        SignInFailure.ClientMismatch -> "コールバックのclient_idが保存済みの値と一致しません。~/.mika-dev/chatgpt-check/host.jsonのclientIdを削除してからやり直してください"
+        SignInFailure.NoClientId -> "初回登録ですが、コールバックにclient_idがありません"
+        SignInFailure.TimedOut -> "コールバックの待機がタイムアウトしました。ブラウザーでログインが完了していないか、127.0.0.1へ戻っていません"
+        SignInFailure.Exchange -> "トークン交換が拒否されました（${e.message?.substringAfter(": ", "")}）。redirect_uriまたはPKCEの不一致などが考えられます"
+        SignInFailure.CodeExpired -> "トークン交換が拒否されました（${e.message?.substringAfter(": ", "")}）。認可コードが期限切れ、使用済み、または今回の認可と一致しません"
+        SignInFailure.Region -> "トークン交換が拒否されました（${e.message?.substringAfter(": ", "")}）。現在のネットワークの地域はサポートされていません"
+        SignInFailure.Blocked -> "トークン交換が拒否されました（${e.message?.substringAfter(": ", "")}）。JSONではなくWebページが返され、リクエストが保護機能に遮断されました"
+        SignInFailure.IdToken -> "IDトークンの検証に失敗しました（${e.message?.substringAfter(": ", "")}）"
+        SignInFailure.NoPlanScope -> "${ChatGptAuth.PLAN_SCOPE} が付与されていません。契約プランと連携権限を確認し、認可時に必要な権限を許可したか確認してください"
+        SignInFailure.Network -> "OpenAIのログインサービスへ接続できません（${e.message?.substringAfter(": ", "")}）"
     }
-    is ModelError.ChatGptNotEligible -> "subscription_sharing_user_not_eligible:这个账号不能在其他 App 里用 ChatGPT 额度(套餐、地区或账号策略不允许)" +
-        e.detail.takeIf { it.isNotEmpty() }?.let { ";服务端说:$it" }.orEmpty()
-    is ModelError.ChatGptLimitReached -> "usage_limit_exceeded:ChatGPT 套餐给其他 App 的额度到了上限,等恢复后再试(用量见 ${ChatGptAuth.USAGE_URL})"
-    is ModelError.SignInExpired -> "刷新令牌已不能用(被注销、过期或被重复使用),要重新登录"
-    is ModelError.Auth -> "令牌被拒或客户端配置不对(401/403、client_id 不认)"
-    is ModelError.ModelNotFound -> "model_not_found:这个账号用不了这个模型,换一个(--model=…)"
+    is ModelError.ChatGptNotEligible -> "subscription_sharing_user_not_eligible: このアカウントでは他のアプリでChatGPTの利用枠を使えません（プラン、地域、アカウントのポリシーによる制限）" +
+        e.detail.takeIf { it.isNotEmpty() }?.let { "; サーバーの原文: $it" }.orEmpty()
+    is ModelError.ChatGptLimitReached -> "usage_limit_exceeded: 他のアプリで使えるChatGPTプランの利用枠が上限に達しました。回復後に再試行してください（使用量: ${ChatGptAuth.USAGE_URL}）"
+    is ModelError.SignInExpired -> "リフレッシュトークンを利用できません（無効化、期限切れ、再利用）。再ログインが必要です"
+    is ModelError.Auth -> "トークンが拒否されたか、クライアント設定が正しくありません（401/403、client_idが認識されない等）"
+    is ModelError.ModelNotFound -> "model_not_found: このアカウントではこのモデルを利用できません。別のモデルを指定してください（--model=…）"
     is ModelError.ContextTooLong -> "context_length_exceeded"
-    is ModelError.Network -> "网络连接失败:${e.cause?.message.orEmpty()}"
-    is ModelError.Server -> "服务端出错(HTTP ${e.status}),稍后再试"
+    is ModelError.Network -> "ネットワーク接続に失敗:${e.cause?.message.orEmpty()}"
+    is ModelError.Server -> "サーバーエラー（HTTP ${e.status}）。しばらくしてから再試行してください"
     is ModelError.BadResponse -> if (e.message.orEmpty().contains("服务端不支持请求里的")) {
-        "unsupported_capability:${e.message?.substringAfter("服务端不支持请求里的 ")?.let { "请求里的 `$it` 这一项不被支持" }}"
+        "unsupported_capability:${e.message?.substringAfter("服务端不支持请求里的 ")?.let { "リクエストの `$it` はサポートされていません" }}"
     } else e.message.orEmpty()
     else -> "${e::class.simpleName}: ${e.message}"
 }

@@ -171,7 +171,7 @@ class GuideCatalog private constructor(
         return out
     }
 
-    /** は、`skills/documents/scripts/extract_pdf.py` など、`目录/文件` リストで実行可能としてマークされているスクリプト (および実行可能なスクリプト タイプ) です。 */
+    /** は、`skills/documents/scripts/extract_pdf.py` など、`ディレクトリ/ファイル` リストで実行可能としてマークされているスクリプト (および実行可能なスクリプト タイプ) です。 */
     fun runnableScripts(): Set<String> {
         val out = sortedSetOf<String>()
         for (info in bundledItems) {

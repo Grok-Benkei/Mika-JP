@@ -13,7 +13,7 @@ private const val DEFAULT_MAX_ELEMENTS = 200
 
 /**
  * 書き込み操作結果の `screen` フィールドに与えられる 2 つの画面の差 (安定した数値で整列):
- * `{"snapshotId","base","currentApp","full":false,"added":[元素],"removed":[{ref,name,role}],"changed":[元素+"was"],"unchanged":N}`。
+ * `{"snapshotId","base","currentApp","full":false,"added":[要素],"removed":[{ref,name,role}],"changed":[要素+"was"],"unchanged":N}`。
  * にベースがない場合、[baseVisible] が false (モデルは差異が依存する画面読み取り値を表示できなくなります)、フロントエンド アプリが変更された場合、または差異テキストが全額の半分を超えている場合、全額が送信されます。
  * `{"snapshotId","currentApp","full":true,"elements":[…],"truncated"}`。
  * 差分は、2 つの画面の完全な要素リストに基づいて計算されます。出力中に追加/変更された要素の合計数は [maxElements] を超えず、超過部分は切り捨てられてマークされます。

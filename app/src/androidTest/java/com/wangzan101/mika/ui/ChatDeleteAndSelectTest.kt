@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import com.wangzan101.mika.ChineseUi
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assert
@@ -102,13 +103,13 @@ class ChatDeleteAndSelectTest {
 
         compose.onNodeWithText("天气").performTouchInput { longClick() }
         compose.onNodeWithTag("drawer-menu-delete").performClick()
-        compose.onNodeWithText("删除这个对话？").assertExists()
+        compose.onNodeWithText(appString(R.string.drawer_delete_title)).assertExists()
         val body = compose.onNodeWithTag("delete-conversation-body").fetchSemanticsNode().config
             .getOrNull(androidx.compose.ui.semantics.SemanticsProperties.Text)?.joinToString { it.text }.orEmpty()
         assertTrue(body, "天气" in body && "停止" in body && "2" in body)
 
         // キャンセル: 何も削除しません
-        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithText(appString(R.string.cancel)).performClick()
         compose.waitForIdle()
         assertTrue(removed.isEmpty())
 
@@ -130,10 +131,10 @@ class ChatDeleteAndSelectTest {
 
         compose.onNodeWithText("天气").performTouchInput { longClick() }
         compose.onNodeWithTag("drawer-menu").assertExists()
-        compose.onNodeWithTag("drawer-menu-pin").assert(hasText("置顶"))
-        compose.onNodeWithTag("drawer-menu-rename").assert(hasText("改名"))
-        compose.onNodeWithTag("drawer-menu-delete").assert(hasText("删除"))
-        compose.onNodeWithText("取消置顶").assertDoesNotExist()
+        compose.onNodeWithTag("drawer-menu-pin").assert(hasText(appString(R.string.pin)))
+        compose.onNodeWithTag("drawer-menu-rename").assert(hasText(appString(R.string.drawer_rename)))
+        compose.onNodeWithTag("drawer-menu-delete").assert(hasText(appString(R.string.confirm_delete)))
+        compose.onNodeWithText(appString(R.string.unpin)).assertDoesNotExist()
         // メニューが開いているとき、次のコンテンツは読み取りにアクセスできず、浮き上がった行のみが残ります。
         assertEquals(1, compose.onAllNodesWithText("天气").fetchSemanticsNodes().size)
         assertEquals("天气", store.title("a"))
@@ -189,18 +190,18 @@ class ChatDeleteAndSelectTest {
         compose.onAllNodesWithTag("conversation-pin", useUnmergedTree = true).assertCountEquals(0)
 
         compose.onNodeWithText("天气").performTouchInput { longClick() }
-        compose.onNodeWithTag("drawer-menu-pin").assert(hasText("置顶")).performClick()
+        compose.onNodeWithTag("drawer-menu-pin").assert(hasText(appString(R.string.pin))).performClick()
         compose.waitForIdle()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("conversation-pin", useUnmergedTree = true).fetchSemanticsNodes().size == 1 }
-        compose.onNodeWithText("置顶").assertExists()
+        compose.onNodeWithText(appString(R.string.pin)).assertExists()
         compose.onAllNodesWithTag("conversation-row")[0].assert(hasText("天气"))
         assertTrue(store.pinnedAt("a") != null)
 
         compose.onNodeWithText("天气").performTouchInput { longClick() }
-        compose.onNodeWithTag("drawer-menu-pin").assert(hasText("取消置顶")).performClick()
+        compose.onNodeWithTag("drawer-menu-pin").assert(hasText(appString(R.string.unpin))).performClick()
         compose.waitForIdle()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("conversation-pin", useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithText("置顶").assertDoesNotExist()
+        compose.onNodeWithText(appString(R.string.pin)).assertDoesNotExist()
         assertEquals(null, store.pinnedAt("a"))
     }
 
@@ -213,7 +214,7 @@ class ChatDeleteAndSelectTest {
 
         compose.onNode(hasText("上海今天", substring = true) and hasAnyAncestor(hasTestTag("selectable-answer"))).assertDoesNotExist()
         compose.onNodeWithText("上海今天", substring = true).performTouchInput { longClick() }
-        compose.onNodeWithTag("message-menu-select").assert(hasText("选择文字")).performClick()
+        compose.onNodeWithTag("message-menu-select").assert(hasText(appString(R.string.chat_select_text))).performClick()
         compose.waitForIdle()
         val answer = compose.onNode(hasText("上海今天", substring = true) and hasAnyAncestor(hasTestTag("selectable-answer")))
         answer.assertExists()
@@ -236,14 +237,14 @@ class ChatDeleteAndSelectTest {
         show(vm, drawerOpen = false)
 
         compose.onNodeWithText("上海今天晴").performTouchInput { longClick() }
-        compose.onNodeWithTag("message-menu-copy").assert(hasText("复制"))
-        compose.onNodeWithTag("message-menu-quote").assert(hasText("引用")).performClick()
+        compose.onNodeWithTag("message-menu-copy").assert(hasText(appString(R.string.chat_copy)))
+        compose.onNodeWithTag("message-menu-quote").assert(hasText(appString(R.string.chat_quote))).performClick()
         compose.waitForIdle()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("message-menu").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithTag("quote-chip").assertExists()
 
         compose.onNodeWithTag("composer-field").performTextReplacement("那明天呢")
-        compose.onNodeWithContentDescription("发送").performClick()
+        compose.onNodeWithContentDescription(appString(R.string.chat_send)).performClick()
         compose.waitForIdle()
         assertEquals(listOf("> [Quoting your earlier reply]\n> 上海今天晴\n\n那明天呢"), started)
         compose.onNodeWithTag("quote-chip").assertDoesNotExist()
@@ -251,7 +252,7 @@ class ChatDeleteAndSelectTest {
 
         // × 参照を削除
         compose.runOnUiThread { vm.quote(QuoteMessage.From.You, "今天天气怎么样") }
-        compose.onNodeWithContentDescription("去掉引用").performClick()
+        compose.onNodeWithContentDescription(appString(R.string.chat_quote_remove)).performClick()
         compose.onNodeWithTag("quote-chip").assertDoesNotExist()
     }
 
@@ -264,7 +265,7 @@ class ChatDeleteAndSelectTest {
         show(vm, drawerOpen = false)
 
         compose.onNodeWithText("明天多云").performTouchInput { longClick() }
-        compose.onNodeWithTag("message-menu-branch").assert(hasText("从这里分支")).performClick()
+        compose.onNodeWithTag("message-menu-branch").assert(hasText(appString(R.string.chat_branch))).performClick()
         compose.waitUntil(10_000) { vm.ui.value.conversationId != "s" }
         val branch = vm.ui.value.conversationId
         assertNotNull(branch)
@@ -285,7 +286,7 @@ class ChatDeleteAndSelectTest {
         show(vm, drawerOpen = false)
 
         compose.onNodeWithText("那明天呢").performTouchInput { longClick() }
-        compose.onNodeWithTag("message-menu-branch-retry").assert(hasText("从这里重新问")).performClick()
+        compose.onNodeWithTag("message-menu-branch-retry").assert(hasText(appString(R.string.chat_branch_retry))).performClick()
         compose.waitUntil(10_000) { vm.ui.value.conversationId != "s" }
         val branch = vm.ui.value.conversationId
         assertNotNull(branch)

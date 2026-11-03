@@ -1,6 +1,6 @@
 {
   "id": "web-download-pdf",
-  "goal": "用网页下载 https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf 这个 PDF,下载完成后告诉我文件名",
+  "goal": "ウェブから https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf をダウンロードし、完了したらファイル名を教えて",
   "apps": [],
   "category": "read",
   "partition": "tune",
@@ -16,5 +16,5 @@
   ],
   "maxSteps": 15,
   "timeoutSec": 300,
-  "note": "下载要在 web_downloads 里 status=done 后才能说已下载;下载功能接入工作区之前这题预期失败"
+  "note": "web_downloadsのstatus=doneを確認してからダウンロード完了と説明する。ダウンロードをワークスペースへ接続する前の実装では失敗を期待していた。"
 }

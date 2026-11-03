@@ -4,7 +4,7 @@ Mika JPは日本向けに調整した別アプリです。公式Mikaをアンイ
 
 ## 1. インストール
 
-このフォークのAPKをAndroidで開くか、PCにUSB接続してadb install -rでインストールします。アプリ名は「Mika JP」、パッケージ名はjp.studioyebisu.mikaです。上流MikaのAPKとは異なります。
+[Mika JPのリリースページ](https://github.com/yebisu0529-ship-it/Mika-JP/releases)から端末に合うAPKを取得し、同じリリースのSHA256SUMSと照合します。APKをAndroidで開くか、PCにUSB接続してadb install -rでインストールします。アプリ名は「Mika JP」、パッケージ名はjp.studioyebisu.mikaです。上流MikaのAPKとは異なります。
 
 Galaxyの自動ブロッカーがインストールやUSBデバッグを止める場合があります。表示された内容と変更する設定を確認してから判断してください。導入に必要な設定だけを変更します。
 

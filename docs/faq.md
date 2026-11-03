@@ -18,7 +18,7 @@ Mika JPの導入は[日本語の導入ガイド](setup-guide.ja.md)、スマホ�
 
 **APKはどこから入手・更新しますか？**
 
-このフォークは開発版です。公開リリースがない間は[ローカルビルド](../README.md#ビルド)を使います。Mika JPの更新元は[このフォークのリリース](https://github.com/yebisu0529-ship-it/Mika-JP/releases)で、上流MikaのAPKは別アプリです。公式Mikaを削除したり、そのデータを消したりする必要はありません。
+公開APKと更新は[このフォークのリリース](https://github.com/yebisu0529-ship-it/Mika-JP/releases)から入手します。ソースから試す場合は[ローカルビルド](../README.md#ビルド)も使えます。上流MikaのAPKは別アプリです。原作Mikaを削除したり、そのデータを消したりする必要はありません。
 
 ## スマホ操作
 

@@ -9,7 +9,7 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 /**
  * JVM 単一テストのインターフェイス テキスト: `src/main/res/<folder>/` の下のリソース ファイルを直接読み取り、Android ルールに従ってエスケープを削除します。
- * テキストを取得するためだけに Android 環境をセットアップする必要はありません。 [folder] は、`values` (英語)、`values-zh` (簡体字中国語)、または `values-b+zh+Hant` (繁体字中国語) です。
+ * テキストの検証に Android 環境を起動する必要はありません。[folder] は日本語の `values` または `values-ja` です。
  */
 class ResFileTexts(folder: String, private val locale: Locale) : UiTexts {
     val strings: Map<String, String>
@@ -49,7 +49,7 @@ class ResFileTexts(folder: String, private val locale: Locale) : UiTexts {
     override fun plural(id: Int, count: Int, args: Array<out Any?>): String {
         val name = pluralNames[id] ?: error("no R.plurals with id $id")
         val forms = plurals[name] ?: error("no plurals $name")
-        // 英語: 1 は 1 を使用します。中国語はその他のみを使用します
+        // 日本語は other を使う。one を持つ入力にも対応し、実行時のリソース選択と同じ順に解決する。
         val raw = (if (count == 1) forms["one"] else null) ?: forms.getValue("other")
         return String.format(locale, raw, *(if (args.isEmpty()) arrayOf(count) else args))
     }

@@ -1,5 +1,7 @@
 package com.wangzan101.mika.confirm
 
+import com.wangzan101.mika.ui.appString
+import com.wangzan101.mika.R
 import org.junit.Rule
 import com.wangzan101.mika.ChineseUi
 import com.wangzan101.mika.DeviceTaskState
@@ -94,10 +96,10 @@ class ConfirmationDeviceTest {
     fun notificationHasApproveDecline() {
         startAndRequest()
         val n = pollUntil(5_000) { attention()?.takeIf { it.actions?.size == 2 } } ?: error("no confirmation notification")
-        assertEquals("要你同意:下单", n.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+        assertEquals(appString(R.string.confirm_title, appString(R.string.confirm_order)), n.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
         val text = n.extras.getCharSequence(Notification.EXTRA_TEXT).toString()
-        assertTrue(text, text.startsWith("在 ") && "对象:测试项" in text && "内容:买测试项 第二行" in text && "金额:¥25" in text)
-        assertEquals(listOf("同意", "不同意"), n.actions.map { it.title.toString() })
+        assertTrue(text, text.startsWith(appString(R.string.confirm_in_app, ConfirmationNotifier.appLabel(context, SETTINGS))) && appString(R.string.confirm_target, "测试项") in text && appString(R.string.confirm_content, "买测试项 第二行") in text && appString(R.string.payment_amount, "¥25") in text)
+        assertEquals(listOf(appString(R.string.action_approve), appString(R.string.action_decline)), n.actions.map { it.title.toString() })
         // と同じチャネルを引き継ぎます。これはチャネルを作成する際の優先度が高くなります。ユーザーまたはシステムが後でこの値を下げる可能性があります (アプリはそれを元に戻すことはできません)。ここでの唯一の要件は、デフォルトより低くなく、実際のレベルが記録されることです。
         assertEquals(TaskService.CHANNEL_ATTENTION, n.channelId)
         val importance = context.getSystemService(NotificationManager::class.java).getNotificationChannel(TaskService.CHANNEL_ATTENTION).importance
@@ -110,7 +112,7 @@ class ConfirmationDeviceTest {
         assertTrue(publicText, "测试项" !in publicText && "第二行" !in publicText)
         // システム通知リストにも表示されます。
         val dump = sh("dumpsys notification --noredact")
-        assertTrue("buttons not in dumpsys notification", "同意" in dump && "不同意" in dump)
+        assertTrue("buttons not in dumpsys notification", appString(R.string.action_approve) in dump && appString(R.string.action_decline) in dump)
 
         // 古い通知をクリックした回答（申告が正しくない場合）はカウントされません
         context.startService(Intent(context, TaskService::class.java).setAction(TaskService.ACTION_APPROVE)
@@ -132,7 +134,7 @@ class ConfirmationDeviceTest {
         startAndRequest()
         val n = pollUntil(5_000) { attention()?.takeIf { it.actions?.size == 2 } } ?: error("no confirmation notification")
         // 通知の「同意する」ボタン自体を押すことで送信されるインテント
-        n.actions.first { it.title.toString() == "同意" }.actionIntent.send()
+        n.actions.first { it.title.toString() == appString(R.string.action_approve) }.actionIntent.send()
         val result = lastToolResult(model.awaitCall())
         assertTrue(result, "\"approved\":true" in result)
         assertTrue(DeviceTaskState.state.value.toString(), DeviceTaskState.state.value !is TaskState.WaitingConfirmation)
@@ -162,13 +164,13 @@ class ConfirmationDeviceTest {
     fun firstNotificationCannotApproveSecondRequest() {
         startAndRequest()
         val first = pollUntil(5_000) { attention()?.takeIf { it.actions?.size == 2 } } ?: error("no confirmation notification")
-        val firstApprove = first.actions.first { it.title.toString() == "同意" }.actionIntent
+        val firstApprove = first.actions.first { it.title.toString() == appString(R.string.action_approve) }.actionIntent
         TaskService.decline(context, ConfirmationNotifier.requestKey(DeviceTaskState.state.value as TaskState.WaitingConfirmation))
         assertTrue(lastToolResult(model.awaitCall()).contains("confirmation_declined"))
         // アクションの種類を変更して再度適用します（同じ種類のアプリが拒否された場合、再度要求されません）
         model.feed("request_confirmation", """{"action":"submit","target":"测试项","content":"提交测试项","amount":"¥25","app":"$SETTINGS"}""")
         awaitState { it is TaskState.WaitingConfirmation && it.request.action.name == "submit" }
-        pollUntil(5_000) { attention()?.takeIf { it.extras.getCharSequence(Notification.EXTRA_TITLE).toString() == "要你同意:提交" } }
+        pollUntil(5_000) { attention()?.takeIf { it.extras.getCharSequence(Notification.EXTRA_TITLE).toString() == appString(R.string.confirm_title, appString(R.string.confirm_submit)) } }
         runCatching { firstApprove.send() } // 古いボタンはシステムによって無効化された可能性がありますが、無効化はまだ合格とみなされます。
         Thread.sleep(1_500)
         assertTrue(DeviceTaskState.state.value.toString(), DeviceTaskState.state.value is TaskState.WaitingConfirmation)

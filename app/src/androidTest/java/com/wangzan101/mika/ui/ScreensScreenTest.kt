@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -43,11 +44,11 @@ class ScreensScreenTest {
     /** タスクごとに 1 枚のカード: 何をしているか、どのアプリを使用しているか、ステータスがすべて表示されます。その行をクリックすると、その行が属する会話に戻ります。 */
     @Test fun oneCardPerTaskOpensItsConversation() {
         show(listOf(row(12), row(-1, "queued")))
-        compose.onNodeWithText("正在用设置").assertIsDisplayed()
-        compose.onNodeWithText("还没打开 App").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.screens_using_app, "设置")).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.screens_no_app)).assertIsDisplayed()
         compose.onAllNodesWithText("打开设置看一下电池").assertCountEquals(2)
-        compose.onAllNodesWithText("正在执行").assertCountEquals(2)
-        compose.onNodeWithText("正在用设置").performClick()
+        compose.onAllNodesWithText(appString(R.string.task_running)).assertCountEquals(2)
+        compose.onNodeWithText(appString(R.string.screens_using_app, "设置")).performClick()
         assertEquals(listOf("open conv-k12"), calls)
     }
 

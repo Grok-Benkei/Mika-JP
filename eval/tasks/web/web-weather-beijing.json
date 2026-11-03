@@ -1,6 +1,6 @@
 {
   "id": "web-weather-beijing",
-  "goal": "查一下明天北京的天气,告诉我最高和最低气温",
+  "goal": "明日の北京の天気を調べ、最高気温と最低気温を教えて",
   "apps": [],
   "category": "read",
   "partition": "tune",
@@ -15,5 +15,5 @@
   ],
   "maxSteps": 25,
   "timeoutSec": 360,
-  "note": "全程不碰虚拟屏,web_read_page 读出结果并通过核查"
+  "note": "仮想画面を使わず、web_read_pageで結果を読み取り、検証を通過する。"
 }

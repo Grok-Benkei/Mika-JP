@@ -4,7 +4,7 @@ import com.wangzan101.mika.R
 import com.wangzan101.mika.i18n.tr
 import java.net.URLEncoder
 
-/** ミカの外部アドレスはすべてここにあります: ウェアハウス、問題、作成者、X グループ チャット、および更新をチェックするための 2 つのソース。アドレスを変更する場合はこの部分のみ変更してください。 */
+/** 日本語版の外部リンクと更新APIを一元管理する。 */
 object MikaLinks {
     const val REPO = "https://github.com/yebisu0529-ship-it/Mika-JP"
     const val REPO_LABEL = "github.com/yebisu0529-ship-it/Mika-JP"

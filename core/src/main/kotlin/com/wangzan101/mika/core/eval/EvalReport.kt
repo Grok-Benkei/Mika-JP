@@ -90,7 +90,7 @@ object EvalReport {
         val perTask = scores.filter { it.second.inputTokens > 0 }.map { it.second.cachedTokens * 100.0 / it.second.inputTokens }
         sb.appendLine("| タスクごとのキャッシュ利用率の中央値 | ${if (perTask.isEmpty()) "—" else num(median(perTask)) + "%"} |")
         if (prices != null) {
-            // 入力トークン 含缓存部分,缓存部分按缓存单价计
+            // 入力トークン数はキャッシュ分を含み、キャッシュ分にはキャッシュ用の単価を適用する。
             val cost = ((inT - cachedT) * prices.inputPerM + cachedT * prices.cachedPerM + outT * prices.outputPerM) / 1_000_000
             sb.appendLine("| 費用 | ${num(cost)} |")
         }

@@ -30,4 +30,4 @@ Mika JPは[Apache License 2.0](../LICENSE)を引き継ぎます。原作の著�
 
 APKには、PRoot（GPL-2.0-or-later、tallocを静的リンク、LGPL-3.0-or-later）から作成した独立した実行ファイル `libproot.so` と `libproot_loader.so` が含まれ、Mika JPは子プロセスとして起動します。ソースの取得先とチェックサムは [`tools/sandbox/sources.lock`](../tools/sandbox/sources.lock)、パッチは `tools/sandbox/patches/`、再構築手順は [`tools/sandbox/README.md`](../tools/sandbox/README.md)にあります。
 
-実行環境にはAlpine Linux 3.22の最小ルートファイルシステムとパッケージを同梱します。配布時には各ライセンスに従った対応ソースの提供が必要です。公開リリースがまだない開発版について、対応ソースの配布まで完了したとは扱いません。
+実行環境にはAlpine Linux 3.22の最小ルートファイルシステムとパッケージを同梱します。配布時には各ライセンスに従った対応ソースの提供が必要です。公開APKに対応するソースは同じリリースの添付物で確認します。手元で開発版をビルドしただけでは、対応ソースの配布まで完了したことにはなりません。

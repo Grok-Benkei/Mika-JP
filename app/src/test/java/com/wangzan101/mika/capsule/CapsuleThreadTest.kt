@@ -89,8 +89,9 @@ class CapsuleThreadTest {
 
     @Test fun placesAreAppsAndSitesInOrder() {
         fun act(target: String?) = RunEvent.Activity(0, 1, "act", "tap", target)
-        val acts = listOf(act("com.shop.app"), act("网站 example.com"), act("com.shop.app"), act("ls -l"), act(null), act("/workspace/a.txt"))
-        assertEquals(listOf("购物", "example.com"), CapsuleThreads.places(acts) { if (it == "com.shop.app") "购物" else it })
+        val acts = listOf(act("com.shop.app"), act("网站 example.com"), act("ウェブサイト new.example.com"),
+            act("ウェブサイト example.com"), act("com.shop.app"), act("ls -l"), act(null), act("/workspace/a.txt"))
+        assertEquals(listOf("買い物", "example.com", "new.example.com"), CapsuleThreads.places(acts) { if (it == "com.shop.app") "買い物" else it })
     }
 
     // ---------- 進行中のもの ----------

@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import android.app.UiAutomation
 import android.content.Intent
 import android.graphics.Bitmap
@@ -179,7 +180,7 @@ class SteerEditingDeviceTest {
 
     private fun send(text: String) {
         compose.onNodeWithTag("composer-field").performTextInput(text)
-        compose.onNodeWithContentDescription("发送").assertIsEnabled().performClick()
+        compose.onNodeWithContentDescription(appString(R.string.chat_send)).assertIsEnabled().performClick()
     }
 
     private fun openSteer(id: String) {

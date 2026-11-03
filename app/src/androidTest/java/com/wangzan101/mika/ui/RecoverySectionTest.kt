@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import com.wangzan101.mika.ChineseUi
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
@@ -37,7 +38,7 @@ class RecoverySectionTest {
     fun untouchedOnesShowOnWithTheirExplanation() {
         show(RecoveryConsent(), notes = mapOf(RecoveryCapability.Accessibility to RecoveryCopy.NEED_SETUP))
         RecoveryCapability.entries.forEach { compose.onNodeWithTag("recovery-${it.name}").assertIsOn() }
-        compose.onAllNodesWithText("默认打开").assertCountEquals(RecoveryCapability.entries.size)
+        compose.onAllNodesWithText(appString(R.string.rec_default_on)).assertCountEquals(RecoveryCapability.entries.size)
         compose.onNodeWithText(RecoveryCopy.switch(RecoveryCapability.BatteryWhitelist).explain).assertIsDisplayed()
         compose.onNodeWithText(RecoveryCopy.NEED_SETUP).assertIsDisplayed()
     }
@@ -50,7 +51,7 @@ class RecoverySectionTest {
         compose.onNodeWithTag(tag).performClick()
         compose.waitForIdle()
         assertEquals(listOf(RecoveryCapability.BatteryWhitelist to true), calls)
-        compose.onAllNodesWithText("取消").assertCountEquals(0)
+        compose.onAllNodesWithText(appString(R.string.cancel)).assertCountEquals(0)
     }
 
     @Test

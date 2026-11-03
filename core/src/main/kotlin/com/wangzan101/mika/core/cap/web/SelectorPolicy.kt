@@ -71,7 +71,7 @@ object SelectorPolicy {
 
     private fun Char.isHex() = this in '0'..'9' || this in 'a'..'f' || this in 'A'..'F'
 
-    /** JS バージョン: 上記に対応する `selectsByValue(选择器字符串)` をページ内に 1 行ずつ定義します。 */
+    /** JS バージョン: 上記に対応する `selectsByValue(セレクター文字列)` をページ内に 1 行ずつ定義します。 */
     val JS: String = """
   const selectsByValue = (() => {
     const HEX = /^[0-9a-fA-F]${'$'}/;

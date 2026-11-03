@@ -55,18 +55,18 @@ class EvalProbes(private val sh: (String) -> String, private val loggedIn: File)
         val kind = req.substringBefore(':')
         val pkg = req.substringAfter(':', "")
         when (kind) {
-            "site" -> return siteSignedIn(pkg)?.let { if (it) true to "" else false to "未登录:$pkg 没有在设置「网站登录」里登录过" }
-                ?: (false to "前置条件写法不对:$req")
+            "site" -> return siteSignedIn(pkg)?.let { if (it) true to "" else false to "未ログイン: $pkg は設定の「ウェブサイトのログイン」でログインしていません" }
+                ?: (false to "前提条件の形式が不正です: $req")
             "signedIn" -> return if (siteSignedIn(pkg) == true || appMarked(pkg)) true to ""
-                else false to "未登录:$pkg(网站要在设置「网站登录」里登录过,App 要标记在 ${loggedIn.name} 里)"
-            "app" -> return if (appCandidates(pkg).isNotEmpty()) true to "" else false to "这台手机上没有能处理「$pkg」的 App"
+                else false to "未ログイン: $pkg（ウェブサイトは「ウェブサイトのログイン」でログインし、アプリは ${loggedIn.name} に記録してください）"
+            "app" -> return if (appCandidates(pkg).isNotEmpty()) true to "" else false to "この端末には「$pkg」を処理できるアプリがありません"
         }
-        if (!PACKAGE.matches(pkg)) return false to "前置条件写法不对:$req"
+        if (!PACKAGE.matches(pkg)) return false to "前提条件の形式が不正です: $req"
         return when (kind) {
             "installed" ->
-                if (sh("pm path $pkg").contains("package:")) true to "" else false to "没装 $pkg"
-            "login" -> if (appMarked(pkg)) true to "" else false to "未登录:$pkg 没有标记为已登录(${loggedIn.name})"
-            else -> false to "不认识的前置条件:$req"
+                if (sh("pm path $pkg").contains("package:")) true to "" else false to "$pkg がインストールされていません"
+            "login" -> if (appMarked(pkg)) true to "" else false to "未ログイン: $pkg はログイン済みとして記録されていません（${loggedIn.name}）"
+            else -> false to "未対応の前提条件です: $req"
         }
     }
 

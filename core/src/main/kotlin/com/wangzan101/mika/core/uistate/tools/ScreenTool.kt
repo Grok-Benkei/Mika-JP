@@ -9,7 +9,7 @@ import com.wangzan101.mika.core.tool.Verb
 import com.wangzan101.mika.core.uistate.sessions
 
 /**
- * は、画面ツールのセットの 1 つです。名前は `<屏>_<动词>` で、画面 [family] でのみ機能します (ディストリビューターは呼び出す前にそれをメモします)。
+ * は、画面ツールのセットの 1 つです。名前は `<画面>_<動詞>` で、画面 [family] でのみ機能します (ディストリビューターは呼び出す前にそれをメモします)。
  * 命令は、共有テンプレートのプロンプト/ツール/<動詞>.md (この画面に独自のコピーがある場合は、<画面>_<動詞>.md を使用します) を使用し、テンプレートで指定されたツールはこのセットの名前に置き換えられます。
  */
 internal abstract class ScreenTool(val family: ScreenFamily, val base: String) : AgentTool {
@@ -24,7 +24,7 @@ internal abstract class ScreenTool(val family: ScreenFamily, val base: String) :
 
     protected open fun usable(ctx: ToolContext): Boolean = true
 
-    /** 完全な説明: テンプレート内の {{动词}} は、このセット内のツール名に置き換えられます。 {{keys}} はこの画面で押せるキーです。 */
+    /** 完全な説明: テンプレート内の {{tap}} など英語の動詞名をキーとする箇所は、この画面のツール名に置き換えます。 {{keys}} はこの画面で押せるキーです。 */
     protected fun describe(vararg vars: Pair<String, Any?>): String =
         Prompts.tool(promptFile, *(MIRRORED.map { it to family.tool(it) } + ("keys" to keyNames(family)) + vars).toTypedArray())
 

@@ -77,7 +77,7 @@ data class ActionLine(
     val typed: Boolean = false,
 )
 
-/** 実行中のイベントから合理化されたアクション リストを取得します。画面の全テキストは取得されません。 `type_text` のテキストはフェッチされません (`<输入内容>` にレンダリングされます)。 */
+/** 実行中のイベントから合理化されたアクション リストを取得します。画面の全テキストは取得されません。 `type_text` のテキストはフェッチされません (`<入力内容>` にレンダリングされます)。 */
 object ActionDigest {
     private val ELEMENT = Regex("\"ref\":\"(@e\\d+)\",\"role\":\"[^\"]*\",\"name\":(\"(?:[^\"\\\\]|\\\\.)*\")")
     private val CURRENT_APP = Regex("\"currentApp\":\"([^\"]+)\"")

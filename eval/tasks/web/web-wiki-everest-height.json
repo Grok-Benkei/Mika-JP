@@ -1,6 +1,6 @@
 {
   "id": "web-wiki-everest-height",
-  "goal": "在维基百科上查珠穆朗玛峰的海拔是多少米",
+  "goal": "ウィキペディアでエベレストの標高をメートル単位で調べて",
   "apps": [],
   "category": "read",
   "partition": "holdout",

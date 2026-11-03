@@ -160,7 +160,7 @@ object KnowledgeIndex {
 
     /**
      * `scripts/` の下の .js: scripts/manifest.json にリストされているものはサンドボックス スクリプトです。残りは、サイト ナレッジ内のサイト コマンド ([SiteCommandFile.MARK] ヘッダー付き) である必要があります。
-     * 头部校验不过构建失败。サイトコマンドはサイトのナレッジ内でのみ定義できます。
+     * ヘッダーの検証に失敗するとビルドを中断する。サイトコマンドはサイトのナレッジ内でのみ定義できます。
      */
     private fun commands(kind: String, dir: File, err: (String) -> Unit): List<SiteCommandDecl> {
         val scripts = File(dir, "scripts")
@@ -216,7 +216,7 @@ object KnowledgeIndex {
         }
     }
 
-    /** ビルド タスク エントリ: `<资源根目录> <输出的 index.json>`。検証に失敗すると、理由が出力され、ゼロ以外の値で終了します。 */
+    /** ビルド タスク エントリ: `<リソースのルートディレクトリ> <出力先のindex.json>`。検証に失敗すると、理由が出力され、ゼロ以外の値で終了します。 */
     @JvmStatic
     fun main(args: Array<String>) {
         val r = build(File(args[0]))

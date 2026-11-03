@@ -373,7 +373,7 @@ fun CapsuleScreen(mode: CapsuleMode, onMode: (CapsuleMode) -> Unit, onBack: () -
     }
 }
 
-/** 設定 › 言語: システムに従い、簡体字中国語、繁体字中国語、英語。選択後すぐに変更すると、それに応じてインターフェースが再構築されます。 */
+/** 外観と言語の設定。外観は変更でき、表示言語はシステム設定や旧保存値にかかわらず日本語に固定する。 */
 @Composable
 fun LanguageScreen(language: AppLanguage, onLanguage: (AppLanguage) -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current
@@ -406,7 +406,7 @@ fun LanguageScreen(language: AppLanguage, onLanguage: (AppLanguage) -> Unit, onB
     }
 }
 
-/** 言語名: 各言語は常に独自の記述方法 (日本語、スペイン語など) を使用します。「システムに従う」は現在の言語に従って記述されます。 */
+/** 旧データとの互換用言語名も日本語で表示する。言語選択画面で選べる項目は日本語のみ。 */
 @Composable
 fun languageLabel(l: AppLanguage): String = stringResource(
     when (l) {

@@ -1,5 +1,6 @@
 package com.wangzan101.mika.ui
 
+import com.wangzan101.mika.R
 import com.wangzan101.mika.ChineseUi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -84,7 +85,7 @@ class BrowserScreenTest {
                 )
             }
         }
-        compose.onNodeWithText("浏览器").assertIsDisplayed().performClick()
+        compose.onNodeWithText(appString(R.string.drawer_browser)).assertIsDisplayed().performClick()
         assertEquals(listOf("browser"), calls)
     }
 
@@ -93,14 +94,14 @@ class BrowserScreenTest {
         start()
         compose.onNodeWithText(BROWSER_SEARCH_HINT).assertIsDisplayed()
         compose.onNodeWithText(BROWSER_ENGINE_NOTE).assertIsDisplayed()
-        compose.onNodeWithText("常用网站").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.browser_favorites)).assertIsDisplayed()
         compose.onNodeWithText(BROWSER_LOGIN_LEGEND).assertIsDisplayed()
         compose.onAllNodesWithTag("browser-site-logged-in", useUnmergedTree = true).fetchSemanticsNodes().let { assertEquals(1, it.size) }
-        compose.onNodeWithText("最近打开").assertIsDisplayed()
-        compose.onNodeWithText("搜索：周末去哪玩").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.browser_recent_source)).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.browser_search_colon, "周末去哪玩")).assertIsDisplayed()
         compose.onNodeWithText("使用指南").performClick()
-        compose.onNodeWithText("清除").performClick()
-        compose.onNodeWithText("添加").performClick()
+        compose.onNodeWithText(appString(R.string.clear)).performClick()
+        compose.onNodeWithText(appString(R.string.add)).performClick()
         assertEquals(listOf("open https://docs.example.net/guide", "clear", "add"), calls)
     }
 
@@ -109,8 +110,8 @@ class BrowserScreenTest {
         start()
         compose.onNodeWithTag("browser-search").performTextInput("周末")
         compose.onNodeWithTag("browser-suggestions").assertIsDisplayed()
-        compose.onNodeWithText("搜索「周末」").assertIsDisplayed()
-        compose.onNodeWithText("搜索：周末去哪玩").performClick()
+        compose.onNodeWithText(appString(R.string.browser_search_q, "周末")).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.browser_search_colon, "周末去哪玩")).performClick()
         assertEquals(listOf("open ${AddressInput.search("周末去哪玩")}"), calls)
     }
 
@@ -128,11 +129,11 @@ class BrowserScreenTest {
     @Test
     fun editModeRemovesAndFinishes() {
         start()
-        compose.onNodeWithText("整理").performClick()
-        compose.onNodeWithText("整理常用网站").assertIsDisplayed()
-        compose.onNodeWithContentDescription("移除购物", useUnmergedTree = true).performClick()
-        compose.onNodeWithText("完成").performClick()
-        compose.onNodeWithText("浏览器").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.browser_edit)).performClick()
+        compose.onNodeWithText(appString(R.string.browser_edit_favorites)).assertIsDisplayed()
+        compose.onNodeWithContentDescription(appString(R.string.browser_remove_site, "购物"), useUnmergedTree = true).performClick()
+        compose.onNodeWithText(appString(R.string.action_hand_back)).performClick()
+        compose.onNodeWithText(appString(R.string.drawer_browser)).assertIsDisplayed()
         assertEquals("remove shop.example.com", calls.first())
     }
 
@@ -140,7 +141,7 @@ class BrowserScreenTest {
     fun longPressEntersEditMode() {
         start()
         compose.onAllNodesWithTag("browser-sites")[0].performTouchInput { longClick(center.copy(x = width / 8f, y = 40f)) }
-        compose.onNodeWithText("整理常用网站").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.browser_edit_favorites)).assertIsDisplayed()
     }
 
     @Test
@@ -156,13 +157,13 @@ class BrowserScreenTest {
         }
         compose.onNodeWithText(BROWSER_DESKTOP_TAG).assertIsDisplayed()
         compose.onNodeWithTag("browser-progress").assertIsDisplayed()
-        compose.onNodeWithContentDescription("后退").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("停止").performClick()
-        compose.onNodeWithContentDescription("起始页").performClick()
-        compose.onNodeWithContentDescription("分享").performClick()
-        compose.onNodeWithContentDescription("更多").performClick()
+        compose.onNodeWithContentDescription(appString(R.string.back)).assertIsNotEnabled()
+        compose.onNodeWithContentDescription(appString(R.string.chat_stop)).performClick()
+        compose.onNodeWithContentDescription(appString(R.string.browser_home)).performClick()
+        compose.onNodeWithContentDescription(appString(R.string.share)).performClick()
+        compose.onNodeWithContentDescription(appString(R.string.more)).performClick()
         compose.onNodeWithTag("browser-address-pill").performClick()
-        compose.onNodeWithText("取消").assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.cancel)).assertIsDisplayed()
         assertEquals(listOf("stop", "home", "share", "more"), calls)
     }
 
@@ -177,11 +178,11 @@ class BrowserScreenTest {
                 )
             }
         }
-        compose.onNodeWithText("复制链接").assertIsDisplayed()
-        compose.onNodeWithText("在其他浏览器里打开").assertIsDisplayed()
-        compose.onNodeWithText("加入常用网站").assertIsDisplayed()
-        compose.onNodeWithText("这个网站下次也用电脑版").assertIsDisplayed()
-        compose.onNodeWithText("换成电脑版").performClick()
+        compose.onNodeWithText(appString(R.string.browser_copy_link)).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.browser_open_outside)).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.browser_favorite)).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.browser_keep_desktop)).assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.browser_to_desktop)).performClick()
         assertEquals(listOf("dismiss", "desktop"), calls)
     }
 

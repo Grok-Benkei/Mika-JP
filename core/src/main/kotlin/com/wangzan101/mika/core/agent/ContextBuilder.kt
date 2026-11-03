@@ -74,7 +74,7 @@ data class ContextBudget(
  * ユーザーの元の単語に加えて、モデルに送信されるコンテキストもここで生成されます。同じシェル (タイプ、ソース、信頼性)、同じ予算セットです。
  * にはオンラインのユーザー ロール (各インターフェイスで必要) がまだありますが、`<context …>` ラベルを使用してユーザーの言葉から分離します。
  * ```
- * <context kind="app_knowledge" source="铁路12306 · com.MobileTicket" trust="参考资料:可能过时,以当前屏幕为准">
+ * <context kind="app_knowledge" source="铁路12306 · com.MobileTicket" trust="参考情報:古い可能性があるため現在の画面を優先する">
  * …
  * </context>
  * ```

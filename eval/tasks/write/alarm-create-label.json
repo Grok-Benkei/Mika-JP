@@ -1,6 +1,6 @@
 {
   "id": "alarm-create-label",
-  "goal": "在手机自带的时钟里新建一个 7:15 的闹钟,只响一次,闹钟名称写「Mika评测-{run}-闹钟」",
+  "goal": "スマホ標準の時計で7:15に1回だけ鳴るアラームを作り、名前を「Mika評価-{run}-アラーム」にして",
   "apps": [
     "{app:alarm}"
   ],
@@ -14,19 +14,19 @@
     {
       "type": "screen_has",
       "packageName": "{app:alarm}",
-      "text": "Mika评测-{run}-闹钟"
+      "text": "Mika評価-{run}-アラーム"
     }
   ],
   "maxSteps": 30,
   "timeoutSec": 420,
-  "marker": "Mika评测-{run}-闹钟",
-  "note": "手机自带的 App 不钉包名,跑的时候按安卓标准 Intent 找这台手机上的",
+  "marker": "Mika評価-{run}-アラーム",
+  "note": "スマホ標準アプリはパッケージ名を固定せず、実行時にAndroid標準Intentから端末内の対応アプリを探す。",
   "variants": [
     {
-      "goal": "打开手机自带的时钟,加一个 7:15 只响一次的闹钟,名称写「Mika评测-{run}-闹钟」"
+      "goal": "スマホ標準の時計を開き、7:15に1回だけ鳴るアラームを「Mika評価-{run}-アラーム」という名前で追加して"
     },
     {
-      "goal": "在手机自带的时钟里新建一个 7:45 的闹钟,只响一次,闹钟名称写「Mika评测-{run}-闹钟」"
+      "goal": "スマホ標準の時計で7:45に1回だけ鳴るアラームを作り、名前を「Mika評価-{run}-アラーム」にして"
     }
   ]
 }

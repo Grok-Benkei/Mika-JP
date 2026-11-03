@@ -1,6 +1,6 @@
 {
   "id": "wps-note-create",
-  "goal": "在 WPS 便签里新建一条便签,内容写「Mika评测-{run}-便签」,写完保存",
+  "goal": "WPSメモ（WPS便签）で「Mika評価-{run}-付箋」というメモを作成して保存して",
   "apps": [
     "cn.wps.note"
   ],
@@ -14,10 +14,10 @@
     {
       "type": "screen_has",
       "packageName": "cn.wps.note",
-      "text": "Mika评测-{run}-便签"
+      "text": "Mika評価-{run}-付箋"
     }
   ],
   "maxSteps": 30,
   "timeoutSec": 420,
-  "marker": "Mika评测-{run}-便签"
+  "marker": "Mika評価-{run}-付箋"
 }

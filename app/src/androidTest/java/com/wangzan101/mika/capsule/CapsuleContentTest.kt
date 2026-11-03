@@ -1,5 +1,7 @@
 package com.wangzan101.mika.capsule
 
+import com.wangzan101.mika.ui.appString
+import com.wangzan101.mika.R
 import com.wangzan101.mika.ChineseUi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,7 +43,7 @@ class CapsuleContentTest {
 
     @Test fun runningIsABallWithRingThatSaysWhatItDoesAndOpensOnTap() {
         show(CapsuleView.Shown(CapsuleKind.Running, "在搜牙膏", count = 1, runKey = "a", conversationId = "c"))
-        compose.onNodeWithContentDescription("Mika 在干活：在搜牙膏，点开看详情").assertIsDisplayed()
+        compose.onNodeWithContentDescription(appString(R.string.capsule_desc_running, "在搜牙膏")).assertIsDisplayed()
         compose.onNodeWithTag("capsule-ring", useUnmergedTree = true).assertIsDisplayed()
         // その文章は書かないでください
         compose.onNodeWithText("在搜牙膏").assertDoesNotExist()
@@ -58,12 +60,12 @@ class CapsuleContentTest {
         compose.onNodeWithTag("capsule-count", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText("3", useUnmergedTree = true).assertIsDisplayed()
         // およびその他の条件: 灰色の円、個数なし
-        view = CapsuleView.Shown(CapsuleKind.Held, "先等等：排队中", count = 1)
+        view = CapsuleView.Shown(CapsuleKind.Held, appString(R.string.capsule_hold_why, "排队中"), count = 1)
         compose.onNodeWithTag("capsule-ring", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("capsule-count", useUnmergedTree = true).assertDoesNotExist()
         // 私が見たものに対処してほしい: オレンジ色の丸がまだ 1 つあります
-        view = CapsuleView.Shown(CapsuleKind.NeedConfirm, "要你同意：发送", count = 1, needCount = 1)
-        compose.onNodeWithContentDescription("要你同意：发送，点开处理").assertIsDisplayed()
+        view = CapsuleView.Shown(CapsuleKind.NeedConfirm, appString(R.string.capsule_needs_ok, "发送"), count = 1, needCount = 1)
+        compose.onNodeWithContentDescription(appString(R.string.capsule_desc_needs, appString(R.string.capsule_needs_ok, "发送"))).assertIsDisplayed()
         compose.onNodeWithTag("capsule-ring", useUnmergedTree = true).assertIsDisplayed()
         // 完了、未完了、停止：コーナーマーク、丸なし
         for (kind in listOf(CapsuleKind.Done, CapsuleKind.Failed, CapsuleKind.Cancelled)) {
@@ -79,18 +81,18 @@ class CapsuleContentTest {
     }
 
     @Test fun pillShowsItsLineAndOpensOnTap() {
-        var view by mutableStateOf(CapsuleView.Shown(CapsuleKind.NeedTakeover, "需要你：付款", pill = true))
+        var view by mutableStateOf(CapsuleView.Shown(CapsuleKind.NeedTakeover, appString(R.string.capsule_needs_you, "付款"), pill = true))
         compose.setContent {
             MikaTheme(dark = false, reduceMotion = true) { CapsuleContent(view, { clicks += "open" }, {}, {}) }
         }
         for (v in listOf(
-            CapsuleView.Shown(CapsuleKind.NeedTakeover, "需要你：付款", pill = true),
-            CapsuleView.Shown(CapsuleKind.NeedConfirm, "要你同意：发送", pill = true),
-            CapsuleView.Shown(CapsuleKind.NeedAnswer, "Mika 问你：要哪个？", pill = true),
-            CapsuleView.Shown(CapsuleKind.Done, "办好了 · 点开看结果", pill = true),
-            CapsuleView.Shown(CapsuleKind.Failed, "没办成 · 点开看原因", pill = true),
-            CapsuleView.Shown(CapsuleKind.Cancelled, "已停止", pill = true),
-            CapsuleView.Shown(CapsuleKind.NeedAnswer, "1 件要你处理 · 共 2 件", count = 2, needCount = 1, pill = true),
+            CapsuleView.Shown(CapsuleKind.NeedTakeover, appString(R.string.capsule_needs_you, "付款"), pill = true),
+            CapsuleView.Shown(CapsuleKind.NeedConfirm, appString(R.string.capsule_needs_ok, "发送"), pill = true),
+            CapsuleView.Shown(CapsuleKind.NeedAnswer, appString(R.string.capsule_asks, "要哪个？"), pill = true),
+            CapsuleView.Shown(CapsuleKind.Done, appString(R.string.capsule_done_tap), pill = true),
+            CapsuleView.Shown(CapsuleKind.Failed, appString(R.string.capsule_failed_tap), pill = true),
+            CapsuleView.Shown(CapsuleKind.Cancelled, appString(R.string.capsule_stopped), pill = true),
+            CapsuleView.Shown(CapsuleKind.NeedAnswer, appString(R.string.capsule_need_of_total, 1, 2), count = 2, needCount = 1, pill = true),
         )) {
             view = v
             compose.onNodeWithText(v.text).assertIsDisplayed()
@@ -102,7 +104,7 @@ class CapsuleContentTest {
 
     /** 伸縮：同じベースの幅を変更すると、収納時は星の幅になります。 */
     @Test fun pillShrinksBackToBall() {
-        var view by mutableStateOf(CapsuleView.Shown(CapsuleKind.Done, "办好了 · 点开看结果", pill = true))
+        var view by mutableStateOf(CapsuleView.Shown(CapsuleKind.Done, appString(R.string.capsule_done_tap), pill = true))
         compose.setContent {
             MikaTheme(dark = false, reduceMotion = true) { CapsuleContent(view, {}, {}, {}, side = DockSide.Left) }
         }
@@ -116,17 +118,17 @@ class CapsuleContentTest {
     }
 
     @Test fun handedOverBarHasStopAndHandBack() {
-        show(CapsuleView.Shown(CapsuleKind.HandedOver, CapsuleModel.HANDED_OVER, detail = "付款 · 弄好后点右边", runKey = "a"))
+        show(CapsuleView.Shown(CapsuleKind.HandedOver, CapsuleModel.HANDED_OVER, detail = "付款 · " + appString(R.string.capsule_then_tap_right), runKey = "a"))
         compose.onNodeWithTag("capsule-bar").assertIsDisplayed()
-        compose.onNodeWithText("付款 · 弄好后点右边").assertIsDisplayed()
+        compose.onNodeWithText("付款 · " + appString(R.string.capsule_then_tap_right)).assertIsDisplayed()
         compose.onNodeWithText(CapsuleCopy.STOP).performClick()
-        compose.onNodeWithText("处理好了").performClick()
+        compose.onNodeWithText(appString(R.string.action_hand_back)).performClick()
         assertEquals(listOf("stop", "back"), clicks)
     }
 
     /** 同じ段落 ([CapsuleView.Shown.widthEpoch] は変更されません) が短い文に変更されますが、カプセルは狭くなりません。段落を変更すると幅が再設定されます。 */
     @Test fun widthOnlyGrowsWithinEpoch() {
-        var view by mutableStateOf(CapsuleView.Shown(CapsuleKind.NeedAnswer, "Mika 问你：要三家店里哪一家的", pill = true, widthEpoch = 1))
+        var view by mutableStateOf(CapsuleView.Shown(CapsuleKind.NeedAnswer, appString(R.string.capsule_asks, "要三家店里哪一家的"), pill = true, widthEpoch = 1))
         compose.setContent {
             MikaTheme(dark = false, reduceMotion = true) { CapsuleContent(view, {}, {}, {}) }
         }

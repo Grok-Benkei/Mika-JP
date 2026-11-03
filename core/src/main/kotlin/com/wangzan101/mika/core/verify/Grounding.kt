@@ -51,7 +51,7 @@ internal object Grounding {
     )
     private val CURRENCY_BEFORE = Regex("[¥$€£]\\s*$")
     private val ZERO_WIDTH = Regex("[\\u200B\\u200C\\u200D\\uFEFF\\u2060]")
-    /** 回答内の強調とコードマーク (**bold**、__bold__、~~delete~~、`码`) は単なるレイアウトであり、内容ではありません。単一の * は乗算記号である可能性があり、移動しません。 */
+    /** 回答内の強調とコードマーク (**bold**、__bold__、~~delete~~、`コード`) は単なるレイアウトであり、内容ではありません。単一の * は乗算記号である可能性があり、移動しません。 */
     private val MARKUP = Regex("\\*\\*|__|~~|`")
     private val FRAGMENT_BREAK = Regex("[^\\p{L}]+")
     private val PIECE_BREAK = Regex("[^\\p{L}\\p{N}]+")

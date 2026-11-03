@@ -43,7 +43,7 @@ private suspend fun readScript(ctx: ToolContext, code: String, args: JsonObject?
             put("result", Untrusted.wrap(r.json))
             put("truncated", r.truncated)
             if (r.fresh) put("state", "new")
-        }.observing(webRead("$what(${url ?: "当前网页"})\n${r.json}", url))
+        }.observing(webRead("$what(${url ?: "現在のWebページ"})\n${r.json}", url))
     }
 }
 

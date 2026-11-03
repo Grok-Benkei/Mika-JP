@@ -43,5 +43,11 @@ internal fun ComposeContentTestRule.typeAndSend(text: String) {
 }
 
 /** アプリの現在のインターフェイス言語に基づくテキスト。 */
-internal fun appString(id: Int): String =
-    AppLanguage.resources(InstrumentationRegistry.getInstrumentation().targetContext).getString(id)
+internal fun appString(id: Int, vararg args: Any): String {
+    val resources = AppLanguage.resources(InstrumentationRegistry.getInstrumentation().targetContext)
+    return if (args.isEmpty()) resources.getString(id) else resources.getString(id, *args)
+}
+
+/** 数量と書式を、アプリの日本語リソースから取得する。 */
+internal fun appPlural(id: Int, count: Int): String =
+    AppLanguage.resources(InstrumentationRegistry.getInstrumentation().targetContext).getQuantityString(id, count, count)

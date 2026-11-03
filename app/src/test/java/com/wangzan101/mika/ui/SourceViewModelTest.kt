@@ -34,4 +34,14 @@ class SourceViewModelTest {
         assertEquals(emptyList<SourceEntry>(), page.entries)
         assertNull(SourceViewModel(store, null, null).screen(1))
     }
+
+    @Test fun currentAndLegacySiteRecordsShowTheDomain() {
+        listOf("ウェブサイト example.com", "网站 example.com").forEach { place ->
+            val run = store.open("ページの出典を確認")
+            run.event(RunEvent.Sources(2, listOf(AnswerSource(7, "read", place, "ページ", 2, emptyList()))))
+            run.close()
+            val source = SourceViewModel(store, run.runId, null) { error("サイトをアプリとして解決しない") }.load().entries.single()
+            assertEquals("example.com", source.place)
+        }
+    }
 }
