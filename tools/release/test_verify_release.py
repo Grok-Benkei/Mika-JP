@@ -10,6 +10,15 @@ import verify_release as release
 
 
 class ArchiveVerificationTest(unittest.TestCase):
+    def test_checksums_use_lf_for_unix_tools_even_on_windows(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = Path(root) / 'source.txt'
+            source.write_bytes(b'public source fixture\r\n')
+            sums = release.write_checksums(root, [source]).read_bytes()
+            self.assertTrue(sums.endswith(b'\n'))
+            self.assertNotIn(b'\r', sums)
+            self.assertEqual(1, len(sums.splitlines()))
+
     def archive(self, root, name, commit='a' * 40):
         path = Path(root) / 'source.tar.gz'
         with tarfile.open(path, 'w:gz', format=tarfile.PAX_FORMAT, pax_headers={'comment': commit}) as tar:

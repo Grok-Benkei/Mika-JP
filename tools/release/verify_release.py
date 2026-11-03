@@ -30,6 +30,13 @@ def digest(path):
     return result.hexdigest()
 
 
+def write_checksums(output, files):
+    # GNU sha256sumがCRをファイル名の一部として扱わないよう、WindowsでもLFで保存する。
+    target = Path(output) / 'SHA256SUMS'
+    target.write_text(''.join(digest(p) + '  ' + p.name + '\n' for p in files), encoding='utf-8', newline='\n')
+    return target
+
+
 def tools(sdk):
     suffix = '.exe' if os.name == 'nt' else ''
     candidates = sorted((Path(sdk) / 'build-tools').glob('*'), key=lambda p: tuple(int(n) for n in re.findall(r'\d+', p.name)), reverse=True)
@@ -128,9 +135,9 @@ def main():
                   correspondingSources=dict(file=args.sources.name, sha256=digest(args.sources)),
                   projectSource=dict(file=args.project_source.name, sha256=digest(args.project_source)))
     manifest = args.output / 'release-manifest.json'
-    manifest.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    manifest.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8', newline='\n')
     files = [*args.apk, args.sources, args.project_source, manifest]
-    (args.output / 'SHA256SUMS').write_text(''.join(digest(p) + '  ' + p.name + '\n' for p in files), encoding='utf-8')
+    write_checksums(args.output, files)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
