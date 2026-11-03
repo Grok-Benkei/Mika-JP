@@ -77,10 +77,13 @@ def load_config(path):
     return config
 
 
-def code(value):
+def code(value, limit=None):
     # 上流のファイル名をリンク、メンション、制御文字として解釈させない。
     escaped = json.dumps(str(value), ensure_ascii=True)[1:-1]
-    return "`" + escaped.replace("`", "\\u0060").replace("<", "\\u003c") + "`"
+    escaped = escaped.replace("`", "\\u0060").replace("<", "\\u003c")
+    if limit and len(escaped) > limit:
+        escaped = escaped[:limit] + "…"
+    return "`" + escaped + "`"
 
 
 def categories(paths):
@@ -134,12 +137,16 @@ def watch_markdown(report):
              f"- 履歴の状態: {code(report['comparison_status'])} / コミット数: {report['total_commits']}",
              f"- APIで確認した変更ファイル: {report['changed_files_in_api']}件", "",
              f"[上流の差分](https://github.com/{report['repository']}/compare/{report['base']}...{report['candidate']})", ""]
+    if not report["requires_review"]:
+        lines[2] = "# 上流更新の確認結果"
+        lines[4] = "現在の上流mainと取り込み基準は同じSHAです。新たな安全性の監査を実施した結果ではありません。"
+        return "\n".join(lines + ["未取り込みの差分はありません。", ""])
     if report["requires_manual_investigation"]:
         lines += ["**停止して確認してください。** 履歴の分岐・巻き戻し、またはAPIの300ファイル上限があります。APIの一覧だけで監査を完了させないでください。", ""]
     lines += ["## 重点的に読む変更", ""]
     for name, paths in report["categories"].items():
         lines += [f"- {name}: {len(paths)}件"]
-        lines += [f"  - {code(p[:240] + ('…' if len(p) > 240 else ''))}" for p in paths[:8]]
+        lines += [f"  - {code(p, limit=240)}" for p in paths[:8]]
         if len(paths) > 8:
             lines += ["  - 残りは実行結果のJSONと完全なGit差分で確認してください。"]
     lines += ["", "## 次の作業", "",
@@ -171,7 +178,9 @@ def publish_issue(client, config, report, environment):
         raise GuardError("監視Issueを一覧の上限内で特定できません。重複作成を避けるため停止しました。")
     if not report["requires_review"]:
         if existing and existing["state"] == "open":
-            client.request(f"/repos/{target}/issues/{existing['number']}", "PATCH", {"state": "closed", "state_reason": "completed"})
+            # 上流の巻き戻し後に同じ候補が復活しても検知できるよう、閉じた時点の状態も保存する。
+            client.request(f"/repos/{target}/issues/{existing['number']}", "PATCH",
+                           {"state": "closed", "state_reason": "completed", "body": watch_markdown(report)})
             return "close"
         return "unchanged"
     marker = f"<!-- state:{fingerprint(report)} -->"
@@ -188,10 +197,15 @@ def publish_issue(client, config, report, environment):
 
 
 def git(repo, *args):
-    env = dict(os.environ, GIT_NO_REPLACE_OBJECTS="1", GIT_NO_LAZY_FETCH="1", GIT_TERMINAL_PROMPT="0")
+    env = dict(os.environ, GIT_NO_REPLACE_OBJECTS="1", GIT_NO_LAZY_FETCH="1", GIT_TERMINAL_PROMPT="0",
+               GIT_ASKPASS="", SSH_ASKPASS="", GCM_INTERACTIVE="Never")
     env.pop("GIT_EXTERNAL_DIFF", None)
     with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
-        result = subprocess.run(["git", "--no-pager", "-c", "color.ui=false", *args], cwd=repo,
+        # 公開ソースの調査で個人の資格情報・認証UI・保守フックを呼ばない。
+        command = ["git", "--no-pager", "-c", "color.ui=false", "-c", "credential.helper=",
+                   "-c", "core.askPass=", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null",
+                   "-c", "maintenance.auto=false", "-c", "gc.auto=0", *args]
+        result = subprocess.run(command, cwd=repo,
                                 env=env, stdout=output, stderr=errors, timeout=120, check=False)
         if output.tell() > MAX_BYTES or errors.tell() > MAX_BYTES:
             raise GuardError("Git差分が上限を超えました。対象を分けて監査してください。")
@@ -210,8 +224,14 @@ def parse_names(raw):
 
 def diff_signals(patch):
     signals = {"added_urls": set(), "removed_urls": set(), "added_permissions": set(), "removed_permissions": set()}
-    for line in patch.decode("utf-8", "replace").splitlines():
-        if line.startswith(("+++", "---")) or not line.startswith(("+", "-")):
+    in_hunk = False
+    # Gitのパッチ区切りはLF。CRやU+2028はソースの一部として読み続ける。
+    for line in patch.decode("utf-8", "replace").split("\n"):
+        if line.startswith("diff --git "):
+            in_hunk = False
+        elif line.startswith("@@ "):
+            in_hunk = True
+        if not in_hunk or not line.startswith(("+", "-")):
             continue
         prefix = "added" if line[0] == "+" else "removed"
         signals[prefix + "_urls"].update(URL.findall(line[1:]))
@@ -228,6 +248,7 @@ def collect_audit(repo, base, candidate, config, fetch_from=None):
         remote = config["repository"] if fetch_from == "upstream" else config["maintained_repository"]
         for revision in dict.fromkeys((base, candidate)):
             git(repo, "fetch", "--no-tags", "--no-recurse-submodules", "--no-write-fetch-head",
+                "--no-auto-maintenance", "--no-write-commit-graph",
                 "https://github.com/" + remote + ".git", revision)
     for revision in (base, candidate):
         if git(repo, "rev-parse", "--verify", revision + "^{commit}").decode().strip() != revision:
@@ -240,9 +261,16 @@ def collect_audit(repo, base, candidate, config, fetch_from=None):
         "candidate_tree": git(repo, "rev-parse", candidate + "^{tree}").decode().strip(),
         "checked_at": datetime.now(timezone.utc).isoformat(), "changed_files": len(files),
         "file_list_complete": True, "files": files, "categories": categories([f["path"] for f in files]),
-        **diff_signals(patch),
+        **diff_signals(patch), "patch_sha256": hashlib.sha256(patch).hexdigest(),
         "security_verdict": "未監査。差分の棚卸しだけを実施。動的な通信先・難読化・実行時挙動は別途確認が必要。",
     }, patch
+
+
+def prepare_output(path):
+    try:
+        path.mkdir(parents=True, exist_ok=False)
+    except FileExistsError:
+        raise GuardError("出力先が存在します。古い結果との混在を避けるため、未作成の別フォルダーを指定してください。") from None
 
 
 def main():
@@ -261,6 +289,8 @@ def main():
     args = parser.parse_args()
     try:
         config = load_config(args.config)
+        # 既存の成果物は上書き・削除しない。完了記録のJSONは全ファイルを書いた最後に置く。
+        prepare_output(args.output_dir)
         if args.command == "watch":
             client = GitHub(os.environ.get("GITHUB_TOKEN", ""))
             report = collect_watch(client, config)
@@ -271,11 +301,11 @@ def main():
             report, patch = collect_audit(args.repo_dir, args.base, args.candidate, config, args.fetch_from)
             markdown = "# 取り込み候補の差分\n\n" + report["security_verdict"] + "\n\n"
             markdown += f"比較元: {code(args.base)}\n\n候補: {code(args.candidate)}\n\n変更ファイル: {report['changed_files']}件\n"
-        args.output_dir.mkdir(parents=True, exist_ok=True)
-        (args.output_dir / "report.json").write_text(json.dumps(report, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
         (args.output_dir / "report.md").write_text(markdown, encoding="utf-8")
         if args.command == "audit":
             (args.output_dir / "changes.patch").write_bytes(patch)
+        report["complete"] = True
+        (args.output_dir / "report.json").write_text(json.dumps(report, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
         print(json.dumps({"ok": True, "kind": report["kind"], "candidate": report["candidate"],
                           "security_verdict": report["security_verdict"], "issue_action": report.get("issue_action")}, ensure_ascii=False))
         return 0

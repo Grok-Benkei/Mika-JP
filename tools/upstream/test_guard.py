@@ -1,6 +1,7 @@
 """未信頼の差分を実行しないこと、監視の通知条件と停止条件を検証する。"""
 
 import copy
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import io
 import json
 import os
@@ -8,6 +9,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -30,6 +32,10 @@ class FakeGitHub:
     def request(self, path, method="GET", body=None):
         self.calls.append((path, method, body))
         if method != "GET":
+            if method == "PATCH":
+                for existing in self.issues:
+                    if path.endswith("/" + str(existing["number"])):
+                        existing.update(body)
             return {"number": 7}
         if "/commits/" in path:
             return {"sha": self.head}
@@ -111,6 +117,23 @@ class WatchTests(unittest.TestCase):
         self.assertEqual(guard.publish_issue(client, CONFIG, current, ENVIRONMENT), "close")
         self.assertEqual(client.calls[-1][2]["state"], "closed")
 
+    def test_reappearing_candidate_reopens_issue_after_upstream_rewind(self):
+        current = report()
+        client = FakeGitHub(issues=[issue(guard.watch_markdown(current))])
+        rewind = report(FakeGitHub(files=[], status="identical", head=BASE))
+        self.assertEqual(guard.publish_issue(client, CONFIG, rewind, ENVIRONMENT), "close")
+        self.assertEqual(guard.publish_issue(client, CONFIG, current, ENVIRONMENT), "update")
+        self.assertEqual(client.issues[0]["state"], "open")
+
+    def test_baseline_rollback_reopens_automatically_completed_issue(self):
+        current = report()
+        client = FakeGitHub(issues=[issue(guard.watch_markdown(current))])
+        accepted_config = dict(CONFIG, accepted_commit=HEAD)
+        accepted = guard.collect_watch(FakeGitHub(files=[], status="identical"), accepted_config)
+        self.assertEqual(guard.publish_issue(client, accepted_config, accepted, ENVIRONMENT), "close")
+        self.assertEqual(guard.publish_issue(client, CONFIG, current, ENVIRONMENT), "update")
+        self.assertEqual(client.issues[0]["state"], "open")
+
     def test_token_and_target_repository_are_required_for_writes(self):
         for client, env in ((FakeGitHub(token=""), ENVIRONMENT), (FakeGitHub(), {}),
                             (FakeGitHub(), {"GITHUB_REPOSITORY": "other/fork"})):
@@ -130,6 +153,11 @@ class WatchTests(unittest.TestCase):
         self.assertNotIn("<script>", text)
         self.assertNotIn("\u202e", text)
         self.assertEqual(text.count("`"), 2)
+
+    def test_long_unicode_paths_cannot_overflow_the_issue_body(self):
+        names = [".github/root/sandbox/knowledge/japan/build.gradle.kts/" + "あ" * 1000 + str(n) for n in range(10)]
+        current = report(FakeGitHub(files=[{"filename": name} for name in names]))
+        self.assertLess(len(guard.watch_markdown(current)), 60000)
 
     def test_redirect_cannot_forward_token_to_other_server(self):
         with self.assertRaises(guard.GuardError):
@@ -158,6 +186,22 @@ class WatchTests(unittest.TestCase):
 
 
 class DiffTests(unittest.TestCase):
+    def test_existing_output_is_preserved_and_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            destination = Path(temp)
+            previous = destination / "changes.patch"
+            previous.write_bytes(b"previous-candidate")
+            with self.assertRaises(guard.GuardError):
+                guard.prepare_output(destination)
+            self.assertEqual(previous.read_bytes(), b"previous-candidate")
+
+    def test_existing_output_stops_before_api_calls_or_issue_writes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            with patch.object(sys, "argv", ["guard.py", "watch", "--publish-issue", "--output-dir", temp]), \
+                    patch.object(guard, "GitHub") as client, patch("sys.stdout", new_callable=io.StringIO):
+                self.assertEqual(guard.main(), 1)
+                client.assert_not_called()
+
     def test_fixed_shas_are_required_before_fetch_or_git_execution(self):
         with patch.object(guard, "git") as git:
             for candidate in ("main", "--upload-pack=payload", "a" * 39):
@@ -176,13 +220,24 @@ class DiffTests(unittest.TestCase):
                 guard.parse_names(raw)
 
     def test_permissions_and_urls_keep_added_and_removed_directions(self):
-        patch_bytes = (b"+++ b/manifest\n--- a/manifest\n"
+        patch_bytes = (b"diff --git a/manifest b/manifest\n--- a/manifest\n+++ b/manifest\n@@ -1 +1 @@\n"
                        b"-https://old.example/api android.permission.INTERNET\n"
                        b"+https://new.example/upload android.permission.READ_SMS\n")
         result = guard.diff_signals(patch_bytes)
         self.assertEqual(result["added_urls"], ["https://new.example/upload"])
         self.assertEqual(result["removed_urls"], ["https://old.example/api"])
         self.assertEqual(result["added_permissions"], ["android.permission.READ_SMS"])
+
+    def test_source_separators_and_double_signs_cannot_hide_urls_or_permissions(self):
+        text = ("diff --git a/code b/code\n--- a/code\n+++ b/code\n@@ -1 +1,2 @@\n"
+                "+data\rhttps://cr.example/ android.permission.READ_CONTACTS\u2028https://unicode.example/\n"
+                "+++ https://plus.example/ android.permission.READ_SMS\n"
+                "--- https://minus.example/ android.permission.SEND_SMS\n")
+        result = guard.diff_signals(text.encode())
+        self.assertEqual(result["added_urls"], ["https://cr.example/", "https://plus.example/", "https://unicode.example/"])
+        self.assertEqual(result["removed_urls"], ["https://minus.example/"])
+        self.assertEqual(result["added_permissions"], ["android.permission.READ_CONTACTS", "android.permission.READ_SMS"])
+        self.assertEqual(result["removed_permissions"], ["android.permission.SEND_SMS"])
 
     def test_real_diff_does_not_checkout_or_run_diff_helpers(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -205,6 +260,14 @@ class DiffTests(unittest.TestCase):
             command = f'"{sys.executable}" "{helper}"'
             run("config", "diff.external", command)
             run("config", "diff.trap.textconv", command)
+            run("diff", base, candidate, "--", "data.txt")
+            self.assertTrue(marker.exists(), "外部diffの検査用プログラムが実行できることを先に確認")
+            marker.unlink()
+            run("config", "--unset", "diff.external")
+            run("diff", "--textconv", base, candidate, "--", "data.txt")
+            self.assertTrue(marker.exists(), "textconvの検査用プログラムが実行できることを先に確認")
+            marker.unlink()
+            run("config", "diff.external", command)
             current = (repo / "data.txt").read_bytes()
             result, diff = guard.collect_audit(repo, base, candidate, CONFIG)
             self.assertFalse(marker.exists())
@@ -214,6 +277,51 @@ class DiffTests(unittest.TestCase):
             self.assertIn("https://new.example/", result["added_urls"])
             self.assertIn("未監査", result["security_verdict"])
             self.assertIn(b"android.permission.READ_SMS", diff)
+            self.assertEqual(result["patch_sha256"], guard.hashlib.sha256(diff).hexdigest())
+
+    def test_authentication_request_cannot_call_existing_credential_helper(self):
+        requests = []
+
+        class AuthenticationRequired(BaseHTTPRequestHandler):
+            def do_GET(self):
+                requests.append(self.path)
+                self.send_response(401)
+                self.send_header("WWW-Authenticate", 'Basic realm="guard-test"')
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            marker = repo / "CREDENTIAL_HELPER_EXECUTED"
+            helper = repo / "helper.py"
+            helper.write_text("from pathlib import Path\nPath('CREDENTIAL_HELPER_EXECUTED').write_text('bad')\n", encoding="utf-8")
+            env = {"GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull,
+                   "HTTP_PROXY": "", "HTTPS_PROXY": "", "ALL_PROXY": "", "NO_PROXY": "127.0.0.1"}
+            server = ThreadingHTTPServer(("127.0.0.1", 0), AuthenticationRequired)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                with patch.dict(os.environ, env):
+                    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+                    command = f'!"{sys.executable}" "{helper}"'
+                    subprocess.run(["git", "config", "credential.helper", command], cwd=repo, check=True)
+                    # 同じ検査用helperが起動できることを、ダミーの資格情報要求で確認する。
+                    subprocess.run(["git", "-c", "core.askPass=", "credential", "fill"], cwd=repo,
+                                   env=dict(os.environ, GIT_TERMINAL_PROMPT="0", GIT_ASKPASS="", SSH_ASKPASS=""),
+                                   input=b"protocol=http\nhost=127.0.0.1\n\n", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    self.assertTrue(marker.exists())
+                    marker.unlink()
+                    with self.assertRaises(guard.GuardError):
+                        guard.git(repo, "fetch", "--no-auto-maintenance", "--no-write-commit-graph",
+                                  f"http://127.0.0.1:{server.server_port}/public.git")
+                    self.assertTrue(requests, "fetchのオプションエラーではなくHTTP認証の拒否を確認")
+                    self.assertFalse(marker.exists())
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=5)
 
 
 if __name__ == "__main__":
