@@ -41,6 +41,8 @@ Mika JPはGalaxy専用のアプリではなく、以下の条件を満たすAndr
 
 各版の変更点は[変更履歴](CHANGELOG.md)、配布物と署名の確認方法は[公開手順](docs/release.md)にまとめています。
 
+原作の更新は[上流更新と保守](docs/upstream-maintenance.md)の手順で監査して取り込みます。脆弱性の連絡先は[セキュリティ上の問題の報告](SECURITY.md)を参照してください。
+
 ## ビルド
 
 JDK 17、Android SDK Platform 36を使用します。SDKの場所をlocal.propertiesのsdk.dir、またはANDROID_HOMEで指定してください。
