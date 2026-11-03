@@ -8,6 +8,7 @@ import com.wangzan101.mika.i18n.AppLanguage
 import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.ui.ChatCopy
 import android.app.Application
+import android.content.res.Configuration
 import android.net.Uri
 import android.util.Log
 import com.wangzan101.mika.chat.AndroidBranchWorkspace
@@ -314,6 +315,11 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             // タイトルの後に現在のインターフェース言語の「ブランチ」接尾辞を追加します。ソースのタイトルが長すぎる場合は、まずタイトルを短くし、サフィックスを残します。
             branchTitle = { base -> ChatCopy.branchTitle(base, tr(R.string.chat_branch_title_suffix)) },
         )
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        AppLanguage.applyDefaultLocale(this)
     }
 
     override fun onCreate() {

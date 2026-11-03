@@ -25,7 +25,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SkillSaveTest {
-    private val bundled = GuideCatalog.loadBundled()
+    private val bundled = com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog()
     private val ask = "帮我建一个技能:点咖啡先看优惠券再下单"
 
     private fun md(name: String = "order-coffee", steps: String = "1. 打开咖啡 App\n2. 先看优惠券再下单") = """

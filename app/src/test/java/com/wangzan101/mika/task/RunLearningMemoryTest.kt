@@ -13,7 +13,7 @@ import org.junit.Test
 import com.wangzan101.mika.core.assembly.knownTools
 
 class RunLearningMemoryTest {
-    private val catalog = GuideCatalog.loadBundled()
+    private val catalog = com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog()
     private val extractJson = """{"ops":[{"op":"add","kind":"preference","content":"用户点外卖不要香菜","quote":"以后都不要香菜"}]}"""
 
     private fun aftermath(utterances: List<String>, saved: List<com.wangzan101.mika.core.memory.Change> = emptyList()) = RunAftermath(

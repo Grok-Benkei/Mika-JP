@@ -26,7 +26,7 @@
     <string name="notif_attention_when">操作を引き継ぐとき、許可するとき、回答するとき</string>
     <string name="notif_result_when">タスクが終わったとき</string>
     <string name="notif_progress_when">タスクの実行中。常に通知シェードに表示されます</string>
-    <string name="notif_footer">Android では、通知の種類ごとにポップアップ表示や音を変更できるのは、システム設定でご自身が操作したときだけです。上の項目をタップすると、その設定ページが開きます。場所: 設定 › アプリ › Mika › 通知</string>
+    <string name="notif_footer">Android では、通知の種類ごとにポップアップ表示や音を変更できるのは、システム設定でご自身が操作したときだけです。上の項目をタップすると、その設定ページが開きます。場所: 設定 › アプリ › Mika JP › 通知</string>
     <string name="channel_result">タスクの結果</string>
     <string name="heads_up_action">オンにする</string>
     <string name="heads_up_title">「%1$s」の通知はポップアップ表示されません</string>
@@ -34,7 +34,7 @@
     <string name="heads_up_lead_result">タスクが終わったとき</string>
     <string name="heads_up_also">"「%1$s」も同様です。"</string>
     <string name="heads_up_body">%1$s、これらの通知は今は通知シェードに静かに届くので、見逃しやすくなっています。%2$s「%3$s」をタップして、「ポップアップ表示」をオンにしてください。</string>
-    <string name="heads_up_path">設定 › アプリ › Mika › 通知 › %1$s › ポップアップ表示(機種によっては「バナー」や「フローティング通知」と呼ばれます)</string>
+    <string name="heads_up_path">設定 › アプリ › Mika JP › 通知 › %1$s › ポップアップ表示(機種によっては「バナー」や「フローティング通知」と呼ばれます)</string>
     <string name="banner_too_old">スマホの操作は使えません</string>
     <string name="banner_too_old_detail">チャット、ウェブ、サンドボックスのタスクは使えます。スマホの操作には Android 12 以降が必要です</string>
     <string name="learn_more">詳しく見る</string>

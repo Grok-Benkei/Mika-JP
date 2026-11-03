@@ -13,5 +13,9 @@ class ReadmePresetsTest {
             ProviderPresets.all.map { ReadmeSections.Preset(it.label, it.kind.name, it.baseUrl) },
             ReadmeSections.presets(source),
         )
+        assertEquals(
+            ProviderPresets.recommended.map { ReadmeSections.Preset(it.label, it.kind.name, it.baseUrl) },
+            ReadmeSections.recommendedPresets(source),
+        )
     }
 }

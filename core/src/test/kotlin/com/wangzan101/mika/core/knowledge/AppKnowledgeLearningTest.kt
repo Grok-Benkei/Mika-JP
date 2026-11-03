@@ -17,7 +17,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppKnowledgeLearningTest {
-    private val store = KnowledgeStore(KnowledgeStore.loadBundled())
+    private val store = KnowledgeStore(com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.entries())
     private val app = store.byPackage("com.taobao.idlefish")!!
     private val facts = "- 首页顶部的搜索框进入搜索页,结果分商品和用户两个标签。\n- 「我的」页里的「我发布的」列出自己挂出的商品。"
     private val unreviewed = TaskState.Succeeded("已查看", verified = false, reviewed = false)

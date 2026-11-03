@@ -38,9 +38,11 @@ internal object StopRules {
     fun toolCallAsText() = TaskState.Failed("モデルのツール呼び出しがサーバーに認識されず、テキストとして返されたため実行できませんでした。", FailKind.Model)
 
     /** 日本語への書き直しを1回求めてもモデルが日本語で回答しなかった場合:外国語の回答をそのまま渡さず、日本語で正直に失敗を伝える。翻訳を捏造しない。 */
-    fun languageNotJapanese(mismatch: ReplyLanguage.Mismatch): TaskState.Failed =
+    fun languageNotJapanese(mismatch: ReplyLanguage.Mismatch, facts: ReviewFacts): TaskState.Failed =
         TaskState.Failed(
-            "モデルが日本語で回答しませんでした（回答は${mismatch.answer.display}でした）。日本語の回答が得られなかったため、結果を表示できません。もう一度お試しください。",
+            "モデルが日本語で回答しませんでした（回答は${mismatch.answer.display}でした）。日本語の回答が得られなかったため、結果の説明を表示できません。" +
+                if (facts.acted || facts.outward) "操作の成否はこの表示上の問題だけでは判断できません。画面や履歴で実際の結果を確認し、同じ操作を繰り返さないでください。"
+                else "操作はまだ開始していません。",
             FailKind.Model,
         )
 

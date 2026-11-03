@@ -103,6 +103,8 @@ tasks.test {
     inputs.files(rootProject.file("README.md"), rootProject.file("README.upstream.md"), rootProject.file("tools/sandbox/README.md")).withPropertyName("docsFiles")
     inputs.dir(rootProject.file("docs")).withPropertyName("docsDir")
     inputs.dir(rootProject.file("app/src")).withPropertyName("appSources")
+    // 任意資料はAPKへ同梱せず、旧データの互換テストで明示的に読み込む。
+    inputs.dir(rootProject.file("optional/china")).withPropertyName("optionalChinaFixtures")
     // updateReadme 最初に README を書き換え、同じビルドでテストして書き換えられたものを読み取ります
     mustRunAfter(updateReadme)
     // ループ シナリオのメッセージ シーケンス サンプル。 -PupdateSnapshots のときに再生成されます (LoopSnapshot を参照)

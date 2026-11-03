@@ -112,7 +112,7 @@ class AgentLoopMemoryTest {
         val s = store()
         val said = UserUtterances()
         val page = AttachedPage.Page("https://shop.example.com/address", "收货地址是幸福路 8 号 - 地址管理")
-        val ask = ModelReply(listOf(Part.ToolCall("q1", "ask_user", """{"prompt":"用哪个地址?"}""")), StopReason.ToolUse, null)
+        val ask = ModelReply(listOf(Part.ToolCall("q1", "ask_user", """{"prompt":"どの住所を使いますか？"}""")), StopReason.ToolUse, null)
         val loop = AgentLoop(FakeModel(ask, finishReply, finishReply), toolDispatcher(FakeScreen(), memory = s, utterances = said, web = FakeWebPort()), "B", memory = s)
         val run = async { loop.run(AttachedPage.compose(page, "这一页的地址对不对")) }
         withTimeout(5_000) { loop.state.first { it is TaskState.WaitingInput } }
@@ -188,7 +188,7 @@ class AgentLoopMemoryTest {
     @Test fun quotedAnswerAddsOnlyTheTypedWords() = runBlocking {
         val s = store()
         val said = UserUtterances()
-        val ask = ModelReply(listOf(Part.ToolCall("q1", "ask_user", """{"prompt":"送到哪个地址?"}""")), StopReason.ToolUse, null)
+        val ask = ModelReply(listOf(Part.ToolCall("q1", "ask_user", """{"prompt":"どの住所に送りますか？"}""")), StopReason.ToolUse, null)
         val loop = AgentLoop(FakeModel(ask, finishReply, finishReply), toolDispatcher(FakeScreen(), memory = s, utterances = said), "B", memory = s)
         val run = async { loop.run("帮我下单") }
         withTimeout(5_000) { loop.state.first { it is TaskState.WaitingInput } }

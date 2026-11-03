@@ -11,7 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GuideCatalogMergeTest {
-    private val bundled = GuideCatalog.loadBundled()
+    private val bundled = com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog()
     private fun merged(vararg s: PersonalSkill) = GuideCatalog.withPersonal(bundled, InMemoryPersonalSkills(*s))
 
     @Test fun personalOverridesBundled() {

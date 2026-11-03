@@ -127,7 +127,7 @@ internal object PromptSurfaceFeedback {
         }, clock = { 1L }, ids = { "m" })
         val withMem = toolDispatcher(FakeScreen(), memory = mem, utterances = UserUtterances().apply { add("帮我看看订单") })
         add("memory quote not from user", withMem, "memory_save", """{"kind":"fact","content":"x","quote":"别的话"}""")
-        val withSkills = toolDispatcher(FakeScreen(), skills = com.wangzan101.mika.core.knowledge.GuideCatalog.loadBundled(), utterances = UserUtterances().apply { add("帮我建一个技能") },
+        val withSkills = toolDispatcher(FakeScreen(), skills = com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog(), utterances = UserUtterances().apply { add("帮我建一个技能") },
             personalSkills = com.wangzan101.mika.core.skills.InMemoryPersonalSkills())
         add("skill save missing section", withSkills, "skill_save",
             """{"markdown":"---\nname: order-coffee\ndisplay: 点咖啡\ndescription: 点咖啡时用\n---\n## 入口\n打开 App","quote":"帮我建一个技能"}""")

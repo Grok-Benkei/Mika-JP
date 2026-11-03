@@ -179,6 +179,8 @@ data class AddForm(
 
     /** 自社モデルの名前にある単語 ([ProviderPreset.familyTokens] を参照): 選択したプリセットが指定されている場合はそれを使用し、そうでない場合はアドレスが一致するプリセットを使用します。 */
     val familyTokens: List<String> get() = presetFor(preset).familyTokens.ifEmpty { ModelOptions.familyOf(baseUrl) }
+    /** 中国系・自己ホストの接続を本人が選んだか。系列の優先順位とは独立させる。 */
+    val allowChineseModels: Boolean get() = isSelfHosted || ProviderPresets.allowsChineseModels(baseUrl)
 
     companion object {
         fun of(p: ProviderPreset) = AddForm(p.label, p.kind, p.baseUrl, "")
@@ -495,6 +497,7 @@ class ModelSetupViewModel(
                     val p = store.connect(
                         f.providerName, f.kind, baseUrl, key, models, f.sessionHeader, setOf(typed),
                         typed = if (listed == null) setOf(typed) else emptySet(),
+                        explicitSelfHosted = f.isSelfHosted,
                     )
                     if (!noTools && store.roles.value.main == null) use(ModelRole.Main, p, typed, ModelOptions.ofProvider(p, store.list()))
                 }
@@ -509,12 +512,12 @@ class ModelSetupViewModel(
                 }
                 is ListProbe.Done -> r
             }
-            val noneUsable = probed.main == null && probed.rejected.isNotEmpty()
+            val noneUsable = probed.main == null && (probed.rejected.isNotEmpty() || probed.noAutomaticCandidate)
             val saved = withContext(io) {
-                val p = store.connect(f.providerName, f.kind, baseUrl, key, models, f.sessionHeader, setOfNotNull(probed.main))
+                val p = store.connect(f.providerName, f.kind, baseUrl, key, models, f.sessionHeader, setOfNotNull(probed.main), explicitSelfHosted = f.isSelfHosted)
                 if (!noneUsable && store.roles.value.main == null) {
                     val options = ModelOptions.ofProvider(p, store.list())
-                    (probed.main ?: ModelOptions.defaultMain(options, f.familyTokens) ?: options.firstOrNull()?.id)
+                    (probed.main ?: ModelOptions.defaultMain(options, f.familyTokens, f.allowChineseModels) ?: ModelOptions.automaticFallback(options, f.familyTokens, f.allowChineseModels))
                         ?.let { m -> use(ModelRole.Main, p, m, options) }
                 }
                 p
@@ -550,7 +553,7 @@ class ModelSetupViewModel(
             val typed = f.typedModel
             val saved = withContext(io) {
                 store.connect(
-                    f.providerName, f.kind, baseUrl, key.ifEmpty { null }, emptyList(), f.sessionHeader, untested = true,
+                    f.providerName, f.kind, baseUrl, key.ifEmpty { null }, emptyList(), f.sessionHeader, untested = true, explicitSelfHosted = f.isSelfHosted,
                 ).also { p -> if (typed.isNotEmpty()) store.markTyped(p.id, typed) }
             }
             _state.update {
@@ -591,7 +594,7 @@ class ModelSetupViewModel(
     private sealed interface ListProbe {
         data class Blocked(val message: String) : ListProbe
         /** [main] は合格したモデルです。 [rejected] は以前に試行されましたが失敗しました。すべて空であることは、試せるモデルがないことを意味します。 */
-        data class Done(val main: String?, val rejected: List<Rejected>) : ListProbe
+        data class Done(val main: String?, val rejected: List<Rejected>, val noAutomaticCandidate: Boolean = false) : ListProbe
     }
 
     /**
@@ -615,7 +618,7 @@ class ModelSetupViewModel(
         // リストは、特定のモデルの別のインターフェイスを指定します ([ListedModel.endpoint] を参照)。呼び出しは、独自のプロトコルと、ここで選択されたインターフェイス タイプに従います。
         // は無関係であるため、フィルターで除外することはできません。プロトコルが不明な場合 (このフィールドが書き込まれていない場合)、通常どおり試してください。
         val mismatched = mutableListOf<String>()
-        val usable = ModelOptions.candidates(options, f.familyTokens).filter { m ->
+        val usable = ModelOptions.candidates(options, f.familyTokens, f.allowChineseModels).filter { m ->
             val listed = models.firstOrNull { it.id == m }
             if (listed?.endpoint != null) return@filter true
             val protocols = listed?.protocols ?: return@filter true
@@ -625,7 +628,8 @@ class ModelSetupViewModel(
             val reason = tr(R.string.model_reason_wrong_protocol)
             return ListProbe.Done(null, mismatched.take(PROBE_CANDIDATES).map { Rejected(it, reason, notAvailable = false, skipped = true) })
         }
-        val order = usable.ifEmpty { listOfNotNull(options.firstOrNull()?.id) }
+        val order = usable.ifEmpty { listOfNotNull(ModelOptions.automaticFallback(options, f.familyTokens, f.allowChineseModels)) }
+        if (order.isEmpty()) return ListProbe.Done(null, emptyList(), noAutomaticCandidate = true)
         val rejected = mutableListOf<Rejected>()
         var firstServerError: String? = null
         for ((i, model) in order.take(PROBE_CANDIDATES).withIndex()) {
@@ -663,6 +667,7 @@ class ModelSetupViewModel(
      * 変更する必要があるのは、インターフェースの種類、またはこのインターフェースの種類で使用できるモデルです。人々にそれを「アクティブ化」させることはできません。それはここでの問題ではありません。残りについては、アクティブになっているものを選択するように依頼してください。
      */
     private fun probeNote(r: ListProbe.Done): String? {
+        if (r.noAutomaticCandidate) return tr(R.string.model_no_automatic_candidate)
         if (r.rejected.isEmpty()) return null
         val names = r.rejected.joinToString(tr(R.string.list_sep)) { it.model }
         val first = r.rejected.first()
@@ -757,7 +762,9 @@ class ModelSetupViewModel(
                     val p = store.connectChatGpt(session, (listed as? ModelListResult.Ok)?.models ?: existing?.models.orEmpty())
                     if (store.roles.value.main == null) {
                         val options = ModelOptions.ofProvider(p, store.list())
-                        (ModelOptions.defaultMain(options) ?: options.firstOrNull()?.id)?.let { m -> use(ModelRole.Main, p, m, options) }
+                        val main = automaticMainFor(p, options)
+                        if (main != null) use(ModelRole.Main, p, main, options)
+                        else if (listed is ModelListResult.Ok) showNoAutomaticCandidate(p.id)
                     }
                     (listed as? ModelListResult.Failed)?.message to (clientId == null)
                 }
@@ -812,7 +819,9 @@ class ModelSetupViewModel(
                     }
                     if (store.roles.value.main == null) {
                         val options = ModelOptions.ofProvider(p, store.list())
-                        (ModelOptions.defaultMain(options) ?: options.firstOrNull()?.id)?.let { m -> use(ModelRole.Main, p, m, options) }
+                        val main = automaticMainFor(p, options)
+                        if (main != null) use(ModelRole.Main, p, main, options)
+                        else if (listed is ModelListResult.Ok) showNoAutomaticCandidate(p.id)
                     }
                     p to (listed as? ModelListResult.Failed)
                 }
@@ -882,8 +891,22 @@ class ModelSetupViewModel(
     fun useAsMain(providerId: String) {
         val p = store.provider(providerId) ?: return
         val options = ModelOptions.ofProvider(p, store.list())
-        val m = ModelOptions.defaultMain(options) ?: options.firstOrNull()?.id ?: return
+        val m = automaticMainFor(p, options)
+        if (m == null) {
+            showNoAutomaticCandidate(providerId)
+            return
+        }
         pick(ModelRole.Main, providerId, m)
+    }
+
+    private fun automaticMainFor(provider: Provider, options: List<ModelOption>): String? {
+        val family = ModelOptions.familyOf(provider.baseUrl)
+        val allowChinese = ModelOptions.allowsChineseModels(provider)
+        return ModelOptions.defaultMain(options, family, allowChinese) ?: ModelOptions.automaticFallback(options, family, allowChinese)
+    }
+
+    private fun showNoAutomaticCandidate(providerId: String) {
+        _state.update { it.copy(probeNote = tr(R.string.model_no_automatic_candidate), pickToProbe = providerId) }
     }
 
     /** ChatGPT を終了してログインします。サーバーからログアウトし、ローカルでトークンをクリアします。サービス提供者や目的に変更はなく、再度ログインすることで引き続きご利用いただけます。 */

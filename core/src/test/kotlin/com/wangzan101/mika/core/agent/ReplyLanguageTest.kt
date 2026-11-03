@@ -31,6 +31,29 @@ class ReplyLanguageTest {
     @Test fun japaneseIntroDoesNotHideAChineseParagraph() {
         assertEquals(Mismatch(CHINESE, JAPANESE), ReplyLanguage.mismatch("確認しました。\n$chinese"))
         assertEquals(Mismatch(latin, JAPANESE), ReplyLanguage.mismatch("確認した内容を日本語で説明します。".repeat(30) + "\nBluetooth is on."))
+        assertEquals(Mismatch(CHINESE, JAPANESE), ReplyLanguage.mismatch("確認しました。付好了。"))
+    }
+
+    @Test fun japaneseNamesAddressesAndSharedKanjiWordsAreNotChineseProse() {
+        for (answer in listOf(
+            "東京駅八重洲北口", "東京都千代田区丸の内一丁目", "株式会社三菱UFJ銀行",
+            "- 予約: 不要", "申請不要。", "対応: 不能", "用途: 不用", "需要予測", "無法地帯", "請求書番号",
+            "集合場所です。\n東京駅八重洲北口\n東京都千代田区丸の内一丁目\n| 予約 | 不要 |",
+        )) assertNull(answer, ReplyLanguage.mismatch(answer))
+    }
+
+    @Test fun clearChineseGrammarStillDiffersFromSharedKanjiWords() {
+        for (answer in listOf("不能继续", "需要登录", "我不能", "请不要执行", "請用中文回答", "1. 请回答", "这是正确的吗？")) {
+            assertEquals(answer, Mismatch(CHINESE, JAPANESE), ReplyLanguage.mismatch(answer))
+        }
+    }
+
+    @Test fun chineseResultSentencesAreNotNamesOrLabels() {
+        for (answer in listOf("订单已提交，预计明天送达。", "该商品的价格为99元，库存充足。", "设置已更新。")) {
+            assertEquals(answer, Mismatch(CHINESE, JAPANESE), ReplyLanguage.mismatch(answer))
+            for (source in listOf("「$answer」", "`$answer`", "```text\n$answer\n```")) assertNull(source, ReplyLanguage.mismatch(source))
+        }
+        for (source in listOf("订单", "设置", "https://example.com/设置已更新", "order_submitted")) assertNull(source, ReplyLanguage.mismatch(source))
     }
 
     @Test fun japaneseCanQuoteForeignNamesLabelsAndOriginalSentences() {

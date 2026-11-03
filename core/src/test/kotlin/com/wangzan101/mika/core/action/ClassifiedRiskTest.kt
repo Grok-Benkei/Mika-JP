@@ -2,12 +2,19 @@ package com.wangzan101.mika.core.action
 
 import com.wangzan101.mika.core.risk.IrrevAction
 import com.wangzan101.mika.core.gate.Irreversible
+import com.wangzan101.mika.core.gate.ConfirmationGate
+import com.wangzan101.mika.core.assembly.toolDispatcher
+import com.wangzan101.mika.core.model.Part
+import com.wangzan101.mika.core.tool.FakeScreen
+import com.wangzan101.mika.core.uistate.ScreenPort
 import com.wangzan101.mika.core.uistate.ScreenSnapshot
 import com.wangzan101.mika.core.uistate.UiElement
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.test.runTest
 import com.wangzan101.mika.core.testing.verb
 
 class ClassifiedRiskTest {
@@ -53,5 +60,54 @@ class ClassifiedRiskTest {
 
     @Test fun coordinateTapsUseTheSmallestElementThere() {
         assertEquals("修改密码", ClassifiedRisk.target(verb("phone_tap"), buildJsonObject { put("x", 500); put("y", 250) }, screen)?.name)
+    }
+
+    @Test fun japaneseAmountsRequireApprovalForSubmissionsAndDeletion() {
+        for (amount in listOf("月額980円", "月額９８０円", "1,980円", "１，９８０円", "9万円", "９万円", "9 万 円", "5千円", "1万2千円", "1万2000円", "JPY 980", "980 JPY", "￥９８０", "25元", "$25")) {
+            val on = screen.copy(elements = listOf(el("@e7", "TextView", amount, listOf(0, 600, 999, 700))))
+            for (action in listOf(IrrevAction.submit, IrrevAction.delete)) {
+                val risk = assess("phone_tap", Irreversible(action, "実行"), on)
+                assertTrue(amount, risk.payment)
+                assertEquals(amount, Approval.Ask, ApprovalPolicy.decide(risk))
+            }
+            assertEquals(amount, false, assess("phone_tap", Irreversible(IrrevAction.send, "送信"), on).payment)
+            val editable = on.copy(elements = on.elements.map { it.copy(editable = true) })
+            assertEquals(amount, false, assess("phone_tap", Irreversible(IrrevAction.submit, "提出"), editable).payment)
+        }
+        for (text in listOf("980", "980件", "通貨: JPY")) {
+            val on = screen.copy(elements = listOf(el("@e7", "TextView", text, listOf(0, 600, 999, 700))))
+            assertEquals(text, false, assess("phone_tap", Irreversible(IrrevAction.submit, "提出"), on).payment)
+        }
+    }
+
+    @Test fun defaultDecisionRequiresConfirmationOnYenScreens() = runTest {
+        for (amount in listOf("月額980円", "月額９８０円", "JPY 980", "9万円", "5千円", "1万2千円")) for (button in listOf("提出", "削除")) {
+            val on = screen.copy(elements = listOf(
+                el("@e1", "Button", button, listOf(0, 800, 999, 900)),
+                el("@e2", "TextView", amount, listOf(0, 600, 999, 700)),
+            ))
+            val port = object : ScreenPort by FakeScreen() {
+                override suspend fun snapshot() = on
+                override suspend fun peek() = on
+            }
+            val dispatcher = toolDispatcher(port)
+            dispatcher.executeRead(Part.ToolCall("observe", "phone_observe", "{}"))
+            val decision = ConfirmDecision(dispatcher, ConfirmationGate()).judge("phone_tap", buildJsonObject {
+                put("ref", "@e1"); put("snapshotId", "s1")
+            }, Origin.Model(2))
+            assertTrue("$amount / $button: $decision", decision is Decision.Required)
+        }
+    }
+
+    @Test fun splitYenAmountsUseOnlyReadOnlyElementsOnTheSameRow() {
+        val number = el("@e1", "TextView", "980", listOf(0, 600, 150, 660))
+        val yen = el("@e2", "TextView", "円", listOf(160, 600, 200, 660))
+        fun spending(vararg elements: UiElement) = assess("phone_tap", Irreversible(IrrevAction.submit, "提出"), screen.copy(elements = elements.toList())).payment
+        assertTrue(spending(number, yen))
+        assertEquals(false, spending(number.copy(editable = true), yen))
+        assertEquals(false, spending(number, yen.copy(editable = true)))
+        assertEquals(false, spending(number, yen.copy(hint = true)))
+        assertEquals(false, spending(number, yen.copy(bounds = listOf(160, 800, 200, 860))))
+        assertEquals(false, spending(number, yen.copy(bounds = emptyList())))
     }
 }

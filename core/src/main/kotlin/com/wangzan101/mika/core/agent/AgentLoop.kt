@@ -555,7 +555,7 @@ class AgentLoop(
                         TurnPolicy.language(languageMismatch).let { history += ctx.notice(it.source, it.text) }
                         continue
                     }
-                    return StopRules.languageNotJapanese(languageMismatch)
+                    return StopRules.languageNotJapanese(languageMismatch, currentFacts)
                 }
                 // 電話をかけずに返信することが最終的な回答です。製品パスはソースを分類するだけです。
                 val result = conclude(task, text, step, currentFacts, history)
@@ -937,7 +937,7 @@ class AgentLoop(
         val missing = r.unconfirmed
         if (missing.isNotEmpty() && history != null && !gapsNudged) {
             gapsNudged = true
-            TurnPolicy.unconfirmed(r.gaps, r.objections).let { history += ctx.notice(it.source, it.text) }
+            TurnPolicy.unconfirmed(r.gaps, r.modelObjections).let { history += ctx.notice(it.source, it.text) }
             return null
         }
         if (missing.isNotEmpty()) emit(RunEvent.Unconfirmed(now(), step, missing.map(::detail)))
@@ -984,7 +984,7 @@ class AgentLoop(
             if (call == null) {
                 if (calls.isNotEmpty() || text.isEmpty() || reply.stopReason == StopReason.MaxTokens) return StopRules.stepLimit(maxSteps)
                 // 最終ターンでも日本語でない回答はそのまま渡さない(差し戻すステップは残っていないため日本語で失敗を返す)
-                ReplyLanguage.mismatch(text)?.let { return StopRules.languageNotJapanese(it) }
+                ReplyLanguage.mismatch(text)?.let { return StopRules.languageNotJapanese(it, facts) }
                 return conclude(task, text, step, facts, history = null)!!
             }
             val started = now()

@@ -70,6 +70,25 @@ object IrreversibleDetector {
     ).mapValues { (_, words) -> words.map(Hant::fold) }
     private const val PREFIX_SLACK = 4
 
+    /** 操作ラベルと具体的な確認文だけに使う。単独の「キャンセル」や、説明・履歴・設定への入口は含めない。 */
+    private val JAPANESE_ORDER_TARGETS = listOf("予約", "注文", "申込", "申し込み").map(Hant::fold).toSet()
+    private const val JP_ORDER_TARGET = "予約|注文|申込|申し込み"
+    private const val JP_DATA_TARGET = "データ|すべてのデータ|全てのデータ|履歴|記録|設定|アカウント|契約|送信"
+    private val JAPANESE_CANCEL_LABEL = Regex(Hant.fold("(?:$JP_ORDER_TARGET)を(?:キャンセル(?:する)?|取り消す|取消す)"))
+    private val JAPANESE_DELETE_LABEL = Regex(Hant.fold(
+        "(?:(?:$JP_DATA_TARGET)を)?(?:取り消す|取消す|キャンセルする|解約(?:する)?|消去(?:する)?|初期化(?:する)?|リセット(?:する)?|(?:すべて|全て)を?クリア)",
+    ))
+    private val JAPANESE_CONFIRM = Regex(Hant.fold(
+        "(?:この|選択した|選択中の)?($JP_ORDER_TARGET|$JP_DATA_TARGET)を" +
+            "(取り消|取消|キャンセル|解約|消去|初期化|リセット|(?:すべて|全て)クリア)(?:しますか|しても(?:よろしい|いい)ですか)",
+    ))
+    private val JAPANESE_NO_ACTION = Regex(Hant.fold(
+        "(?:この)?(?:(?:$JP_ORDER_TARGET|$JP_DATA_TARGET)を)?" +
+            "(?:(?:キャンセル|解約|消去|初期化|リセット|クリア)(?:しない|しません)|(?:取り消|取消)(?:さない|しません))(?:でください)?",
+    ))
+    /** 「記録」「一覧」の状態語除外より優先する、従来の明確な削除ラベルだけ。 */
+    private val CLEAR_RECORD_LABELS = setOf("清空记录", "清空列表").map(Hant::fold).toSet()
+
     /** は単語に等しいか、句読点のみが続きます (「コメント (23)」と「返信 3」はエントリおよびカウントであり、カウントされません)。 */
     val PUNCT_WORDS: Map<IrrevAction, List<String>> = linkedMapOf(IrrevAction.send to listOf("评论", "回复", "返信")).mapValues { (_, words) -> words.map(Hant::fold) }
 
@@ -110,7 +129,16 @@ object IrreversibleDetector {
 
     /** ポップアップ ウィンドウ、下部パネルの普遍的な確認: 同じ画面上に強い単語や金額がある場合のみカウントされます。 */
     val GENERIC = listOf("确认", "确定", "ok", "完成", "confirm", "確認", "確定", "実行", "完了", "はい").map(Hant::fold)
-    private val AMOUNT = Regex("[¥￥$＄]\\s*[0-9０-９]|[0-9０-９][0-9０-９,，]*(?:[.．][0-9０-９]+)?\\s*(?:元|円)")
+    private const val AMOUNT_NUMBER = "[0-9０-９][0-9０-９,，]*(?:[.．][0-9０-９]+)?"
+    /** 換算に未対応の円の数表記。数字・空白・万/千だけを結合し、件数などの語をまたいで通貨へ結び付けない。 */
+    internal const val UNSCALED_YEN_NUMBER = "$AMOUNT_NUMBER(?:\\s*[万萬千]\\s*(?:$AMOUNT_NUMBER)?)+"
+    /** [com.wangzan101.mika.core.action.ClassifiedRisk] と共有する通貨付き金額。全角数字・桁区切り・通貨コードも認識します。 */
+    internal val AMOUNT = Regex(
+        "(?:[¥￥$＄]|(?<![A-Za-z])(?:JPY|CNY|USD))\\s*$AMOUNT_NUMBER|" +
+            "$UNSCALED_YEN_NUMBER\\s*(?:円|JPY(?![A-Za-z]))|" +
+            "$AMOUNT_NUMBER\\s*(?:元|円|(?:JPY|CNY|USD)(?![A-Za-z]))",
+        RegexOption.IGNORE_CASE,
+    )
     /** これらの単語が含まれる金額は合計であり、スクロール可能領域内にあるかどうかに関係なく、コンテキストとみなされます。 */
     val TOTAL_LABELS = listOf("合计", "实付", "应付", "总计", "合計", "お支払い金額", "支払金額", "ご請求額", "注文合計").map(Hant::fold)
     /** 同じ画面に金額がある場合、これらの文字は支払いパネル (支払い方法、レジ係、パスワード認証) を示します。 */
@@ -315,6 +343,9 @@ object IrreversibleDetector {
         val n = raw.filterNot(Char::isWhitespace).lowercase()
         if (n in EXCLUDED) return null
         if (n in setOf("送信しない", "削除しない", "購入しない", "注文しない", "予約しない", "支払わない", "キャンセル").map(Hant::fold)) return null
+        if (JAPANESE_NO_ACTION.matches(n.trimEnd { !it.isLetterOrDigit() })) return null
+        japaneseDestructive(raw)?.let { return it }
+        if (n.trimEnd { !it.isLetterOrDigit() } in CLEAR_RECORD_LABELS) return IrrevAction.delete
         if (n in SUBMIT_WORDS) return IrrevAction.submit
         if (contacts(raw)) return IrrevAction.submit
         if (n in RED_PACKET) return IrrevAction.pay
@@ -346,6 +377,9 @@ object IrreversibleDetector {
     /** 短い名前全体、または綴りの名前の各段落に強い単語が含まれています。まず支払い方法などの単語を削除してください。 */
     private fun strong(label: String): IrrevAction? {
         val folded = Hant.fold(label)
+        val whole = folded.filterNot(Char::isWhitespace).trimEnd { !it.isLetterOrDigit() }
+        if (JAPANESE_NO_ACTION.matches(whole)) return null
+        japaneseDestructive(folded)?.let { return it }
         for (p in listOf(folded) + folded.split(Regex("\\s+"))) {
             var t = p.filterNot(Char::isWhitespace).replace(PAYMENT_ADS, "")
             EXCLUDED.forEach { t = t.replace(it, "") }
@@ -353,6 +387,15 @@ object IrreversibleDetector {
             STRONG.entries.firstOrNull { (w, _) -> occurrences(t, w).any { actionAt(t, w, it) } }?.let { return it.value }
         }
         return null
+    }
+
+    private fun japaneseDestructive(label: String): IrrevAction? {
+        val n = Hant.fold(label).filterNot(Char::isWhitespace).trimEnd { !it.isLetterOrDigit() }
+        if (JAPANESE_CANCEL_LABEL.matches(n)) return IrrevAction.order
+        if (JAPANESE_DELETE_LABEL.matches(n)) return IrrevAction.delete
+        val confirmation = JAPANESE_CONFIRM.matchEntire(n) ?: return null
+        return if (confirmation.groupValues[1] in JAPANESE_ORDER_TARGETS &&
+            confirmation.groupValues[2] in listOf("取り消", "取消", "キャンセル").map(Hant::fold)) IrrevAction.order else IrrevAction.delete
     }
 
     private fun occurrences(t: String, w: String) = generateSequence(t.indexOf(w).takeIf { it >= 0 }) { i -> t.indexOf(w, i + 1).takeIf { it >= 0 } }
@@ -514,7 +557,12 @@ object IrreversibleDetector {
      * refにtype_textを与えると入力ボックスが使用されます。入力メソッドの「検索」エンターキータイプは読み取れないため、基準として使用できません。
      */
     private fun enterHit(args: JsonObject, snapshot: ScreenSnapshot?, s: ScreenSnapshot?, key: Int): Irreversible? {
-        val keyName = if (key == KEY_SPACE) "空格" else "回车"
+        val keyName = when (key) {
+            KEY_SPACE -> "Space"
+            KEY_DPAD_CENTER -> "DPAD_CENTER"
+            KEY_NUMPAD_ENTER -> "NUMPAD_ENTER"
+            else -> "Enter"
+        }
         val ref = str(args, "ref")
         val field = if (ref == null) null
         else snapshot?.takeIf { it.snapshotId == str(args, "snapshotId") }?.elements?.firstOrNull { it.ref == ref }
@@ -568,7 +616,7 @@ object IrreversibleDetector {
         if (s.elements.any { it.scrollable && contains(it, sx, sy) && height(it) < CAROUSEL_MAX_HEIGHT }) return null
         val row = s.elements.filter { contains(it, sx, sy) && it.clickable && !it.scrollable && width(it) >= ROW_MIN_WIDTH }
             .minByOrNull(::area) ?: return null
-        return Irreversible(IrrevAction.delete, "swipe on ${label(row)}")
+        return Irreversible(IrrevAction.delete, "スワイプ: 「${label(row)}」")
     }
 
     /** 十分な長さの水平スライドの開始点 (0 ～ 999)。水平方向にスライドしない場合、または十分な長さがない場合は、null になります。スクロールはディストリビュータの変換に従って指の開始点を計算します。 */

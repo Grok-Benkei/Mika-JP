@@ -10,6 +10,11 @@
         </intent>
     </queries>
     <application>
+        <!-- 端末の言語を変えず、非日本語 Context のロケール適用と実 Activity の構成変更を検査する。 -->
+        <activity android:name="com.wangzan101.mika.i18n.LocaleConfigTestActivity"
+            android:exported="true" android:excludeFromRecents="true" android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|uiMode|density"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
         <activity android:name="com.wangzan101.mika.cap.phone.display.RotationTestActivity"
             android:exported="true" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
             android:theme="@android:style/Theme.Material.NoActionBar" />

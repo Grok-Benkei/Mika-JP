@@ -59,6 +59,17 @@ class ProviderPresetsTest {
         }
     }
 
+    @Test fun explicitChinaOrLocalConnectionsAllowTheirOwnModelChoices() {
+        ProviderPresets.otherRegions.forEach { assertTrue(it.label, ProviderPresets.allowsChineseModels(it.baseUrl)) }
+        listOf("http://localhost:11434/v1", "http://192.168.1.20:1234/v1", "http://models.local:11434/v1").forEach {
+            assertTrue(it, ProviderPresets.allowsChineseModels(it))
+        }
+        ProviderPresets.recommended.filter { !it.selfHosted && it.baseUrl.isNotEmpty() }.forEach {
+            assertFalse(it.label, ProviderPresets.allowsChineseModels(it.baseUrl))
+        }
+        assertFalse(ProviderPresets.allowsChineseModels("https://api.siliconflow.cn.evil.test/v1"))
+    }
+
     /** コーディング プランのキーと標準 API は汎用ではありません。アドレスは、公式の別個の OpenAI 互換エンドポイントに該当する必要があります。 */
     @Test fun codingPlanUsesItsOwnDocumentedEndpoint() {
         val standard = preset("智谱")

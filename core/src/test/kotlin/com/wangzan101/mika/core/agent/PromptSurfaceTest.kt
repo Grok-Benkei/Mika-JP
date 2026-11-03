@@ -35,7 +35,7 @@ class PromptSurfaceTest {
 
     private class Combo(val tools: () -> ToolDispatcher, val flags: SpeedFlags = SpeedFlags.OFF, val memory: MemoryStore? = null)
 
-    private val bundled = KnowledgeStore(KnowledgeStore.loadBundled())
+    private val bundled = KnowledgeStore(com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.entries())
     private val LAYERS = linkedMapOf("chat" to emptyList(), "phone" to listOf("phone"), "web" to listOf("web"), "all" to listOf("phone", "web", "sandbox"))
     private val combos: Map<String, Combo> = linkedMapOf(
         "phone" to Combo({ toolDispatcher(FakeScreen()) }),
@@ -49,7 +49,7 @@ class PromptSurfaceTest {
         "everything" to MemoryStore(Mem(), clock = { 1L }, ids = { "m" }).let { mem ->
             Combo({
                 toolDispatcher(
-                    FakeScreen(), visionEnabled = true, skills = GuideCatalog.loadBundled(), vision = VisionService(says(), JvmTestImageOps),
+                    FakeScreen(), visionEnabled = true, skills = com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog(), vision = VisionService(says(), JvmTestImageOps),
                     web = FakeWebPort(), inlineScreen = true, deepLinks = true,
                     memory = mem, utterances = UserUtterances(), sandbox = FakeSandbox(SandboxStatus.Ready(network = false)), workspace = { "w" },
                     personalSkills = com.wangzan101.mika.core.skills.InMemoryPersonalSkills(),

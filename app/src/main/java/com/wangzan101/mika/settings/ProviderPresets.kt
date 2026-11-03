@@ -2,6 +2,7 @@ package com.wangzan101.mika.settings
 
 import com.wangzan101.mika.core.model.Capabilities
 import com.wangzan101.mika.core.model.PromptCaching
+import com.wangzan101.mika.core.net.LocalHosts
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
@@ -58,7 +59,7 @@ object ProviderPresets {
             .maxByOrNull { pathOverlap(it.baseUrl, url) }
     }
 
-    // 国際向けの接続先を先に並べる。APIキーはサービスとリージョンごとに異なる。
+    // 保存済み接続との互換用に全プリセットを保持する。初期画面にはrecommendedだけを表示する。
     val all: List<ProviderPreset> = listOf(
         ProviderPreset("OpenAI", ProviderConfig.Kind.OpenAiResponses, "https://api.openai.com/v1", caps(vision = true, context = 400_000), familyTokens = listOf("gpt")),
         ProviderPreset("Anthropic", ProviderConfig.Kind.Anthropic, "https://api.anthropic.com", caps(vision = true, context = 200_000), familyTokens = listOf("claude")),
@@ -87,9 +88,25 @@ object ProviderPresets {
         ProviderPreset("自定义", ProviderConfig.Kind.OpenAiCompat, "", caps()),
     )
 
-    private val mainlandLabels = setOf("通义千问", "Kimi", "智谱", "智谱 Coding Plan", "硅基流动", "火山方舟", "MiniMax", "腾讯混元", "百度千帆")
-    val recommended: List<ProviderPreset> get() = all.filterNot { it.label in mainlandLabels }
-    val otherRegions: List<ProviderPreset> get() = all.filter { it.label in mainlandLabels }
+    /** 中国系企業の海外リージョンも含む。利用者が明示的に表示するまで標準候補へ出さない。 */
+    private val chinaServiceLabels = setOf(
+        "DeepSeek", "Qwen Global", "Kimi Global", "MiniMax Global", "阶跃星辰",
+        "通义千问", "Kimi", "智谱", "智谱 Coding Plan", "硅基流动", "火山方舟", "MiniMax", "腾讯混元", "百度千帆",
+    )
+    val recommended: List<ProviderPreset> get() = all.filterNot { it.label in chinaServiceLabels }
+    /** 旧API名を保持し、中国系サービスを明示的に表示した場合だけ使う。 */
+    val otherRegions: List<ProviderPreset> get() = all.filter { it.label in chinaServiceLabels }
+
+    /** 本人が設定した中国系・ローカル接続では、モデル系列の優先順位とは別に明示選択を尊重する。 */
+    fun allowsChineseModels(baseUrl: String): Boolean {
+        val host = baseUrl.trim().toHttpUrlOrNull()?.host ?: return false
+        return LocalHosts.isLocal(host) || forHost(baseUrl)?.label?.let { it in chinaServiceLabels } == true
+    }
+
+    /** 意図の保存がなかった旧設定だけを補う。既知のクラウド・中継URLや一般の名前からは推定しない。 */
+    fun legacySelfHostedConnection(name: String, kind: ProviderConfig.Kind, baseUrl: String): Boolean =
+        baseUrl.trim().toHttpUrlOrNull() != null && forHost(baseUrl) == null &&
+            all.any { it.selfHosted && it.kind == kind && name.trim() in setOf(it.label, it.displayLabel) }
 
     val custom: ProviderPreset get() = all.last()
 

@@ -50,8 +50,8 @@ import com.wangzan101.mika.core.assembly.toolDispatcher
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class LoopScenarioTest {
-    private val bundled by lazy { KnowledgeStore(KnowledgeStore.loadBundled()) }
-    private val catalog by lazy { GuideCatalog.loadBundled() }
+    private val bundled by lazy { KnowledgeStore(com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.entries()) }
+    private val catalog by lazy { com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog() }
 
     private fun loop(
         model: FakeChatModel, tools: ToolDispatcher, maxSteps: Int = 20,
@@ -297,6 +297,8 @@ class LoopScenarioTest {
         assertFalse(end.verified)
         assertEquals(listOf("79", "検証モデルから日本語の理由説明が得られませんでした。"), end.unconfirmed)
         assertEquals(ContextKind.Notice, ContextBuilder.kindOf(main.requests[2].messages.withoutRuntime().last()))
+        assertTrue("モデルへの修正指示には検証理由の原文を保持する", main.requests[2].messages.withoutRuntime().last().parts
+            .filterIsInstance<Part.Text>().any { "屏上写的是 ¥89" in it.text })
         snapshot("l_unconfirmed_labelled", end, "main" to main, "verifier" to checker)
     }
 

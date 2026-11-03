@@ -121,18 +121,18 @@ class ModelSetupNetworkTest {
     /** 最初に他のモデルがリストにあります。アクティブ化されていないモデルは 400 にコールバックし、次のモデルを試行します。成功したら保存し、メインモデルとして使用します。最初に試したのが失敗したものを教えてください。 */
     @Test fun notActivatedFirstModelFallsBackToTheNext() {
         routes["/models"] = ::thirdPartyFirst
-        chat = { model -> if (model == "qwen-plus") toolCall() else notActivated() }
+        chat = { model -> if (model == "vendor/second-chat") toolCall() else notActivated() }
         val (store, vm) = setUp()
         vm.testAndWait()
-        assertEquals(listOf("antdigital/Ling-3.1-flash", "qwen-plus"), chatModels)
+        assertEquals(listOf("vendor/first-chat", "vendor/second-chat"), chatModels)
         val p = store.providers.value.single()
-        assertEquals("qwen-plus", store.configFor(ModelRole.Main)?.model)
+        assertEquals("vendor/second-chat", store.configFor(ModelRole.Main)?.model)
         assertFalse(vm.state.value.showForm)
         val note = vm.state.value.probeNote.orEmpty()
-        assertTrue(note, note.startsWith("最初に試した antdigital/Ling-3.1-flash はテストに通りませんでした: このアカウントではこのモデルが有効になっていないか、アクセス権がありません(プロバイダーからの応答: The product is not activated"))
-        assertTrue(note, note.endsWith("メインモデルは、テストに通った「qwen-plus」です。"))
+        assertTrue(note, note.startsWith("最初に試した vendor/first-chat はテストに通りませんでした: このアカウントではこのモデルが有効になっていないか、アクセス権がありません(プロバイダーからの応答: The product is not activated"))
+        assertTrue(note, note.endsWith("メインモデルは、テストに通った「vendor/second-chat」です。"))
         assertEquals(null, vm.state.value.pickToProbe)
-        assertTrue("qwen-plus" in p.verifiedModels)
+        assertTrue("vendor/second-chat" in p.verifiedModels)
     }
 
     /** いくつか試しましたがどれも試しませんでした: キーは正しいです。サービス プロバイダーと無期限のマスター モデルを保存してください。リストから選択してください。 */
@@ -141,14 +141,14 @@ class ModelSetupNetworkTest {
         chat = { notActivated() }
         val (store, vm) = setUp()
         vm.testAndWait()
-        assertEquals(listOf("antdigital/Ling-3.1-flash", "qwen-plus", "qwen-max"), chatModels)
+        assertEquals(listOf("vendor/first-chat", "vendor/second-chat", "vendor/third-chat"), chatModels)
         val p = store.providers.value.single()
         assertEquals(4, p.models?.size)
         assertEquals(null, store.roles.value.main)
         val s = vm.state.value
         assertEquals(p.id, s.pickToProbe)
-        assertTrue(s.probeNote.orEmpty(), s.probeNote.orEmpty().startsWith("プロバイダーには接続できましたが、「antdigital/Ling-3.1-flash」はテストに通りませんでした: "))
-        assertTrue(s.probeNote.orEmpty(), s.probeNote.orEmpty().endsWith("antdigital/Ling-3.1-flash、qwen-plus、qwen-max を試しましたが、どれも有効になっていません。"))
+        assertTrue(s.probeNote.orEmpty(), s.probeNote.orEmpty().startsWith("プロバイダーには接続できましたが、「vendor/first-chat」はテストに通りませんでした: "))
+        assertTrue(s.probeNote.orEmpty(), s.probeNote.orEmpty().endsWith("vendor/first-chat、vendor/second-chat、vendor/third-chat を試しましたが、どれも有効になっていません。"))
     }
 
     /** 最初に試行されているモデルのアカウント制限はゼロ (制限: 429 の 0): 現在の制限に引っかかっているとはみなされません。その後、次のモデルを試して保存すると、それがメイン モデルになります。 */
@@ -190,7 +190,7 @@ class ModelSetupNetworkTest {
     )
 
     private fun thirdPartyFirst() = MockResponse().setHeader("Content-Type", "application/json").setBody(
-        """{"object":"list","data":[{"id":"antdigital/Ling-3.1-flash"},{"id":"text-embedding-v4"},{"id":"qwen-plus"},{"id":"qwen-max"}]}""",
+        """{"object":"list","data":[{"id":"vendor/first-chat"},{"id":"text-embedding-v4"},{"id":"vendor/second-chat"},{"id":"vendor/third-chat"}]}""",
     )
 
     private fun notActivated() = MockResponse().setResponseCode(400).setHeader("Content-Type", "application/json").setBody(

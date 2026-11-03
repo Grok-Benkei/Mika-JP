@@ -24,6 +24,55 @@ private fun args(json: String): JsonObject = Json.parseToJsonElement(json).jsonO
 class IrreversibleDetectorTest {
     private val d = IrreversibleDetector
 
+    @Test fun japaneseCancellationAndDataDeletionLabels() {
+        for ((label, action) in listOf(
+            "取り消す" to IrrevAction.delete, "予約をキャンセル" to IrrevAction.order,
+            "キャンセルする" to IrrevAction.delete, "解約" to IrrevAction.delete,
+            "消去" to IrrevAction.delete, "すべてクリア" to IrrevAction.delete,
+            "初期化" to IrrevAction.delete, "リセット" to IrrevAction.delete,
+            "予約を取り消す" to IrrevAction.order, "データを消去する" to IrrevAction.delete,
+            "設定をリセット" to IrrevAction.delete, "送信を取り消す" to IrrevAction.delete,
+        )) assertEquals(label, action, d.matchName(label))
+    }
+
+    @Test fun japaneseConfirmationQuestionsHaveTheirConcreteAction() {
+        for ((question, action) in listOf(
+            "この予約を取り消しますか？" to IrrevAction.order,
+            "この注文をキャンセルしますか？" to IrrevAction.order,
+            "データを消去しますか？" to IrrevAction.delete,
+            "この設定をリセットしてもよろしいですか？" to IrrevAction.delete,
+        )) {
+            val dialog = snap(
+                el("@e1", question, listOf(0, 300, 999, 400), clickable = false),
+                el("@e2", "はい", listOf(500, 500, 999, 600)),
+                el("@e3", "キャンセル", listOf(0, 500, 450, 600)),
+            )
+            assertEquals(question, action, d.classify("phone_tap", args("""{"ref":"@e2","snapshotId":"s1"}"""), dialog)?.action)
+            assertNull(question, d.classify("phone_tap", args("""{"ref":"@e3","snapshotId":"s1"}"""), dialog))
+        }
+    }
+
+    @Test fun cancellationNegationsHistoryAndSettingsRemainHarmless() {
+        for (label in listOf("キャンセル", "取り消さない", "キャンセルしない", "予約をキャンセルしない", "解約しない", "消去しません",
+            "初期化しない", "リセットしない", "送信履歴", "削除履歴", "解約履歴", "解約方法", "初期化設定", "リセットの説明", "予約キャンセル履歴")) {
+            assertNull(label, d.matchName(label))
+            val dialog = snap(el("@e1", label, listOf(0, 300, 999, 400), clickable = false), el("@e2", "はい", listOf(500, 500, 999, 600)))
+            assertNull(label, d.classify("phone_tap", args("""{"ref":"@e2","snapshotId":"s1"}"""), dialog))
+        }
+    }
+
+    @Test fun clearRecordAndListLabelsRetainChineseCompatibility() {
+        for (label in listOf("清空记录", "清空列表", "清空記錄")) assertEquals(label, IrrevAction.delete, d.matchName(label))
+        for (label in listOf("已清空记录", "清空记录说明", "清空列表入口", "送信履歴", "送信一覧")) assertNull(label, d.matchName(label))
+    }
+
+    @Test fun yenAndCurrencyCodesOnConfirmationScreensAreAmounts() {
+        for (amount in listOf("980円", "９８０円", "JPY 980", "980 JPY", "5千円", "1万2千円")) {
+            val dialog = snap(el("@e1", amount, listOf(0, 300, 999, 400), clickable = false), el("@e2", "はい", listOf(500, 500, 999, 600)))
+            assertEquals(amount, IrrevAction.order, d.classify("phone_tap", args("""{"ref":"@e2","snapshotId":"s1"}"""), dialog)?.action)
+        }
+    }
+
     @Test fun chineseSendButton() {
         val s = snap(el("@e1", "发送", listOf(800, 900, 990, 990)), el("@e2", "发送(1)", listOf(0, 0, 100, 100)), el("@e3", "确认支付", listOf(0, 200, 100, 300)))
         assertEquals(Irreversible(IrrevAction.send, "发送"), d.classify("phone_tap", args("""{"ref":"@e1","snapshotId":"s1"}"""), s))
@@ -216,7 +265,7 @@ class IrreversibleDetectorTest {
     // I3: リスト行から開始する十分な長さの水平スワイプ = 削除するスライド
     @Test fun longHorizontalSwipeOnRowIsDelete() {
         val s = snap(el("@e1", "张三 昨天", listOf(0, 300, 999, 400)), el("@e2", "", listOf(0, 0, 999, 999), clickable = false, scrollable = true))
-        assertEquals(Irreversible(IrrevAction.delete, "swipe on 张三 昨天"),
+        assertEquals(Irreversible(IrrevAction.delete, "スワイプ: 「张三 昨天」"),
             d.classify("phone_swipe", args("""{"startX":900,"startY":350,"endX":300,"endY":350}"""), null, s))
         assertNull("スワイプが短すぎます", d.classify("phone_swipe", args("""{"startX":900,"startY":350,"endX":600,"endY":350}"""), null, s))
         assertNull("縦方向のスワイプです", d.classify("phone_swipe", args("""{"startX":500,"startY":800,"endX":500,"endY":200}"""), null, s))

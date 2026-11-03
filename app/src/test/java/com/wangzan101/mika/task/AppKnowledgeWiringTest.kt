@@ -28,7 +28,7 @@ class AppKnowledgeWiringTest {
     @get:Rule val texts = ChineseTexts()
 
     @get:Rule val tmp = TemporaryFolder()
-    private val knowledge = KnowledgeStore(KnowledgeStore.loadBundled())
+    private val knowledge = KnowledgeStore(com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.entries())
     private val facts = "- 首页顶部的搜索框进入搜索页,结果分商品和用户两个标签。"
     private val more = "$facts\n- 「我的」页里的「我发布的」列出自己挂出的商品。"
     private val unreviewed = TaskState.Succeeded("已查看", verified = false, reviewed = false)
@@ -51,7 +51,7 @@ class AppKnowledgeWiringTest {
 
     private var seq = 0
     private fun learning(files: AppKnowledgeFiles, model: TextModel, learn: Boolean = true) = RunLearning(MemorySwitches(learnSkills = learn), null, MapSkills(),
-        GuideCatalog.loadBundled(), null, null, { "d${++seq}" }, appDrafter = AppKnowledgeDrafter(model), appDrafts = files)
+        com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog(), null, null, { "d${++seq}" }, appDrafter = AppKnowledgeDrafter(model), appDrafts = files)
 
     @Test fun draftRequiresApprovalThenDoneTrialVerifies() = runBlocking {
         val files = AppKnowledgeFiles(tmp.root)

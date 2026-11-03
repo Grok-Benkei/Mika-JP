@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="models_other_regions">他のリージョン</string>
+    <string name="models_other_regions">中国系を表示（任意）</string>
+    <string name="models_china_optional_note">中国系サービスは標準では使用しません。海外リージョンも含め、利用する場合だけ接続先とモデルを明示して設定してください。</string>
+    <string name="model_no_automatic_candidate">自動選択できるモデル候補がありません。この接続先のモデル一覧から手動で選択するか、モデルIDを入力してください。</string>
     <string name="about_upstream">元のプロジェクト（Mika）</string>
 </resources>

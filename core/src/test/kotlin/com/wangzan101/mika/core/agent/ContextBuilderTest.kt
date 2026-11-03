@@ -254,8 +254,8 @@ class RuntimeStateHistoryTest {
 /** すべてのスキルが開始時にリストされています。関連するスキルを持つアプリがフロントデスクに到達すると、スキルインデックスは追加されなくなり、開始コピーは変更されません。 */
 class ForegroundAddsNoSkillsIndexTest {
     @Test fun foregroundAppAddsNoSkillLines() = runBlocking {
-        val catalog = com.wangzan101.mika.core.knowledge.GuideCatalog.loadBundled()
-        val store = com.wangzan101.mika.core.knowledge.KnowledgeStore(com.wangzan101.mika.core.knowledge.KnowledgeStore.loadBundled())
+        val catalog = com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog()
+        val store = com.wangzan101.mika.core.knowledge.KnowledgeStore(com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.entries())
         val screen = object : com.wangzan101.mika.core.uistate.ScreenPort by FakeScreen() {
             override suspend fun snapshot() = com.wangzan101.mika.core.uistate.ScreenSnapshot("s", "com.tencent.mm", emptyList(), 1080, 2400)
         }

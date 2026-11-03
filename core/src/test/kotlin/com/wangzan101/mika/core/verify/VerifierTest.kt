@@ -45,6 +45,7 @@ class VerifierTest {
             assertEquals(verdict, checked.verdict)
             assertEquals(check, checked.checks.single())
             assertEquals("検証モデルから日本語の理由説明が得られませんでした。", checked.reason)
+            assertEquals(english, checked.feedbackReason)
         }
     }
 

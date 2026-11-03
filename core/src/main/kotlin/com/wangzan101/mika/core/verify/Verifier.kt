@@ -49,7 +49,10 @@ data class Verification(
     val reason: String,
     val groundedBy: String? = null,
     val notFound: List<String> = emptyList(),
+    /** 表示文を日本語へ置き換えた場合の原文。作業モデルへの修正指示にだけ使う。 */
+    val originalReason: String? = null,
 ) {
+    val feedbackReason: String get() = originalReason ?: reason
     /** 基準が満たされていません。ベリファイアが失敗した場合に示された理由を使用しますが、どの理由であるかは示されていません。 */
     val unmet: List<String>
         get() = checks.filter { it.status == "unmet" }.map { it.criterion }.ifEmpty { if (verdict == Verdict.Fail) listOf(reason) else emptyList() }
@@ -132,9 +135,8 @@ class Verifier(
                 Asked.TimedOut -> return cannot("検証がタイムアウトしました")
             }
         }
-        val v = if (original.reason.isBlank() || JapaneseOutput.isJapaneseProse(original.reason)) original
-            else original.copy(reason = "検証モデルから日本語の理由説明が得られませんでした。")
-        return when (v.verdict) {
+        val v = original
+        val result = when (v.verdict) {
             Verdict.Pass -> when {
                 // 各規格を一つ一つチェックしないパスはカウントされません。
                 v.checks.size < criteria.items.size -> v.copy(verdict = Verdict.CannotVerify, reason = NOT_EVERY_CRITERION)
@@ -146,6 +148,8 @@ class Verifier(
                 else if (v.reason.isBlank()) v.copy(reason = FAIL_WITHOUT_REASON) else v
             Verdict.CannotVerify -> v
         }
+        return if (result.reason.isBlank() || JapaneseOutput.isJapaneseProse(result.reason)) result
+            else result.copy(reason = "検証モデルから日本語の理由説明が得られませんでした。", originalReason = result.reason)
     }
 
     private fun cannot(reason: String) = Verification(Verdict.CannotVerify, emptyList(), reason)

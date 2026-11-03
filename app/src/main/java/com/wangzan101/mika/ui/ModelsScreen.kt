@@ -334,6 +334,9 @@ fun ProviderDetailContent(ui: ModelSetupUi, p: Provider, actions: ProviderDetail
             }
         }
         (state as? ListState.Failed)?.let { FooterNote(ModelSetupCopy.failed(it.message), color = c.bad) }
+        if (ui.pickToProbe == p.id) {
+            ui.probeNote?.let { FooterNote(it, Modifier.testTag("provider-selection-note"), color = c.warn) }
+        }
 
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             GroupLabel(ModelsCopy.MODELS, Modifier.weight(1f))

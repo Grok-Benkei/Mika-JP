@@ -41,6 +41,48 @@ class ProviderStoreTest {
         FakeModel(cfg.capabilities)
     }
 
+    @Test fun explicitSelfHostedIntentSurvivesReloadAndNameChanges() {
+        val s = store()
+        val p = s.connect("Ollama", ProviderConfig.Kind.OpenAiCompat, "https://models.example.com/v1", "test-key", emptyList(), explicitSelfHosted = true)
+        assertTrue(p.explicitSelfHosted)
+        // 同じ接続を再検査しても、本人が選んだ自己ホストの意図を消さない。
+        assertTrue(s.connect(p.name, p.kind, p.baseUrl, null, emptyList()).explicitSelfHosted)
+        val file = File(tmp.root, "providers.json")
+        file.writeText(file.readText().replace("\"name\":\"Ollama\"", "\"name\":\"My renamed models\""))
+        val reloaded = store().provider(p.id)!!
+        assertEquals("My renamed models", reloaded.name)
+        assertTrue(reloaded.explicitSelfHosted)
+        assertTrue(ModelOptions.allowsChineseModels(reloaded))
+    }
+
+    @Test fun newOrdinaryProxyDoesNotBecomeSelfHostedAfterReload() {
+        val s = store()
+        val p = s.connect("Ollama", ProviderConfig.Kind.OpenAiCompat, "https://relay.example.com/v1", "test-key", emptyList())
+        assertFalse(p.explicitSelfHosted)
+        assertFalse(store().provider(p.id)!!.explicitSelfHosted)
+        assertFalse(ModelOptions.allowsChineseModels(store().provider(p.id)!!))
+    }
+
+    @Test fun oldJsonInfersOnlyRecognisedSelfHostedPresetsAndKeepsProxyDefaultsFalse() {
+        File(tmp.root, "providers.json").writeText(
+            """{"services":[
+                {"id":"old-local","name":"Ollama","kind":"OpenAiCompat","baseUrl":"https://model-host.example.com/v1"},
+                {"id":"old-proxy","name":"Gateway","kind":"OpenAiCompat","baseUrl":"https://relay.example.com/v1"},
+                {"id":"known-cloud","name":"Ollama","kind":"OpenAiCompat","baseUrl":"https://openrouter.ai/api/v1"},
+                {"id":"explicit-false","name":"Ollama","kind":"OpenAiCompat","baseUrl":"https://other-host.example.com/v1","explicitSelfHosted":false},
+                {"id":"malformed","name":"Ollama","kind":"OpenAiCompat","baseUrl":"https://third-host.example.com/v1","explicitSelfHosted":{}}
+            ],"providers":[],"uses":{}}""",
+        )
+        val loaded = store()
+        assertTrue(loaded.provider("old-local")!!.explicitSelfHosted)
+        assertFalse(loaded.provider("old-proxy")!!.explicitSelfHosted)
+        assertFalse(loaded.provider("known-cloud")!!.explicitSelfHosted)
+        assertFalse(loaded.provider("explicit-false")!!.explicitSelfHosted)
+        assertFalse(loaded.provider("malformed")!!.explicitSelfHosted)
+        assertTrue(store().provider("old-local")!!.explicitSelfHosted)
+        assertFalse(store().provider("old-proxy")!!.explicitSelfHosted)
+    }
+
     private fun cfg(id: String, tools: Boolean = true, vision: Boolean = false) = ProviderConfig(
         id = id, kind = ProviderConfig.Kind.OpenAiCompat, baseUrl = "https://example.test/v1", model = "m-$id",
         capabilities = Capabilities(toolCalls = tools, vision = vision, contextTokens = 64_000, reasoning = false),

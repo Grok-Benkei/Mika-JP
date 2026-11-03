@@ -35,6 +35,15 @@ object ReadmeSections {
     fun presets(source: String): List<Preset> =
         PRESET.findAll(source).map { Preset(it.groupValues[1], it.groupValues[2], it.groupValues[3]) }.toList()
 
+    /** 画面と同じ除外リストを読み、標準で表示する接続先だけをREADMEへ載せる。 */
+    fun recommendedPresets(source: String): List<Preset> {
+        val optional = Regex("""private val chinaServiceLabels = setOf\((.*?)\)""", RegexOption.DOT_MATCHES_ALL)
+            .find(source)?.groupValues?.get(1)
+            ?: error("中国系サービスの任意表示リストがProviderPresetsに見つかりません")
+        val labels = Regex("\"([^\"]+)\"").findAll(optional).map { it.groupValues[1] }.toSet()
+        return presets(source).filterNot { it.label in labels }
+    }
+
     private fun kindName(kind: String) = when (kind) { "OpenAiCompat" -> "OpenAI互換"; "OpenAiResponses" -> "OpenAI Responses"; else -> kind }
     private fun kindNameEn(kind: String) = when (kind) { "OpenAiCompat" -> "OpenAI互換"; "OpenAiResponses" -> "OpenAI Responses"; else -> kind }
 
@@ -75,7 +84,7 @@ object ReadmeSections {
         val index = KnowledgeIndex.build(File(root, RESOURCES))
         check(index.errors.isEmpty()) { "内蔵ナレッジの検証に失敗しました:\n" + index.errors.joinToString("\n") }
         val presetSource = File(root, PRESETS_SOURCE).readText(Charsets.UTF_8)
-        val presets = presets(presetSource)
+        val presets = recommendedPresets(presetSource)
         check(presets.isNotEmpty()) { "$PRESETS_SOURCE にProviderPresetが見つかりません" }
         run {
             fun names(kind: String) = index.entries.filter { it.kind == kind }.joinToString("、") { it.display }
@@ -85,7 +94,7 @@ object ReadmeSections {
             val labels = Regex("\"([^\"]+)\"\\s*->\\s*\"([^\"]+)\"").findAll(presetSource)
                 .associate { it.groupValues[1] to it.groupValues[2] }
             val providers = listOf(NOTE_EN, presets.filter { it.baseUrl.isNotEmpty() }
-                .joinToString("、") { labels[it.label] ?: it.label } + "を内蔵しています。その他は「カスタム」で接続できます。中国本土向けは「他のリージョン」に表示します。")
+                .joinToString("、") { labels[it.label] ?: it.label } + "を標準候補として用意しています。中国系サービスは海外リージョンも含め標準候補から外し、必要な場合だけ「中国系を表示（任意）」から選べます。その他は「カスタム」で接続できます。")
                 .joinToString("\n")
             return mapOf(KNOWLEDGE to knowledge, PROVIDERS to providers)
         }

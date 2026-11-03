@@ -6,7 +6,7 @@ import java.lang.Character.UnicodeScript
  * 最終回答が日本語かどうかを判定する:文字の書記体系(Unicode script)を中心に判定し、短い中国語の文章は補助の文型でも見分ける。モデル呼び出しは行わない純粋関数。
  * 目標言語は常時日本語であり、ユーザーの入力言語(英語・中国語など)には従わない。
  *
- * 漢字と仮名は合わせて数え、仮名の割合が [KANA_SHARE] 以上なら日本語、そうでなければ中国語とする。ハングルは韓国語。
+ * 仮名を含む漢字の文は日本語とする。漢字だけの名前・住所・ラベルは長さだけでは中国語と決めず、明確な中国語の文型がある場合に判定する。ハングルは韓国語。
  * ラテン、キリル、アラビアなどはそれぞれ別の語族とする。数字、句読点、空白、Markdown記号は数えない。
  *
  * 書記体系間の公平性:中国語・日本語は空白で区切らないため1文字を1単位とし、それ以外は単語単位で数える
@@ -14,7 +14,7 @@ import java.lang.Character.UnicodeScript
  * 小文字を含まないラテン／キリルの単語(GB、OS、型番などの略語・単位)は数えない。
  *
  * 回答で数えない部分:各種引用符内(「」『』“”"" 《》)、括弧内、バッククォート内のコード、URL、山括弧タグ。
- * これらは原文の引用であり保持すべきものとする。また、短い固有名詞や識別子だけのセルは数えない。
+ * これらは原文の引用であり保持すべきものとする。また、漢字の固有名詞・住所や識別子だけのセルは数えない。
  * 外国語の名前だけを列挙した回答を言語不一致と判定しないためである。
  *
  * 不一致と判定する条件:引用などを除いたいずれかの行・セルで、最頻語族が [MISMATCH_SHARE] 以上を占め、
@@ -27,7 +27,6 @@ internal object ReplyLanguage {
     const val MIN_ANSWER_UNITS = 1
     const val MISMATCH_SHARE = 0.6
     const val NAME_UNITS = 6
-    const val KANA_SHARE = 0.1
 
     /** 語族。[display] はモデルへの通知文に差し込む日本語名。 */
     data class Family(val display: String)
@@ -73,10 +72,9 @@ internal object ReplyLanguage {
         for (cell in text.split(CELL)) {
             val runs = runsOf(cell).filter { it.units > 0 }
             if (skipNames && isName(cell, runs)) continue
-            val han = runs.filter { it.key == HAN }.sumOf { it.units }
             val kana = runs.filter { it.key == KANA }.sumOf { it.units }
-            // 表の一部や短い導入の仮名だけで、中国語の別段落まで日本語と判定しない。
-            val cjk = if (kana > 0 && kana >= (han + kana) * KANA_SHARE) JAPANESE else CHINESE
+            // 住所などは仮名が少なくても日本語。別の文・段落の中国語はセルを分けて判定する。
+            val cjk = if (kana > 0) JAPANESE else CHINESE
             for (r in runs) {
                 val family = when (r.key) {
                     HAN, KANA -> cjk
@@ -89,11 +87,14 @@ internal object ReplyLanguage {
         return out
     }
 
-    /** 名前と文章の境界が不明な短い漢字列は保持する。明確な中国語表現や外国語の文は除外しない。 */
+    /** 漢字だけの名称・住所・ラベルは長さや句読点で排除しない。明確な中国語の文型や外国語の文は判定対象に残す。 */
     private fun isName(cell: String, runs: List<Run>): Boolean {
         if (runs.isEmpty()) return true
         val plain = cell.trim().trimStart('-', '*', '#', ' ', '\t').trim()
         if (IDENTIFIER.matches(plain)) return true
+        if (runs.any { it.key == HAN } && runs.all { it.key == HAN || it.key == UnicodeScript.LATIN.name } &&
+            !CHINESE_PROSE.containsMatchIn(plain) &&
+            Regex("[A-Za-z]+").findAll(plain).all { word -> word.value.any(Char::isUpperCase) }) return true
         if (runs.sumOf { it.units } > NAME_UNITS) return false
         if (runs.size != 1) {
             return runs.all { it.key == HAN || it.key == UnicodeScript.LATIN.name } &&
@@ -192,12 +193,17 @@ internal object ReplyLanguage {
     private const val HAN = "HAN"
     private const val KANA = "KANA"
 
-    /** 行、表のセル、読点で区切った並列項目をそれぞれ1セルとする。 */
-    private val CELL = Regex("[\\n|、]")
+    /** 行、表のセル、文、読点で区切った並列項目をそれぞれ1セルとする。名前やバージョン内の半角ピリオドは分けない。 */
+    private val CELL = Regex("[\\n|、]|(?<=[。！？])")
     private val IDENTIFIER = Regex("[A-Za-z_](?:[A-Za-z0-9_.:/@+\\-]*[A-Za-z0-9_])?")
     private val SENTENCE_PUNCTUATION = Regex("[.!?。！？:：;；]")
     private val CHINESE_PROSE = Regex(
-        "已经|已經|已[完成停打开关開關付支发發写寫读讀查]|不能|可以|不要|不用|正在|无法|無法|没有|沒有|需要|你好|抱歉|这是|這是|我[已会會能要想先来來]|我打开|帮[我你]|打开了|找到了|找不到|看不到|等完了|完成了|成功了|失败了|^(?:请|請|选哪个|選哪個|哪个|哪個|选一个|選一個|怎么|怎麼|什么|什麼|有没有|有沒有|是否|卡住)|[吗呢吧]$" +
+        "已经|已經|已[完成停打开关開關付支发發写寫读讀查]|正在|无法|没有|沒有|你好|抱歉|这是|這是|我[已会會能要想先来來]|我打开|帮[我你]|打开了|找到了|找不到|看不到|等完了|完成了|成功了|失败了|请|請(?:你|您|用|先|把|給|幫|勿|在|去|問|看|回答|打開)|选哪个|選哪個|哪个|哪個|选一个|選一個|怎么|怎麼|什么|什麼|有没有|有沒有|是否|卡住|[吗嗎呢吧][.!?。！？\\s]*$" +
+            "|已(?:提交|更新|设置|設置|送达|送達|发货|發貨|到账|到賬|取消)" +
+            "|该[^\\n。！？]{1,40}(?:的[^\\n。！？]{1,40})?(?:为|是)" +
+            "|(?:价格|库存)(?:为|是|有|充足|不足)|(?:预计|預計)(?:今天|明天|后天|後天)[^\\n。！？]{0,12}(?:送达|送達|到达|到達)" +
+            "|(?:不能|可以|不要|不用|需要|無法)(?:再|先|把|给|給|帮|幫|您|你|我|登录|登入|登錄|打开|打開|付款|支付|继续|繼續|等待|选择|選擇|点击|點擊|执行|執行)" +
+            "|(?:我|你|您)(?:不能|可以|需要|不[会會能想要]|没|沒)" +
             "|^(?:好[的了]|收到|知道了|明白了|谢谢|謝謝|是的)(?=[，,。.!！?？\\s]|$)" +
             "|好了" +
             "|(?:看|做|读|讀|等|写|寫|处理|處理|办|辦|查)完了" +

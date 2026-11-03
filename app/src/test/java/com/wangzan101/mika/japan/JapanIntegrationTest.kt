@@ -8,13 +8,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class JapanIntegrationTest {
-    @Test fun internationalPresetsAreSeparateFromMainlandKeys() {
+    @Test fun chineseServicesAreOptionalIncludingTheirOverseasEndpoints() {
         assertEquals("OpenAI", ProviderPresets.recommended.first().label)
         mapOf("Qwen Global" to "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
             "Kimi Global" to "https://api.moonshot.ai/v1", "MiniMax Global" to "https://api.minimax.io/v1").forEach { (label, url) ->
-            assertEquals(label, url, ProviderPresets.recommended.single { it.label == label }.baseUrl)
+            assertEquals(label, url, ProviderPresets.otherRegions.single { it.label == label }.baseUrl)
             assertEquals(label, ProviderPresets.forBaseUrl(url)?.label)
         }
+        val chinese = setOf("DeepSeek", "Qwen Global", "Kimi Global", "MiniMax Global", "阶跃星辰", "通义千问", "Kimi", "智谱", "智谱 Coding Plan", "硅基流动", "火山方舟", "MiniMax", "腾讯混元", "百度千帆")
+        assertTrue(ProviderPresets.recommended.none { it.label in chinese })
+        assertEquals(chinese, ProviderPresets.otherRegions.map { it.label }.toSet())
         assertTrue(ProviderPresets.otherRegions.any { it.label == "Kimi" && it.baseUrl == "https://api.moonshot.cn/v1" })
         assertTrue(ProviderPresets.recommended.intersect(ProviderPresets.otherRegions.toSet()).isEmpty())
         assertEquals(ProviderPresets.all.toSet(), (ProviderPresets.recommended + ProviderPresets.otherRegions).toSet())

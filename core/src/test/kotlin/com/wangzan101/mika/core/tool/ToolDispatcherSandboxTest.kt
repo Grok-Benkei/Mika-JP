@@ -144,7 +144,7 @@ class ToolDispatcherSandboxTest {
     // サンドボックスの準備ができたら個人スキルを表示します: スクリプトをリストせずに、通常どおりテキストに戻ります (個人スキルはサンドボックスのスキル ディレクトリにありません)
     @Test fun personalSkillViewWithSandboxReady() = runTest {
         val catalog = com.wangzan101.mika.core.knowledge.GuideCatalog.withPersonal(
-            com.wangzan101.mika.core.knowledge.GuideCatalog.loadBundled(),
+            com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog(),
             com.wangzan101.mika.core.skills.InMemoryPersonalSkills(com.wangzan101.mika.core.skills.personalSkill("my-trip")),
         )
         val d = toolDispatcher(FakeScreen(), false, catalog, sandbox = sb, workspace = { "conv1" })

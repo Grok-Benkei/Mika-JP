@@ -48,7 +48,7 @@ class ToolNamesInTextTest {
     }
 
     private fun commandMentions(resources: File): List<String> {
-        val runnable = GuideCatalog.loadBundled().runnableScripts()
+        val runnable = com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog().runnableScripts()
         val byFileName = runnable.map { it.substringAfterLast('/') }.toSet()
         val allowed = known + allTools().flatMap { it.def.props.keys } + KnowledgeIndex.KEYS
         val bad = mutableListOf<String>()

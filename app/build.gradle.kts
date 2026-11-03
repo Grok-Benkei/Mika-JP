@@ -18,8 +18,8 @@ android {
         applicationId = "jp.studioyebisu.mika"
         minSdk = 30
         targetSdk = 35
-        versionCode = 34
-        versionName = "0.1.33-jp.1"
+        versionCode = 35
+        versionName = "0.1.33-jp.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "GIT_HASH", "\"$gitHash\"")
         // 「バージョン情報」ページのバージョン番号の後のベータ マーク。正式版がリリースされたら false に変更します
@@ -119,4 +119,5 @@ dependencies {
 // LicensesTest は、ウェアハウスのライセンス/THIRD_PARTY_NOTICES.md を読み取ります。テストの増分判定に参加させます。
 tasks.withType<Test>().configureEach {
     inputs.file(rootProject.file("licenses/THIRD_PARTY_NOTICES.md")).withPropertyName("thirdPartyNotices")
+    inputs.dir(rootProject.file("optional/china")).withPropertyName("optionalChinaFixtures")
 }

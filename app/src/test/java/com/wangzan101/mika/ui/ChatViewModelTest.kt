@@ -350,6 +350,28 @@ class ChatViewModelTest {
         assertEquals("没有依据" to null, answerParts("没有依据"))
     }
 
+    @Test fun evidenceHeadingsAcceptJapaneseAndLegacyAliasesWithoutChangingTheBody() {
+        val body = "# 回答\n\n結果は「確認済み」です。\n\n- ID: sample-42\n- 更新日: 2026-11-03"
+        for (heading in listOf("根拠", "出典", "依据", "证据", "来源")) {
+            assertEquals(heading, body to "確認したページ", splitEvidence("$body\n\n## **$heading**： 確認したページ"))
+        }
+        assertEquals("回答です。" to "確認したページ", splitEvidence("回答です。根拠: 確認したページ"))
+        assertEquals("回答です！" to "確認したページ", splitEvidence("回答です！出典：確認したページ"))
+    }
+
+    @Test fun ordinaryEvidenceWordsAndIncompleteBlocksStayInTheBody() {
+        val body = "# 出典について\n根拠の説明も本文です。\n価格: 500円"
+        assertEquals(body to null, splitEvidence(body))
+        for (heading in listOf("根拠", "出典")) {
+            val quoted = "ラベルは「$heading: 未確認777」です。"
+            assertEquals(quoted to null, splitEvidence(quoted))
+        }
+        assertEquals("回答です。\n根拠:" to null, splitEvidence("回答です。\n根拠:"))
+        assertEquals("出典: 確認したページ" to null, splitEvidence("出典: 確認したページ"))
+        val answer = "回答です。\n根拠: 本文中の案内"
+        assertEquals(answer to "記録された出典", answerParts(answer, evidence = "記録された出典"))
+    }
+
     // 新しいレコード: ソースは証拠台帳 (ソース イベント) のコードによって検出され、1 つずつリストされます。画像はこれらを読み取るステップを示しています。
     @Test fun evidenceSourceUsesRecordedSources() {
         val events = listOf(

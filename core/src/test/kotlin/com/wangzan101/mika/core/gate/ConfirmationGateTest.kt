@@ -35,6 +35,39 @@ class ConfirmationGateTest {
         assertTrue(approved(req(IrrevAction.send, "com.a")).permits(hit(IrrevAction.send), null, 2) is Permit.Mismatch)
     }
 
+    @Test fun unscaledYenUnitsCannotBeComparedAsSingleYen() {
+        for ((declared, visible) in listOf("1円" to "￥1万円", "1万円" to "1円", "10000円" to "1万円", "1万円" to "1万円", "９万円" to "９円", "1円" to "JPY 1万",
+            "2000円" to "1万2000円", "2000円" to "1万2,000円", "1万2000円" to "1円", "１万２，０００円" to "1円", "5円" to "￥5千円", "2000円" to "1万2千円")) {
+            val r = ConfirmationRequest(IrrevAction.order, "商品", "注文", declared, "com.a")
+            val page = ScreenSnapshot("s", "com.a", listOf(el("商品", top = 100), el(visible, top = 800)), 1080, 2400)
+            val gate = approved(r)
+            assertTrue("申告 $declared / 表示 $visible", gate.permits(hit(IrrevAction.order), page, 2) is Permit.Mismatch)
+            assertEquals(Permit.NoGrant, gate.permits(hit(IrrevAction.order), page, 2))
+        }
+        val r = ConfirmationRequest(IrrevAction.order, "商品", "注文", "980円", "com.a")
+        val normal = ScreenSnapshot("s", "com.a", listOf(el("商品", top = 100), el("￥980", top = 800), el("1万円", editable = true, top = 300)), 1080, 2400)
+        assertEquals(Permit.Allowed, approved(r).permits(hit(IrrevAction.order), normal, 2))
+    }
+
+    @Test fun unscaledYenSplitAcrossNodesStillRejectsAnUnderstatedGrant() {
+        for ((declared, parts) in listOf("1円" to listOf("￥1", "万円"), "1円" to listOf("1", "万", "円"), "1円" to listOf("JPY", "1", "万"),
+            "2000円" to listOf("1万", "2000円"), "2000円" to listOf("1万", "2,000円"), "2000円" to listOf("1万", "2千円"))) {
+            val elements = parts.mapIndexed { i, part -> el(part, top = 800).copy(bounds = listOf(i * 120, 800, i * 120 + 100, 860)) }
+            val page = ScreenSnapshot("s", "com.a", listOf(el("商品", top = 100)) + elements, 1080, 2400)
+            val r = ConfirmationRequest(IrrevAction.order, "商品", "注文", declared, "com.a")
+            assertTrue(parts.toString(), approved(r).permits(hit(IrrevAction.order), page, 2) is Permit.Mismatch)
+        }
+    }
+
+    @Test fun reviewCountsWithJapaneseNumberUnitsAreNotYenAmounts() {
+        for (parts in listOf(listOf("1万2000件のレビュー", "￥980"), listOf("1万", "2000件のレビュー", "￥980"), listOf("1万2千件のレビュー", "980円"))) {
+            val elements = parts.mapIndexed { i, part -> el(part, top = 800).copy(bounds = listOf(i * 120, 800, i * 120 + 100, 860)) }
+            val page = ScreenSnapshot("s", "com.a", listOf(el("商品", top = 100)) + elements, 1080, 2400)
+            val r = ConfirmationRequest(IrrevAction.order, "商品", "注文", "980円", "com.a")
+            assertEquals(parts.toString(), Permit.Allowed, approved(r).permits(hit(IrrevAction.order), page, 2))
+        }
+    }
+
     // 検証のために送信する連絡先またはアプリケーションのボタンを押します。オブジェクト (役職、会社) は画面上のどこにでもあり、検証する入力ボックスのテキストはありません。
     @Test fun contactButtonApprovalChecksTargetOnScreen() {
         val page = ScreenSnapshot("s", "www.jobs.example", listOf(el("产品经理 · 某公司", top = 400), el("¥25", top = 430), el("立即沟通", top = 460)), 1080, 2400)

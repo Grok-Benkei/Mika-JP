@@ -12,7 +12,10 @@ object SkillRedactor {
 
     private val QUOTED = listOf("「", "」", "『", "』", "“", "”", "\"", "\"", "‘", "’", "《", "》")
         .chunked(2).map { (open, close) -> Regex(Regex.escape(open) + "([^" + Regex.escape(close) + "\\n]+)" + Regex.escape(close)) }
-    private val AMOUNT = Regex("[¥$]\\s*\\d+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?\\s*(?:元|块钱|块|万元|万|美元)")
+    /** NFKC 正規化後の金額。円は明示的な通貨単位として認識し、英数字の識別子の途中を拾わない。 */
+    private val AMOUNT = Regex(
+        "[¥$]\\s*\\d+(?:\\.\\d+)?|(?<![A-Za-z0-9_])\\d+(?:\\.\\d+)?\\s*[千万億兆]?円|\\d+(?:\\.\\d+)?\\s*(?:元|块钱|块|万元|万|美元)",
+    )
     private val DIGITS = Regex("\\d{2,}")
     private val ONLY_DIGITS = Regex("\\d+")
     private val PIECE_SPLIT = Regex("[\\s,.:;!?、。·]+")

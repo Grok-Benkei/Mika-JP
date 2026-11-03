@@ -146,6 +146,8 @@ data class Provider(
     val contextSettings: Map<String, ModelContextSettings> = emptyMap(),
     /** ユーザーは、特定のモデルを写真で表示できるかどうか (モデル名で)、比率リストとプリセット初期値カウントの両方を表示できるかどうかを述べました。[ModelOptions.seesImages] を参照してください。 */
     val visionOverrides: Map<String, Boolean> = emptyMap(),
+    /** 自己ホストのプリセットを本人が選択した意図。モデル系列や接続先の名前変更とは分けて保持する。 */
+    val explicitSelfHosted: Boolean = false,
 ) {
     val key: String get() = ProviderConnection.keyOf(kind, baseUrl, name)
 
@@ -366,6 +368,7 @@ class ProviderStore(
         signIn: String? = null,
         typed: Set<String> = emptySet(),
         untested: Boolean = false,
+        explicitSelfHosted: Boolean = false,
     ): Provider {
         val found = findOrAddProvider(name, kind, baseUrl, signIn)
         // テストをスキップするときに保存するリストがありません。以前にリストされたリストを保持してください。既存のリストを隠すために空のテーブルを使用しないでください。
@@ -375,6 +378,7 @@ class ProviderStore(
             verifiedModels = found.verifiedModels + verified, typedModels = found.typedModels + typed,
             // は今回はテストされていません。この会社はモデルを検証しておらず、リストも作成していないため、「テストされていません」です。それ以外の場合は、テスト済みとみなされなければなりません。
             savedUntested = untested && verified.isEmpty() && found.verifiedModels.isEmpty() && listed.isEmpty(),
+            explicitSelfHosted = found.explicitSelfHosted || explicitSelfHosted,
         )
         _providers.value = _providers.value.map { if (it.id == p.id) p else it }
         if (apiKey != null) setKey(p.id, apiKey)
@@ -802,10 +806,10 @@ class ProviderStore(
         }
     }
 
-    private fun findOrAddProvider(name: String, kind: ProviderConfig.Kind, baseUrl: String, signIn: String? = null): Provider {
+    private fun findOrAddProvider(name: String, kind: ProviderConfig.Kind, baseUrl: String, signIn: String? = null, explicitSelfHosted: Boolean = false): Provider {
         val key = ProviderConnection.keyOf(kind, baseUrl, name)
         _providers.value.firstOrNull { it.key == key && it.signIn == signIn }?.let { return it }
-        val p = Provider(newId(), name.trim(), kind, baseUrl.trim(), signIn = signIn)
+        val p = Provider(newId(), name.trim(), kind, baseUrl.trim(), signIn = signIn, explicitSelfHosted = explicitSelfHosted)
         _providers.value = _providers.value + p
         return p
     }
@@ -870,7 +874,9 @@ class ProviderStore(
             val attachedTo = mutableMapOf<String, Provider>()
             orphans.groupBy { ProviderConnection.keyOf(it.kind, it.baseUrl, ProviderConnection.displayName(it)) }.values.forEach { group ->
                 val first = group.first()
-                val p = findOrAddProvider(ProviderConnection.displayName(first), first.kind, first.baseUrl)
+                val name = ProviderConnection.displayName(first)
+                val p = findOrAddProvider(name, first.kind, first.baseUrl,
+                    explicitSelfHosted = ProviderPresets.legacySelfHostedConnection(name, first.kind, first.baseUrl))
                 group.forEach { attachedTo[it.id] = p }
                 if (p.id !in keys) group.firstNotNullOfOrNull { keys[it.id] }?.let { keys = keys + (p.id to it) }
             }
@@ -907,6 +913,8 @@ class ProviderStore(
         typedModels = o["typedModels"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet().orEmpty(),
         // 旧バージョンにはそのような項目は保存されていません。当時はどの企業も「テストと保存」を経ており、テスト済みとして計算されていました。
         savedUntested = o["untested"]?.jsonPrimitive?.booleanOrNull ?: false,
+        explicitSelfHosted = if ("explicitSelfHosted" in o) (o["explicitSelfHosted"] as? JsonPrimitive)?.booleanOrNull ?: false
+            else ProviderPresets.legacySelfHostedConnection(o.str("name"), ProviderConfig.Kind.valueOf(o.str("kind")), o.str("baseUrl")),
         models = o["models"]?.jsonArray?.map { e ->
             val m = e.jsonObject
             ListedModel(
@@ -977,6 +985,7 @@ class ProviderStore(
                 providers.forEach { p ->
                     addJsonObject {
                         put("id", p.id); put("name", p.name); put("kind", p.kind.name); put("baseUrl", p.baseUrl)
+                        put("explicitSelfHosted", p.explicitSelfHosted)
                         p.sessionHeader?.let { put("sessionHeader", it) }
                         p.signIn?.let { put("signIn", it) }
                         if (p.savedUntested) put("untested", true)

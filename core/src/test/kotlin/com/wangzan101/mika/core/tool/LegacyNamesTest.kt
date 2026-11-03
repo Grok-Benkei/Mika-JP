@@ -78,7 +78,7 @@ class LegacyNamesTest {
 
     @Test fun personalSkillsAndProceduresAreRewrittenWhenLoaded() {
         val md = "---\nname: notes\ndescription: d\n---\n## 步骤\n1. 用 `launch_app` 打开,`tap` 新建"
-        val catalog = GuideCatalog.withPersonal(GuideCatalog.loadBundled(), InMemoryPersonalSkills(PersonalSkill("notes", md, SkillStatus.active, null, null, 0, emptyList())), legacyNames()::rewrite)
+        val catalog = GuideCatalog.withPersonal(com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog(), InMemoryPersonalSkills(PersonalSkill("notes", md, SkillStatus.active, null, null, 0, emptyList())), legacyNames()::rewrite)
         val text = catalog.fullText(catalog.items.first { it.name == "notes" })!!
         assertTrue(text, "`phone_launch_app`" in text && "`phone_tap` / `web_tap`" in text)
         val item = MemoryItem("m1", MemoryKind.procedure, "打开备忘录先 launch_app 再搜索", listOf("备忘录"), MemorySource("manual", atMs = 0), MemoryStatus.active, pinned = true, createdAt = 0, updatedAt = 0)
@@ -109,7 +109,7 @@ class LegacyNamesTest {
 
     // は古い名前で、知識とスキルの 2 つの部分に分かれています。種類または名前の接頭辞で対応するものを選択し、区別できない場合は両方について言及してください。
     @Test fun splitNamesPickByKind() = runTest {
-        val d = toolDispatcher(FakeScreen(), skills = GuideCatalog.loadBundled())
+        val d = toolDispatcher(FakeScreen(), skills = com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog())
         suspend fun message(name: String, args: String) = d.execute(Part.ToolCall("c", name, args)).content["message"]!!.jsonPrimitive.content
         val app = message("find_skills", """{"query":"外卖","kind":"app"}""")
         assertTrue(app, "knowledge_search" in app && "skill_search" !in app)

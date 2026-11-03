@@ -79,7 +79,7 @@ class SkillDrafterTest {
     }
 
     private fun text(s: String) = ModelReply(listOf(Part.Text(s)), StopReason.EndTurn, null)
-    private val bundled = GuideCatalog.loadBundled()
+    private val bundled = com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog()
 
     private fun draft(reply: Any, existing: PersonalSkills = InMemoryPersonalSkills(), model: FakeModel = FakeModel(reply)): DraftResult =
         runBlocking {

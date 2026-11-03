@@ -70,16 +70,71 @@ class ModelOptionsTest {
         assertEquals(listOf("qwen"), qwen)
         assertEquals(
             listOf("qwen-plus", "qwen-max", "Other/Chat", "antdigital/Ling-3.1-flash", "moonshot-v1"),
-            ModelOptions.candidates(options, qwen),
+            ModelOptions.candidates(options, qwen, allowChineseModels = true),
         )
-        assertEquals("qwen-plus", ModelOptions.defaultMain(options, qwen))
-        // どの会社なのか特定できません。インターフェイスには、最初にツールを呼び出すことができ、残りはリストの順序で呼び出せることが明確に記載されています。
-        assertEquals(listOf("antdigital/Ling-3.1-flash", "qwen-plus", "qwen-max", "Other/Chat", "moonshot-v1"), ModelOptions.candidates(options))
+        assertEquals("qwen-plus", ModelOptions.defaultMain(options, qwen, allowChineseModels = true))
+        // 標準の自動選択では中国系モデルを外す。中立なIDでも表示名がQwenなら中国系として扱う。
+        assertEquals(emptyList<String>(), ModelOptions.candidates(options))
         assertEquals(qwen, ModelOptions.familyOf("https://dashscope.aliyuncs.com/compatible-mode/v1/"))
         assertEquals(emptyList<String>(), ModelOptions.familyOf("https://openrouter.ai/api/v1"))
     }
 
-    private fun ids(listed: List<ListedModel>, tokens: List<String>) = ModelOptions.candidates(ModelOptions.merge(listed, base), tokens)
+    @Test fun relayAutomaticCandidatesExcludeKnownChineseModelFamilies() {
+        val chinese = listOf("deepseek/deepseek-v4", "Qwen/Qwen3.5", "z-ai/glm-5", "kimi-k2.7", "minimax-m3", "step-3.5", "tencent/hunyuan", "antdigital/Ling-3.1-flash", "longcat-flash")
+        val options = ModelOptions.merge((chinese + listOf("openai/gpt-6.1-sol", "anthropic/claude-sonnet", "google/gemini-pro")).map { ListedModel(it, toolCalls = true) }, base)
+        assertEquals(listOf("openai/gpt-6.1-sol", "anthropic/claude-sonnet", "google/gemini-pro"), ModelOptions.candidates(options))
+        assertEquals("openai/gpt-6.1-sol", ModelOptions.defaultMain(options))
+        assertEquals("openai/gpt-6.1-sol", ModelOptions.automaticFallback(options))
+    }
+
+    @Test fun automaticFallbackDoesNotRestoreAChineseOnlyList() {
+        val options = ModelOptions.merge(listOf(ListedModel("deepseek-v4", toolCalls = true), ListedModel("qwen3-max", toolCalls = true)), base)
+        assertTrue(ModelOptions.candidates(options).isEmpty())
+        assertEquals(null, ModelOptions.defaultMain(options))
+        assertEquals(null, ModelOptions.automaticFallback(options))
+        // 明示的に中国系プリセットを選んだときは、利用者の選択を保持する。
+        assertEquals("deepseek-v4", ModelOptions.defaultMain(options, listOf("deepseek"), allowChineseModels = true))
+        assertEquals("qwen3-max", ModelOptions.defaultMain(options, listOf("qwen"), allowChineseModels = true))
+        assertEquals(listOf("deepseek-v4", "qwen3-max"), options.map { it.id })
+    }
+
+    @Test fun automaticFallbackNeverSelectsANonChatOrToollessModel() {
+        val options = ModelOptions.merge(listOf(
+            ListedModel("text-embedding-v4"),
+            ListedModel("not-chat", toolCalls = true, chat = false),
+            ListedModel("chat-without-tools", toolCalls = false, chat = true),
+        ), base)
+        assertTrue(ModelOptions.candidates(options).isEmpty())
+        assertEquals(null, ModelOptions.defaultMain(options))
+        assertEquals(null, ModelOptions.automaticFallback(options))
+        assertEquals(null, ModelOptions.defaultMain(options, allowChineseModels = true))
+        assertEquals(null, ModelOptions.automaticFallback(options, allowChineseModels = true))
+        assertEquals(listOf("text-embedding-v4", "not-chat", "chat-without-tools"), options.map { it.id })
+    }
+
+    @Test fun automaticPolicyDoesNotGuessAnUnknownModelFamily() {
+        val options = ModelOptions.merge(listOf(ListedModel("customer-chat", displayName = "社内モデル"), ListedModel("step-by-step-chat")), base)
+        assertEquals(listOf("customer-chat", "step-by-step-chat"), ModelOptions.candidates(options))
+    }
+
+    @Test fun familyRankingDoesNotGrantAnExplicitConnectionOptIn() {
+        val options = ModelOptions.merge(listOf(ListedModel("qwen3-max"), ListedModel("claude-sonnet")), base)
+        assertEquals(listOf("claude-sonnet"), ModelOptions.candidates(options, listOf("qwen")))
+        assertEquals(listOf("qwen3-max", "claude-sonnet"), ModelOptions.candidates(options, listOf("qwen"), allowChineseModels = true))
+    }
+
+    @Test fun relayExcludesKnownNamespacesAndVersionedAliasesWithoutMatchingGenericWords() {
+        val chinese = listOf(
+            "bytedance/ui-tars-1.5-7b", "bytedance-seed/seed-2.0", "xiaomi/mimo-v2.5-pro", "alibaba/tongyi-deepresearch-30b", "inclusionai/ring-1t",
+            "kwaipilot/kat-coder-pro", "01-ai/yi-1.5-34b-chat", "seed-2.0", "mimo-v2.5", "tongyi-2.1", "ring-1t", "kat-2", "yi-1.5",
+        )
+        val neutral = listOf("seed-chat", "mimo-helper", "ring-chat", "kat", "yi", "spring-1.0", "my-seed-2", "custom/ring-chat", "not-alibaba/tongyi-helper", "not-bytedance/ui-tars-1.5")
+        val options = ModelOptions.merge((chinese + neutral).map { ListedModel(it, toolCalls = true) }, base)
+        assertEquals(neutral, ModelOptions.candidates(options))
+        assertEquals(chinese + neutral, ModelOptions.candidates(options, allowChineseModels = true))
+    }
+
+    private fun ids(listed: List<ListedModel>, tokens: List<String>, allowChineseModels: Boolean = false) = ModelOptions.candidates(ModelOptions.merge(listed, base), tokens, allowChineseModels)
 
     /** 独自のモデルは、インターフェイスの順序に関係なく、最新バージョンの順にリストされています。同じバージョンが順番にリストされており、Flash、Pro、Lite のどれが優れているかについてはコメントされていません。 */
     @Test fun ownModelsNewestVersionFirst() {
@@ -92,7 +147,7 @@ class ModelOptionsTest {
             listOf("claude-haiku-4-5-20251001", "claude-opus-4-1-20250805", "claude-3-5-haiku-20241022"),
             ids(listOf("claude-3-5-haiku-20241022", "claude-opus-4-1-20250805", "claude-haiku-4-5-20251001").map { ListedModel(it) }, listOf("claude")),
         )
-        assertEquals(listOf("qwen3-max", "qwen2.5-72b-instruct"), ids(listOf(ListedModel("qwen2.5-72b-instruct"), ListedModel("qwen3-max")), listOf("qwen")))
+        assertEquals(listOf("qwen3-max", "qwen2.5-72b-instruct"), ids(listOf(ListedModel("qwen2.5-72b-instruct"), ListedModel("qwen3-max")), listOf("qwen"), allowChineseModels = true))
     }
 
     /** 同じバージョン: 公式バージョンが最初に来て、次に最新のエイリアスが来て、プレビューとテストのエイリアスが最後に来ます。同じファイル内では、日付のないバージョンが最初に来て、次に新しいバージョンが最初に来ます。 */
@@ -171,10 +226,11 @@ class ModelOptionsTest {
         }
         assertFalse("API が対話モデルと示した場合はその情報を使う", ModelOptions.looksNonChat(opt("my-embed-chat", chat = true)))
         assertTrue(ModelOptions.looksNonChat(opt("x", chat = false)))
-        // はすべて他の用途と同様です。候補はありません。デフォルトのメイン モデルは、メイン モデルとして使用できる最初のモデルに戻ります。
+        // 用途が違うモデルしかない場合は、自動選択の入口を変えてもメインモデルへ設定しない。
         val only = ModelOptions.merge(listOf(ListedModel("text-embedding-v4")), base)
         assertEquals(emptyList<String>(), ModelOptions.candidates(only))
-        assertEquals("text-embedding-v4", ModelOptions.defaultMain(only))
+        assertEquals(null, ModelOptions.defaultMain(only))
+        assertEquals(null, ModelOptions.automaticFallback(only))
     }
 
     @Test fun modelsOnlyReachableByUnsupportedProtocolsAreNotOffered() {

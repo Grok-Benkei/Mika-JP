@@ -52,6 +52,8 @@ internal class AnswerReview(
     class Review(
         val gaps: List<String> = emptyList(), val objections: List<String> = emptyList(), val sources: List<AnswerSource> = emptyList(),
         val reviewed: Boolean = true, val verified: Boolean = true, val note: String? = null, val verdict: Verdict? = null,
+        /** モデルに修正点を返す際は、表示用に置き換える前の検証理由を保持する。 */
+        val modelObjections: List<String> = objections,
     ) {
         val unconfirmed: List<String> get() = (gaps + objections).distinct()
     }
@@ -79,7 +81,8 @@ internal class AnswerReview(
         return when (r.verdict) {
             Verdict.Pass -> Review(sources = sources, verdict = r.verdict)
             // 規格はユーザーのオリジナルの言葉だけです。満たされていない「基準」とは原語そのものであり、明確に記載されているのは検証者が理由を述べたものである。
-            Verdict.Fail -> Review(gaps = gaps, objections = listOf(r.reason).filter(String::isNotBlank), sources = sources, verified = false, verdict = r.verdict)
+            Verdict.Fail -> Review(gaps = gaps, objections = listOf(r.reason).filter(String::isNotBlank), sources = sources, verified = false, verdict = r.verdict,
+                modelObjections = listOf(r.feedbackReason).filter(String::isNotBlank))
             Verdict.CannotVerify -> (gaps + r.notFound).distinct().let { missing ->
                 Review(gaps = missing, sources = sources, verified = false, note = r.reason, verdict = r.verdict)
             }

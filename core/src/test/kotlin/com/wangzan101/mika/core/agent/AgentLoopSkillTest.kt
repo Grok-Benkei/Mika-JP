@@ -28,7 +28,7 @@ class AgentLoopSkillTest {
     private fun call(name: String, args: String = "{}") = Part.ToolCall("k$name${args.hashCode()}", name, args)
     private fun reply(vararg c: Part.ToolCall) = ModelReply(c.toList(), StopReason.ToolUse, null)
     private val finish = com.wangzan101.mika.core.testing.answerReply("ok")
-    private val bundled = GuideCatalog.loadBundled()
+    private val bundled = com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog()
 
     private class Run(val requests: List<List<Message>>, val events: List<RunEvent>)
 

@@ -150,10 +150,13 @@ class ConfirmationGate {
      * 合計がない場合、スクロール可能領域外の最大金額と等しくなければなりません。番号のない申請は認められません。
      */
     private fun amountShown(amount: String?, s: ScreenSnapshot, button: String): Boolean {
+        // 万・千を含む金額を先頭や末尾の数値だけで円と比較しない。換算に未対応の間は、不一致として実行を止める。
+        if (amount?.let(::unscaledYen) == true) return false
         val declared = amount?.let { currencyFree(it) }?.let { NUMBER.find(it)?.value }?.toBigDecimalOrNull() ?: return false
         val expectedCurrency = currencyTag(amount.orEmpty())
         fun same(x: BigDecimal) = x.compareTo(declared) == 0
         val shown = s.elements.filter { !it.editable && !it.hint }
+        if (shown.any { unscaledYen(IrreversibleDetector.rowText(it, shown)) }) return false
         val scrollables = s.elements.filter { it.scrollable }
         fun outside(e: UiElement) = scrollables.none { inside(e, it) }
         val labels = shown.filter { e -> TOTAL_LABELS.any { it in Hant.fold(e.name) } }
@@ -178,6 +181,8 @@ class ConfirmationGate {
     }
 
     private fun currencyFree(t: String) = java.text.Normalizer.normalize(t, java.text.Normalizer.Form.NFKC).replace(THOUSANDS, "")
+
+    private fun unscaledYen(t: String) = UNSCALED_YEN.containsMatchIn(currencyFree(Hant.fold(t)))
 
     /** ¥だけでは円と人民元を区別できない。明示された通貨が異なる場合だけ拒否する。 */
     private fun currencyTag(t: String): String? {
@@ -224,6 +229,11 @@ class ConfirmationGate {
         private val NUMBER = Regex("\\d+(\\.\\d+)?")
         private val CURRENCY = Regex("(?:[¥￥$＄]|JPY|CNY|USD)\\s*(\\d+(?:\\.\\d+)?)|(\\d+(?:\\.\\d+)?)\\s*(?:元|円|JPY|CNY|USD)", RegexOption.IGNORE_CASE)
         private val THOUSANDS = Regex("(?<=\\d),(?=\\d{3}(?!\\d))")
+        private val UNSCALED_YEN = Regex(
+            "(?:[¥￥]|(?<![A-Za-z])JPY)\\s*${IrreversibleDetector.UNSCALED_YEN_NUMBER}|" +
+                "${IrreversibleDetector.UNSCALED_YEN_NUMBER}\\s*(?:円|JPY(?![A-Za-z]))",
+            RegexOption.IGNORE_CASE,
+        )
         private val TOTAL_LABELS = IrreversibleDetector.TOTAL_LABELS
         private val DISCOUNTS = listOf("优惠", "减", "抵扣", "运费", "券", "红包", "已省", "割引", "値引", "クーポン", "送料", "還元", "ポイント")
         private const val DISCOUNT_WINDOW = 4

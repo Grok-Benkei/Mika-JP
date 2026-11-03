@@ -2,6 +2,7 @@ package com.wangzan101.mika.core.action
 
 import com.wangzan101.mika.core.risk.IrrevAction
 import com.wangzan101.mika.core.gate.Irreversible
+import com.wangzan101.mika.core.gate.IrreversibleDetector
 import com.wangzan101.mika.core.uistate.ScreenSnapshot
 import com.wangzan101.mika.core.uistate.UiElement
 import kotlinx.serialization.json.JsonObject
@@ -11,13 +12,13 @@ import com.wangzan101.mika.core.tool.Verb
 
 /**
  * 1 つのアクションのリスク。 [hit] は不可逆判定の結果です (判定なしまたはヒットなしは null)。 [screen] は判定の元となる画面ですので、使用する場合のみお読みください。
- * The tool itself can declare the risk and then replace the implementation.判断や承認を変更する必要はありません。
+ * ツール自身がリスクを申告して実装を差し替えられます。判定や承認を変更する必要はありません。
  */
 fun interface RiskJudge {
     fun assess(verb: Verb?, hit: Irreversible?, screen: () -> ScreenSnapshot?): Risk
 }
 
-/** is classified according to the existing irreversible judgment and screen reading signal;お金がかかるかどうかはアプリではなく、アクションのカテゴリと画面上の金額で判断されます。 */
+/** 既存の不可逆判定と画面の情報で分類します。支出を伴うかはアプリではなく、アクションの分類と画面上の金額で判断します。 */
 object ClassifiedRisk : RiskJudge {
     /** はインターフェース上の動作を変更します。他の書き込み操作 (戻る、スライド、アプリを開く、URL を開く) はインターフェイス間を移動するだけです。 */
     private val CHANGE_VERBS = setOf(Verb.Tap, Verb.TypeText, Verb.ClearText, Verb.PressKey, Verb.Upload, Verb.Interact)
@@ -25,8 +26,8 @@ object ClassifiedRisk : RiskJudge {
     /** このアクションは、インターフェイス上の内容を変更します (インターフェイス間を移動するだけではありません)。これらのアクションによって、不可逆的な外部アクションも行われます。 */
     fun changesState(verb: Verb?): Boolean = verb in CHANGE_VERBS
 
-    /** 画面上の通貨（￥、元、$）付きの金額：このとき、送信や削除などのアクションは金額としてカウントされます（決済ページの「確認」および「支払いに進む」）。メッセージの送信にはお金がかからないため、カウントされません。 */
-    private val AMOUNT = Regex("[¥￥$＄]\\s*\\d|\\d+(\\.\\d+)?\\s*元")
+    /** 不可逆判定と同じ通貨・数字表記を使います。金額のある画面での提出・削除は支出として扱い、通常のメッセージ送信は除外します。 */
+    private val AMOUNT = IrreversibleDetector.AMOUNT
 
     override fun assess(verb: Verb?, hit: Irreversible?, screen: () -> ScreenSnapshot?): Risk {
         val level = when (hit?.action) {
@@ -37,7 +38,9 @@ object ClassifiedRisk : RiskJudge {
         }
         if (hit == null) return Risk(level)
         val payment = hit.action == IrrevAction.pay || hit.action == IrrevAction.order ||
-            hit.action != IrrevAction.send && screen()?.elements?.any { !it.editable && AMOUNT.containsMatchIn(it.name) } == true
+            hit.action != IrrevAction.send && screen()?.elements?.filter { !it.editable && !it.hint }?.let { shown ->
+                shown.any { AMOUNT.containsMatchIn(IrreversibleDetector.rowText(it, shown)) }
+            } == true
         return Risk(level, payment)
     }
 

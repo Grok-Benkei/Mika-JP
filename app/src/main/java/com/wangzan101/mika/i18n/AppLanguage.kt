@@ -44,9 +44,6 @@ enum class AppLanguage(val tag: String?, val speechTag: String?) {
 
         private val systemManaged get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
 
-        @Volatile
-        private var cached: Resources? = null
-
         /** 起動時に呼ぶ。以前の選択が何であっても日本語へ寄せ直す。 */
         fun initializeDefault(context: Context) {
             enforceJapanese(context)
@@ -67,7 +64,6 @@ enum class AppLanguage(val tag: String?, val speechTag: String?) {
                     .putBoolean(KEY_DEFAULT_INITIALIZED, true)
                     .commit()
             }
-            cached = null
         }
 
         /** 現在の言語は常に日本語。保存値やシステム言語は見ない。 */
@@ -95,25 +91,30 @@ enum class AppLanguage(val tag: String?, val speechTag: String?) {
             if (!systemManaged) context.activity()?.recreate()
         }
 
-        /** プロセスの既定ロケールを日本語にする。 */
+        /** 構成変更で更新されたプロセスの既定ロケールを日本語に戻す。 */
         fun applyDefaultLocale(context: Context) {
             Locale.setDefault(JAPANESE_LOCALE)
         }
 
-        /** 常に日本語ロケールの Context を返す。システム側の上書きを持ち込まない。 */
+        /** 日本語を固定し、Activity の構成変更とベース Context の独自設定を保持する。 */
         fun wrap(base: Context): Context {
-            val config = Configuration(base.resources.configuration).apply { setLocales(JAPANESE_LOCALES) }
-            return base.createConfigurationContext(config)
+            val original = Configuration(base.resources.configuration)
+            if (systemManaged && original.locales[0]?.language == Japanese.tag) return base
+
+            // Activity の表示設定は token 経由で継承される。全体コピーを常用すると、
+            // 回転やマルチウィンドウの変更後にも起動時の表示設定を上書きしてしまう。
+            val localeOnly = Configuration().apply { setLocales(JAPANESE_LOCALES) }
+            val localized = base.createConfigurationContext(localeOnly)
+            val expected = Configuration(original).apply { setLocales(JAPANESE_LOCALES) }
+            if (localized.resources.configuration.diff(expected) == 0) return localized
+
+            // createConfigurationContext は、すでに構成済みの Context の独自 override を
+            // 引き継がない。その場合だけ元の表示設定も渡して欠落を防ぐ。
+            return base.createConfigurationContext(expected)
         }
 
-        /** UI 以外が文字を取るためのリソース。常に日本語。 */
-        fun resources(app: Context): Resources {
-            cached?.let { return it }
-            val config = Configuration(app.resources.configuration).apply { setLocales(JAPANESE_LOCALES) }
-            val created = app.createConfigurationContext(config).resources
-            cached = created
-            return created
-        }
+        /** UI 以外が文字を取るためのリソース。表示構成のスナップショットはキャッシュしない。 */
+        fun resources(app: Context): Resources = wrap(app).resources
 
         private fun Context.activity(): Activity? {
             var c: Context? = this

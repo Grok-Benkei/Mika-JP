@@ -366,14 +366,14 @@ class ToolDispatcherTest {
 
     @Test fun lookupToolsListedOnlyWithCatalogAndAreReadOnly() = runTest {
         assertFalse(toolDispatcher(FakeScreen()).definitions().any { it.name in lookupTools })
-        val d = toolDispatcher(FakeScreen(), skills = com.wangzan101.mika.core.knowledge.GuideCatalog.loadBundled())
+        val d = toolDispatcher(FakeScreen(), skills = com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog())
         assertTrue(d.definitions().map { it.name }.containsAll(lookupTools))
         for (t in lookupTools) assertFalse(t, isWritingTool(t, JsonObject(emptyMap())))
     }
 
     // 知識とスキルは個別に確認して読む必要があります。グループ名を読み間違えた場合は、どのツールを使用するかを明確にしてください。
     @Test fun knowledgeAndSkillLookupsThroughDispatcher() = runTest {
-        val d = toolDispatcher(FakeScreen(), skills = com.wangzan101.mika.core.knowledge.GuideCatalog.loadBundled())
+        val d = toolDispatcher(FakeScreen(), skills = com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog())
         val found = d.execute(call("knowledge_search", """{"query":"闲鱼"}""")).content
         val matches = found["matches"]!!.jsonArray
         assertTrue(matches.size in 1..10)

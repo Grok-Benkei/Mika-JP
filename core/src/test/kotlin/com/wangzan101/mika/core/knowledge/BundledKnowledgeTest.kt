@@ -14,18 +14,18 @@ import com.wangzan101.mika.core.tool.FakeScreen
 import java.io.File
 import com.wangzan101.mika.core.assembly.toolDispatcher
 
-/** アプリにパッケージ化された知識とスキル: テストでビルド時の検証を再度実行し、実行時に読み取られる内容を確認します。 */
+/** 標準カタログの生成と、互換検査で明示追加した任意資料の読込みを検証する。 */
 class BundledKnowledgeTest {
-    private val bundled by lazy { KnowledgeStore.loadBundled() }
-    private val catalog by lazy { GuideCatalog.loadBundled() }
+    private val bundled by lazy { OptionalChinaKnowledge.entries() }
+    private val catalog by lazy { OptionalChinaKnowledge.catalog() }
     private val resources = File("src/main/resources")
 
     @Test fun bundledTreesPassValidationAndIndexIsCurrent() {
         val r = KnowledgeIndex.build(resources)
         assertTrue(r.errors.joinToString("\n"), r.errors.isEmpty())
-        assertEquals(mapOf("app" to 28, "site" to 26, "skill" to 6), r.entries.groupingBy { it.kind }.eachCount())
+        assertEquals(mapOf("app" to 13, "site" to 16, "skill" to 6), r.entries.groupingBy { it.kind }.eachCount())
         // クラスパス上のインデックスは、現在のファイルに基づいて生成されたものです。
-        assertEquals(r.entries, catalog.rows)
+        assertEquals(r.entries, GuideCatalog.loadBundled().rows)
     }
 
     @Test fun sitePaceFollowsTheSiteKnowledge() {

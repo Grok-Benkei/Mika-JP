@@ -8,6 +8,30 @@ import com.wangzan101.mika.core.testing.TOOLS
 import com.wangzan101.mika.core.tool.Verb
 
 class SkillRedactorTest {
+    @Test fun japaneseYenAmountsAreRedactedAfterFullWidthNormalization() {
+        for ((raw, normalized) in listOf(
+            "5円" to "5円",
+            "５円" to "5円",
+            "￥５" to "¥5",
+            "１，２３４円" to "1234円",
+            "３万円" to "3万円",
+            "２億円" to "2億円",
+        )) {
+            val literals = SkillRedactor.literals("価格: $raw", emptyList())
+            assertTrue(raw, normalized in literals)
+            assertEquals(raw, "価格: ${SkillRedactor.PLACEHOLDER}", SkillRedactor.redact("価格: $raw", literals))
+            assertEquals(raw, "価格: ${SkillRedactor.PLACEHOLDER}", SkillRedactor.scrubNumbers("価格: $raw", emptySet()))
+        }
+    }
+
+    @Test fun yenMatchingDoesNotTurnIdentifiersOrDatesIntoAmounts() {
+        val text = "ID A7B、日付 7/8、手順 5、識別子 SKU9円"
+        assertTrue(SkillRedactor.literals(text, emptyList()).isEmpty())
+        assertEquals(text, SkillRedactor.scrubNumbers(text, emptySet()))
+        assertEquals("ID 12306、日付 2026/1/9、価格 ${SkillRedactor.PLACEHOLDER}",
+            SkillRedactor.scrubNumbers("ID 12306、日付 2026/1/9、価格 5円", setOf("12306", "2026")))
+    }
+
     @Test fun literalsFromQuotesDigitsAmountsAndCriteria() {
         val lits = SkillRedactor.literals(
             "给『老妈』发「明天回家吃饭」,顺便转 5元,订单 2024 号",

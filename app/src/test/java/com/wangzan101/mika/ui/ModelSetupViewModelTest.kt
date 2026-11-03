@@ -50,8 +50,8 @@ class ModelSetupViewModelTest {
     private val listCalls = mutableListOf<Triple<ProviderConfig.Kind, String, String?>>()
     private var ids = 0
 
-    private fun store() = ProviderStore(
-        tmp.root, AesGcmKeyCipher { key },
+    private fun store(dir: java.io.File = tmp.root) = ProviderStore(
+        dir, AesGcmKeyCipher { key },
         newId = { "id${++ids}" },
         userAgent = "Mika/1.2.3",
         modelFactory = { cfg, _, _, setup -> built += cfg.model to setup; Fake(cfg.capabilities) { reply() } },
@@ -81,6 +81,159 @@ class ModelSetupViewModelTest {
         assertEquals(ProviderConfig.Kind.OpenAiResponses, vm.state.value.form.kind)
         assertEquals("https://api.openai.com/v1", vm.state.value.form.baseUrl)
         assertTrue(listCalls.isEmpty())
+    }
+
+    @Test fun relaySetupProbesOnlyTheDefaultAllowedModel() = runTest {
+        val url = "https://openrouter.ai/api/v1"
+        listing[url] = ModelListResult.Ok(listOf(
+            ListedModel("deepseek/deepseek-v4", toolCalls = true),
+            ListedModel("qwen/qwen3-max", toolCalls = true),
+            ListedModel("openai/gpt-6.1-sol", toolCalls = true),
+        ))
+        val store = store()
+        val vm = vm(store)
+        vm.selectPreset("OpenRouter")
+        vm.setApiKey("test-key")
+        vm.testAndSave()
+        runCurrent()
+        assertEquals(listOf("openai/gpt-6.1-sol"), built.map { it.first })
+        assertEquals(listOf("openai/gpt-6.1-sol"), store.list().map { it.model })
+        assertEquals(store.list().single().id, store.roles.value.main)
+    }
+
+    @Test fun relayWithOnlyChineseModelsMakesNoAutomaticProbeOrAssignment() = runTest {
+        val url = "https://openrouter.ai/api/v1"
+        listing[url] = ModelListResult.Ok(listOf(ListedModel("deepseek-v4"), ListedModel("qwen3-max")))
+        val store = store()
+        val vm = vm(store)
+        vm.selectPreset("OpenRouter")
+        vm.setApiKey("test-key")
+        vm.testAndSave()
+        runCurrent()
+        assertTrue(built.isEmpty())
+        assertTrue(probes.isEmpty())
+        assertNull(store.roles.value.main)
+        assertEquals(listOf("deepseek-v4", "qwen3-max"), store.providers.value.single().models!!.map { it.id })
+        assertEquals(store.providers.value.single().id, vm.state.value.pickToProbe)
+        assertTrue(vm.state.value.probeNote.orEmpty(), "自動選択できるモデル候補がありません" in vm.state.value.probeNote.orEmpty())
+        assertTrue(vm.state.value.probeNote.orEmpty(), "手動で選択" in vm.state.value.probeNote.orEmpty())
+    }
+
+    @Test fun filteringChineseCandidatesDoesNotProbeAnEmbeddingFallback() = runTest {
+        val url = "https://openrouter.ai/api/v1"
+        listing[url] = ModelListResult.Ok(listOf(
+            ListedModel("deepseek-v4", toolCalls = true),
+            ListedModel("text-embedding-v4"),
+            ListedModel("not-chat", toolCalls = true, chat = false),
+            ListedModel("chat-without-tools", toolCalls = false, chat = true),
+        ))
+        val store = store()
+        val vm = vm(store)
+        vm.selectPreset("OpenRouter")
+        vm.setApiKey("test-key")
+        vm.testAndSave()
+        runCurrent()
+        assertTrue(built.isEmpty())
+        assertTrue(probes.isEmpty())
+        assertNull(store.roles.value.main)
+        assertEquals(4, store.providers.value.single().models!!.size)
+    }
+
+    @Test fun explicitlySelectedChineseGatewayDoesNotRequireACompanyFamilyToken() = runTest {
+        val preset = ProviderPresets.all.single { it.label == "硅基流动" }
+        assertTrue(preset.familyTokens.isEmpty())
+        listing[preset.baseUrl] = ModelListResult.Ok(listOf(ListedModel("Qwen/Qwen3.5", toolCalls = true)))
+        val store = store()
+        val vm = vm(store)
+        vm.selectPreset(preset.label)
+        vm.setApiKey("test-key")
+        vm.testAndSave()
+        runCurrent()
+        assertEquals(listOf("Qwen/Qwen3.5"), built.map { it.first })
+        assertEquals("Qwen/Qwen3.5", store.configFor(ModelRole.Main)?.model)
+    }
+
+    @Test fun existingChineseGatewayCanBeExplicitlyUsedAsMain() = runTest {
+        val preset = ProviderPresets.all.single { it.label == "硅基流动" }
+        val store = store()
+        val provider = store.connect("SiliconFlow", preset.kind, preset.baseUrl, "test-key", listOf(ListedModel("deepseek-v4", toolCalls = true)))
+        val vm = vm(store)
+        runCurrent()
+        assertNull(store.roles.value.main)
+        vm.useAsMain(provider.id)
+        runCurrent()
+        assertEquals("deepseek-v4", store.configFor(ModelRole.Main)?.model)
+    }
+
+    @Test fun explicitLocalModelServicesCanAutomaticallySelectQwen() = runTest {
+        val local = listOf("Ollama" to "http://127.0.0.1:11434/v1", "LM Studio" to "http://192.168.1.20:1234/v1")
+        for ((label, url) in local) {
+            listing[url] = ModelListResult.Ok(listOf(ListedModel("qwen3.5", toolCalls = true)))
+            val store = store()
+            val vm = vm(store)
+            vm.selectPreset(label)
+            vm.setBaseUrl(url)
+            vm.setApiKey("test-key")
+            vm.testAndSave()
+            runCurrent()
+            assertEquals(label, "qwen3.5", store.configFor(ModelRole.Main)?.model)
+        }
+    }
+
+    @Test fun existingLocalModelServiceCanBeExplicitlyUsedAsMain() = runTest {
+        val store = store()
+        val provider = store.connect("Local models", ProviderConfig.Kind.OpenAiCompat, "http://models.local:11434/v1", "test-key", listOf(ListedModel("qwen3.5", toolCalls = true)))
+        val vm = vm(store)
+        runCurrent()
+        assertNull(store.roles.value.main)
+        vm.useAsMain(provider.id)
+        runCurrent()
+        assertEquals("qwen3.5", store.configFor(ModelRole.Main)?.model)
+    }
+
+    @Test fun selfHostedIntentSurvivesReuseOnTailscaleCgnatAndCustomDomains() = runTest {
+        val connections = listOf(
+            "Ollama" to "https://100.100.100.100:11434/v1",
+            "LM Studio" to "https://models.my-tailnet.ts.net/v1",
+            "Ollama" to "https://owned-model.example.com/v1",
+        )
+        for ((label, url) in connections) {
+            val dir = tmp.newFolder()
+            val saved = store(dir)
+            listing[url] = ModelListResult.Ok(listOf(ListedModel("qwen3.5", toolCalls = true)))
+            val setup = vm(saved)
+            setup.selectPreset(label)
+            setup.setBaseUrl(url)
+            setup.setApiKey("test-key")
+            setup.testAndSave()
+            runCurrent()
+            val p = saved.providers.value.single()
+            assertTrue(label, p.explicitSelfHosted)
+            assertEquals(p.id, saved.configFor(ModelRole.Main)?.providerId)
+            val reloaded = store(dir)
+            val other = reloaded.connect("Other", ProviderConfig.Kind.OpenAiCompat, "https://relay.test/v1", "test-key", listOf(ListedModel("chat-model")))
+            reloaded.use(ModelRole.Main, other.id, "chat-model", ProviderPresets.custom.capabilities)
+            val reused = vm(reloaded)
+            runCurrent()
+            reused.useAsMain(p.id)
+            runCurrent()
+            assertEquals(label, p.id, reloaded.configFor(ModelRole.Main)?.providerId)
+            assertEquals(label, "qwen3.5", reloaded.configFor(ModelRole.Main)?.model)
+        }
+    }
+
+    @Test fun useAsMainWithNoAutomaticCandidateShowsTheManualResolution() = runTest {
+        val store = store()
+        val p = store.connect("OpenRouter", ProviderConfig.Kind.OpenAiCompat, "https://openrouter.ai/api/v1", "test-key", listOf(ListedModel("bytedance/ui-tars-1.5-7b", toolCalls = true)))
+        val vm = vm(store)
+        runCurrent()
+        vm.useAsMain(p.id)
+        runCurrent()
+        assertNull(store.roles.value.main)
+        assertTrue(built.isEmpty())
+        assertEquals(p.id, vm.state.value.pickToProbe)
+        assertTrue(vm.state.value.probeNote.orEmpty(), "自動選択できるモデル候補がありません" in vm.state.value.probeNote.orEmpty())
+        assertTrue(vm.state.value.probeNote.orEmpty(), "手動で選択" in vm.state.value.probeNote.orEmpty())
     }
 
     private val deepseekUrl = "https://api.deepseek.com"
@@ -212,27 +365,27 @@ class ModelSetupViewModelTest {
      * 5xx は、家族全員が利用できないものとみなされるべきではありません。モデルが失敗した場合、モデルは通常どおり保存され、合格したモデルがメイン モデルとして使用されます。
      */
     @Test fun serverErrorOnTheFirstCandidateFallsBackToTheNext() = runTest {
-        val url = "https://api.qnaigc.com/v1"
+        val url = "https://relay.test/v1"
         listing[url] = ModelListResult.Ok(listOf(
-            ListedModel("meituan/longcat-flash-lite"), ListedModel("deepseek/deepseek-v4.1-flash"),
+            ListedModel("vendor/first-chat"), ListedModel("vendor/second-chat"),
         ))
         reply = {
-            if (built.last().first == "meituan/longcat-flash-lite") throw ModelError.Server(502)
+            if (built.last().first == "vendor/first-chat") throw ModelError.Server(502)
             ModelReply(listOf(Part.ToolCall("c1", "get_time", "{}")), StopReason.ToolUse, null)
         }
         val store = store()
         val vm = vm(store)
         vm.selectPreset(ProviderPresets.custom.label); vm.setBaseUrl(url); vm.setApiKey("sk"); vm.testAndSave(); runCurrent()
-        assertEquals(listOf("meituan/longcat-flash-lite", "deepseek/deepseek-v4.1-flash"), built.map { it.first })
+        assertEquals(listOf("vendor/first-chat", "vendor/second-chat"), built.map { it.first })
         val p = store.providers.value.single()
-        assertEquals("deepseek/deepseek-v4.1-flash", store.configFor(ModelRole.Main)?.model)
-        assertTrue("deepseek/deepseek-v4.1-flash" in p.verifiedModels)
+        assertEquals("vendor/second-chat", store.configFor(ModelRole.Main)?.model)
+        assertTrue("vendor/second-chat" in p.verifiedModels)
         val s = vm.state.value
         assertFalse(s.showForm)
         assertNull(s.pickToProbe)
         assertEquals(
-            "最初に試した meituan/longcat-flash-lite はテストに通りませんでした: サーバーがエラーを返しました(HTTP 502)。" +
-                "メインモデルは、テストに通った「deepseek/deepseek-v4.1-flash」です。",
+            "最初に試した vendor/first-chat はテストに通りませんでした: サーバーがエラーを返しました(HTTP 502)。" +
+                "メインモデルは、テストに通った「vendor/second-chat」です。",
             s.probeNote,
         )
     }
@@ -245,17 +398,17 @@ class ModelSetupViewModelTest {
         val url = "https://api.commandcode.ai/provider/v1"
         listing[url] = ModelListResult.Ok(listOf(
             ListedModel("claude-sonnet-5-5", protocols = listOf(ModelProtocol.Messages)),
-            ListedModel("deepseek/deepseek-v4-flash", protocols = listOf(ModelProtocol.ChatCompletions, ModelProtocol.Responses)),
+            ListedModel("openai/gpt-test", protocols = listOf(ModelProtocol.ChatCompletions, ModelProtocol.Responses)),
         ))
         reply = { ModelReply(listOf(Part.ToolCall("c1", "get_time", "{}")), StopReason.ToolUse, null) }
         val store = store()
         val vm = vm(store)
         vm.selectPreset(ProviderPresets.custom.label); vm.setBaseUrl(url); vm.setApiKey("sk"); vm.testAndSave(); runCurrent()
-        assertEquals(listOf("deepseek/deepseek-v4-flash"), built.map { it.first })
+        assertEquals(listOf("openai/gpt-test"), built.map { it.first })
         val s = vm.state.value
         assertFalse(s.showForm)
         assertNull(s.probeNote)
-        assertEquals("deepseek/deepseek-v4-flash", store.configFor(ModelRole.Main)?.model)
+        assertEquals("openai/gpt-test", store.configFor(ModelRole.Main)?.model)
     }
 
     /**
@@ -510,7 +663,7 @@ class ModelSetupViewModelTest {
     /** はデフォルトでセッション ヘッダーを宣言します (OpenCode Go)。呼び出し時にそれを持ってくると、保存されたサービス プロバイダーもそれを記憶します。 */
     @Test fun presetSessionHeaderIsUsedForTheTestAndRemembered() = runTest {
         val go = ProviderPresets.all.first { it.sessionHeader != null }
-        listing[go.baseUrl] = ModelListResult.Ok(listOf(ListedModel("glm-x", toolCalls = true)))
+        listing[go.baseUrl] = ModelListResult.Ok(listOf(ListedModel("chat-model", toolCalls = true)))
         val store = store()
         val vm = vm(store)
         vm.selectPreset(go.label); vm.setApiKey("k"); vm.testAndSave(); runCurrent()

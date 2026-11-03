@@ -58,8 +58,8 @@ object ModelOptions {
      * 同じバージョンの正式版が最初、読み込みできないバージョンは読み込み可能なバージョンの後に表示されます）、残りはリストの順に表示されます。
      * サービス プロバイダー リストの順序は通常、古いモデルが最初になります。古いモデルはオフラインになっている可能性があります。他のモデルには独自のバージョン番号があり、一緒に比較されません。
      */
-    fun candidates(options: List<ModelOption>, familyTokens: List<String> = emptyList()): List<String> =
-        options.filter { it.canBeMain && !looksNonChat(it) }
+    fun candidates(options: List<ModelOption>, familyTokens: List<String> = emptyList(), allowChineseModels: Boolean = false): List<String> =
+        options.filter { it.canBeMain && !looksNonChat(it) && automaticAllowed(it, allowChineseModels) }
             .map { Triple(it, inFamily(it, familyTokens), ModelVersion.of(it.id)) }
             .sortedWith(
                 compareBy<Triple<ModelOption, Boolean, ModelVersion>>({ if (it.second) 0 else 1 }, { if (it.first.toolCallsKnown) 0 else 1 })
@@ -67,12 +67,38 @@ object ModelOptions {
             )
             .map { it.first.id }
 
-    /** デフォルトで選択されるメインモデル: [candidates] の最初のモデル。何もない場合は、メイン モデルとして使用できる最初のものを選択します。 */
-    fun defaultMain(options: List<ModelOption>, familyTokens: List<String> = emptyList()): String? =
-        candidates(options, familyTokens).firstOrNull() ?: options.firstOrNull { it.canBeMain }?.id
+    /** 自動選択できる候補の先頭。候補がなければ用途違い・ツール非対応のモデルへ戻らない。 */
+    fun defaultMain(options: List<ModelOption>, familyTokens: List<String> = emptyList(), allowChineseModels: Boolean = false): String? =
+        candidates(options, familyTokens, allowChineseModels).firstOrNull()
+
+    /** 補助の自動選択でも同じ制約を守る。地域・用途・ツール対応の判定を緩めない。手動選択は対象外。 */
+    fun automaticFallback(options: List<ModelOption>, familyTokens: List<String> = emptyList(), allowChineseModels: Boolean = false): String? =
+        candidates(options, familyTokens, allowChineseModels).firstOrNull()
+
+    /** 接続先の明示選択だけが除外を解除する。familyTokensはモデルの並べ替えにだけ使う。 */
+    private fun automaticAllowed(option: ModelOption, allowChineseModels: Boolean): Boolean =
+        allowChineseModels || !isKnownChineseModel(option.id) && !isKnownChineseModel(option.displayName)
+
+    private fun isKnownChineseModel(name: String): Boolean {
+        val normalized = name.trim()
+        return CHINA_MODEL.containsMatchIn(normalized) || CHINA_NAMESPACE.containsMatchIn(normalized) || CHINA_VERSIONED.containsMatchIn(normalized)
+    }
+
+    private val CHINA_MODEL = Regex(
+        "(?:^|[/._:\\s-])(?:deepseek|qwen|qwq|qvq|chatglm|glm|zhipu|kimi|moonshot|minimax|stepfun|hunyuan|doubao|ernie|baichuan|ling|antdigital|antgroup|longcat|internlm|internvl)(?=$|[/._:\\s-]|[0-9])|(?:^|/)step-[0-9]",
+        RegexOption.IGNORE_CASE,
+    )
+    /** 中継サービスで使われる既知の企業namespace。一般語の部分一致では判定しない。 */
+    private val CHINA_NAMESPACE = Regex("^(?:bytedance|bytedance-seed|xiaomi|alibaba|inclusionai|kwaipilot|01-ai)/", RegexOption.IGNORE_CASE)
+    /** namespaceのない別名は、先頭の系列名とバージョン番号が揃う場合だけ扱う。 */
+    private val CHINA_VERSIONED = Regex("^(?:seed|mimo|tongyi|ring|kat|yi)[-_\\s]+v?[0-9](?:[.0-9a-z_-]|$)", RegexOption.IGNORE_CASE)
 
     /** アドレスが一致するプリセット独自のモデルワード。アドレスが認識されない場合は空になります。 */
     fun familyOf(baseUrl: String): List<String> = ProviderPresets.forBaseUrl(baseUrl.trim())?.familyTokens.orEmpty()
+
+    /** 保存済みの明示接続でも、追加時と同じ自己ホスト・地域の方針を使う。 */
+    fun allowsChineseModels(provider: Provider): Boolean =
+        provider.explicitSelfHosted || ProviderPresets.allowsChineseModels(provider.baseUrl)
 
     private fun inFamily(o: ModelOption, tokens: List<String>): Boolean =
         tokens.any { t -> o.id.contains(t, ignoreCase = true) || o.displayName.contains(t, ignoreCase = true) }

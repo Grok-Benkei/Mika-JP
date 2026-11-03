@@ -13,7 +13,7 @@ private fun entry(
 ) = KnowledgeEntry(name, display, surface, pkgs, domains, aliases, null, "", body)
 
 class KnowledgeStoreTest {
-    private val bundled by lazy { KnowledgeStore.loadBundled() }
+    private val bundled by lazy { com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.entries() }
 
     @Test fun byPackageFindsWechat() {
         val e = KnowledgeStore(bundled).byPackage("com.tencent.mm")

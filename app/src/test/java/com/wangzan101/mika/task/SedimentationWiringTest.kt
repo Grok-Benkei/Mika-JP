@@ -25,7 +25,7 @@ import com.wangzan101.mika.core.assembly.knownTools
 class SedimentationWiringTest {
     @get:Rule val texts = ChineseTexts()
 
-    private val catalog = GuideCatalog.loadBundled()
+    private val catalog = com.wangzan101.mika.core.knowledge.OptionalChinaKnowledge.catalog()
     private val tools = setOf("phone_launch_app", "phone_observe", "phone_tap", "phone_type_text", "hand_to_user", "finish")
     private val draftMd = "---\nname: send-wechat-message\ndisplay: 发微信消息\ndescription: 给指定联系人发一条微信消息\napps: [com.tencent.mm]\nsource: learned\n---\n" +
         "## 入口\n用 `phone_launch_app` 打开。\n## 步骤\n1. 点搜索\n## 容易出错的地方\n同名群聊。\n## 怎样算办成(核实证据)\n消息出现在聊天里。\n## 什么时候停下交给用户\n要登录时。"

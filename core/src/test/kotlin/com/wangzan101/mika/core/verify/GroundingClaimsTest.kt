@@ -17,6 +17,38 @@ import org.junit.Test
 
 /** 回答内の特定の事実のみをチェックします。回答自体の説明 (カウント、ランキング、ステップ数) および参照番号はチェック対象の値としてカウントされません。捏造された値は引き続きブロックされます。 */
 class GroundingClaimsTest {
+    @Test fun japaneseAndLegacyEvidenceHeadingsKeepMetadataOutOfBodyClaims() {
+        for (heading in listOf("根拠", "出典", "依据")) {
+            val answer = "結果は「確認済み」です。\n**$heading：** 参照日時 2026年11月3日 14:05、参照番号 999。"
+            val result = Grounding.check("結果を教えて", answer, listOf("確認済み"))
+            assertEquals(heading, true, result.found)
+            assertEquals(listOf(Grounding.Claim(Grounding.Kind.Quote, "確認済み")), result.claims)
+            assertTrue(result.unmatched.isEmpty())
+
+            val wrongBody = Grounding.check("結果を教えて", answer.replace("結果は", "値は 777、結果は"), listOf("確認済み"))
+            assertEquals(heading, listOf("777"), wrongBody.unmatched.map { it.text })
+        }
+    }
+
+    @Test fun quotedEvidenceStillNeedsSupportWithJapaneseHeadings() {
+        for (heading in listOf("根拠", "出典")) {
+            val result = Grounding.check("結果を教えて", "結果です。\n$heading:「未表示の語句」", listOf("確認済み"))
+            assertEquals(false, result.found)
+            assertEquals(listOf(Grounding.Claim(Grounding.Kind.Quote, "未表示の語句")), result.unmatched)
+        }
+    }
+
+    @Test fun japaneseEvidenceWordsInsideQuotedLabelsRemainBodyClaims() {
+        for (heading in listOf("根拠", "出典")) {
+            val label = "$heading: 未確認777"
+            val answer = "ラベルは「$label」です。"
+            val result = Grounding.check("ラベルを教えて", answer, listOf("確認済み"))
+            assertEquals(listOf(label), result.claims.filter { it.kind == Grounding.Kind.Quote }.map { it.text })
+            assertEquals(false, result.found)
+            assertEquals(true, Grounding.check("ラベルを教えて", answer, listOf(label)).found)
+        }
+    }
+
     private fun reply(s: String) = ModelReply(listOf(Part.Text(s)), StopReason.EndTurn, null)
     private val criteria = Criteria(listOf("回答给出热榜第一的问题和热度"), "read", fallback = false)
     private val pass = """{"checks": [{"criterion": "回答给出热榜第一的问题和热度", "status": "met", "quote": "1561 万热度"}], "verdict": "pass", "reason": "屏上有"}"""

@@ -360,6 +360,9 @@ private fun AddProviderForm(ui: ModelSetupUi, actions: ModelSetupActions) {
         }
         SelectChip(stringResource(R.string.models_other_regions), showOtherRegions, { showOtherRegions = !showOtherRegions }, Modifier.testTag("preset-other-regions"))
     }
+    if (showOtherRegions) {
+        Text(stringResource(R.string.models_china_optional_note), fontSize = 13.sp, color = c.ink2, modifier = Modifier.padding(bottom = 12.dp))
+    }
     GroupCard {
         if (f.isCustom) {
             Row(

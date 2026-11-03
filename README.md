@@ -10,7 +10,7 @@
 - 日本語と英数字のOCRモデルをAPKに同梱。画面読み取りのための初回モデルダウンロードは不要です。
 - 日本語の依頼例、メモリ、学習スキル、検証理由、操作停止・エラー案内。
 - LINE、X、楽天市場、メルカリ、Googleマップなどの日本語の知識と別名。
-- グローバル向けのAIサービスを先に表示。中国本土向けの接続先は「他のリージョン」から選びます。
+- 中国系サービスは海外リージョンも含め標準候補から外し、必要な場合だけ「中国系を表示（任意）」から選択。中継サービスでも、既知の中国系モデルを自動候補から除外。
 - 日本語の送信・購入・決済ボタン、ログイン・認証画面の判定。
 - 日本語以外のAI回答を見つけた場合の書き直しと、日本語での停止案内。
 - 日本語のコメント・開発資料、問い合わせ先、フォーク専用の更新元。
@@ -43,14 +43,14 @@ macOS / Linux:
 
 ## 内蔵知識
 
-画面固有の動作は、その時点の実画面で確認します。内蔵の案内があることは、各社アプリの全機能を実機検証したという意味ではありません。指定のない日本向けタスクで、中国本土向けのサービスを標準の入口として選びません。
+画面固有の動作は、その時点の実画面で確認します。内蔵の案内があることは、各社アプリの全機能を実機検証したという意味ではありません。中国系アプリ・サイトの資料は[任意資料](optional/china/README.md)へ分離し、標準APKと自動候補には含めません。
 
 <!-- generated:knowledge:start -->
 <!-- ./gradlew updateReadme で生成します。手作業で編集しないでください -->
 | 種類 | 内蔵 |
 |---|---|
-| アプリ | Androidの設定、百家号、Bilibili、BOSS直聘、Chrome、Dedao、Douyin、Feishu、Gmail、Googleマップ、Jike、Kuaishou、LINE、LinkedIn、メルカリ、QQ Mail、楽天市場、Telegram、Toutiao、Uber、Uber Eats、WeChat、Weibo、WhatsApp、X、Xianyu、小紅書（RED）、Zhihu |
-| ウェブサイト | Amazon.co.jp、Bilibili、Googleカレンダー、Douban、Douyin、Instagram、メルカリ、Gmail、Googleマップ、楽天市場、食べログ、Telegram、tenki.jp、Baidu Tieba、Yahoo!路線情報、Yahoo!天気、Weibo、Sogou WeChat検索、WhatsApp、X、小紅書（RED）、Xiaoyuzhou、Yahoo! JAPAN、YouTube、Zhihu、BOSS直聘 |
+| アプリ | Androidの設定、Chrome、Gmail、Googleマップ、LINE、LinkedIn、メルカリ、楽天市場、Telegram、Uber、Uber Eats、WhatsApp、X |
+| ウェブサイト | Amazon.co.jp、Googleカレンダー、Instagram、メルカリ、Gmail、Googleマップ、楽天市場、食べログ、Telegram、tenki.jp、Yahoo!路線情報、Yahoo!天気、WhatsApp、X、Yahoo! JAPAN、YouTube |
 | スキル | Mikaの設定を変更する、動画や記事を日本語で整理する、PDFを読む・整理する、調査して出典を確かめる、メッセージとメール、スキルを作成・更新する |
 <!-- generated:knowledge:end -->
 
@@ -60,7 +60,7 @@ APIキーはサービスやリージョンごとに異なります。国際向�
 
 <!-- generated:providers:start -->
 <!-- ./gradlew updateReadme で生成します。手作業で編集しないでください -->
-OpenAI、Anthropic、Gemini、OpenRouter、OpenCode Go、xAI、Mistral、Groq、DeepSeek、Qwen（シンガポール）、Kimi、MiniMax、StepFun、Ollama、LM Studio、Qwen（中国・北京）、Kimi（中国本土）、GLM（中国本土）、GLM Coding Plan（中国本土）、SiliconFlow（中国本土）、Volcengine Ark（中国本土）、MiniMax（中国本土）、Tencent Hunyuan（中国本土）、Baidu Qianfan（中国本土）を内蔵しています。その他は「カスタム」で接続できます。中国本土向けは「他のリージョン」に表示します。
+OpenAI、Anthropic、Gemini、OpenRouter、OpenCode Go、xAI、Mistral、Groq、Ollama、LM Studioを標準候補として用意しています。中国系サービスは海外リージョンも含め標準候補から外し、必要な場合だけ「中国系を表示（任意）」から選べます。その他は「カスタム」で接続できます。
 <!-- generated:providers:end -->
 
 ## 検証と保守
