@@ -60,7 +60,9 @@ internal object HttpSupport {
         cont.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                if (cont.isActive) cont.resumeWithException(networkError(http, req, e))
+                if (!cont.isActive) return
+                if (call.isCanceled()) cont.resumeWithException(kotlinx.coroutines.CancellationException(e.message, e))
+                else cont.resumeWithException(networkError(http, req, e))
             }
 
             override fun onResponse(call: Call, response: Response) {
@@ -70,7 +72,9 @@ internal object HttpSupport {
                         val raw = RawResponse(it.code, it.header("retry-after"), it.body?.string().orEmpty())
                         if (cont.isActive) cont.resume(raw)
                     } catch (e: IOException) {
-                        if (cont.isActive) cont.resumeWithException(ModelError.Network(e))
+                        if (!cont.isActive) return
+                        if (call.isCanceled()) cont.resumeWithException(kotlinx.coroutines.CancellationException(e.message, e))
+                        else cont.resumeWithException(ModelError.Network(e))
                     }
                 }
             }
@@ -86,7 +90,9 @@ internal object HttpSupport {
         cont.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                if (cont.isActive) cont.resumeWithException(networkError(http, req, e))
+                if (!cont.isActive) return
+                if (call.isCanceled()) cont.resumeWithException(kotlinx.coroutines.CancellationException(e.message, e))
+                else cont.resumeWithException(networkError(http, req, e))
             }
 
             override fun onResponse(call: Call, response: Response) {
@@ -107,13 +113,14 @@ internal object HttpSupport {
                         var events = 0
                         /** イベントを配信し、[DONE] などの終端があれば接続終了を待たず読取りを終えます。 */
                         fun dispatch(): Boolean {
-                            if (data.isEmpty() || data.all { it.isBlank() }) { data.clear(); return false }
-                            events++
-                            val event = data.joinToString("\n")
-                            attempt?.packet(event)
-                            val terminal = onEvent(event)
+                            // 空の data 行はキープアライブであり、JSON イベントではない。実データと混ざっても結合しない。
+                            val payload = data.filterNot { it.isBlank() }
                             data.clear()
-                            return terminal
+                            if (payload.isEmpty()) return false
+                            events++
+                            val event = payload.joinToString("\n")
+                            attempt?.packet(event)
+                            return onEvent(event)
                         }
                         while (cont.isActive) {
                             val line = source.readUtf8Line() ?: break
@@ -129,7 +136,13 @@ internal object HttpSupport {
                             cont.resume(RawResponse(it.code, it.header("retry-after"), ""))
                         }
                     } catch (e: Exception) {
-                        if (cont.isActive) cont.resumeWithException(if (e is IOException) ModelError.Network(e) else e)
+                        if (!cont.isActive) return
+                        when {
+                            e is kotlinx.coroutines.CancellationException -> cont.resumeWithException(e)
+                            call.isCanceled() -> cont.resumeWithException(kotlinx.coroutines.CancellationException(e.message, e))
+                            e is IOException -> cont.resumeWithException(ModelError.Network(e))
+                            else -> cont.resumeWithException(e)
+                        }
                     }
                 }
             }

@@ -16,10 +16,11 @@ class DeepSeekFlashRetryTest {
     }
 
     @Test fun retryAfterHttpDate() {
-        val future = ZonedDateTime.now(java.time.ZoneOffset.UTC).plusSeconds(60)
-            .format(DateTimeFormatter.RFC_1123_DATE_TIME)
-        val delay = HttpSupport.retryAfterMs(future)!!
-        org.junit.Assert.assertTrue(delay in 55_000L..60_000L)
+        val whenUtc = ZonedDateTime.now(java.time.ZoneOffset.UTC).plusSeconds(60).withNano(0)
+        val header = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss 'GMT'", java.util.Locale.US).format(whenUtc)
+        val delay = HttpSupport.retryAfterMs(header)!!
+        org.junit.Assert.assertTrue("$header -> $delay", delay in 55_000L..60_000L)
+        assertEquals(0L, HttpSupport.retryAfterMs("Sun, 06 Nov 1994 08:49:37 GMT"))
     }
 
     @Test fun fiveRetriesThenStop() {
