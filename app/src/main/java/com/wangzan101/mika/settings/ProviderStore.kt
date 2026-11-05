@@ -369,9 +369,14 @@ class ProviderStore(
         typed: Set<String> = emptySet(),
         untested: Boolean = false,
         explicitSelfHosted: Boolean = false,
+        userConfirmed: Boolean = true,
     ): Provider {
         val verdict = com.wangzan101.mika.core.net.EndpointUrlPolicy.checkModel(baseUrl, com.wangzan101.mika.core.net.CleartextPolicy.allowLanHttp())
         if (!verdict.allowed) throw IllegalArgumentException(verdict.reason)
+        val previousHost = com.wangzan101.mika.core.security.ModelEndpointWatch.previousKey?.split("|")?.getOrNull(1)
+        if (!userConfirmed && com.wangzan101.mika.core.security.ModelDestinationConsent.needsConfirmation(previousHost, baseUrl)) {
+            throw IllegalArgumentException("destination_unconfirmed")
+        }
         val found = findOrAddProvider(name, kind, baseUrl, signIn)
         // テストをスキップするときに保存するリストがありません。以前にリストされたリストを保持してください。既存のリストを隠すために空のテーブルを使用しないでください。
         val listed = if (untested && models.isEmpty()) found.models ?: models else models

@@ -1,5 +1,6 @@
 package com.wangzan101.mika.core.security
 
+import com.wangzan101.mika.core.net.LocalHosts
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /** 画面データが向かう先。表示はプロバイダ名と実際のホストだけ。 */
@@ -21,6 +22,19 @@ data class ModelDestination(val name: String, val host: String, val secure: Bool
  * 宛先が変わったときだけ通知する。鍵やパスは渡さない。
  * [previousKey] が null の初回は記録するだけで通知しない。
  */
+/**
+ * 保存済みのモデル宛先と違うホストへ変えるときは、ユーザーの保存操作で true を渡す。
+ * ループバックは確認不要。モデルや設定ツールからは true を渡さない。
+ */
+object ModelDestinationConsent {
+    fun needsConfirmation(previousHost: String?, nextUrl: String): Boolean {
+        val next = nextUrl.trim().toHttpUrlOrNull()?.host ?: return true
+        if (LocalHosts.isLoopback(next)) return false
+        if (previousHost.isNullOrBlank()) return false
+        return !next.equals(previousHost, ignoreCase = true)
+    }
+}
+
 object ModelEndpointWatch {
     data class Change(val destination: ModelDestination)
 

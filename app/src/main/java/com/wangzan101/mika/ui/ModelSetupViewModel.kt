@@ -516,7 +516,7 @@ class ModelSetupViewModel(
                 val noTools = outcome is ProbeOutcome.NoToolCall
                 withContext(io) {
                     val p = store.connect(
-                        f.providerName, f.kind, baseUrl, key, models, f.sessionHeader, setOf(typed),
+                        f.providerName, f.kind, baseUrl, key, models, f.sessionHeader, setOf(typed), userConfirmed = true,
                         typed = if (listed == null) setOf(typed) else emptySet(),
                         explicitSelfHosted = f.isSelfHosted,
                     )
@@ -535,7 +535,7 @@ class ModelSetupViewModel(
             }
             val noneUsable = probed.main == null && (probed.rejected.isNotEmpty() || probed.noAutomaticCandidate)
             val saved = withContext(io) {
-                val p = store.connect(f.providerName, f.kind, baseUrl, key, models, f.sessionHeader, setOfNotNull(probed.main), explicitSelfHosted = f.isSelfHosted)
+                val p = store.connect(f.providerName, f.kind, baseUrl, key, models, f.sessionHeader, setOfNotNull(probed.main), explicitSelfHosted = f.isSelfHosted, userConfirmed = true)
                 if (!noneUsable && store.roles.value.main == null) {
                     val options = ModelOptions.ofProvider(p, store.list())
                     (probed.main ?: ModelOptions.defaultMain(options, f.familyTokens, f.allowChineseModels) ?: ModelOptions.automaticFallback(options, f.familyTokens, f.allowChineseModels))
@@ -574,7 +574,7 @@ class ModelSetupViewModel(
             val typed = f.typedModel
             val saved = withContext(io) {
                 store.connect(
-                    f.providerName, f.kind, baseUrl, key.ifEmpty { null }, emptyList(), f.sessionHeader, untested = true, explicitSelfHosted = f.isSelfHosted,
+                    f.providerName, f.kind, baseUrl, key.ifEmpty { null }, emptyList(), f.sessionHeader, untested = true, explicitSelfHosted = f.isSelfHosted, userConfirmed = true,
                 ).also { p -> if (typed.isNotEmpty()) store.markTyped(p.id, typed) }
             }
             _state.update {

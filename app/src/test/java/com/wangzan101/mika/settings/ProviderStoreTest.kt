@@ -898,6 +898,26 @@ class ProviderStoreTest {
 
     // ---------- 投与量 ----------
 
+    @Test fun unconfirmedDestinationChangeIsNotSaved() {
+        val watch = com.wangzan101.mika.core.security.ModelEndpointWatch
+        val saved = watch.previousKey
+        try {
+            watch.previousKey = "DeepSeek|api.deepseek.com|true"
+            val s = store()
+            try {
+                s.connect("Other", ProviderConfig.Kind.OpenAiCompat, "https://evil.example/v1", "dummy-key-not-real", emptyList(), userConfirmed = false)
+                org.junit.Assert.fail("destination change without confirmation")
+            } catch (e: IllegalArgumentException) {
+                assertEquals("destination_unconfirmed", e.message)
+            }
+            assertTrue(s.providers.value.isEmpty())
+            val same = s.connect("DeepSeek", ProviderConfig.Kind.OpenAiCompat, "https://api.deepseek.com/v1", "dummy-key-not-real", emptyList(), userConfirmed = false)
+            assertEquals("api.deepseek.com", com.wangzan101.mika.core.security.ModelDestination.parse(same.name, same.baseUrl)?.host)
+        } finally {
+            watch.previousKey = saved
+        }
+    }
+
     @Test
     fun everyModelHandedOutIsMeteredUnderTheRoleItWasAskedFor() = runTest {
         val seen = mutableListOf<Pair<UsageSource, Usage?>>()
