@@ -69,7 +69,7 @@ class PairingNoticeTest {
         assertEquals(PairingNotice.Problem("ペア設定の期限が切れました"), PairingNotice.of(revoked, PairingDiscovery.Idle))
         // USBから起動したヘルパーが停止した場合は、探索中でもコード入力欄を出しません。
         assertEquals(
-            PairingNotice.Problem("スマホアシスタントが停止しました"),
+            PairingNotice.Problem("スマホのヘルパーが停止しました"),
             PairingNotice.of(BuiltinShellStatus.Failed(BuiltinShellFailure.UsbHelperStopped), PairingDiscovery.Searching),
         )
         // USB 起動コマンドで起動したアシスタントが停止し、コマンドを再度実行する必要があります。ペアリングウィンドウを見つけても、入力ボックスがありません。

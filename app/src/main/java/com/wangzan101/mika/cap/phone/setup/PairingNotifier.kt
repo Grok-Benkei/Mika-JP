@@ -61,7 +61,7 @@ sealed interface PairingNotice {
         val REALERT_MS = listOf(8_000L, 20_000L, 40_000L)
         val MAX_REALERTS = REALERT_MS.size
 
-        /** [notice] を送信するまでの待機時間。アクセシビリティがオンになっていない場合は、ペアリング ウィンドウを見つけるとポップアップが表示されます。待つ必要はありません。 */
+        /** 通知までの待機時間。無音の準備通知とユーザー補助なしの場合は待たず、それ以外の入力通知だけ自動読取りの猶予を設けます。 */
         fun delayBefore(notice: PairingNotice, autoRead: Boolean): Long =
             if (notice is EnterCode && autoRead && !notice.quiet) AUTO_READ_GRACE_MS else 0L
 

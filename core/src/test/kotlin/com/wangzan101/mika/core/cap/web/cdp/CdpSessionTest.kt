@@ -1,6 +1,7 @@
 package com.wangzan101.mika.core.cap.web.cdp
 
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.filter
@@ -9,6 +10,7 @@ import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -204,6 +206,19 @@ class CdpSessionTest {
         val e = assertFails<CdpConnectionClosedException> { s.send("Page.navigate") }
         assertTrue(e.message, e.message!!.contains("1001") && e.message!!.contains("going away"))
         assertTrue(s.closed.value)
+        assertFails<CdpConnectionClosedException> { s.send("Page.reload") }
+    }
+
+    @Test
+    fun serverClosePublishesStateBeforeResumingThePendingCall() = test {
+        val server = FakeDevTools()
+        server.onMessage = { c, _ -> c.sendFrame(0x8, byteArrayOf(0x03, 0xe9.toByte())) }
+        val s = session(server)
+        // 切断通知を受けたスレッドですぐ再開し、状態公開の順序を検査します。
+        withContext(Dispatchers.Unconfined) {
+            assertFails<CdpConnectionClosedException> { s.send("Page.navigate") }
+            assertTrue(s.closed.value)
+        }
         assertFails<CdpConnectionClosedException> { s.send("Page.reload") }
     }
 
