@@ -330,13 +330,13 @@ class ActionExecutor(
         return ActionOutcome.Refused(code, content, before, hit)
     }
 
-    /** 本文を出さない画面でも、本文の変化は読み直しに数える。ダイジェストは本文そのものではない。 */
+    /** 本文を出さない画面でも、セッション内の変化印が違えば別の画面として数える。印は本文のハッシュではない。 */
     private fun readFingerprint(content: JsonObject, elements: JsonArray?): Long {
         val base = elementsHash(elements) ?: resultFingerprint(content)
-        val digest = content["screenDigest"] ?: (content["screen"] as? JsonObject)?.get("screenDigest")
-        val hex = (digest as? JsonPrimitive)?.contentOrNull ?: return base
+        val token = content["screenChange"] ?: (content["screen"] as? JsonObject)?.get("screenChange")
+        val mark = (token as? JsonPrimitive)?.contentOrNull ?: return base
         var h = base
-        for (b in hex.toByteArray(Charsets.UTF_8)) h = (h xor (b.toLong() and 0xff)) * 0x100000001b3L
+        for (b in mark.toByteArray(Charsets.UTF_8)) h = (h xor (b.toLong() and 0xff)) * 0x100000001b3L
         return h
     }
 

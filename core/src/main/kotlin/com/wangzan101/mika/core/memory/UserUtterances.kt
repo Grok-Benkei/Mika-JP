@@ -39,8 +39,8 @@ class UserUtterances {
     private fun comparable(s: String) = PERSON.replace(NumberText.collapse(s), "")
 
     /**
-     * 画面本文はモデルへ出さない。ユーザー自身の発話に含まれる断片だけを、画面上にあったものとして返す。
-     * モデルやページ由来の文字列は受け取らない。長い発話でも最大 [MAX_SEEN] 件で、画面の周辺語は含めない。
+     * 画面本文はモデルへ出さない。ユーザー発話の区切り語と引用だけを、画面上にあったものとして返す。
+     * 文の途中をずらして切り出すことはしない。モデルやページ由来の文字列は受け取らない。
      */
     @Synchronized fun seenOnScreen(screenText: String): List<String> {
         val hay = norm(screenText)
@@ -48,26 +48,17 @@ class UserUtterances {
         val found = LinkedHashSet<String>()
         for (said in texts) {
             val piece = norm(said)
-            if (piece.length < MIN_QUOTE) continue
-            var i = 0
-            while (i < piece.length && found.size < MAX_SEEN) {
-                var best: String? = null
-                val max = minOf(MAX_PHRASE, piece.length - i)
-                for (len in max downTo MIN_QUOTE) {
-                    val sub = piece.substring(i, i + len)
-                    if (sub in hay && sub.any { it.isLetterOrDigit() || it.code > 127 }) {
-                        best = sub
-                        break
-                    }
-                }
-                if (best == null) i++ else {
-                    found += best
-                    i += best.length
-                }
+            for (quoted in QUOTED.findAll(piece)) {
+                val q = quoted.groupValues[1].trim()
+                if (q.length in MIN_QUOTE..MAX_PHRASE && q in hay) found += q
+            }
+            for (tok in piece.split(TOKEN_SPLIT)) {
+                val t = tok.trim()
+                if (t.length in MIN_QUOTE..MAX_PHRASE && t in hay && t.any { it.isLetterOrDigit() || it.code > 127 }) found += t
             }
             if (found.size >= MAX_SEEN) break
         }
-        return found.toList()
+        return found.take(MAX_SEEN)
     }
 
     /** 2 単語未満の引用はカウントされません。どの文にも 1 つまたは 2 つの単語が含まれます。 */
@@ -88,5 +79,6 @@ class UserUtterances {
         val LATIN = Regex("[A-Za-z][A-Za-z0-9._-]{2,}")
         val PLACE = Regex("\\p{IsHan}{2}(?:小区|大厦|广场|公寓|花园|单元|路|街|巷|弄|镇|村|号|楼|栋|室|区|县|市|省|园|苑|城|道|里|湾)")
         val PERSON = Regex("用户的|用户|我的|我")
+        val TOKEN_SPLIT = Regex("[\\s\\p{P}]+")
     }
 }

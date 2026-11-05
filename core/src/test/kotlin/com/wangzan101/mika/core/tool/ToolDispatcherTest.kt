@@ -258,17 +258,34 @@ class ToolDispatcherTest {
     }
 
     @Test fun userPhraseIsMatchedLocallyAndTheRestOfTheScreenStays() = runTest {
-        val said = UserUtterances().apply { add("看看蓝牙开没开") }
+        val said = UserUtterances().apply { add("蓝牙") }
         val screen = object : ScreenPort by FakeScreen() {
             override suspend fun snapshot() = ScreenSnapshot("s1", "com.android.settings", listOf(
                 UiElement("@e1", "text", "蓝牙", 10, 10, listOf(0, 0, 10, 10), null, false, false, false),
                 UiElement("@e2", "text", "已开启", 10, 40, listOf(0, 30, 10, 50), null, false, false, false),
             ), 1080, 2400)
         }
-        val seen = toolDispatcher(screen, utterances = said).execute(call("phone_observe")).content
+        val first = toolDispatcher(screen, utterances = said)
+        val seen = first.execute(call("phone_observe")).content
+        val again = first.execute(call("phone_observe")).content
         assertEquals("text_withheld", seen.s("reason"))
-        assertTrue(seen["userTextOnScreen"].toString().contains("蓝牙"))
+        assertEquals(listOf("蓝牙"), seen["userTextOnScreen"]!!.jsonArray.map { it.jsonPrimitive.content })
+        assertEquals(seen.s("screenChange"), again.s("screenChange"))
+        assertEquals("t1", seen.s("screenChange"))
         assertFalse(seen.toString().contains("已开启"))
+        assertFalse(seen.toString().contains("screenDigest"))
+        val other = object : ScreenPort by FakeScreen() {
+            override suspend fun snapshot() = ScreenSnapshot("s9", "com.android.settings", listOf(
+                UiElement("@e1", "text", "已开启", 10, 40, listOf(0, 30, 10, 50), null, false, false, false),
+            ), 1080, 2400)
+        }
+        val changed = toolDispatcher(other, utterances = said).execute(call("phone_observe")).content
+        assertEquals("t1", changed.s("screenChange"))
+        assertFalse("userTextOnScreen" in changed)
+        val embedded = UserUtterances().apply { add("看看蓝牙开没开") }
+        val sliced = toolDispatcher(screen, utterances = embedded).execute(call("phone_observe")).content
+        assertFalse("userTextOnScreen" in sliced)
+        assertFalse(sliced.toString().contains("蓝牙"))
         val browser = object : ScreenPort by FakeScreen() {
             override suspend fun snapshot() = ScreenSnapshot("s1", "com.android.chrome", listOf(
                 UiElement("@e1", "text", "蓝牙", 10, 10, listOf(0, 0, 10, 10), null, false, false, false),
@@ -278,6 +295,8 @@ class ToolDispatcherTest {
         val blocked = toolDispatcher(browser, utterances = said).execute(call("phone_observe")).content
         assertEquals("browser_or_webview", blocked.s("reason"))
         assertFalse("userTextOnScreen" in blocked)
+        assertFalse("screenChange" in blocked)
+        assertFalse("screenDigest" in blocked)
         assertFalse(blocked.toString().contains("蓝牙"))
         assertFalse(blocked.toString().contains("已开启"))
     }

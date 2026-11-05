@@ -74,6 +74,10 @@ internal class ScreenSession(
     private val modelElementsLimit get() = if (surface.id == "phone") Int.MAX_VALUE else MAX_ELEMENTS
     val screen: ScreenPort get() = surface.screen
     private var textOnlyDepth = 0
+    /** 画面本文の照合にだけ使う。モデルへは出さない。 */
+    private val changeKey = ByteArray(16).also { java.security.SecureRandom().nextBytes(it) }
+    private val changeIds = HashMap<String, String>()
+    private var changeCount = 0
 
     /** 複合携帯電話コマンドはテキストとステータスのみを内部に残し、モデルは必要に応じて写真を要求します。 */
     suspend fun <T> textOnly(block: suspend () -> T): T {
@@ -584,7 +588,7 @@ internal class ScreenSession(
         val stripped = stripScreenText(content, verdict.reason)
         if (!verdict.allowStructure) return stripped
         val extra = mutableMapOf<String, kotlinx.serialization.json.JsonElement>(
-            "screenDigest" to JsonPrimitive(digestHex(privateText)),
+            "screenChange" to JsonPrimitive(changeToken(privateText)),
         )
         val seen = utterances?.seenOnScreen(privateText).orEmpty()
         if (seen.isNotEmpty()) extra["userTextOnScreen"] = JsonArray(seen.map { JsonPrimitive(it) })
@@ -613,10 +617,15 @@ internal class ScreenSession(
         return wrapped["elements"] as? JsonArray ?: JsonArray(emptyList())
     }
 
-    private fun digestHex(text: String): String {
-        var h = -0x340d631b7bdddcdbL
-        for (b in text.toByteArray(Charsets.UTF_8)) h = (h xor (b.toLong() and 0xff)) * 0x100000001b3L
-        return h.toULong().toString(16).padStart(16, '0')
+    /**
+     * モデルへ出す変化印。本文のハッシュそのものは出さない。
+     * セッション内の秘密鍵で照合し、初めて見た本文には連番だけを割り当てる。別セッションの同じ本文は同じ印にならない。
+     */
+    private fun changeToken(text: String): String {
+        val mac = javax.crypto.Mac.getInstance("HmacSHA256")
+        mac.init(javax.crypto.spec.SecretKeySpec(changeKey, "HmacSHA256"))
+        val keyed = mac.doFinal(text.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+        return changeIds.getOrPut(keyed) { "t${++changeCount}" }
     }
 
     private fun stripScreenText(o: JsonObject, reason: String): JsonObject {

@@ -775,7 +775,8 @@ class AgentLoopTest {
         // 日本語のツール説明では最初の送信前から古い読み取りが省略されることがある。入力の大きさは省略前の記録で確認する。
         val observation = events.filterIsInstance<RunEvent.ToolResult>().first().resultJson
         assertFalse(observation.contains("第1次读屏"))
-        assertTrue(observation.contains("screenDigest"))
+        assertTrue(observation.contains("screenChange"))
+        assertFalse(observation.contains("screenDigest"))
         assertTrue("structural observation was ${observation.length}", observation.length >= 1000)
         val worst = m.requests.maxOf { TokenEstimate.of(it) }
         assertTrue("sent about $worst tokens", worst * ContextCompressor.UNCALIBRATED_SCALE <= ContextLimits.of(32_000).usable)
