@@ -71,7 +71,9 @@ object PhoneSetupCopy {
 
     /** ワンステップペアリング：バリアフリー時はミカが自分でコードを読み取ります。 */
     val AUTO_READ_HINT: String get() = tr(R.string.phone_auto_read)
-    /** が無効になっている場合の 3 ステップの図: システムのペアリング ボタンをクリックし、上部にポップアップ表示される通知を確認し、通知にコードを入力します。 */
+    /** 自動で読めない場合に備え、コード入力の通知を先に通知欄へ準備します。 */
+    val AUTO_READ_FALLBACK: String get() = tr(R.string.phone_auto_read_fallback, NOTIFY_ENTER_TITLE)
+        /** が無効になっている場合の 3 ステップの図: システムのペアリング ボタンをクリックし、上部にポップアップ表示される通知を確認し、通知にコードを入力します。 */
     val NOTIFY_GUIDE: List<String> get() = listOf(
         tr(R.string.phone_guide_1), tr(R.string.phone_guide_2), tr(R.string.phone_guide_3, NOTIFY_ACTION),
     )

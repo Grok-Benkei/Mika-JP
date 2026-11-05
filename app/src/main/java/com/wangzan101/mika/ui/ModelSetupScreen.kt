@@ -14,8 +14,10 @@ import com.wangzan101.mika.settings.ChatGptSignIns
 import com.wangzan101.mika.i18n.tr
 import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -30,10 +32,11 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import com.wangzan101.mika.ui.components.MikaDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -71,8 +74,10 @@ import com.wangzan101.mika.ui.components.CapabilityTag
 import com.wangzan101.mika.ui.components.FooterNote
 import com.wangzan101.mika.ui.components.GroupCard
 import com.wangzan101.mika.ui.components.GroupLabel
+import com.wangzan101.mika.ui.components.Hairline
 import com.wangzan101.mika.ui.components.InputRow
 import com.wangzan101.mika.ui.components.ListRow
+import com.wangzan101.mika.ui.components.RowChevron
 import com.wangzan101.mika.ui.components.MikaButton
 import com.wangzan101.mika.ui.components.PageBackground
 import com.wangzan101.mika.ui.components.ProgressDots
@@ -94,6 +99,8 @@ fun ModelSetupScreen(
     store: ProviderStore, onboarding: Boolean, onBack: () -> Unit, onDone: () -> Unit,
     /** 設定の「Speech to Text」カードをクリックして選択ページに移動します。起動プロセスをアップロードしないとカードは表示されません。 */
     onOpenSpeech: (() -> Unit)? = null,
+    /** 設定からトークン使用量を開くための操作です。初回設定では渡しません。 */
+    onOpenUsage: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -195,6 +202,7 @@ fun ModelSetupScreen(
                     testAndSave = vm::testAndSave, saveUntested = vm::saveWithoutTest,
                     openForm = vm::openForm, closeForm = vm::closeForm,
                     openProvider = { openProvider = it; allModels = false }, pickRole = { picking = it }, next = onDone, openSpeech = onOpenSpeech,
+                    openUsage = onOpenUsage,
                     openSignIn = { signInSheet = it },
                     setReasoningEffort = vm::setReasoningEffort,
                     setModelContext = vm::setModelContext,
@@ -246,6 +254,8 @@ class ModelSetupActions(
     val pickRole: (ModelRole) -> Unit = {},
     /** 「音声テキスト変換」選択ページを開きます。 null の場合、このカードは表示されません (開始)。 */
     val openSpeech: (() -> Unit)? = null,
+    /** トークン使用量を開きます。初回設定など null の場合は入口を表示しません。 */
+    val openUsage: (() -> Unit)? = null,
     val next: () -> Unit = {},
     /** は、アカウントにログインするための説明パネルを開きます。 */
     val openSignIn: (SignInKind) -> Unit = {},
@@ -268,10 +278,12 @@ fun ModelSetupContent(ui: ModelSetupUi, onboarding: Boolean, actions: ModelSetup
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars).windowInsetsPadding(WindowInsets.ime)) {
             TopBar(if (onboarding) ModelSetupCopy.TITLE else ModelsCopy.TITLE, MikaIcons.Back, onBack, stringResource(R.string.back))
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-                Text(
-                    if (onboarding) ModelSetupCopy.LEAD else ModelsCopy.LEAD, Modifier.padding(top = 4.dp, bottom = 12.dp),
-                    fontSize = 14.5.sp, lineHeight = 23.sp, color = c.ink2,
-                )
+                if (onboarding) {
+                    Text(
+                        ModelSetupCopy.LEAD, Modifier.padding(top = 4.dp, bottom = 12.dp),
+                        fontSize = 14.5.sp, lineHeight = 23.sp, color = c.ink2,
+                    )
+                }
                 // の使用を開始するときは、まずサービス プロバイダーに接続し、次にモデルを選択します。まずは設定で目的を確認してください
                 if (onboarding) {
                     ProvidersSection(ui, actions)
@@ -280,6 +292,11 @@ fun ModelSetupContent(ui: ModelSetupUi, onboarding: Boolean, actions: ModelSetup
                 } else {
                     RolesSection(ui, onPick, actions.setReasoningEffort, actions.openSpeech, actions.setModelContext)
                     ProvidersSection(ui, actions)
+                    actions.openUsage?.let { openUsage ->
+                        GroupCard {
+                            ListRow(MikaIcons.Chart, UsageCopy.TITLE, first = true, onClick = openUsage) { RowChevron() }
+                        }
+                    }
                 }
                 Spacer(Modifier.height(16.dp))
             }
@@ -435,7 +452,7 @@ private fun AddProviderForm(ui: ModelSetupUi, actions: ModelSetupActions) {
         Modifier.fillMaxWidth().padding(top = 6.dp).testTag("setup-save-untested"),
         kind = ButtonKind.Tonal, size = ButtonSize.Small, enabled = f.canSaveUntested,
     )
-    if (confirmUntested) AlertDialog(
+    if (confirmUntested) MikaDialog(
         onDismissRequest = { confirmUntested = false },
         title = { Text(ModelSetupCopy.SAVE_UNTESTED_TITLE) },
         text = { Text(ModelSetupCopy.SAVE_UNTESTED_BODY) },
@@ -467,7 +484,7 @@ private fun PresetSuggestion(f: AddForm, label: String, onUse: () -> Unit) {
 /** ChatGPT で初めてログインに成功した後、一度説明してください。Mika での使用法が ChatGPT パッケージに使用されます。 */
 @Composable
 private fun ChatGptWelcome(onDismiss: () -> Unit) {
-    AlertDialog(
+    MikaDialog(
         onDismissRequest = onDismiss,
         title = { Text(ModelsCopy.CHATGPT_WELCOME_TITLE) },
         text = { Text(ModelsCopy.CHATGPT_WELCOME_BODY) },
@@ -527,8 +544,22 @@ private fun RolesSection(ui: ModelSetupUi, onPick: (ModelRole) -> Unit, onReason
             RoleCard(ModelsCopy.roleIcon(role), ModelsCopy.roleLabel(role), ModelsCopy.roleLine(ui, role), first = i == 0, tag = "role-${role.name.lowercase()}") {
                 onPick(role)
             }
-            ReasoningControl(ui, role) { onReasoning(role, it) }
-            if (onContext != null) ModelContextControl(ui, role, onContext)
+            if (ui.roles[role] == RoleChoice.SameAsMain) {
+                ReasoningControl(ui, role) { onReasoning(role, it) }
+            } else {
+                val reasoning = hasReasoningAction(ui, role)
+                val context = onContext != null && hasModelContextControl(ui, role)
+                if (reasoning || context) {
+                    Column(Modifier.padding(start = 70.dp, end = 16.dp)) {
+                        Hairline(start = 0.dp)
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            if (reasoning) ReasoningControl(ui, role, Modifier.weight(1f)) { onReasoning(role, it) }
+                            if (reasoning && context) Box(Modifier.width(0.5.dp).height(14.dp).background(MikaTheme.colors.hair))
+                            if (onContext != null && context) ModelContextControl(ui, role, onContext, Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
         }
         // 4 番目の使用法: 音声からテキストへの変換 (対話モデルではありません。クリックすると別の選択ページが開きます)
         if (onSpeech != null) {
@@ -537,17 +568,18 @@ private fun RolesSection(ui: ModelSetupUi, onPick: (ModelRole) -> Unit, onReason
     }
 }
 
+private fun hasModelContextControl(ui: ModelSetupUi, role: ModelRole): Boolean =
+    ui.roles[role] is RoleChoice.Model && ui.configFor(role) != null
+
 @Composable
 private fun ModelContextControl(ui: ModelSetupUi, role: ModelRole,
-    onSave: (String, ModelContextSettings) -> Boolean,
+    onSave: (String, ModelContextSettings) -> Boolean, modifier: Modifier = Modifier,
 ) {
     if (ui.roles[role] !is RoleChoice.Model) return
     val cfg = ui.configFor(role) ?: return
     val saved = ui.providerOf(cfg)?.contextSettings?.get(cfg.model) ?: ModelContextSettings()
     var open by rememberSaveable(cfg.id) { mutableStateOf(false) }
-    TextButton(onClick = { open = true }, modifier = Modifier.padding(start = 8.dp).testTag("context-${role.name.lowercase()}")) {
-        Text(stringResource(R.string.model_context_title))
-    }
+    ModelOptionButton(stringResource(R.string.model_context_title), "context-${role.name.lowercase()}", modifier) { open = true }
     if (!open) return
     var window by rememberSaveable(cfg.id) { mutableStateOf(saved.windowTokens?.toString().orEmpty()) }
     var trigger by rememberSaveable(cfg.id) { mutableStateOf(saved.triggerTokens?.toString().orEmpty()) }
@@ -559,7 +591,7 @@ private fun ModelContextControl(ui: ModelSetupUi, role: ModelRole,
     val badWindow = window.isNotBlank() && settings.windowTokens == null
     val badTrigger = trigger.isNotBlank() && (settings.triggerTokens == null || (!badWindow && settings.triggerTokens != limits.trigger))
     val keyboard = KeyboardOptions(keyboardType = KeyboardType.Number)
-    AlertDialog(
+    MikaDialog(
         onDismissRequest = { open = false },
         modifier = Modifier.imePadding(),
         title = { Text(stringResource(R.string.model_context_title)) },

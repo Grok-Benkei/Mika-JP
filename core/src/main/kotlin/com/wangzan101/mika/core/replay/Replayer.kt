@@ -95,6 +95,11 @@ class Replayer(
                     }
                     "target_unresolved" -> return diverged("cannot tell which element the tap would hit", seen)
                     "own_app" -> return diverged("it acts on Mika itself", seen)
+                    // 承認を得られない実行元の決済ステップは待機せずモデルへ戻し、未完了の理由を利用者へ説明します。
+                    "approval_unavailable" -> return diverged(
+                        "この実行では支払い操作の承認を取得できません", seen,
+                        error = "approval_unavailable",
+                    )
                     else -> error("unexpected refusal ${o.code}")
                 }
                 is ActionOutcome.Cancelled -> return diverged("cancelled", seen)

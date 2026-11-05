@@ -23,13 +23,15 @@ data class PersonalSkill(
     val source: String? = null,
 ) {
     val createdByUser: Boolean get() = source == SOURCE_USER
+    val imported: Boolean get() = source == SOURCE_IMPORTED
 
     /** 非アクティブ化後に復元するときにどのレベルに戻るか: まだ完了していないもの (沈殿、ユーザー要件が書き留められているもの) は試用版に戻り、完了したものは正式版に戻ります。 */
     fun restoredStatus(): SkillStatus =
-        if ((learnedFrom != null || createdByUser) && SkillResult.verified.name !in outcomes) SkillStatus.trial else SkillStatus.active
+        if ((learnedFrom != null || createdByUser || imported) && SkillResult.verified.name !in outcomes) SkillStatus.trial else SkillStatus.active
 
     companion object {
         const val SOURCE_USER = "user"
+        const val SOURCE_IMPORTED = "imported"
     }
 }
 
@@ -71,8 +73,11 @@ interface PersonalSkills {
             val lines = markdown.replace("\r\n", "\n").split("\n").toMutableList()
             if (lines.firstOrNull()?.trimEnd() != "---") return markdown
             val end = (1 until lines.size).firstOrNull { lines[it].trimEnd() == "---" } ?: return markdown
-            val i = (1 until end).firstOrNull { lines[it].startsWith("$key:") }
-            if (i != null) lines[i] = "$key: $value" else lines.add(end, "$key: $value")
+            val matches = (1 until end).filter { isField(lines[it], key) }
+            if (matches.isEmpty()) lines.add(end, "$key: $value") else {
+                lines[matches.first()] = "$key: $value"
+                matches.drop(1).asReversed().forEach(lines::removeAt)
+            }
             return lines.joinToString("\n")
         }
 
@@ -81,9 +86,16 @@ interface PersonalSkills {
             val lines = markdown.replace("\r\n", "\n").split("\n").toMutableList()
             if (lines.firstOrNull()?.trimEnd() != "---") return markdown
             val end = (1 until lines.size).firstOrNull { lines[it].trimEnd() == "---" } ?: return markdown
-            val i = (1 until end).firstOrNull { lines[it].startsWith("$key:") } ?: return markdown
-            lines.removeAt(i)
+            val matches = (1 until end).filter { isField(lines[it], key) }
+            if (matches.isEmpty()) return markdown
+            matches.asReversed().forEach(lines::removeAt)
             return lines.joinToString("\n")
+        }
+
+        /** FrontMatter と同じようにキーの前後の空白を許容します。 */
+        private fun isField(line: String, key: String): Boolean {
+            val colon = line.indexOf(':')
+            return colon > 0 && line.substring(0, colon).trim() == key
         }
     }
 }

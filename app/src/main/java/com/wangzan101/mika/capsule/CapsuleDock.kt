@@ -65,11 +65,12 @@ object CapsuleDocking {
     fun edgeOffset(side: DockSide, area: DockArea): Int = if (side == DockSide.Left) area.left else area.width - area.right
 
     /**
-     * 放します: [x] はウィンドウの左側にあり、[y] はウィンドウの上部にあります。中心線は画面の左半分の左側に接続され、それ以外の場合は右側に接続されます。高さは比例して記録されます。
+     * 松した位置を左右の端へ寄せます。高さはキーボードを避ける前の [fractionArea] に対する比率で保存し、
+     * 現在の [area] に収める処理で二重にずれないようにします。
      */
-    fun release(x: Int, y: Int, w: Int, h: Int, area: DockArea): CapsuleDock {
+    fun release(x: Int, y: Int, w: Int, h: Int, area: DockArea, fractionArea: DockArea = area): CapsuleDock {
         val side = if (x + w / 2 < area.width / 2) DockSide.Left else DockSide.Right
-        return CapsuleDock(side, fraction(fitY(y, area, h), area, h))
+        return CapsuleDock(side, fraction(fitY(y, area, h), fractionArea, h))
     }
 
     private fun range(area: DockArea, h: Int) = maxOf(0, area.bottom - area.top - h)

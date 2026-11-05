@@ -89,12 +89,7 @@ class McpOAuth(
             ?.firstOrNull()?.jsonPrimitive?.contentOrNull
             ?.toHttpUrlOrNull()
             ?: serverUrl.newBuilder().encodedPath("/").query(null).build()
-        val metadata = fetchMetadata(
-            listOfNotNull(
-                authServer.newBuilder().encodedPath("/.well-known/oauth-authorization-server").query(null).build(),
-                authServer.newBuilder().encodedPath("/.well-known/openid-configuration").query(null).build(),
-            ),
-        ) ?: throw McpOAuthException("oauth_server_metadata_missing")
+        val metadata = fetchMetadata(authServerMetadataUrls(authServer)) ?: throw McpOAuthException("oauth_server_metadata_missing")
         val authorization = metadata["authorization_endpoint"]?.jsonPrimitive?.contentOrNull?.toHttpUrlOrNull()
             ?: throw McpOAuthException("oauth_authorization_endpoint_missing")
         val token = metadata["token_endpoint"]?.jsonPrimitive?.contentOrNull?.toHttpUrlOrNull()
@@ -225,6 +220,17 @@ class McpOAuth(
             clientSecret = registration.clientSecret,
             tokenEndpoint = tokenEndpoint.toString(),
             resource = resource?.toString(),
+        )
+    }
+
+    /** issuer にパスがある場合は RFC 8414 に従い well-known をホストとパスの間へ挿入します。OpenID の同形式と OIDC のパス末尾形式も順に試します。 */
+    private fun authServerMetadataUrls(issuer: HttpUrl): List<HttpUrl> {
+        val path = issuer.encodedPath.trimEnd('/')
+        fun at(p: String) = issuer.newBuilder().encodedPath(p).query(null).build()
+        return listOfNotNull(
+            at("/.well-known/oauth-authorization-server$path"),
+            at("/.well-known/openid-configuration$path"),
+            if (path.isEmpty()) null else at("$path/.well-known/openid-configuration"),
         )
     }
 

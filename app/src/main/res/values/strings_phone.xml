@@ -164,4 +164,5 @@
     <string name="phone_root_option_body">Mika が su に一度だけ許可を求め、ヘルパーを起動します。スマホを再起動しても自動でまた起動し、ペア設定は不要です。</string>
     <string name="phone_success_note_root">ヘルパーは root で起動しました。スマホを再起動すると、Mika が自動でまた起動します</string>
     <string name="phone_usage_note_root">Mika の内蔵ヘルパーは root で起動され、Wi-Fi の有無にかかわらずバックグラウンドで動き続けます。スマホを再起動すると、Mika が root で自動的にまた起動します。ペア設定もパソコンも不要です。root が拒否されたり削除されたりしたときは、下の Root グループに表示されます。</string>
+    <string name="phone_auto_read_fallback">数秒待っても何も起きない場合は、通知シェードを下にスワイプして「%1$s」にコードを入力してください。ペア設定の画面は閉じません。</string>
 </resources>

@@ -18,10 +18,8 @@ interface WakeLockPort {
  * 画面がオフになると、システムは挿入されたタッチを破棄してロックするため、エージェントの動作中に画面を自動的にオフにすることはできません。
  * ただし、ユーザーが操作していないときは、画面が完全に明るい必要はありません。システムがタイムアウトすると、通常どおり暗くなります ([ScreenWakeLock] を参照)。
  *
- * は実行時のみ保持されます。引き継ぎ/応答/続行/ロック解除を待機しているときに、エージェントの画面をオンにする必要はありません。
- * を押してから [GRACE_MS] を押したままにして (ユーザーはおそらく処理しようとしているので、目の前で画面をオフにしないでください)、その後放し、タスクの実行が継続したらもう一度押し続けます。
- * 終了、失敗、キャンセル、即時リリース。ロックはプロセスに従って行われます。システムは異常終了すると、Mika を自動的に元に戻します。永続的な回復は必要ありません。
- * ユーザーは、電源ボタンを押して画面をオフにすることができます (ACQUIRE_CAUSES_WAKEUP なし)。このとき、ゲートはタスクをロック解除を待機させます。
+ * 実行中と仮想画面の順番待ちでは画面ロックを保持します。利用者の応答待ちは [GRACE_MS] 後に解放します。
+ * 終了・失敗・キャンセルでは即時解放します。電源ボタンによる消灯や端末ロックは妨げません。
  */
 class KeepAwake(private val lock: WakeLockPort, private val scope: CoroutineScope) {
     private var held = false
@@ -32,22 +30,30 @@ class KeepAwake(private val lock: WakeLockPort, private val scope: CoroutineScop
     fun onState(state: TaskState) {
         if (closed) return
         when (state) {
-            is TaskState.Running -> {
-                pendingRelease?.cancel()
-                pendingRelease = null
-                if (!held) {
-                    lock.acquire()
-                    held = true
-                }
-            }
+            is TaskState.Running -> hold()
+            // 仮想画面の順番待ちでもロックを保持し、前のタスクの終了直後に画面が消えてロック解除待ちになることを防ぎます。
+            is TaskState.Held -> if (state.reason.queued) hold() else releaseLater()
             TaskState.Idle, is TaskState.Succeeded, is TaskState.Failed, TaskState.Cancelled -> release()
-            else -> if (held && pendingRelease == null) {
-                pendingRelease = scope.launch {
-                    delay(GRACE_MS)
-                    synchronized(this@KeepAwake) {
-                        pendingRelease = null
-                        release()
-                    }
+            else -> releaseLater()
+        }
+    }
+
+    private fun hold() {
+        pendingRelease?.cancel()
+        pendingRelease = null
+        if (!held) {
+            lock.acquire()
+            held = true
+        }
+    }
+
+    private fun releaseLater() {
+        if (held && pendingRelease == null) {
+            pendingRelease = scope.launch {
+                delay(GRACE_MS)
+                synchronized(this@KeepAwake) {
+                    pendingRelease = null
+                    release()
                 }
             }
         }

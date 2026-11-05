@@ -232,7 +232,10 @@ class ActionExecutor(
         val after = subVerdicts.toMutableList()
         after += if (s.offScreen) offScreen?.result(call.name, s.args, resolved.content).orEmpty() else guards.result(call.name, resolved.content)
         // アクションレポートの実際の効果が最初に記録され（効果なし、場所が変更されました）、次の画面では指紋が再度記録されません。
-        ((resolved.content["effect"] as? JsonObject)?.get("kind") as? JsonPrimitive)?.takeIf { !s.offScreen }?.let { after += guards.effect(it.content) }
+        (resolved.content["effect"] as? JsonObject)?.takeIf { !s.offScreen }?.let { effect ->
+            val kind = (effect["kind"] as? JsonPrimitive)?.content ?: return@let
+            after += guards.effect(kind, (effect["treeBlind"] as? JsonPrimitive)?.booleanOrNull == true)
+        }
         val elements = resolved.screenElements ?: resolved.content["elements"] as? JsonArray
         val beforeFrameProgress = guards.progressVersion
         elementsHash(elements)?.let { after += guards.frame("$n:${call.id}", it) }

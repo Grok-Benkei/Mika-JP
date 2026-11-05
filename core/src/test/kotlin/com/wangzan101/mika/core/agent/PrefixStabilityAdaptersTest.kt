@@ -87,7 +87,7 @@ class PrefixStabilityAdaptersTest {
         )
         override val keys = setOf("instructions", "tools", "input")
         override val replay = "ENC"
-        override val compactions = listOf(10, 19, 28)
+        override val compactions = listOf(12, 22)
         override fun zone0(body: JsonObject) = body["instructions"].toString() + body["tools"]
         override fun messages(body: JsonObject) = body["input"]!!.jsonArray.map { it.toString() }
         override fun tools(body: JsonObject) = body["tools"]!!.jsonArray.map { it.toString() to it.jsonObject.str("name")!! }
@@ -114,7 +114,7 @@ class PrefixStabilityAdaptersTest {
             AnthropicModel(url, "k", "m", Capabilities(true, vision, contextTokens, true), OkHttpClient(), reasoningEffort = "medium")
         override val keys = setOf("system", "tools", "messages")
         override val replay = "SIG"
-        override val compactions = listOf(10, 18, 27)
+        override val compactions = listOf(12, 22)
         override fun zone0(body: JsonObject) = strip(body["system"]!!).toString() + strip(body["tools"]!!)
         override fun messages(body: JsonObject) = body["messages"]!!.jsonArray.map { strip(it).toString() }
         override fun tools(body: JsonObject) = body["tools"]!!.jsonArray.map { strip(it).toString() to it.jsonObject.str("name")!! }
@@ -135,7 +135,7 @@ class PrefixStabilityAdaptersTest {
         override val replay = "TS"
         // リクエスト バイトは他の 3 つよりわずかに少なく、トリガー ポイントからわずかに離れています。プロンプトの単語またはツールの説明の長さが変わると、トリガー ポイントを超えるステップは他の 3 つのステップから 1 ステップ離れている可能性があります。
         // 現在の日本語定義ではAnthropicと同じ圧縮点になる。Responsesと互換APIは2回目以降が1ステップ遅い。
-        override val compactions = listOf(10, 18, 27)
+        override val compactions = listOf(12, 22)
         override fun zone0(body: JsonObject) = body["systemInstruction"].toString() + body["tools"]
         override fun messages(body: JsonObject) = body["contents"]!!.jsonArray.map { it.toString() }
         override fun tools(body: JsonObject) = body["tools"]!!.jsonArray.flatMap { t ->
@@ -157,7 +157,7 @@ class PrefixStabilityAdaptersTest {
         )
         override val keys = setOf("messages", "tools")
         override val replay = null
-        override val compactions = listOf(10, 19, 28)
+        override val compactions = listOf(12, 22)
         override fun zone0(body: JsonObject) = strip(body["messages"]!!.jsonArray.first()).toString() + body["tools"]
         override fun messages(body: JsonObject) = body["messages"]!!.jsonArray.drop(1).map { plain(strip(it).jsonObject).toString() }
         override fun tools(body: JsonObject) =

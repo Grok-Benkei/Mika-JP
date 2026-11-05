@@ -11,6 +11,7 @@ import com.wangzan101.mika.core.memory.MemoryStatus
 import com.wangzan101.mika.core.memory.MemoryStore
 import com.wangzan101.mika.core.knowledge.FrontMatter
 import com.wangzan101.mika.core.skills.SkillDrafter
+import com.wangzan101.mika.core.skills.SkillImport
 import com.wangzan101.mika.core.assembly.knownToolNames
 import com.wangzan101.mika.core.skills.PersonalSkill
 import com.wangzan101.mika.core.skills.PersonalSkills
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.update
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 import com.wangzan101.mika.i18n.uiLocale
 import com.wangzan101.mika.core.assembly.knownTools
 import com.wangzan101.mika.core.tool.Verb
@@ -82,6 +84,8 @@ class MemoryViewModel(
     /** 変更されたスキルを受け入れる場合: スクリプトを実行するツールに関しては、スクリプトがリスト内で実行可能としてマークされている必要があります。 */
     private val runnableScripts: Set<String> = emptySet(),
     private val appDrafts: AppKnowledgeDraftStore? = null,
+    /** 取り込む個人スキルと重複させない組込みスキル名です。 */
+    private val builtinSkillNames: Set<String> = emptySet(),
 ) {
     private val local = MutableStateFlow(MemoryUi())
     private val skillsVersion = MutableStateFlow(0)
@@ -149,7 +153,8 @@ class MemoryViewModel(
     /** はドラフトを受け入れます。 [edited] は、ユーザーによって変更された全文です。草案と同様にフォーマットとセキュリティチェックを通過する必要がありますが、受け入れられず、説明も受けられません。 */
     fun approveSkill(draftId: String, edited: String? = null) {
         val p = skills ?: return
-        val problem = edited?.let { SkillDrafter.validate(it, toolNames, scriptTool, runnableScripts) }
+        val checked = edited ?: p.drafts()[draftId]?.takeIf { it.imported }?.markdown
+        val problem = checked?.let { SkillDrafter.validate(it, toolNames, scriptTool, runnableScripts) }
         if (problem != null) {
             local.update { it.copy(message = SKILL_PROBLEMS[problem] ?: tr(R.string.skill_bad_format)) }
             return
@@ -161,6 +166,20 @@ class MemoryViewModel(
     }
 
     fun rejectSkill(draftId: String) { skills?.reject(draftId); skillsChanged() }
+
+    /** 共有されたスキルを検証し、成功時は確認待ちへ移動して null を返します。失敗時は入力を保持したまま理由を返します。 */
+    fun importSkill(text: String): String? {
+        val p = skills ?: return tr(R.string.skill_bad_format)
+        return when (val r = SkillImport.prepare(text, p, builtinSkillNames, toolNames, scriptTool, runnableScripts, UUID.randomUUID().toString(), clock())) {
+            is SkillImport.Result.Ready -> {
+                p.putPending(r.id, r.skill)
+                skillsChanged()
+                local.update { it.copy(segment = Segment.Pending, message = tr(R.string.skill_imported)) }
+                null
+            }
+            is SkillImport.Result.Rejected -> SKILL_PROBLEMS[r.problem] ?: tr(R.string.skill_bad_format)
+        }
+    }
 
     fun approveAppDraft(id: String) { appDrafts?.approve(id); skillsChanged() }
     fun rejectAppDraft(id: String) { appDrafts?.reject(id); skillsChanged() }
@@ -195,6 +214,8 @@ class MemoryViewModel(
             "missing_section" to tr(R.string.skill_missing_section),
             "too_long" to tr(R.string.skill_too_long),
             "unknown_tool" to tr(R.string.skill_unknown_tool),
+            "builtin_name" to tr(R.string.skill_builtin_name),
+            "draft_pending" to tr(R.string.skill_draft_pending),
         )
 
         fun sourceLine(s: MemorySource): String =
@@ -244,6 +265,7 @@ data class SkillsUi(val drafts: List<SkillRow> = emptyList(), val installed: Lis
                 canRestore = skills?.revisions(s.name)?.isNotEmpty() == true,
                 recent = s.outcomes.takeLast(3).map(::outcomeLabel),
                 userCreated = s.createdByUser,
+                imported = s.imported,
             )
         }
 
@@ -270,4 +292,6 @@ data class SkillRow(
     val recent: List<String> = emptyList(), val changedLines: List<String> = emptyList(),
     /** ユーザーは、それをタスクに書き留めるように要求しました (完了したタスクからは学習されません)。 */
     val userCreated: Boolean = false,
+    /** 共有された全文から取り込んだスキルです。 */
+    val imported: Boolean = false,
 )

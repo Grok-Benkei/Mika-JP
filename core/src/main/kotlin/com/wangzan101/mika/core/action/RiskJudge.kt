@@ -26,9 +26,6 @@ object ClassifiedRisk : RiskJudge {
     /** このアクションは、インターフェイス上の内容を変更します (インターフェイス間を移動するだけではありません)。これらのアクションによって、不可逆的な外部アクションも行われます。 */
     fun changesState(verb: Verb?): Boolean = verb in CHANGE_VERBS
 
-    /** 不可逆判定と同じ通貨・数字表記を使います。金額のある画面での提出・削除は支出として扱い、通常のメッセージ送信は除外します。 */
-    private val AMOUNT = IrreversibleDetector.AMOUNT
-
     override fun assess(verb: Verb?, hit: Irreversible?, screen: () -> ScreenSnapshot?): Risk {
         val level = when (hit?.action) {
             null -> if (verb in CHANGE_VERBS) ActionRisk.Change else ActionRisk.Read
@@ -37,10 +34,12 @@ object ClassifiedRisk : RiskJudge {
             IrrevAction.other -> ActionRisk.Unknown
         }
         if (hit == null) return Risk(level)
-        val payment = hit.action == IrrevAction.pay || hit.action == IrrevAction.order ||
-            hit.action != IrrevAction.send && screen()?.elements?.filter { !it.editable && !it.hint }?.let { shown ->
-                shown.any { AMOUNT.containsMatchIn(IrreversibleDetector.rowText(it, shown)) }
-            } == true
+        // 金額の表示だけでは支払いと判定しません。明示的な支払いや注文は常に確認し、それ以外は合計や決済画面との関連を確認します。
+        val payment = when (hit.action) {
+            IrrevAction.pay, IrrevAction.order -> true
+            IrrevAction.send -> false
+            else -> screen()?.let(IrreversibleDetector::hasPayableAmount) == true
+        }
         return Risk(level, payment)
     }
 

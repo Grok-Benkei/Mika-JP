@@ -566,10 +566,9 @@ internal fun VoiceConverting(modifier: Modifier = Modifier) {
 
 /** は、話すときに灰色の単語を押し続けることができます: 前面にある小さなマイク。 */
 @Composable
-internal fun VoicePlaceholder(mode: ComposerMode) {
+internal fun VoicePlaceholder(mode: ComposerMode, modifier: Modifier = Modifier) {
     val c = MikaTheme.colors
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Icon(MikaIcons.Mic, null, Modifier.size(16.dp), tint = c.ink3)
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
         Text(ChatCopy.voicePlaceholder(mode), style = MikaType.Body, color = c.ink3, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

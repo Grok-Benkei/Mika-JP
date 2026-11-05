@@ -95,6 +95,8 @@ internal fun stationary(before: List<ElementLocator>, after: List<ElementLocator
 interface TextField {
     fun read(): String?
     fun write(text: String): Boolean
+    /** 初回の読戻しが一致しない場合は別の入力経路で再試行します。代替がなければ同じ経路を使います。 */
+    fun retry(text: String): Boolean = write(text)
 }
 
 /** 比較する前にすべての空白スペースを削除します。入力ボックスにより、番号グループにスペースが自動的に追加される場合があります。 */
@@ -118,28 +120,26 @@ suspend fun typeAndVerify(
     secret: Boolean = false,
 ): Verification {
     if (secret) {
-        field.write(text)
-        return Verification.UNKNOWN
+        return if (field.write(text)) Verification.UNKNOWN else Verification.MISMATCH
     }
     val want = normText(text)
     var baseline = field.read() ?: run {
-        // 読み込めない場合は通常通り一度書き込みますが検証できません。
-        field.write(text)
-        return Verification.UNKNOWN
+        // 読取り不能でも1回書き込みますが、書込み自体の拒否は UNKNOWN にせず MISMATCH を返します。
+        return if (field.write(text)) Verification.UNKNOWN else Verification.MISMATCH
     }
     if (want.isNotEmpty() && normText(baseline) == want) {
-        field.write("")
+        val cleared = field.write("")
         settle()
-        baseline = field.read() ?: return Verification.UNKNOWN
+        baseline = field.read() ?: return if (cleared) Verification.UNKNOWN else Verification.MISMATCH
         if (normText(baseline) == want) {
-            field.write(text)
-            return Verification.UNKNOWN
+            return if (field.write(text)) Verification.UNKNOWN else Verification.MISMATCH
         }
     }
     var stuck = true
     var wrote = false
-    repeat(attempts) {
-        if (!field.write(text)) return@repeat
+    repeat(attempts) { attempt ->
+        val accepted = if (attempt == 0) field.write(text) else field.retry(text)
+        if (!accepted) return@repeat
         wrote = true
         settle()
         val actual = field.read() ?: return Verification.UNKNOWN

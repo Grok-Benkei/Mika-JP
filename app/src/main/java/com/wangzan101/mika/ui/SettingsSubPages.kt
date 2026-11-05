@@ -13,7 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
+import com.wangzan101.mika.ui.components.MikaDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -58,7 +58,6 @@ fun PhoneOpsScreen(
     status: SystemStatus,
     androidRelease: String,
     onProblem: (Problem) -> Unit,
-    onOpenNotifications: () -> Unit,
     onRepair: () -> Unit,
     onUnpair: () -> Unit,
     onBack: () -> Unit,
@@ -84,11 +83,6 @@ fun PhoneOpsScreen(
                     else PhoneSetupCopy.statusLine(helper, status.usbDebugging, status.rootStart),
                     onClick = { onProblem(Problem.PhoneHelper(helper)) },
                 ) { if (reconnect) RowValue(PhoneSetupCopy.RECONNECT, ValueTone.Link) else RowValue(hText, hTone) }
-            }
-            val (notifText, notifTone) = StatusCopy.notificationSummary(status.notificationOverview().summary)
-            ListRow(MikaIcons.Bell, StatusCopy.NOTIFICATIONS, stringResource(R.string.settings_notif_progress_sub), onClick = onOpenNotifications) {
-                RowValue(notifText, notifTone)
-                RowChevron()
             }
             val tooOld = status.sdkInt < Prerequisites.MIN_SDK
             val focusWarning = Problem.FocusMayLeak in check.problems
@@ -128,7 +122,7 @@ fun PhoneOpsScreen(
         RootSwitches(helperRow = status.sdkInt >= Prerequisites.MIN_SDK)
     }
     if (confirmUnpair) {
-        AlertDialog(
+        MikaDialog(
             onDismissRequest = { confirmUnpair = false },
             title = { Text(PhoneSetupCopy.UNPAIR_TITLE) },
             text = { Text(PhoneSetupCopy.UNPAIR_BODY) },
@@ -189,7 +183,7 @@ private fun ChannelRowItem(title: String, whenText: String, row: ChannelRow, fix
 data class ParallelSetting(val max: Int, val limit: ParallelLimit)
 
 /**
- * 設定 › 作業中: 画面は常にオンになり、操作されているアプリはミュートになります (両方ともデフォルトでオンになっており、オフにすることができます)。 [parallel] が空でない場合 (実験スイッチがオンになっている場合)、同時に実行されるタスクの数に応じて 1 行追加されます。
+ * 设置 › 任务运行:自主模式默认关;屏幕常亮、被操作的 App 静音默认开,可以关;[parallel] 不为空(实验开关打开了)时多一行同时进行的任务数。
  * 次のグループは動作リズムです: 速い / 標準 (デフォルト) / 人間的で、次のタスクを選択した後に有効になります。
  */
 @Composable
@@ -197,6 +191,7 @@ fun DuringWorkScreen(
     keepScreenOn: Boolean, onKeepScreenOn: (Boolean) -> Unit,
     muteTarget: Boolean, onMuteTarget: (Boolean) -> Unit,
     parallel: ParallelSetting?, onParallelMax: (Int) -> Unit, onBack: () -> Unit,
+    autonomous: Boolean = false, onAutonomous: (Boolean) -> Unit = {},
     operatingPace: OperatingPace = OperatingPace.DEFAULT, onOperatingPace: (OperatingPace) -> Unit = {},
     selfConfig: Boolean = false, onSelfConfig: (Boolean) -> Unit = {},
     stepLimit: Int? = null, onStepLimit: (Int?) -> Unit = {},
@@ -204,6 +199,12 @@ fun DuringWorkScreen(
     var editingLimit by remember { mutableStateOf(false) }
     var customLimit by remember { mutableStateOf("") }
     PageScaffold(stringResource(R.string.settings_during_work), onBack) {
+        GroupLabel(AutonomyCopy.GROUP)
+        GroupCard {
+            ListRow(null, AutonomyCopy.TITLE, AutonomyCopy.SUBTITLE, first = true, onClick = { onAutonomous(!autonomous) }) {
+                MikaSwitch(autonomous, onAutonomous, Modifier.testTag("work-autonomous"))
+            }
+        }
         GroupCard {
             ListRow(MikaIcons.Sun, stringResource(R.string.settings_keep_on), stringResource(R.string.settings_keep_on_sub), first = true, onClick = { onKeepScreenOn(!keepScreenOn) }) {
                 MikaSwitch(keepScreenOn, onKeepScreenOn, Modifier.testTag("work-keep-screen-on"))
@@ -260,7 +261,7 @@ private fun StepLimitDialog(
     onDismiss: () -> Unit,
 ) {
     val customValue = custom.toIntOrNull()?.takeIf { it in 1..FeatureFlags.MAX_TASK_STEP_LIMIT }
-    AlertDialog(
+    MikaDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.settings_step_limit)) },
         text = {
@@ -457,7 +458,7 @@ fun RoutesScreen(count: Int?, onClear: () -> Unit, onBack: () -> Unit) {
         }
     }
     if (confirmClear) {
-        AlertDialog(
+        MikaDialog(
             onDismissRequest = { confirmClear = false },
             title = { Text(stringResource(R.string.routes_clear_title)) },
             text = { Text(stringResource(R.string.routes_clear_body)) },

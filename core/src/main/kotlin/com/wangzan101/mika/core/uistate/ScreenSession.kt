@@ -178,7 +178,11 @@ internal class ScreenSession(
             if (s.changedDuringRead) put("note", NOTE_CHANGED_DURING_READ)
             s.opened?.let { put("opened", openedJson(it)) }
             if (s.protected) { put("protected", true); put("hint", HINT_PROTECTED) }
-            else if (unreadable(s) != null && ocr.isNullOrEmpty()) { put("readable", false); put("hint", unreadable(s)) }
+            else if (unreadable(s) != null && ocr.isNullOrEmpty()) {
+                put("readable", false)
+                // ウィンドウの読取り不能と画像の利用可否を区別し、スクリーンショットと視覚定位による操作を妨げません。
+                put("hint", unreadableHint(s, tree, ocrStatus))
+            }
             else if (s.packageName == null && s.elements.isEmpty() && !s.hasWindow) put("hint", Feedback[surface.family.emptyHint])
             else treeHint(tree, ocrStatus)?.let { put("hint", it) }
             put("viewport", buildJsonObject { put("width", s.width); put("height", s.height) })
@@ -296,8 +300,9 @@ internal class ScreenSession(
                 (s.web?.dialog?.let { mapOf("dialog" to dialogJson(it)) } ?: emptyMap()) +
                 (quality(tree)?.let { mapOf("treeQuality" to JsonPrimitive(it)) } ?: emptyMap()) +
                 (ocrStatus?.let { mapOf("ocr" to JsonPrimitive(it)) } ?: emptyMap()) +
-                ((unreadable(s)?.takeIf { ocr.isNullOrEmpty() }?.let { mapOf("readable" to JsonPrimitive(false), "hint" to JsonPrimitive(it)) })
-                    ?: treeHint(tree, ocrStatus)?.let { mapOf("hint" to JsonPrimitive(it)) } ?: emptyMap()))
+                ((unreadable(s)?.takeIf { ocr.isNullOrEmpty() }?.let {
+                    mapOf("readable" to JsonPrimitive(false), "hint" to JsonPrimitive(unreadableHint(s, tree, ocrStatus)))
+                }) ?: treeHint(tree, ocrStatus)?.let { mapOf("hint" to JsonPrimitive(it)) } ?: emptyMap()))
         }
         val text = observationText(s, ocr.orEmpty())
         // 前回読んだ内容と同じであれば、先ほどの画面読みを圧迫しないように再度書きません。
@@ -454,7 +459,13 @@ internal class ScreenSession(
         return Feedback.format("unreadable_window", "app" to app)
     }
 
-    /** 今回読み取られたインターフェイスのステータス: 読み取り可能な要素のテキスト、その場所、Web ページのタイトル、入力ボックス内の単語。 */
+    /** スクリーンショットが使える場合は再起動しない案内を保ち、OCRまたは視覚定位へ切り替えます。 */
+    private fun unreadableHint(s: ScreenSnapshot, tree: TreeCheck, ocrStatus: String?): String {
+        val fallback = treeHint(tree, ocrStatus) ?: return unreadable(s)!!
+        return Feedback.format("unreadable_window.fallback", "app" to s.unreadableApp!!, "fallback" to fallback)
+    }
+
+        /** 今回読み取られたインターフェイスのステータス: 読み取り可能な要素のテキスト、その場所、Web ページのタイトル、入力ボックス内の単語。 */
     private fun interfaceRead(s: ScreenSnapshot, ocr: List<VisibleTextLine> = emptyList()): Observation {
         val f = inputFields(s)
         val place = s.web?.url?.let(Place::page) ?: s.packageName?.let(Place::app)

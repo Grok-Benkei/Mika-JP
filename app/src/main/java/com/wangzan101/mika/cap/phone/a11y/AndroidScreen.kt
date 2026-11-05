@@ -488,7 +488,21 @@ class AndroidScreen(
         }
         var field = found.node
         val original = FieldShape.of(field)
-        if (!field.isFocused) field.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        var focusUncertain = false
+        if (!field.isFocused) {
+            field.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+            field.refresh()
+            // フォーカスの結果と状態フラグを確認できない場合は、通常の入力欄としてタップし直します。
+            if (!field.isFocused) {
+                withEventClock { clock ->
+                    clock.mark()
+                    click(field).also { if (it) clock.awaitQuiet(QUIET_MS, FOCUS_WAIT_MS) }
+                }
+                focusedEditable()?.takeIf { sameField(original, it) }?.let { field = it }
+            }
+            // SET_TEXT はフォーカスなしでも試し、読戻し結果と未確認のフォーカス状態を呼出し側へ返します。
+            focusUncertain = !field.isFocused
+        }
         val web = inWebView(field)
         // Web ページ編集領域では、入力を受け取るために貼り付ける必要があります。パスワードボックスはクリップボードを通過しません。
         var pasteUnavailable = web && field.isPassword
@@ -504,6 +518,14 @@ class AndroidScreen(
             }
             override fun write(text: String): Boolean {
                 if (!web || pasteUnavailable) return setText(field, text)
+                return when (val r = inputText(field, text)) {
+                    null -> { pasteUnavailable = true; setText(field, text) }
+                    else -> r
+                }
+            }
+            override fun retry(text: String): Boolean {
+                if (web || pasteUnavailable) return write(text)
+                // ネイティブ入力欄の SET_TEXT が反映されなければ、選択と貼付けの経路で再試行します。
                 return when (val r = inputText(field, text)) {
                     null -> { pasteUnavailable = true; setText(field, text) }
                     else -> r
@@ -527,6 +549,7 @@ class AndroidScreen(
         )
         val hint = listOfNotNull(
             HINT_TAPPED_TO_FOCUS.takeIf { found.tapped },
+            HINT_FOCUS_UNCONFIRMED.takeIf { focusUncertain },
             HINT_READBACK_FROZEN.takeIf { frozen },
             HINT_PASTE_UNAVAILABLE.takeIf { pasteUnavailable },
         ).joinToString(" ").ifEmpty { null }
@@ -1920,6 +1943,7 @@ class AndroidScreen(
             "so the text may only be displayed and the app may not have received it. Check that the app reacted (e.g. its save button became enabled) " +
             "before relying on it; if it did not, call hand_to_user so the user can type it."
         const val HINT_TAPPED_TO_FOCUS = "The element you gave is not a text field itself, so it was tapped first and the text went into the field that got focus after the tap (often a separate search page). Check which field holds your text before submitting."
+        const val HINT_FOCUS_UNCONFIRMED = "フォーカス要求とタップでもフォーカスを確認できなかったため、直接書き込みました。フォーカス状態ではなく読戻しの検証結果を確認してください。"
         const val FOCUS_WAIT_MS = 2_000L
         const val SAME_FIELD_SIZE = 0.03
         val SEARCH_WORDS = listOf("検索", "探す", "キーワード", "搜索", "搜一搜", "查找", "search")

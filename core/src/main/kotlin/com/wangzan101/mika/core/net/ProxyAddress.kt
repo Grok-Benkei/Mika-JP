@@ -3,6 +3,7 @@ package com.wangzan101.mika.core.net
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.URI
+import java.net.URLDecoder
 
 /**
  * は、`スキーム://[ユーザー名:パスワード@]ホスト:ポート` の形式のネットワーク プロキシ アドレスです。プロトコルは、http、https、socks5、socks5h のいずれかで、背後にパスはありません。
@@ -45,13 +46,16 @@ class ProxyAddress private constructor(
             val host = u.host?.removeSurrounding("[", "]")?.takeIf { it.isNotEmpty() } ?: return null
             if (u.port !in 1..65535) return null
             if (!(u.rawPath.isNullOrEmpty() || u.rawPath == "/") || u.rawQuery != null || u.rawFragment != null) return null
-            val info = u.userInfo.orEmpty()
-            val user = info.substringBefore(':')
-            val password = if (info.contains(':')) info.substringAfter(':') else ""
+            val info = u.rawUserInfo.orEmpty()
+            val user = decodeCredential(info.substringBefore(':'))
+            val password = decodeCredential(info.substringAfter(':', ""))
             return ProxyAddress(scheme, host, u.port, user, password)
         }
 
-        /** 空の文字列 (プロキシは必要ありません)、または解決可能なプロキシ アドレス。 */
+        // URI のプラス記号は空白に変換せず、そのまま復号します。
+        private fun decodeCredential(value: String): String = URLDecoder.decode(value.replace("+", "%2B"), "UTF-8")
+
+                /** 空の文字列 (プロキシは必要ありません)、または解決可能なプロキシ アドレス。 */
         fun valid(text: String): Boolean = text.isBlank() || parse(text) != null
     }
 }

@@ -22,6 +22,7 @@
              つまり、Java で書かれています。クラス名はソース ファイル内のクラス名と一致している必要があります (ManifestProvidersTest がチェックします)。 -->
         <activity android:name="com.wangzan101.mika.cap.phone.a11y.SecureTestActivity" android:exported="true" />
         <activity android:name="com.wangzan101.mika.cap.phone.a11y.PlainTestActivity" android:exported="true" />
+        <activity android:name="com.wangzan101.mika.cap.phone.a11y.GestureTapTestActivity" android:exported="true" />
         <activity android:name="com.wangzan101.mika.a11y.WebEditorTestActivity" android:exported="true" />
         <activity android:name="com.wangzan101.mika.cap.phone.a11y.FieldsTestActivity" android:exported="true" />
         <!-- スクロール ホイール テスト ページ: 2 つのオリジナル デジタル スクロール ホイール -->

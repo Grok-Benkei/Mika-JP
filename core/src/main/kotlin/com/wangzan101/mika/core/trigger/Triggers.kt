@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Serializable
 data class TriggerDefinition(
@@ -92,7 +93,7 @@ class MemoryTriggerStore(initial: TriggerSnapshot = TriggerSnapshot(emptyList(),
             it.state == TriggerWindowState.Dispatched || it.state == TriggerWindowState.ActionDispatched }
             .map { it.triggerId }.toSet()
         val due = triggers.values.filter { it.enabled && it.id !in active && it.nextAtMs <= nowMs &&
-            ledger["${it.id}:${it.nextAtMs}"] == null && eligible(it) }
+            ledger["${it.id}:${it.nextAtMs}"] == null && eligible(it) } // 和 TriggerDefinition.slotTaken 一致
         return due.map { t ->
             val interval = t.intervalMs
             val missed = if (interval == null) 0 else (nowMs - t.nextAtMs) / interval
@@ -140,6 +141,10 @@ class MemoryTriggerStore(initial: TriggerSnapshot = TriggerSnapshot(emptyList(),
     }
 }
 
+/** 現在の実行枠が記録済みか確認します。[TriggerStore.claimDue] と同じ判定を使い、実行後に次回時刻が進まない単発計画の再実行を防ぎます。 */
+fun TriggerDefinition.slotTaken(windows: List<TriggerWindow>): Boolean =
+    windows.any { it.triggerId == id && it.dueAtMs == nextAtMs }
+
 /** は現地のカレンダーに従って進み、夏時間を通じて同じ時間を維持します。システムの前方調整ルールは、存在しない時間に対して使用されます。 */
 fun nextCalendarAt(time: String, zone: String, days: List<Int>, afterMs: Long): Long {
     val localTime = LocalTime.parse(time)
@@ -153,6 +158,39 @@ fun nextCalendarAt(time: String, zone: String, days: List<Int>, afterMs: Long): 
     error("calendar schedule has no matching day")
 }
 
+private val CALENDAR_CLOCK: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
+/** 次回時刻の変更をカレンダーの繰返し時刻にも反映します。保存とプレビューで同じ変換を使います。 */
+fun TriggerDefinition.rescheduledTo(nextAtMs: Long): TriggerDefinition {
+    val local = calendarZone?.let { zone ->
+        CALENDAR_CLOCK.format(Instant.ofEpochMilli(nextAtMs).atZone(ZoneId.of(zone)))
+    }
+    return copy(nextAtMs = nextAtMs, enabled = true, calendarTime = if (calendarTime != null) local else null)
+}
+
+/** [afterMs] 以降の初回予定を含め、計画自身のタイムゾーンと繰返し規則で実行予定を生成します。 */
+fun upcoming(def: TriggerDefinition, afterMs: Long, count: Int): List<Long> {
+    if (count <= 0) return emptyList()
+    val out = ArrayList<Long>(count)
+    when {
+        def.calendarTime != null -> {
+            var at = if (def.nextAtMs >= afterMs) def.nextAtMs
+            else nextCalendarAt(def.calendarTime, def.calendarZone!!, def.calendarDays, afterMs)
+            repeat(count) {
+                out += at
+                at = nextCalendarAt(def.calendarTime, def.calendarZone!!, def.calendarDays, at)
+            }
+        }
+        def.intervalMs != null && def.intervalMs > 0 -> {
+            var t = def.nextAtMs
+            if (t < afterMs) t += ((afterMs - t - 1) / def.intervalMs + 1) * def.intervalMs
+            repeat(count) { out += t; t += def.intervalMs }
+        }
+        else -> if (def.nextAtMs >= afterMs) out += def.nextAtMs
+    }
+    return out
+}
+
 /** スケジューリングはホストによって実装されます。コアは最初にアカウンティングを行ってからディスパッチを行う責任があり、異常な再起動が発生した場合、要求された期間は繰り返されません。 */
 class TriggerEngine(private val store: TriggerStore, private val scheduleAlarm: (Long?) -> Unit,
     private val isIdle: () -> Boolean = { true }, private val idleRetryMs: Long = 60_000L,
@@ -161,16 +199,27 @@ class TriggerEngine(private val store: TriggerStore, private val scheduleAlarm: 
         store.windows().filter { it.state == TriggerWindowState.Claimed }
             .forEach { store.mark(it.key, TriggerWindowState.Unknown, "process restarted before dispatch confirmation") }
         val idle = isIdle()
-        val active = store.windows().filter { it.state == TriggerWindowState.Claimed ||
+        val windows = store.windows()
+        val active = windows.filter { it.state == TriggerWindowState.Claimed ||
             it.state == TriggerWindowState.Dispatched || it.state == TriggerWindowState.ActionDispatched }
             .map { it.triggerId }.toSet()
-        scheduleAlarm(store.all().filter { it.enabled }.minOfOrNull {
+        // 記録済みの実行枠にはアラームを予約せず、実行できない期限切れ計画の空回りを防ぎます。
+        scheduleAlarm(store.all().filter { it.enabled && (it.id in active || !it.slotTaken(windows)) }.minOfOrNull {
             if (it.id in active) nowMs + idleRetryMs
             else maxOf(if (it.idleOnly && !idle) nowMs + idleRetryMs else nowMs, it.nextAtMs)
         })
     }
 
-    /** タイム ゾーンが変更されると、デバイスの古いタイム ゾーンに従ったローカル タイム プランが新しいタイム ゾーンに再計算されます。明示的に固定されている他のタイムゾーンの計画は変更されません。 */
+    /** 計画が存在しない場合や、記録済みの単発計画を再開する場合は変更せず false を返します。再実行には時刻変更か即時実行を使います。 */
+    fun setEnabled(id: String, enabled: Boolean, nowMs: Long): Boolean {
+        val trigger = store.get(id) ?: return false
+        if (enabled && trigger.slotTaken(store.windows())) return false
+        store.upsert(trigger.copy(enabled = enabled))
+        rearm(nowMs)
+        return true
+    }
+
+        /** タイム ゾーンが変更されると、デバイスの古いタイム ゾーンに従ったローカル タイム プランが新しいタイム ゾーンに再計算されます。明示的に固定されている他のタイムゾーンの計画は変更されません。 */
     fun rezone(nowMs: Long, fromZone: String, toZone: ZoneId) {
         if (fromZone == toZone.id) return
         store.all().filter { it.enabled && it.calendarTime != null && it.calendarZone == fromZone }

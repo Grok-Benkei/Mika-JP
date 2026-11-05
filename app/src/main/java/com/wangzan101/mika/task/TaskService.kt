@@ -146,6 +146,7 @@ class TaskService : Service() {
 
     internal fun otherRunHasDisplay(run: TaskRun) = center.running().any { it !== run && it.displayId.value >= 0 }
     internal fun hasActiveRuns() = center.running().isNotEmpty()
+    internal fun hasQueuedRuns() = center.queued().isNotEmpty()
 
     private fun publishRuns() {
         val r = center.runs()
@@ -399,6 +400,8 @@ class TaskService : Service() {
             if (delivered) center.markDelivered(run)
             onRunEnded(run, store)
         }
+        // サービス終了や開始前の停止で引き継げなかった画面ロックを解放します。
+        run.job?.invokeOnCompletion { run.wakeHandoff?.release(); run.wakeHandoff = null }
     }
 
     /**
@@ -423,6 +426,11 @@ class TaskService : Service() {
     private fun onRunEnded(run: TaskRun, store: ConversationStore) {
         val wasShown = taskState.shownRun === run
         val started = center.onEnded(run)
+        // 引継ぎ用ロックを次に開始する最初のタスクへ渡し、開始するタスクがなければ解放します。
+        run.wakeHandoff?.let { lease ->
+            run.wakeHandoff = null
+            started.firstOrNull()?.let { it.wakeHandoff = lease } ?: lease.release()
+        }
         publishRuns()
         if (wasShown) started.firstOrNull { it.conversationId == run.conversationId }?.show()
         // 他の対話タスクを待たずに、利用可能になったらすぐに対話を任せ始めます。
