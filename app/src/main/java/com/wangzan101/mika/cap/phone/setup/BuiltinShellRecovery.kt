@@ -67,7 +67,8 @@ class BuiltinShellRecovery(
 
     /**
      * アクセシビリティ サービスは、実行時に自動的にオンになりません。結果 ([AccessibilityRepair.last]) は、設定ページに何かを言うことになります。
-     * アプリ システム設定を変更する権限 (「再起動後の自動回復」によって付与) がある場合は、アシスタントを待たずに直接書き込むことができます。アシスタントを経由する必要はありません。 手順は、
+     * WRITE_SECURE_SETTINGS はマニフェストに無い。通常のインストールでは canWriteSecure は常に false で、
+     * 再接続はペアリング済みシェル（permissions.restartAccessibility）だけが行う。シェルが無いときは書き戻さない。
      */
     val accessibilityRepair = AccessibilityRepair(
         restart = { gap -> if (canWriteSecure()) restartDirectly(gap) else permissions.restartAccessibility(gap) },

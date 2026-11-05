@@ -33,7 +33,7 @@
     <string name="mcp_advanced_hide">詳細設定を非表示</string>
     <string name="mcp_advanced_sub">アクセスのスイッチ、トークン、リモートでのスリープ解除</string>
     <string name="mcp_port_detail">ポート %1$d。USB アクセスはスマホを再起動するとオフになります。</string>
-    <string name="mcp_network_scope">Wi-Fi とプライベートネットワークからのアクセスを許可します。リクエストにはすべてトークンが必要です。</string>
+    <string name="mcp_network_scope">Wi-Fi とプライベートネットワークからのアクセスを許可します。リクエストにはすべてトークンが必要です。オフにすると再起動後もオフのままです。オンのときだけ、再起動後にプライベートネットワークの待受を再開します。公開アドレスからの接続は受けません。</string>
     <string name="mcp_cli_install">1. パソコンを準備</string>
     <string name="mcp_cli_install_sub">インストールガイドをパソコンの AI に送るか、パソコンで自分で手順を進めてください。</string>
     <string name="mcp_copy_install">インストールガイドをコピー</string>
