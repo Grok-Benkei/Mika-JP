@@ -71,6 +71,8 @@ android {
 
     buildTypes {
         getByName("release") {
+            isDebuggable = false
+            isJniDebuggable = false
             if (releaseSigningReady) signingConfig = signingConfigs.getByName("publicRelease")
         }
         // devInstall指定時は、通常版と別IDで並行インストールし、通常版のデータを保持する。
