@@ -16,7 +16,7 @@ This run is the implementation owner for Phases 1–3 only. It does not certify 
 | --- | --- | --- |
 | 1 | `16b736680724b6574f1732fe40b417bcc1336838` | fail closed on screen, browser, and notification egress |
 | 2 | `87448ccf` | confirm send, delete, settings, and external actions |
-| 3 | this commit | confirm model-host changes; redaction and destination tests |
+| 3 | `80180409b666a56cedbb4a392126a9eca719cd05` | confirm model-host changes; redaction and destination tests |
 
 ## Phase 1 — egress
 
