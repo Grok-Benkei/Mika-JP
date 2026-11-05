@@ -69,9 +69,13 @@ class ToolDispatcherDiffTest {
         val screen = r["screen"]!!.jsonObject
         assertFalse(screen["full"]!!.jsonPrimitive.boolean)
         assertEquals("p2", screen.s("snapshotId")); assertEquals("p1", screen.s("base"))
-        assertEquals(listOf("新的"), screen["added"]!!.jsonArray.map { it.jsonObject.s("name") })
+        val added = screen["added"]!!.jsonArray.single().jsonObject
+        assertEquals("button", added.s("role"))
+        assertFalse("name" in added)
+        assertFalse(screen.toString().contains("新的"))
         val removed = screen["removed"]!!.jsonArray.single().jsonObject
-        assertEquals("@e3", removed.s("ref")); assertEquals("项3", removed.s("name")); assertEquals("button", removed.s("role"))
+        assertEquals("@e3", removed.s("ref")); assertEquals("button", removed.s("role"))
+        assertFalse(screen.toString().contains("项3"))
         // 次のアクションの番号は、画面内のこの画面から取得されます
         d.execute(call("phone_tap", """{"ref":"@e11","snapshotId":"p2"}"""))
         assertEquals("tapRef @e10 p2", s.calls[2])
@@ -132,11 +136,11 @@ class ToolDispatcherDiffTest {
         val r = d.execute(call("phone_back"))
         val id = r.content["screen"]!!.jsonObject.s("screenshotId")
         assertEquals("2", id)
-        // 写真を見ることができる主なモデル: アクションの後、この画面の写真が結果とともに送信され、レビューと同じ写真です
-        assertTrue(r.frame != null); assertTrue(r.image != null); assertEquals(listOf<Int?>(2), r.imageIds)
+        assertNull(r.frame); assertNull(r.image); assertTrue(r.imageIds.isEmpty())
         assertEquals(10, r.screenElements!!.size)
+        assertFalse(r.screenElements.toString().contains("项"))
         val back = d.execute(call("view_past_screens", """{"ids":[$id]}"""))
-        assertEquals("true", back.content.s("ok")); assertEquals(1, back.images.size)
+        assertEquals("true", back.content.s("ok")); assertTrue(back.images.isEmpty())
     }
 
     @Test fun inlineScreenFollowsProtectedAndPaymentRules() = runTest {
@@ -151,7 +155,7 @@ class ToolDispatcherDiffTest {
         val b = v.execute(call("phone_back"))
         assertNull(b.frame)
         assertFalse(v.keepsRecallImages())
-        assertEquals("payment_or_auth", b.content["screen"]!!.jsonObject.s("reason"))
+        assertEquals("text_withheld", b.content["screen"]!!.jsonObject.s("reason"))
         assertFalse("确认支付" in b.content.toString())
     }
 
@@ -206,9 +210,11 @@ class ToolDispatcherDiffTest {
         assertTrue(d.execute(call("phone_back")).content["screen"]!!.jsonObject["full"]!!.jsonPrimitive.boolean)
         val pay = toolDispatcher(ListScreen(listOf("确认支付", "¥89.00")), inlineScreen = true)
         val b = pay.execute(call("phone_back")).content["screen"]!!.jsonObject
-        assertEquals("payment_or_auth", b.s("reason"))
-        assertNull(b["elements"])
+        assertEquals("text_withheld", b.s("reason"))
+        assertTrue(b["elements"]!!.jsonArray.isNotEmpty())
+        assertTrue(b["elements"]!!.jsonArray.all { "name" !in it.jsonObject })
         assertFalse("确认支付" in b.toString())
+        assertFalse("¥89.00" in b.toString())
     }
 
     @Test fun changingScreenCarriesNote() = runTest {
@@ -224,8 +230,9 @@ class ToolDispatcherDiffTest {
         d.execute(call("phone_observe"))
         repeat(5) { d.execute(call("phone_back")) }
         val reads = d.evidence().read(ObsKind.Read, ObsKind.Reply)
-        // 同じ画面を 5 回読み取り、1 回だけ覚えます
-        assertEquals(1, reads.count { "项1" in it })
+        // 同じ画面を 5 回読み取り、本文は出さず、理由は 1 回だけ覚える
+        assertTrue(reads.none { "项1" in it })
+        assertEquals(1, reads.count { "text_withheld" in it })
     }
 
     @Test fun fullScreenAfterFiveDiffs() = runTest {

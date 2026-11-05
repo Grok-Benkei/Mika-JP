@@ -260,9 +260,8 @@ internal object PhoneDialog : PhoneTool {
         ToolExecution(buildJsonObject {
             put("ok", error == null && (clicked == null || clicked["ok"] == JsonPrimitive(true)))
             put("found", dialog != null); put("snapshotId", screen.snapshotId)
-            dialog?.let { put("title", it.title); put("packageName", it.packageName) }
-            put("text", Untrusted.wrapWithin(labels.distinct().joinToString("\n"), 8_000))
-            put("buttons", JsonArray(buttons.distinctBy { it.first }.map { (label, ref) -> buildJsonObject { put("text", label); put("ref", ref) } }))
+            put("egressBlocked", true); put("reason", "unclassifiable_screen")
+            dialog?.packageName?.let { put("packageName", it) }
             error?.let { put("error", it) }
             clicked?.let { put("action", it) }
         })

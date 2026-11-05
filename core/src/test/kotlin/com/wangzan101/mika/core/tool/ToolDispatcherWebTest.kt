@@ -502,9 +502,12 @@ class ToolDispatcherWebTest {
         val label = apps.first().jsonObject.s("label")
         t.execute(call("phone_launch_app", """{"package":"$pkg"}"""))
         val ev = t.evidence()
-        assertTrue(ev.read(ObsKind.Fact).toString(), ev.read(ObsKind.Fact).any { "Webページタイトル「Example Domain」" in it && "https://example.com/" in it && "HTTPステータス 200" in it })
+        val facts = ev.read(ObsKind.Fact).joinToString("\n")
+        assertFalse(facts.contains("Example Domain"))
+        assertFalse(facts.contains("https://example.com/"))
+        assertTrue(facts, facts.contains("HTTPステータス 200") && facts.contains("egress_blocked"))
         assertTrue(ev.read(ObsKind.Fact).toString(), ev.read(ObsKind.Fact).any { "phone_launch_app が $pkg を開きました" in it && label in it })
-        assertTrue(ev.sources(ev.ledger.all).any { "Example Domain" in it })
+        assertFalse(ev.sources(ev.ledger.all).any { "Example Domain" in it })
     }
 
     // モデルで表示されるすべての項目は、検証者によって比較できなければなりません。読み取り可能な要素のない Web ページの場合、読み取り画面の URL とタイトルは依然としてマテリアルです。閲覧中の Web ページにあるリンクや画像の説明も同様です。

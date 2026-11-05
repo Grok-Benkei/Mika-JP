@@ -651,8 +651,8 @@ class AgentLoopTest {
         loop(m, vision = true).run("t")
         val msgs = m.requests[1]
         assertEquals(Role.Tool, msgs[2].role)
-        assertEquals(Role.User, msgs[3].role)
-        assertTrue(msgs[3].parts.any { it is Part.Image })
+        assertTrue(msgs.none { msg -> msg.parts.any { it is Part.Image } })
+        assertFalse(msgs.joinToString { it.toString() }.contains("搜索"))
 
         val noVision = FakeModel(tools(call("phone_observe")), finish())
         loop(noVision).run("t")
@@ -665,12 +665,9 @@ class AgentLoopTest {
         loop(m, vision = true).run("t")
         val msgs = m.requests[5].withoutRuntime()
         val at = msgs.indexOfFirst { it.parts.any { p -> p is Part.ToolResult && p.callId == recall.id } }
-        val after = msgs[at + 1]
-        assertEquals(Role.User, after.role)
-        assertEquals(1, after.parts.count { it is Part.Image })
-        assertTrue(after.parts.any { it is Part.Text && "以前" in it.text })
-        // 振り返ってみると、再発行された写真が最新の写真なので、保管しておいてください。トリミングラインは前に進んでいません(5往復)、以前の画面読み上げ絵も残っています。
-        assertEquals(4, msgs.take(at).sumOf { msg -> msg.parts.count { it is Part.Image } })
+        assertTrue(at >= 0)
+        assertTrue(msgs.none { msg -> msg.parts.any { it is Part.Image } })
+        assertFalse(msgs.joinToString { it.toString() }.contains("搜索"))
 
         val text = FakeModel(tools(call("phone_observe")), tools(call("view_past_screens", """{"ids":[1]}""")), finish())
         loop(text).run("t")
@@ -777,7 +774,9 @@ class AgentLoopTest {
         assertEquals(60, m.requests.size)
         // 日本語のツール説明では最初の送信前から古い読み取りが省略されることがある。入力の大きさは省略前の記録で確認する。
         val observation = events.filterIsInstance<RunEvent.ToolResult>().first().resultJson
-        assertTrue("observation should be about 6000+ chars, was ${observation.length}: $observation", observation.length >= 6000)
+        assertFalse(observation.contains("第1次读屏"))
+        assertTrue(observation.contains("screenDigest"))
+        assertTrue("structural observation was ${observation.length}", observation.length >= 1000)
         val worst = m.requests.maxOf { TokenEstimate.of(it) }
         assertTrue("sent about $worst tokens", worst * ContextCompressor.UNCALIBRATED_SCALE <= ContextLimits.of(32_000).usable)
         // は古い読み取り画面をカットするだけで予算を超えています (制限を超えた場合にのみコンプレッサーが折り畳まれます)。折り畳んだ後は予算に戻ります。

@@ -38,6 +38,38 @@ class UserUtterances {
 
     private fun comparable(s: String) = PERSON.replace(NumberText.collapse(s), "")
 
+    /**
+     * 画面本文はモデルへ出さない。ユーザー自身の発話に含まれる断片だけを、画面上にあったものとして返す。
+     * モデルやページ由来の文字列は受け取らない。長い発話でも最大 [MAX_SEEN] 件で、画面の周辺語は含めない。
+     */
+    @Synchronized fun seenOnScreen(screenText: String): List<String> {
+        val hay = norm(screenText)
+        if (hay.isEmpty()) return emptyList()
+        val found = LinkedHashSet<String>()
+        for (said in texts) {
+            val piece = norm(said)
+            if (piece.length < MIN_QUOTE) continue
+            var i = 0
+            while (i < piece.length && found.size < MAX_SEEN) {
+                var best: String? = null
+                val max = minOf(MAX_PHRASE, piece.length - i)
+                for (len in max downTo MIN_QUOTE) {
+                    val sub = piece.substring(i, i + len)
+                    if (sub in hay && sub.any { it.isLetterOrDigit() || it.code > 127 }) {
+                        best = sub
+                        break
+                    }
+                }
+                if (best == null) i++ else {
+                    found += best
+                    i += best.length
+                }
+            }
+            if (found.size >= MAX_SEEN) break
+        }
+        return found.toList()
+    }
+
     /** 2 単語未満の引用はカウントされません。どの文にも 1 つまたは 2 つの単語が含まれます。 */
     @Synchronized fun contains(quote: String): Boolean {
         val q = norm(quote)
@@ -49,6 +81,8 @@ class UserUtterances {
 
     private companion object {
         const val MIN_QUOTE = 2
+        const val MAX_PHRASE = 8
+        const val MAX_SEEN = 8
         val QUOTED = Regex("[「『“\"]([^「」『』“”\"\n]+)[」』”\"]")
         val DIGITS = Regex("\\d+")
         val LATIN = Regex("[A-Za-z][A-Za-z0-9._-]{2,}")

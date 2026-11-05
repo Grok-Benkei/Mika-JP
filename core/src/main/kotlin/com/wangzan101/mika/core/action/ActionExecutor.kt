@@ -30,6 +30,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -238,12 +239,12 @@ class ActionExecutor(
         }
         val elements = resolved.screenElements ?: resolved.content["elements"] as? JsonArray
         val beforeFrameProgress = guards.progressVersion
-        elementsHash(elements)?.let { after += guards.frame("$n:${call.id}", it) }
+        elementsHash(elements)?.let { after += guards.frame("$n:${call.id}", readFingerprint(resolved.content, elements)) }
         if (guards.progressVersion != beforeFrameProgress) after.removeAll { it.code == "no_progress" }
         if (!s.offScreen) {
             if (s.verb in PAGE_READ_VERBS) {
                 // 画面の最後の変更（新しい画面、ページ全体の開始点の変更、新しい結果を与えるスクリプト）以降に読み取られていないコンテンツの読み取りは、再読み取りとしてカウントされません。
-                val fp = elementsHash(elements) ?: resultFingerprint(resolved.content)
+                val fp = readFingerprint(resolved.content, elements)
                 val beforeReadProgress = guards.progressVersion
                 after += if (s.reads != null) guards.read(call.name, guards.firstSeen(fp, s.reads), s.reads, fp)
                 else guards.read(call.name, guards.firstSeen(fp), fingerprint = fp)
@@ -327,6 +328,16 @@ class ActionExecutor(
             recorder.result(origin.step, call.name, tools.verb(call.name), content, tools.portRecord(call.name, args), null, null, 0, origin.policy.source, call.id)
         }
         return ActionOutcome.Refused(code, content, before, hit)
+    }
+
+    /** 本文を出さない画面でも、本文の変化は読み直しに数える。ダイジェストは本文そのものではない。 */
+    private fun readFingerprint(content: JsonObject, elements: JsonArray?): Long {
+        val base = elementsHash(elements) ?: resultFingerprint(content)
+        val digest = content["screenDigest"] ?: (content["screen"] as? JsonObject)?.get("screenDigest")
+        val hex = (digest as? JsonPrimitive)?.contentOrNull ?: return base
+        var h = base
+        for (b in hex.toByteArray(Charsets.UTF_8)) h = (h xor (b.toLong() and 0xff)) * 0x100000001b3L
+        return h
     }
 
     /** 確認が拒否された、または本人へ確認できない場合は、[answer] を拒否結果として記録する。 */

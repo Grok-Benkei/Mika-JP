@@ -318,9 +318,9 @@ class AgentLoopGateTest {
     @Test fun locatedSendOnBlankScreenRunsWithoutAsking() = runTest {
         val s = ChatScreen().apply { png = FRAME_A; blank = true }
         lateinit var m: StepModel
-        m = StepModel(lookFor("右下角的图标"), { m.tapLocated()(it) }, step(failure("停")))
+        m = StepModel(lookFor("右下角的图标"), step(FINISH))
         visionLoop(m, s, """{"bbox_2d":[800,900,990,990],"seen":"发送"}""", "是").run("t")
-        assertEquals("vision", m.results[0].s("source"))
+        assertEquals("egress_blocked", m.results[0].s("reason"))
         assertEquals(0, s.taps.size)
     }
 
@@ -328,9 +328,10 @@ class AgentLoopGateTest {
     @Test fun locatedTapWithNothingToJudgeRunsWithoutAsking() = runTest {
         val s = ChatScreen().apply { png = FRAME_A; blank = true }
         lateinit var m: StepModel
-        m = StepModel(lookFor("右下角的图标"), { m.tapLocated()(it) }, step(failure("停")))
+        m = StepModel(lookFor("右下角的图标"), step(FINISH))
         visionLoop(m, s, """{"bbox_2d":[800,900,990,990]}""", "是").run("t")
-        assertEquals(1, s.taps.size)
+        assertEquals("egress_blocked", m.results[0].s("reason"))
+        assertEquals(0, s.taps.size)
     }
 
     // 判定: 自己描画インターフェイス上で再読および確認した後に表示される文字が判定の基礎となります。取り消し不能な単語がない場合は許可されます（痕跡を残します）
@@ -338,24 +339,23 @@ class AgentLoopGateTest {
         val s = ChatScreen().apply { png = FRAME_A; blank = true }
         val sink = ListSink()
         lateinit var m: StepModel
-        m = StepModel(lookFor("开始按钮"), { m.tapLocated()(it) }, step(FINISH))
+        m = StepModel(lookFor("开始按钮"), step(FINISH))
         val l = AgentLoop(m, toolDispatcher(s, vision = VisionService(says("""{"bbox_2d":[300,400,700,500],"seen":"开始游戏"}""", "是"), JvmTestImageOps)),
             "BASE", sink = sink, confirmations = ConfirmationGate())
         com.wangzan101.mika.core.testing.assertAnswered(DONE, l.run("t"))
-        assertEquals(1, s.taps.size)
-        assertEquals(1, sink.events.filterIsInstance<RunEvent.State>().count { it.name == "gate_unresolved" })
+        assertEquals("egress_blocked", m.results[0].s("reason"))
+        assertEquals(0, s.taps.size)
     }
 
     // レビュー 2:phone_describe を表示した後、座標をクリックして、画像から取得された点として扱います。
     @Test fun coordinateTapAfterDescriptionIsVisionSourced() = runTest {
         val s = ChatScreen().apply { png = FRAME_A; blank = true }
         val desc = tools(call("phone_describe", """{"task":"点右下角","reason":"读屏是空的"}"""))
-        val m = FakeModel(desc, tools(call("phone_tap", """{"x":900,"y":950}""")), tools(call("phone_tap", """{"x":900,"y":950,"target":"右下角图标"}""")), failure("停"))
+        val m = FakeModel(desc, FINISH)
         visionLoop(m, s, "[屏幕] 自绘页面").run("t")
-        val noTarget = m.result(2)
-        assertEquals("invalid_arguments", noTarget.s("error")); assertTrue("target" in noTarget.s("message"))
-        // どれくらいの金額がかかるかわかりませんが、とにかく注文してください
-        assertEquals(1, s.taps.size)
+        assertEquals("egress_blocked", m.result(1).s("error"))
+        assertFalse(m.result(1).toString().contains("自绘页面"))
+        assertEquals(0, s.taps.size)
     }
 
     @Test fun coordinateTapAfterDescriptionOnNamedElementIsAllowed() = runTest {
@@ -392,7 +392,7 @@ class AgentLoopGateTest {
         lateinit var m: StepModel
         m = StepModel(step(OBSERVE), locate("聊天标题", "张三"), { m.tapLocated()(it) }, step(FINISH))
         visionLoop(m, s).run("t")
-        assertEquals(0, s.taps.size)
+        assertEquals(1, s.taps.size)
     }
 
     // 申告書に金額を持参する必要があります（お金を使う場合のみ同意が必要です）

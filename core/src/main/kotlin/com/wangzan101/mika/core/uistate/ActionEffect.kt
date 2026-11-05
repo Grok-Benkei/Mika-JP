@@ -245,7 +245,10 @@ data class ActionEffect(
             if (wb != null || wa != null) {
                 if (wb == null || wa == null) return null
                 if (wb.tabId != wa.tabId || wb.url.substringBefore('#') != wa.url.substringBefore('#')) {
-                    return NewPlace(after.packageName ?: wa.url, "web", buildJsonObject { put("url", wa.url); put("title", wa.title); put("tabId", wa.tabId) })
+                    return NewPlace(after.packageName ?: wa.url, "web", buildJsonObject {
+                        put("egressBlocked", true); put("reason", "browser_or_webview"); put("tabId", wa.tabId)
+                        com.wangzan101.mika.core.security.EgressPolicy.permittedHost(wa.url)?.let { put("currentSite", it) }
+                    })
                 }
                 return null
             }

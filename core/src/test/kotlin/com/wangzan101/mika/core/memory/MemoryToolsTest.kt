@@ -79,7 +79,9 @@ class MemoryToolsTest {
         }
         val store = memStore()
         val d = dispatcher(store, UserUtterances().apply { add("帮我看看收货地址") }, screen)
-        assertTrue(d.run("phone_observe", JsonObject(emptyMap())).toString().contains("浦东张江路100号"))
+        val seen = d.run("phone_observe", JsonObject(emptyMap())).toString()
+        assertFalse(seen.contains("浦东张江路100号"))
+        assertTrue(seen.contains("text_withheld"))
         val r = d.run("memory_save", saveArgs("fact", "用户住在浦东张江路100号", "浦东张江路100号"))
         assertEquals("false", r.s("ok")); assertEquals("quote_not_from_user", r.s("error"))
         assertTrue(store.items.value.isEmpty())

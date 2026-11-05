@@ -1,5 +1,7 @@
 package com.wangzan101.mika.core.cap.web
 
+import com.wangzan101.mika.core.net.UrlHost
+import com.wangzan101.mika.core.security.EgressPolicy
 import com.wangzan101.mika.core.tool.Entry
 import com.wangzan101.mika.core.observation.ObsKind
 import com.wangzan101.mika.core.observation.Observation
@@ -62,30 +64,32 @@ internal object Navigate : WebTool {
             return ok {
                 put("loaded", false); put("tabId", r.tab.tabId)
                 put("download", buildJsonObject {
-                    put("file", d.file); put("status", d.status); put("bytes", d.bytes)
-                    d.mime?.let { put("mime", it) }; d.error?.let { put("error", it) }
+                    put("status", d.status); put("bytes", d.bytes)
+                    put("egressBlocked", true); put("reason", "browser_or_webview")
                 })
-                put("hint", Feedback.format("navigate_became_download", "file" to JsonPrimitive(d.file).toString(), "status" to d.status))
+                put("hint", Feedback.format("navigate_became_download", "file" to "", "status" to d.status))
             }
         }
         // メイン ドキュメントが開かれていません: ブラウザのエラー コードをモデルに与えると、成功は報告されません。
         r.netError?.let { e ->
             return ToolExecution(buildJsonObject {
-                put("ok", false); put("error", "navigation_failed"); put("netError", e); put("url", r.upgradedFrom ?: url)
+                put("ok", false); put("error", "navigation_failed"); put("netError", e)
+                put("egressBlocked", true); put("reason", "browser_or_webview")
+                EgressPolicy.permittedHost(url)?.let { put("currentSite", it) }
                 r.upgradedFrom?.let { put("triedHttps", true) }
                 put("message", Feedback.format("navigation_failed", "code" to e))
                 put("recoverable", true)
             })
         }
         return ok {
-            r.dialog?.let { put("dialog", dialogJson(it)) }
-            r.upgradedFrom?.let { put("upgradedToHttps", true); put("requestedUrl", it) }
-            put("tabId", r.tab.tabId); put("url", r.tab.url); put("title", r.tab.title)
+            put("egressBlocked", true); put("reason", "browser_or_webview")
+            EgressPolicy.permittedHost(r.tab.url)?.let { put("currentSite", it) }
+            r.upgradedFrom?.let { put("upgradedToHttps", true) }
+            put("tabId", r.tab.tabId)
             r.httpStatus?.let { put("httpStatus", it) }
             put("loaded", r.loaded); put("newTab", r.newTab)
             if (r.settled == false) put("settled", false)
-            if (r.dialog != null) put("hint", Feedback["page_dialog"])
-            else if (!r.loaded) put("hint", Feedback["page_loading"])
+            if (!r.loaded) put("hint", Feedback["page_loading"])
             else if (r.settled == false) put("hint", HINT_NOT_SETTLED)
         }
     }
@@ -106,7 +110,8 @@ internal object Navigate : WebTool {
 internal fun pageFact(name: String, r: ToolExecution): Observation? {
     if (r.content["ok"] != JsonPrimitive(true)) return null
     fun res(k: String) = (r.content[k] as? JsonPrimitive)?.contentOrNull
-    return webFact("$name: URL ${res("url")}、Webページタイトル「${res("title").orEmpty()}」" + (res("httpStatus")?.let { "、HTTPステータス $it" } ?: ""))
+    val host = res("currentSite") ?: return null
+    return webFact("$name: currentSite $host" + (res("httpStatus")?.let { "、HTTPステータス $it" } ?: "") + "、egress_blocked:${res("reason") ?: "browser_or_webview"}")
 }
 
 /** Web ページによって指定されたファクト (Web アドレス、タイトル、タグ)。 */
@@ -133,7 +138,11 @@ internal object Tabs : WebTool {
                 val all = w.tabs()
                 ok {
                     put("tabs", JsonArray(all.map { t ->
-                        buildJsonObject { put("tabId", t.tabId); put("title", t.title); put("url", t.url); put("current", t.current) }
+                        buildJsonObject {
+                            put("tabId", t.tabId); put("current", t.current)
+                            put("egressBlocked", true); put("reason", "browser_or_webview")
+                            EgressPolicy.permittedHost(t.url)?.let { put("currentSite", it) }
+                        }
                     }))
                 }
             }
@@ -143,7 +152,11 @@ internal object Tabs : WebTool {
                     ?: return fail("tab_not_found", Feedback.format("tab_not_found", "id" to id))
                 // がラベルを変更しました: 以前の画面表示はこのページではなくなりました
                 ctx.session.lastSnapshot = null
-                ok { put("tabId", t.tabId); put("title", t.title); put("url", t.url) }
+                ok {
+                    put("tabId", t.tabId)
+                    put("egressBlocked", true); put("reason", "browser_or_webview")
+                    EgressPolicy.permittedHost(t.url)?.let { put("currentSite", it) }
+                }
             }
             "close" -> {
                 if (id == null) throw ArgError("tabId", "required for close")

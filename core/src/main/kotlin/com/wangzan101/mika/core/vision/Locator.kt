@@ -81,8 +81,8 @@ class Locator(private val screen: ScreenPort, private val vision: VisionService,
     private class Box(val l: Int, val t: Int, val r: Int, val b: Int, val seen: String?)
 
     suspend fun locate(target: String, text: String?): LocateResult {
-        val first = capture().let { it as? Shot.Ok ?: return (it as Shot.Missing).asNotFound() }
         val elements = if (text != null) readElements() else null
+        val first = capture().let { it as? Shot.Ok ?: return (it as Shot.Missing).asNotFound() }
         val second = capture().let { it as? Shot.Ok ?: return (it as Shot.Missing).asNotFound() }
         val synced = elements != null && hamming(first.hash, second.hash) <= LOCATE_SCREEN_CHANGE
 
@@ -194,12 +194,6 @@ class Locator(private val screen: ScreenPort, private val vision: VisionService,
      */
     private suspend fun capture(): Shot {
         if (screen.isProtected()) return Shot.Missing("protected_content", m.protectedScreen)
-        val seen = peekOrNull() ?: return Shot.Missing("vision_unavailable", m.unchecked)
-        val held = EgressPolicy.assess(seen.egressScene())
-        if (!held.allowScreenshot) {
-            if (held.reason == "no_app_open") return Shot.Missing("no_app_open", m.noApp)
-            return Shot.Missing("egress_blocked", "Screenshot was not sent (${held.reason}).")
-        }
         val png = screen.screenshotPng()
         if (png == null) {
             val s = peekOrNull()

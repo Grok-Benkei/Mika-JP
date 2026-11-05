@@ -68,7 +68,7 @@ screen:
 ### user_finished_prompt
 ユーザーが自分で終えたと言っている。アプリの現在の状態を読むためだけに確認する。完了が確認できれば、読んだ内容でユーザーに直接答える。確認できなければ end_not_done を呼び出す。他のことは行わない。
 ### loop result 1.o1
-{"ok":true,"currentApp":"com.x","snapshotId":"snap1","screenshotId":1,"screenChangedDuringRead":false,"viewport":{"width":1080,"height":2400},"elements":[{"ref":"@e1","role":"button","name":"搜索","center":{"x":500,"y":50},"bounds":[0,0,999,100],"resourceId":"a:id/s"}],"truncated":false,"moreTools":"次の呼び出しからは、phone の手段一式（phone_observe, phone_list_elements, phone_tap, phone_scroll など）も、その説明と使い方とともに利用できる。"}
+{"ok":true,"currentApp":"com.x","snapshotId":"snap1","screenshotId":1,"screenChangedDuringRead":false,"viewport":{"width":1080,"height":2400},"elements":[{"ref":"@e1","role":"button","center":{"x":500,"y":50},"bounds":[0,0,999,100]}],"truncated":false,"egressBlocked":true,"reason":"text_withheld","screenDigest":"724309bae8882794","moreTools":"次の呼び出しからは、phone の手段一式（phone_observe, phone_list_elements, phone_tap, phone_scroll など）も、その説明と使い方とともに利用できる。"}
 ### loop result 1.o2
 {"ok":false,"error":"parallel_tool_call_skipped","message":"スマートフォンの操作は一度に1つずつ実行される。最初の操作の結果を確認してから、再度試す。"}
 ### loop result 1.c

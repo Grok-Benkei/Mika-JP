@@ -112,11 +112,10 @@ class TreeQualityTest {
     @Test fun unusableTreeForTextOnlyModelGetsFilteredOcrWithCentersAndHint() = runTest {
         val s = OcrScreen(emptyList(), chat)
         val r = toolDispatcher(s).executeRead(Part.ToolCall("o", "phone_observe", "{}"))
-        assertEquals("unusable", r.content.s("treeQuality"))
-        assertEquals(Feedback["tree_poor"], r.content.s("hint"))
-        val text = r.content["visibleText"]!!.jsonArray.map { it.jsonObject }
-        assertEquals(listOf("张三", "明天见", "李四"), text.map { it.s("text") })
-        assertEquals(listOf(300, 120), text.first()["center"]!!.jsonArray.map { it.jsonPrimitive.content.toInt() })
+        assertEquals("text_withheld", r.content.s("reason"))
+        assertFalse("visibleText" in r.content)
+        assertFalse(r.content.toString().contains("张三"))
+        assertFalse(r.content.toString().contains("明天见"))
         assertNull(r.image)
     }
 
@@ -139,10 +138,11 @@ class TreeQualityTest {
     @Test fun seeingModelGetsScreenshotForUnusableTreeAndStillTheText() = runTest {
         val s = OcrScreen(emptyList(), chat)
         val r = toolDispatcher(s, visionEnabled = true, adaptiveVision = true).executeRead(Part.ToolCall("o", "phone_observe", "{}"))
-        assertEquals("empty_elements", r.content.s("imageReason"))
-        assertEquals("unusable", r.content.s("treeQuality"))
-        assertTrue(r.image != null)
-        assertEquals(3, r.content["visibleText"]!!.jsonArray.size)
+        assertEquals("text_withheld", r.content.s("reason"))
+        assertNull(r.image)
+        assertFalse("visibleText" in r.content)
+        assertFalse(r.content.toString().contains("张三"))
+        assertFalse(r.content.toString().contains("明天见"))
     }
 
     @Test fun elementListAndFreshLookReadTextOnDemandWhenTreeIsPoor() = runTest {
@@ -150,10 +150,12 @@ class TreeQualityTest {
         val d = toolDispatcher(s)
         // Phone_collect は list_elements を画面ごとに読み取ります: ツリーが十分でない場合でも、画面上のテキストは含まれます
         val listed = d.executeRead(Part.ToolCall("l", "phone_list_elements", "{}"))
-        assertEquals(3, listed.content["visibleText"]!!.jsonArray.size)
-        // 確認する前に画面上のテキストをもう一度読んでください
+        assertFalse("visibleText" in listed.content)
+        assertFalse(listed.content.toString().contains("明天见"))
+        assertEquals("text_withheld", listed.content.s("reason"))
         val fresh = d.evidence().fresh.joinToString("\n") { it.text }
-        assertTrue(fresh, "明天见" in fresh)
+        assertFalse(fresh.contains("明天见"))
+        assertTrue(fresh.contains("text_withheld") || fresh.contains("egress_blocked"))
         // ツリーがいっぱいになると文字が読めなくなります
         s.elements = rows(8)
         val before = s.ocrReads

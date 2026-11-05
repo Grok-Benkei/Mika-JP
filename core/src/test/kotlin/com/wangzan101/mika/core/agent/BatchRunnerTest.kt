@@ -228,7 +228,7 @@ class BatchRunnerTest {
         val result = runner(d).run(steps(st("phone_back"), st("phone_back")), "c1")
         assertEquals("screen_needs_review", result.content.s("reason"))
         assertEquals(listOf("back"), s.calls)
-        assertEquals(1, result.images.size)
+        assertTrue(result.images.isEmpty())
     }
 
     @Test fun rejectsNonBatchableTool() {

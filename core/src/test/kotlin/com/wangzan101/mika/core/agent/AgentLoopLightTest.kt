@@ -13,6 +13,7 @@ import com.wangzan101.mika.core.uistate.UiElement
 import com.wangzan101.mika.core.tool.FakeScreen
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import com.wangzan101.mika.core.assembly.toolDispatcher
@@ -144,7 +145,8 @@ class AgentLoopLightTest {
         }
         AgentLoop(seeing, toolDispatcher(FakeScreen(), visionEnabled = true), "BASE", flags = on,
             router = ModelRouter(seeing, light)).run("t")
-        assertEquals(0, light.requests.size)
+        assertTrue(light.requests.all { req -> req.none { msg -> msg.parts.any { it is com.wangzan101.mika.core.model.Part.Image } } })
+        assertFalse(light.requests.toString().contains("搜索"))
     }
 
     @Test fun lightErrorFallsBackToMain() = runTest {

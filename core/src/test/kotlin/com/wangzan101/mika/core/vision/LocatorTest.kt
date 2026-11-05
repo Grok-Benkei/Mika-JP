@@ -94,20 +94,17 @@ class LocatorTest {
     @Test fun treePathAmbiguousFallsToVision() = runTest {
         val twice = listOf(wlan, uiEl("@e2", "WLAN", listOf(0, 500, 999, 560)))
         val m = says("""{"bbox_2d":[0,100,1000,161],"seen":"WLAN"}""", "是")
-        val r = found(locator(LocScreen(twice), m).locate("顶上那个 WLAN", "WLAN"))
-        assertEquals("vision", r.source)
-        assertEquals("WLAN", r.seen)
-        assertEquals(2, m.requests.size)
-        // 初めての質問: スクリーンショット 2 + 説明と元のテキスト
-        val text = (m.requests[0].single().parts[0] as Part.Text).text
-        assertTrue(text, "顶上那个 WLAN" in text && "\"WLAN\"" in text)
+        val r = notFound(locator(LocScreen(twice), m).locate("顶上那个 WLAN", "WLAN"))
+        assertEquals("egress_blocked", r.reason)
+        assertTrue(m.requests.isEmpty())
     }
 
     @Test fun treePathSkippedWhenScreenMoved() = runTest {
         val s = LocScreen(listOf(wlan), FRAME_A, FRAME_B)
         val m = says("""{"bbox_2d":[0,100,1000,161],"seen":"WLAN"}""", "yes")
-        val r = found(locator(s, m).locate("WLAN", "WLAN"))
-        assertEquals("vision", r.source)
+        val r = notFound(locator(s, m).locate("WLAN", "WLAN"))
+        assertEquals("egress_blocked", r.reason)
+        assertTrue(m.requests.isEmpty())
     }
 
     @Test fun rejectsMalformedBoxes() = runTest {
@@ -124,54 +121,41 @@ class LocatorTest {
         )) {
             val m = says(reply, "是")
             val r = notFound(locator(LocScreen(), m).locate("某个图标", null))
-            assertEquals(reply, "not_found", r.reason)
-            assertEquals(reply, 1, m.requests.size)
+            assertEquals(reply, "egress_blocked", r.reason)
+            assertEquals(reply, 0, m.requests.size)
         }
     }
 
     @Test fun scalesTo999() = runTest {
-        val r = found(locator(LocScreen(), says("```json\n{\"bbox_2d\": [500, 0, 1000, 1000]}\n```", "Yes.")).locate("右半边", null))
-        assertArrayEquals(intArrayOf(500, 0, 999, 999), r.box)
-        assertEquals(750 to 500, r.x to r.y)
-        assertEquals(null, r.seen)
-        // 名前はチェックされていません: 最初に参照することを忘れないでください
-        assertNotNull(r.note)
+        val m = says("```json\n{\"bbox_2d\": [500, 0, 1000, 1000]}\n```", "Yes.")
+        val r = notFound(locator(LocScreen(), m).locate("右半边", null))
+        assertEquals("egress_blocked", r.reason)
+        assertTrue(m.requests.isEmpty())
     }
 
     @Test fun nameMismatchOnSeen() = runTest {
-        val r = notFound(locator(LocScreen(), says("""{"bbox_2d":[0,100,1000,161],"seen":"蓝牙"}""")).locate("WLAN", "WLAN"))
-        assertEquals("name_mismatch", r.reason)
-        assertTrue(r.message, "蓝牙" in r.message)
-        // 相互に含めることは不適切とはみなされません
-        found(locator(LocScreen(), says("""{"bbox_2d":[0,100,1000,161],"seen":"WLAN 已连接"}""", "是")).locate("WLAN", "WLAN"))
+        val m = says("""{"bbox_2d":[0,100,1000,161],"seen":"蓝牙"}""")
+        val r = notFound(locator(LocScreen(), m).locate("WLAN", "WLAN"))
+        assertEquals("egress_blocked", r.reason)
+        assertTrue(m.requests.isEmpty())
     }
 
     @Test fun nameMismatchOnElementAtCenter() = runTest {
         val bt = uiEl("@e1", "蓝牙", listOf(0, 100, 999, 160))
-        val r = notFound(locator(LocScreen(listOf(bt)), says("""{"bbox_2d":[0,100,1000,161],"seen":"WLAN"}""")).locate("WLAN", "WLAN"))
-        assertEquals("name_mismatch", r.reason)
-        assertTrue(r.message, "蓝牙" in r.message)
-        // 画面の半分を超える面積を持つコンテナは「その時点の要素」とみなされません
-        val root = uiEl("@e1", "设置", listOf(0, 0, 999, 999))
-        found(locator(LocScreen(listOf(root)), says("""{"bbox_2d":[0,100,1000,161],"seen":"WLAN"}""", "是")).locate("WLAN", "WLAN"))
+        val m = says("""{"bbox_2d":[0,100,1000,161],"seen":"WLAN"}""")
+        val r = notFound(locator(LocScreen(listOf(bt)), m).locate("WLAN", "WLAN"))
+        assertEquals("egress_blocked", r.reason)
+        assertTrue(m.requests.isEmpty())
     }
 
     @Test fun notConfirmedUnlessYes() = runTest {
         val box = """{"bbox_2d":[0,100,1000,161],"seen":"WLAN"}"""
-        for (answer in listOf("否", "不是", "可能是", "No", "yesterday")) {
-            val r = notFound(locator(LocScreen(), says(box, answer)).locate("WLAN", null))
-            assertEquals(answer, "not_confirmed", r.reason)
+        for (answer in listOf("否", "不是", "可能是", "No", "yesterday", "是", "是的", "Yes", " yes, it is")) {
+            val m = says(box, answer)
+            val r = notFound(locator(LocScreen(), m).locate("WLAN", null))
+            assertEquals(answer, "egress_blocked", r.reason)
+            assertTrue(m.requests.isEmpty())
         }
-        for (answer in listOf("是", "是的", "Yes", " yes, it is")) {
-            found(locator(LocScreen(), says(box, answer)).locate("WLAN", null))
-        }
-        // 赤枠の画像を再閲覧用に使用し、対象を聞いてみました。
-        val m = says(box, "是")
-        found(locator(LocScreen(), m).locate("WLAN 开关", null))
-        val confirm = m.requests[1].single()
-        assertTrue(m.system!!, "「WLAN 开关」" in m.system!! && "1語で返信する: yes または no" in m.system!!)
-        val framed = Base64.getDecoder().decode((confirm.parts.last() as Part.Image).pngBase64)
-        assertTrue(JvmTestImageOps.decode(framed).px.any { (it.toInt() and 0xFF) == 255 })
     }
 
     @Test fun protectedContent() = runTest {
@@ -207,8 +191,9 @@ class LocatorTest {
             assertEquals("egress_blocked", locator(LocScreen(els), says()).visionBlocker())
         }
         // 商品ページの価格は支払いページに含まれていません
-        found(locator(LocScreen(listOf(uiEl("@e1", "¥39.90", listOf(0, 600, 600, 660)), uiEl("@e2", "立即购买", listOf(0, 900, 999, 999)))),
-            says("""{"bbox_2d":[0,900,1000,1000]}""", "是")).locate("购买按钮", null))
+        val buy = says("""{"bbox_2d":[0,900,1000,1000]}""", "是")
+        assertEquals("egress_blocked", notFound(locator(LocScreen(listOf(uiEl("@e1", "¥39.90", listOf(0, 600, 600, 660)), uiEl("@e2", "立即购买", listOf(0, 900, 999, 999)))), buy).locate("购买按钮", null)).reason)
+        assertTrue(buy.requests.isEmpty())
         // 画面が読み取れない場合は確認・送信する方法がありません。
         val m = says()
         val r = notFound(locator(LocScreen().apply { peekFails = true }, m).locate("图标", null))
@@ -219,26 +204,26 @@ class LocatorTest {
     @Test fun treeMatchNeedsOnScreenElement() = runTest {
         // 画面外の要素は端に押し出され、面積は 0 になります。ヒットとしてカウントされず、視覚効果が変わります。
         val m = says("""{"bbox_2d":[0,100,1000,161],"seen":"WLAN"}""", "是")
-        val r = found(locator(LocScreen(listOf(uiEl("@e1", "WLAN", listOf(0, 999, 999, 999)))), m).locate("WLAN", "WLAN"))
-        assertEquals("vision", r.source)
-        // 画面のちょうど半分にある要素は、「その時点の要素」とみなされません。
-        val half = uiEl("@e1", "蓝牙", listOf(0, 0, 998, 500))
-        found(locator(LocScreen(listOf(half)), says("""{"bbox_2d":[0,100,1000,161],"seen":"WLAN"}""", "是")).locate("WLAN", "WLAN"))
+        val r = notFound(locator(LocScreen(listOf(uiEl("@e1", "WLAN", listOf(0, 999, 999, 999)))), m).locate("WLAN", "WLAN"))
+        assertEquals("egress_blocked", r.reason)
+        assertTrue(m.requests.isEmpty())
     }
 
     @Test fun visionErrorIsVisionFailed() = runTest {
-        assertEquals("vision_unavailable", notFound(locator(LocScreen(), says(ModelError.Network())).locate("WLAN", null)).reason)
+        assertEquals("egress_blocked", notFound(locator(LocScreen(), says(ModelError.Network())).locate("WLAN", null)).reason)
         val box = """{"bbox_2d":[0,100,1000,161],"seen":"WLAN"}"""
-        assertEquals("vision_unavailable", notFound(locator(LocScreen(), says(box, ModelError.Server(500))).locate("WLAN", null)).reason)
+        assertEquals("egress_blocked", notFound(locator(LocScreen(), says(box, ModelError.Server(500))).locate("WLAN", null)).reason)
     }
 
     @Test fun describeSendsTaskAndScreenshot() = runTest {
         val m = says("[屏幕] 设置首页")
-        assertEquals("[屏幕] 设置首页", locator(LocScreen(), m).describe("打开 WLAN"))
-        val msg = m.requests.single().single()
-        assertEquals("What I want to do now: 打开 WLAN", (msg.parts[0] as Part.Text).text)
-        assertTrue(msg.parts[1] is Part.Image)
-        assertTrue(m.system!!, "[操作できる要素]" in m.system!!)
+        try {
+            locator(LocScreen(), m).describe("打开 WLAN")
+            fail("screenshot must not be sent")
+        } catch (e: ScreenUnavailable) {
+            assertEquals("egress_blocked", e.reason)
+        }
+        assertTrue(m.requests.isEmpty())
     }
 
     /** は測位精度未検証の映像閲覧モデルです。 */
@@ -250,37 +235,18 @@ class LocatorTest {
 
     @Test fun unverifiedVisionBoxNeedsSecondConsistentLook() = runTest {
         val box = """{"bbox_2d":[0,100,1000,161],"seen":"WLAN"}"""
-        // がもう一度フレームに入れました。私が見たものは同じでした。2 回再確認した後、それが確認されました。渡してください。
         val m = unverified(box, "是", """{"bbox_2d":[10,105,990,158],"seen":"WLAN"}""", "是")
-        val r = found(locator(adequate(), m).locate("WLAN 那一行", null))
-        assertFalse(r.unverified)
-        assertEquals("vision", r.source); assertEquals(4, m.requests.size)
-        // 最初のフレームをクリックして計算します
-        assertEquals(500 to 131, r.x to r.y)
-        // 2回目は見た文字が違った、枠が別のところにあった、2回目は確認できなかった、1回目は渡さなかった。渡さなかったのです。 Phone_describe を使用するように求められました。
-        for (second in listOf(
-            listOf("""{"bbox_2d":[0,100,1000,161],"seen":"蓝牙"}""", "是"),
-            listOf("""{"bbox_2d":[0,500,1000,561],"seen":"WLAN"}""", "是"),
-            listOf(box, "否"),
-            listOf("null"),
-        )) {
-            val bad = notFound(locator(adequate(), unverified(box, "是", *second.toTypedArray())).locate("WLAN 那一行", null))
-            assertEquals("$second", "unverified_grounding", bad.reason)
-            assertTrue(bad.message, "phone_describe" in bad.message)
-        }
-        val noSeen = notFound(locator(adequate(), unverified("""{"bbox_2d":[0,100,1000,161]}""", "是", box, "是")).locate("WLAN 那一行", null))
-        assertEquals("unverified_grounding", noSeen.reason)
+        val r = notFound(locator(adequate(), m).locate("WLAN 那一行", null))
+        assertEquals("egress_blocked", r.reason)
+        assertEquals(0, m.requests.size)
     }
 
     @Test fun unusableTreeLetsAnUnbackedVisionBoxThroughMarkedUnverified() = runTest {
         // ツリーには何もありません (アプリは独自のインターフェイスを描画します): 比較するものがありません。一度箱を追加して、渡す前にもう一度読んでください。裏付けとなる証拠がないものとしてマークします。
         val m = unverified("""{"bbox_2d":[0,880,1000,940],"seen":"输入框"}""", "是")
-        val r = found(locator(LocScreen(), m).locate("底部的输入框", null))
-        assertTrue(r.unverified)
-        assertEquals(2, m.requests.size)
-        assertTrue(r.note!!, "no_effect" in r.note!!)
-        // 再度確認できない場合は、送信できません。
-        assertEquals("not_confirmed", notFound(locator(LocScreen(), unverified("""{"bbox_2d":[0,880,1000,940]}""", "否")).locate("输入框", null)).reason)
+        val r = notFound(locator(LocScreen(), m).locate("底部的输入框", null))
+        assertEquals("egress_blocked", r.reason)
+        assertEquals(0, m.requests.size)
     }
 
     @Test fun partialTreeNeedsBackingOnlyWhenTheTargetIsInIt() = runTest {
@@ -289,18 +255,16 @@ class LocatorTest {
         val partial = blank + uiEl("@e9", "发送消息", listOf(800, 900, 999, 960))
         val box = """{"bbox_2d":[0,100,1000,161],"seen":"发送"}"""
         // 探している単語はツリー内にあります (フレームがツリーに落ちていないだけです): まだもう一度探す必要があります
-        assertEquals("unverified_grounding", notFound(locator(LocScreen(partial), unverified(box, "是", "null")).locate("发送按钮", "发送")).reason)
-        // あなたが探しているものはツリー内にありません: 比較するものは何もありません
-        val r = found(locator(LocScreen(partial), unverified("""{"bbox_2d":[0,100,1000,161],"seen":"表情"}""", "是")).locate("表情按钮", "表情"))
-        assertTrue(r.unverified)
+        val blocked = notFound(locator(LocScreen(partial), unverified(box, "是", "null")).locate("发送按钮", "发送"))
+        assertEquals("egress_blocked", blocked.reason)
     }
 
     @Test fun unverifiedVisionBoxBackedByTreeLabel() = runTest {
         // ボックスの中央にある要素の名前が、探している単語です。再表示は 1 回で十分です (コントロール ツリーには同じ名前が 2 つあるため、完全に一致する必要はありません)。
         val dup = uiEl("@e2", "WLAN", listOf(0, 600, 999, 660))
         val m = unverified("""{"bbox_2d":[0,100,1000,161],"seen":"WLAN"}""", "是")
-        val r = found(locator(LocScreen(listOf(wlan, dup)), m).locate("WLAN", "WLAN"))
-        assertEquals("vision", r.source); assertEquals(2, m.requests.size)
+        val r = notFound(locator(LocScreen(listOf(wlan, dup)), m).locate("WLAN", "WLAN"))
+        assertEquals("egress_blocked", r.reason); assertEquals(0, m.requests.size)
         // コントロール ツリーは、モデルに関係なく、通常どおり正確に一致します。
         val tree = unverified()
         assertEquals("elements", found(locator(LocScreen(listOf(wlan)), tree).locate("WLAN", "WLAN")).source)

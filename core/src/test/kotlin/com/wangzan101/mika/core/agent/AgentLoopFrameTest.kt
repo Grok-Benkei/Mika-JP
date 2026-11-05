@@ -8,6 +8,7 @@ import com.wangzan101.mika.core.model.StopReason
 import com.wangzan101.mika.core.tool.FakeScreen
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import com.wangzan101.mika.core.assembly.toolDispatcher
@@ -28,17 +29,10 @@ class AgentLoopFrameTest {
         val at = msgs.indexOfFirst { it.parts.any { p -> p is Part.ToolResult && p.callId == tap.id } }
         assertEquals(Role.Tool, msgs[at].role)
         // グラフは、観察と同じユーザー メッセージを使用して、ツールの結果に従います (各インターフェイスの呼び出しと結果のペアは影響を受けません)。
-        val frame = msgs[at + 1]
-        assertEquals(Role.User, frame.role)
-        val img = frame.parts.filterIsInstance<Part.Image>().single()
-        assertEquals(2, img.screenshotId)
-        assertTrue("\"screenshotId\":2" in (msgs[at].parts.single() as Part.ToolResult).content)
-        // 送信された画像はプレースホルダーに置き換えられなくなりました。トリミング ラインが最初の 5 往復を横切った後、それらの画像はそのまま残されます (リクエストの先頭は変更されず、キャッシュはヒットしたままです)。
-        assertEquals(listOf<Int?>(1, 2), images(msgs).map { it.screenshotId })
-        assertEquals((1..6).toList(), images(m.requests[6]).map { it.screenshotId })
-        val seventh = m.requests[7]
-        assertEquals((1..7).toList(), images(seventh).map { it.screenshotId })
-        assertTrue(seventh.none { msg -> msg.parts.any { it is Part.Text && it.text.startsWith("(更早的画面已省略") } })
+        assertTrue(images(msgs).isEmpty())
+        val tool = msgs[at].parts.filterIsInstance<Part.ToolResult>().single()
+        assertFalse(tool.content.contains("搜索"))
+        assertTrue(m.requests.all { images(it).isEmpty() })
     }
 
     @Test fun textOnlyMainGetsNoFrames() = runTest {
@@ -63,9 +57,8 @@ class AgentLoopFrameTest {
         AgentLoop(m, toolDispatcher(FakeScreen(), visionEnabled = true), "BASE", flags = SpeedFlags(batchSteps = true)).run("t")
         val msgs = m.requests[1]
         val at = msgs.indexOfFirst { it.parts.any { p -> p is Part.ToolResult && p.callId == batch.id } }
-        assertEquals(Role.User, msgs[at + 1].role)
-        assertEquals(1, images(msgs).size)
-        assertEquals(images(msgs).single(), msgs[at + 1].parts.filterIsInstance<Part.Image>().single())
+        assertTrue(at >= 0)
+        assertTrue(images(msgs).isEmpty())
     }
 
     @Test fun adaptiveBatchExecutesTwoActionsInOneModelRoundWithoutImages() = runTest {

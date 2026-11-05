@@ -106,25 +106,25 @@ class AgentLoopRecordTest {
         val r = run(m, screen).events.filterIsInstance<RunEvent.ToolResult>().first()
         // レコードは再生とデバッグの基礎です。通常のフィールドの上限を超えるツールの結果も、全体を残す必要があります。
         assertTrue("length ${r.resultJson.length}", r.resultJson.length > RunEvent.MAX_FIELD)
-        assertTrue(r.resultJson.contains("第 150 行很长很长的文字内容"))
+        assertFalse(r.resultJson.contains("第 150 行很长很长的文字内容"))
+        assertTrue(r.resultJson.contains("\"ref\":\"@e150\""))
         assertTrue(r.resultJson.startsWith("{\"ok\":true"))
     }
 
     @Test fun screensHandedToSinkWithIds() {
         val m = FakeModel(reply(call("phone_observe")), reply(call("phone_screenshot")), com.wangzan101.mika.core.testing.answerReply("x"))
         val sink = run(m, vision = true)
-        assertEquals(listOf(1, 2), sink.screens.map { it.first })
-        val saved = sink.events.filterIsInstance<RunEvent.Media>()
-        assertEquals(listOf(1, 2), saved.map { it.mediaId })
-        assertEquals(listOf(1, 2), saved.map { it.step })
-        assertEquals("com.x", saved[0].place)
-        assertEquals(listOf(1, 2), sink.events.filterIsInstance<RunEvent.ToolResult>().map { it.screenshotId })
+        assertTrue(sink.screens.isEmpty())
+        assertTrue(sink.events.filterIsInstance<RunEvent.Media>().isEmpty())
+        val results = sink.events.filterIsInstance<RunEvent.ToolResult>()
+        assertTrue(results.none { it.resultJson.contains("搜索") })
+        assertTrue(results.any { it.resultJson.contains("text_withheld") || it.resultJson.contains("egress_blocked") })
     }
 
     @Test fun textOnlyModelStillRecordsFrames() {
         val m = FakeModel(reply(call("phone_observe")), com.wangzan101.mika.core.testing.answerReply("x"))
         val sink = run(m, frames = true)
-        assertEquals(listOf(1), sink.screens.map { it.first })
+        assertTrue(sink.screens.isEmpty())
         // 画面は記録のみであり、画像が表示できないモデルには送信されません。
         assertTrue(m.requests[1].none { msg -> msg.parts.any { it is Part.Image } })
         val noFrames = run(FakeModel(reply(call("phone_observe")), com.wangzan101.mika.core.testing.answerReply("x")))
@@ -221,7 +221,8 @@ class AgentLoopRecordTest {
         assertEquals(1, texts[0].step)
         assertEquals(1, texts[0].id)
         assertEquals(Place.app("com.x"), texts[0].place)
-        assertEquals(listOf("現在のアプリ:com.x") + els.map { it.name }, texts[0].text.lines())
+        assertTrue(texts[0].text.contains("text_withheld") || texts[0].text.contains("egress_blocked"))
+        assertTrue(texts.none { it.text.contains("很长很长的文字内容") })
     }
 
     @Test fun actionReturnedScreenIsRecorded() {
@@ -233,9 +234,9 @@ class AgentLoopRecordTest {
             val m = FakeModel(reply(call("phone_tap", """{"x":1,"y":1}""")), com.wangzan101.mika.core.testing.answerReply("明天晴 25 度"))
             val sink = run(m, screen, vision = vision, inline = inline)
             val texts = sink.events.filterIsInstance<RunEvent.Observed>()
-            assertEquals("inline=$inline vision=$vision", listOf("現在のアプリ:com.x", "明天晴 25 度"), texts.single().text.lines())
-            // 評価と証拠の器量は、行動によって呼び戻される画面にのみ表示される答えを見つけることができます
-            assertTrue(com.wangzan101.mika.core.eval.Checks.grounded("明天晴 25 度", com.wangzan101.mika.core.eval.RunFacts.evidence(sink.events, TOOLS, "", "明天晴 25 度"), 1))
+            assertFalse("inline=$inline vision=$vision", texts.joinToString().contains("明天晴"))
+            assertTrue(texts.any { it.text.contains("text_withheld") || it.text.contains("egress_blocked") })
+            assertFalse(com.wangzan101.mika.core.eval.Checks.grounded("明天晴 25 度", com.wangzan101.mika.core.eval.RunFacts.evidence(sink.events, TOOLS, "", "明天晴 25 度"), 1))
         }
     }
 

@@ -4,7 +4,9 @@ import com.wangzan101.mika.core.assembly.toolDispatcher
 import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.tool.FakeScreen
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -34,9 +36,10 @@ class VisibleTextTest {
             )
         }
         val result = toolDispatcher(screen).executeRead(Part.ToolCall("o", "phone_observe", "{}"))
-        val shown = result.content["visibleText"].toString()
-        assertTrue(shown, "明天改到下午" in shown)
-        assertTrue(shown, "群聊" !in shown)
+        val shown = result.content.toString()
+        assertFalse(shown.contains("明天改到下午"))
+        assertFalse(shown.contains("群聊"))
+        assertEquals("text_withheld", result.content["reason"]?.jsonPrimitive?.content)
         assertEquals(null, result.image)
     }
 }

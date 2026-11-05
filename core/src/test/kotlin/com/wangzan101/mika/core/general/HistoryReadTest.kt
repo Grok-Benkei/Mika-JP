@@ -85,11 +85,13 @@ class HistoryReadTest {
         // 進行状況の説明 + 2 つのオリジナル テキスト。繰り返された元のテキストと電話なしの応答は繰り返されません。
         assertEquals(listOf("note", "read", "output"), items.map { it["kind"]!!.jsonPrimitive.content })
         assertEquals(3, r["totalItems"]!!.jsonPrimitive.int)
-        assertTrue(items[1]["text"]!!.jsonPrimitive.content.startsWith("<untrusted>"))
-        assertEquals("甲店菜单", items[1]["where"]!!.jsonPrimitive.content)
+        val read = items[1]["text"]!!.jsonPrimitive.content
+        assertTrue(read.contains("egress_blocked:replay"))
+        assertFalse(r.toString().contains("拿铁 28"))
+        assertFalse("where" in items[1])
         assertNull(r["nextOffset"])
         // 私が読んだ原文を検証のために提出します。 Web ページにあるものはまだ信頼できません。
-        assertEquals(listOf("甲店:拿铁 28 元", "乙店:拿铁 25 元"), tool.observations.map { it.text })
+        assertEquals(listOf("egress_blocked:replay", "乙店:拿铁 25 元"), tool.observations.map { it.text })
         assertEquals(Trust.Untrusted, tool.observations[0].trust)
         assertEquals("history", tool.observations[0].source)
     }

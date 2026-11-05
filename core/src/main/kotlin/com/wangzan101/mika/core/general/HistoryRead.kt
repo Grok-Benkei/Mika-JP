@@ -125,8 +125,9 @@ internal object HistoryRead : AgentTool {
                     buildJsonObject {
                         put("n", offset + i)
                         put("kind", item.kind)
-                        item.where?.let { put("where", it) }
-                        val body = if (EgressPolicy.replayBody(item.untrusted, item.source, item.where)) item.text else "egress_blocked:replay"
+                        val replay = EgressPolicy.replayBody(item.untrusted, item.source, item.where)
+                        val body = if (replay) item.text else "egress_blocked:replay"
+                        if (replay) item.where?.let { put("where", it) }
                         put("text", if (item.untrusted) Untrusted.wrap(body) else body)
                     }
                 }))
@@ -135,7 +136,8 @@ internal object HistoryRead : AgentTool {
         }
         // 私が読んだ原文は検証のために提出されます。回答が以前のラウンドで読んだ内容を使用している場合、それは十分に文書化されています（出典も歴史として記録され、当時の場面を参照していません）
         val observations = page.mapNotNull { item ->
-            item.obsKind?.let { Observation(it, item.text, source = SOURCE, title = item.where, trust = if (item.untrusted) Trust.Untrusted else Trust.Trusted) }
+            val body = if (EgressPolicy.replayBody(item.untrusted, item.source, item.where)) item.text else "egress_blocked:replay"
+            item.obsKind?.let { Observation(it, body, source = SOURCE, title = if (body.startsWith("egress_blocked")) null else item.where, trust = if (item.untrusted) Trust.Untrusted else Trust.Trusted) }
         }
         return ToolExecution(content, observations = observations)
     }

@@ -48,17 +48,16 @@ class ToolDispatcherFrameTest {
         val s = FrameScreen()
         val d = toolDispatcher(s, visionEnabled = true, imageOps = JvmTestImageOps)
         val r = d.execute(call("phone_tap", """{"x":500,"y":500}"""))
-        assertEquals(1, r.images.size)
-        val id = r.content.s("screenshotId")
-        assertEquals(listOf<Int?>(id.toInt()), r.imageIds)
-        // 添付されたフレームはレビュー用に登録されており、トリミング後に古い画像を取得できます。
-        val back = d.execute(call("view_past_screens", """{"ids":[$id]}"""))
-        assertEquals(1, back.images.size)
-        // モデルを送信するときは、統一エンコードを使用します: JPEG、長辺 1280
-        val part = d.modelImage(r.images.single(), r.imageIds.single())
+        assertEquals("true", r.content.s("ok"))
+        assertTrue(r.images.isEmpty())
+        assertEquals(0, s.shots)
+        assertFalse(r.content.toString().contains("搜索"))
+        assertEquals("text_withheld", (r.content["screen"] as JsonObject).s("reason"))
+        // エンコード契約は、送られなかった画面バイトではなく試験用の固定画像で確認する。
+        val part = d.modelImage(s.frame, 1)
         assertEquals("image/jpeg", part.mime)
         assertEquals(1280, maxOf(part.width, part.height))
-        assertEquals(id.toInt(), part.screenshotId)
+        assertEquals(1, part.screenshotId)
         assertEquals(part.width to part.height, JvmTestImageOps.size(Base64.getDecoder().decode(part.pngBase64)))
     }
 
@@ -70,7 +69,9 @@ class ToolDispatcherFrameTest {
         val screen = r.content["screen"] as JsonObject
         assertEquals(r.content.s("screenshotId"), screen.s("screenshotId"))
         val el = screen["elements"]!!.jsonArray.single().jsonObject
-        assertEquals("搜索", el.s("name"))
+        assertFalse("name" in el)
+        assertFalse(screen.toString().contains("搜索"))
+        assertEquals("@e1", el.s("ref"))
         val tap = d.execute(call("phone_tap", """{"ref":"${el.s("ref")}","snapshotId":"${screen.s("snapshotId")}"}"""))
         assertEquals(tap.content.toString(), "true", tap.content.s("ok"))
         // 支払いページ画面と要素テーブルが利用可能
@@ -78,7 +79,7 @@ class ToolDispatcherFrameTest {
         val pr = toolDispatcher(pay, visionEnabled = true).execute(call("phone_back"))
         assertEquals(0, pr.images.size); assertEquals(0, pay.shots)
         val payScreen = pr.content["screen"] as JsonObject
-        assertEquals("payment_or_auth", payScreen.s("reason"))
+        assertEquals("text_withheld", payScreen.s("reason"))
         assertFalse("确认支付" in payScreen.toString())
     }
 
@@ -102,7 +103,10 @@ class ToolDispatcherFrameTest {
         val s = FrameScreen()
         val d = toolDispatcher(s, visionEnabled = true)
         for ((name, args) in listOf("phone_back" to "{}", "phone_launch_app" to """{"package":"com.x"}""", "phone_swipe" to """{"startX":1,"startY":1,"endX":9,"endY":9}""")) {
-            assertEquals(name, 1, d.execute(call(name, args)).images.size)
+            val r = d.execute(call(name, args))
+            assertEquals(name, 0, r.images.size)
+            assertFalse(r.content.toString().contains("搜索"))
+            assertEquals(name, "text_withheld", (r.content["screen"] as JsonObject).s("reason"))
         }
         // 読み取り専用ツールは付属しません
         assertTrue(d.execute(call("phone_list_apps")).images.isEmpty())
@@ -128,7 +132,7 @@ class ToolDispatcherFrameTest {
         val d = toolDispatcher(pay, visionEnabled = true)
         val r = d.execute(call("phone_back"))
         assertEquals(0, r.images.size); assertEquals(0, pay.shots); assertFalse(d.keepsRecallImages())
-        assertEquals("payment_or_auth", (r.content["screen"] as JsonObject).s("reason"))
+        assertEquals("text_withheld", (r.content["screen"] as JsonObject).s("reason"))
         // 画面にはまだアプリがありません: キャプチャするものは何もありません。これはエラーではありません
         val empty = FrameScreen().apply { this.empty = true }
         assertTrue(toolDispatcher(empty, visionEnabled = true).execute(call("phone_back")).images.isEmpty())
@@ -141,10 +145,12 @@ class ToolDispatcherFrameTest {
         val before = s.shots
         val r = d.execute(call("phone_back"))
         // 画面を使用する場合は、画面を読み取るものを使用し、別のスクリーンショットを撮らないでください
-        assertEquals(before + 1, s.shots)
-        assertEquals(1, r.images.size)
+        assertEquals(before, s.shots)
+        assertTrue(r.images.isEmpty())
         val screen = r.content["screen"] as JsonObject
-        assertEquals(listOf<Int?>(screen.s("screenshotId").toInt()), r.imageIds)
+        assertEquals("text_withheld", screen.s("reason"))
+        assertFalse(screen.toString().contains("搜索"))
+        assertTrue(r.imageIds.isEmpty())
     }
 
     @Test fun adaptiveVisionUsesElementsForReadableScreenAndKeepsRecordFrame() = runTest {
@@ -152,12 +158,14 @@ class ToolDispatcherFrameTest {
         val d = toolDispatcher(s, visionEnabled = true, adaptiveVision = true, recordFrames = true, inlineScreen = true)
         val observed = d.execute(call("phone_observe"))
         assertTrue(observed.images.isEmpty())
-        assertEquals(1, s.shots) // 走行記録には画面が残っていますが、モデルに送信されるわけではありません。
+        assertEquals(0, s.shots)
         val action = d.execute(call("phone_back"))
         assertTrue(action.images.isEmpty())
         assertTrue("snapshotId" in action.content["screen"]!!.jsonObject)
-        assertEquals(2, s.shots)
-        assertEquals(1, d.execute(call("phone_screenshot")).images.size) // モデルは、あいまいさを見つけた場合でも画像を積極的に補足できます。
+        assertEquals(0, s.shots)
+        val shot = d.execute(call("phone_screenshot"))
+        assertTrue(shot.images.isEmpty())
+        assertEquals("egress_blocked", shot.content.s("error"))
     }
 
     @Test fun adaptiveVisionEscalatesUnreadableControlsButExplicitElementReadStaysTextOnly() = runTest {
@@ -167,20 +175,21 @@ class ToolDispatcherFrameTest {
         assertTrue(elements.images.isEmpty())
         assertEquals(0, s.shots)
         val observed = d.execute(call("phone_observe"))
-        assertEquals("unlabeled_controls", observed.content.s("imageReason"))
-        assertEquals(1, observed.images.size)
+        assertTrue(observed.images.isEmpty())
+        assertEquals("text_withheld", observed.content.s("reason"))
+        assertFalse(observed.content.toString().contains("搜索"))
         val action = d.execute(call("phone_back"))
-        assertEquals(1, action.images.size)
-        assertEquals("unlabeled_controls", action.content["screen"]!!.jsonObject.s("imageReason"))
+        assertTrue(action.images.isEmpty())
+        assertEquals("text_withheld", action.content["screen"]!!.jsonObject.s("reason"))
     }
 
     @Test fun screenshotToolIsRecallable() = runTest {
         val d = toolDispatcher(FrameScreen(), visionEnabled = true)
         d.execute(call("phone_observe"))
         val r = d.execute(call("phone_screenshot"))
-        val id = r.content.s("screenshotId").toInt()
-        assertEquals(listOf<Int?>(id), r.imageIds)
-        assertEquals(1, d.execute(call("view_past_screens", """{"ids":[$id]}""")).images.size)
+        assertEquals("egress_blocked", r.content.s("error"))
+        assertTrue(r.images.isEmpty())
+        assertFalse(r.content.toString().contains("搜索"))
     }
 
     @Test fun noOpsSendsOriginalWithSniffedType() {

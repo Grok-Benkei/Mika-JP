@@ -57,7 +57,6 @@ internal object KeepOpen : WebTool {
             put("keep", r.keep)
             r.tabId?.let { put("tabId", it) }
             r.host?.let { put("site", it) }
-            r.title?.let { put("title", it) }
             if (r.keep) {
                 put("hours", r.hours)
                 r.replaces?.let { put("replaces", it) }

@@ -14,8 +14,7 @@ class EgressPolicyTest {
         url: String? = null,
         others: List<EgressWindow> = emptyList(),
         hasContent: Boolean = false,
-        payment: Boolean = false,
-    ) = EgressScene(EgressWindow(pkg, url, web, webView, password, hasContent, payment), others)
+    ) = EgressScene(EgressWindow(pkg, url, web, webView, password, hasContent), others)
 
     @Test fun ordinaryAppScreenMayLeave() {
         val v = EgressPolicy.assess(scene())
@@ -75,18 +74,27 @@ class EgressPolicyTest {
         assertFalse(v.allowScreenshot)
     }
 
-    @Test fun paymentControlBlocksTheScreen() {
-        val v = EgressPolicy.assess(scene(payment = true))
-        assertEquals("payment_or_auth", v.reason)
+    @Test fun contentOnAnOrdinaryAppKeepsStructureAndWithholdsText() {
+        val v = EgressPolicy.assess(scene(hasContent = true))
+        assertEquals("text_withheld", v.reason)
         assertFalse(v.allowBody)
         assertFalse(v.allowScreenshot)
+        assertTrue(v.allowStructure)
+    }
+
+    @Test fun piiWithoutBankingWordsFailsClosed() {
+        val v = EgressPolicy.assess(scene(pkg = "com.example.notes", hasContent = true))
+        assertEquals("text_withheld", v.reason)
+        assertFalse(v.allowScreenshot)
+        assertEquals("shop.example.com", EgressPolicy.siteHost("https://user:secret@shop.example.com:8443/a?q=田中"))
     }
 
     @Test fun sensitiveNotificationIsNotSent() {
         assertEquals("sensitive_notification", EgressPolicy.notification("com.google.android.apps.authenticator2").reason)
         assertFalse(EgressPolicy.notification("com.android.chrome").allowBody)
         assertEquals("unknown_package", EgressPolicy.notification(null).reason)
-        assertTrue(EgressPolicy.notification("com.example.notes").allowBody)
+        assertFalse(EgressPolicy.notification("com.example.notes").allowBody)
+        assertEquals("notification_unclassifiable", EgressPolicy.notification("com.example.notes").reason)
     }
 
     @Test fun modelTextCannotDisableThePolicy() {

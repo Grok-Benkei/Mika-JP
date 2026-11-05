@@ -58,7 +58,8 @@ class ToolDispatcherVisionTest {
         val bad = dispatcher(LocScreen()).execute(call("phone_find_visually", """{"target":"x","text":"${"字".repeat(61)}"}""")).content
         assertEquals("invalid_arguments", bad.s("error"))
         val none = dispatcher(LocScreen(), "null").execute(call("phone_find_visually", """{"target":"某个图标"}""")).content
-        assertEquals("true", none.s("ok")); assertEquals("false", none.s("found")); assertEquals("not_found", none.s("reason"))
+        assertEquals("true", none.s("ok")); assertEquals("false", none.s("found")); assertEquals("egress_blocked", none.s("reason"))
+        assertFalse(none.toString().contains("某个图标"))
     }
 
     @Test fun tapVRefWorksWhenScreenSame() = runTest {
@@ -81,11 +82,11 @@ class ToolDispatcherVisionTest {
         val s = LocScreen()
         val d = toolDispatcher(s, vision = VisionService(model, JvmTestImageOps))
         val found = d.execute(call("phone_find_visually", """{"target":"底部的输入框"}""")).content
-        assertEquals(found.toString(), "true", found.s("unverified"))
-        val r = d.tapRef(found.s("ref") to found.s("snapshotId"))
-        assertEquals(r.toString(), "true", r.s("unverifiedPoint"))
-        assertTrue(r.s("hint"), com.wangzan101.mika.core.prompt.Feedback["located.unverified"] in r.s("hint"))
-        assertEquals(1, s.taps.size)
+        assertEquals("true", found.s("ok"))
+        assertEquals("false", found.s("found"))
+        assertEquals("egress_blocked", found.s("reason"))
+        assertTrue(s.taps.isEmpty())
+        assertTrue(model.requests.isEmpty())
     }
 
     @Test fun tapVRefStaleWhenScreenChanged() = runTest {
@@ -131,9 +132,11 @@ class ToolDispatcherVisionTest {
     @Test fun coordinateTapAfterDescriptionNeedsTarget() = runTest {
         val s = LocScreen(listOf(wlan))
         val d = dispatcher(s, "[屏幕] 设置")
-        d.execute(call("phone_describe", """{"task":"打开 WLAN","reason":"看看"}"""))
+        val described = d.execute(call("phone_describe", """{"task":"打开 WLAN","reason":"看看"}""")).content
+        assertEquals("egress_blocked", described.s("error"))
+        assertFalse(described.toString().contains("WLAN"))
         val r = d.execute(call("phone_tap", """{"x":500,"y":130}""")).content
-        assertEquals("invalid_arguments", r.s("error")); assertTrue(r.s("message"), "target" in r.s("message"))
+        assertEquals("true", r.s("ok"))
         assertEquals("true", d.execute(call("phone_tap", """{"x":500,"y":130,"target":"WLAN"}""")).content.s("ok"))
         // は書き込み操作後に通常の座標クリックを復元します
         assertEquals("true", d.execute(call("phone_tap", """{"x":500,"y":130}""")).content.s("ok"))
@@ -144,15 +147,17 @@ class ToolDispatcherVisionTest {
     @Test fun describeReturnsModelText() = runTest {
         val r = dispatcher(LocScreen(), "[屏幕] 设置首页\n[可交互元素]\n- WLAN | 列表项 | (500,130)")
             .execute(call("phone_describe", """{"task":"打开 WLAN","reason":"列表里没有"}""")).content
-        assertEquals("true", r.s("ok"))
-        assertEquals("[屏幕] 设置首页\n[可交互元素]\n- WLAN | 列表项 | (500,130)", r.s("description"))
+        assertEquals("false", r.s("ok"))
+        assertEquals("egress_blocked", r.s("error"))
+        assertFalse("description" in r)
+        assertFalse(r.toString().contains("WLAN"))
         assertEquals("invalid_arguments", dispatcher(LocScreen()).execute(call("phone_describe", """{"task":"x"}""")).content.s("error"))
         val prot = dispatcher(LocScreen(secure = true)).execute(call("phone_describe", """{"task":"x","reason":"y"}""")).content
         assertEquals("protected_content", prot.s("error"))
         val empty = dispatcher(LocScreen(emptyList(), null, hasWindow = false)).execute(call("phone_describe", """{"task":"x","reason":"y"}""")).content
         assertEquals("no_app_open", empty.s("error"))
         val broken = dispatcher(LocScreen(), com.wangzan101.mika.core.model.ModelError.Network()).execute(call("phone_describe", """{"task":"x","reason":"y"}""")).content
-        assertEquals("vision_unavailable", broken.s("error"))
+        assertEquals("egress_blocked", broken.s("error"))
     }
 
     @Test fun gateArgsResolveLocatedPoint() = runTest {

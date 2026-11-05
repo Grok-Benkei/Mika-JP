@@ -143,7 +143,7 @@
 ### script on phone
 {"ok":false,"error":"devtools_unavailable","message":"Page scripts need the page's DevTools connection, which is not available here.. Do the steps with web_observe, web_tap and web_type_text instead.","recoverable":true,"actions":[],"egressBlocked":true,"reason":"browser_or_webview"}
 ### navigate
-{"ok":true,"tabId":"t1","url":"https://shop.example.com/","title":"购物车","httpStatus":200,"loaded":true,"newTab":false}
+{"ok":true,"egressBlocked":true,"reason":"browser_or_webview","currentSite":"shop.example.com","tabId":"t1","httpStatus":200,"loaded":true,"newTab":false}
 ### tabs switch unknown
 {"ok":false,"error":"tab_not_found","message":"この作業にタブ zz はない。action を list にして web_tabs を呼び出す。","recoverable":true}
 ### capture without devtools

@@ -84,12 +84,15 @@ class RealTaskFailuresTest {
     @Test fun cleartextUpgradeAndDownloadsAreSaid() = runTest {
         val up = NavWeb { it.copy(upgradedFrom = "http://shop.example.com/") }
         val u = toolDispatcher(FakeScreen(), web = up).execute(call("web_navigate", """{"url":"http://shop.example.com/"}""")).content
-        assertEquals("true", u.s("ok")); assertEquals("true", u.s("upgradedToHttps")); assertEquals("http://shop.example.com/", u.s("requestedUrl"))
+        assertEquals("true", u.s("ok")); assertEquals("true", u.s("upgradedToHttps"))
+        assertFalse(u.toString().contains("http://shop.example.com/"))
+        assertEquals("shop.example.com", u.s("currentSite"))
         val dl = NavWeb { it.copy(loaded = false, download = DownloadInfo("/workspace/downloads/a.pdf", 0, "application/pdf", "running", null)) }
         val d = toolDispatcher(FakeScreen(), web = dl).execute(call("web_navigate", """{"url":"https://shop.example.com/a.pdf"}""")).content
         assertEquals("true", d.s("ok")); assertEquals("false", d.s("loaded"))
-        val info = d["download"]!!.jsonObject
-        assertEquals("/workspace/downloads/a.pdf", info.s("file")); assertEquals("running", info.s("status"))
+        assertEquals("running", d["download"]!!.jsonObject.s("status"))
+        assertFalse(d.toString().contains("a.pdf"))
+        assertFalse(d.toString().contains("/workspace"))
         assertTrue(d.s("hint"), "ページとして開かれる代わりにダウンロードされた" in d.s("hint") && "status=done" in d.s("hint"))
     }
 

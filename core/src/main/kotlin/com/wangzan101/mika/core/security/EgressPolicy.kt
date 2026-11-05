@@ -13,8 +13,6 @@ data class EgressWindow(
     val hasPassword: Boolean = false,
     /** 要素やウィンドウがある。空の仮想画面は false。 */
     val hasContent: Boolean = false,
-    /** ボタン等の名前が支払い・認証。本文中の偶然の単語は対象にしない。 */
-    val paymentCue: Boolean = false,
 )
 
 data class EgressScene(
@@ -25,13 +23,16 @@ data class EgressScene(
 data class EgressVerdict(
     val allowBody: Boolean,
     val allowScreenshot: Boolean,
+    /** 参照・役割・座標は残せる。名前・OCR・タイトルは含まない。 */
+    val allowStructure: Boolean = false,
     val reason: String,
 ) {
     val allowsAll: Boolean get() = allowBody && allowScreenshot
 
     companion object {
-        fun deny(reason: String) = EgressVerdict(false, false, reason)
-        val AppScreen = EgressVerdict(true, true, "app_screen")
+        fun deny(reason: String) = EgressVerdict(false, false, false, reason)
+        fun structureOnly(reason: String) = EgressVerdict(false, false, true, reason)
+        val AppScreen = EgressVerdict(true, true, true, "app_screen")
     }
 }
 
@@ -41,11 +42,12 @@ object EgressPolicy {
 
     fun assess(scene: EgressScene): EgressVerdict {
         val windows = listOf(scene.primary) + scene.others
-        val reasons = windows.mapNotNull { unsafe(it) }
+        val reasons = windows.mapIndexedNotNull { i, w -> unsafe(w, primary = i == 0) }
         if (reasons.isEmpty()) {
             if (scene.primary.packageName.isNullOrBlank()) {
-                return EgressVerdict(allowBody = true, allowScreenshot = false, reason = "no_app_open")
+                return EgressVerdict(allowBody = true, allowScreenshot = false, allowStructure = true, reason = "no_app_open")
             }
+            if (scene.primary.hasContent) return EgressVerdict.structureOnly("text_withheld")
             return EgressVerdict.AppScreen
         }
         if (scene.others.isNotEmpty()) return EgressVerdict.deny("multiwindow_unproven")
@@ -58,7 +60,17 @@ object EgressPolicy {
         if (isBrowser(pkg) || SensitiveApps.blocks(pkg) || looksSensitive(pkg)) {
             return EgressVerdict.deny("sensitive_notification")
         }
-        return EgressVerdict(allowBody = true, allowScreenshot = false, reason = "notification_ok")
+        return EgressVerdict.deny("notification_unclassifiable")
+    }
+
+    /** ブラウザ結果に載せてよいのはホストだけ。タイトル、パス、クエリは出さない。 */
+    fun siteHost(url: String?): String? = url?.let { com.wangzan101.mika.core.net.UrlHost.of(it) }
+
+    /** 遷移先のホスト。銀行・決済ホストは結果に書かない。パスとクエリは含めない。 */
+    fun permittedHost(url: String?): String? {
+        val host = siteHost(url) ?: return null
+        if (looksLikeBankHost(host)) return null
+        return host
     }
 
     /** 履歴・再送。安全だと再判定できない画面本文は出さない。 */
@@ -70,9 +82,8 @@ object EgressPolicy {
         return true
     }
 
-    private fun unsafe(w: EgressWindow): String? {
+    private fun unsafe(w: EgressWindow, primary: Boolean): String? {
         if (w.hasPassword) return "password_visible"
-        if (w.paymentCue) return "payment_or_auth"
         if (w.isWeb || w.isWebView) {
             val host = hostOf(w.webUrl)
             if (host != null && looksLikeBankHost(host)) return "bank_page"
@@ -82,6 +93,7 @@ object EgressPolicy {
         if (pkg.isNullOrBlank()) return if (w.hasContent || w.isWeb || w.isWebView) "unknown_package" else null
         if (isBrowser(pkg)) return "browser_or_webview"
         if (SensitiveApps.blocks(pkg) || looksSensitive(pkg)) return "sensitive_app"
+        if (!primary && w.hasContent) return "unclassifiable_screen"
         return null
     }
 
