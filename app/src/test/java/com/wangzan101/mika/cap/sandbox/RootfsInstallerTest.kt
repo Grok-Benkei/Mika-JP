@@ -46,6 +46,7 @@ class RootfsInstallerTest {
         abis = { listOf("arm64-v8a") },
         freeBytes = { free },
         selfTest = { selfTest },
+        dnsServers = { emptyList() },
         procReadable = { it != "/proc/stat" },
         prepareDev = {},
         clientScript = { client },
@@ -60,7 +61,8 @@ class RootfsInstallerTest {
         assertEquals("v1", state.installedVersion)
         assertEquals("one\n", File(dirs.rootfs, "etc/marker").readText())
         assertEquals("127.0.0.1 localhost\n::1 localhost\n", File(dirs.rootfs, "etc/hosts").readText())
-        assertTrue(File(dirs.rootfs, "etc/resolv.conf").readText().startsWith("nameserver "))
+        assertEquals("# device DNS unavailable; name lookup disabled\n", File(dirs.rootfs, "etc/resolv.conf").readText())
+        assertFalse(File(dirs.rootfs, "etc/resolv.conf").readText().contains("1.1.1.1"))
         assertTrue(File(dirs.rootfs, "usr/local/bin/mika").canExecute())
         assertEquals(listOf("stat"), dirs.procStandIns.list()!!.toList())
         assertFalse(File(dirs.root, "rootfs.new").exists())

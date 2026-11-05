@@ -177,7 +177,7 @@ class RootfsInstaller(
 
     private fun configure() {
         writeInRootfs("etc/hosts", "127.0.0.1 localhost\n::1 localhost\n")
-        writeInRootfs("etc/resolv.conf", dnsServers().ifEmpty { FALLBACK_DNS }.joinToString("") { "nameserver $it\n" })
+        writeInRootfs("etc/resolv.conf", SandboxDns.resolvConf(runCatching { dnsServers() }.getOrNull()))
         val client = clientScript() ?: throw IOException(tr(R.string.install_no_client))
         writeInRootfs("usr/local/bin/mika", client, executable = true)
         prepareDev(dirs.rootfs)

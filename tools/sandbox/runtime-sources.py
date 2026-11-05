@@ -30,6 +30,8 @@ COPYLEFT = re.compile(r"\b(L?GPL|MPL)")
 
 
 def get(url):
+    if not url.startswith("https://"):
+        sys.exit(f"runtime-sources: refusing non-HTTPS URL {url}")
     with urllib.request.urlopen(url, timeout=300) as r:
         return r.read()
 

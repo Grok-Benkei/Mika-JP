@@ -32,7 +32,7 @@ class ApkIntegrityTest {
         val file = temp.newFile().apply { writeText("abc") }
         val digest = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         ApkIntegrity.verify(file, 3, digest)
-        ApkIntegrity.verify(file, null, null) // は、添付ファイルの概要のない古い出版物メタデータと互換性があります。
+        rejects { ApkIntegrity.verify(file, 3, null) }
         rejects { ApkIntegrity.verify(file, 4, digest) }
         rejects { ApkIntegrity.verify(file, 3, "sha256:bad") }
         rejects { ApkIntegrity.verify(file, 3, "md5:" + "0".repeat(64)) }
