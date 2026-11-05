@@ -35,7 +35,7 @@ class McpServerTest {
         override suspend fun call(name: String, arguments: JsonObject): McpResult { calls++; return McpResult(name) }
     }
 
-    @Test fun lowLevelToolCallsRunAutonomouslyAndEmitEvents() = runBlocking {
+    @Test fun lowLevelToolCallsKeepReadsAndDenyOutwardSends() = runBlocking {
         val endpoint = Endpoint()
         val store = MemoryRunStore()
         val server = McpServer({ spec -> toolDispatcher(FakeScreen(), runSpec = spec,
@@ -47,10 +47,10 @@ class McpServerTest {
         assertEquals(Attendance.Unattended, session.spec.provenance.attendance)
         val read = session.call("mcp_fake__read", "{}")
         assertEquals("true", read["ok"].toString())
-        val send = session.call("mcp_fake__send", "{}")
-        assertEquals("true", send["ok"].toString())
-        assertEquals(2, endpoint.calls)
-        assertFalse(events.any { it is RunEvent.Approval && it.tool == "mcp_fake__send" })
+        val send = session.call("mcp_fake__send", """{"approved":true}""")
+        assertEquals("false", send["ok"].toString())
+        assertEquals(1, endpoint.calls)
+        assertTrue(events.any { it is RunEvent.Approval && it.tool == "mcp_fake__send" })
         assertTrue(events.any { it is RunEvent.ToolResult })
         session.close()
         assertEquals(RunPhase.Ended, store.get(session.spec.id)?.phase)

@@ -2,6 +2,8 @@ package com.wangzan101.mika.core.general
 
 import com.wangzan101.mika.core.action.ActionRisk
 import com.wangzan101.mika.core.action.Risk as ApprovalRisk
+import com.wangzan101.mika.core.gate.ConfirmationRequest
+import com.wangzan101.mika.core.risk.IrrevAction
 import com.wangzan101.mika.core.prompt.Prompts
 import com.wangzan101.mika.core.tool.AgentTool
 import com.wangzan101.mika.core.tool.Args
@@ -22,6 +24,7 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.util.UUID
 import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -29,6 +32,12 @@ internal object ScheduleTask : AgentTool {
     override val verb = Verb.ScheduleTask
     override val risk = Risk.External
     override val approvalRisk = ApprovalRisk(ActionRisk.External)
+
+    override fun approvalRisk(args: kotlinx.serialization.json.JsonObject): ApprovalRisk {
+        val op = (args["op"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull ?: "create"
+        if (op == "list") return ApprovalRisk(ActionRisk.Read)
+        return ApprovalRisk(ActionRisk.External, ask = ConfirmationRequest(IrrevAction.send, op, args.toString(), null, "schedule"))
+    }
     override val offScreen = true
     override val logged = true
     override val def = ToolDef("schedule_task", Prompts.tool("schedule_task"), mapOf(

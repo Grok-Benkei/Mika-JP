@@ -79,8 +79,8 @@ class DescribedBySightTest {
         val screen = Blind()
         val vision = model("""{"bbox_2d":[800,880,999,940],"seen":"发送"}""", "是")
         val o = type(executor(screen, vision), """{"element":"右下角的框","text":"明天见"}""")
-        assertTrue("$o", o is ActionOutcome.Ran)
-        assertTrue(screen.calls.isNotEmpty())
+        assertTrue("$o", o is ActionOutcome.Refused && o.code == "confirmation_required")
+        assertTrue(screen.calls.isEmpty())
     }
 
     @Test fun readableTreeWithoutAMatchDoesNotLookBySight() = runTest {

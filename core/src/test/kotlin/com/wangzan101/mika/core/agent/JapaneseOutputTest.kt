@@ -109,6 +109,7 @@ class JapaneseOutputTest {
             val model = FakeModel(*replies.toTypedArray())
             val recorded = mutableListOf<RunEvent>()
             val agent = AgentLoop(model, toolDispatcher(screen), "BASE", maxSteps = limit, confirmations = ConfirmationGate(),
+                autonomous = true,
                 sink = object : RunSink { override fun event(e: RunEvent) { recorded += e } })
             val end = agent.run("メッセージを送信して結果を教えて") as TaskState.Failed
             assertEquals(FailKind.Model, end.kind)
@@ -118,7 +119,7 @@ class JapaneseOutputTest {
             assertFalse(end.reason, "操作はまだ開始していません" in end.reason)
             assertEquals(1, sends)
             assertEquals(1, recorded.filterIsInstance<RunEvent.Activity>().count { it.outward && !it.failed })
-            assertEquals(1, recorded.filterIsInstance<RunEvent.Approval>().count { it.action == "send" && it.decision == "allowed" })
+            assertEquals(0, recorded.filterIsInstance<RunEvent.Approval>().count { it.decision == "allowed" })
             assertEquals(if (limit > 3) 5 else 4, model.requests.size)
         }
     }

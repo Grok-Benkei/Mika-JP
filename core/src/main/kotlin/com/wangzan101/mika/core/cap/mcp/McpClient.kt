@@ -1,6 +1,8 @@
 package com.wangzan101.mika.core.cap.mcp
 
 import com.wangzan101.mika.core.action.ActionRisk
+import com.wangzan101.mika.core.gate.ConfirmationRequest
+import com.wangzan101.mika.core.risk.IrrevAction
 import com.wangzan101.mika.core.action.Risk as ApprovalRisk
 import com.wangzan101.mika.core.capability.Capability
 import com.wangzan101.mika.core.capability.CapabilityStatus
@@ -287,7 +289,11 @@ private class McpClientTool(
         ActionRisk.Change -> Risk.Write
         else -> Risk.External
     }
-    override val approvalRisk: ApprovalRisk = approval
+    override fun approvalRisk(args: JsonObject): ApprovalRisk {
+        if (approval.level == ActionRisk.Read || approval.level == ActionRisk.Change) return approval
+        val action = if (approval.level == ActionRisk.Irreversible) IrrevAction.delete else IrrevAction.send
+        return approval.copy(ask = ConfirmationRequest(action, def.name, args.toString(), null, endpoint.serverId))
+    }
     override val offScreen = true
     override val logged = risk != Risk.Read
 

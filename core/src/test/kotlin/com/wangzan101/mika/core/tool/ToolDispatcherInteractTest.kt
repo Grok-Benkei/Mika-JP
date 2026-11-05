@@ -171,8 +171,8 @@ class ToolDispatcherInteractTest {
         for (key in listOf("Enter", "Control+Enter")) {
             val web = shop(field)
             val r = gated(web, """{"action":"key","key":"$key"}""")
-            assertTrue(key, r["error"]?.toString()?.contains("confirmation_required") != true)
-            assertTrue(key, web.calls.any { it.startsWith("combo") })
+            assertTrue(key, r["error"]?.toString()?.contains("confirmation_required") == true)
+            assertTrue(key, web.calls.none { it.startsWith("combo") })
         }
     }
 

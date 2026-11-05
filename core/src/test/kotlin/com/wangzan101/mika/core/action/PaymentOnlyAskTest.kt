@@ -127,18 +127,18 @@ class PaymentOnlyAskTest {
         val s = Chat(); val sink = Events()
         val m = FakeModel(OBSERVE, tap("@e3"), FINISH)
         loop(m, s, sink = sink).run("t")
-        assertEquals(listOf("@e3"), s.taps)
+        assertTrue(s.taps.isEmpty())
         val audit = sink.all.filterIsInstance<RunEvent.Approval>().single()
-        assertEquals(listOf("model", "send", "External", "false", "allowed"),
+        assertEquals(listOf("model", "send", "External", "false", "required"),
             listOf(audit.source, audit.action, audit.risk, audit.payment.toString(), audit.decision))
-        assertTrue(sink.all.none { it is RunEvent.Confirmation })
+        assertEquals(listOf("required"), sink.all.filterIsInstance<RunEvent.Confirmation>().map { it.decision })
     }
 
     @Test fun deletingUninstallingTypingPasswordsAndPlainTapsAllRunWithoutAsking() = runTest {
         val s = Chat()
         val m = FakeModel(OBSERVE, tap("@e7"), tap("@e4"), type("@e5", "x"), tap("@e6"), FINISH)
         loop(m, s).run("t")
-        assertEquals(listOf("@e7", "@e4", "@e6"), s.taps)
+        assertEquals(listOf("@e4", "@e6"), s.taps)
         assertEquals(listOf("x"), s.typed)
     }
 
@@ -158,9 +158,8 @@ class PaymentOnlyAskTest {
         val s = Chat(page = applicationPage); val sink = Events()
         val m = FakeModel(OBSERVE, tap("@e3"), FINISH)
         loop(m, s, sink = sink).run("t")
-        assertEquals(listOf("@e3"), s.taps)
-        assertEquals("true", m.result(2).s("ok"))
-        assertTrue(sink.all.none { it is RunEvent.Confirmation })
+        assertTrue(s.taps.isEmpty())
+        assertEquals("confirmation_required", m.result(2).s("error"))
     }
 
     @Test fun donationStillRequiresUserTakeover() = runTest {
@@ -205,7 +204,8 @@ class PaymentOnlyAskTest {
         val r = m.result(2)
         assertEquals("false", r.s("ok"))
         assertTrue(r.toString(), "amount" in r.toString())
-        assertEquals(listOf("@e3"), s.taps)
+        assertTrue(s.taps.isEmpty())
+        assertEquals("confirmation_required", m.result(3).s("error"))
     }
 
     @Test fun switchingToAutonomousMidRunStopsAskingEvenForPaymentFromTheNextStep() = runTest {
@@ -227,8 +227,10 @@ class PaymentOnlyAskTest {
     @Test fun batchStepsSendButStopAtPayment() = runTest {
         val s = Chat()
         val send = tools(call("do_steps", """{"steps":[{"tool":"phone_tap","args":{"ref":"@e3","snapshotId":"s1"}}]}"""))
-        loop(FakeModel(OBSERVE, send, FINISH), s, flags = SpeedFlags(batchSteps = true)).run("t")
-        assertEquals(listOf("@e3"), s.taps)
+        val sent = FakeModel(OBSERVE, send, FINISH)
+        loop(sent, s, flags = SpeedFlags(batchSteps = true)).run("t")
+        assertTrue(s.taps.isEmpty())
+        assertEquals("confirmation_required", sent.result(2).s("error"))
         val shop = Chat(page = checkoutPage)
         val order = tools(call("do_steps", """{"steps":[{"tool":"phone_tap","args":{"ref":"@e3","snapshotId":"s1"}}]}"""))
         val m = FakeModel(OBSERVE, order, GIVE_UP)

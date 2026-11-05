@@ -44,11 +44,11 @@ sealed interface Approval {
     data object Deny : Approval
 }
 
-/** 支出とツールが申告した確認要求を判定します。確認モードで本人へ聞けない無人・非UIタスクでは実行しません。 */
+/** 支出、外部送信、削除、設定変更、およびツールが申告した確認要求を判定します。本人へ聞けない無人・非UIタスクでは実行しません。 */
 object ApprovalPolicy {
-    fun decide(risk: Risk, run: RunProvenance = RunProvenance()): Approval = when {
-        !risk.payment && risk.ask == null -> Approval.Allow
-        run.attendance == Attendance.Unattended || run.origin != RunOrigin.Ui -> Approval.Deny
-        else -> Approval.Ask
+    fun decide(risk: Risk, run: RunProvenance = RunProvenance()): Approval {
+        val outward = risk.level == ActionRisk.External || risk.level == ActionRisk.Irreversible || risk.level == ActionRisk.Unknown
+        if (!outward && !risk.payment && risk.ask == null) return Approval.Allow
+        return if (run.attendance == Attendance.Unattended || run.origin != RunOrigin.Ui) Approval.Deny else Approval.Ask
     }
 }

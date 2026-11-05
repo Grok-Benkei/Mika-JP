@@ -48,7 +48,7 @@ class McpToolSession internal constructor(
     private val offered = tools.definitions().map { it.name }.toSet()
     private val executor = ActionExecutor(tools, OperationGuards(), null, gate = {},
         recorder = ActionRecorder(events, clock), offScreen = tools.offScreenGuard(), approvals = approvals,
-        provenance = spec.provenance, autonomous = true)
+        provenance = spec.provenance, autonomous = false)
 
     init {
         store.save(StoredRun(spec.id, spec.threadId, spec.goal, RunPhase.Running, roundInProgress = true))

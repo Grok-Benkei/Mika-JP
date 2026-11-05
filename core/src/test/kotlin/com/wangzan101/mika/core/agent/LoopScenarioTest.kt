@@ -314,14 +314,12 @@ class LoopScenarioTest {
             call("phone_observe")
             call("phone_type_text", "text" to "明天见", "ref" to "@e2", "snapshotId" to "s1")
             call("phone_tap", "ref" to "@e3", "snapshotId" to "s1")
-            call("phone_observe")
-            answer("张三へ「明天见」を送信しました。チャットには「已发送」と表示されています。")
+            answer("送信は確認が必要なので、まだ送っていません。")
         }
-        val checker = fakeModel("checker") { verdict("pass", "聊天里显示已发送", "给张三发明天见" to "已发送") }
-        val end = loop(main, toolDispatcher(screen), checker = checker).run("给张三发明天见")
-        assertTrue("$end", end is TaskState.Succeeded && end.verified)
-        assertTrue(screen.calls.any { it.startsWith("tap @e3") })
-        snapshot("m_irreversible_verified", end, "main" to main, "verifier" to checker)
+        val end = loop(main, toolDispatcher(screen)).run("给张三发明天见")
+        assertTrue("$end", end is TaskState.Succeeded)
+        assertTrue(screen.calls.none { it.startsWith("tap @e3") })
+        snapshot("m_irreversible_verified", end, "main" to main)
     }
 
     // (n) 英語の入力でも目標は日本語。中国語の回答を1回差し戻し、日本語に直した回答を渡す。

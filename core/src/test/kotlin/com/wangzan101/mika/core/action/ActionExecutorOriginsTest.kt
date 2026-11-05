@@ -80,10 +80,10 @@ class ActionExecutorOriginsTest(private val label: String, private val action: I
             tools.execute(Part.ToolCall("o", "phone_observe", "{}"))
             val executor = ActionExecutor(tools, OperationGuards(), ConfirmationGate(), gate = {}, recorder = ActionRecorder(sink))
             val out = executor.run(Part.ToolCall("c4", "phone_tap", """{"ref":"@e1","snapshotId":"s1"}"""), origin)
-            assertTrue("$free $out", out is ActionOutcome.Ran)
-            assertEquals(listOf("@e1"), screen.taps)
+            assertTrue("$free $out", out is ActionOutcome.Refused && out.code == "confirmation_required")
+            assertTrue(screen.taps.isEmpty())
         }
-        assertTrue(events.none { it is RunEvent.Confirmation })
+        assertTrue(events.any { it is RunEvent.Confirmation })
     }
 
     @Test fun autonomousActionRunsWithoutApproval() = runTest {
