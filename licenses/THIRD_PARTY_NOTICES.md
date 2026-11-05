@@ -88,7 +88,7 @@ The Apache Software Foundation (https://www.apache.org/).
 ## kotlinx.coroutines
 
 - 公式サイト: https://github.com/Kotlin/kotlinx.coroutines
-- 依存コンポーネント: `org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0`、`kotlinx-coroutines-core-jvm:1.9.0`、`kotlinx-coroutines-android:1.9.0`
+- 依存コンポーネント: `org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2`、`kotlinx-coroutines-core-jvm:1.10.2`、`kotlinx-coroutines-android:1.10.2`
 - ライセンス: Apache-2.0 (各 POM による)
 - 利用方法: 依存ライブラリとして APK に同梱します。
 

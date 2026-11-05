@@ -183,7 +183,7 @@ private fun ChannelRowItem(title: String, whenText: String, row: ChannelRow, fix
 data class ParallelSetting(val max: Int, val limit: ParallelLimit)
 
 /**
- * 设置 › 任务运行:自主模式默认关;屏幕常亮、被操作的 App 静音默认开,可以关;[parallel] 不为空(实验开关打开了)时多一行同时进行的任务数。
+ * タスク実行設定では自律モードを既定で無効にします。常時点灯と対象アプリのミュートは既定で有効にし、実験機能が有効なら並列数も表示します。
  * 次のグループは動作リズムです: 速い / 標準 (デフォルト) / 人間的で、次のタスクを選択した後に有効になります。
  */
 @Composable

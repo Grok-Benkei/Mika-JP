@@ -31,10 +31,10 @@ sealed interface PairingNotice {
     companion object {
         /**
          * は、ユーザーがペアリングしている期間 ([PairingCoordinator] がオンのとき) にのみ使用されます。入力ボックスは、ペアリング ウィンドウが見つかった場合にのみポップアップ表示されます。
-         * 还在找时先在通知栏里静静放一个(不带端口,配对时再找):系统可能在切到系统设置后冻结后台的 Mika,
-         * 等找到窗口再发就发不出去了,用户下拉通知栏要能找到它;
+         * システム設定へ移ると停止される機種に備え、探索中から通知欄にコード入力を準備します。
+         * ウィンドウの発見後では通知できない場合もあるため、利用者が通知欄から入力できる状態にします。
          * ペアリング段階での失敗 (コードが正しくない、期限切れ、ウィンドウが閉じている) は通知に残され、補充されます。再ペアリングに失敗した場合 (ペアリングが無効な場合)、ペアリング ウィンドウを見つけた後に入力ボックスも表示されます。
-         * 和无障碍读码认的一样(PairingScreen.attempt),还在找时同样先静静备好;别的失败请用户回 Mika。
+         * PairingScreen.attempt と同じ判定で探索中も入力を準備し、それ以外の失敗はアプリへ戻るよう案内します。
          */
         fun of(status: BuiltinShellStatus, discovery: PairingDiscovery): PairingNotice? {
             val port = (discovery as? PairingDiscovery.Found)?.port
@@ -200,10 +200,10 @@ object PairingNotifier {
         // 高優先度のチャンネルでも音やポップアップを出さず、通知欄に準備します。
         if (notice is PairingNotice.EnterCode && notice.quiet) b.setOnlyAlertOnce(true).setGroup(QUIET_GROUP).setGroupAlertBehavior(Notification.GROUP_ALERT_SUMMARY)
         // 許可されていない場合、システムは通知を破棄します。ブート ページは、ペアリング手順で最初にユーザーに許可を求めます。
-        runCatching { nm.notify(ID, b.build()) }.onFailure { Log.w(TAG, "pairing notification not posted", it) }
+        runCatching { nm.notify(ID, b.build()) }.onFailure { Log.w(TAG, "ペアリング通知を表示できませんでした", it) }
         // アプリ全体の通知許可とチャンネルの重要度を記録します。メーカー独自の設定までは取得できません。
-        if (!nm.areNotificationsEnabled()) Log.w(TAG, "notifications are off for Mika; the pairing notice is dropped")
-        else nm.getNotificationChannel(channel)?.let { if (it.importance < NotificationManager.IMPORTANCE_HIGH) Log.i(TAG, "pairing channel importance ${it.importance}; it won't pop up") }
+        if (!nm.areNotificationsEnabled()) Log.w(TAG, "アプリの通知が無効なためペアリング通知を表示できません")
+        else nm.getNotificationChannel(channel)?.let { if (it.importance < NotificationManager.IMPORTANCE_HIGH) Log.i(TAG, "ペアリング通知の重要度は ${it.importance} のためポップアップ表示されません") }
     }
 
     fun cancel(context: Context) {

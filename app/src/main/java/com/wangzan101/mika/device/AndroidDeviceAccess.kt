@@ -51,12 +51,12 @@ internal class AndroidDeviceAccessPort(context: Context, private val helper: () 
     override suspend fun credentialReady(kind: CredentialKind): Boolean = withContext(Dispatchers.IO) {
         val fields = credentialFields().filter { it.kind == kind }
         val target = fields.singleOrNull() ?: return@withContext false.also {
-            Log.i(TAG, "keyguard: ${fields.size} matching field(s) for $kind")
+            Log.i(TAG, "ロック画面: $kind に一致する認証欄は ${fields.size} 件です")
         }
         val (field, window) = target
         val ready = field.isFocused || field.performAction(AccessibilityNodeInfo.ACTION_FOCUS) ||
             field.performAction(AccessibilityNodeInfo.ACTION_CLICK) || window.isFocused
-        if (!ready) Log.i(TAG, "keyguard: field found but neither it nor its window has focus")
+        if (!ready) Log.i(TAG, "ロック画面: 認証欄にもウィンドウにもフォーカスを確認できません")
         ready
     }
 
@@ -70,7 +70,7 @@ internal class AndroidDeviceAccessPort(context: Context, private val helper: () 
     private fun credentialFields(): List<CredentialField> {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return emptyList()
         if (!power.isInteractive || !keyguard.isKeyguardLocked || !keyguard.isDeviceLocked) return emptyList()
-        val service = ScreenAccessibility.instance.value ?: return emptyList<CredentialField>().also { Log.i(TAG, "keyguard: accessibility off") }
+        val service = ScreenAccessibility.instance.value ?: return emptyList<CredentialField>().also { Log.i(TAG, "ロック画面: ユーザー補助が無効です") }
         val fields = mutableListOf<CredentialField>()
         val systemUi = service.windowsOn(Display.DEFAULT_DISPLAY).mapNotNull { w ->
             w.root?.takeIf { it.packageName?.toString() == SYSTEM_UI }?.let { w to it }

@@ -57,7 +57,7 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
 
     /** はペアリングを開始します。ステータスが「ペアリング中」に変わるとすぐに、再ペアリングの待機 (古い実行ステータスによって完了と判断されるのを避けるため) とコード ([submitted]) を入力した後の待機を終了します。 */
     suspend fun pair(code: String, port: Int?) = coroutineScope {
-        Log.i(TAG, "pairing with ${if (port != null) "port $port" else "the found port"}")
+        Log.i(TAG, "${if (port != null) "ポート $port" else "検出したポート"}でペアリングします")
         val job = launch(start = CoroutineStart.UNDISPATCHED) { control.startPairing(code, port) }
         _repairing.value = false
         submitted = false
@@ -70,10 +70,10 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
         deadline.extend()
         control.startDiscovery()
         if (watch?.isActive == true) {
-            Log.i(TAG, "already watching; deadline extended")
+            Log.i(TAG, "探索中のため期限を延長しました")
             return
         }
-        Log.i(TAG, "watching for pairing (status ${control.status.value}, accessibility ${ScreenAccessibility.instance.value != null})")
+        Log.i(TAG, "ペアリングを探索します（状態 ${control.status.value}、ユーザー補助 ${ScreenAccessibility.instance.value != null}）")
         watch = scope.launch {
             val reader = launch { PairingCodeReader.run(app, control, this@PairingCoordinator) }
             val notices = launch {
@@ -87,13 +87,13 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
                     PairingNotice.follow(control.status.value, d, r, pending)
                 }
                     .distinctUntilChanged()
-                    .onEach { (notice, done) -> Log.i(TAG, "notice ${notice?.let { it::class.simpleName } ?: "none"} (discovery ${control.pairingDiscovery.value}, status ${control.status.value})${if (done) "; done" else ""}") }
+                    .onEach { (notice, done) -> Log.i(TAG, "通知 ${notice?.let { it::class.simpleName } ?: "なし"}（探索 ${control.pairingDiscovery.value}、状態 ${control.status.value}）${if (done) "、完了" else ""}") }
                     .transformWhile { emit(it.first); !it.second }
                     // ステータスが変化すると、その時点に到達していないポップアップとリマインダーは破棄されます。
                     .collectLatest { notice -> notice?.let { post(it) } }
             }
             if (!deadline.await(notices)) {
-                Log.i(TAG, "stopped watching: no pairing within ${WINDOW_MS / 60_000} min")
+                Log.i(TAG, "${WINDOW_MS / 60_000}分以内にペアリングできないため探索を終了しました")
                 notices.cancel()
                 cancelNotice()
             }
@@ -116,7 +116,7 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
     }
 
     private fun show(notice: PairingNotice) {
-        Log.i(TAG, "show notification ${notice::class.simpleName}")
+        Log.i(TAG, "通知 ${notice::class.simpleName} を表示します")
         shown = notice
         PairingNotifier.show(app, notice)
     }
@@ -128,7 +128,7 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
 
     @Synchronized
     fun end() {
-        if (watch?.isActive == true) Log.i(TAG, "stopped watching")
+        if (watch?.isActive == true) Log.i(TAG, "探索を終了しました")
         watch?.cancel()
         watch = null
         _repairing.value = false
@@ -140,7 +140,7 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
     fun submit(raw: String, port: Int?): Job? {
         val code = PairingCode.normalize(raw)
         if (code == null) {
-            Log.i(TAG, "entered code is not 6 digits")
+            Log.i(TAG, "入力されたコードが6桁ではありません")
             show(PairingNotice.EnterCode(port, PhoneSetupCopy.NOTIFY_CODE_INVALID))
             return null
         }

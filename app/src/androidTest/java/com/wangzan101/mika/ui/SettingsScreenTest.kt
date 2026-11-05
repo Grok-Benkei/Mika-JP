@@ -2,10 +2,8 @@ package com.wangzan101.mika.ui
 
 import com.wangzan101.mika.R
 
-
-
 import com.wangzan101.mika.core.shell.HelperRestart
-import com.wangzan101.mika.ChineseUi
+import com.wangzan101.mika.JapaneseUi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -14,6 +12,9 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -41,7 +42,7 @@ import com.wangzan101.mika.core.cap.phone.OperatingPace
 
 @RunWith(AndroidJUnit4::class)
 class SettingsScreenTest {
-    @get:Rule(order = Int.MIN_VALUE) val chinese = ChineseUi()
+    @get:Rule(order = Int.MIN_VALUE) val japanese = JapaneseUi()
 
     @get:Rule val compose = createComposeRule()
 
@@ -74,12 +75,16 @@ class SettingsScreenTest {
     @Test
     fun homeShowsGroupsStatusAndValues() {
         home()
-        compose.onNodeWithText(appString(R.string.all_ready)).assertIsDisplayed()
+        compose.onNode(hasText(appString(R.string.all_ready)) and hasAnyAncestor(hasTestTag("settings-status")), useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText(appString(R.string.settings_basic)).assertIsDisplayed()
         // 首页只显示模型、手机操作、通知和版本等常用状态。
-        for (v in listOf("DeepSeek", appString(R.string.speech_tag_ok), appString(R.string.selfcheck_line_pass), "0.1.0")) {
-            scrollTo(v)
-            compose.onNodeWithText(v).assertIsDisplayed()
+        for ((label, value) in listOf(
+            R.string.settings_model to "DeepSeek",
+            R.string.settings_phone_ops to appString(R.string.pill_available),
+            R.string.notifications_title to appString(R.string.notif_normal),
+            R.string.settings_about to "0.1.0",
+        )) {
+            compose.onNode(hasText(appString(label)) and hasText(value)).performScrollTo().assertIsDisplayed()
         }
     }
 
@@ -87,7 +92,7 @@ class SettingsScreenTest {
     fun homeRowsOpenTheirPages() {
         val opened = mutableListOf<String>()
         home(opened = opened)
-        for (t in listOf(appString(R.string.models_models), appString(R.string.phone_bar_title), appString(R.string.settings_during_work), appString(R.string.capsule_settings_title), appString(R.string.settings_language_appearance), appString(R.string.notifications_title), appString(R.string.settings_memory_data), appString(R.string.appaccess_title), appString(R.string.settings_advanced), appString(R.string.settings_about))) {
+        for (t in listOf(appString(R.string.settings_model), appString(R.string.settings_phone_ops), appString(R.string.settings_during_work), appString(R.string.capsule_settings_title), appString(R.string.settings_language_appearance), appString(R.string.notifications_title), appString(R.string.settings_memory_data), appString(R.string.appaccess_title), appString(R.string.settings_advanced), appString(R.string.settings_about))) {
             scrollTo(t)
             compose.onNodeWithText(t).performClick()
         }

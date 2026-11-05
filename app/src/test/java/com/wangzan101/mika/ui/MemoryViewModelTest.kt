@@ -191,7 +191,7 @@ class MemoryViewModelTest {
         val vm = skillsVm(skills)
         assertEquals(null, vm.importSkill(fullMd("meeting-notes", "1. 用 `phone_tap` 点搜索框"))); runCurrent()
         assertEquals(Segment.Pending, vm.ui.value.segment)
-        assertEquals("已导入，到「待确认」里看看再收下。", vm.ui.value.message)
+        assertEquals("インポートしました。「確認待ち」で確認してください。", vm.ui.value.message)
         val draft = vm.ui.value.skills.drafts.single()
         assertTrue(draft.imported)
         assertTrue(skills.get("meeting-notes") == null)
@@ -203,8 +203,8 @@ class MemoryViewModelTest {
 
     @Test fun importRefusesBadOrClashingSkills() = runTest {
         val vm = skillsVm(com.wangzan101.mika.task.MapSkills(), builtin = setOf("meeting-notes"))
-        assertEquals("和内置技能重名了，改个名字再试。", vm.importSkill(fullMd("meeting-notes", "1. 点搜索框")))
-        assertTrue(vm.importSkill(skillMd("other", "## 步骤\n1. 点搜索框"))!!.contains("五个小节"))
+        assertEquals("同じ名前の組み込みスキルがあります。名前を変えてもう一度試してください。", vm.importSkill(fullMd("meeting-notes", "1. 点搜索框")))
+        assertTrue(vm.importSkill(skillMd("other", "## 步骤\n1. 点搜索框"))!!.contains("5 つの項目"))
         // 原因由导入框自己显示,页面上不另弹提示
         assertEquals(null, vm.ui.value.message)
         assertTrue(vm.ui.value.skills.drafts.isEmpty())
@@ -218,7 +218,7 @@ class MemoryViewModelTest {
         skills.putPending("d2", imported.copy(name = "learned", markdown = fullMd("learned", "用 `missing_tool` 打开"), learnedFrom = "r1", source = null))
         val vm = skillsVm(skills)
         vm.approveSkill("d1"); runCurrent()
-        assertEquals("里面提到了 Mika 没有的工具", vm.ui.value.message)
+        assertEquals("Mika にないツールが含まれています", vm.ui.value.message)
         assertTrue(skills.get("meeting-notes") == null)
         // 自学的草稿起草时已经按那次运行的工具查过,没改过就照旧收下
         vm.approveSkill("d2"); runCurrent()

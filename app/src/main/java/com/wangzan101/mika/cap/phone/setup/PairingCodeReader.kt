@@ -31,17 +31,17 @@ internal object PairingCodeReader {
 
     suspend fun run(context: Context, control: BuiltinShellControl, coordinator: PairingCoordinator) {
         val settings = SystemPickers.settingsPackage(context.packageManager) ?: run {
-            Log.w(TAG, "no system settings app found; not reading the code")
+            Log.w(TAG, "システム設定アプリを検出できないためコードを読み取りません")
             return
         }
         val tried = mutableSetOf<String>()
         var last: String? = null
         ScreenAccessibility.instance.collectLatest { service ->
             if (service == null) {
-                Log.i(TAG, "accessibility not running; the code goes through the notification")
+                Log.i(TAG, "ユーザー補助が動作していないため通知からコードを入力してください")
                 return@collectLatest
             }
-            Log.i(TAG, "reading the pairing window of $settings")
+            Log.i(TAG, "$settings のペアリング画面を読み取っています")
             service.eventsFor(Display.DEFAULT_DISPLAY)
                 .filter { it.packageName?.toString() == settings }
                 .map { }
@@ -53,15 +53,15 @@ internal object PairingCodeReader {
                     val status = PhoneSetupFlow.effectiveStatus(control.status.value, coordinator.repairing.value)
                     val readings = readings(service, settings)
                     // 観測状態が変わったときだけ記録し、コード自体は記録しません。
-                    val seen = "${readings.size} window(s), code ${readings.any { it.code != null }}, port ${readings.firstNotNullOfOrNull { it.port }}, port found $portFound, status $status"
+                    val seen = "ウィンドウ数 ${readings.size}、コード有無 ${readings.any { it.code != null }}、ポート ${readings.firstNotNullOfOrNull { it.port }}、ポート検出 $portFound、状態 $status"
                     if (seen != last) {
-                        Log.i(TAG, "saw $seen")
+                        Log.i(TAG, "検出状態: $seen")
                         last = seen
                     }
                     val attempt = readings.firstNotNullOfOrNull {
                         PairingScreen.attempt(it, portFound, status, tried)
                     } ?: return@collect
-                    Log.i(TAG, "read a code from the screen; pairing")
+                    Log.i(TAG, "画面からコードを読み取り、ペアリングを開始します")
                     tried += attempt.code
                     coordinator.pair(attempt.code, attempt.port)
                 }

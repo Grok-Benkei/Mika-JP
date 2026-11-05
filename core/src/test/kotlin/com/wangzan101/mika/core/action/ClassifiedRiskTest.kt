@@ -81,9 +81,12 @@ class ClassifiedRiskTest {
         assertEquals("修改密码", ClassifiedRisk.target(verb("phone_tap"), buildJsonObject { put("x", 500); put("y", 250) }, screen)?.name)
     }
 
-    @Test fun japaneseAmountsRequireApprovalForSubmissionsAndDeletion() {
+    @Test fun japanesePayableAmountsRequireApprovalForSubmissionsAndDeletion() {
         for (amount in listOf("月額980円", "月額９８０円", "1,980円", "１，９８０円", "9万円", "９万円", "9 万 円", "5千円", "1万2千円", "1万2000円", "1億2000円", "1亿2000元", "1兆2000 JPY", "1京2000 CNY", "USD 1万", "￥2百", "2十300元", "ＵＳＤ１億", "一万2000円", "三千円", "壱万2000元", "十万円", "百円", "￥一万2000", "JPY 980", "980 JPY", "￥９８０", "25元", "$25")) {
-            val on = screen.copy(elements = listOf(el("@e7", "TextView", amount, listOf(0, 600, 999, 700))))
+            val on = screen.copy(elements = listOf(
+                el("@total", "TextView", "合計", listOf(0, 500, 999, 560)),
+                el("@e7", "TextView", amount, listOf(0, 600, 999, 700)),
+            ))
             for (action in listOf(IrrevAction.submit, IrrevAction.delete)) {
                 val risk = assess("phone_tap", Irreversible(action, "実行"), on)
                 assertTrue(amount, risk.payment)
@@ -99,11 +102,12 @@ class ClassifiedRiskTest {
         }
     }
 
-    @Test fun defaultDecisionRequiresConfirmationOnYenScreens() = runTest {
+    @Test fun defaultDecisionRequiresConfirmationOnPayableYenScreens() = runTest {
         for (amount in listOf("月額980円", "月額９８０円", "JPY 980", "9万円", "5千円", "1万2千円", "1億2000円", "1万2000元", "USD 1万", "百円")) for (button in listOf("提出", "削除")) {
             val on = screen.copy(elements = listOf(
                 el("@e1", "Button", button, listOf(0, 800, 999, 900)),
                 el("@e2", "TextView", amount, listOf(0, 600, 999, 700)),
+                el("@total", "TextView", "合計", listOf(0, 500, 999, 560)),
             ))
             val port = object : ScreenPort by FakeScreen() {
                 override suspend fun snapshot() = on
@@ -121,12 +125,23 @@ class ClassifiedRiskTest {
     @Test fun splitYenAmountsUseOnlyReadOnlyElementsOnTheSameRow() {
         val number = el("@e1", "TextView", "980", listOf(0, 600, 150, 660))
         val yen = el("@e2", "TextView", "円", listOf(160, 600, 200, 660))
-        fun spending(vararg elements: UiElement) = assess("phone_tap", Irreversible(IrrevAction.submit, "提出"), screen.copy(elements = elements.toList())).payment
+        fun spending(vararg elements: UiElement) = assess("phone_tap", Irreversible(IrrevAction.submit, "提出"), screen.copy(elements =
+            listOf(el("@total", "TextView", "合計", listOf(0, 500, 999, 560))) + elements.toList())).payment
         assertTrue(spending(number, yen))
         assertEquals(false, spending(number.copy(editable = true), yen))
         assertEquals(false, spending(number, yen.copy(editable = true)))
         assertEquals(false, spending(number, yen.copy(hint = true)))
         assertEquals(false, spending(number, yen.copy(bounds = listOf(160, 800, 200, 860))))
         assertEquals(false, spending(number, yen.copy(bounds = emptyList())))
+    }
+
+    @Test fun japanesePricesAndSalariesDoNotBecomePaymentsWithoutAPayableContext() {
+        for (text in listOf("月給25万円", "時給1,500円〜2,000円", "参考価格980円")) {
+            val on = screen.copy(elements = listOf(el("@price", "TextView", text, listOf(0, 600, 999, 700))))
+            for (action in listOf(IrrevAction.submit, IrrevAction.delete)) {
+                assertEquals(text, false, assess("phone_tap", Irreversible(action, "実行"), on).payment)
+            }
+            assertTrue(text, assess("phone_tap", Irreversible(IrrevAction.pay, "支払う"), on).payment)
+        }
     }
 }

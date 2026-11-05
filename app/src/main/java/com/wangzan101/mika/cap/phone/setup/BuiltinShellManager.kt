@@ -228,7 +228,7 @@ class BuiltinShellManager(context: Context, private val hub: HelperHub, private 
 
         override suspend fun findPairingPort(timeoutMs: Long): Int? =
             finder.findPorts(AdbServiceTypes.PAIRING, timeoutMs).firstOrNull()
-                .also { Log.i(PAIRING_TAG, if (it != null) "found the pairing window on port $it" else "no pairing window within $timeoutMs ms") }
+                .also { Log.i(PAIRING_TAG, if (it != null) "ポート $it にペアリング画面を検出しました" else "${timeoutMs}ミリ秒以内にペアリング画面を検出できませんでした") }
 
         override fun pair(port: Int, code: String) {
             AdbPairing(AndroidAdb.tls(AndroidAdb.pairingIdentity(app))).pair(LOCALHOST, port, code)

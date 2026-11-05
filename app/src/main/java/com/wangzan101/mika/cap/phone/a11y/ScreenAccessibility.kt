@@ -42,11 +42,11 @@ open class ScreenAccessibility : AccessibilityService() {
         }
         _instance.value = this
         // ペアリングの読取りと案内画面が参照する状態です。接続と切断を記録して診断に使います。
-        Log.i(TAG, "accessibility service connected")
+        Log.i(TAG, "ユーザー補助サービスが接続されました")
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
-        Log.i(TAG, "accessibility service unbound")
+        Log.i(TAG, "ユーザー補助サービスの接続が解除されました")
         clearInstance()
         return super.onUnbind(intent)
     }
