@@ -11,6 +11,9 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.Duration
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -104,7 +107,7 @@ internal object HttpSupport {
                         var events = 0
                         /** イベントを配信し、[DONE] などの終端があれば接続終了を待たず読取りを終えます。 */
                         fun dispatch(): Boolean {
-                            if (data.isEmpty()) return false
+                            if (data.isEmpty() || data.all { it.isBlank() }) { data.clear(); return false }
                             events++
                             val event = data.joinToString("\n")
                             attempt?.packet(event)
@@ -133,5 +136,17 @@ internal object HttpSupport {
         })
     }
 
-    fun retryAfterMs(header: String?): Long? = header?.trim()?.toDoubleOrNull()?.let { (it * 1000).toLong() }
+    fun retryAfterMs(header: String?): Long? {
+        val value = header?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        value.toDoubleOrNull()?.let { seconds ->
+            if (!seconds.isFinite()) return null
+            return (seconds.coerceAtLeast(0.0) * 1000).coerceAtMost(Long.MAX_VALUE.toDouble()).toLong()
+        }
+        return try {
+            val target = ZonedDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant()
+            Duration.between(java.time.Instant.now(), target).toMillis().coerceAtLeast(0)
+        } catch (_: java.time.DateTimeException) {
+            null
+        }
+    }
 }
