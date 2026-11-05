@@ -139,13 +139,13 @@ class ConfirmationGateTest {
         ), 1080, 2400)
         fun request(amount: String?) = ConfirmationRequest(IrrevAction.submit, "示例对象", "提交申请", amount, "com.a")
         val hit = Irreversible(IrrevAction.submit, "提交")
-        // 区间、只申报一端以及无金额都不是失配;同意仍只放行一次,不会留下授权造成反复核对
+        // 範囲・片端の申告・金額なしでも誤って不一致にしません。承認は1回だけ消費します。
         for (amount in listOf("150-200元/天", "150", "200元", null)) {
             val gate = approved(request(amount))
             assertEquals(amount ?: "none", Permit.Allowed, gate.permits(hit, page, 2))
             assertEquals(amount ?: "none", Permit.NoGrant, gate.permits(hit, page, 2))
         }
-        // 应付上下文不因动作叫「提交」而跳过金额:无金额、错金额仍不放行
+        // 提出ボタンでも、支払額のある文脈では金額なし・誤った金額を許可しません。
         val due = page.copy(elements = page.elements + el("合计 ¥25", top = 800))
         assertTrue(approved(request(null)).permits(hit, due, 2) is Permit.Mismatch)
         assertTrue(approved(request("150-200元/天")).permits(hit, due, 2) is Permit.Mismatch)

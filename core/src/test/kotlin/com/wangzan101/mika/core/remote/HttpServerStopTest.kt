@@ -17,12 +17,12 @@ class HttpServerStopTest {
         socket.getOutputStream().write(
             "GET /api/v1 HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n".toByteArray(Charsets.US_ASCII),
         )
-        // 收到响应后,服务端已经把这个连接登记到正在处理的集合中。
+        // 応答の受信後は、サーバーが処理中の接続として登録済みです。
         assertEquals('H'.code, socket.getInputStream().read())
     }
 
     @Test fun stoppingWhileClientsDisconnectDoesNotThrow() {
-        // 客户端关闭后,连接线程移除登记与 stop 同时执行;重复实际连接以覆盖这个交错。
+        // 接続スレッドの登録解除とstopの競合を、実際の接続で繰り返し確認します。
         repeat(2_000) {
             val server = server()
             server.start()

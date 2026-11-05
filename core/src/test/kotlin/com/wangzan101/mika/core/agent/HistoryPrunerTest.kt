@@ -60,7 +60,7 @@ class HistoryPrunerTest {
                 """{"ok":true,"snapshotId":"old","elements":$big,"tree":[{"id":1,"nodes":[{"role":"TextView","text":"$long"}]}],"screenMap":{"rows":["$long"]}}""",
                 false)), Author.Mika),
         )
-        // c2 是线前保留的最近全屏,因此 structured 必须按旧界面缩短。
+        // 境界前の直近の全量画面を残すため、構造化結果は旧画面として短縮します。
         val h = listOf(task) + structured + obs("c2") + (1..6).flatMap { tap("t$it") }
         val old = results(HistoryPruner.prune(h, TOOLS, cut)).single { it.callId == "structured" }.content
         assertTrue(old, "\"snapshotId\":\"old\"" in old && "\"ok\":true" in old)

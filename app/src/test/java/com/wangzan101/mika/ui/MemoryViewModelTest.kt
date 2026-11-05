@@ -184,7 +184,7 @@ class MemoryViewModelTest {
         assertTrue(vm.ui.value.skills.installed.isEmpty())
     }
 
-    // ---- 导入别人分享的技能(#165) ----
+    // 共有された個人スキルの取込を確認します。
 
     @Test fun importedSkillWaitsInPendingThenTrial() = runTest {
         val skills = com.wangzan101.mika.task.MapSkills()
@@ -205,7 +205,7 @@ class MemoryViewModelTest {
         val vm = skillsVm(com.wangzan101.mika.task.MapSkills(), builtin = setOf("meeting-notes"))
         assertEquals("同じ名前の組み込みスキルがあります。名前を変えてもう一度試してください。", vm.importSkill(fullMd("meeting-notes", "1. 点搜索框")))
         assertTrue(vm.importSkill(skillMd("other", "## 步骤\n1. 点搜索框"))!!.contains("5 つの項目"))
-        // 原因由导入框自己显示,页面上不另弹提示
+        // エラーは入力ダイアログに表示し、ページ側へ重複して通知しません。
         assertEquals(null, vm.ui.value.message)
         assertTrue(vm.ui.value.skills.drafts.isEmpty())
     }
@@ -220,7 +220,7 @@ class MemoryViewModelTest {
         vm.approveSkill("d1"); runCurrent()
         assertEquals("Mika にないツールが含まれています", vm.ui.value.message)
         assertTrue(skills.get("meeting-notes") == null)
-        // 自学的草稿起草时已经按那次运行的工具查过,没改过就照旧收下
+        // 自動学習の未編集の下書きは作成時の検証を引き継ぎ、従来どおり受け入れます。
         vm.approveSkill("d2"); runCurrent()
         assertTrue(skills.get("learned") != null)
     }

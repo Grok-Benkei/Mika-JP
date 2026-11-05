@@ -13,12 +13,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * 远程(MCP)、定时等非 Ui 来源的运行也照常回放路线(TaskRun 对所有来源都接了 routes)。
- * 路线里记录过的付款步骤,在这些运行里此刻一律被拒(#217 的 approval_unavailable),
- * Replayer 应把它当作对不上交还模型,而不是和 AgentLoop 修掉的那次一样直接抛
- * "unexpected refusal" 崩掉整个任务(RouteReplay 的契约:路线出问题都不影响任务)。
- */
+/** MCPや定期実行など承認を得られない実行元で、保存された決済操作を再生してもタスク全体を異常終了させません。承認不可をモデルへ返し、未完了として説明させます。 */
 class ReplayerDeniedApprovalTest {
     @Test fun deniedPaymentStepHandsBackToTheModelInsteadOfCrashing() = runTest {
         val shop = listOf(
@@ -33,7 +28,7 @@ class ReplayerDeniedApprovalTest {
         val route = Route("r-pay", "买{1}", 1, listOf("com.shop"), emptyMap(), listOf(step), lastUsedMs = 0)
         val sink = Events()
         val d: ToolDispatcher = toolDispatcher(s).also { it.captureTargets = true }
-        // 回放沿用这次运行的 provenance:远程来源付款一律拒绝(见 ApprovalPolicy)
+        // 実行元の provenance を維持し、遠隔実行の支払いを ApprovalPolicy に従って拒否します。
         val executor = ActionExecutor(d, OperationGuards(), ConfirmationGate(), {}, ActionRecorder(sink),
             provenance = RunProvenance(RunOrigin.Mcp, Attendance.Unattended))
         val out = Replayer(d, executor, gate = {}, sink = sink).run(RouteChoice(route, listOf("矿泉水")))
@@ -41,7 +36,7 @@ class ReplayerDeniedApprovalTest {
         assertTrue("the denied tap must not run", s.taps.isEmpty())
     }
 
-    /** 对照:同样的路线在 Ui/在场运行里走既有 confirmation_required 路径,照常交还模型、不崩。 */
+    /** 対照として、その場で操作するUIでは既存の confirmation_required 経路でモデルへ戻ることを確認します。 */
     @Test fun confirmationRequiredStepStillStopsForConfirmation() = runTest {
         val shop = listOf(
             ui("@e1", "text", "订单确认", listOf(0, 0, 999, 60), clickable = false),

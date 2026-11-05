@@ -108,7 +108,8 @@ class ChildRunsTest {
     }
 
     @Test fun realRunnerKeepsInvalidJsonWarningAndBoundsItsStoredPreview() {
-        val text = "{\"data\":\"" + "x".repeat(5000)
+        // 日本語の出力制御と、壊れたJSONの原文保持・保存用プレビューの上限を分けて検証します。
+        val text = "{\"結果\":\"" + "あ".repeat(5000)
         val (store, content) = spawnWithRunner(text, """{"goal":"research","format":"json","maxResultChars":8000}""")
         val result = (content["result"] as kotlinx.serialization.json.JsonPrimitive).content
         assertTrue(result.contains(text))

@@ -175,7 +175,7 @@ class ResponsesModelTest {
         assertEquals("none of group/rpa's models is ready", expect<ModelError.ModelNotFound> { model().complete("s", user, emptyList()) }.detail)
     }
 
-    /** 超出上下文的 400 和 OpenAI 兼容接口同一条规则:本机跑的服务也开这个接口,原话说的是上下文的大小。 */
+    /** ResponsesのHTTP 400もOpenAI互換と同じ規則で扱い、ローカルサービスの文脈サイズの表現を認識します。 */
     @Test fun contextTooLongIsRecognizedLikeTheCompatibleApi() = runTest {
         server.enqueue(MockResponse().setResponseCode(400).setBody("""{"error":{"code":400,"message":"request (25123 tokens) exceeds the available context size (16384 tokens), try increasing it","type":"exceed_context_size_error","n_prompt_tokens":25123,"n_ctx":16384}}"""))
         expect<ModelError.ContextTooLong> { model().complete("s", user, emptyList()) }

@@ -283,11 +283,6 @@ class OverlayWindow internal constructor(
         update()
     }
 
-        /** は、ウィンドウが押されたときに (どこが押されたかに関係なく) 調整されます。 [onTouch]: 呼び出し元は、それに応じて色あせたカプセルを復元します。 */
-    fun onTouch(onTouch: (() -> Unit)?) {
-        if (isOpen) frame.onTouch = onTouch
-    }
-
     /** コンテンツ サイズが変更されると (カプセルがカードに置き換えられ、画面回転後に再配置されます)、[onResize] が調整され、それに応じて発信者の位置が変更されます。 */
     fun onResize(onResize: (() -> Unit)?) {
         if (isOpen) frame.onResize = onResize

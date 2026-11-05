@@ -39,7 +39,7 @@ class ScheduleTaskTest {
         assertTrue(paused)
     }
 
-    // 计划在、恢复却没改成(跑过的一次性计划):如实说已经跑过,不说找不到
+    // 実行済みの単発計画は見つからないのではなく、すでに実行したと報告します。
     @Test fun resumingAPlanThatAlreadyRanSaysSoInsteadOfNotFound() = runBlocking {
         val plan = TriggerDefinition("plan-1", "conversation", "查快递", 1000)
         val admin = object : ScheduleAdmin {

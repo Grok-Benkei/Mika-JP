@@ -9,7 +9,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 别人分享来的 SKILL.md 进待收下(#165):出处、校验、内置名、同名更新、已有草稿。 */
+/** 共有された SKILL.md の出所・検証・組込み名・同名更新・既存下書きとの衝突を確認します。 */
 class SkillImportTest {
     private val builtin = GuideCatalog.loadBundled().items.map { it.name }.toSet()
 
@@ -45,7 +45,7 @@ class SkillImportTest {
     }
 
     @Test fun localFieldsFromTheSenderAreDropped() {
-        // 重复或带空白的本机字段也不能留下,出处只由代码写
+        // 重複や空白付きの端末固有フィールドも取り除き、出所はコードだけで設定します。
         val raw = md(extra = "source: user\nsource: learned\nlearned_from: run-42\nlearned_from : run-43\nupdates: other-skill\nupdates : another-skill\n")
         val result = (prepare(raw) as SkillImport.Result.Ready).skill
         val meta = FrontMatter.parse(result.markdown).first

@@ -75,14 +75,14 @@ class CapsuleDockTest {
         val releaseY = 900
         val dock = CapsuleDocking.release(450, releaseY, 200, 100, up, fractionArea = area)
 
-        // 松手比例按完整区域记;贴边动画结束后的 place 仍还原到松手高度,无动画直接 place 也一样
+        // 完全な領域に対して保存した比率から、アニメーションの有無にかかわらず離した高さへ戻ることを確認します。
         assertEquals((releaseY - area.top) / (area.bottom - area.top - 100).toFloat(), dock.fraction, 0.0001f)
         assertEquals(releaseY, CapsuleDocking.y(dock.fraction, area, 100))
         assertEquals(releaseY, CapsuleDocking.fitY(CapsuleDocking.y(dock.fraction, area, 100), up, 100))
-        // 输入法收起后仍回这个高度
+        // キーボードを閉じた後も同じ高さへ戻ります。
         assertEquals(releaseY, CapsuleDocking.fitY(CapsuleDocking.y(dock.fraction, area, 100), area, 100))
 
-        // 转屏仍使用同一个完整区域比例,再按新方向的输入法范围夹住
+        // 画面回転後も完全な領域の比率を使い、新しい向きのキーボード範囲へ収めます。
         val landscape = DockArea.of(OverlayArea(2000, 1000, insetLeft = 80, insetTop = 40), margin = 30, gap = 20, room = 10)
         val landscapeUp = landscape.above(600, gap = 20, room = 10)
         val rotatedY = CapsuleDocking.y(dock.fraction, landscape, 100)

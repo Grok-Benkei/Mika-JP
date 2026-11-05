@@ -87,7 +87,7 @@ class OpenAiCompatModelTest {
         assertEquals(StopReason.ToolUse, r.stopReason)
     }
 
-    /** 流式请求超长:回 400 的照常认;回 200、在事件流里给一帧错误的,说的是超长也认成超长,别的错误照旧。 */
+    /** ストリーム内の上限超過も、HTTP 400と同じ扱いにします。その他のエラー分類は変えません。 */
     @Test fun contextTooLongIsRecognizedWhenStreaming() = runTest {
         suspend fun streamError(resp: MockResponse): ModelError {
             server.enqueue(resp)
@@ -164,16 +164,16 @@ class OpenAiCompatModelTest {
         assertTrue(zero is ModelError.ModelNotAvailable)
         assertTrue(errorFor(MockResponse().setResponseCode(400).setBody("context_length_exceeded")) is ModelError.ContextTooLong)
         assertTrue(errorFor(MockResponse().setResponseCode(400).setBody("exceeds the maximum context")) is ModelError.ContextTooLong)
-        // 本机跑的服务说超出上下文的原话(第二句是它不能切分的请求):说上下文的大小、长度,不说 context_length
+        // context_length というコードを使わない、ローカルサービスの長さ・サイズのエラーも認識します。
         assertTrue(errorFor(MockResponse().setResponseCode(400).setBody("""{"error":{"code":400,"message":"request (25123 tokens) exceeds the available context size (16384 tokens), try increasing it","type":"exceed_context_size_error","n_prompt_tokens":25123,"n_ctx":16384}}""")) is ModelError.ContextTooLong)
         assertTrue(errorFor(MockResponse().setResponseCode(400).setBody("""{"error":{"code":400,"message":"input (25123 tokens) is larger than the max context size (16384 tokens). skipping","type":"exceed_context_size_error","n_prompt_tokens":25123,"n_ctx":16384}}""")) is ModelError.ContextTooLong)
         assertTrue(errorFor(MockResponse().setResponseCode(400).setBody("""{"object":"error","message":"The input (25123 tokens) is longer than the model's context length (16384 tokens).","type":"BadRequestError","param":null,"code":400}""")) is ModelError.ContextTooLong)
         assertTrue(errorFor(MockResponse().setResponseCode(400).setBody("""{"error":{"message":"Your input exceeds the context window of this model. Please adjust your input and try again."}}""")) is ModelError.ContextTooLong)
-        // 带图的请求在服务端展开成图片 token 后才超:说的是模型长度
+        // 画像をトークンへ展開した後に超過する場合の、モデル長を示すエラーを確認します。
         assertTrue(errorFor(MockResponse().setResponseCode(400).setBody("""{"error":{"message":"The decoder prompt (length 25123) is longer than the maximum model length of 16384. Make sure that `max_model_len` is no smaller than the number of text tokens plus multimodal tokens. For image inputs, the number of image tokens depends on the number of images, and possibly their aspect ratios as well.","type":"BadRequestError","param":null,"code":400}}""")) is ModelError.ContextTooLong)
         assertTrue(errorFor(MockResponse().setResponseCode(400).setBody("""{"error":"Trying to keep the first 15857 tokens when context the overflows. However, the model is loaded with context length of only 4096 tokens, which is not enough. Try to load the model with a larger context length, or provide a shorter input. Error Data: n/a, Additional Data: n/a"}""")) is ModelError.ContextTooLong)
         assertTrue(errorFor(MockResponse().setResponseCode(400).setBody("""{"error":"The number of tokens to keep from the initial prompt is greater than the context length. Try to load the model with a larger context length, or provide a shorter input. Error Data: n/a, Additional Data: n/a"}""")) is ModelError.ContextTooLong)
-        // 提到 context、说的却不是超长:照旧;报错里回显了请求里的「context window」也不算
+        // context window という単語を含むだけのエラーや、入力の引用を上限超過と誤判定しません。
         assertTrue(errorFor(MockResponse().setResponseCode(400).setBody("""{"error":{"message":"Invalid value for 'context': expected a string"}}""")) is ModelError.BadResponse)
         assertTrue(errorFor(MockResponse().setResponseCode(400).setBody("""{"error":{"message":"Invalid type for 'messages[1].content': expected a string","input":"how big is your context window?"}}""")) is ModelError.BadResponse)
         assertTrue(errorFor(MockResponse().setResponseCode(400).setBody("""{"error":{"message":"Invalid 'tools[3].function.name': string too long. Expected a string with maximum length 64, but got a string with length 67 instead."}}""")) is ModelError.BadResponse)

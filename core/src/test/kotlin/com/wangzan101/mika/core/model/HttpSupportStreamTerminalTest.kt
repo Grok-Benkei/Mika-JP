@@ -23,7 +23,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-/** 原始 TCP 服务发完 SSE 后故意不关连接:协议终态必须让客户端立即收尾,非终态和截断的语义不变。 */
+/** SSEの後で意図的に接続を閉じないTCPサーバーを使い、プロトコルの終端で即座に終了することと、途中切断の扱いが変わらないことを確認します。 */
 class HttpSupportStreamTerminalTest {
     private val servers = mutableListOf<HeldSseServer>()
     private val caps = Capabilities(toolCalls = true, vision = false, contextTokens = 32_000, reasoning = false)
@@ -113,12 +113,12 @@ class HttpSupportStreamTerminalTest {
                 withTimeout(3_000) { pending.await() }
                 fail("没有终态的 EOF 应报截断")
             } catch (_: ModelError.StreamCut) {
-                // 原有截断语义不变
+                // 従来の途中切断の判定も維持します。
             }
         }
     }
 
-    /** 一次请求一个连接;响应不发送 EOF,而是等服务端读到客户端关闭连接。 */
+    /** 1リクエストにつき1接続を使い、EOFを送らずクライアントが接続を閉じるまで待ちます。 */
     private class HeldSseServer(private val events: List<String>) : Closeable {
         private val listener = ServerSocket(0, 1, InetAddress.getLoopbackAddress())
         private val executor = Executors.newSingleThreadExecutor { runnable ->
@@ -142,7 +142,7 @@ class HttpSupportStreamTerminalTest {
             }
         }
 
-        /** 只关闭响应方向,给客户端一个真实 EOF;用于截断路径。 */
+        /** 応答側だけを閉じて実際のEOFを送り、途中切断の経路を確認します。 */
         fun endResponse() { peer?.shutdownOutput() }
 
         override fun close() {
@@ -169,7 +169,7 @@ class HttpSupportStreamTerminalTest {
                     socket.getOutputStream().write(response.toByteArray(Charsets.UTF_8))
                     socket.getOutputStream().flush()
                     while (input.read() != -1) {
-                        // 保持连接,直到客户端按协议终态主动关闭
+                        // プロトコルの終端でクライアントが接続を閉じるまで維持します。
                     }
                 }
             } finally {

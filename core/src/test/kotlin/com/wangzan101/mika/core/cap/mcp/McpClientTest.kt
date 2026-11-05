@@ -118,7 +118,7 @@ class McpClientTest {
         val diagnostics = tools.promptSections(tools.definitions()).joinToString("\n")
         assertTrue(diagnostics, "broken" in diagnostics)
         assertTrue(diagnostics, "catalog exploded" in diagnostics)
-        assertTrue(diagnostics, "other capabilities remain available" in diagnostics)
+        assertTrue(diagnostics, "他の機能は引き続き利用できます" in diagnostics)
 
         val result = tools.execute(Part.ToolCall("c", "mcp_demo__search", "{}"), ActionPass())
         assertEquals(JsonPrimitive(true), result.content["ok"])

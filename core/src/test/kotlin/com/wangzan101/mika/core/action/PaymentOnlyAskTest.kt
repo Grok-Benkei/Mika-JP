@@ -54,14 +54,14 @@ private val checkoutPage = listOf(
     el("@e4", "button", "立即支付", listOf(0, 900, 590, 990)),
 )
 
-/** 普通提交页:待遇是区间金额,不是这次操作要付的钱。 */
+/** 通常の提出画面にある待遇の金額範囲を、今回支払う金額として扱いません。 */
 private val applicationPage = listOf(
     el("@e1", "text", "示例对象", listOf(0, 0, 999, 80)),
     el("@e2", "text", "150-200元/天", listOf(0, 200, 999, 260)),
     el("@e3", "button", "立即沟通", listOf(600, 900, 990, 990)),
 )
 
-/** 捐赠按钮是明确的金额动作,页面是否有合计都要拦。 */
+/** 寄付は明示的な金額操作なので、合計の有無にかかわらず確認します。 */
 private val donationPage = listOf(
     el("@e1", "text", "公益项目", listOf(0, 0, 999, 80)),
     el("@e2", "text", "150-200元", listOf(0, 200, 999, 260)),

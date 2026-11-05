@@ -77,7 +77,7 @@ class SettingsScreenTest {
         home()
         compose.onNode(hasText(appString(R.string.all_ready)) and hasAnyAncestor(hasTestTag("settings-status")), useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText(appString(R.string.settings_basic)).assertIsDisplayed()
-        // 首页只显示模型、手机操作、通知和版本等常用状态。
+        // ホームにはモデル・スマホ操作・通知・版番号など、よく使う状態だけを表示します。
         for ((label, value) in listOf(
             R.string.settings_model to "DeepSeek",
             R.string.settings_phone_ops to appString(R.string.pill_available),
@@ -99,7 +99,7 @@ class SettingsScreenTest {
         assertEquals(listOf("models", "phone", "work", "capsule", "language", "notifications", "memory", "access", "advanced", "about"), opened)
     }
 
-    /** 高级与其他集中放连接、维护和工程入口,各行仍打开原来的子页。 */
+    /** 接続・保守・開発の入口をまとめ、各行から従来の子ページを開けることを確認します。 */
     @Test
     fun advancedRowsOpenTheirPages() {
         val opened = mutableListOf<String>()
@@ -121,7 +121,7 @@ class SettingsScreenTest {
         assertEquals(listOf("proxy", "sandbox", "computer", "mcp", "recovery", "dev"), opened)
     }
 
-    /** 发布版的高级与其他里没有开发者选项。 */
+    /** 公開用ビルドの詳細設定には、開発者向けオプションを表示しません。 */
     @Test
     fun developerRowHiddenInRelease() {
         compose.setContent { AdvancedSettingsContent(onBack = {}, showDeveloper = false) }
@@ -351,7 +351,7 @@ class SettingsScreenTest {
         compose.onNodeWithText(appString(R.string.dev_compaction)).assertIsDisplayed()
     }
 
-    /** 「自主模式」在任务运行最前面,默认关;点开关或整行都切换。 */
+    /** タスク実行の先頭に自律モードを置き、既定で無効にします。行とスイッチの両方から変更できます。 */
     @Test
     fun autonomousSwitchComesFirstAndToggles() {
         val toggled = mutableListOf<Boolean>()

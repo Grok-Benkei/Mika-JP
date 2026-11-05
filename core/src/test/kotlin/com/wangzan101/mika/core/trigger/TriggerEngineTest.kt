@@ -67,7 +67,7 @@ class TriggerEngineTest {
         assertTrue(store.claimDue(1_000).isEmpty())
     }
 
-    // #259:跑过(这里是失败了)的一次性计划,恢复会被拒;就算已经是打开的(旧版本恢复过),也不再排「马上响」的闹钟空转
+    // 失敗を含む実行済みの単発計画を再開せず、古い版で有効になっていても即時アラームの空回りを防ぎます。
     @Test fun oneShotThatAlreadyRanCannotBeResumedAndNeverArmsAnAlarm() {
         val store = MemoryTriggerStore()
         store.upsert(TriggerDefinition("once", "t", "do", 1_000))
@@ -75,7 +75,7 @@ class TriggerEngineTest {
         val armed = mutableListOf<Long?>()
         val sent = mutableListOf<String>()
         val engine = TriggerEngine(store, { armed += it }, idleRetryMs = 500) { t, _ -> sent += t.id }
-        // 还在跑时(窗口进行中)照常隔一会儿重查,等它结束
+        // 実行中の枠は一定時間後に再確認し、完了を待ちます。
         store.upsert(store.get("once")!!.copy(enabled = true))
         engine.rearm(2_000)
         assertEquals(2_500L, armed.single())
@@ -89,7 +89,7 @@ class TriggerEngineTest {
         engine.fire(60_000)
         assertTrue(sent.isEmpty())
         assertEquals(listOf<Long?>(null), armed)
-        // 改了时间就是新的时段,照常排上、到点照常跑
+        // 時刻を変更した計画は新しい実行枠として、予定どおり実行します。
         store.upsert(store.get("once")!!.copy(nextAtMs = 120_000))
         engine.rearm(60_000)
         assertEquals(120_000L, armed.last())
@@ -195,6 +195,8 @@ class TriggerEngineTest {
         assertEquals(nextCalendarAt("09:00", "Asia/Shanghai", emptyList(), after), times[0])
         assertEquals(nextCalendarAt("09:00", "Asia/Shanghai", emptyList(), times[0]), times[1])
         assertEquals(nextCalendarAt("09:00", "Asia/Shanghai", emptyList(), times[1]), times[2])
+        val boundary = nextCalendarAt("09:00", "Asia/Shanghai", emptyList(), def.nextAtMs)
+        assertEquals(boundary, upcoming(def, boundary, 3).first())
     }
 
     @Test fun reschedulingIncludesEditedFirstTimeAndUsesItForCalendarRecurrences() {

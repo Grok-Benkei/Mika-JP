@@ -17,7 +17,7 @@ import org.junit.Test
 class PairingNoticeTest {
     @get:Rule val texts = ChineseTexts()
 
-    /** 找到配对窗口才弹输入框;还在找时先静静放一个(后台被冻结前就发出去),没在找时不发。 */
+    /** 探索中は無音で通知を準備し、ウィンドウを検出したら入力欄をポップアップします。探索していない場合は通知しません。 */
     @Test
     fun codeEntryPopsOnceThePairingWindowIsFoundAndWaitsQuietlyBefore() {
         assertEquals(PairingNotice.EnterCode(null, quiet = true), PairingNotice.of(BuiltinShellStatus.NotPaired, PairingDiscovery.Searching))
@@ -26,7 +26,7 @@ class PairingNoticeTest {
         assertEquals(PairingNotice.EnterCode(37001), PairingNotice.of(BuiltinShellStatus.NotPaired, PairingDiscovery.Found(37001)))
     }
 
-    /** 静静备好的那个:无障碍开着也马上发(要赶在冻结之前),之后不再提醒。 */
+    /** 無音の入力通知はユーザー補助の有無にかかわらず即座に準備し、繰り返し通知しません。 */
     @Test
     fun quietEntryIsPostedAtOnceAndNeverRealerts() {
         val quiet = PairingNotice.EnterCode(null, quiet = true)
@@ -67,7 +67,7 @@ class PairingNoticeTest {
         assertEquals(PairingNotice.EnterCode(37001), PairingNotice.of(revoked, PairingDiscovery.Found(37001)))
         assertEquals(PairingNotice.EnterCode(null, quiet = true), PairingNotice.of(revoked, PairingDiscovery.Searching))
         assertEquals(PairingNotice.Problem("ペア設定の期限が切れました"), PairingNotice.of(revoked, PairingDiscovery.Idle))
-        // 用 USB 启动命令起的助手停了:在找配对窗口也不给输入框
+        // USBから起動したヘルパーが停止した場合は、探索中でもコード入力欄を出しません。
         assertEquals(
             PairingNotice.Problem("スマホアシスタントが停止しました"),
             PairingNotice.of(BuiltinShellStatus.Failed(BuiltinShellFailure.UsbHelperStopped), PairingDiscovery.Searching),
@@ -125,12 +125,12 @@ class PairingNoticeTest {
 
     @Test
     fun followingEndsOnlyWhenRunningOutsideARepair() {
-        // 重新配对时运行中的旧状态不算配好:不结束,和没配对时一样先静静备好填码通知
+        // 再ペアリング前の実行状態を成功と見なさず、無音のコード入力通知を準備します。
         assertEquals(PairingNotice.EnterCode(null, quiet = true) to false, PairingNotice.follow(BuiltinShellStatus.Running, PairingDiscovery.Searching, repairing = true, submitted = false))
         assertEquals(PairingNotice.Done to true, PairingNotice.follow(BuiltinShellStatus.Running, PairingDiscovery.Idle, repairing = false, submitted = false))
     }
 
-    /** 一次配对里通知的先后:先静静备好,找到窗口换成会弹的,填码后正在配对,配上后成功并结束;相邻两条都不一样(换了才重发)。 */
+    /** 無音の準備・ウィンドウ検出・コード入力・成功の各状態で通知が更新され、同じ通知を続けて送らないことを確認します。 */
     @Test
     fun aPairingRunGoesQuietThenAlertThenWorkingThenDone() {
         val steps = listOf(
@@ -148,7 +148,7 @@ class PairingNoticeTest {
             ),
             steps,
         )
-        // 找到窗口后那条是会弹、会再提醒的
+        // ウィンドウ発見後は、ポップアップと再通知の対象になります。
         assertEquals(PairingNotice.REALERT_MS[0], PairingNotice.realertAfter(steps[1].first!!, 0))
     }
 

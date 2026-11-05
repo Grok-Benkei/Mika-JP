@@ -126,7 +126,7 @@ class DeviceAccessTest {
             val json = result.toJson()
             assertEquals(kotlinx.serialization.json.JsonPrimitive(stored.name.lowercase()), json["stored_kind"])
             assertEquals(kotlinx.serialization.json.JsonPrimitive(visible.name.lowercase()), json["detected_kind"])
-            assertTrue(json["message"].toString().contains("Re-enter"))
+            assertTrue(json["message"].toString().contains("設定し直してください"))
             assertFalse(json.toString().contains("123456"))
             assertFalse(json.toString().contains("Test pass!"))
             assertEquals(0, p.entries)

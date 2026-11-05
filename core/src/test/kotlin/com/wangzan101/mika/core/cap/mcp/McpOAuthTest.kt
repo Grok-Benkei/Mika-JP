@@ -151,7 +151,7 @@ class McpOAuthTest {
         val server = MockWebServer().also { it.start() }
         try {
             val base = server.url("/").newBuilder().host("127.0.0.1").build().toString().trimEnd('/')
-            // 主机根上那份是另一个 issuer 的,不能拿来用
+            // ホスト直下のメタデータは別の issuer に属するため使いません。
             server.dispatcher = authServers(base, "$base/tenant1", mapOf(
                 "/.well-known/oauth-authorization-server/tenant1" to "$base/tenant1",
                 "/.well-known/oauth-authorization-server" to "$base/other",
@@ -204,7 +204,7 @@ class McpOAuthTest {
         }
     }
 
-    /** 资源元数据指向 [issuer];[metadata] 是授权服务器元数据的路径 → 其中端点所在的 issuer,别的路径一律 404。 */
+    /** リソースのメタデータから [issuer] を参照し、指定された [metadata] の経路以外は404にします。 */
     private fun authServers(base: String, issuer: String, metadata: Map<String, String>) = object : Dispatcher() {
         override fun dispatch(request: RecordedRequest): MockResponse {
             val path = request.path.orEmpty()

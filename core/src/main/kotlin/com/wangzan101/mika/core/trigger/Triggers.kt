@@ -175,7 +175,7 @@ fun upcoming(def: TriggerDefinition, afterMs: Long, count: Int): List<Long> {
     when {
         def.calendarTime != null -> {
             var at = if (def.nextAtMs >= afterMs) def.nextAtMs
-            else nextCalendarAt(def.calendarTime, def.calendarZone!!, def.calendarDays, afterMs)
+            else nextCalendarAt(def.calendarTime, def.calendarZone!!, def.calendarDays, afterMs - 1)
             repeat(count) {
                 out += at
                 at = nextCalendarAt(def.calendarTime, def.calendarZone!!, def.calendarDays, at)

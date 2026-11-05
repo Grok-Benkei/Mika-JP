@@ -134,7 +134,7 @@ class ContextCompressorTest {
         val transport = FakeModel(first, answerReply("done"), contextTokens = 32_768)
         val caller = ModelCaller(transport, toolDispatcher(FakeScreen()), null, SpeedFlags.OFF, RetryPolicy.NONE, {}, { 0 })
         caller.reset("")
-        // 字符数不是 token 数:这份开局原文约 8K 字符;假服务端报 972 输入 token,旧逻辑会把增量估算压到下限 0.5。
+        // 文字数とトークン数は異なります。約8千文字に対して972トークンと報告する模擬サービスでも、推定係数を下限0.5へ下げません。
         val opening = listOf(Message(Role.User, listOf(Part.Text("x".repeat(8_000))), Author.User))
         caller.ask(opening, emptyList(), step = 1)
         val reply = Message(Role.Assistant, first.parts, Author.Mika)
@@ -330,18 +330,17 @@ class ContextCompressorTest {
         assertTrue(hard.flatMap { it.parts }.filterIsInstance<Part.ToolResult>().none { "\"s1\"" in it.content })
     }
 
-    // #263:只折到留 12 轮那一档时,留下的往返里的屏幕自己看得懂(第一份是全量 s9),边界前那份全量 s1 照常折叠;
-    // s9 是接在 s3 后面的差异时 s1 照旧留着(沿用原来的做法;s3 已换成占位,s1 并不足以看懂 s9)
+    // 12往復を残す圧縮では、残した画面だけで読める場合に古い全量画面を省略します。差分の基準が境界の前にある場合は、従来どおり保持します。
     @Test fun dropsEarlierFullReadWhenKeptScreensAreSelfContained() {
         val (folded, kept) = compressWithLatest("""{"snapshotId":"s9","full":true,"elements":[{"ref":"@e1"}]}""")
         assertTrue(kept.any { "\"s9\"" in it } && kept.none { "\"s1\"" in it })
         val (foldedWithBase, keptWithBase) = compressWithLatest("""{"snapshotId":"s9","base":"s3","full":false,"added":[]}""")
         assertTrue(keptWithBase.any { "\"s9\"" in it } && keptWithBase.any { "\"s1\"" in it })
-        // 两次都停在留 12 轮那一档:前 30 次点按、两次差异和(第一次)s1 折掉
+        // 12往復を残す段階で止まり、境界前の30タップと差分、および不要になった全量画面を省略します。
         assertEquals(listOf(38, 37), listOf(folded, foldedWithBase))
     }
 
-    // 手机和网页各有各的差异链:留下的往返里先有网页的全量,手机的差异仍接在边界前手机那份全量后面,它不能折
+    // スマホとWebで別々の差分列を確認し、Webの全量画面だけではスマホの基準画面を省略しません。
     @Test fun keepsPhoneBaseWhenKeptRoundsStartWithAWebFullScreen() {
         val web = round("web_interact", "{}", """{"ok":true,"screen":{"snapshotId":"w1","full":true,"elements":[{"ref":"@w1"}]},"pad":"$pad"}""")
         val (folded, kept) = compressWithLatest("""{"snapshotId":"p2","base":"s3","full":false,"added":[]}""", before = web)
@@ -349,7 +348,7 @@ class ContextCompressorTest {
         assertEquals(37, folded)
     }
 
-    /** 边界前:30 次点按、全量 s1、两次差异、5 次点按;留下的 12 次:[before]、带 [screen] 的一次返回、其余点按。返回折了几步和留下的工具结果。 */
+    /** 境界前に30タップ・全量画面・差分2回・タップ5回を置き、12往復を残した圧縮結果を調べます。 */
     private fun compressWithLatest(screen: String, before: List<Message> = emptyList()): Pair<Int, List<String>> {
         val full = round("phone_observe", "{}", """{"ok":true,"snapshotId":"s1","elements":[{"ref":"@e1"}],"pad":"$pad"}""")
         val diffs = (2..3).flatMap { round("phone_back", "{}", """{"ok":true,"screen":{"snapshotId":"s$it","base":"s${it - 1}","full":false,"added":[]},"pad":"$pad"}""") }

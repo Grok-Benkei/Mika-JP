@@ -28,11 +28,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.atomic.AtomicInteger
 
-/**
- * 分别验证正常与取消的注入不会误点浮层,结束后普通点按恢复。
- * 窗口参数传到输入系统是异步的;外层隔离先等系统稳定,嵌套手势不再改参数,
- * 因而这里验证的是隔离与恢复的状态机,不把固定帧数当成生产代码的同步机制。
- */
+/** 通常時とキャンセル時の注入が浮動レイヤーへ誤って届かず、終了後は通常のタップへ戻ることを確認します。外側でシステムの反映を待ち、固定フレーム数を本番の同期手段とは扱いません。 */
 @RunWith(AndroidJUnit4::class)
 class OverlayGestureDeviceTest {
     @Test fun normalAndCancelledInjectionPassThroughThenRestoreTouch() = runBlocking {

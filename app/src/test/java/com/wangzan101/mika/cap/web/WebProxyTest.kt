@@ -48,7 +48,7 @@ class WebProxyTest {
         repeat(3) { assertEquals("alice" to "correct", auth.credentialsFor("proxy.example.test")) }
         assertNull(auth.credentialsFor("proxy.example.test"))
 
-        // 即使设置没改,下一页也能在代理会话失效后再次认证。
+        // 設定が変わらなくても、次のページでは失効したプロキシセッションを認証し直せます。
         auth.onPageStarted()
         assertEquals("alice" to "correct", auth.credentialsFor("proxy.example.test"))
     }

@@ -54,8 +54,8 @@ class OcrStatusTest {
         assertEquals("unusable", r.s("treeQuality"))
         val visual = Feedback.format("tree_poor.no_text.visual", "ocr" to "empty")
         assertEquals(Feedback.format("unreadable_window.fallback", "app" to "com.example", "fallback" to visual), r.s("hint"))
-        assertTrue(r.s("hint")!!.contains("do not launch it again"))
-        assertFalse(r.s("hint")!!.contains("press back"))
+        assertTrue(r.s("hint")!!.contains("再度起動しない"))
+        assertFalse(r.s("hint")!!.contains("戻る操作を1回"))
     }
 
     @Test fun eachReasonForNoTextIsNamed() = runTest {

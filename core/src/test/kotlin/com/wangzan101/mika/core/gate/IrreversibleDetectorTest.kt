@@ -24,6 +24,12 @@ private fun args(json: String): JsonObject = Json.parseToJsonElement(json).jsonO
 class IrreversibleDetectorTest {
     private val d = IrreversibleDetector
 
+    @Test fun japaneseDonationButtonsArePayments() {
+        for (label in listOf("寄付する", "寄付を確定")) {
+            assertEquals(label, IrrevAction.pay, d.matchName(label))
+        }
+    }
+
     @Test fun japaneseCancellationAndDataDeletionLabels() {
         for ((label, action) in listOf(
             "取り消す" to IrrevAction.delete, "予約をキャンセル" to IrrevAction.order,

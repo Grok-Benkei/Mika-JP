@@ -6,7 +6,7 @@ import android.view.Gravity;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-/** 浮层手势真机回归的整屏点按探针;只在测试包里,点按次数通过无障碍文字读出。 */
+/** 実機の浮動レイヤー試験でタップ数を読み取る全画面プローブです。テストパッケージだけに含めます。 */
 public class GestureTapTestActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {

@@ -63,7 +63,7 @@ class KeepAwakeTest {
         assertFalse(lock.held)
     }
 
-    // 排在别的任务后面等虚拟屏:还在干活,不按等你处理宽限后放开
+    // 仮想画面の順番待ちを利用者の応答待ちと区別し、画面ロックを保持します。
     @Test
     fun queuedForDisplayKeepsHolding() = runTest {
         val lock = FakeLock()
@@ -125,7 +125,7 @@ class KeepAwakeTest {
         assertFalse(lock.held)
     }
 
-    // 排队的任务接班:前一个收尾时先替它拿一份再放开自己的,接班的拿上自己那份后放开,中间屏幕锁不断
+    // 前のタスクが次の分を取得してから自分のロックを解放し、引継ぎ中に画面ロックが途切れないことを確認します。
     @Test
     fun handoffBridgesToQueuedRun() = runTest {
         val lock = FakeLock()
@@ -139,7 +139,7 @@ class KeepAwakeTest {
         b.onState(TaskState.Running(0, ""))
         handoff.release()
         assertTrue(lock.held)
-        // 重复放开(开跑时放过、协程结束时又放一次)不多算
+        // 起動時と完了時に重複して解放しても、カウンターを余分に減らしません。
         handoff.release()
         assertTrue(lock.held)
         b.close()
