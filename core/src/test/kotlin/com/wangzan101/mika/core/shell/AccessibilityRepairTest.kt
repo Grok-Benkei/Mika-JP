@@ -112,6 +112,14 @@ class AccessibilityRepairTest {
     }
 
     @Test
+    fun withoutWriteSecureSettingsAndWithoutHelperDoesNotRewrite() = runTest {
+        val rig = Rig(initial = off, helperStatus = BuiltinShellStatus.NotPaired, direct = false).also { it.start(this) }
+        advanceTimeBy(60_000)
+        assertEquals(emptyList<Long>(), rig.restarts)
+        assertNull(rig.repair.last.value)
+    }
+
+    @Test
     fun repairsWithoutHelperWhenAppCanWriteSettingsItself() = runTest {
         // ワイヤレス デバッグがオフになっており、アシスタントは利用できませんが、アプリ自体にはシステム設定を変更する権限があります。それでも修復されます。
         val rig = Rig(initial = off, helperStatus = BuiltinShellStatus.NotPaired, direct = true).also { it.start(this) }

@@ -11,6 +11,31 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
  *   ローカル マシンおよび LAN 上で実行されているモデル サービス エージェントのほとんどはアクセスできないため、直接接続されます。
  */
 object LocalHosts {
+    /** ループバックだけ（localhost、*.localhost、127.0.0.0/8、::1）。LAN は含まない。 */
+    fun isLoopback(host: String): Boolean {
+        val h = normalize(host)
+        if (h.isEmpty()) return false
+        if (h == "localhost" || h.endsWith(".localhost")) return true
+        return isLoopbackAddress(h)
+    }
+
+    /** ホスト名ではなくループバックの IP リテラル。NSC が IP を base-config で扱うため、接続前に localhost へ寄せる。 */
+    fun isLoopbackAddress(host: String): Boolean {
+        val h = normalize(host)
+        ipv4(h)?.let { (a, _) -> return a == 127 }
+        return h == "::1"
+    }
+
+    /** プライベートアドレス、リンクローカル、mDNS / LAN 名。ループバックは含まない。 */
+    fun isLan(host: String): Boolean {
+        if (isLoopback(host)) return false
+        if (isLocal(host)) return true
+        val h = normalize(host)
+        if (PROXY_SUFFIXES.any { h.endsWith(it) }) return true
+        ipv4(h)?.let { (a, b) -> if (a == 100 && b in 64..127) return true }
+        return false
+    }
+
     fun isLocal(host: String): Boolean {
         val h = normalize(host)
         if (h.isEmpty()) return false

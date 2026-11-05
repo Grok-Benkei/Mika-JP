@@ -1,13 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  はプレーン テキスト http を許可します。ローカル マシンまたは LAN 上でユーザーによって実行されるほとんどのモデル サービス (http://192.168.1.10:11434/v1 など) には http のみがあります。
-  証明書は、システムのデフォルトで信頼されます (システム証明書のみが信頼されます)。したがって、内蔵ブラウザは http Web ページを直接開くこともできます (最初にシステムによって拒否され、その後 https に変更して再試行することはなくなりました)。
-  サービス プロバイダーを追加する場合、暗号化されておらず、ローカル エリア ネットワーク上にないアドレスを指定するプロンプトが表示されます (LocalHosts を参照)。
+  平文 HTTP は既定で拒否する。クラウドのモデルは HTTPS。
+  例外はホスト名 localhost（サブドメイン含む）だけ。127.0.0.1 と ::1 は接続前に localhost へ書き換える
+  （Android の NSC は IP リテラルを base-config で扱い、ドメイン設定が届かない）。
+  LAN の平文 IP はプラットフォーム側でも拒否される。アプリの明示設定はコード検査用で、
+  公開インターネットの平文を開かない。ユーザー CA は信頼しない。debug-overrides は置かない。
 -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="true">
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">localhost</domain>
+    </domain-config>
 </network-security-config>

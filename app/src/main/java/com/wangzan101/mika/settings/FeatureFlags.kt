@@ -132,6 +132,20 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         prefs.edit().putFloat(CAPSULE_CARD_HEIGHT, fraction.coerceIn(0f, 1f)).apply()
     }
 
+    /** LAN 上のモデルへの平文 HTTP。既定はオフ。ループバックは別で許可する。 */
+    fun allowLanCleartext(): Boolean = prefs.getBoolean(ALLOW_LAN_CLEARTEXT, false)
+
+    fun setAllowLanCleartext(on: Boolean) {
+        prefs.edit().putBoolean(ALLOW_LAN_CLEARTEXT, on).commit()
+    }
+
+    /** 前回通知したモデル宛先。変わったときだけ通知する。 */
+    fun lastModelEndpoint(): String? = prefs.getString(LAST_MODEL_ENDPOINT, null)
+
+    fun setLastModelEndpoint(key: String) {
+        prefs.edit().putString(LAST_MODEL_ENDPOINT, key).apply()
+    }
+
     companion object {
         const val PREFS = "feature_flags"
         /** 各タスクステップの上限として設定できる最大値。 0/null は制限がないことを意味します。 */
@@ -156,6 +170,8 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private const val CAPSULE_SIDE = "capsule_side"
         private const val CAPSULE_HEIGHT = "capsule_height"
         private const val CAPSULE_CARD_HEIGHT = "capsule_card_height"
+        private const val ALLOW_LAN_CLEARTEXT = "allow_lan_cleartext"
+        private const val LAST_MODEL_ENDPOINT = "last_model_endpoint"
 
         fun get(context: Context) = FeatureFlags(context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE))
     }

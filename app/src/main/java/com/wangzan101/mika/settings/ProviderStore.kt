@@ -370,6 +370,8 @@ class ProviderStore(
         untested: Boolean = false,
         explicitSelfHosted: Boolean = false,
     ): Provider {
+        val verdict = com.wangzan101.mika.core.net.EndpointUrlPolicy.checkModel(baseUrl, com.wangzan101.mika.core.net.CleartextPolicy.allowLanHttp())
+        if (!verdict.allowed) throw IllegalArgumentException(verdict.reason)
         val found = findOrAddProvider(name, kind, baseUrl, signIn)
         // テストをスキップするときに保存するリストがありません。以前にリストされたリストを保持してください。既存のリストを隠すために空のテーブルを使用しないでください。
         val listed = if (untested && models.isEmpty()) found.models ?: models else models
@@ -383,6 +385,7 @@ class ProviderStore(
         _providers.value = _providers.value.map { if (it.id == p.id) p else it }
         if (apiKey != null) setKey(p.id, apiKey)
         writeConfig()
+        com.wangzan101.mika.core.security.ModelEndpointWatch.note(p.name, p.baseUrl)
         return p
     }
 
@@ -1086,14 +1089,21 @@ class ProviderStore(
         private const val USE_MAIN = "main"
         private const val USE_NONE = "none"
 
-        // プロバイダーへのクライアントはすべて NetProxy 経由で作る: 設定 › ネットワークプロキシを通り、本機と LAN アドレス（ローカルモデル）は直接接続する
-        private val http by lazy { NetProxy.shared.client(OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).writeTimeout(120, TimeUnit.SECONDS).readTimeout(180, TimeUnit.SECONDS)) }
+        // プロバイダーへのクライアントはすべて NetProxy 経由で作る: 設定 › ネットワークプロキシを通り、本機と LAN アドレス（ローカルモデル）は直接接続する。
+        // 宛先スキームは ModelUrlInterceptor が検査する（クラウドの平文 HTTP と、許可していない LAN 平文を拒否）。
+        private fun modelClient(builder: OkHttpClient.Builder) =
+            NetProxy.shared.client(
+                builder.followRedirects(false).followSslRedirects(false)
+                    .addInterceptor(com.wangzan101.mika.core.net.ModelUrlInterceptor()),
+            )
+
+        private val http by lazy { modelClient(OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).writeTimeout(120, TimeUnit.SECONDS).readTimeout(180, TimeUnit.SECONDS)) }
 
         /** 会話モデルと共有するコネクションプール; 同じプロバイダーへの他のリクエスト（音声の文字起こしなど）もこれを使う。 */
         val modelHttp: OkHttpClient get() = http
 
         /** 列モデル。アカウント ログインとトークン交換に使用されます。読み取りタイムアウトが短くなり、ネットワーク プロキシも使用されます。 */
-        private val shortHttp by lazy { NetProxy.shared.client(OkHttpClient.Builder().readTimeout(30, TimeUnit.SECONDS)) }
+        private val shortHttp by lazy { modelClient(OkHttpClient.Builder().readTimeout(30, TimeUnit.SECONDS)) }
 
         private val catalog by lazy { ModelCatalog(shortHttp) }
 

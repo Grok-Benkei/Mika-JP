@@ -13,6 +13,7 @@ import com.wangzan101.mika.core.tool.ToolExecution
 import com.wangzan101.mika.core.tool.Verb
 import com.wangzan101.mika.core.tool.fail
 import com.wangzan101.mika.core.tool.okObj
+import com.wangzan101.mika.core.security.SensitiveApps
 import com.wangzan101.mika.core.uistate.screenText
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -57,6 +58,11 @@ internal class Screenshot(f: ScreenFamily) : ScreenTool(f, "screenshot") {
             put("ok", false); put("error", "protected_content"); put("protected", true)
             put("message", HINT_PROTECTED); put("recoverable", true)
         })
+        val known = ctx.lastSnapshot ?: screen.snapshot()
+        if (SensitiveApps.withholdScreenshot(known.packageName, known.web != null)) return fail(
+            "capture_withheld",
+            "Screenshot was not sent. The foreground app is sensitive or could not be identified.",
+        )
         val png = screen.screenshotPng() ?: return fail("screenshot_unavailable", Feedback["screenshot_unavailable"])
         val s = ctx.lastSnapshot
         val shots = ctx.shots

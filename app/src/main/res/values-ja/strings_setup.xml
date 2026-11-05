@@ -38,6 +38,11 @@
     <string name="model_need_url">ベース URL を入力してください</string>
     <string name="model_url_scheme">ベース URL は http:// または https:// で始めてください</string>
     <string name="model_url_unencrypted">このアドレスは暗号化されていません。API キーやチャットの内容が、同じネットワークの他の人に見られる可能性があります。</string>
+    <string name="model_url_lan">LAN への平文 HTTP は、下のスイッチを入れたときだけ使えます。クラウドの http:// は使えません。</string>
+    <string name="model_lan_cleartext">LAN の平文 HTTP を許可</string>
+    <string name="model_destination_channel">モデルの送信先</string>
+    <string name="model_destination_title">モデルの送信先が変わりました</string>
+    <string name="model_destination_body">%1$s（%2$s）。画面の内容はこのホストへ送られます。</string>
     <string name="model_probe_failed">%1$s にテスト用のツールを呼び出してもらうのに失敗しました: %2$s</string>
     <string name="model_probe_timeout">%1$s はテスト用のツール呼び出しに %2$d 秒以内に応答しませんでした</string>
     <string name="model_probe_no_tools">%1$s はツールを呼び出しませんでした。Mika がタスクをこなすには、ツールを呼び出せるモデルが必要です。プロバイダーは保存しましたが、このモデルはメインモデルに設定していません。</string>

@@ -19,6 +19,7 @@ import com.wangzan101.mika.core.model.ToolSpec
 import com.wangzan101.mika.settings.AesGcmKeyCipher
 import com.wangzan101.mika.settings.ClientSetup
 import com.wangzan101.mika.settings.ProviderConfig
+import com.wangzan101.mika.core.net.CleartextPolicy
 import com.wangzan101.mika.settings.ProviderPresets
 import com.wangzan101.mika.settings.ProviderStore
 import com.wangzan101.mika.settings.RoleChoice
@@ -29,6 +30,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -40,6 +42,8 @@ import javax.crypto.KeyGenerator
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ModelSetupViewModelTest {
+    @After fun lanCleartextOff() = CleartextPolicy.setAllowLanHttp(false)
+
     @get:Rule val texts = ChineseTexts()
 
     @get:Rule val tmp = TemporaryFolder()
@@ -166,6 +170,7 @@ class ModelSetupViewModelTest {
     }
 
     @Test fun explicitLocalModelServicesCanAutomaticallySelectQwen() = runTest {
+        CleartextPolicy.setAllowLanHttp(true)
         val local = listOf("Ollama" to "http://127.0.0.1:11434/v1", "LM Studio" to "http://192.168.1.20:1234/v1")
         for ((label, url) in local) {
             listing[url] = ModelListResult.Ok(listOf(ListedModel("qwen3.5", toolCalls = true)))
@@ -178,9 +183,11 @@ class ModelSetupViewModelTest {
             runCurrent()
             assertEquals(label, "qwen3.5", store.configFor(ModelRole.Main)?.model)
         }
+        CleartextPolicy.setAllowLanHttp(false)
     }
 
     @Test fun existingLocalModelServiceCanBeExplicitlyUsedAsMain() = runTest {
+        CleartextPolicy.setAllowLanHttp(true)
         val store = store()
         val provider = store.connect("Local models", ProviderConfig.Kind.OpenAiCompat, "http://models.local:11434/v1", "test-key", listOf(ListedModel("qwen3.5", toolCalls = true)))
         val vm = vm(store)
@@ -674,6 +681,7 @@ class ModelSetupViewModelTest {
 
     /** モデルがリストされていません。最初に保存したり試したりせず、モデル名を尋ねてください。入力してからテストし、それを使用して呼び出しを試みます。リストを提供していないサービスプロバイダーとして保存されている場合、それがメインモデルとなり、検証済みとして記録されます。 */
     @Test fun noListAsksForAModelAndProbesIt() = runTest {
+        CleartextPolicy.setAllowLanHttp(true)
         val url = "http://192.168.1.5:8000/v1"
         listing[url] = ModelListResult.Failed(ListFailure.NotSupported)
         val store = store()
@@ -767,6 +775,7 @@ class ModelSetupViewModelTest {
 
     /** 選択ページでモデル名を手動で入力します。最初にそれを呼び出してみて、失敗した場合は選択せず、その理由を伝えます。成功した場合にのみ選択すると、検証済みとして記録されます。 */
     @Test fun manualPickProbesFirst() = runTest {
+        CleartextPolicy.setAllowLanHttp(true)
         val store = store()
         val p = store.connect("192.168.1.5", ProviderConfig.Kind.OpenAiCompat, "http://192.168.1.5:8000/v1", "", emptyList())
         val vm = vm(store)
@@ -819,18 +828,25 @@ class ModelSetupViewModelTest {
         assertEquals(emptyList<String>(), vm.state.value.unverified(vm.state.value.providers.first { it.name == "DeepSeek" }))
     }
 
-    /** プレーン テキスト http: ローカル マシンまたはローカル エリア ネットワークのプロンプトはありません。他のアドレスの入力を求めるプロンプトが表示されても、テストは実行できます。 */
+    /** クラウドの平文 HTTP は保存できない。LAN は明示設定がオフのとき拒否し、オンのときだけ警告つきで試せる。 */
     @Test fun plainHttpToARemoteHostWarnsButDoesNotBlock() = runTest {
+        CleartextPolicy.setAllowLanHttp(false)
         val vm = vm()
         vm.selectPreset(ProviderPresets.custom.label)
         vm.setBaseUrl("http://192.168.1.10:11434/v1")
-        assertNull(vm.state.value.form.unencryptedWarning)
+        assertEquals("LAN への平文 HTTP は、下のスイッチを入れたときだけ使えます。クラウドの http:// は使えません。", vm.state.value.form.urlProblem)
+        assertFalse(vm.state.value.form.canTest)
+        vm.setAllowLanCleartext(true)
+        assertNull(vm.state.value.form.urlProblem)
+        assertEquals("このアドレスは暗号化されていません。API キーやチャットの内容が、同じネットワークの他の人に見られる可能性があります。", vm.state.value.form.unencryptedWarning)
         vm.setBaseUrl("https://models.example.com/v1")
+        assertNull(vm.state.value.form.urlProblem)
         assertNull(vm.state.value.form.unencryptedWarning)
         vm.setBaseUrl("http://models.example.com/v1")
-        assertEquals("このアドレスは暗号化されていません。API キーやチャットの内容が、同じネットワークの他の人に見られる可能性があります。", vm.state.value.form.unencryptedWarning)
+        assertEquals("このアドレスは暗号化されていません。API キーやチャットの内容が、同じネットワークの他の人に見られる可能性があります。", vm.state.value.form.urlProblem)
         vm.setApiKey("k")
-        assertTrue(vm.state.value.form.canTest)
+        assertFalse(vm.state.value.form.canTest)
+        CleartextPolicy.setAllowLanHttp(false)
     }
 
     @Test fun addingTwoProvidersInARowKeepsTheFirstMain() = runTest {
@@ -898,6 +914,7 @@ class ModelSetupViewModelTest {
     }
 
     @Test fun nextNeedsAMainModel() = runTest {
+        CleartextPolicy.setAllowLanHttp(true)
         val store = store()
         val vm = vm(store)
         vm.selectPreset("自定义")

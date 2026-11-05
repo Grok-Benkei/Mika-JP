@@ -52,7 +52,6 @@ private const val DESTROY_GRACE_MS = 3_000L
 private const val READER_GRACE_MS = 2_000L
 private const val TIMEOUT_SLACK_MS = 500L
 private const val SIZE_CACHE_MS = 60_000L
-internal val FALLBACK_DNS = listOf("1.1.1.1", "8.8.8.8")
 private const val TAG = "AndroidSandbox"
 internal const val SHARE_MAX_FILES = 20
 internal const val SHARE_MAX_BYTES = 500L shl 20
@@ -405,8 +404,8 @@ class AndroidSandbox internal constructor(
 
     /** インターネットに接続するときに、現在のネットワークの DNS をルート ファイル システムに書き込みます。ゲートウェイを介してファイル全体を置き換えます (ルート ファイル システム内のコマンドは変更できますが、元のリンクのみが置き換えられます)。 */
     private fun writeResolvConf() {
-        val servers = runCatching(dnsServers).getOrNull().orEmpty().ifEmpty { FALLBACK_DNS }
-        files.replace(dirs.rootfs, "etc/resolv.conf", servers.joinToString("") { "nameserver $it\n" }.toByteArray())
+        val text = SandboxDns.resolvConf(runCatching(dnsServers).getOrNull())
+        files.replace(dirs.rootfs, "etc/resolv.conf", text.toByteArray())
     }
 
     internal companion object {

@@ -11,6 +11,8 @@ import com.wangzan101.mika.core.oauth.OpenRouterAuth
 import com.wangzan101.mika.MikaApp
 import com.wangzan101.mika.voice.SystemSpeech
 import com.wangzan101.mika.settings.ChatGptSignIns
+import com.wangzan101.mika.settings.FeatureFlags
+import com.wangzan101.mika.ui.components.MikaSwitch
 import com.wangzan101.mika.i18n.tr
 import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
@@ -198,6 +200,10 @@ fun ModelSetupScreen(
                 ui, onboarding,
                 ModelSetupActions(
                     selectPreset = vm::selectPreset, setKind = vm::setKind, setBaseUrl = vm::setBaseUrl, setApiKey = vm::setApiKey,
+                    setAllowLan = { on ->
+                        FeatureFlags.get(context).setAllowLanCleartext(on)
+                        vm.setAllowLanCleartext(on)
+                    },
                     setModel = vm::setModel, setManual = vm::setManual, setName = vm::setName,
                     testAndSave = vm::testAndSave, saveUntested = vm::saveWithoutTest,
                     openForm = vm::openForm, closeForm = vm::closeForm,
@@ -240,6 +246,7 @@ class ModelSetupActions(
     val selectPreset: (String) -> Unit = {},
     val setKind: (ProviderConfig.Kind) -> Unit = {},
     val setBaseUrl: (String) -> Unit = {},
+    val setAllowLan: (Boolean) -> Unit = {},
     val setApiKey: (String) -> Unit = {},
     val setModel: (String) -> Unit = {},
     /** 「モデル名を手動で入力」開閉。 */
@@ -430,6 +437,16 @@ private fun AddProviderForm(ui: ModelSetupUi, actions: ModelSetupActions) {
         )
     }
     if (f.manual && !f.noList) FooterNote(ModelSetupCopy.MANUAL_NOTE, Modifier.testTag("setup-manual-note"))
+    f.destinationLabel?.takeIf { f.baseUrl.isNotBlank() }?.let { FooterNote(it, Modifier.testTag("setup-destination")) }
+    if (f.lanCleartextChoice && f.urlEditable) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.model_lan_cleartext), Modifier.weight(1f), style = MikaType.Body, color = c.ink)
+            MikaSwitch(f.allowLanCleartext, actions.setAllowLan, Modifier.testTag("setup-lan-cleartext"))
+        }
+    }
     f.urlProblem?.takeIf { f.urlEditable && f.baseUrl.isNotBlank() }?.let { FooterNote(it, color = c.bad) }
     f.suggestedPreset?.let { preset -> PresetSuggestion(f, preset.displayLabel) { actions.selectPreset(preset.label) } }
     if (f.noList) FooterNote(if (f.isCustom) ModelSetupCopy.NO_LIST_CUSTOM else ModelSetupCopy.NO_LIST_PRESET, Modifier.testTag("setup-no-list"))

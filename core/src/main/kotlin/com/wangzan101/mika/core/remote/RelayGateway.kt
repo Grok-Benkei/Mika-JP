@@ -59,9 +59,16 @@ class RelayGateway(val url: HttpUrl, private val http: OkHttpClient) {
 
     companion object {
         fun parse(raw: String, allowLoopbackHttp: Boolean = false): HttpUrl {
-            val u = raw.trim().toHttpUrl()
+            val trimmed = raw.trim()
+            val asHttp = when {
+                trimmed.startsWith("wss://", ignoreCase = true) -> "https://" + trimmed.substring(6)
+                trimmed.startsWith("ws://", ignoreCase = true) -> "http://" + trimmed.substring(5)
+                else -> trimmed
+            }
+            val u = asHttp.toHttpUrl()
             require(u.username.isEmpty() && u.password.isEmpty() && u.query == null && u.fragment == null && u.encodedPath == "/") { "Use an HTTPS gateway origin" }
-            require(u.isHttps || allowLoopbackHttp && u.host in setOf("127.0.0.1", "::1") && u.scheme == "http") { "Use HTTPS" }
+            val loopback = u.host == "127.0.0.1" || u.host == "::1" || u.host == "localhost"
+            require(u.isHttps || allowLoopbackHttp && loopback && u.scheme == "http") { "Use wss:// or https://" }
             return u
         }
 

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- 長押しすると、話しながら録音し、テキストに変換します。 -->
@@ -27,9 +26,9 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
-    <uses-permission
-        android:name="android.permission.WRITE_SECURE_SETTINGS"
-        tools:ignore="ProtectedPermissions" />
+    <!-- WRITE_SECURE_SETTINGS は宣言しない。通常のインストールでは付与できず、
+         付与されると ENABLED_ACCESSIBILITY_SERVICES をアプリ自身が書き戻せる。
+         ユーザー補助の再接続は、ペアリング済みシェル経由の経路だけを使う。 -->
 
     <!-- ダイアログ ページの添付ファイルでは、(システム カメラを使用して) 写真を撮ることができます。カメラが使用されると記載されていますが、必須ではありません。カメラのないデバイスは通常どおりインストールできます。
          一部のシステムは、APK の特性に従ってアプリケーションを分類します。宣言されない場合、Mika はゲームとみなされ、リフレッシュ レートが制限される可能性があります。この声明は保持されるべきです。 -->

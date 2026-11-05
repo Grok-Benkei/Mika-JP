@@ -31,14 +31,15 @@ internal object ApkIntegrity {
         require(parsed.encodedPath.endsWith(".apk", ignoreCase = true))
     }
 
-    /** 要約が指定されている場合、それは sha256 内に存在し、一貫性がなければなりません。他の書き方は一貫性がないとみなされるため、これを手放しません。 */
+    /**
+     * 公式パッケージは SHA-256 が無いとインストールしない。サイズが書かれていればそれも一致させる。
+     * 検証に失敗したときは閉じる。ダイジェストの省略は成功にしない。
+     */
     fun verify(file: File, size: Long?, digest: String?) {
         corruptUnless(file.isFile && file.length() > 0)
         if (size != null) corruptUnless(file.length() == size)
-        if (digest != null) {
-            corruptUnless(digest.matches(Regex("sha256:[0-9a-fA-F]{64}")))
-            corruptUnless(sha256(file).equals(digest.substringAfter(':'), ignoreCase = true))
-        }
+        corruptUnless(digest != null && digest.matches(Regex("sha256:[0-9a-fA-F]{64}")))
+        corruptUnless(sha256(file).equals(digest!!.substringAfter(':'), ignoreCase = true))
     }
 
     /**

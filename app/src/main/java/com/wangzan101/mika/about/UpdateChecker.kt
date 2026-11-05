@@ -19,6 +19,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import com.wangzan101.mika.core.net.NetProxy
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -115,6 +116,10 @@ class UpdateChecker(
     internal fun fetchLatest(): ReleaseInfo? = runCatching { Releases.fromGitHub(get(releaseApi), deviceAbis) }.getOrNull()
 
     private fun get(url: String): String {
+        val parsed = url.toHttpUrlOrNull() ?: error("bad update url")
+        val loopback = com.wangzan101.mika.core.net.LocalHosts.isLoopback(parsed.host)
+        if (!parsed.isHttps && !loopback) error("update check requires HTTPS")
+        if (parsed.isHttps && parsed.host != "api.github.com") error("update check host is not allowed")
         val req = Request.Builder().url(url)
             .header("User-Agent", "Mika/$currentVersion")
             .header("Accept", "application/vnd.github+json")
