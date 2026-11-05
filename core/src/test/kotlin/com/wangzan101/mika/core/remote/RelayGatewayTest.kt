@@ -12,6 +12,8 @@ import org.junit.Test
 class RelayGatewayTest {
     @Test fun productionRequiresHttpsOriginWithoutCredentialsOrQuery() {
         assertEquals("https://relay.example/", RelayGateway.parse("https://relay.example").toString())
+        assertEquals("https://relay.example/", RelayGateway.parse("wss://relay.example").toString())
+        try { RelayGateway.parse("ws://relay.example"); fail("public ws accepted") } catch (_: IllegalArgumentException) { }
         for (bad in listOf("http://relay.example", "http://127.0.0.1", "https://user:pass@relay.example", "https://relay.example/path", "https://relay.example?key=secret", "https://relay.example/#fragment")) {
             try { RelayGateway.parse(bad); fail("unsafe address accepted") } catch (_: IllegalArgumentException) { }
         }

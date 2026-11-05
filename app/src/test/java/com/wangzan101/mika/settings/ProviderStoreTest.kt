@@ -1,5 +1,7 @@
 package com.wangzan101.mika.settings
 
+import com.wangzan101.mika.core.net.CleartextPolicy
+
 import com.wangzan101.mika.core.model.Capabilities
 import com.wangzan101.mika.core.model.ChatModel
 import com.wangzan101.mika.core.model.ListedModel
@@ -15,6 +17,7 @@ import com.wangzan101.mika.core.model.Usage
 import com.wangzan101.mika.core.usage.UsagePurpose
 import com.wangzan101.mika.core.usage.UsageSource
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -26,6 +29,8 @@ import java.io.File
 import javax.crypto.KeyGenerator
 
 class ProviderStoreTest {
+    @After fun lanCleartextOff() = CleartextPolicy.setAllowLanHttp(false)
+
     @get:Rule val tmp = TemporaryFolder()
 
     private val key = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
@@ -510,6 +515,7 @@ class ProviderStoreTest {
 
     @Test
     fun localServiceWithoutKeyHasNoKey() {
+        CleartextPolicy.setAllowLanHttp(true)
         val s = store()
         val p = s.connect("local", ProviderConfig.Kind.OpenAiCompat, "http://192.168.1.5:8000/v1", "", emptyList())
         assertFalse(s.hasKey(p.id))

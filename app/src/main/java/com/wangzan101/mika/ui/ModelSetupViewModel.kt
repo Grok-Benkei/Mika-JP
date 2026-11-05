@@ -10,7 +10,9 @@ import com.wangzan101.mika.core.model.ModelEndpoint
 import com.wangzan101.mika.core.model.ModelError
 import com.wangzan101.mika.core.model.ModelListResult
 import com.wangzan101.mika.core.model.ModelRole
-import com.wangzan101.mika.core.net.LocalHosts
+import com.wangzan101.mika.core.net.CleartextPolicy
+import com.wangzan101.mika.core.net.EndpointUrlPolicy
+import com.wangzan101.mika.core.security.ModelDestination
 import com.wangzan101.mika.settings.ModelOption
 import com.wangzan101.mika.settings.ModelOptions
 import com.wangzan101.mika.settings.Provider
@@ -136,15 +138,28 @@ data class AddForm(
     val urlEditable: Boolean get() = isCustom || isSelfHosted
 
     val urlProblem: String?
-        get() = when {
-            baseUrl.isBlank() -> tr(R.string.model_need_url)
-            !baseUrl.trim().startsWith("http://") && !baseUrl.trim().startsWith("https://") -> tr(R.string.model_url_scheme)
-            else -> null
+        get() {
+            if (baseUrl.isBlank()) return tr(R.string.model_need_url)
+            return when (EndpointUrlPolicy.checkModel(baseUrl, CleartextPolicy.allowLanHttp()).reason) {
+                "ok" -> null
+                "http_public" -> tr(R.string.model_url_unencrypted)
+                "http_lan" -> tr(R.string.model_url_lan)
+                else -> tr(R.string.model_url_scheme)
+            }
         }
 
-    /** プレーン テキスト http は、このマシンまたは LAN のアドレスではありません。注意、ブロックしないでください ([LocalHosts] を参照)。 */
+    /** 許可された平文（ループバック、または明示的に許可した LAN）でも、暗号化されていないことを示す。 */
     val unencryptedWarning: String?
-        get() = if (urlProblem == null && LocalHosts.unencryptedRemote(baseUrl)) tr(R.string.model_url_unencrypted) else null
+        get() = if (urlProblem == null && EndpointUrlPolicy.isCleartext(baseUrl)) tr(R.string.model_url_unencrypted) else null
+
+    /** プロバイダ名と実際のホスト。画面データが向かう先。 */
+    val destinationLabel: String? get() = if (urlProblem != null) null else ModelDestination.label(providerName, baseUrl)
+
+    /** LAN の平文 URL で、スイッチを出せるとき。 */
+    val lanCleartextChoice: Boolean
+        get() = EndpointUrlPolicy.checkModel(baseUrl, allowLanCleartext = false).reason == "http_lan"
+
+    val allowLanCleartext: Boolean get() = CleartextPolicy.allowLanHttp()
 
     /** 実行するサービスとカスタマイズされた OpenAI 互換インターフェイス (主にローカル サービス) のキーを入力する必要はありませんが、残りは必須です。 */
     val keyRequired: Boolean get() = !isSelfHosted && !(isCustom && kind == ProviderConfig.Kind.OpenAiCompat)
@@ -423,6 +438,12 @@ class ModelSetupViewModel(
     // インターフェースのタイプまたはアドレスが変更されました。前回「リストに記載されていないモデル」はカウントされないため、再度リストに記載する必要があります。
     fun setKind(kind: ProviderConfig.Kind) = edit { it.copy(kind = kind, noList = false) }
     fun setBaseUrl(url: String) = edit { it.copy(baseUrl = url, noList = false) }
+
+    /** LAN 平文の明示許可。保存は呼び出し側（設定）が行う。フォームの判定を読み直す。 */
+    fun setAllowLanCleartext(on: Boolean) {
+        CleartextPolicy.setAllowLanHttp(on)
+        edit { it }
+    }
     fun setApiKey(key: String) = edit { it.copy(apiKey = key) }
     fun setModel(model: String) = edit { it.copy(model = model) }
 

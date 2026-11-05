@@ -1,5 +1,6 @@
 package com.wangzan101.mika.settings
 
+import com.wangzan101.mika.core.net.CleartextPolicy
 import com.wangzan101.mika.i18n.ChineseTexts
 import com.wangzan101.mika.ui.AddForm
 import org.junit.Assert.assertEquals
@@ -32,7 +33,11 @@ class ProviderPresetsTest {
         val ollama = AddForm.of(preset("Ollama")).copy(baseUrl = "http://192.168.1.20:11434/v1")
         assertTrue(ollama.urlEditable)
         assertFalse(ollama.keyRequired)
-        assertTrue("Key を入力せずにテストできる", ollama.canTest)
+        assertFalse("LAN 平文は明示設定まで試せない", ollama.canTest)
+        CleartextPolicy.setAllowLanHttp(true)
+        assertTrue("許可した LAN は Key なしで試せる", ollama.canTest)
+        CleartextPolicy.setAllowLanHttp(false)
+        assertTrue(AddForm.of(preset("Ollama")).canTest)
         assertEquals("Ollama", ollama.providerName)
         val openAi = AddForm.of(preset("OpenAI"))
         assertFalse(openAi.urlEditable)

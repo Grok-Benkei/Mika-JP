@@ -332,6 +332,13 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
         // 設定 › ネットワーク プロキシ: 最初のリクエストからミカ自身の接続が渡されます。 SOCKS プロキシのアカウント パスワードは、プロセス全体の認証者によって与えられます。
         com.wangzan101.mika.settings.NetProxyStore.get(this)
         com.wangzan101.mika.core.net.NetProxy.shared.installSocksAuth()
+        val flags = FeatureFlags.get(this)
+        com.wangzan101.mika.core.net.CleartextPolicy.setAllowLanHttp(flags.allowLanCleartext())
+        com.wangzan101.mika.core.security.ModelEndpointWatch.previousKey = flags.lastModelEndpoint()
+        com.wangzan101.mika.core.security.ModelEndpointWatch.persist = flags::setLastModelEndpoint
+        com.wangzan101.mika.core.security.ModelEndpointWatch.announce = { change ->
+            com.wangzan101.mika.settings.ModelEndpointNotifier.show(this, change.destination)
+        }
         // 内蔵ブラウザ: プロキシを設定した後にのみ WebView を設定します (読み取り設定は復号化してバックグラウンドに置く必要があります。プロキシを設定しないと、このために WebView は読み込まれません)。
         scope.launch(Dispatchers.IO) { runCatching { com.wangzan101.mika.cap.web.WebProxy.apply(this@MikaApp) } }
         capsule.start()
