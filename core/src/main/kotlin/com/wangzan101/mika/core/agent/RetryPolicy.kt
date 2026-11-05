@@ -13,9 +13,9 @@ import kotlin.random.Random
  * 純粋関数: ジッターは [jitter] (0..1) で与えられ、テストでは固定値に変更されます。
  */
 class RetryPolicy(
-    val maxRetries: Int = 3,
-    private val baseMs: Long = 1_000,
-    private val maxBackoffMs: Long = 8_000,
+    val maxRetries: Int = 5,
+    private val baseMs: Long = 2_000,
+    private val maxBackoffMs: Long = 30_000,
     private val retryAfterCapMs: Long = 30_000,
     /** タスク内のすべてのリトライ待機の合計の上限。 */
     val taskWaitBudgetMs: Long = 5 * 60_000,
