@@ -37,6 +37,10 @@ private suspend fun readScript(ctx: ToolContext, code: String, args: JsonObject?
         return failCode(DIALOG_OPEN)
     }
     val url = ctx.lastSnapshot?.web?.url
+    val held = com.wangzan101.mika.core.security.EgressPolicy.assess(
+        com.wangzan101.mika.core.security.EgressScene(com.wangzan101.mika.core.security.EgressWindow(webUrl = url, isWeb = true)),
+    )
+    if (r is EvalJs.Ok && !held.allowBody) return ok { put("egressBlocked", true); put("reason", held.reason) }
     return when (r) {
         is EvalJs.Failed -> fail(r.error, r.message)
         is EvalJs.Ok -> ok {

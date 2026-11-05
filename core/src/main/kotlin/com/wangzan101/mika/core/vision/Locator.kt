@@ -1,6 +1,8 @@
 package com.wangzan101.mika.core.vision
 
+import com.wangzan101.mika.core.security.EgressPolicy
 import com.wangzan101.mika.core.uistate.ScreenFamily
+import com.wangzan101.mika.core.uistate.egressScene
 import com.wangzan101.mika.core.prompt.Prompts
 import com.wangzan101.mika.core.uistate.ScreenPort
 import com.wangzan101.mika.core.uistate.ScreenSnapshot
@@ -192,6 +194,12 @@ class Locator(private val screen: ScreenPort, private val vision: VisionService,
      */
     private suspend fun capture(): Shot {
         if (screen.isProtected()) return Shot.Missing("protected_content", m.protectedScreen)
+        val seen = peekOrNull() ?: return Shot.Missing("vision_unavailable", m.unchecked)
+        val held = EgressPolicy.assess(seen.egressScene())
+        if (!held.allowScreenshot) {
+            if (held.reason == "no_app_open") return Shot.Missing("no_app_open", m.noApp)
+            return Shot.Missing("egress_blocked", "Screenshot was not sent (${held.reason}).")
+        }
         val png = screen.screenshotPng()
         if (png == null) {
             val s = peekOrNull()
@@ -210,6 +218,8 @@ class Locator(private val screen: ScreenPort, private val vision: VisionService,
     private suspend fun clearForVision(): Shot.Missing? {
         val s = peekOrNull() ?: return Shot.Missing("vision_unavailable", m.unchecked)
         if (s.protected) return Shot.Missing("protected_content", m.protectedScreen)
+        val held = EgressPolicy.assess(s.egressScene())
+        if (!held.allowScreenshot) return Shot.Missing("egress_blocked", "Screenshot was not sent (${held.reason}).")
         return null
     }
 

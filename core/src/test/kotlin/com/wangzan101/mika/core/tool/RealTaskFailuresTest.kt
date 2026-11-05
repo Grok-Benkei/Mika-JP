@@ -30,7 +30,7 @@ class RealTaskFailuresTest {
     private fun JsonObject.s(k: String) = this[k]!!.jsonPrimitive.content
 
     /** アプリを開いたものの、ウィンドウ (セキュリティ ウィンドウ、起動画面) を読み取ることができませんでした。画面にはパッケージ名のみが読み取られましたが、要素はありませんでした。 */
-    private class UnreadableScreen(private val inner: FakeScreen = FakeScreen(), var unreadable: String? = "com.bank") : ScreenPort by inner {
+    private class UnreadableScreen(private val inner: FakeScreen = FakeScreen(), var unreadable: String? = "com.example.reader") : ScreenPort by inner {
         override suspend fun snapshot() = ScreenSnapshot("p${++reads}", null, emptyList(), 1080, 2400, unreadableApp = unreadable)
         override suspend fun peek() = snapshot()
         var reads = 0
@@ -39,16 +39,16 @@ class RealTaskFailuresTest {
     @Test fun openButUnreadableWindowIsNotNothingOpen() = runTest {
         val d = toolDispatcher(UnreadableScreen())
         val o = d.execute(call("phone_observe")).content
-        assertEquals("com.bank", o.s("currentApp"))
+        assertEquals("com.example.reader", o.s("currentApp"))
         assertEquals("false", o.s("readable"))
         val hint = o.s("hint")
         assertTrue(hint, "再度起動しない" in hint && "hand_to_user" in hint)
         assertFalse("戻る操作を1回" in hint)
-        val l = d.execute(call("phone_launch_app", """{"package":"com.bank"}""")).content
+        val l = d.execute(call("phone_launch_app", """{"package":"com.example.reader"}""")).content
         assertEquals("true", l.s("ok")); assertEquals("false", l.s("readable"))
         assertTrue(l.s("hint"), "再度起動しない" in l.s("hint"))
         val c = d.execute(call("phone_diagnose")).content
-        assertEquals("com.bank", c.s("currentApp"))
+        assertEquals("com.example.reader", c.s("currentApp"))
         assertTrue(c.s("hint"), "再度起動しない" in c.s("hint"))
     }
 

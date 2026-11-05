@@ -149,8 +149,10 @@ class ToolDispatcherDiffTest {
         val pay = ListScreen(listOf("确认支付", "¥89.00"))
         val v = toolDispatcher(pay, visionEnabled = true, recordFrames = true, inlineScreen = true)
         val b = v.execute(call("phone_back"))
-        assertTrue(b.frame != null)
-        assertTrue(v.keepsRecallImages())
+        assertNull(b.frame)
+        assertFalse(v.keepsRecallImages())
+        assertEquals("payment_or_auth", b.content["screen"]!!.jsonObject.s("reason"))
+        assertFalse("确认支付" in b.content.toString())
     }
 
     @Test fun noFrameWithoutRecordingOrVision() = runTest {
@@ -204,7 +206,9 @@ class ToolDispatcherDiffTest {
         assertTrue(d.execute(call("phone_back")).content["screen"]!!.jsonObject["full"]!!.jsonPrimitive.boolean)
         val pay = toolDispatcher(ListScreen(listOf("确认支付", "¥89.00")), inlineScreen = true)
         val b = pay.execute(call("phone_back")).content["screen"]!!.jsonObject
-        assertEquals("true", b.s("full")); assertTrue(b["elements"]!!.jsonArray.isNotEmpty())
+        assertEquals("payment_or_auth", b.s("reason"))
+        assertNull(b["elements"])
+        assertFalse("确认支付" in b.toString())
     }
 
     @Test fun changingScreenCarriesNote() = runTest {

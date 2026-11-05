@@ -69,7 +69,8 @@ class PromptInjectionRegressionTest {
         assertTrue(SensitiveApps.withholdScreenshot(null, isWeb = false))
         assertTrue(SensitiveApps.withholdScreenshot("  ", isWeb = false))
         assertTrue(SensitiveApps.withholdSend("com.dashlane"))
-        assertFalse(SensitiveApps.withholdScreenshot("com.example.notes", isWeb = false))
+        assertTrue(EgressPolicy.assess(EgressScene(EgressWindow("com.example.notes"))).allowScreenshot)
+        assertFalse(EgressPolicy.assess(EgressScene(EgressWindow(webUrl = "https://bank.example", isWeb = true))).allowBody)
     }
 
     @Test fun lanDestinationFromScreenRequiresTheSetting() {

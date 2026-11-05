@@ -104,17 +104,17 @@ class BrowserScriptTest {
             ScriptRun.Done("""{"n":2}""")
         }
         val r = d.script(sub = passthrough(d))
-        assertEquals("true", r.s("ok")); assertEquals(com.wangzan101.mika.core.observation.Untrusted.wrap("""{"n":2}"""), r.s("result")); assertEquals("return", r.s("endedBy"))
+        assertEquals("true", r.s("ok")); assertEquals("return", r.s("endedBy"))
+        assertEquals("true", r.s("egressBlocked")); assertFalse("result" in r); assertFalse("{\"n\":2}" in r.toString())
         val v = seen!!["value"]!!.jsonObject
-        val e1 = v["elements"]!!.jsonArray[0].jsonObject
-        assertEquals("@e1", e1.s("ref")); assertEquals("搜索", e1.s("name")); assertTrue("center" in e1)
+        assertTrue(v["elements"]!!.jsonArray.isEmpty()); assertFalse("搜索" in v.toString())
         assertEquals(listOf("c1.1", "c1.2", "c1.3", "c1.4"), subCalls.map { it.id })
         assertEquals(listOf("web_list_elements", "web_tap", "web_list_elements", "web_type_text"), subCalls.map { it.name })
         assertTrue("\"pressEnter\":true" in subCalls[3].argsJson)
         val acts = r["actions"]!!.jsonArray.map { it.jsonObject }
         assertEquals(listOf("snapshot", "tap", "snapshot", "type"), acts.map { it.s("op") })
         assertEquals("@e1", acts[1].s("ref"))
-        assertEquals(listOf("done 2"), r["logs"]!!.jsonArray.map { it.jsonPrimitive.content })
+        assertFalse("logs" in r); assertFalse("done 2" in r.toString())
         assertTrue(web.inner.calls.any { it.startsWith("tapRef @e1") })
         assertTrue(web.inner.calls.any { it.startsWith("type @e1 咖啡") })
     }
@@ -199,7 +199,7 @@ class BrowserScriptTest {
         }
         val d = dispatcher(web)
         val r = d.script(sub = passthrough(d))
-        assertEquals("true", r.s("ok")); assertEquals("null", r.s("result"))
+        assertEquals("true", r.s("ok")); assertEquals("true", r.s("egressBlocked")); assertFalse("result" in r)
         assertEquals(listOf("no_snapshot", "invalid_arguments", "unknown_call", "invalid_arguments"), results.map { it.s("error") })
         assertTrue(subCalls.isEmpty())
     }
@@ -285,10 +285,10 @@ class BrowserScriptTest {
         assertTrue(err.s("message").startsWith("TypeError: x is undefined"))
         web.script = { ScriptRun.Done("\"" + "x".repeat(EVAL_RESULT_MAX_CHARS + 10) + "\"") }
         val big = d.script()
-        assertEquals(EVAL_RESULT_MAX_CHARS, big.s("result").length); assertEquals("true", big.s("truncated"))
+        assertEquals("true", big.s("egressBlocked")); assertFalse("result" in big); assertFalse("x".repeat(20) in big.toString())
         web.script = { b -> repeat(60) { b.log("l$it") }; ScriptRun.Done(null) }
         val logs = d.script()
-        assertEquals(50, logs["logs"]!!.jsonArray.size); assertEquals("10", logs.s("logsDropped"))
+        assertFalse("logs" in logs); assertFalse("l10" in logs.toString())
         web.script = { throw WebTabHandedOver("t1") }
         assertEquals("handed_over", d.script().s("error"))
     }

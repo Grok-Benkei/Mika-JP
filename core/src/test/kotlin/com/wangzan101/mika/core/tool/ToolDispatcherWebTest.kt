@@ -161,9 +161,10 @@ class ToolDispatcherWebTest {
         assertTrue(back.s("message"), "web_tap" in back.s("message") && "phone_observe" in back.s("message"))
         assertTrue(phone.calls.none { it.startsWith("tap") })
         // のそれぞれの番号は、通常どおりポート番号に変換されます (番号付けスペースは独自のものに属し、@e1 は 2 つの画面に同時に存在できます)。 画面を数回読み取った後も、
-        val webRefs = w["elements"]!!.jsonArray.map { it.jsonObject.s("ref") }.toSet()
-        t.execute(call("web_tap", """{"ref":"${webRefs.first()}","snapshotId":"$webSid"}"""))
-        assertTrue(web.calls.any { it.startsWith("tapRef @e") })
+        assertEquals("true", w.s("egressBlocked"))
+        assertEquals("browser_or_webview", w.s("reason"))
+        assertFalse("搜索" in w.toString())
+        assertTrue(web.calls.none { it.startsWith("tapRef") })
     }
 
     @Test fun pageReadsAndScriptResultsReachTheVerifier() = runTest {
@@ -176,9 +177,9 @@ class ToolDispatcherWebTest {
         // がまだ存在します: 画面の読み取りによって絞り出されません
         repeat(5) { t.execute(call("web_observe")) }
         val seen = t.evidence().read(ObsKind.Read, ObsKind.Reply).joinToString("\n")
-        assertTrue(seen, seen.contains("第二段正文:车次 G7311"))
-        assertTrue(seen, seen.contains("5000 文字目から"))
-        assertTrue(seen, seen.contains("G7501"))
+        assertFalse(seen, seen.contains("第二段正文:车次 G7311"))
+        assertFalse(seen, seen.contains("G7501"))
+        assertTrue(seen, seen.contains("egress_blocked"))
     }
 
     @Test fun handedOverTabRefusesWebToolsAndDownloadsSayUnavailable() = runTest {
@@ -236,9 +237,11 @@ class ToolDispatcherWebTest {
         val t = d(); t.go()
         val o = t.execute(call("web_list_elements")).content
         assertFalse("currentApp" in o)
-        assertEquals("shop.example.com", o.s("currentSite")); assertEquals("https://shop.example.com/cart", o.s("url"))
-        assertEquals("购物车", o.s("title")); assertEquals("t1", o.s("tabId"))
-        assertEquals("搜索", o["elements"]!!.jsonArray[0].jsonObject.s("name"))
+        assertEquals("shop.example.com", o.s("currentSite"))
+        assertEquals("true", o.s("egressBlocked"))
+        assertEquals("browser_or_webview", o.s("reason"))
+        assertFalse("url" in o); assertFalse("title" in o); assertFalse("elements" in o)
+        assertFalse("搜索" in o.toString()); assertFalse("购物车" in o.toString())
     }
 
     @Test fun rejectsNonHttpUrls() = runTest {
@@ -268,8 +271,9 @@ class ToolDispatcherWebTest {
     @Test fun readPageDefaultsAndCaps() = runTest {
         val web = FakeWebPort(); val t = d(web = web); t.go()
         val r = t.execute(call("web_read_page")).content
-        assertEquals(com.wangzan101.mika.core.observation.Untrusted.wrap("正文"), r.s("text")); assertEquals("下一页", r["links"]!!.jsonArray[0].jsonObject.s("text"))
-        assertEquals("false", r.s("truncated"))
+        assertEquals("true", r.s("egressBlocked"))
+        assertEquals("browser_or_webview", r.s("reason"))
+        assertFalse("正文" in r.toString()); assertFalse("links" in r)
         t.execute(call("web_read_page", """{"maxChars":30000,"offset":12000}"""))
         assertEquals(listOf("readPage 12000 0", "readPage 30000 12000"), web.calls.filter { it.startsWith("readPage") })
         assertEquals("invalid_arguments", t.execute(call("web_read_page", """{"maxChars":30001}""")).content.s("error"))
@@ -282,16 +286,16 @@ class ToolDispatcherWebTest {
             1234, 0.82, com.wangzan101.mika.core.cap.web.ReadVerdict.NEEDS_SIGN_IN, "password field", published = "2026-01-02", folded = 2, dialogs = 1,
         )
         val r = t.execute(call("web_read_page", """{"url":"https://news.example.com/a","unfold":true}""")).content
-        assertEquals("needs_sign_in", r.s("verdict")); assertEquals("true", r.s("unfold")); assertEquals("1234", r.s("chars")); assertEquals("0.82", r.s("textDensity"))
-        assertEquals("2026-01-02", r.s("published")); assertEquals("2", r.s("folded")); assertEquals("1", r.s("openDialogs"))
-        assertEquals("true", r.s("background")); assertEquals("https://news.example.com/a", r.s("url"))
+        assertEquals("true", r.s("egressBlocked"))
+        assertFalse("password field" in r.toString())
+        assertFalse("verdict" in r)
         assertEquals(listOf("readUrl https://news.example.com/a unfold"), web.calls.filter { it.startsWith("readUrl") })
         // 現在のラベルはタッチされていません: 新しいナビゲーションはありません
         assertEquals(1, web.calls.count { it.startsWith("navigate") })
         web.quality = web.quality!!.copy(verdict = com.wangzan101.mika.core.cap.web.ReadVerdict.THIN)
         val thin = t.execute(call("web_read_page", """{"url":"https://news.example.com/b"}""")).content
-        assertTrue(thin.s("hint").contains("web_navigate"))
-        assertFalse(t.execute(call("web_read_page")).content.containsKey("hint"))
+        assertEquals("browser_or_webview", thin.s("reason"))
+        assertFalse(t.execute(call("web_read_page")).content.containsKey("text"))
         web.readUrlError = "net::ERR_NAME_NOT_RESOLVED"
         assertEquals("page_not_loaded", t.execute(call("web_read_page", """{"url":"https://nowhere.example"}""")).content.s("error"))
         assertEquals("invalid_arguments", t.execute(call("web_read_page", """{"url":"ftp://x.example"}""")).content.s("error"))
@@ -300,13 +304,14 @@ class ToolDispatcherWebTest {
     @Test fun evalScriptCappedAt4000() = runTest {
         val web = FakeWebPort(); val t = d(web = web); t.go()
         val ok = t.execute(call("web_evaluate_js", """{"script":"${"x".repeat(4000)}"}""")).content
-        assertEquals(com.wangzan101.mika.core.observation.Untrusted.wrap("42"), ok.s("result"))
+        assertEquals("true", ok.s("egressBlocked"))
+        assertFalse("42" in ok.toString())
         assertEquals("invalid_arguments", t.execute(call("web_evaluate_js", """{"script":"${"x".repeat(4001)}"}""")).content.s("error"))
         web.eval = EvalJs.Failed("devtools_unavailable", "no devtools")
         assertEquals("devtools_unavailable", t.execute(call("web_evaluate_js", """{"script":"document.title"}""")).content.s("error"))
         assertEquals("invalid_arguments", t.execute(call("web_evaluate_js", """{"script":"await import('x')"}""")).content.s("error"))
         web.eval = EvalJs.Ok("1", false, fresh = true)
-        assertEquals("new", t.execute(call("web_evaluate_js", """{"script":"1","timeoutMs":3000}""")).content.s("state"))
+        assertEquals("browser_or_webview", t.execute(call("web_evaluate_js", """{"script":"1","timeoutMs":3000}""")).content.s("reason"))
         assertEquals(1, web.calls.count { it.startsWith("eval 4000") })
     }
 
@@ -481,9 +486,9 @@ class ToolDispatcherWebTest {
         assertFalse("Webページ本文" in t.evidence().freshText)
         t.go()
         val ev = t.evidence()
-        assertTrue(ev.freshText, ev.freshText.startsWith("現在のページ:https://shop.example.com/cart"))
-        assertTrue(ev.freshText, ev.freshText.endsWith("Webページ本文（冒頭）:\n正文"))
-        assertEquals(listOf("readPage 3000 0 noscroll"), web.calls.filter { it.startsWith("readPage") })
+        assertFalse(ev.freshText, "正文" in ev.freshText)
+        assertTrue(ev.freshText, "egress_blocked" in ev.freshText)
+        assertTrue(web.calls.none { it.startsWith("readPage") })
     }
 
     /** ツールの結果には、画面テキスト以外の事実 (Web ページのタイトル、URL、HTTP ステータス、開いているアプリと名前) が証拠として含まれます。作業モデルのヒントは含まれていません。 */
@@ -511,18 +516,20 @@ class ToolDispatcherWebTest {
         t.execute(call("web_observe"))
         t.execute(call("web_read_page"))
         val ev = t.evidence()
-        assertTrue(ev.freshText, ev.freshText.lines().contains("ページのタイトル:只有标题的页"))
-        assertTrue(ev.read(ObsKind.Read, ObsKind.Reply).toString(), ev.read(ObsKind.Read, ObsKind.Reply).any { it.lines().contains("ページのタイトル:只有标题的页") })
+        assertFalse(ev.freshText, "只有标题的页" in ev.freshText)
+        assertFalse(ev.read(ObsKind.Read, ObsKind.Reply).toString(), ev.read(ObsKind.Read, ObsKind.Reply).any { "只有标题的页" in it })
         val seen = ev.sources(ev.ledger.all).joinToString("\n")
-        assertTrue(seen, "查看说明" in seen && "https://shop.example.com/help" in seen)
-        assertTrue(seen, "商品主图" in seen)
+        assertFalse(seen, "查看说明" in seen)
+        assertFalse(seen, "商品主图" in seen)
+        assertTrue(seen, "egress_blocked" in seen || "egress_blocked" in ev.freshText)
     }
 
     @Test fun webScreenTextCarriesThePageTitle() = runTest {
         val web = FakeWebPort().apply { title = "Example Domain" }
         val t = d(web = web)
         t.go()
-        assertTrue(t.evidence().freshText.lines().contains("ページのタイトル:Example Domain"))
+        assertFalse("Example Domain" in t.evidence().freshText)
+        assertTrue("egress_blocked" in t.evidence().freshText)
     }
 
     @Test fun uploadGoesThroughIrreversibleCheck() = runTest {
@@ -578,11 +585,10 @@ class ToolDispatcherWebTest {
         assertFalse(list.toString(), list.toString().contains("abcdefghijkl"))
         assertTrue(web.calls.contains("captures items GET true"))
         val one = t.execute(call("web_capture", """{"id":"2","maxChars":20}""")).content
-        val body = one.s("body")
-        assertTrue(body, body.startsWith("<untrusted>\n{\"key\":\"***\""))
-        assertTrue(body, body.contains("[truncated:"))
-        assertEquals("true", one.s("truncated"))
-        assertEquals("not_finished", t.execute(call("web_capture", """{"id":"1"}""")).content.s("bodyNote"))
+        assertEquals("true", one.s("egressBlocked"))
+        assertFalse("body" in one)
+        assertFalse("sk-" in one.toString())
+        assertEquals("browser_or_webview", t.execute(call("web_capture", """{"id":"1"}""")).content.s("reason"))
         assertEquals("capture_not_found", t.execute(call("web_capture", """{"id":"9"}""")).content.s("error"))
     }
 
@@ -622,8 +628,8 @@ class ToolDispatcherWebTest {
         t.go()
         val out = t.execute(call("web_capture", """{"id":"1"}""")).content.toString() +
             t.execute(call("web_capture")).content.toString() + t.evidence().read(ObsKind.Read, ObsKind.Reply).joinToString()
-        for (secret in listOf("tok-plain-1", "hunter2", jwt, "s-plain-2")) assertFalse(secret, out.contains(secret))
-        assertTrue(out, out.contains("Ann") && out.contains("page=1"))
+        for (secret in listOf("tok-plain-1", "hunter2", jwt, "s-plain-2", "Ann")) assertFalse(secret, out.contains(secret))
+        assertTrue(out, out.contains("egressBlocked"))
     }
 
     @Test fun captureFlagsRiskControlResponse() = runTest {
@@ -631,10 +637,10 @@ class ToolDispatcherWebTest {
         val t = d(web = web)
         t.go()
         val r = t.execute(call("web_capture", """{"id":"1"}""")).content
-        assertEquals("您的访问行为异常", r.s("riskControl"))
-        assertTrue(r.s("hint"), r.s("hint").contains("access_blocked"))
+        assertEquals("browser_or_webview", r.s("reason"))
+        assertFalse("您的访问行为异常" in r.toString())
         web.captured = listOf(resp("2", body = """{"code":0,"message":"Success"}"""))
-        assertFalse("riskControl" in t.execute(call("web_capture", """{"id":"2"}""")).content)
+        assertFalse("Success" in t.execute(call("web_capture", """{"id":"2"}""")).content.toString())
     }
 
     @Test fun pageDwellBeforeChangingPageOnSameSite() = runTest {

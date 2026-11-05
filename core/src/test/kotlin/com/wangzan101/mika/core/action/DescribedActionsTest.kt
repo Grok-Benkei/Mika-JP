@@ -19,7 +19,9 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -158,7 +160,8 @@ class DescribedActionsTest {
         val web = FakeWebPort().apply { dialog = PageDialog(PageDialog.CONFIRM, "确定删除这条记录吗?") }
         val tools = toolDispatcher(FakeScreen(), web = web)
         val seen = tools.execute(Part.ToolCall("o", "web_observe", "{}")).content
-        assertEquals(JsonPrimitive("确定删除这条记录吗?"), (seen["dialog"] as JsonObject)["message"])
+        assertEquals("true", seen["egressBlocked"]!!.jsonPrimitive.content)
+        assertFalse("确定删除这条记录吗?" in seen.toString())
         val e = executor(tools)
         val accept = run(e, "web_interact", """{"action":"dialog","answer":"accept"}""")
         assertTrue("$accept", accept is ActionOutcome.Ran)

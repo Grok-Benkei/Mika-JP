@@ -13,6 +13,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -75,8 +76,10 @@ class ToolDispatcherFrameTest {
         // 支払いページ画面と要素テーブルが利用可能
         val pay = FrameScreen(listOf("确认支付", "¥89.00"))
         val pr = toolDispatcher(pay, visionEnabled = true).execute(call("phone_back"))
-        assertEquals(1, pr.images.size); assertTrue(pay.shots > 0)
-        assertTrue((pr.content["screen"] as JsonObject)["elements"]!!.jsonArray.isNotEmpty())
+        assertEquals(0, pr.images.size); assertEquals(0, pay.shots)
+        val payScreen = pr.content["screen"] as JsonObject
+        assertEquals("payment_or_auth", payScreen.s("reason"))
+        assertFalse("确认支付" in payScreen.toString())
     }
 
     @Test fun screenshotIdUsedAsSnapshotIdGetsAPreciseError() = runTest {
@@ -124,7 +127,8 @@ class ToolDispatcherFrameTest {
         val pay = FrameScreen(listOf("确认支付", "¥89.00"))
         val d = toolDispatcher(pay, visionEnabled = true)
         val r = d.execute(call("phone_back"))
-        assertEquals(1, r.images.size); assertTrue(pay.shots > 0); assertTrue(d.keepsRecallImages())
+        assertEquals(0, r.images.size); assertEquals(0, pay.shots); assertFalse(d.keepsRecallImages())
+        assertEquals("payment_or_auth", (r.content["screen"] as JsonObject).s("reason"))
         // 画面にはまだアプリがありません: キャプチャするものは何もありません。これはエラーではありません
         val empty = FrameScreen().apply { this.empty = true }
         assertTrue(toolDispatcher(empty, visionEnabled = true).execute(call("phone_back")).images.isEmpty())

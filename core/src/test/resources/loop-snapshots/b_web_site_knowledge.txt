@@ -1,4 +1,4 @@
-outcome: Succeeded(answer=知乎の人気ランキング1位は「今日话题」です。, verified=true, note=null, sources=[AnswerSource(obsId=2, kind=read, place=https://www.zhihu.com/hot, title=知乎, step=2, mediaIds=[], source=web)], unconfirmed=[], reviewed=true)
+outcome: Succeeded(answer=知乎を開きました。ページ本文は送られないのでランキングは読み取れません。, verified=false, note=null, sources=[AnswerSource(obsId=3, kind=fact, place=null, title=null, step=2, mediaIds=[], source=web)], unconfirmed=[], reviewed=false)
 
 ## main #1
 system: len=8723 #2b33466a | あなたは Mika JP です。ユーザーのスマートフォンで動くパーソナルアシスタントとして、依頼された作業を完了し、実際に使っているアプリやサービスの中で結果を…
@@ -28,5 +28,5 @@ user:
 assistant:
   call main_2 web_read_page {}
 tool:
-  result main_2 #1d78f355 | {"ok":true,"url":"https://www.zhihu.com/hot","title":"知乎","unfold":false,"text":"<untrusted>\n热榜\n1. 今日话题\n</untrusted>","links":[],"images":[],"truncated":false,"nextOffset":null}
+  result main_2 #466f5064 | {"ok":true,"egressBlocked":true,"reason":"browser_or_webview","currentSite":"zhihu.com"}
   ctx:runtime_state source="runtime" #5e5f210b | Current place: website zhihu.com (desktop version) ⏎…

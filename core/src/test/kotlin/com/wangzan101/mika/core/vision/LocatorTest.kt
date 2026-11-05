@@ -204,7 +204,7 @@ class LocatorTest {
             listOf(uiEl("@e1", "实付 ¥39.90", listOf(0, 600, 600, 660)), uiEl("@e2", "支付方式", listOf(0, 700, 999, 760))),
         )
         for (els in pages) {
-            assertNull(locator(LocScreen(els), says()).visionBlocker())
+            assertEquals("egress_blocked", locator(LocScreen(els), says()).visionBlocker())
         }
         // 商品ページの価格は支払いページに含まれていません
         found(locator(LocScreen(listOf(uiEl("@e1", "¥39.90", listOf(0, 600, 600, 660)), uiEl("@e2", "立即购买", listOf(0, 900, 999, 999)))),

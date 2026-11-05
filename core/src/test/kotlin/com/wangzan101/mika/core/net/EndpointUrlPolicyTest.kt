@@ -1,6 +1,9 @@
 package com.wangzan101.mika.core.net
 
 import com.wangzan101.mika.core.observation.Untrusted
+import com.wangzan101.mika.core.security.EgressPolicy
+import com.wangzan101.mika.core.security.EgressScene
+import com.wangzan101.mika.core.security.EgressWindow
 import com.wangzan101.mika.core.security.SensitiveApps
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -114,8 +117,8 @@ class EndpointUrlPolicyTest {
         assertTrue(SensitiveApps.blocks("com.x8bit.bitwarden"))
         assertTrue(SensitiveApps.withholdSend(null))
         assertTrue(SensitiveApps.withholdSend(""))
-        assertTrue(SensitiveApps.withholdScreenshot("com.android.chrome", isWeb = false).not())
-        assertFalse(SensitiveApps.withholdScreenshot(null, isWeb = true))
+        assertTrue(com.wangzan101.mika.core.security.EgressPolicy.isBrowser("com.android.chrome"))
+        assertFalse(EgressPolicy.assess(com.wangzan101.mika.core.security.EgressScene(com.wangzan101.mika.core.security.EgressWindow(webUrl = "https://shop.example", isWeb = true))).allowScreenshot)
         assertTrue(SensitiveApps.withholdScreenshot(null, isWeb = false))
     }
 }

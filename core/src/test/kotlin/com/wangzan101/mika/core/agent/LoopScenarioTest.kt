@@ -110,7 +110,7 @@ class LoopScenarioTest {
         val main = fakeModel("main") {
             call("web_navigate", "url" to "https://www.zhihu.com/hot")
             call("web_read_page")
-            answer("知乎の人気ランキング1位は「今日话题」です。")
+            answer("知乎を開きました。ページ本文は送られないのでランキングは読み取れません。")
         }
         val tools = toolDispatcher(FakeScreen(), skills = catalog, web = web, sandbox = FakeSandbox())
         val end = loop(main, tools, knowledge = bundled, skills = catalog).run("用网页看一下知乎热榜")
@@ -365,7 +365,7 @@ class LoopScenarioTest {
             title = attached.title
             page = pageText(attached.url, attached.title, "入耳式降噪耳机 B2 Pro 649 元\n头戴式降噪耳机 C3 Max 899 元")
         }
-        val answer = "このページで700元以内なのは、カナル型のB2 Pro（649元）です。ヘッドホン型のC3 Maxは899元で予算を超えるため、B2 Proを選びます。"
+        val answer = "ページ本文は送られないので、このページから商品は選べません。"
         val main = fakeModel("main") {
             call("web_read_page")
             answer(answer)

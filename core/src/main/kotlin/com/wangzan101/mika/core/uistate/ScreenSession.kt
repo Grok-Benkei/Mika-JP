@@ -22,7 +22,7 @@ import com.wangzan101.mika.core.observation.InputHints
 import com.wangzan101.mika.core.observation.Look
 import com.wangzan101.mika.core.observation.ObsKind
 import com.wangzan101.mika.core.observation.Observation
-import com.wangzan101.mika.core.security.SensitiveApps
+import com.wangzan101.mika.core.security.EgressPolicy
 import com.wangzan101.mika.core.observation.Place
 import com.wangzan101.mika.core.observation.Trust
 import com.wangzan101.mika.core.prompt.Feedback
@@ -158,6 +158,7 @@ internal class ScreenSession(
 
     suspend fun observe(withImage: Boolean, adaptiveImage: Boolean = false, recordFrame: Boolean = true): ToolExecution {
         val s = snapshot()
+        blockedObserve(s)?.let { return it }
         val (tree, ocr, ocrStatus) = readTree(s)
         val imageReason = if (adaptiveImage && tree.poor) tree.reason else null
         val sendImage = withImage || imageReason != null
@@ -278,7 +279,8 @@ internal class ScreenSession(
         // は、連続する差分の最大数が MAX_CHAIN_DIFFS の場合、全額を 1 回送信します。チェーンが長ければ長いほど、読み取りが難しくなり、圧縮中に保持するラウンドトリップが多くなります。
         val seen = chain.isNotEmpty() && chain.size - 1 < MAX_CHAIN_DIFFS && (v == null || chain.all { it in v })
         val s = cur.screen
-        val (tree, ocr, ocrStatus) = readTree(s)
+        val held = egress(s)
+        val (tree, ocr, ocrStatus) = if (s.protected || !held.allowBody) TreeRead(TreeCheck(null), null, null) else readTree(s)
         val shotId = shots.next()
         val diff = if (s.protected) {
             // 保護されたページでは画面と要素を表示できません。次回は全ページから再開します
@@ -286,6 +288,15 @@ internal class ScreenSession(
             buildJsonObject {
                 put("snapshotId", cur.snapshotId); put("currentApp", s.packageName); put("full", false)
                 put("protected", true); put("hint", HINT_PROTECTED)
+                put("screenshotId", shotId)
+            }
+        } else if (!held.allowBody || !held.allowScreenshot) {
+            shown = null; chain.clear()
+            buildJsonObject {
+                put("snapshotId", cur.snapshotId)
+                put("egressBlocked", true)
+                put("reason", held.reason)
+                put("full", false)
                 put("screenshotId", shotId)
             }
         } else {
@@ -305,7 +316,7 @@ internal class ScreenSession(
                     mapOf("readable" to JsonPrimitive(false), "hint" to JsonPrimitive(unreadableHint(s, tree, ocrStatus)))
                 }) ?: treeHint(tree, ocrStatus)?.let { mapOf("hint" to JsonPrimitive(it)) } ?: emptyMap()))
         }
-        val text = observationText(s, ocr.orEmpty())
+        val text = if (s.protected || !held.allowBody) "egress_blocked:${if (s.protected) "protected" else held.reason}" else observationText(s, ocr.orEmpty())
         // 前回読んだ内容と同じであれば、先ほどの画面読みを圧迫しないように再度書きません。
         val read = if (lastRead() != text) interfaceRead(s, ocr.orEmpty()) else null
         // には、観察と同じルールがあります。アンチスクリーンショット ページは取得されません。レビューのために写真を残す前に、メインモデルのみが写真を表示できます。
@@ -526,6 +537,7 @@ internal class ScreenSession(
      */
     suspend fun freshLook(withImage: Boolean, extra: (suspend () -> Observation?)? = null): Look {
         val s = screenAttempt { screen.snapshot() }
+        if (s != null && !egress(s).allowsAll) return Look(listOf(interfaceReadBlocked(s, egress(s).reason)), null, s.protected)
         val png = if (withImage && s != null && sendShot(s)) {
             screenAttempt { screen.screenshotPng() }
         } else null
@@ -535,9 +547,32 @@ internal class ScreenSession(
         return Look(listOfNotNull(seen, more), png, s?.protected == true)
     }
 
-    /** 保護画面と、パッケージ不明または機密アプリの画面は画像を送らない。Web ページは URL で識別する。 */
-    private fun sendShot(s: ScreenSnapshot): Boolean =
-        !s.protected && !SensitiveApps.withholdScreenshot(s.packageName, s.web != null)
+    /** 画面全体が安全だと説明できるときだけ画像を送る。説明できなければ本文も画像も出さない。 */
+    private fun egress(s: ScreenSnapshot) = EgressPolicy.assess(s.egressScene())
+
+    private fun blockedObserve(s: ScreenSnapshot): ToolExecution? {
+        val verdict = egress(s)
+        if (verdict.allowBody) return null
+        shots.remember(Recall(shots.step, shots.step, s.packageName, null, "egress_blocked:${verdict.reason}"))
+        val seen = interfaceReadBlocked(s, verdict.reason)
+        return ToolExecution(okObj {
+            put("egressBlocked", true)
+            put("reason", verdict.reason)
+            put("snapshotId", s.snapshotId)
+            put("screenshotId", 0)
+            val w = s.web
+            if (w == null) s.packageName?.let { put("currentApp", it) }
+            else put("currentSite", UrlHost.of(w.url))
+        }, observations = listOf(seen))
+    }
+
+    private fun interfaceReadBlocked(s: ScreenSnapshot, reason: String): Observation {
+        val host = s.web?.url?.let { UrlHost.of(it) }
+        val place = if (!host.isNullOrBlank()) Place.site(host) else s.packageName?.let(Place::app)
+        return Observation(ObsKind.Read, "egress_blocked:$reason", source = surface.id, place = place, trust = Trust.Untrusted)
+    }
+
+    private fun sendShot(s: ScreenSnapshot): Boolean = !s.protected && egress(s).allowScreenshot
 
     /** この画面の意味に従って「どこ」を報告します（Webサイトがサイトです）：観察と同様に、携帯電話とWebサイトの「どこ」が混在しません。 */
     private fun onSurface(o: JsonObject): JsonObject {

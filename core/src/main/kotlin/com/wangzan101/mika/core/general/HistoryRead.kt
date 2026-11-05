@@ -6,6 +6,7 @@ import com.wangzan101.mika.core.observation.Observation
 import com.wangzan101.mika.core.observation.Trust
 import com.wangzan101.mika.core.observation.Untrusted
 import com.wangzan101.mika.core.prompt.Feedback
+import com.wangzan101.mika.core.security.EgressPolicy
 import com.wangzan101.mika.core.prompt.Prompts
 import com.wangzan101.mika.core.record.RunEvent
 import com.wangzan101.mika.core.record.RunRecords
@@ -125,7 +126,8 @@ internal object HistoryRead : AgentTool {
                         put("n", offset + i)
                         put("kind", item.kind)
                         item.where?.let { put("where", it) }
-                        put("text", if (item.untrusted) Untrusted.wrap(item.text) else item.text)
+                        val body = if (EgressPolicy.replayBody(item.untrusted, item.source, item.where)) item.text else "egress_blocked:replay"
+                        put("text", if (item.untrusted) Untrusted.wrap(body) else body)
                     }
                 }))
                 if (next < items.size) put("nextOffset", next)
@@ -139,7 +141,7 @@ internal object HistoryRead : AgentTool {
     }
 
     /** 記録内の読み取り可能なもの: ミカの進行状況の説明 (メモ、電話の応答の言葉)、または読み取られた元のテキスト (観察の種類)。 */
-    private class Item(val kind: String, val text: String, val where: String?, val untrusted: Boolean, val obsKind: ObsKind?)
+    private class Item(val kind: String, val text: String, val where: String?, val untrusted: Boolean, val obsKind: ObsKind?, val source: String? = null)
 
     private fun items(events: List<RunEvent>): List<Item> {
         val seen = mutableSetOf<String>()
@@ -150,7 +152,7 @@ internal object HistoryRead : AgentTool {
                     ?.let { Item(NOTE, clip(it, ITEM_CHARS), null, false, null) }
                 is RunEvent.Observed -> e.text.trim().takeIf { it.isNotEmpty() && seen.add(it) }?.let {
                     val o = e.observation()
-                    Item(o.kind.wire, clip(it, ITEM_CHARS), o.title ?: o.place?.name, e.untrusted, o.kind)
+                    Item(o.kind.wire, clip(it, ITEM_CHARS), o.title ?: o.place?.name, e.untrusted, o.kind, o.source)
                 }
                 else -> null
             }

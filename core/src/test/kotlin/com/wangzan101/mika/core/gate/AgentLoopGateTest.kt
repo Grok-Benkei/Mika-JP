@@ -392,7 +392,7 @@ class AgentLoopGateTest {
         lateinit var m: StepModel
         m = StepModel(step(OBSERVE), locate("聊天标题", "张三"), { m.tapLocated()(it) }, step(FINISH))
         visionLoop(m, s).run("t")
-        assertEquals(1, s.taps.size)
+        assertEquals(0, s.taps.size)
     }
 
     // 申告書に金額を持参する必要があります（お金を使う場合のみ同意が必要です）

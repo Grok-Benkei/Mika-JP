@@ -57,7 +57,14 @@ internal object WebScriptTool : WebTool {
         } catch (e: ScriptAbort) {
             ScriptRun.Failed(e.error, e.message.orEmpty())
         }
+        val held = com.wangzan101.mika.core.security.EgressPolicy.assess(
+            com.wangzan101.mika.core.security.EgressScene(
+                com.wangzan101.mika.core.security.EgressWindow(webUrl = ctx.lastSnapshot?.web?.url, isWeb = true),
+            ),
+        )
         val content = calls.content(run)
+        if (!held.allowBody) return ToolExecution(JsonObject(content.filterKeys { it != "result" && it != "logs" && it != "truncated" } +
+            mapOf("egressBlocked" to JsonPrimitive(true), "reason" to JsonPrimitive(held.reason))))
         val result = (content["result"] as? JsonPrimitive)?.contentOrNull?.takeIf { it != "null" }
         val seen = result?.let { webRead("ページスクリプトの結果（${ctx.lastSnapshot?.web?.url ?: "現在のWebページ"}）\n$it", ctx.lastSnapshot?.web?.url) }
         // スクリプトの結果は Web ページから取得されます。モデルに渡されると、信頼できないマークが適用されます。

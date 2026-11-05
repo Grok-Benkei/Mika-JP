@@ -1,11 +1,15 @@
 package com.wangzan101.mika.core.cap.web
 
 import com.wangzan101.mika.core.tool.Entry
+import com.wangzan101.mika.core.net.UrlHost
 import com.wangzan101.mika.core.observation.ObsKind
 import com.wangzan101.mika.core.observation.Observation
 import com.wangzan101.mika.core.observation.Place
 import com.wangzan101.mika.core.observation.Trust
 import com.wangzan101.mika.core.observation.Untrusted
+import com.wangzan101.mika.core.security.EgressPolicy
+import com.wangzan101.mika.core.security.EgressScene
+import com.wangzan101.mika.core.security.EgressWindow
 import com.wangzan101.mika.core.prompt.Feedback
 import com.wangzan101.mika.core.prompt.Prompts
 import com.wangzan101.mika.core.record.Redactor
@@ -71,6 +75,12 @@ internal object ReadPage : WebTool {
             return fail("background_read_unavailable", Feedback["background_read_unavailable"])
         }
         p.netError?.let { return fail("page_not_loaded", Feedback.format("read_url_not_loaded", "url" to url.orEmpty(), "error" to it)) }
+        val blocked = EgressPolicy.assess(EgressScene(EgressWindow(webUrl = p.url, isWeb = true)))
+        if (!blocked.allowBody) return ok {
+            put("egressBlocked", true)
+            put("reason", blocked.reason)
+            UrlHost.of(p.url)?.let { put("currentSite", it) }
+        }.observing(Observation(ObsKind.Read, "egress_blocked:${blocked.reason}", source = WEB, place = UrlHost.of(p.url)?.let(Place::site), trust = Trust.Untrusted))
         // モデルに見られるリンクと画像の説明も引用可能な事実であり、テキストと一緒に記録する必要があります。
         val links = p.links.take(50).joinToString("\n") { (t, u) -> "リンク「$t」$u" }
         val images = p.images.take(20).filter { it.first.isNotBlank() }.joinToString("\n") { (alt, u) -> "画像「$alt」$u" }
@@ -171,6 +181,12 @@ internal object Capture : WebTool {
             if (id != null) {
                 val c = w.capture(id) ?: return fail("capture_not_found", Feedback.format("capture_not_found", "id" to id))
                 // 感度を解除すると、これがモデル、検証証拠、および操作記録に引き継がれる唯一のコピーです
+                val held = EgressPolicy.assess(EgressScene(EgressWindow(webUrl = c.url, isWeb = true)))
+                if (!held.allowBody) return ok {
+                    fields(c)
+                    put("egressBlocked", true)
+                    put("reason", held.reason)
+                }
                 val red = Redactor.network(url = c.url, body = c.body)
                 val body = red.body
                 val seen = body?.let { webRead("ネットワーク応答（${red.url}、HTTP ${c.status}）\n${it.take(max)}", red.url) }
