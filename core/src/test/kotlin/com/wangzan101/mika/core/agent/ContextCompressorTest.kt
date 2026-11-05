@@ -7,8 +7,11 @@ import com.wangzan101.mika.core.testing.answerReply
 import com.wangzan101.mika.core.tool.FakeScreen
 import kotlinx.coroutines.test.runTest
 import com.wangzan101.mika.core.model.Message
+import com.wangzan101.mika.core.model.ModelReply
 import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.model.Role
+import com.wangzan101.mika.core.model.StopReason
+import com.wangzan101.mika.core.model.Usage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -121,6 +124,42 @@ class ContextCompressorTest {
         val calls = c.messages.flatMap { m -> m.parts.filterIsInstance<Part.ToolCall>().map { it.id } }
         val results = c.messages.flatMap { m -> m.parts.filterIsInstance<Part.ToolResult>().map { it.callId } }
         assertEquals(calls, results)
+    }
+
+    @Test fun downwardCalibrationCannotLetOneHugeScreenBypassCompaction() = runTest {
+        val first = ModelReply(
+            listOf(Part.ToolCall("open_settings", "phone_launch_app", """{"package":"com.android.settings"}""")),
+            StopReason.ToolUse, Usage(inputTokens = 972, outputTokens = 20),
+        )
+        val transport = FakeModel(first, answerReply("done"), contextTokens = 32_768)
+        val caller = ModelCaller(transport, toolDispatcher(FakeScreen()), null, SpeedFlags.OFF, RetryPolicy.NONE, {}, { 0 })
+        caller.reset("")
+        // 文字数とトークン数は異なります。約8千文字に対して972トークンと報告する模擬サービスでも、推定係数を下限0.5へ下げません。
+        val opening = listOf(Message(Role.User, listOf(Part.Text("x".repeat(8_000))), Author.User))
+        caller.ask(opening, emptyList(), step = 1)
+        val reply = Message(Role.Assistant, first.parts, Author.Mika)
+        caller.noteReply(reply, transport, first.usage)
+
+        val elements = (1..400).joinToString(",") { i ->
+            """{"ref":"@e$i","role":"TextView","name":"Setting item $i","center":{"x":500,"y":100},"bounds":[0,0,1080,120],"resourceId":"android:id/title"}"""
+        }
+        val nodes = (1..400).joinToString(",") { i ->
+            """{"role":"TextView","ref":"@e$i","text":"Setting item $i","resourceId":"android:id/title","bounds":[0,0,1080,120]}"""
+        }
+        val screen = """{"ok":true,"snapshotId":"settings","elements":[$elements],"tree":[{"id":1,"type":"application","nodes":[$nodes]}]}"""
+        assertTrue("test fixture chars=${screen.length}", screen.length > 90_000)
+        assertTrue(
+            "test fixture must reproduce the old trigger bypass",
+            972 + 20 + UsageMeter.estimate(TokenEstimate.of(screen), 0.5) < ContextLimits.of(32_768).trigger,
+        )
+        val history = opening + reply + Message(Role.Tool, listOf(Part.ToolResult("open_settings", screen, false)), Author.Mika)
+        caller.ask(history, emptyList(), step = 2)
+
+        val sent = transport.requests[1]
+        val result = sent.flatMap { it.parts }.filterIsInstance<Part.ToolResult>().single()
+        assertTrue("a single new screen must be capped before sending", HistoryPruner.OMITTED_READ in result.content)
+        assertTrue("raw JSON must not be resent at ${screen.length} chars", "android:id/title" !in result.content)
+        assertTrue(uncalibrated(sent) <= ContextLimits.of(32_768).usable)
     }
 
     @Test fun overheadHeavySmallWindowNeverExceedsTheWindow() {
@@ -289,5 +328,33 @@ class ContextCompressorTest {
         // が保持されない
         val hard = ContextCompressor(TOOLS,diffScreens = true).compress(h, contextTokens = 1000, aggressive = true).messages
         assertTrue(hard.flatMap { it.parts }.filterIsInstance<Part.ToolResult>().none { "\"s1\"" in it.content })
+    }
+
+    // 12往復を残す圧縮では、残した画面だけで読める場合に古い全量画面を省略します。差分の基準が境界の前にある場合は、従来どおり保持します。
+    @Test fun dropsEarlierFullReadWhenKeptScreensAreSelfContained() {
+        val (folded, kept) = compressWithLatest("""{"snapshotId":"s9","full":true,"elements":[{"ref":"@e1"}]}""")
+        assertTrue(kept.any { "\"s9\"" in it } && kept.none { "\"s1\"" in it })
+        val (foldedWithBase, keptWithBase) = compressWithLatest("""{"snapshotId":"s9","base":"s3","full":false,"added":[]}""")
+        assertTrue(keptWithBase.any { "\"s9\"" in it } && keptWithBase.any { "\"s1\"" in it })
+        // 12往復を残す段階で止まり、境界前の30タップと差分、および不要になった全量画面を省略します。
+        assertEquals(listOf(38, 37), listOf(folded, foldedWithBase))
+    }
+
+    // スマホとWebで別々の差分列を確認し、Webの全量画面だけではスマホの基準画面を省略しません。
+    @Test fun keepsPhoneBaseWhenKeptRoundsStartWithAWebFullScreen() {
+        val web = round("web_interact", "{}", """{"ok":true,"screen":{"snapshotId":"w1","full":true,"elements":[{"ref":"@w1"}]},"pad":"$pad"}""")
+        val (folded, kept) = compressWithLatest("""{"snapshotId":"p2","base":"s3","full":false,"added":[]}""", before = web)
+        assertTrue(kept.any { "\"w1\"" in it } && kept.any { "\"s1\"" in it })
+        assertEquals(37, folded)
+    }
+
+    /** 境界前に30タップ・全量画面・差分2回・タップ5回を置き、12往復を残した圧縮結果を調べます。 */
+    private fun compressWithLatest(screen: String, before: List<Message> = emptyList()): Pair<Int, List<String>> {
+        val full = round("phone_observe", "{}", """{"ok":true,"snapshotId":"s1","elements":[{"ref":"@e1"}],"pad":"$pad"}""")
+        val diffs = (2..3).flatMap { round("phone_back", "{}", """{"ok":true,"screen":{"snapshotId":"s$it","base":"s${it - 1}","full":false,"added":[]},"pad":"$pad"}""") }
+        val latest = round("phone_back", "{}", """{"ok":true,"screen":$screen,"pad":"$pad"}""")
+        val h = head + taps(30) + full + diffs + taps(5) + before + latest + taps(11 - before.size / 2)
+        val c = ContextCompressor(TOOLS, diffScreens = true).compress(h, contextTokens = 10_000)
+        return c.foldedSteps to c.messages.flatMap { it.parts }.filterIsInstance<Part.ToolResult>().map { it.content }
     }
 }

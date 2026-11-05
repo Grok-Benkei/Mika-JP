@@ -1,8 +1,9 @@
 package com.wangzan101.mika.ui
 
 import com.wangzan101.mika.R
+
 import com.wangzan101.mika.core.shell.HelperRestart
-import com.wangzan101.mika.ChineseUi
+import com.wangzan101.mika.JapaneseUi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,7 +42,7 @@ import com.wangzan101.mika.core.cap.phone.OperatingPace
 
 @RunWith(AndroidJUnit4::class)
 class SettingsScreenTest {
-    @get:Rule(order = Int.MIN_VALUE) val chinese = ChineseUi()
+    @get:Rule(order = Int.MIN_VALUE) val japanese = JapaneseUi()
 
     @get:Rule val compose = createComposeRule()
 
@@ -52,19 +53,14 @@ class SettingsScreenTest {
         mainModel: String? = "DeepSeek",
         onProblem: (Problem) -> Unit = {},
         opened: MutableList<String> = mutableListOf(),
-        showDeveloper: Boolean = true,
-        usageTokens: Long? = 123_000,
     ) {
         compose.setContent {
             SettingsContent(
                 status = status, androidRelease = "14", mainModel = mainModel, onBack = {}, onProblem = onProblem,
-                onOpenModels = { opened += "models" }, usageTokens = usageTokens, onOpenUsage = { opened += "usage" }, onOpenPhoneOps = { opened += "phone" }, onOpenDuringWork = { opened += "work" },
+                onOpenModels = { opened += "models" }, onOpenPhoneOps = { opened += "phone" }, onOpenDuringWork = { opened += "work" },
                 capsuleMode = CapsuleMode.DuringTasks, onOpenCapsule = { opened += "capsule" }, onOpenNotifications = { opened += "notifications" },
-                onOpenMemory = { opened += "memory" },
-                webSitesCount = 3, onOpenWebSites = { opened += "web" },
-                sandbox = SandboxStatus.Ready(network = false), onOpenSandbox = { opened += "sandbox" },
-                routes = 8, onOpenRoutes = { opened += "routes" }, onOpenRecovery = { opened += "recovery" },
-                showDeveloper = showDeveloper, onOpenDeveloper = { opened += "dev" },
+                onOpenLanguage = { opened += "language" }, onOpenAppAccess = { opened += "access" },
+                onOpenMemory = { opened += "memory" }, onOpenAdvanced = { opened += "advanced" },
                 versionName = "0.1.0", onOpenAbout = { opened += "about" },
             )
         }
@@ -79,23 +75,15 @@ class SettingsScreenTest {
     @Test
     fun homeShowsGroupsStatusAndValues() {
         home()
-        compose.onNode(
-            hasText(appString(R.string.all_ready)) and hasAnyAncestor(hasTestTag("settings-status")),
-            useUnmergedTree = true,
-        ).assertIsDisplayed()
+        compose.onNode(hasText(appString(R.string.all_ready)) and hasAnyAncestor(hasTestTag("settings-status")), useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText(appString(R.string.settings_basic)).assertIsDisplayed()
-        // ホームページは 1 つの画面に収まりません (「言語」行を追加すると長くなります): 表示する前に、各値をビューポートにスクロールする必要があります。
-        // の後には機種、携帯電話の操作、通知、Webサイトへのログイン、操作ルート、コンピューティング環境などが続きます。
+        // ホームにはモデル・スマホ操作・通知・版番号など、よく使う状態だけを表示します。
         for ((label, value) in listOf(
             R.string.settings_model to "DeepSeek",
             R.string.settings_phone_ops to appString(R.string.pill_available),
             R.string.notifications_title to appString(R.string.notif_normal),
-            R.string.settings_web_logins to appPlural(R.plurals.settings_count_sites, 3),
-            R.string.settings_routes to appPlural(R.plurals.settings_count_routes, 8),
-            R.string.settings_sandbox to appString(R.string.sandbox_ready),
             R.string.settings_about to "0.1.0",
         )) {
-            // 「準備完了」は複数の行に現れるため、値とその行の見出しを組み合わせる。
             compose.onNode(hasText(appString(label)) and hasText(value)).performScrollTo().assertIsDisplayed()
         }
     }
@@ -104,35 +92,39 @@ class SettingsScreenTest {
     fun homeRowsOpenTheirPages() {
         val opened = mutableListOf<String>()
         home(opened = opened)
-        for (t in listOf(appString(R.string.settings_model), appString(R.string.usage_title), appString(R.string.settings_phone_ops), appString(R.string.settings_during_work), appString(R.string.capsule_settings_title), appString(R.string.notifications_title), appString(R.string.memory_and_skills), appString(R.string.settings_web_logins), appString(R.string.settings_sandbox), appString(R.string.settings_routes), appString(R.string.settings_recovery), appString(R.string.settings_developer), appString(R.string.settings_about))) {
+        for (t in listOf(appString(R.string.settings_model), appString(R.string.settings_phone_ops), appString(R.string.settings_during_work), appString(R.string.capsule_settings_title), appString(R.string.settings_language_appearance), appString(R.string.notifications_title), appString(R.string.settings_memory_data), appString(R.string.appaccess_title), appString(R.string.settings_advanced), appString(R.string.settings_about))) {
             scrollTo(t)
             compose.onNodeWithText(t).performClick()
         }
-        assertEquals(listOf("models", "usage", "phone", "work", "capsule", "notifications", "memory", "web", "sandbox", "routes", "recovery", "dev", "about"), opened)
+        assertEquals(listOf("models", "phone", "work", "capsule", "language", "notifications", "memory", "access", "advanced", "about"), opened)
     }
 
-    /** 「トークン使用量」には過去 7 日間の合計を書き込みます。何もない場合は、「まだ」と書きます。統計がまだ計算されていない場合、この行は表示されません。 */
+    /** 接続・保守・開発の入口をまとめ、各行から従来の子ページを開けることを確認します。 */
     @Test
-    fun usageRowShowsWeekTotal() {
-        var tokens by mutableStateOf<Long?>(123_000)
+    fun advancedRowsOpenTheirPages() {
+        val opened = mutableListOf<String>()
         compose.setContent {
-            SettingsContent(
-                status = ready, androidRelease = "14", mainModel = "DeepSeek", onBack = {}, onProblem = {}, onOpenModels = {},
-                usageTokens = tokens,
+            AdvancedSettingsContent(
+                onBack = {}, proxy = "", onOpenProxy = { opened += "proxy" },
+                sandbox = SandboxStatus.Ready(network = false), onOpenSandbox = { opened += "sandbox" },
+                onOpenRecovery = { opened += "recovery" },
+                computerAccess = false, onOpenComputerAccess = { opened += "computer" },
+                mcpServersCount = 0, onOpenMcpServers = { opened += "mcp" },
+                showDeveloper = true, onOpenDeveloper = { opened += "dev" },
             )
         }
-        compose.onNodeWithText(appString(R.string.usage_last_7d, "12.3 万")).assertIsDisplayed()
-        tokens = 0
-        compose.awaitOne(appString(R.string.usage_none)).assertIsDisplayed()
-        tokens = null
-        compose.waitForIdle()
-        compose.onAllNodesWithText(appString(R.string.usage_title)).assertCountEquals(0)
+        for (t in listOf(appString(R.string.net_proxy), appString(R.string.settings_sandbox), appString(R.string.mcp_title), appString(R.string.mcp_servers_title), appString(R.string.settings_recovery))) {
+            scrollTo(t)
+            compose.onNodeWithText(t).performClick()
+        }
+        compose.onNodeWithText(appString(R.string.settings_developer)).performScrollTo().performClick()
+        assertEquals(listOf("proxy", "sandbox", "computer", "mcp", "recovery", "dev"), opened)
     }
 
-    /** リリース バージョンには開発者向けオプションが表示されません。 */
+    /** 公開用ビルドの詳細設定には、開発者向けオプションを表示しません。 */
     @Test
     fun developerRowHiddenInRelease() {
-        home(showDeveloper = false)
+        compose.setContent { AdvancedSettingsContent(onBack = {}, showDeveloper = false) }
         compose.onAllNodesWithText(appString(R.string.settings_developer)).assertCountEquals(0)
     }
 
@@ -145,10 +137,7 @@ class SettingsScreenTest {
             onProblem = { clicked += it },
         )
         compose.onNodeWithText(appString(R.string.banner_wireless_off)).assertIsDisplayed()
-        compose.onAllNodes(
-            hasText(appString(R.string.all_ready)) and hasAnyAncestor(hasTestTag("settings-status")),
-            useUnmergedTree = true,
-        ).assertCountEquals(0)
+        compose.onAllNodesWithText(appString(R.string.all_ready)).assertCountEquals(0)
         compose.onNodeWithText(appString(R.string.pill_needs_attention)).assertIsDisplayed()
         compose.awaitOne(appString(R.string.heads_up_action)).performClick()
         assertEquals(listOf<Problem>(Problem.PhoneHelper(BuiltinShellStatus.WirelessDebuggingOff)), clicked)
@@ -160,8 +149,6 @@ class SettingsScreenTest {
         compose.onNodeWithText(appString(R.string.banner_too_old)).assertIsDisplayed()
         compose.onNodeWithText(appString(R.string.settings_not_set)).assertIsDisplayed()
         compose.onNodeWithText(appString(R.string.pill_unsupported)).assertIsDisplayed()
-        // Android 12 以下の携帯電話の操作は利用できません：リカバリおよび修理は提供されません
-        compose.onAllNodesWithText(appString(R.string.settings_recovery)).assertCountEquals(0)
     }
 
     @Test
@@ -170,33 +157,17 @@ class SettingsScreenTest {
         compose.setContent {
             PhoneOpsScreen(
                 SystemStatus(34, BuiltinShellStatus.WirelessDebuggingOff, AccessibilityState.On, notificationsAllowed = true),
-                "14", onProblem = {}, onOpenNotifications = {}, onRepair = { repaired++ }, onUnpair = {}, onBack = {},
+                "14", onProblem = {}, onRepair = { repaired++ }, onUnpair = {}, onBack = {},
             )
         }
         compose.onNodeWithText(appString(R.string.settings_a11y)).assertIsDisplayed()
         compose.onNodeWithText(appString(R.string.state_on)).assertIsDisplayed()
         compose.onNodeWithText(appString(R.string.phone_wireless_off)).assertIsDisplayed()
-        compose.onNodeWithText(appString(R.string.notif_normal)).assertIsDisplayed()
-        compose.onNodeWithText(appString(R.string.settings_android, "14")).assertIsDisplayed()
+        compose.onNodeWithText("安卓 14").assertIsDisplayed()
         compose.onNodeWithText(appString(R.string.settings_meets)).assertIsDisplayed()
         compose.onNodeWithText(PhoneSetupCopy.usageNote(HelperRestart.None)).assertExists()
         compose.onNodeWithText(PhoneSetupCopy.REPAIR).performClick()
         assertEquals(1, repaired)
-    }
-
-    /** 携帯電話の操作ページの「通知」行には、全体的なステータスが表示されます。クリックすると通知ページに入ります。 */
-    @Test
-    fun phoneOpsNotificationRowOpensNotifications() {
-        var opened = 0
-        compose.setContent {
-            PhoneOpsScreen(
-                ready.copy(notificationsAllowed = false), "14", onProblem = {}, onOpenNotifications = { opened++ },
-                onRepair = {}, onUnpair = {}, onBack = {},
-            )
-        }
-        compose.onNodeWithText(appString(R.string.state_turned_off)).assertIsDisplayed()
-        compose.onNodeWithText(appString(R.string.notifications_title)).performClick()
-        assertEquals(1, opened)
     }
 
     /** 通知ページ: マスター スイッチが有効になっている場合、チャンネルがオフになっている場合、または進行状況がオフになっている場合、各行にステータスが表示されます。各行をクリックして onFix に送信します。 */
@@ -233,7 +204,7 @@ class SettingsScreenTest {
     @Test
     fun unpairAsksFirst() {
         var unpaired = 0
-        compose.setContent { PhoneOpsScreen(ready, "14", onProblem = {}, onOpenNotifications = {}, onRepair = {}, onUnpair = { unpaired++ }, onBack = {}) }
+        compose.setContent { PhoneOpsScreen(ready, "14", onProblem = {}, onRepair = {}, onUnpair = { unpaired++ }, onBack = {}) }
         compose.onNodeWithText(PhoneSetupCopy.UNPAIR).performClick()
         assertEquals(0, unpaired)
         compose.clickInDialog(PhoneSetupCopy.UNPAIR_CONFIRM)
@@ -252,7 +223,7 @@ class SettingsScreenTest {
         }
         compose.onNodeWithText(appString(R.string.settings_parallel)).assertIsDisplayed()
         compose.onNodeWithText(appString(R.string.parallel_needs_14)).assertIsDisplayed()
-        compose.onNodeWithText(appPlural(R.plurals.settings_count_tasks, 1)).assertIsDisplayed()
+        compose.onNodeWithText("1 个").assertIsDisplayed()
         compose.onNodeWithText("+").assertDoesNotExist()
     }
 
@@ -268,10 +239,10 @@ class SettingsScreenTest {
             )
         }
         compose.onNodeWithText(appString(R.string.settings_keep_on)).assertIsDisplayed()
-        compose.onNodeWithText(appPlural(R.plurals.settings_count_tasks, 2)).assertIsDisplayed()
+        compose.onNodeWithText("2 个").assertIsDisplayed()
         compose.onNodeWithText("+").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText(appPlural(R.plurals.settings_count_tasks, 3)).assertIsDisplayed()
+        compose.onNodeWithText("3 个").assertIsDisplayed()
         compose.onNodeWithText("−").performClick()
         assertEquals(listOf(3, 2), picked)
     }
@@ -332,11 +303,11 @@ class SettingsScreenTest {
         val picked = mutableListOf<CapsuleMode>()
         compose.setContent { CapsuleScreen(mode, onMode = { picked += it; mode = it }, onBack = {}) }
         compose.awaitOne(appString(R.string.capsule_mode_tasks)).assertIsDisplayed()
-        compose.onNodeWithText(appString(R.string.capsule_mode_off)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(appString(R.string.mcp_turn_off)).performScrollTo().assertIsDisplayed()
         // 脚注は 3 つのオプションの下にあります。画面が短い場合、またはフォント サイズが大きい場合は、スクロールして表示する必要があります。
         compose.onNodeWithText(appString(R.string.settings_a11y), substring = true).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(appString(R.string.capsule_mode_always)).performScrollTo().performClick()
-        compose.onNodeWithText(appString(R.string.capsule_mode_off)).performScrollTo().performClick()
+        compose.onNodeWithText(appString(R.string.mcp_turn_off)).performScrollTo().performClick()
         assertEquals(listOf(CapsuleMode.Always, CapsuleMode.Off), picked)
     }
 
@@ -347,7 +318,7 @@ class SettingsScreenTest {
         var cleared = 0
         compose.setContent { RoutesScreen(routes, onClear = { cleared++; routes = 0 }, onBack = {}) }
         compose.onNodeWithText(appString(R.string.routes_saved)).assertIsDisplayed()
-        compose.onNodeWithText(appPlural(R.plurals.settings_count_routes, 3), substring = true).assertIsDisplayed()
+        compose.onNodeWithText("3 条", substring = true).assertIsDisplayed()
         compose.onNodeWithText(appString(R.string.routes_clear_all)).performClick()
         compose.clickInDialog(appString(R.string.cancel))
         assertEquals(0, cleared)
@@ -355,7 +326,7 @@ class SettingsScreenTest {
         compose.awaitOne(appString(R.string.routes_clear_title), inDialog = true).assertIsDisplayed()
         compose.clickInDialog(appString(R.string.clear))
         assertEquals(1, cleared)
-        compose.onNodeWithText(appPlural(R.plurals.settings_count_routes, 0), substring = true).assertIsDisplayed()
+        compose.onNodeWithText("0 条", substring = true).assertIsDisplayed()
         compose.onNodeWithText(appString(R.string.routes_clear_all)).assertDoesNotExist()
     }
 
@@ -380,18 +351,23 @@ class SettingsScreenTest {
         compose.onNodeWithText(appString(R.string.dev_compaction)).assertIsDisplayed()
     }
 
-    /** 「自律モード」は開発者向けオプションの先頭にあり、デフォルトではオフになっています。スイッチをクリックするか、行全体を切り替えます。 */
+    /** タスク実行の先頭に自律モードを置き、既定で無効にします。行とスイッチの両方から変更できます。 */
     @Test
     fun autonomousSwitchComesFirstAndToggles() {
         val toggled = mutableListOf<Boolean>()
         var on by mutableStateOf(false)
-        compose.setContent { DeveloperOptionsScreen(SpeedFlags.OFF, onSpeed = {}, onBack = {}, autonomous = on, onAutonomous = { toggled += it; on = it }) }
+        compose.setContent {
+            DuringWorkScreen(
+                keepScreenOn = true, onKeepScreenOn = {}, muteTarget = true, onMuteTarget = {},
+                parallel = null, onParallelMax = {}, onBack = {}, autonomous = on, onAutonomous = { toggled += it; on = it },
+            )
+        }
         compose.onNodeWithText(AutonomyCopy.GROUP).assertIsDisplayed()
         compose.onNodeWithText(AutonomyCopy.TITLE).assertIsDisplayed()
-        compose.onNodeWithTag("dev-autonomous").assertIsOff().performClick()
-        compose.onNodeWithTag("dev-autonomous").assertIsOn()
+        compose.onNodeWithTag("work-autonomous").assertIsOff().performClick()
+        compose.onNodeWithTag("work-autonomous").assertIsOn()
         compose.onNodeWithText(AutonomyCopy.TITLE).performClick()
-        compose.onNodeWithTag("dev-autonomous").assertIsOff()
+        compose.onNodeWithTag("work-autonomous").assertIsOff()
         assertEquals(listOf(true, false), toggled)
     }
 
@@ -427,7 +403,7 @@ class SettingsScreenTest {
 
     @Test
     fun unsupportedHidesAdvanced() {
-        advanced(SandboxStatus.Unsupported("此设备不支持(需要 arm64)"))
+        advanced(SandboxStatus.Unsupported(appString(R.string.install_unsupported)))
         compose.onAllNodesWithText(SandboxCopy.NETWORK_TITLE).assertCountEquals(0)
         compose.onAllNodesWithText(appString(R.string.sandbox_reset)).assertCountEquals(0)
     }
@@ -437,7 +413,7 @@ class SettingsScreenTest {
         advanced(SandboxStatus.NotInstalled)
         compose.onNodeWithText(SandboxCopy.NETWORK_TITLE).assertIsDisplayed()
         compose.onNodeWithText(appString(R.string.sandbox_reset)).assertIsDisplayed()
-        for (t in listOf("サンドボックス", "サンドボックスをインストール", "ソフトウェアの配布元", "ワークスペースを空にする")) compose.onAllNodesWithText(t, substring = true).assertCountEquals(0)
+        for (t in listOf(appString(R.string.selfcheck_check_sandbox), "安装沙箱", "软件源", "清空工作区")) compose.onAllNodesWithText(t, substring = true).assertCountEquals(0)
     }
 
     @Test
@@ -449,7 +425,7 @@ class SettingsScreenTest {
         compose.onNodeWithText(appString(R.string.cancel)).performClick()
         assertEquals(0, c.reset)
         compose.onNodeWithText(appString(R.string.sandbox_reset)).performClick()
-        compose.onNodeWithText(appString(R.string.reset)).performClick()
+        compose.onNodeWithText(appString(R.string.sandbox_resetting)).performClick()
         assertEquals(1, c.reset)
     }
 

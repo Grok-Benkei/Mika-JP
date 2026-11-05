@@ -53,7 +53,7 @@ class ModelSetupScreenTest {
         selectPreset = { calls += "preset $it" }, testAndSave = { calls += "test" }, openForm = { calls += "open form" },
         saveUntested = { calls += "save untested" },
         openProvider = { calls += "provider $it" }, pickRole = { calls += "role $it" }, next = { calls += "next" },
-        openSignIn = { calls += "signin $it" },
+        openUsage = { calls += "usage" }, openSignIn = { calls += "signin $it" },
     )
 
     private val form = AddForm.of(ProviderPresets.all.first()).copy(apiKey = "sk")
@@ -120,6 +120,7 @@ class ModelSetupScreenTest {
     @Test fun settingsPageShowsAllThreeRolesWithoutBottomButton() {
         show(connected(RoleChoices(main = "c1", vision = RoleChoice.Off, light = RoleChoice.SameAsMain)), onboarding = false)
         compose.onNodeWithText(ModelsCopy.TITLE).assertIsDisplayed()
+        compose.onNodeWithText(ModelsCopy.LEAD).assertDoesNotExist()
         // 変更はすぐに有効になり、左上隅に戻るだけです。
         compose.onNodeWithTag("setup-next").assertDoesNotExist()
         ModelRole.entries.forEach { compose.onNodeWithText(ModelsCopy.roleLabel(it)).assertIsDisplayed() }
@@ -128,6 +129,15 @@ class ModelSetupScreenTest {
         compose.onNodeWithText(ModelsCopy.SAME_AS_MAIN).assertIsDisplayed()
         compose.onNodeWithTag("role-light").performClick()
         assertEquals(listOf("role Light"), calls)
+    }
+
+    @Test fun settingsPageOpensTokenUsageButOnboardingDoesNotShowIt() {
+        show(connected(), onboarding = false)
+        compose.onNodeWithText(UsageCopy.TITLE).performScrollTo().performClick()
+        assertEquals(listOf("usage"), calls)
+        calls.clear()
+        show(connected(), onboarding = true)
+        compose.onNodeWithText(UsageCopy.TITLE).assertDoesNotExist()
     }
 
     @Test fun contextFormValidatesPreviewsAndSavesTheModelUsedForNewTasks() {
@@ -325,11 +335,11 @@ class ModelSetupScreenTest {
 
     @Test fun openRouterSheetShowsFailureAndCanRetry() {
         val started = mutableListOf<String>()
-        val ui = ModelSetupUi(form, accountSignIn = AccountSignInUi(AccountProvider.OpenRouter, failure = "已取消登录。"))
+        val ui = ModelSetupUi(form, accountSignIn = AccountSignInUi(AccountProvider.OpenRouter, failure = appString(R.string.account_fail_denied)))
         compose.setContent { MikaTheme { SignInSheetBody(ui, SignInKind.OpenRouter, SignInSheetActions(start = { started += "$it" })) } }
         compose.onNodeWithText(ModelsCopy.signInStart(SignInKind.OpenRouter)).assertIsDisplayed()
         compose.onNodeWithTag("signin-risk").assertDoesNotExist()
-        compose.onNodeWithTag("signin-failed").assertTextContains("已取消登录。")
+        compose.onNodeWithTag("signin-failed").assertTextContains(appString(R.string.account_fail_denied))
         compose.onNodeWithTag("signin-start").performClick()
         assertEquals(listOf("OpenRouter"), started)
     }

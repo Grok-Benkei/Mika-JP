@@ -170,13 +170,14 @@ class CdpSession(
         synchronized(this) {
             if (closeError != null) return
             closeError = error
+            // 待機中の呼び出しを再開する前に、切断状態を公開します。
+            _closed.value = true
         }
         for (id in pending.keys.toList()) {
             pending.remove(id)?.result?.completeExceptionally(
                 CdpConnectionClosedException(error.message ?: "closed", error.cause),
             )
         }
-        _closed.value = true
     }
 
     companion object {

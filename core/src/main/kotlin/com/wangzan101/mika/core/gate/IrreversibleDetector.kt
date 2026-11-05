@@ -56,7 +56,7 @@ object IrreversibleDetector {
     val STATUS_SUFFIXES = listOf("成功", "记录", "售后", "明细", "方式", "列表", "中心", "入口", "码", "履歴", "済み", "完了", "方法", "一覧", "情報", "設定", "手続きの説明").map(Hant::fold)
 
     /** これらの支払い単語はボタン自体のみを認識するか、「即時」、「確認」、「実行」が前に付いています (「リチャージ センター」、「電話リチャージ」、「割引支払い」は入り口であり、カウントされません)。 */
-    val EXACT_PAY = listOf("收银台", "买单", "充值", "储值", "提现", "转出", "打赏", "缴费", "支払う", "支払いを確定", "決済する", "決済を確定", "送金する", "振り込む", "振込実行", "チャージする", "チャージを確定", "出金する").map(Hant::fold)
+    val EXACT_PAY = listOf("收银台", "买单", "充值", "储值", "提现", "转出", "打赏", "缴费", "捐赠", "捐款", "寄付する", "寄付を確定", "支払う", "支払いを確定", "決済する", "決済を確定", "送金する", "振り込む", "振込実行", "チャージする", "チャージを確定", "出金する").map(Hant::fold)
     private val EXACT_PAY_PREFIXES = listOf("", "立即", "确认", "去")
 
     /** 赤い封筒はボタン上の単語のみを認識します (「WeChat 赤い封筒」はチャット内のバブルです)。 */
@@ -122,7 +122,7 @@ object IrreversibleDetector {
     /** 英語: 名前はこの単語で始まり (大文字と小文字は関係なく単語の境界に従って)、「メッセージを送信する」や「会話を削除する」など、長さに制限はありません。 */
     val ENGLISH: Map<String, IrrevAction> = linkedMapOf(
         "send" to IrrevAction.send, "post" to IrrevAction.send, "reply" to IrrevAction.send,
-        "pay" to IrrevAction.pay,
+        "pay" to IrrevAction.pay, "donate" to IrrevAction.pay,
         "delete" to IrrevAction.delete, "remove" to IrrevAction.delete, "clear all" to IrrevAction.delete,
         "place order" to IrrevAction.order, "buy now" to IrrevAction.order, "checkout" to IrrevAction.order,
     )
@@ -339,7 +339,16 @@ object IrreversibleDetector {
         return if (amount && paySheet(shown)) "payment sheet with an amount" else null
     }
 
-    /** クリックがどの要素に作用しているのかが見つかりません (画面読み取り値が欠落しており、数値がこの画面読み取り値に属しておらず、座標に要素がありません)。実行記録に痕跡を残すため。 */
+    /** アクションに関連する合計・実払額・支払額や決済画面を確認します。単なる価格・待遇・範囲は対象外とし、明示的な支払い・注文は常に金額操作として扱います。 */
+    fun hasPayableAmount(s: ScreenSnapshot): Boolean {
+        val shown = s.elements.filter { !it.editable && !it.hint }
+        val amount = shown.any { AMOUNT.containsMatchIn(rowText(it, shown)) }
+        if (!amount) return false
+        return shown.any { e -> TOTAL_LABELS.any { it in Hant.fold(e.name) } } ||
+            ScreenDiagnosis.paymentText(shown.map { it.name }) != null || paySheet(shown)
+    }
+
+        /** クリックがどの要素に作用しているのかが見つかりません (画面読み取り値が欠落しており、数値がこの画面読み取り値に属しておらず、座標に要素がありません)。実行記録に痕跡を残すため。 */
     fun unresolved(target: GateTarget?, args: JsonObject, snapshot: ScreenSnapshot?, fresh: ScreenSnapshot? = null): Boolean =
         target == GateTarget.Tap && tapTargets(args, snapshot, fresh).isEmpty()
 

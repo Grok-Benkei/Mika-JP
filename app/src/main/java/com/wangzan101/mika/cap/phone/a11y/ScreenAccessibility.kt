@@ -5,6 +5,7 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.accessibilityservice.GestureDescription
 import android.content.Intent
 import android.graphics.Bitmap
+import android.util.Log
 import android.graphics.Path
 import android.app.Notification
 import android.os.Build
@@ -40,9 +41,12 @@ open class ScreenAccessibility : AccessibilityService() {
             }
         }
         _instance.value = this
+        // ペアリングの読取りと案内画面が参照する状態です。接続と切断を記録して診断に使います。
+        Log.i(TAG, "ユーザー補助サービスが接続されました")
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
+        Log.i(TAG, "ユーザー補助サービスの接続が解除されました")
         clearInstance()
         return super.onUnbind(intent)
     }
@@ -112,7 +116,7 @@ open class ScreenAccessibility : AccessibilityService() {
             .setDisplayId(displayId)
             .apply { strokes.forEach(::addStroke) }
             .build()
-        return suspendCancellableCoroutine { cont ->
+        suspend fun send(): Boolean = suspendCancellableCoroutine { cont ->
             val callback = object : GestureResultCallback() {
                 override fun onCompleted(gestureDescription: GestureDescription) {
                     if (cont.isActive) cont.resume(true)
@@ -124,6 +128,8 @@ open class ScreenAccessibility : AccessibilityService() {
             }
             if (!service.dispatchGesture(gesture, callback, null) && cont.isActive) cont.resume(false)
         }
+        // 注入したタップ・ダブルタップ・ドラッグは他のアプリへ届け、Mika の浮動レイヤーから隔離します。
+        return service.overlayHost?.passInjectedGesturesThrough { send() } ?: send()
     }
 
     /** ユーザーの画面 (ホーム画面) のスクリーンショットを撮った結果: 画面上にスクリーンショット防止ウィンドウがあるか、スクリーンショットを撮ることができません (エラー コード)。 */
@@ -217,6 +223,7 @@ open class ScreenAccessibility : AccessibilityService() {
             onBufferOverflow = BufferOverflow.DROP_OLDEST,
         )
 
+        private const val TAG = "MikaA11y"
         private val _instance = MutableStateFlow<ScreenAccessibility?>(null)
         /** 接続されたサービス インスタンス。サービスが開始されていない場合、または切断されている場合は null。 */
         val instance: StateFlow<ScreenAccessibility?> = _instance.asStateFlow()

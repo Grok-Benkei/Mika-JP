@@ -31,6 +31,8 @@ interface DeviceAccessPort {
     suspend fun wake(): Boolean
     suspend fun dismiss(): Boolean
     suspend fun credentialReady(kind: CredentialKind): Boolean
+    /** 一意に識別できるシステム認証欄を読み取ります。未対応・不明・曖昧な場合は null を返し、フォーカスや入力は行いません。 */
+    suspend fun detectedCredentialKind(): CredentialKind? = null
     suspend fun enter(credential: DeviceCredential): Boolean
 }
 
@@ -45,7 +47,8 @@ interface DeviceAccessStore {
 }
 
 data class DeviceAccessResult(val status: String, val state: DeviceState?, val enabled: Boolean,
-    val credentialConfigured: Boolean, val attemptBlocked: Boolean)
+    val credentialConfigured: Boolean, val attemptBlocked: Boolean,
+    val storedKind: CredentialKind? = null, val detectedKind: CredentialKind? = null)
 
 /** はプロセス全体で共有されます。同時呼び出しはシリアル化され、成功はキーストロークやコマンドの戻りコードではなく、システムのステータスに基づきます。 */
 class DeviceAccess(private val port: DeviceAccessPort, private val store: DeviceAccessStore,
@@ -94,7 +97,17 @@ class DeviceAccess(private val port: DeviceAccessPort, private val store: Device
                 targetReady = port.credentialReady(it.kind)
                 if (!targetReady) { delay(pollMs); waited += pollMs }
             }
-            if (!targetReady) return@withLock result("unsupported_keyguard", read())
+            if (!targetReady) {
+                val current = read() ?: return@withLock result("device_unavailable")
+                if (current.ready) return@withLock result("unlocked", current)
+                if (!store.enabled) return@withLock result("disabled", current)
+                if (!current.helperAvailable) return@withLock result("helper_unavailable", current)
+                val detected = port.detectedCredentialKind()
+                if (detected != null && detected != it.kind) {
+                    return@withLock result("credential_kind_mismatch", current, it.kind, detected)
+                }
+                return@withLock result("unsupported_keyguard", current)
+            }
             if (!store.enabled) return@withLock result("disabled", read())
             if (!store.beginAttempt(it)) return@withLock result("attempt_blocked", read())
             // 今後、割り込みもプレースホルダーを保持し、繰り返し入力されることはありません。システムのロックが解除されている場合にのみクリアできます。
@@ -125,6 +138,6 @@ class DeviceAccess(private val port: DeviceAccessPort, private val store: Device
         while (s != null && !done(s) && waited < waitMs) { delay(pollMs); waited += pollMs; s = read() }
         return s
     }
-    private fun result(status: String, s: DeviceState? = null) =
-        DeviceAccessResult(status, s, store.enabled, store.credentialConfigured, store.attemptBlocked)
+    private fun result(status: String, s: DeviceState? = null, storedKind: CredentialKind? = null, detectedKind: CredentialKind? = null) =
+        DeviceAccessResult(status, s, store.enabled, store.credentialConfigured, store.attemptBlocked, storedKind, detectedKind)
 }

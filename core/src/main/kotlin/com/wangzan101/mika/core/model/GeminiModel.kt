@@ -254,11 +254,16 @@ private class GeminiStream(
     private var usage: Usage? = null
     private var finishReason: String? = null
 
-    fun accept(data: String) {
+    fun accept(data: String): Boolean {
         val root = try { json.parseToJsonElement(data).jsonObject }
         catch (e: Exception) { throw ModelError.BadResponse("ストリーミング応答が正しいJSONではありません", e) }
-        usageOf(root["usageMetadata"])?.let { usage = it }
-        val candidate = (root["candidates"] as? JsonArray)?.firstOrNull() as? JsonObject ?: return
+        var usageInEvent = false
+        usageOf(root["usageMetadata"])?.let { usage = it; usageInEvent = true }
+        val candidate = (root["candidates"] as? JsonArray)?.firstOrNull() as? JsonObject
+        if (candidate == null) {
+            // finishReason の後に使用量だけのイベントが来る場合は、それを受け取るまで接続を閉じません。
+            return finishReason != null && usageInEvent
+        }
         (candidate["finishReason"] as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotEmpty)?.let { finishReason = it }
         val reply = parseChunk(data)
         var chunkCalls = 0
@@ -273,6 +278,8 @@ private class GeminiStream(
                 else -> Unit
             }
         }
+        // 終了理由と当該イベントの使用量が揃ったら終了し、それ以外は後続の使用量か EOF を待ちます。
+        return finishReason != null && usageInEvent
     }
 
     fun finish(): ModelReply {

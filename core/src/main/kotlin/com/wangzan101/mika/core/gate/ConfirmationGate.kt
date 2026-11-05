@@ -33,7 +33,7 @@ sealed interface Permit {
 /**
  * ユーザーは、お金がかかる操作に同意します (要求時に支払いのみが求められます)。次の一致する操作のみが許可されます。
  * は、宣言内容をバインドすることに同意します。同じフロントエンド アプリ、同様のアクション、画面上に表示されるオブジェクト (送信時にタイトル バー)、送信時に送信される単語は宣言と同じです。
- * 申告金額が画面に表示されます。
+ * 支払う文脈では申告金額が画面に表示されます。通常の価格・待遇・範囲は支払額として照合しません。
  * 正解か否かに関わらず、次ヒットの不可逆操作を使用します。タイピング以外の書き込み操作（アプリに戻る、開くなど）を実行した場合、
  * または [MAX_STEPS] ステップが完了しました。契約は無効です。今回のみ同意できます。ミッション開始時と終了時 [reset] の 1 つのミッション内でのみ有効です。
  * タスク ループとインターフェイス応答が異なるスレッドにある可能性があり、読み取りと書き込みの両方がロックされています。
@@ -85,7 +85,7 @@ class ConfirmationGate {
             screen?.packageName == null || screen.packageName != r.app -> "approved in ${r.app} but the screen shows ${screen?.packageName ?: "unknown"}"
             !targetShown(r, screen) && !(textless(screen) && seenShows(r, seen)) -> "the target \"${r.target}\" is not shown " + (if (r.action == IrrevAction.send) "in the title area" else "on the screen")
             r.action == IrrevAction.send && !contentMatches(r.content, screen, typing) && !(textless(screen) && seenShows(r, seen)) -> "the text to send is not exactly what was approved"
-            !amountShown(r.amount, screen, hit.matched) -> "the approved amount ${r.amount ?: "(none)"} is not on the screen"
+            amountBinds(hit, screen) && !amountShown(r.amount, screen, hit.matched) -> "the approved amount ${r.amount ?: "(none)"} is not on the screen"
             else -> return Permit.Allowed
         }
         return Permit.Mismatch(reason)
@@ -154,6 +154,13 @@ class ConfirmationGate {
         fun same(x: String) = norm(x).let { if (capped) it.startsWith(c) else it == c }
         if (typing != null) return same(typing)
         return s.elements.any { it.editable && !it.hint && same(it.name) }
+    }
+
+    /** 明示的な注文・支払い・金額操作は常に照合します。提出と削除は決済画面や合計がある場合だけ金額を照合し、通常の待遇や価格との誤判定を防ぎます。 */
+    private fun amountBinds(hit: Irreversible, s: ScreenSnapshot): Boolean = when (hit.action) {
+        IrrevAction.order, IrrevAction.pay, IrrevAction.other -> true
+        IrrevAction.send -> false
+        IrrevAction.submit, IrrevAction.delete -> IrreversibleDetector.hasPayableAmount(s)
     }
 
     /**

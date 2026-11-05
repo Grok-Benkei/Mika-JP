@@ -133,6 +133,25 @@ class ConfirmationGateTest {
     }
 
     // 検証のために送信する連絡先またはアプリケーションのボタンを押します。オブジェクト (役職、会社) は画面上のどこにでもあり、検証する入力ボックスのテキストはありません。
+    @Test fun nonPayableAmountsDoNotCauseApprovalMismatchLoops() {
+        val page = ScreenSnapshot("s", "com.a", listOf(
+            el("示例对象", top = 200), el("150-200元/天", top = 280), el("提交", top = 900),
+        ), 1080, 2400)
+        fun request(amount: String?) = ConfirmationRequest(IrrevAction.submit, "示例对象", "提交申请", amount, "com.a")
+        val hit = Irreversible(IrrevAction.submit, "提交")
+        // 範囲・片端の申告・金額なしでも誤って不一致にしません。承認は1回だけ消費します。
+        for (amount in listOf("150-200元/天", "150", "200元", null)) {
+            val gate = approved(request(amount))
+            assertEquals(amount ?: "none", Permit.Allowed, gate.permits(hit, page, 2))
+            assertEquals(amount ?: "none", Permit.NoGrant, gate.permits(hit, page, 2))
+        }
+        // 提出ボタンでも、支払額のある文脈では金額なし・誤った金額を許可しません。
+        val due = page.copy(elements = page.elements + el("合计 ¥25", top = 800))
+        assertTrue(approved(request(null)).permits(hit, due, 2) is Permit.Mismatch)
+        assertTrue(approved(request("150-200元/天")).permits(hit, due, 2) is Permit.Mismatch)
+        assertEquals(Permit.Allowed, approved(request("¥25")).permits(hit, due, 2))
+    }
+
     @Test fun contactButtonApprovalChecksTargetOnScreen() {
         val page = ScreenSnapshot("s", "www.jobs.example", listOf(el("产品经理 · 某公司", top = 400), el("¥25", top = 430), el("立即沟通", top = 460)), 1080, 2400)
         val r = req(IrrevAction.submit, "www.jobs.example", target = "产品经理", content = "点立即沟通,发出预设的招呼语")

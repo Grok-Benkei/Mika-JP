@@ -209,8 +209,8 @@ object HistoryPruner {
     private fun shrinkInterface(content: String): String {
         val obj = parse(content) ?: return content
         val small = obj.mapValues { (k, v) ->
-            val long = v is JsonPrimitive && v.isString && v.content.length > LONG_TEXT
-            if (k == "elements" || (long && k !in OUTCOME)) JsonPrimitive(OMITTED) else v
+            val long = if (v is JsonPrimitive) v.isString && v.content.length > LONG_TEXT else v.toString().length > LONG_TEXT
+            if (k == "elements" || k == "tree" || (long && k !in OUTCOME)) JsonPrimitive(OMITTED) else v
         }
         return JsonObject(small).toString()
     }

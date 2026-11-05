@@ -39,6 +39,24 @@ class ScheduleTaskTest {
         assertTrue(paused)
     }
 
+    // 実行済みの単発計画は見つからないのではなく、すでに実行したと報告します。
+    @Test fun resumingAPlanThatAlreadyRanSaysSoInsteadOfNotFound() = runBlocking {
+        val plan = TriggerDefinition("plan-1", "conversation", "查快递", 1000)
+        val admin = object : ScheduleAdmin {
+            override fun list(threadId: String) = if (threadId == "conversation") listOf(plan) else emptyList()
+            override fun setEnabled(threadId: String, id: String, enabled: Boolean) = false
+            override fun remove(threadId: String, id: String) = false
+            override fun reschedule(threadId: String, id: String, atMs: Long) = false
+            override fun runNow(threadId: String, id: String) = false
+        }
+        val tools = toolDispatcher(FakeScreen(), conversationId = "conversation", scheduleAdmin = admin)
+        val ran = tools.execute(Part.ToolCall("r", "schedule_task", """{"op":"resume","triggerId":"plan-1"}"""), ActionPass())
+        assertEquals("false", ran.content["changed"]?.toString())
+        assertEquals("\"already_ran\"", ran.content["reason"]?.toString())
+        val missing = tools.execute(Part.ToolCall("m", "schedule_task", """{"op":"resume","triggerId":"plan-2"}"""), ActionPass())
+        assertEquals("\"plan_not_found\"", missing.content["reason"]?.toString())
+    }
+
     @Test fun userRunCanPersistExplicitFutureTask() = runBlocking {
         var saved: TriggerDefinition? = null
         val tools = toolDispatcher(FakeScreen(), conversationId = "conversation", scheduleTrigger = { saved = it; Scheduled(true) })

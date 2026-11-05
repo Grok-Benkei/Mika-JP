@@ -117,17 +117,8 @@ object CapsuleCopy {
 }
 
 /**
- * サスペンションカプセル、ステータスなし：通常はミカのアイコンで、外側の円とコーナーマークにステータスが描かれます（青い円弧は作業中に回転し、灰色の円は条件を待ち、処理するとカプセル全体がオレンジ色に変わります）
- * 外側のリングは吐き出しと吸い込みを行います。複数のピースがある場合は、隅にピースの数が書かれています。プロセスが完了した場合は緑色のチェックマークが表示され、完了していない場合は灰色のコーナーマークが停止します。アイドル状態の場合は何もありません)。
- * [CapsuleView.Shown.pill] はカプセルの列に展開され (処理する必要があります。完了したばかりです)、幅はゆっくりと変化し、アイコンはドッキングされた側 ([side]) に対して移動しません。
- * アプリが手渡されると、上部に「あなたが処理します。実行しないでください。完了です。」という行があります。
- * カプセルにはテキストが 1 行しかなく、最大幅は画面の 60% に達し、切り捨てを超えています。同じ[CapsuleView.Shown.widthEpoch]は幅が広くなるだけで狭くなりません。
- * の場合は、1 つまたはカプセルをクリックして [onTap] に渡します (カードを展開します)。画面を読むと、この点は [tapLabel] と言われます。そのバーの 2 つのボタンを [onStop] と [onHandBack] に割り当てます。
- * [onSwapSide] は、画面読み上げソフトウェアに、ドラッグの代わりに「画面の反対側への移動」を追加します。 [alpha] には明るい背景とアイコンのみがあり、外側のリングとコーナー マーカーは単色のままです。
- * のダブルクリックは、呼び出し側によって 2 つの [onTap] から認識されます。画面読み上げソフトのダブルクリックはクリックなので、[onSendScreen]を与えると、また「現在の画面を美香に送信」があります。
- * [flash] 1 つ追加するたびに 1 つが点滅します (スクリーンショット)。
- * [holding] 長押しして話すと、カプセルがわずかに拡大され、外側に青い枠が付きます。 [onTalk] は、長押しの代わりに、画面読み上げソフトウェアに追加の読み上げ操作 ([talkLabel]) を提供します。
- * クリックして開始し、もう一度クリックして送信します。
+ * フローティングカプセルの表示と操作。単押しでカードを開き、ダブルタップと読上げのスクリーンショット操作は入力欄にプレビューを追加します。
+ * 画面は利用者が送信を押すまで会話へ渡しません。ドラッグ位置と長押し音声入力は呼出し側で管理します。
  */
 @Composable
 fun CapsuleContent(
@@ -401,7 +392,8 @@ private fun Modifier.morphGlass(m: Morph, end: Boolean, c: MikaColors, need: Boo
 private class EdgePill(private val width: Float, private val end: Boolean, private val inset: Float = 0f) : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
         val w = if (width > 0f) width.coerceAtMost(size.width) else size.width
-        val left = if (end) size.width - w else 0f
+        val atRight = end != (layoutDirection == LayoutDirection.Rtl)
+        val left = if (atRight) size.width - w else 0f
         val r = size.height / 2 - inset
         return Outline.Rounded(RoundRect(left + inset, inset, left + w - inset, size.height - inset, CornerRadius(r, r)))
     }

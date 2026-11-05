@@ -103,8 +103,8 @@ class WebTab(
 
     // ポップアップ タグは同じサイト ページにすでに読み込まれています。今後他の Web サイトにアクセスしたい場合は、そのナビゲーションをブロックするだけでタグを閉じないようにしてください。
     private var popupCommitted = false
-    /** は、ネットワーク エージェントのアカウント パスワードに数回応答しました (メイン スレッド上でのみ移動されました)。 */
-    private var proxyAuthAnswers = 0
+    /** 現在の主文書に対するプロキシ認証の再試行回数です。メインスレッドで扱います。 */
+    private val proxyAuth = WebProxyAuth()
 
     /** メインドキュメントがロードされているかどうか。メインスレッドでの読み取りと書き込みのみを行います。 */
     var loading: Boolean = false
@@ -203,6 +203,7 @@ class WebTab(
                     v.stopLoading()
                     return
                 }
+                proxyAuth.onPageStarted()
                 loading = true
                 armed = true
                 mainFrameFailed = false
@@ -246,12 +247,11 @@ class WebTab(
             // ネットワーク プロキシにはアカウントとパスワードが必要です。[設定] › [ネットワーク プロキシ] で HTTP プロキシに応答するだけです。何度か答えてもなお尋ねられます（アカウントとパスワードが間違っています）ので、私は二度と答えません。
             // Web サイト独自のログイン ボックスはここに入力されません。
             override fun onReceivedHttpAuthRequest(v: WebView, handler: HttpAuthHandler, host: String?, realm: String?) {
-                val credentials = WebProxy.credentialsFor(host)
-                if (credentials == null || proxyAuthAnswers >= MAX_PROXY_AUTH_ANSWERS) {
+                val credentials = proxyAuth.credentialsFor(host)
+                if (credentials == null) {
                     handler.cancel()
                     return
                 }
-                proxyAuthAnswers++
                 handler.proceed(credentials.first, credentials.second)
             }
 
@@ -433,8 +433,6 @@ class WebTab(
 
     companion object {
         private const val TAG = "MikaWebTab"
-        /** 同じタブでプロキシ認証に自動応答する回数の上限。再度要求された場合は認証情報が正しくないと判断し、認証の繰り返しを止める。 */
-        private const val MAX_PROXY_AUTH_ANSWERS = 3
         private const val PROFILE = "mika"
 
         /**

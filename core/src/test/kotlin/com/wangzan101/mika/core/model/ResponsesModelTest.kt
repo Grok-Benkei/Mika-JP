@@ -175,6 +175,15 @@ class ResponsesModelTest {
         assertEquals("none of group/rpa's models is ready", expect<ModelError.ModelNotFound> { model().complete("s", user, emptyList()) }.detail)
     }
 
+    /** ResponsesのHTTP 400もOpenAI互換と同じ規則で扱い、ローカルサービスの文脈サイズの表現を認識します。 */
+    @Test fun contextTooLongIsRecognizedLikeTheCompatibleApi() = runTest {
+        server.enqueue(MockResponse().setResponseCode(400).setBody("""{"error":{"code":400,"message":"request (25123 tokens) exceeds the available context size (16384 tokens), try increasing it","type":"exceed_context_size_error","n_prompt_tokens":25123,"n_ctx":16384}}"""))
+        expect<ModelError.ContextTooLong> { model().complete("s", user, emptyList()) }
+        server.enqueue(MockResponse().setResponseCode(400).setBody("""{"error":{"message":"This model's maximum context length is 16384 tokens."}}"""))
+        expect<ModelError.ContextTooLong> { model().complete("s", user, emptyList()) }
+        assertEquals(2, server.requestCount)
+    }
+
     @Test fun planHttpErrorsAreNotRetryable() = runTest {
         server.enqueue(MockResponse().setResponseCode(429).setBody("""{"detail":"usage limit"}"""))
         expect<ModelError.ChatGptLimitReached> { model(plan = true).complete("s", user, emptyList()) }

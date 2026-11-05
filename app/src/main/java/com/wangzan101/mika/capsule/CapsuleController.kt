@@ -85,24 +85,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * サスペンション カプセルの配線: 各タスクのステータス ([TaskCenterState.runs] と各 [TaskRun] のステータス、テイクオーバー ステージ、アクティビティ)、スイッチ、
- * Mega インターフェイスがフォアグラウンドにあるかどうか ([AppForeground])、画面がオンになっているかどうか ([DeviceStateWatcher])、ユーザー補助サービスが存在するかどうか。 [CapsuleModel]にお任せください。
- * 結果に従って、[com.wangzan101.mika.cap.phone.a11y.OverlayHost] を介してフローティング ウィンドウを追加、移動、または削除します。
- * 1 つまたはカプセルをクリックしてカードを展開し ([CapsuleCards] は内容を決定し、1 つのことだけを言います)、カードの外側をクリックし、ボタンを閉じるか、戻ってカードを 1 つに格納します (これまでに見たものは展開されず、モデルが記憶します)。カードとカプセルのボタンは、タスク サービスの既存のアクションに変換されます。
- * カードとカードはそれぞれウィンドウ内にあり、それぞれ独自の位置にあります ([window] を参照): 展開すると、カードのウィンドウは空になり、カードは独自のウィンドウ内でそのカードの方向からズームおよびフェードインします。
- * は引っ込めると引っ込み、片方が端から飛び出します ([OverlayMotion]: レイヤーを移動するだけで、ウィンドウは移動せず、フレームごとのウィンドウ サイズは変更しません)。
- * カプセルまたはカプセルをダブルクリックして ([DoubleTap]: ダブルクリックの制限時間が経過するまでクリックしても展開されません)、ユーザーの現在の画面をカード内の会話に送信します。これは、カード内の文を送信するのと同じです。
- * カード入力ボックスの左側にあるスクリーンショット ボタンのスクリーンショットを撮り、入力ボックスに貼り付けます。送信する前に文章を追加できます。切断時、最初は浮遊層が隠れ、切断後に浮遊層が出てきて、そのうちの1つが点滅します。
- * カードの下部にある入力ボックスをクリックして開いた場合にのみ、フローティング レイヤーがキーボードを受け取ることができます。送信したり、折りたたんだり、外側をクリックしたり、Return キーを押すとすぐに戻ったりすることができます。入力メソッドがポップアップすると、カプセルとカードがそこに移動します。
- * カプセルまたはカプセルを長押しして話します ([CapsuleTalk]、[CapsuleVoicePanel] を参照)。押すと、画面全体が暗くなり、カプセルの横にパネルがポップアップ表示され、「キャンセル」と「変更」の 2 つのドロップダウン ポイントがあります。
- * クリックすると展開されるカードを放して直接送信します (ダブルクリックしてターゲットを見つけるために画面を送信するのと同じセット)、カードを「変更」までドラッグしてカードを開き、入力ボックスに単語を入力し、「キャンセル」までドラッグして破棄します。
- * が発行され、はっきりと聞こえない、または使用できない場合、カプセルは文 ([note]) を点滅させます。パネルはそのウィンドウの下の別のウィンドウ内にあり、タッチすることはできません。
- * カードが拡張されると、そのものの写真が収集されます (1 秒あたり最大 [PREVIEW_FPS] 写真、変更はプッシュされません)。通常はアイコンですが、何か言いたいことがあるとカプセルに展開します (モデルが決定されます)。
- * をドラッグして放し、最も近い左または右に貼り付けることができます。駐車位置は横と高さの比率に応じて[FeatureFlags]として記録され、画面を回転させると比率に応じてリセットできます。
- * カードは左右に中央に配置され（会話カードは固定の高さ、タスクカードは内容に応じて同じ高さになります）、タイトルバーに従って上下にドラッグし、上部の比率を記録します。カードを変更するときに上部は移動しません。
- * の対話カードの往復は[ConversationStore](対話ページと同じコピー)から読み取られ、
- * が運営するアプリは、そのラウンドの走行記録([RunStore])から読み込まれます。
- * フローティング レイヤーを描画できない場合 (サービスが切断されたばかりでシステムが許可を拒否した場合)、サービス インスタンスは再試行されず、カプセルは表示されず、通知は同じままになります。すべてメインスレッド上にあります。
+ * タスク状態・前面アプリ・画面状態に応じてフローティングカプセルとカードを更新します。
+ * 同じ入力元・近い位置のダブルタップで画面を入力欄にプレビューし、利用者が送信するまで会話へ渡しません。
+ * キーボード表示中の位置とドラッグ位置を管理し、実際の操作は既存のタスクサービスへ渡します。
  */
 class CapsuleController(
     private val context: Context,
@@ -129,9 +114,23 @@ class CapsuleController(
     private var inputUi by mutableStateOf(CardInputUi())
     /** スクリーンショットを撮るときに 1 つ追加します。1 つは点滅します。 */
     private var flash by mutableIntStateOf(0)
-    private val taps = DoubleTap(ViewConfiguration.getDoubleTapTimeout().toLong())
+    private val taps = DoubleTap(
+        ViewConfiguration.getDoubleTapTimeout().toLong(),
+        ViewConfiguration.get(context).scaledTouchSlop.toFloat(),
+    )
+    private data class Touch(val at: Long, val x: Float, val y: Float, val source: Int)
+    /** 直前の ACTION_DOWN を保持し、Compose の onClick に含まれない入力元と位置を補います。 */
+    private var capsuleTouch: Touch? = null
     private var tapJob: Job? = null
-    /** はスクリーンショットを撮っています (フローティング レイヤーに隠れています): この時点でクリックしてスクリーンショットを撮ってもカウントされません。 */
+
+    /** 通常の2回目のタップ以外は保留中の判定を破棄し、別の操作をダブルタップに混ぜません。 */
+    private fun resetTaps() {
+        tapJob?.cancel()
+        taps.reset()
+        capsuleTouch = null
+    }
+
+        /** はスクリーンショットを撮っています (フローティング レイヤーに隠れています): この時点でクリックしてスクリーンショットを撮ってもカウントされません。 */
     private var capturing = false
     /** がカードに送信した会話: 展開されているタスクに従って、答えを確認します。 */
     private var follow: String? = null
@@ -249,6 +248,7 @@ class CapsuleController(
         // 画面の回転: 指定された辺と比率に従って再配置します。システムは少し後に新しいサイズを提供する場合があるので、しばらくしてから再度調整できます。
         context.registerComponentCallbacks(object : ComponentCallbacks {
             override fun onConfigurationChanged(newConfig: Configuration) {
+                resetTaps()
                 place()
                 scope.launch {
                     delay(ROTATE_SETTLE_MS)
@@ -351,6 +351,7 @@ class CapsuleController(
         val nowLook = listOf(shown.kind, shown.pill, shown.count, shown.needCount)
         if (nowLook != look) {
             look = nowLook
+            resetTaps()
             wake()
         } else fade()
         _showing.value = true
@@ -374,10 +375,12 @@ class CapsuleController(
         cardWindow = cardW
         panelWindow = panel
         windowOn = service
-        for (it in listOf(ball, cardW)) {
-            it.onResize(::place)
-            it.onTouch(::wake)
+        for (it in listOf(ball, cardW)) it.onResize(::place)
+        ball.onTouch { e ->
+            wake()
+            capsuleTouch = Touch(e.eventTime, e.rawX, e.rawY, e.source)
         }
+        cardW.onTouch { wake() }
         cardW.onBack(::back)
         watchIme(service)
         return ball
@@ -401,8 +404,7 @@ class CapsuleController(
     }
 
     private fun hide() {
-        tapJob?.cancel()
-        taps.reset()
+        resetTaps()
         snap?.cancel()
         fadeJob?.cancel()
         look = null
@@ -529,11 +531,10 @@ class CapsuleController(
     }
 
     /**
-     * ダブルクリック: クリックすると展開されるカード内の会話に現在の画面を送信します。これは、そのカード内の文を送信するのと同じです (走っているときに中断し、質問しているときに応答します。
-     * 終了後も会話を続け、最近の会話を続けるか、空いているときに新しい会話を開始してください)、カードを展開して答えを確認してください。そのカードに入力欄がない場合（引き継ぎと同意が必要）
-     * 投稿する場所はなく、クリックするように展開するだけです。
+     * ダブルタップまたは読上げの画面取得で、カードの入力欄に [PendingScreen] を追加します。
+     * 会話への保存・送信は行わず、利用者の確認後に [send] が [deliver] を呼びます。
      */
-    private fun sendScreen() {
+    private fun previewScreen() {
         val v = view ?: return
         if (capturing) return
         scope.launch {
@@ -544,11 +545,12 @@ class CapsuleController(
                 expand()
                 return@launch
             }
-            val shot = captureScreen() ?: return@launch
-            deliver(target, kind, shot, "")
             CapsuleCards.conversationOf(target)?.let { follow = it }
             open()
             refresh()
+            val shot = captureScreen() ?: return@launch
+            val thumb = withContext(Dispatchers.Default) { shot.jpeg?.let(::screenThumbnail) }
+            if (expanded) inputUi = inputUi.copy(screen = PendingScreen(shot, thumb))
         }
     }
 
@@ -897,6 +899,7 @@ class CapsuleController(
         override fun start() {
             val w = window ?: return
             val a = area() ?: return
+            resetTaps()
             snap?.cancel()
             wake()
             dragging = true
@@ -928,7 +931,8 @@ class CapsuleController(
                 return
             }
             val x = CapsuleDocking.dragX(dragStartX + dx.toInt(), a, w.width)
-            dock = CapsuleDocking.release(x, y, w.width, w.height, a)
+            val base = area(ime = false) ?: a
+            dock = CapsuleDocking.release(x, y, w.width, w.height, a, base)
             flags.setCapsuleDock(dock)
             snapTo(x, y, CapsuleDocking.dockedX(dock.side, a, w.width))
         }
@@ -956,6 +960,7 @@ class CapsuleController(
 
     /** 画面を読み取るときにドラッグする代わりに、反対側に切り替えます。 */
     private fun swapSide() {
+        resetTaps()
         dock = dock.copy(side = if (dock.side == DockSide.Left) DockSide.Right else DockSide.Left)
         flags.setCapsuleDock(dock)
         place()
@@ -999,8 +1004,7 @@ class CapsuleController(
         val v = view ?: return
         // は、放した後も回転しているときにもう一度押すことができます。前の段落は talk.begin によって破棄されます。
         if (capturing || (talk.active && !talk.released) || !canTalk()) return
-        tapJob?.cancel()
-        taps.reset()
+        resetTaps()
         wake()
         clearNote()
         val loading = if (v.kind == CapsuleKind.Idle) scope.async { loadIdle() } else null
@@ -1075,6 +1079,7 @@ class CapsuleController(
     }
 
     private fun showNote(text: String, kind: CapsuleKind, opensMika: Boolean, ms: Long) {
+        resetTaps()
         note = CapsuleNote(text, kind, opensMika, ++noteCount)
         wake()
         noteJob?.cancel()
@@ -1093,18 +1098,32 @@ class CapsuleController(
     private fun tapCapsule() {
         val n = note
         clearNote()
-        if (n?.opensMika == true) open(null) else tap()
+        if (n != null) {
+            resetTaps()
+            if (n.opensMika) open(null)
+            return
+        }
+        val touch = capsuleTouch
+        capsuleTouch = null
+        val age = touch?.let { SystemClock.uptimeMillis() - it.at }
+        if (touch == null || age == null || age !in 0..taps.timeoutMs) {
+            // 読上げの onClick は MotionEvent を持たない明示的な単押しとして扱います。
+            resetTaps()
+            expand()
+            return
+        }
+        tap(touch)
     }
 
     // ---------- タップとカード ----------
 
-    /** カードまたはカプセルをクリックします。最初のクリックを待ち、ダブルクリックの制限時間内に 2 回目のクリックがない場合はカードを展開します。ダブルクリックすると、現在の画面が表示されます。 */
-    private fun tap() {
+    /** 同じ入力元が近い位置を続けて触れた場合だけダブルタップとして扱います。 */
+    private fun tap(touch: Touch) {
         if (capturing) return
-        when (taps.tap(SystemClock.uptimeMillis())) {
+        when (taps.tap(touch.at, touch.x, touch.y, touch.source)) {
             DoubleTap.Tap.Double -> {
                 tapJob?.cancel()
-                sendScreen()
+                previewScreen()
             }
             DoubleTap.Tap.First -> {
                 tapJob?.cancel()
@@ -1213,6 +1232,11 @@ class CapsuleController(
             keeper.close(KeptPageClose.User)
             collapse()
         }
+        override fun hideCapsule() {
+            // 設定と同じスイッチをオフにし、CapsuleModel に従って閉じます。タスクと通知は変更しません。
+            flags.setCapsuleMode(CapsuleMode.Off)
+            android.widget.Toast.makeText(context, CardCopy.hiddenHint(), android.widget.Toast.LENGTH_LONG).show()
+        }
     }
 
     /** カード ウィンドウ: 展開するとカードが表示されますが、折りたたむと何も表示されません (ウィンドウにはサイズがありません)。 */
@@ -1253,7 +1277,7 @@ class CapsuleController(
                 CapsuleContent(
                     v,
                     onTap = ::tapCapsule,
-                    onSendScreen = ::sendScreen,
+                    onSendScreen = ::previewScreen,
                     flash = flash,
                     onStop = { v.runKey?.let { TaskService.cancel(context, it) } },
                     onHandBack = { v.runKey?.let { TaskService.handBack(context, runKey = it) } },

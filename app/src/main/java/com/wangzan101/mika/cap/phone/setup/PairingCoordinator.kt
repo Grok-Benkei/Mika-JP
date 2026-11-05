@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
+import android.util.Log
 import com.wangzan101.mika.cap.phone.a11y.ScreenAccessibility
 import com.wangzan101.mika.cap.phone.PhoneServices
 import com.wangzan101.mika.core.shell.BuiltinShellControl
@@ -22,8 +23,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * ペアリングの全プロセス: ペアリング ウィンドウを見つけ、障害物がなく開いたら自分でペアリング コード ([PairingCodeReader]) を読み取ります。
@@ -54,6 +57,7 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
 
     /** はペアリングを開始します。ステータスが「ペアリング中」に変わるとすぐに、再ペアリングの待機 (古い実行ステータスによって完了と判断されるのを避けるため) とコード ([submitted]) を入力した後の待機を終了します。 */
     suspend fun pair(code: String, port: Int?) = coroutineScope {
+        Log.i(TAG, "${if (port != null) "ポート $port" else "検出したポート"}でペアリングします")
         val job = launch(start = CoroutineStart.UNDISPATCHED) { control.startPairing(code, port) }
         _repairing.value = false
         submitted = false
@@ -65,7 +69,11 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
     fun begin() {
         deadline.extend()
         control.startDiscovery()
-        if (watch?.isActive == true) return
+        if (watch?.isActive == true) {
+            Log.i(TAG, "探索中のため期限を延長しました")
+            return
+        }
+        Log.i(TAG, "ペアリングを探索します（状態 ${control.status.value}、ユーザー補助 ${ScreenAccessibility.instance.value != null}）")
         watch = scope.launch {
             val reader = launch { PairingCodeReader.run(app, control, this@PairingCoordinator) }
             val notices = launch {
@@ -79,11 +87,13 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
                     PairingNotice.follow(control.status.value, d, r, pending)
                 }
                     .distinctUntilChanged()
+                    .onEach { (notice, done) -> Log.i(TAG, "通知 ${notice?.let { it::class.simpleName } ?: "なし"}（探索 ${control.pairingDiscovery.value}、状態 ${control.status.value}）${if (done) "、完了" else ""}") }
                     .transformWhile { emit(it.first); !it.second }
                     // ステータスが変化すると、その時点に到達していないポップアップとリマインダーは破棄されます。
                     .collectLatest { notice -> notice?.let { post(it) } }
             }
             if (!deadline.await(notices)) {
+                Log.i(TAG, "${WINDOW_MS / 60_000}分以内にペアリングできないため探索を終了しました")
                 notices.cancel()
                 cancelNotice()
             }
@@ -106,6 +116,7 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
     }
 
     private fun show(notice: PairingNotice) {
+        Log.i(TAG, "通知 ${notice::class.simpleName} を表示します")
         shown = notice
         PairingNotifier.show(app, notice)
     }
@@ -117,6 +128,7 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
 
     @Synchronized
     fun end() {
+        if (watch?.isActive == true) Log.i(TAG, "探索を終了しました")
         watch?.cancel()
         watch = null
         _repairing.value = false
@@ -124,21 +136,22 @@ class PairingCoordinator(context: Context, private val control: BuiltinShellCont
         cancelNotice()
     }
 
-    /** 通知またはガイダンス ページに入力されたコード。数字が 6 桁でない場合は、試さずに補充するように求められます。正しければ、入力ボックスがぐるぐる回転するのを防ぐために、すぐに「ペアリング」に変更されます。 */
-    fun submit(raw: String, port: Int?): Boolean {
+    /** 6桁の数字以外は再入力を案内して null を返します。有効ならペアリング中へ切り替え、通知側が完了を待てる Job を返します。 */
+    fun submit(raw: String, port: Int?): Job? {
         val code = PairingCode.normalize(raw)
         if (code == null) {
+            Log.i(TAG, "入力されたコードが6桁ではありません")
             show(PairingNotice.EnterCode(port, PhoneSetupCopy.NOTIFY_CODE_INVALID))
-            return false
+            return null
         }
         submitted = true
         begin()
         show(PairingNotice.Working)
-        scope.launch { pair(code, port) }
-        return true
+        return scope.launch { pair(code, port) }
     }
 
     private companion object {
+        const val TAG = "MikaPairing"
         /** のペアリング期間は期間限定で公開されています。最後の [begin] から長い間一致しなかった場合、再度検索されることはなく、次回 [begin] から再度検索されます。 */
         const val WINDOW_MS = 10 * 60_000L
     }
@@ -149,6 +162,20 @@ open class PairingCodeInput : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val code = RemoteInput.getResultsFromIntent(intent)?.getCharSequence(PairingNotifier.KEY_CODE)?.toString() ?: return
         val port = intent.getIntExtra(PairingNotifier.EXTRA_PORT, -1).takeIf { it > 0 }
-        PhoneServices.of(context).pairing.submit(code, port)
+        val pairing = PhoneServices.of(context).pairing
+        val job = pairing.submit(code, port) ?: return
+        val pending = goAsync()
+        pairing.scope.launch {
+            try {
+                withTimeoutOrNull(HOLD_MS) { job.join() }
+            } finally {
+                pending.finish()
+            }
+        }
+    }
+
+    private companion object {
+        /** ブロードキャストの応答期限10秒に余裕を残し、ポート探索5秒とペアリング処理を待ちます。 */
+        const val HOLD_MS = 8_000L
     }
 }

@@ -75,7 +75,7 @@ class MiniHttpServer(
         running.set(false)
         runCatching { server?.close() }
         server = null
-        open.toList().forEach { runCatching { it.close() } }
+        open.forEach { runCatching { it.close() } }
         open.clear()
     }
 
@@ -110,7 +110,8 @@ class MiniHttpServer(
                     return
                 }
                 val response = try { handler(request) } catch (e: Exception) { onError(e); HttpResponse.empty(500) }
-                val close = request.header("connection").equals("close", ignoreCase = true)
+                val close = request.header("connection")?.split(',')
+                    ?.any { it.trim().equals("close", ignoreCase = true) } == true
                 write(output, response, close)
                 if (close) return
             }
@@ -210,7 +211,8 @@ class MiniHttpServer(
             val out = ByteArrayOutputStream()
             while (true) {
                 val size = readLine(input).substringBefore(';').trim().toIntOrNull(16) ?: throw HttpProtocolException(400, "bad chunk")
-                if (size < 0 || out.size() + size > MAX_BODY) throw HttpProtocolException(413, "body too large")
+                // 加算の桁あふれを避け、残り容量と比較して大きすぎるチャンクの確保を拒否します。
+                if (size < 0 || size > MAX_BODY - out.size()) throw HttpProtocolException(413, "body too large")
                 if (size == 0) {
                     while (readLine(input).isNotEmpty()) Unit
                     return out.toByteArray()

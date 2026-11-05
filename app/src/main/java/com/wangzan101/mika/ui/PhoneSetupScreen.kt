@@ -30,7 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import com.wangzan101.mika.ui.components.MikaDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
@@ -161,6 +161,10 @@ fun PhoneSetupScreen(status: SystemStatus, repair: Boolean, onFix: (Fix) -> Unit
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
         if (view.current == SetupStep.PairingCode) pairing.begin()
     }
+    // ペアリング中にユーザー補助が切れても前段へ戻さず、通知での入力を案内します。再接続時は自動読取りへ戻ります。
+    LaunchedEffect(view.current) {
+        if (view.current == SetupStep.PairingCode) accessibilitySkipped = true
+    }
     val notificationsOff = view.notifyIssue == PairingNotifyIssue.NotificationsOff
     LaunchedEffect(notificationsOff) {
         if (notificationsOff && !askedNotifications) {
@@ -176,7 +180,11 @@ fun PhoneSetupScreen(status: SystemStatus, repair: Boolean, onFix: (Fix) -> Unit
         context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText(PhoneSetupCopy.USB_TITLE, usbCommand))
         Toast.makeText(context, PhoneSetupCopy.USB_COPIED, Toast.LENGTH_SHORT).show()
     }
-    val close = { pairing.cancelRepair(); onClose() }
+    // ペアリング前に閉じる場合は通知と探索を終了します。処理中なら完了を待ち、成功した通知は残します。
+    val close = {
+        if (view.phase == SetupPhase.Guide || view.phase == SetupPhase.Failed) pairing.end() else pairing.cancelRepair()
+        onClose()
+    }
     BackHandler(onBack = close)
     PhoneSetupContent(
         view = view,
@@ -539,7 +547,11 @@ private fun AutoReadHint() {
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Icon(MikaIcons.Check, null, Modifier.size(20.dp), tint = c.ok)
-        Text(PhoneSetupCopy.AUTO_READ_HINT, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold, color = c.ink)
+        Column {
+            Text(PhoneSetupCopy.AUTO_READ_HINT, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold, color = c.ink)
+            // 設定画面でバックグラウンドが停止されても、先に準備した通知からコードを入力できます。
+            Text(PhoneSetupCopy.AUTO_READ_FALLBACK, Modifier.padding(top = 4.dp), fontSize = 13.sp, lineHeight = 18.sp, color = c.ink2)
+        }
     }
 }
 
@@ -671,7 +683,7 @@ fun PhoneHelperSection(status: BuiltinShellStatus, onRepair: () -> Unit, onUnpai
         )
     }
     if (confirming) {
-        AlertDialog(
+        MikaDialog(
             onDismissRequest = { confirming = false },
             title = { Text(PhoneSetupCopy.UNPAIR_TITLE) },
             text = { Text(PhoneSetupCopy.UNPAIR_BODY) },

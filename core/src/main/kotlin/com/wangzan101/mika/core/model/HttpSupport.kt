@@ -74,14 +74,11 @@ internal object HttpSupport {
         })
     }
 
-    /**
-     * SSE はイベントベースで配信されます。コルーチンをキャンセルすると、HTTP リクエストもキャンセルされます。ストリームが最後まで読み込まれると、呼び出し元はそれぞれのプロトコルに従って正常に終了したかどうかを判断します。
-     * は没収され、[ModelError.StreamCut] の最終残高は没収されます。イベントはなく、イベント ストリーム形式 (たとえば、アドレスが Web ページを指している) では正常な応答ではありません ([ModelError.BadResponse])。
-     */
-    suspend fun stream(http: OkHttpClient, req: Request, onEvent: (String) -> Unit): RawResponse =
+    /** SSE をイベント単位で配信し、キャンセルを HTTP リクエストにも伝えます。[onEvent] が true ならプロトコルの終端として接続を閉じ、EOF を待ちません。正常終端のない応答は [ModelError.StreamCut]、イベントのない非SSE応答は [ModelError.BadResponse] として扱います。 */
+    suspend fun stream(http: OkHttpClient, req: Request, onEvent: (String) -> Boolean): RawResponse =
         observe(req) { attempt -> streamRaw(http, req, attempt, onEvent) }.also(::requireProxyAccepted)
 
-    private suspend fun streamRaw(http: OkHttpClient, req: Request, attempt: TraceCall.Attempt?, onEvent: (String) -> Unit): RawResponse = suspendCancellableCoroutine { cont ->
+    private suspend fun streamRaw(http: OkHttpClient, req: Request, attempt: TraceCall.Attempt?, onEvent: (String) -> Boolean): RawResponse = suspendCancellableCoroutine { cont ->
         val call = http.newCall(req)
         cont.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
@@ -105,19 +102,20 @@ internal object HttpSupport {
                         val source = it.body?.source() ?: throw ModelError.BadResponse("ストリーミング応答に内容がありません")
                         val data = mutableListOf<String>()
                         var events = 0
-                        fun dispatch() {
-                            if (data.isNotEmpty()) {
-                                events++
-                                val event = data.joinToString("\n")
-                                attempt?.packet(event)
-                                onEvent(event)
-                                data.clear()
-                            }
+                        /** イベントを配信し、[DONE] などの終端があれば接続終了を待たず読取りを終えます。 */
+                        fun dispatch(): Boolean {
+                            if (data.isEmpty()) return false
+                            events++
+                            val event = data.joinToString("\n")
+                            attempt?.packet(event)
+                            val terminal = onEvent(event)
+                            data.clear()
+                            return terminal
                         }
                         while (cont.isActive) {
                             val line = source.readUtf8Line() ?: break
                             when {
-                                line.isEmpty() -> dispatch()
+                                line.isEmpty() -> if (dispatch()) break
                                 line.startsWith("data:") -> data += line.removePrefix("data:").removePrefix(" ")
                             }
                         }

@@ -1,6 +1,7 @@
 package com.wangzan101.mika.task
 
 import com.wangzan101.mika.core.agent.FailKind
+import com.wangzan101.mika.core.agent.GateReason
 import com.wangzan101.mika.core.agent.TaskState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
@@ -62,6 +63,23 @@ class KeepAwakeTest {
         assertFalse(lock.held)
     }
 
+    // 仮想画面の順番待ちを利用者の応答待ちと区別し、画面ロックを保持します。
+    @Test
+    fun queuedForDisplayKeepsHolding() = runTest {
+        val lock = FakeLock()
+        val awake = KeepAwake(lock, backgroundScope)
+        awake.onState(TaskState.Held(GateReason.queued("等屏")))
+        assertTrue(lock.held)
+        awake.onState(TaskState.Running(1, ""))
+        awake.onState(TaskState.Held(GateReason.queued("等屏")))
+        advanceTimeBy(KeepAwake.GRACE_MS * 2)
+        runCurrent()
+        assertTrue(lock.held)
+        awake.onState(TaskState.Running(2, ""))
+        awake.onState(TaskState.Succeeded("ok"))
+        assertFalse(lock.held)
+    }
+
     @Test
     fun failureAndCancelRelease() = runTest {
         for (end in listOf(TaskState.Failed("x", FailKind.GaveUp), TaskState.Cancelled)) {
@@ -102,6 +120,27 @@ class KeepAwakeTest {
         b.onState(TaskState.Cancelled)
         assertFalse(lock.held)
         b.onState(TaskState.Running(2, ""))
+        assertTrue(lock.held)
+        b.close()
+        assertFalse(lock.held)
+    }
+
+    // 前のタスクが次の分を取得してから自分のロックを解放し、引継ぎ中に画面ロックが途切れないことを確認します。
+    @Test
+    fun handoffBridgesToQueuedRun() = runTest {
+        val lock = FakeLock()
+        val shared = SharedWakeLock(lock)
+        val a = KeepAwake(shared.lease(), backgroundScope)
+        a.onState(TaskState.Running(1, ""))
+        val handoff = shared.lease().also { it.acquire() }
+        a.close()
+        assertTrue(lock.held)
+        val b = KeepAwake(shared.lease(), backgroundScope)
+        b.onState(TaskState.Running(0, ""))
+        handoff.release()
+        assertTrue(lock.held)
+        // 起動時と完了時に重複して解放しても、カウンターを余分に減らしません。
+        handoff.release()
         assertTrue(lock.held)
         b.close()
         assertFalse(lock.held)

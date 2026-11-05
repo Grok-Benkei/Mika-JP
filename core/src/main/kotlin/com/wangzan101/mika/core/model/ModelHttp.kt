@@ -27,12 +27,23 @@ object ModelHttp {
             status == 401 -> ModelError.Auth()
             status == 402 || body.contains("insufficient_quota") -> ModelError.QuotaExceeded()
             status == 429 -> ModelError.RateLimited(HttpSupport.retryAfterMs(retryAfter))
-            status == 400 && (body.contains("context_length") || body.contains("maximum context")) -> ModelError.ContextTooLong()
+            contextTooLong(status, body) -> ModelError.ContextTooLong()
             status == 404 -> ModelError.ModelNotFound(model, ModelAccessErrors.jsonDetail(body))
             status in 500..599 -> ModelError.Server(status)
             status == 403 -> ModelError.Auth()
             else -> ModelError.BadResponse("HTTP $status ${body.take(200)}")
         }
+
+    /** HTTP 400 がコンテキスト上限超過を示すか判定します。OpenAI互換・Responses・Anthropic で共用します。 */
+    fun contextTooLong(status: Int, body: String): Boolean = status == 400 && saysContextTooLong(body)
+
+    /** 上限を超える表現と、その近くの context length・size・limit・window、model length を大文字小文字を区別せず確認します。従来の context_length・maximum context・context length of only も認識し、単に context window があるだけでは上限超過と判定しません。 */
+    internal fun saysContextTooLong(text: String): Boolean = CONTEXT_TOO_LONG.containsMatchIn(text)
+
+    private val CONTEXT_TOO_LONG = Regex(
+        """(?:exceed|longer than|larger than|greater than|max)[^.\n]{0,40}?(?:context[ _](?:length|size|limit|window)|model[ _]length)|context_length|maximum context|context length of only""",
+        RegexOption.IGNORE_CASE,
+    )
 
     private val json = Json { ignoreUnknownKeys = true }
 

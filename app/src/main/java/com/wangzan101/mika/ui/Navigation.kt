@@ -9,7 +9,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 
 /** アプリのページ。ダイアログはルート ページであり、他のすべてはそこから (または設定から​​) 入力され、戻るときは元のページに戻ります。 */
-enum class Route { Chat, Settings, Memory, Plans, Browser, Run, Source, PhoneSetup, Models, SpeechModel, Welcome, ModelSetup, About, License, Screens }
+enum class Route { Chat, Settings, Memory, Plans, Browser, Run, Source, PhoneSetup, Models, Usage, SpeechModel, Welcome, ModelSetup, About, License, Screens }
 
 /**
  * ページ スタック: 一番下は常に会話ページです。 [push] は次のページに進み、[back] は前のページに戻ります (すでにダイアログ ページにある場合は false を返し、終了はシステムに任せます)。

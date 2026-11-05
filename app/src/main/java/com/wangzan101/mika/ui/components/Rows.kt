@@ -154,7 +154,7 @@ fun RowValue(text: String, tone: ValueTone = ValueTone.Plain) {
 /** 行の最後にある小さな矢印: クリックすると、別のページが表示されます。 */
 @Composable
 fun RowChevron() {
-    Icon(MikaIcons.Chevron, null, Modifier.size(MikaSize.SmallIcon), tint = MikaTheme.colors.ink3)
+    DirectionalIcon(MikaIcons.Chevron, null, Modifier.size(MikaSize.SmallIcon), tint = MikaTheme.colors.ink3)
 }
 
 /** 単一選択行: 左側に円が表示され、選択すると単色のアクセント カラーになります。区切り線はテキストから始まります。 */

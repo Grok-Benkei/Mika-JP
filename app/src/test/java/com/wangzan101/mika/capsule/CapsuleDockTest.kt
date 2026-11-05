@@ -70,6 +70,25 @@ class CapsuleDockTest {
         assertEquals(area.top, area.above(10, 20, 10).bottom)
     }
 
+    @Test fun keyboardDragSavesTheReleaseHeightInTheFullArea() {
+        val up = area.above(1200, gap = 20, room = 10)
+        val releaseY = 900
+        val dock = CapsuleDocking.release(450, releaseY, 200, 100, up, fractionArea = area)
+
+        // 完全な領域に対して保存した比率から、アニメーションの有無にかかわらず離した高さへ戻ることを確認します。
+        assertEquals((releaseY - area.top) / (area.bottom - area.top - 100).toFloat(), dock.fraction, 0.0001f)
+        assertEquals(releaseY, CapsuleDocking.y(dock.fraction, area, 100))
+        assertEquals(releaseY, CapsuleDocking.fitY(CapsuleDocking.y(dock.fraction, area, 100), up, 100))
+        // キーボードを閉じた後も同じ高さへ戻ります。
+        assertEquals(releaseY, CapsuleDocking.fitY(CapsuleDocking.y(dock.fraction, area, 100), area, 100))
+
+        // 画面回転後も完全な領域の比率を使い、新しい向きのキーボード範囲へ収めます。
+        val landscape = DockArea.of(OverlayArea(2000, 1000, insetLeft = 80, insetTop = 40), margin = 30, gap = 20, room = 10)
+        val landscapeUp = landscape.above(600, gap = 20, room = 10)
+        val rotatedY = CapsuleDocking.y(dock.fraction, landscape, 100)
+        assertEquals(rotatedY, CapsuleDocking.fitY(rotatedY, landscapeUp, 100))
+    }
+
     // ---------- カード ----------
 
     /** ウィンドウの高さの上下のシャドウ エッジを含む最も高いカード (表示高さ 1160)。 */

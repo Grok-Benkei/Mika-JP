@@ -17,10 +17,21 @@ import org.junit.Test
 class PairingNoticeTest {
     @get:Rule val texts = ChineseTexts()
 
+    /** 探索中は無音で通知を準備し、ウィンドウを検出したら入力欄をポップアップします。探索していない場合は通知しません。 */
     @Test
-    fun codeEntryAppearsOnlyOnceThePairingWindowIsFound() {
-        assertNull(PairingNotice.of(BuiltinShellStatus.NotPaired, PairingDiscovery.Searching))
+    fun codeEntryPopsOnceThePairingWindowIsFoundAndWaitsQuietlyBefore() {
+        assertEquals(PairingNotice.EnterCode(null, quiet = true), PairingNotice.of(BuiltinShellStatus.NotPaired, PairingDiscovery.Searching))
+        assertEquals(PairingNotice.EnterCode(null, quiet = true), PairingNotice.of(BuiltinShellStatus.WirelessDebuggingOff, PairingDiscovery.Searching))
+        assertNull(PairingNotice.of(BuiltinShellStatus.NotPaired, PairingDiscovery.Idle))
         assertEquals(PairingNotice.EnterCode(37001), PairingNotice.of(BuiltinShellStatus.NotPaired, PairingDiscovery.Found(37001)))
+    }
+
+    /** 無音の入力通知はユーザー補助の有無にかかわらず即座に準備し、繰り返し通知しません。 */
+    @Test
+    fun quietEntryIsPostedAtOnceAndNeverRealerts() {
+        val quiet = PairingNotice.EnterCode(null, quiet = true)
+        assertEquals(0L, PairingNotice.delayBefore(quiet, autoRead = true))
+        assertNull(PairingNotice.realertAfter(quiet, 0))
     }
 
     @Test
@@ -54,8 +65,13 @@ class PairingNoticeTest {
     fun revokedPairingGetsTheInputOnceThePairingWindowIsFound() {
         val revoked = BuiltinShellStatus.Failed(BuiltinShellFailure.AuthorizationRevoked)
         assertEquals(PairingNotice.EnterCode(37001), PairingNotice.of(revoked, PairingDiscovery.Found(37001)))
-        assertEquals(PairingNotice.Problem("ペア設定の期限が切れました"), PairingNotice.of(revoked, PairingDiscovery.Searching))
+        assertEquals(PairingNotice.EnterCode(null, quiet = true), PairingNotice.of(revoked, PairingDiscovery.Searching))
         assertEquals(PairingNotice.Problem("ペア設定の期限が切れました"), PairingNotice.of(revoked, PairingDiscovery.Idle))
+        // USBから起動したヘルパーが停止した場合は、探索中でもコード入力欄を出しません。
+        assertEquals(
+            PairingNotice.Problem("スマホのヘルパーが停止しました"),
+            PairingNotice.of(BuiltinShellStatus.Failed(BuiltinShellFailure.UsbHelperStopped), PairingDiscovery.Searching),
+        )
         // USB 起動コマンドで起動したアシスタントが停止し、コマンドを再度実行する必要があります。ペアリングウィンドウを見つけても、入力ボックスがありません。
         assertEquals(
             PairingNotice.Problem("スマホのヘルパーが停止しました"),
@@ -104,14 +120,36 @@ class PairingNoticeTest {
         assertEquals(PairingNotice.Working to false, PairingNotice.follow(revoked, PairingDiscovery.Searching, repairing = false, submitted = true))
         assertEquals(PairingNotice.Working to false, PairingNotice.follow(BuiltinShellStatus.Running, PairingDiscovery.Searching, repairing = false, submitted = true))
         // コードが入力されていない場合は、通常通りステータスに応じて計算されます。
-        assertEquals(PairingNotice.Problem("ペア設定の期限が切れました") to false, PairingNotice.follow(revoked, PairingDiscovery.Searching, repairing = false, submitted = false))
+        assertEquals(PairingNotice.Problem("ペア設定の期限が切れました") to false, PairingNotice.follow(revoked, PairingDiscovery.Idle, repairing = false, submitted = false))
     }
 
     @Test
     fun followingEndsOnlyWhenRunningOutsideARepair() {
-        // 再ペアリングするとき、古い実行状態は適切な一致とみなされません: 送信なし、終了なし
-        assertEquals(null to false, PairingNotice.follow(BuiltinShellStatus.Running, PairingDiscovery.Searching, repairing = true, submitted = false))
+        // 再ペアリング前の実行状態を成功と見なさず、無音のコード入力通知を準備します。
+        assertEquals(PairingNotice.EnterCode(null, quiet = true) to false, PairingNotice.follow(BuiltinShellStatus.Running, PairingDiscovery.Searching, repairing = true, submitted = false))
         assertEquals(PairingNotice.Done to true, PairingNotice.follow(BuiltinShellStatus.Running, PairingDiscovery.Idle, repairing = false, submitted = false))
+    }
+
+    /** 無音の準備・ウィンドウ検出・コード入力・成功の各状態で通知が更新され、同じ通知を続けて送らないことを確認します。 */
+    @Test
+    fun aPairingRunGoesQuietThenAlertThenWorkingThenDone() {
+        val steps = listOf(
+            BuiltinShellStatus.NotPaired to PairingDiscovery.Searching,
+            BuiltinShellStatus.NotPaired to PairingDiscovery.Found(37001),
+            BuiltinShellStatus.Connecting to PairingDiscovery.Found(37001),
+            BuiltinShellStatus.Running to PairingDiscovery.Idle,
+        ).map { (s, d) -> PairingNotice.follow(s, d, repairing = false, submitted = false) }
+        assertEquals(
+            listOf(
+                PairingNotice.EnterCode(null, quiet = true) to false,
+                PairingNotice.EnterCode(37001) to false,
+                PairingNotice.Working to false,
+                PairingNotice.Done to true,
+            ),
+            steps,
+        )
+        // ウィンドウ発見後は、ポップアップと再通知の対象になります。
+        assertEquals(PairingNotice.REALERT_MS[0], PairingNotice.realertAfter(steps[1].first!!, 0))
     }
 
     @Test

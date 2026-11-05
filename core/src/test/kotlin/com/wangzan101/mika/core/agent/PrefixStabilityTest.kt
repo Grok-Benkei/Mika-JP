@@ -237,9 +237,8 @@ class PrefixStabilityTest {
         val bodies = run(Setup(contextTokens = 80_000)).single()
         val r = check(bodies, "compaction", appendOnly = false)
         assertTrue(bodies.any { ContextCompressor.HEADER in it.toString() })
-        // トリガーポイントを超えたら一度圧縮（書き換えは1回）、その後は追加のみ、マージンを超えたら再度圧縮：30ステップで3回書き換えのみ
-        // 日本語のツール定義と80Kウィンドウで測定した圧縮点。書き換え回数とキャッシュ率も引き続き検査する。
-        assertEquals(listOf(10, 19, 28), r.changed)
+        // 推定下限を保ち、圧縮の境界を超えたときだけ履歴を書き換えます。それ以外の追加は既存のプレフィックスを保ちます。
+        assertEquals(listOf(10, 18, 27), r.changed)
         assertTrue("${r.share}", r.share > 0.85)
     }
 

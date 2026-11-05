@@ -41,4 +41,5 @@
     <string name="plans_running_now">実行中</string>
     <string name="trigger_deleted">スケジュールされたタスクを削除しました</string>
     <string name="trigger_busy">このタスクはまだ実行中です</string>
+    <string name="plans_preview">この変更後の次の実行予定：</string>
 </resources>

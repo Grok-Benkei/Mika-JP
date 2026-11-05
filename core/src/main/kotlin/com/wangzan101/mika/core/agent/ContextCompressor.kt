@@ -48,8 +48,8 @@ class ContextCompressor(
 ) {
     /** 「実際/概算」比率: 使用量が戻るたびにスムーズに更新されます ([TokenEstimate.calibrated])。圧縮する時期とレベルを決定するだけであり、送信されたコンテンツは変更されません。 */
     private var observed: Double? = null
-    /** 推定乗算比: 校正後の校正値を使用し、実際の投与量が利用できない場合は保守的な [UNCALIBRATED_SCALE] を使用します。メッセージと固定オーバーヘッドの両方にそれが乗算されます。 */
-    internal val scale: Double get() = observed ?: UNCALIBRATED_SCALE
+    /** 実測値は保守的な推定係数の下限を引き上げるためだけに使い、後続の密な JSON を過少に見積もりません。 */
+    internal val scale: Double get() = observed?.coerceAtLeast(UNCALIBRATED_SCALE) ?: UNCALIBRATED_SCALE
 
     /** 最終圧縮: [covered] から始まる完全な履歴をカバーし、[base] (おおよその推定値 [estimate]) に圧縮されます。 [aggressive]: モデルに応じて超長距離で圧縮されます。 */
     private class View(val covered: List<Message>, val base: List<Message>, val folded: Int, val aggressive: Boolean) {
@@ -162,7 +162,9 @@ class ContextCompressor(
         val rounds = starts.mapIndexed { k, start -> pruned.subList(start, starts.getOrElse(k + 1) { pruned.size }) }
         val screenRounds = rounds.map(::screenKind)
         val before = starts.count { it < cut }
-        val anchor = if (aggressive || !diffScreens) -1 else (0 until before).lastOrNull { screenRounds[it] == ScreenKind.FULL } ?: -1
+        // 残した画面だけで差分を解釈できる場合は、圧縮境界より前の全量画面を保持しません。
+        val anchor = if (aggressive || !diffScreens || selfContained(pruned.subList(cut, pruned.size))) -1
+            else (0 until before).lastOrNull { screenRounds[it] == ScreenKind.FULL } ?: -1
 
         val out = ArrayList<Message>(pruned.subList(0, starts.first()))
         // 連続して折り畳まれたラウンドトリップごとに要約が取得され、このセクションの元の位置に配置されます。途中で予約された往復がセクションを区切ります。
@@ -219,6 +221,21 @@ class ContextCompressor(
             }
         }
         return kind
+    }
+
+    /** [kept] に省略されていない画面があり、すべての差分の base も含まれることを確認します。スマホとWebの差分列を別々に照合し、置換済みの画面は数えません。 */
+    private fun selfContained(kept: List<Message>): Boolean {
+        val ids = HashSet<String>()
+        val bases = HashSet<String>()
+        for (r in kept.flatMap { it.parts }.filterIsInstance<Part.ToolResult>()) {
+            val obj = (if ("\"snapshotId\"" in r.content) parse(r.content) else null) ?: continue
+            val screens = listOfNotNull(obj.takeIf { it["elements"] is JsonArray }, obj["screen"] as? JsonObject)
+            for (s in screens) {
+                (s["snapshotId"] as? JsonPrimitive)?.contentOrNull?.let(ids::add)
+                (s["base"] as? JsonPrimitive)?.contentOrNull?.let(bases::add)
+            }
+        }
+        return ids.isNotEmpty() && ids.containsAll(bases)
     }
 
     private fun summary(lines: List<String>) = notice((listOf(HEADER, SUMMARY_REMINDER) + lines).joinToString("\n"))

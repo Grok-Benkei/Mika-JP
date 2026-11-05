@@ -5,7 +5,7 @@ import com.wangzan101.mika.i18n.tr
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
+import com.wangzan101.mika.ui.components.MikaDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,7 +42,6 @@ import com.wangzan101.mika.cap.sandbox.SandboxDirs
 import com.wangzan101.mika.cap.sandbox.SandboxUsage
 import com.wangzan101.mika.cap.sandbox.SandboxUsageReader
 import com.wangzan101.mika.cap.sandbox.WorkspaceUsage
-import com.wangzan101.mika.settings.NetProxyStore
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import kotlinx.coroutines.Dispatchers
@@ -57,7 +56,6 @@ object SandboxCopy {
     val NETWORK_TITLE: String get() = tr(R.string.sandbox_network)
     val NETWORK_SUBTITLE: String get() = tr(R.string.sandbox_network_sub)
     val NETWORK_EXPLAIN: String get() = tr(R.string.sandbox_network_explain)
-    val PROXY_TITLE: String get() = tr(R.string.net_proxy)
     val USAGE_TITLE: String get() = tr(R.string.sandbox_usage)
     val USAGE_NOTE: String get() = tr(R.string.sandbox_usage_note)
     val CLEAR: String get() = tr(R.string.sandbox_usage_clear)
@@ -65,16 +63,6 @@ object SandboxCopy {
     val CLEAR_ALL: String get() = tr(R.string.sandbox_usage_clear_all)
     val CLEAR_ALL_TITLE: String get() = tr(R.string.sandbox_usage_clear_all_title)
     val CLEAR_ALL_BODY: String get() = tr(R.string.sandbox_usage_clear_all_body)
-
-    /**
-     * プロキシ回線の説明 (プロキシは [設定] › [ネットワーク プロキシ] で変更できます。ここでは表示するためにのみ引用しています): 直接接続するように設定されていません。ホストとポートを書き込むように設定されています
-     * (アカウントとパスワードがない場合、この行はいつでも表示されます);インターネットがオフになっている場合、有効にする前にまずインターネットを許可する必要があると表示されます。
-     */
-    fun proxySub(proxy: String, networkAllowed: Boolean): String = when {
-        proxy.isBlank() -> tr(R.string.sandbox_proxy_sub)
-        !networkAllowed -> tr(R.string.sandbox_proxy_off, NetProxyStore.display(proxy))
-        else -> tr(R.string.sandbox_proxy_on, NetProxyStore.display(proxy))
-    }
 
     fun clearBody(w: WorkspaceUsage): String = tr(R.string.sandbox_usage_clear_body, workspaceTitle(w))
 
@@ -108,7 +96,7 @@ object SandboxCopy {
 }
 
 /**
- * は、「ファイルとコンピューティング環境」ページのコンテンツの実際のステータスに接続されています。ネットワーク スイッチの読み取りおよび書き込み [SandboxState]。プロキシ読み取り [NetProxyStore] (設定ホームページで変更、ここにのみ表示);
+ * 計算環境のネットワーク状態を [SandboxState] へ接続します。プロキシは詳細設定でまとめて変更します。
  * ページに入るときにバックグラウンドで使用されているスペースを読み取り、クリーンアップします。 [SandboxUsageReader] (実行中のタスクのダイアログが不明瞭です)。リセット後はすぐにバックグラウンドで再度準備を行ってください。
  */
 @Composable
@@ -117,8 +105,6 @@ fun AdvancedSettings() {
     val state = remember { SandboxState.get(context) }
     val status by state.status.collectAsState()
     var network by remember { mutableStateOf(state.networkAllowed) }
-    val proxies = remember { NetProxyStore.get(context) }
-    var proxy by remember { mutableStateOf("") }
     val app = context.applicationContext as MikaApp
     val usageReader = remember {
         SandboxUsageReader(SandboxDirs(context), { app.conversations.list() }, { app.taskState.activeConversations.value })
@@ -126,7 +112,6 @@ fun AdvancedSettings() {
     var usage by remember { mutableStateOf<SandboxUsage?>(null) }
     var reload by remember { mutableIntStateOf(0) }
     LaunchedEffect(reload) {
-        proxy = withContext(Dispatchers.IO) { proxies.get() }
         usage = withContext(Dispatchers.IO) { runCatching { usageReader.read() }.getOrNull() }
     }
     val scope = rememberCoroutineScope()
@@ -139,7 +124,6 @@ fun AdvancedSettings() {
     AdvancedSection(
         status = status, networkAllowed = network, isolationIssue = state.isolationIssue != null,
         onNetworkChange = { state.networkAllowed = it; network = it },
-        proxy = proxy,
         usage = usage,
         onClearWorkspace = { w -> clearing { usageReader.clear(w.dirName) } },
         onClearAll = { clearing { usageReader.clearAll() } },
@@ -161,8 +145,6 @@ fun AdvancedSection(
     isolationIssue: Boolean,
     onNetworkChange: (Boolean) -> Unit,
     onReset: () -> Unit,
-    /** ネットワーク プロキシ (設定 › ネットワーク プロキシ)、空の文字列は使用しないことを意味します。 */
-    proxy: String = "",
     /** 使用済みスペース。まだ読み取られていない場合は null です (このグループはまだ表示されません)。 */
     usage: SandboxUsage? = null,
     onClearWorkspace: (WorkspaceUsage) -> Unit = {},
@@ -178,8 +160,6 @@ fun AdvancedSection(
             MikaSwitch(networkAllowed, onNetworkChange, Modifier.testTag("sandbox-network"))
         }
         Note(SandboxCopy.NETWORK_EXPLAIN, if (networkAllowed) MikaTheme.colors.warn else MikaTheme.colors.ink3)
-        // エージェントは設定ホームページで変更されます (Mika 自身の接続でもこれを使用します)。ここのコマンドは、インターネットが許可されている場合にのみそれを取得します。
-        ListRow(MikaIcons.Globe, SandboxCopy.PROXY_TITLE, SandboxCopy.proxySub(proxy, networkAllowed))
         if (isolationIssue) Note(SandboxCopy.ISOLATION_UNAVAILABLE, MikaTheme.colors.bad)
         ListRow(MikaIcons.Close, tr(R.string.sandbox_reset), SandboxCopy.resetSubtitle(status), titleColor = MikaTheme.colors.bad, tone = TileTone.Bad,
             onClick = if (status is SandboxStatus.Installing) null else ({ confirming = true }))
@@ -188,7 +168,7 @@ fun AdvancedSection(
     usage?.let { u -> UsageGroup(u, onClear = { clearing = it }, onClearAll = { clearingAll = true }) }
 
     clearing?.let { w ->
-        AlertDialog(
+        MikaDialog(
             onDismissRequest = { clearing = null },
             title = { Text(SandboxCopy.CLEAR_TITLE) },
             text = { Text(SandboxCopy.clearBody(w)) },
@@ -197,7 +177,7 @@ fun AdvancedSection(
         )
     }
     if (clearingAll) {
-        AlertDialog(
+        MikaDialog(
             onDismissRequest = { clearingAll = false },
             title = { Text(SandboxCopy.CLEAR_ALL_TITLE) },
             text = { Text(SandboxCopy.CLEAR_ALL_BODY) },
@@ -207,7 +187,7 @@ fun AdvancedSection(
     }
 
     if (confirming) {
-        AlertDialog(
+        MikaDialog(
             onDismissRequest = { confirming = false },
             title = { Text(SandboxCopy.RESET_TITLE) },
             text = { Text(SandboxCopy.RESET_BODY) },

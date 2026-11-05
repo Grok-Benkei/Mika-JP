@@ -138,6 +138,10 @@ object CardCopy {
     val SCREEN_LABEL: String get() = tr(R.string.card_screen_label)
     val ZOOMED: String get() = tr(R.string.card_zoomed)
     val ZOOM_HINT: String get() = tr(R.string.card_zoom_hint)
+    val HIDE_CAPSULE: String get() = tr(R.string.capsule_hide)
+
+    /** カプセルを再び有効にする設定の場所を、画面と同じ名前で案内します。 */
+    fun hiddenHint(): String = tr(R.string.capsule_hidden_hint, tr(R.string.settings_title), tr(R.string.capsule_settings_title))
 }
 
 /** カードのボタン。タスク サービスの既存のアクションに変換されます ([CapsuleController] を参照)。 [runKey] は、押されたときのそのものの番号です。 */
@@ -166,6 +170,8 @@ interface CardActions {
     fun dropScreen()
     /** バックグラウンドで実行されたままになっているページのカード上の「Web ページを閉じる」。 画面 */
     fun closeKeptPage() {}
+    /** カード下部から設定をオフにしてカプセルとカードを閉じます。実行中のタスクと通知は継続します。 */
+    fun hideCapsule() {}
 }
 
 /** がキャプチャされ、送信を待って入力ボックスにハングしました。[thumb] はサムネイルです (スクリーンショットが許可されていないページにはサムネイルがありません)。 */
@@ -535,9 +541,7 @@ private fun Detail(
             }
         }
         input()
-        Box(Modifier.fillMaxWidth().padding(top = 6.dp), contentAlignment = Alignment.Center) {
-            TextLink(CardCopy.SEE_PROCESS) { actions.openMika(r.run.conversationId) }
-        }
+        FooterLinks(actions, CardCopy.SEE_PROCESS to { actions.openMika(r.run.conversationId) })
     }
 }
 
@@ -641,11 +645,22 @@ private fun ChatCard(
         }
         if (r != null) Pinned(card.content, r.run.key, actions)
         input()
-        card.target?.let { id ->
-            Box(Modifier.fillMaxWidth().padding(top = 6.dp), contentAlignment = Alignment.Center) {
-                TextLink(CardCopy.BACK_TO_MIKA) { actions.openMika(id) }
-            }
+        FooterLinks(actions, card.target?.let { id -> CardCopy.BACK_TO_MIKA to { actions.openMika(id) } })
+    }
+}
+
+/** カード下部に [primary] とカプセルをオフにする操作を表示します。右上の閉じるボタンはカードを折り畳むだけです。 */
+@Composable
+private fun FooterLinks(actions: CardActions, primary: Pair<String, () -> Unit>?) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 6.dp),
+        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+    ) {
+        primary?.let { (text, onClick) ->
+            TextLink(text, onClick = onClick)
+            Text("·", style = Sub, color = MikaTheme.colors.ink3)
         }
+        TextLink(CardCopy.HIDE_CAPSULE, MikaTheme.colors.ink3, actions::hideCapsule)
     }
 }
 
@@ -795,10 +810,10 @@ private fun Action(text: String, kind: ButtonKind, onClick: () -> Unit) {
 }
 
 @Composable
-private fun TextLink(text: String, onClick: () -> Unit) {
+private fun TextLink(text: String, color: Color = MikaTheme.colors.accent, onClick: () -> Unit) {
     Text(
         text, Modifier.clip(MikaShapes.Pill).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 6.dp, vertical = 8.dp),
-        style = Sub.copy(fontSize = 13.sp), color = MikaTheme.colors.accent,
+        style = Sub.copy(fontSize = 13.sp), color = color,
     )
 }
 

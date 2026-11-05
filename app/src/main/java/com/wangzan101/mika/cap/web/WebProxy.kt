@@ -94,3 +94,17 @@ object WebProxy {
         return p.user to p.password
     }
 }
+
+/** 主文書のプロキシ認証には最大3回応答し、次のナビゲーションで回数を戻します。メインスレッド専用です。 */
+internal class WebProxyAuth {
+    private var answers = 0
+
+    fun onPageStarted() { answers = 0 }
+
+    fun credentialsFor(host: String?): Pair<String, String>? {
+        val credentials = WebProxy.credentialsFor(host) ?: return null
+        if (answers >= 3) return null
+        answers++
+        return credentials
+    }
+}

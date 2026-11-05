@@ -13,6 +13,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Process
 import android.provider.Settings
+import android.util.Log
 import com.wangzan101.mika.core.adb.AdbConnectPort
 import com.wangzan101.mika.core.adb.AdbConnection
 import com.wangzan101.mika.core.adb.ConnectCandidates
@@ -225,7 +226,9 @@ class BuiltinShellManager(context: Context, private val hub: HelperHub, private 
             cm.allNetworks.any { cm.getNetworkCapabilities(it)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true }
         }.getOrDefault(true)
 
-        override suspend fun findPairingPort(timeoutMs: Long): Int? = finder.findPorts(AdbServiceTypes.PAIRING, timeoutMs).firstOrNull()
+        override suspend fun findPairingPort(timeoutMs: Long): Int? =
+            finder.findPorts(AdbServiceTypes.PAIRING, timeoutMs).firstOrNull()
+                .also { Log.i(PAIRING_TAG, if (it != null) "ポート $it にペアリング画面を検出しました" else "${timeoutMs}ミリ秒以内にペアリング画面を検出できませんでした") }
 
         override fun pair(port: Int, code: String) {
             AdbPairing(AndroidAdb.tls(AndroidAdb.pairingIdentity(app))).pair(LOCALHOST, port, code)
@@ -285,7 +288,9 @@ class BuiltinShellManager(context: Context, private val hub: HelperHub, private 
         /** 組み込みアシスタントは Android 12 以降で有効になります。古いシステムでは、新しい画面フラグのない互換性パスが使用されます。 */
         const val MIN_SDK = Build.VERSION_CODES.S
         private const val PREFS = "builtin_shell"
-        /** Android オリジナルの adbd は、このシステム プロパティにワイヤレス デバッグ接続ポートを書き込みます。読み取れない場合は、キャッシュ、mDNS を利用し、ローカル ポートとユーザーが入力したポートをスキャンします。 */
+        /** PairingCoordinator と PairingCodeReader と共通のタグでペアリング経路を追跡します。 */
+        private const val PAIRING_TAG = "MikaPairing"
+                /** Android オリジナルの adbd は、このシステム プロパティにワイヤレス デバッグ接続ポートを書き込みます。読み取れない場合は、キャッシュ、mDNS を利用し、ローカル ポートとユーザーが入力したポートをスキャンします。 */
         private const val TLS_PORT_PROPERTY = "service.adb.tls.port"
         private const val LOCALHOST = AdbConnectPort.LOCALHOST
         private const val PORT_RANGE_FILE = "/proc/sys/net/ipv4/ip_local_port_range"

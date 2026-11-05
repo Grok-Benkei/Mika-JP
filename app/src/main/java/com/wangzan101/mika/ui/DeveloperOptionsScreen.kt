@@ -56,7 +56,7 @@ object GroundingCopy {
 }
 
 /**
- * 設定 › 開発者向けオプション: 前面は「自律モード」 ([autonomous]、デフォルトではオフにして尋ねる)。 「速度」の下にある元の 8 つのスイッチは、速度と実験の 2 つのグループに分けられます。画像閲覧モデルがある場合は、その「画像閲覧位置確認済み」も存在します。
+ * 詳細設定の開発者向けページです。速度と実験機能、および画像モデルの視覚定位の検証状態を扱います。
  * ([grounding] が null の場合は表示されません)。最後は「実行統計」のエントリです（[onOpenRunStats]がnullの場合は表示されません）。
  */
 @Composable
@@ -64,19 +64,11 @@ fun DeveloperOptionsScreen(
     speed: SpeedFlags,
     onSpeed: (SpeedFlags) -> Unit,
     onBack: () -> Unit,
-    autonomous: Boolean = false,
-    onAutonomous: (Boolean) -> Unit = {},
     grounding: GroundingSetting? = null,
     onGrounding: (Boolean) -> Unit = {},
     onOpenRunStats: (() -> Unit)? = null,
 ) {
     PageScaffold(tr(R.string.settings_developer), onBack) {
-        GroupLabel(AutonomyCopy.GROUP)
-        GroupCard {
-            ListRow(null, AutonomyCopy.TITLE, AutonomyCopy.SUBTITLE, first = true, onClick = { onAutonomous(!autonomous) }) {
-                MikaSwitch(autonomous, onAutonomous, Modifier.testTag("dev-autonomous"))
-            }
-        }
         GroupLabel(tr(R.string.dev_speed))
         SwitchGroup(DeveloperSwitches.speed(speed), onSpeed)
         GroupLabel(tr(R.string.dev_experiments))

@@ -30,6 +30,51 @@ class WebProxyTest {
         assertEquals(listOf("socks5://[::1]:1080", "socks://[::1]:1080"), WebProxy.rules(ProxyAddress.parse("socks5h://[::1]:1080")!!))
     }
 
+    @Test fun wrongCredentialsStopAfterThreeAnswersPerPage() {
+        NetProxy.sharedSource = { "http://alice:wrong@proxy.example.test:3128" }
+        val auth = WebProxyAuth()
+        repeat(3) { assertEquals("alice" to "wrong", auth.credentialsFor("proxy.example.test")) }
+        repeat(3) { assertNull(auth.credentialsFor("proxy.example.test")) }
+    }
+
+    @Test fun nextNavigationRetriesWithCorrectedCredentialsInTheSameTab() {
+        NetProxy.sharedSource = { "http://alice:wrong@proxy.example.test:3128" }
+        val auth = WebProxyAuth()
+        repeat(3) { auth.credentialsFor("proxy.example.test") }
+        assertNull(auth.credentialsFor("proxy.example.test"))
+
+        NetProxy.sharedSource = { "http://alice:correct@proxy.example.test:3128" }
+        auth.onPageStarted()
+        repeat(3) { assertEquals("alice" to "correct", auth.credentialsFor("proxy.example.test")) }
+        assertNull(auth.credentialsFor("proxy.example.test"))
+
+        // 設定が変わらなくても、次のページでは失効したプロキシセッションを認証し直せます。
+        auth.onPageStarted()
+        assertEquals("alice" to "correct", auth.credentialsFor("proxy.example.test"))
+    }
+
+    @Test fun unrelatedAuthChallengesDoNotConsumeProxyRetries() {
+        NetProxy.sharedSource = { "http://alice:pw@proxy.example.test:3128" }
+        val auth = WebProxyAuth()
+        repeat(4) {
+            assertNull(auth.credentialsFor("site.example.test"))
+            assertNull(auth.credentialsFor(null))
+        }
+        repeat(3) { assertEquals("alice" to "pw", auth.credentialsFor("proxy.example.test")) }
+        assertNull(auth.credentialsFor("proxy.example.test"))
+    }
+
+    @Test fun eachTabHasItsOwnRetryBudget() {
+        NetProxy.sharedSource = { "http://alice:pw@proxy.example.test:3128" }
+        val first = WebProxyAuth()
+        val second = WebProxyAuth()
+        repeat(3) { first.credentialsFor("proxy.example.test") }
+        assertNull(first.credentialsFor("proxy.example.test"))
+        assertEquals("alice" to "pw", second.credentialsFor("proxy.example.test"))
+        second.onPageStarted()
+        assertNull(first.credentialsFor("proxy.example.test"))
+    }
+
     @Test fun answersOnlyTheConfiguredHttpProxy() {
         NetProxy.sharedSource = { "http://alice:pw@proxy.example.test:3128" }
         NetProxy.shared.changed()

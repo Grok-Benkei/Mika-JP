@@ -111,6 +111,9 @@ class HoldGesture(private val slopPx: Float) {
  */
 class OverlayHost internal constructor(private val service: ScreenAccessibility) {
     private val windows = mutableListOf<OverlayWindow>()
+    private val injectedGestures = InjectedGestures { isolate ->
+        forEachGestureWindow(windows.toList()) { it.isolateInjectedGestures(isolate) }
+    }
 
     /**
      * コンテンツのサイズをカバーするフローティング レイヤー ウィンドウを追加します。通常フォーカスを取得せず、クリックできない場所は、通常どおり次のアプリに任せられます。
@@ -139,7 +142,7 @@ class OverlayHost internal constructor(private val service: ScreenAccessibility)
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                (if (touchable) 0 else WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE),
+                (if (touchable && !injectedGestures.isolated) 0 else WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE),
             PixelFormat.TRANSLUCENT,
         ).apply {
             // 画面全体を押して、システムがウィンドウをステータス バーとナビゲーション バーに押し込むのを防ぎます。避けるべき場所は、area() を押すことによって呼び出し側によって決定されます。
@@ -147,7 +150,7 @@ class OverlayHost internal constructor(private val service: ScreenAccessibility)
             layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
             place(placement)
         }
-        val window = OverlayWindow(this, frame, params, owners)
+        val window = OverlayWindow(this, frame, params, owners, touchable)
         owners.start()
         return try {
             wm().addView(frame, params)
@@ -186,7 +189,10 @@ class OverlayHost internal constructor(private val service: ScreenAccessibility)
             ?.takeIf { !it.isEmpty }?.top
     }.getOrNull()
 
-    /** すべてのフローティング レイヤーを削除します (サービスが切断されている場合)。 */
+    /** 注入中はすべての浮動レイヤーをタッチ対象から外し、終了後は各ウィンドウの元の設定へ戻します。ネスト時は最外側で復元し、キャンセル後もシステムに渡したジェスチャーの終了を待ちます。 */
+    suspend fun <T> passInjectedGesturesThrough(block: suspend () -> T): T = injectedGestures.passThrough(block)
+
+        /** すべてのフローティング レイヤーを削除します (サービスが切断されている場合)。 */
     fun closeAll() {
         windows.toList().forEach(OverlayWindow::close)
     }
@@ -209,6 +215,7 @@ class OverlayWindow internal constructor(
     private val frame: OverlayFrame,
     private val params: WindowManager.LayoutParams,
     private val owners: OverlayOwners,
+    private val touchable: Boolean,
 ) {
     var isOpen = true
         private set
@@ -261,9 +268,19 @@ class OverlayWindow internal constructor(
         if (isOpen) frame.onBack = onBack
     }
 
-    /** は、ウィンドウが押されたときに (どこが押されたかに関係なく) 調整されます。 [onTouch]: 呼び出し元は、それに応じて色あせたカプセルを復元します。 */
-    fun onTouch(onTouch: (() -> Unit)?) {
+    /** ウィンドウへのタッチを [onTouch] へ渡し、透明度の復元と入力元・位置の確認に使います。 */
+    fun onTouch(onTouch: ((MotionEvent) -> Unit)?) {
         if (isOpen) frame.onTouch = onTouch
+    }
+
+    /** 注入中だけタッチを無効にし、終了後は作成時の [touchable] へ戻します。 */
+    internal fun isolateInjectedGestures(isolate: Boolean) {
+        if (!isOpen) return
+        val flags = if (touchable && !isolate) params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+            else params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        if (flags == params.flags) return
+        params.flags = flags
+        update()
     }
 
     /** コンテンツ サイズが変更されると (カプセルがカードに置き換えられ、画面回転後に再配置されます)、[onResize] が調整され、それに応じて発信者の位置が変更されます。 */
@@ -340,7 +357,7 @@ internal class OverlayFrame(context: Context) : FrameLayout(context) {
     var onOutside: (() -> Unit)? = null
     var onResize: (() -> Unit)? = null
     var onBack: (() -> Unit)? = null
-    var onTouch: (() -> Unit)? = null
+    var onTouch: ((MotionEvent) -> Unit)? = null
     var drag: OverlayDrag? = null
     var handle: Rect? = null
     private var hold: OverlayHold? = null
@@ -403,7 +420,7 @@ internal class OverlayFrame(context: Context) : FrameLayout(context) {
             outside()
             return true
         }
-        if (e.actionMasked == MotionEvent.ACTION_DOWN) onTouch?.invoke()
+        if (e.actionMasked == MotionEvent.ACTION_DOWN) onTouch?.invoke(e)
         return super.dispatchTouchEvent(e)
     }
 

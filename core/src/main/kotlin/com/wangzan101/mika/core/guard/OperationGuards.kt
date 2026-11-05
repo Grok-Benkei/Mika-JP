@@ -127,12 +127,23 @@ class OperationGuards(private val stepBudget: Int? = null) {
     /**
      * アクションによって報告される実際の効果 (効果の種類、core.uistate.EffectKind を参照): no_effect は「効果なし」を 1 回記録します。
      * 明らかに変わった場合、アプリを変更した場合、ページを変更した場合は最初からやり直してください。局所的な小さな変更はカウントされません。
+     * [treeBlind] で画面も変わらない場合は、2回で警告し、3回で停止します。
      */
-    fun effect(kind: String): List<GuardVerdict> {
+    fun effect(kind: String, treeBlind: Boolean = false): List<GuardVerdict> {
         effectNoted = true
         when (kind) {
             NO_EFFECT -> unchanged += 1
             else -> { unchanged = 0; unchangedWarnedAt = 0; return emptyList() }
+        }
+        if (treeBlind) {
+            val severity = when {
+                unchanged == 2 -> Severity.Warn
+                unchanged >= 3 -> Severity.Stop
+                else -> return emptyList()
+            }
+            return verdict("no_progress", severity, buildJsonObject {
+                put("unchanged", unchanged); put("treeBlind", true)
+            }, unchanged)
         }
         return noProgress()
     }

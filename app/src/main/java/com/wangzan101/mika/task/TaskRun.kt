@@ -266,7 +266,9 @@ class TaskRun(
     @Volatile var muteFailedFor: String? = null
         private set
     @Volatile private var awake: KeepAwake? = null
-    /** シェル プロセスがなくなり、仮想画面とその上のアプリがなくなりました。タスクを続行できません。 */
+    /** 次のタスク用の画面ロックを先に確保し、起動後にそのタスク自身のロックへ引き継ぎます。起動前に終了した場合はサービスが解放し、重複解放は [SharedWakeLock] が吸収します。 */
+    @Volatile internal var wakeHandoff: WakeLockPort? = null
+        /** シェル プロセスがなくなり、仮想画面とその上のアプリがなくなりました。タスクを続行できません。 */
     @Volatile var shellDied = false
         internal set
     /** のリリースとクローズは相互に排他的です。 [ended] の後に状態は書き込まれず、後期リリースでは最終状態を上書きしたり、ロックを再取得したりすることはできません。 */
@@ -484,6 +486,9 @@ class TaskRun(
             // ユーザーは、「作業中」には常時点灯ライトをオフにし、ウェイクロックを取得しません。実行を開始するときは、現在のステータスに応じて実行します (準備中)。
             // モデルを開き、知識を読み取り、ルートを選択し、意図を判断する最初のステップである準備と推論中に画面がオフになりません。
             awake = if (FeatureFlags.get(service).keepScreenOn()) KeepAwake(service.wakeLock.lease(), side).also { it.onState(_state.value) } else null
+            // 引継ぎ用のロックは、自分のロックを取得してから解放します。
+            wakeHandoff?.release()
+            wakeHandoff = null
             val model = env.modelFactory(service, session) ?: return TaskState.Failed(tr(R.string.fail_no_main_model), FailKind.Environment)
             // ユーザーは、ブラウザ ページ上のページに、どのページを現在の Web ページ ラベルとしてこのタスクに貸与する必要があるかを尋ねました (PageLoans を参照)。実行中にページがまだ開いている場合にのみ借用できます。
             val pageLoan = if (provenance.origin == RunOrigin.Ui) withContext(Dispatchers.Main) { UserBrowser.existing()?.claim(conversationId, key) } else null
@@ -923,6 +928,7 @@ class TaskRun(
             _frames.value = null
             _webOpen.value = false
             synchronized(publishLock) { ended = true }
+            if (awake != null && service.hasQueuedRuns()) wakeHandoff = service.wakeLock.lease().also { it.acquire() }
             awake?.close()
             awake = null
             shellDeath?.let { d -> runCatching { shellBinder?.unlinkToDeath(d, 0) } }

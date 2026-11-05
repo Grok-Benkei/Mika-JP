@@ -48,6 +48,7 @@ import com.wangzan101.mika.about.DiagnosticsCollector
 import com.wangzan101.mika.about.MikaLinks
 import com.wangzan101.mika.chat.ConversationStore
 import com.wangzan101.mika.record.RunStore
+import com.wangzan101.mika.replay.FileRouteStore
 import com.wangzan101.mika.task.TaskService
 import com.wangzan101.mika.core.knowledge.GuideCatalog
 import com.wangzan101.mika.settings.Prerequisites
@@ -339,22 +340,15 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
             }
         }
         Route.Settings -> {
-            val registry = remember { WebSites.registry(context) }
-            val sites by registry.entries.collectAsState()
-            val webSites = WebSitesState(
-                sites = sites,
-                onOpenLogin = { WebHandover.showLogin(context, it) },
-                onLogout = { WebSites.login(context).logout(it) },
-                onLogoutAll = { WebSites.logoutAll(context) },
-            )
             val autonomous by app.approvals.autonomous.collectAsState()
             SettingsScreen(store, status, release, onFix, onBack = back, onOpenMemory = { nav.push(Route.Memory) },
-                onOpenModels = { nav.push(Route.Models) }, webSites = webSites,
+                onOpenModels = { nav.push(Route.Models) },
                 autonomous = autonomous, onAutonomous = app.approvalControl::setAutonomous,
                 updateVersion = updateState.update?.version, onOpenAbout = { nav.push(Route.About) },
                 mcpServers = app.mcpServers)
         }
-        Route.Models -> ModelsScreen(store, onBack = back, onOpenSpeech = { nav.push(Route.SpeechModel) })
+        Route.Models -> ModelsScreen(store, onBack = back, onOpenSpeech = { nav.push(Route.SpeechModel) }, onOpenUsage = { nav.push(Route.Usage) })
+        Route.Usage -> UsageScreen(app.usage, store.providers, onBack = back)
         Route.SpeechModel -> SpeechModelScreen(store, onBack = back)
         Route.About -> AboutScreen(
             versionName = BuildConfig.VERSION_NAME, build = BuildConfig.GIT_HASH, beta = BuildConfig.BETA,
@@ -378,24 +372,43 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
         Route.License -> LicensesScreen(onBack = back)
         Route.Browser -> BrowserScreen(remember { UserBrowser.of(context) }, onBack = back)
         Route.Memory -> {
+            val registry = remember { WebSites.registry(context) }
+            val sites by registry.entries.collectAsState()
+            val webSites = WebSitesState(
+                sites = sites,
+                onOpenLogin = { WebHandover.showLogin(context, it) },
+                onLogout = { WebSites.login(context).logout(it) },
+                onLogoutAll = { WebSites.logoutAll(context) },
+            )
+            val routeStore = remember { FileRouteStore.shared(context) }
+            var routeCount by remember { mutableStateOf<Int?>(null) }
             // メモリに初めてアクセスするときは、ディスクを読み取って復号化し、それをバックグラウンド スレッドに置きます。ページのコルーチンはこの画面に従います。
             val vmScope = rememberCoroutineScope()
+            LaunchedEffect(Unit) { routeCount = withContext(Dispatchers.IO) { runCatching { routeStore.count() }.getOrNull() } }
             val vm by produceState<MemoryViewModel?>(null) {
                 value = withContext(Dispatchers.IO) {
+                    val bundled = GuideCatalog.loadBundled()
                     MemoryViewModel(
                         memoryRuntime.store(), memoryRuntime.settings(), memoryRuntime.skills(),
                         vmScope, memoryRuntime.file().brokenNotice,
                         wipe = { memoryRuntime.scope.launch(Dispatchers.IO) { memoryRuntime.wipeAll() } },
                         onForgotten = { id -> memoryRuntime.scope.launch(Dispatchers.IO) { memoryRuntime.stripMemory(setOf(id)) } },
-                        runnableScripts = GuideCatalog.loadBundled().runnableScripts(),
+                        runnableScripts = bundled.runnableScripts(),
                         appDrafts = memoryRuntime.appKnowledge(),
+                        builtinSkillNames = bundled.items.map { it.name }.toSet(),
                     )
                 }
             }
             vm?.let { m ->
                 // 結果カードの「Look」から入力：スキルセグメントを直接見る
                 LaunchedEffect(m) { if (memoryRuntime.openRequest.value != null) m.select(Segment.Skills) }
-                MemoryScreen(m) { memoryRuntime.requestOpen(null); nav.back() }
+                MemoryDataScreen(
+                    m, webSites, routeCount,
+                    onClearRoutes = {
+                        vmScope.launch { routeCount = withContext(Dispatchers.IO) { routeStore.clear(); routeStore.count() } }
+                    },
+                    onBack = { memoryRuntime.requestOpen(null); nav.back() },
+                )
             }
         }
         Route.Run -> {

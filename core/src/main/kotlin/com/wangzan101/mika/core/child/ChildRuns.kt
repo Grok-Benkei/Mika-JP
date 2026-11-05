@@ -57,12 +57,13 @@ class ChildAgentRunner(
                 else -> "no result"
             }
             val phase = if (end == TaskState.Cancelled) ChildPhase.Interrupted else ChildPhase.Completed
-            val answer = raw.take(MAX_RESULT_CHARS)
-            val checked = if (format == "json" && runCatching { Json.parseToJsonElement(answer) }.isFailure)
-                "$answer\n(the child run's JSON did not pass validation; the original text is kept)" else answer
-            store.save(ChildRecord(spec.id.value, parent.value, phase, checked, clock()))
+            val checked = if (format == "json" && runCatching { Json.parseToJsonElement(raw) }.isFailure)
+                "$raw\n（子タスクのJSONは検証に合格しませんでした。原文を保持しています）" else raw
+            // 保存するプレビューだけを短くし、親へ返す本文は spawn_agent が要求された上限で切り詰め、元の長さを報告します。
+            val preview = checked.take(MAX_RESULT_CHARS)
+            store.save(ChildRecord(spec.id.value, parent.value, phase, preview, clock()))
             if (!ownerAlive(parent)) {
-                store.save(ChildRecord(spec.id.value, parent.value, ChildPhase.Unknown, checked, clock()))
+                store.save(ChildRecord(spec.id.value, parent.value, ChildPhase.Unknown, preview, clock()))
                 return ChildResult(spec.id, ChildPhase.Unknown, checked)
             }
             return ChildResult(spec.id, phase, checked)
@@ -77,6 +78,7 @@ class ChildAgentRunner(
     fun cancelAll(parent: RunId) { synchronized(active) { active[parent]?.toList() }.orEmpty().forEach(AgentLoop::cancel) }
 
     companion object {
+        /** 保存するプレビューの上限です。親タスクへ返す本文の上限ではありません。 */
         const val MAX_RESULT_CHARS = 4000
         private const val INTERRUPTED = "interrupted"
     }

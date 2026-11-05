@@ -8,6 +8,7 @@ import android.app.RemoteInput
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import com.wangzan101.mika.R
 import com.wangzan101.mika.core.shell.BuiltinShellFix
 import com.wangzan101.mika.core.shell.BuiltinShellStatus
@@ -20,8 +21,8 @@ import com.wangzan101.mika.setup.PairingCodeReceiver
 
 /** このときペアリング通知に表示される内容。 */
 sealed interface PairingNotice {
-    /** には、「ペアリング コードを入力してください」の入力ボックスがあります。 [error] は前回失敗した原因と対処法です。入力ボックスはそのまま残ります。 */
-    data class EnterCode(val port: Int?, val error: String? = null) : PairingNotice
+    /** [error] を示してコードの再入力を受け付けます。[quiet] の場合は音やポップアップを出さず通知欄に準備します。 */
+    data class EnterCode(val port: Int?, val error: String? = null, val quiet: Boolean = false) : PairingNotice
     data object Working : PairingNotice
     data object Done : PairingNotice
     /** はペアリング後に接続できませんでした: ミカに戻って何をすべきかを確認してください。 */
@@ -30,8 +31,10 @@ sealed interface PairingNotice {
     companion object {
         /**
          * は、ユーザーがペアリングしている期間 ([PairingCoordinator] がオンのとき) にのみ使用されます。入力ボックスは、ペアリング ウィンドウが見つかった場合にのみポップアップ表示されます。
+         * システム設定へ移ると停止される機種に備え、探索中から通知欄にコード入力を準備します。
+         * ウィンドウの発見後では通知できない場合もあるため、利用者が通知欄から入力できる状態にします。
          * ペアリング段階での失敗 (コードが正しくない、期限切れ、ウィンドウが閉じている) は通知に残され、補充されます。再ペアリングに失敗した場合 (ペアリングが無効な場合)、ペアリング ウィンドウを見つけた後に入力ボックスも表示されます。
-         * はバリアフリーコード読み取り (PairingScreen.attempt) と同じです。そうでない場合は、Mika に戻ってください。
+         * PairingScreen.attempt と同じ判定で探索中も入力を準備し、それ以外の失敗はアプリへ戻るよう案内します。
          */
         fun of(status: BuiltinShellStatus, discovery: PairingDiscovery): PairingNotice? {
             val port = (discovery as? PairingDiscovery.Found)?.port
@@ -41,9 +44,14 @@ sealed interface PairingNotice {
                 is BuiltinShellStatus.Failed -> when {
                     status.reason.duringPairing -> EnterCode(port, PhoneSetupCopy.notifyRetry(status.reason))
                     status.fix == BuiltinShellFix.RePair && port != null -> EnterCode(port)
+                    status.fix == BuiltinShellFix.RePair && discovery == PairingDiscovery.Searching -> EnterCode(null, quiet = true)
                     else -> Problem(PhoneSetupCopy.failure(status.reason).title)
                 }
-                BuiltinShellStatus.NotPaired, BuiltinShellStatus.WirelessDebuggingOff -> port?.let { EnterCode(it) }
+                BuiltinShellStatus.NotPaired, BuiltinShellStatus.WirelessDebuggingOff -> when (discovery) {
+                    is PairingDiscovery.Found -> EnterCode(discovery.port)
+                    PairingDiscovery.Searching -> EnterCode(null, quiet = true)
+                    PairingDiscovery.Idle -> null
+                }
             }
         }
 
@@ -53,12 +61,12 @@ sealed interface PairingNotice {
         val REALERT_MS = listOf(8_000L, 20_000L, 40_000L)
         val MAX_REALERTS = REALERT_MS.size
 
-        /** [notice] を送信するまでの待機時間。アクセシビリティがオンになっていない場合は、ペアリング ウィンドウを見つけるとポップアップが表示されます。待つ必要はありません。 */
+        /** 通知までの待機時間。無音の準備通知とユーザー補助なしの場合は待たず、それ以外の入力通知だけ自動読取りの猶予を設けます。 */
         fun delayBefore(notice: PairingNotice, autoRead: Boolean): Long =
-            if (notice is EnterCode && autoRead) AUTO_READ_GRACE_MS else 0L
+            if (notice is EnterCode && autoRead && !notice.quiet) AUTO_READ_GRACE_MS else 0L
 
         /** は、次回までどれくらい時間がかかるかを [sent] 回通知されました。 null は、それ以上リマインダーがないことを意味します。 */
-        fun realertAfter(notice: PairingNotice, sent: Int): Long? = if (notice is EnterCode) REALERT_MS.getOrNull(sent) else null
+        fun realertAfter(notice: PairingNotice, sent: Int): Long? = if (notice is EnterCode && !notice.quiet) REALERT_MS.getOrNull(sent) else null
 
         /**
          * [PairingCoordinator] ステータス更新通知を追跡する場合、現時点でどの項目を表示するか、表示後に追跡を停止するかどうかの計算。
@@ -121,6 +129,9 @@ object PairingNotifier {
     private const val DONE_TIMEOUT_MS = 8_000L
     /** コード埋め込み通知は、最大でこの長さ (一致するウィンドウと同じ長さ) にわたって留まることができます。たとえアプリが強制終了されても、常にハングするわけではありません。 */
     private const val INPUT_TIMEOUT_MS = 10 * 60_000L
+    private const val TAG = "MikaPairing"
+    /** 概要のない通知グループを使って音とポップアップを抑えます。低優先度チャンネルへ分けず、通知欄で見つけられる状態を保ちます。 */
+    private const val QUIET_GROUP = "pairing_quiet"
 
     /** ペアリングされたチャネルがあることを確認し、使用するチャネルに戻ります (ブート ページにそれに応じたプロンプトが表示され、その設定ページが開きます)。 */
     fun ensureChannel(context: Context): ChannelPlan {
@@ -186,8 +197,13 @@ object PairingNotifier {
                 .setAutoCancel(true).setOnlyAlertOnce(true).setTimeoutAfter(DONE_TIMEOUT_MS)
             is PairingNotice.Problem -> b.setContentTitle(notice.title).setContentText(PhoneSetupCopy.NOTIFY_PROBLEM_TEXT).setAutoCancel(true)
         }
+        // 高優先度のチャンネルでも音やポップアップを出さず、通知欄に準備します。
+        if (notice is PairingNotice.EnterCode && notice.quiet) b.setOnlyAlertOnce(true).setGroup(QUIET_GROUP).setGroupAlertBehavior(Notification.GROUP_ALERT_SUMMARY)
         // 許可されていない場合、システムは通知を破棄します。ブート ページは、ペアリング手順で最初にユーザーに許可を求めます。
-        runCatching { nm.notify(ID, b.build()) }
+        runCatching { nm.notify(ID, b.build()) }.onFailure { Log.w(TAG, "ペアリング通知を表示できませんでした", it) }
+        // アプリ全体の通知許可とチャンネルの重要度を記録します。メーカー独自の設定までは取得できません。
+        if (!nm.areNotificationsEnabled()) Log.w(TAG, "アプリの通知が無効なためペアリング通知を表示できません")
+        else nm.getNotificationChannel(channel)?.let { if (it.importance < NotificationManager.IMPORTANCE_HIGH) Log.i(TAG, "ペアリング通知の重要度は ${it.importance} のためポップアップ表示されません") }
     }
 
     fun cancel(context: Context) {

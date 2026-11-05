@@ -1,6 +1,7 @@
 package com.wangzan101.mika.cap.phone.setup
 
 import android.content.Context
+import android.util.Log
 import android.view.Display
 import android.view.accessibility.AccessibilityNodeInfo
 import com.wangzan101.mika.cap.phone.a11y.ScreenAccessibility
@@ -26,12 +27,21 @@ internal object PairingCodeReader {
     /** ウィンドウの内容は頻繁に数回更新されるため、安定するまで待ってから読み取ります。 */
     private const val SETTLE_MS = 300L
     private const val MAX_NODES = 400
+    private const val TAG = "MikaPairing"
 
     suspend fun run(context: Context, control: BuiltinShellControl, coordinator: PairingCoordinator) {
-        val settings = SystemPickers.settingsPackage(context.packageManager) ?: return
+        val settings = SystemPickers.settingsPackage(context.packageManager) ?: run {
+            Log.w(TAG, "システム設定アプリを検出できないためコードを読み取りません")
+            return
+        }
         val tried = mutableSetOf<String>()
+        var last: String? = null
         ScreenAccessibility.instance.collectLatest { service ->
-            service ?: return@collectLatest
+            if (service == null) {
+                Log.i(TAG, "ユーザー補助が動作していないため通知からコードを入力してください")
+                return@collectLatest
+            }
+            Log.i(TAG, "$settings のペアリング画面を読み取っています")
             service.eventsFor(Display.DEFAULT_DISPLAY)
                 .filter { it.packageName?.toString() == settings }
                 .map { }
@@ -40,9 +50,18 @@ internal object PairingCodeReader {
                 .collect {
                     delay(SETTLE_MS)
                     val portFound = control.pairingDiscovery.value is PairingDiscovery.Found
-                    val attempt = readings(service, settings).firstNotNullOfOrNull {
-                        PairingScreen.attempt(it, portFound, PhoneSetupFlow.effectiveStatus(control.status.value, coordinator.repairing.value), tried)
+                    val status = PhoneSetupFlow.effectiveStatus(control.status.value, coordinator.repairing.value)
+                    val readings = readings(service, settings)
+                    // 観測状態が変わったときだけ記録し、コード自体は記録しません。
+                    val seen = "ウィンドウ数 ${readings.size}、コード有無 ${readings.any { it.code != null }}、ポート ${readings.firstNotNullOfOrNull { it.port }}、ポート検出 $portFound、状態 $status"
+                    if (seen != last) {
+                        Log.i(TAG, "検出状態: $seen")
+                        last = seen
+                    }
+                    val attempt = readings.firstNotNullOfOrNull {
+                        PairingScreen.attempt(it, portFound, status, tried)
                     } ?: return@collect
+                    Log.i(TAG, "画面からコードを読み取り、ペアリングを開始します")
                     tried += attempt.code
                     coordinator.pair(attempt.code, attempt.port)
                 }
