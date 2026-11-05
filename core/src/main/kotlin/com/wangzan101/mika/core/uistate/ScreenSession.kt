@@ -22,6 +22,7 @@ import com.wangzan101.mika.core.observation.InputHints
 import com.wangzan101.mika.core.observation.Look
 import com.wangzan101.mika.core.observation.ObsKind
 import com.wangzan101.mika.core.observation.Observation
+import com.wangzan101.mika.core.security.SensitiveApps
 import com.wangzan101.mika.core.observation.Place
 import com.wangzan101.mika.core.observation.Trust
 import com.wangzan101.mika.core.prompt.Feedback
@@ -195,7 +196,7 @@ internal class ScreenSession(
             if (omitted > 0) put("omitted", hidden + omitted)
         }
         // スクリーンショット防止ページには黒い画像がキャプチャされていますが、これはモデルを誤解させるだけです。
-        val png = if ((sendImage && textOnlyDepth == 0 || (recordFrames && recordFrame && textOnlyDepth == 0)) && !s.protected) screen.screenshotPng() else null
+        val png = if ((sendImage && textOnlyDepth == 0 || (recordFrames && recordFrame && textOnlyDepth == 0)) && sendShot(s)) screen.screenshotPng() else null
         // メインモデルのみが画像を表示できます。決済ページと通常ページは同じルールに従って処理されます。
         val kept = png?.takeIf { visionEnabled }
         shots.remember(Recall(shotId, shots.step, s.packageName, kept, observationText(s, ocr.orEmpty())))
@@ -210,7 +211,7 @@ internal class ScreenSession(
     suspend fun currentFrame(): Pair<ByteArray, Int>? {
         if (!visionEnabled) return null
         val s = screenAttempt { screen.peek() } ?: return null
-        if (s.protected) return null
+        if (!sendShot(s)) return null
         if (s.packageName == null && s.elements.isEmpty() && !s.hasWindow) return null
         val png = screenAttempt { if (screen.isProtected()) null else screen.screenshotPng() } ?: return null
         val shotId = shots.next()
@@ -240,7 +241,7 @@ internal class ScreenSession(
         val obs = screenAttempt { observe(withImage = false) } ?: return null
         val s = lastSnapshot ?: return null
         val shotId = (obs.content["screenshotId"] as? JsonPrimitive)?.content?.toIntOrNull() ?: return null
-        val png = if (s.protected) null else screenAttempt { obs.frame ?: if (screen.isProtected()) null else screen.screenshotPng() }
+        val png = if (!sendShot(s)) null else screenAttempt { obs.frame ?: if (screen.isProtected() || !sendShot(s)) null else screen.screenshotPng() }
         // レビューの補足画像です
         val recalls = shots.recalls
         if (png != null) recalls.indexOfLast { it.id == shotId }.takeIf { it >= 0 }?.let { i ->
@@ -310,7 +311,7 @@ internal class ScreenSession(
         // には、観察と同じルールがあります。アンチスクリーンショット ページは取得されません。レビューのために写真を残す前に、メインモデルのみが写真を表示できます。
         val imageReason = if (adaptiveVision && visionEnabled && tree.poor) tree.reason else null
         val sendImage = visionEnabled && (!adaptiveVision || imageReason != null)
-        val png = if ((recordFrames || sendImage) && textOnlyDepth == 0 && !s.protected) {
+        val png = if ((recordFrames || sendImage) && textOnlyDepth == 0 && sendShot(s)) {
             screenAttempt { screen.screenshotPng() }
         } else null
         val kept = png?.takeIf { visionEnabled }
@@ -470,7 +471,7 @@ internal class ScreenSession(
         val f = inputFields(s)
         val place = s.web?.url?.let(Place::page) ?: s.packageName?.let(Place::app)
         return Observation(ObsKind.Read, observationText(s, ocr), source = surface.id, place = place, title = s.web?.title,
-            trust = if (s.web != null) Trust.Untrusted else Trust.Trusted, inputs = InputHints(f.names, f.focused))
+            trust = Trust.Untrusted, inputs = InputHints(f.names, f.focused))
     }
 
     /**
@@ -525,7 +526,7 @@ internal class ScreenSession(
      */
     suspend fun freshLook(withImage: Boolean, extra: (suspend () -> Observation?)? = null): Look {
         val s = screenAttempt { screen.snapshot() }
-        val png = if (withImage && s != null && !s.protected) {
+        val png = if (withImage && s != null && sendShot(s)) {
             screenAttempt { screen.screenshotPng() }
         } else null
         // ツリーが十分でない場合でも画面上のテキストを読みます: 画面に書かれている内容を確認してください
@@ -533,6 +534,10 @@ internal class ScreenSession(
         val more = if (s != null) extra?.invoke() else null
         return Look(listOfNotNull(seen, more), png, s?.protected == true)
     }
+
+    /** 保護画面と、パッケージ不明または機密アプリの画面は画像を送らない。Web ページは URL で識別する。 */
+    private fun sendShot(s: ScreenSnapshot): Boolean =
+        !s.protected && !SensitiveApps.withholdScreenshot(s.packageName, s.web != null)
 
     /** この画面の意味に従って「どこ」を報告します（Webサイトがサイトです）：観察と同様に、携帯電話とWebサイトの「どこ」が混在しません。 */
     private fun onSurface(o: JsonObject): JsonObject {

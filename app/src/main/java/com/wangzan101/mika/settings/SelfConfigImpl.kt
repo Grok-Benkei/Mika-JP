@@ -1,6 +1,7 @@
 package com.wangzan101.mika.settings
 
 import com.wangzan101.mika.core.cap.phone.OperatingPace
+import com.wangzan101.mika.core.security.SafetyControls
 import com.wangzan101.mika.core.settings.SelfConfig
 
 /**
@@ -22,6 +23,7 @@ class SelfConfigImpl(
     )
 
     override fun set(key: String, value: String): String? {
+        if (SafetyControls.isLocked(key)) return "safety controls cannot be changed by the model"
         val v = value.trim().lowercase()
         fun onOff(): Boolean? = when (v) {
             "on", "true", "yes" -> true
