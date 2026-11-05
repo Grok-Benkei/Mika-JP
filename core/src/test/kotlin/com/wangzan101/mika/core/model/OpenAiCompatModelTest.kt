@@ -154,6 +154,7 @@ class OpenAiCompatModelTest {
 
     @Test fun mapsErrors() = runTest {
         assertTrue(errorFor(MockResponse().setResponseCode(401)) is ModelError.Auth)
+        assertTrue(errorFor(MockResponse().setResponseCode(403)) is ModelError.Auth)
         assertTrue(errorFor(MockResponse().setResponseCode(402)) is ModelError.QuotaExceeded)
         assertTrue(errorFor(MockResponse().setResponseCode(403).setBody("""{"error":{"code":"insufficient_quota"}}""")) is ModelError.QuotaExceeded)
         val rl = errorFor(MockResponse().setResponseCode(429).setHeader("retry-after", "2")) as ModelError.RateLimited

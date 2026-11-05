@@ -388,17 +388,20 @@ class AgentLoopTest {
         assertEquals(5000, currentTime)
     }
 
-    // の一時的な障害 (電流制限、ネットワーク、5xx) は、指数バックオフなどを伴う同じ再試行回数を共有します: 1 秒、2 秒、4 秒
+    // の一時的な障害 (電流制限、ネットワーク、5xx) は、指数バックオフなどを伴う同じ再試行回数を共有します: 2 秒、4 秒、8 秒。5 回で打ち切ります。
     @Test fun transientErrorsShareBoundedBackoff() = runTest {
         val m = FakeModel(ModelError.RateLimited(null), ModelError.Network(), ModelError.Server(503), finish())
         com.wangzan101.mika.core.testing.assertAnswered(DONE, loop(m).run("t"))
         assertEquals(4, m.requests.size)
-        assertEquals(7000, currentTime)
+        assertEquals(14_000, currentTime)
 
-        val always = FakeModel(ModelError.Network(), ModelError.Network(), ModelError.Network(), ModelError.Network(), finish())
+        val always = FakeModel(
+            ModelError.Network(), ModelError.Network(), ModelError.Network(),
+            ModelError.Network(), ModelError.Network(), ModelError.Network(), finish(),
+        )
         val r = loop(always).run("t")
         assertTrue("$r", r is TaskState.Failed && r.kind == FailKind.Model)
-        assertEquals(4, always.requests.size)
+        assertEquals(6, always.requests.size)
     }
 
     @Test fun serverErrorsRetryOnly5xx() = runTest {
@@ -421,7 +424,7 @@ class AgentLoopTest {
         }
         loop(FakeModel(ModelError.Server(502), ModelError.RateLimited(1500), finish()), sink = sink).run("t")
         val retries = events.filterIsInstance<RunEvent.State>().filter { it.name == "model_retry" }.map { it.detail }
-        assertEquals(listOf("main server_502 #1 1000ms", "main rate_limited #2 1500ms"), retries)
+        assertEquals(listOf("main server_502 #1 2000ms", "main rate_limited #2 1500ms"), retries)
     }
 
     // バックオフして待機中にタスクをキャンセルします。これ以上リクエストは送信されず、タスクはキャンセルによって終了します。
@@ -474,13 +477,13 @@ class AgentLoopTest {
         assertEquals(listOf("処理を続けています。", null), previews)
         assertEquals(2, requests.size)
         assertEquals(requests[0], requests[1])
-        assertEquals(1000, currentTime)
+        assertEquals(2000, currentTime)
     }
 
-    @Test fun networkErrorRetriesAfterOneSecond() = runTest {
+    @Test fun networkErrorRetriesAfterBaseBackoff() = runTest {
         val m = FakeModel(ModelError.Network(), finish())
         com.wangzan101.mika.core.testing.assertAnswered(DONE, loop(m).run("t"))
-        assertEquals(1000, currentTime)
+        assertEquals(2000, currentTime)
     }
 
     @Test fun reportFailureEndsFailedWithMessage() = runTest {

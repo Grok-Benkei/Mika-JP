@@ -164,6 +164,25 @@ class StreamingModelsTest {
         assertCut(gemini())
     }
 
+    /** 空の data 行はキープアライブです。実イベントと [DONE] の間に挟まっても応答を壊しません。 */
+    @Test fun openAiIgnoresBlankSseDataLines() = runTest {
+        server.enqueue(MockResponse().setHeader("Content-Type", "text/event-stream").setBody(
+            "data: \n\n" +
+                "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}]}\n" +
+                "data:\n\n" +
+                "data: [DONE]\n\n",
+        ))
+        val reply = openAi().completeStreaming("s", user, emptyList()) {}
+        assertEquals(listOf(Part.Text("ok")), reply.parts)
+        assertEquals(StopReason.EndTurn, reply.stopReason)
+    }
+
+    /** 空の data 行だけではイベントがなく、途中切断と同じ再試行可能な失敗です。 */
+    @Test fun blankSseDataLinesAloneAreARetryableCut() = runTest {
+        server.enqueue(MockResponse().setHeader("Content-Type", "text/event-stream").setBody("data: \n\ndata:\n\n"))
+        assertCut(openAi())
+    }
+
     /** イベント ストリームは 1 フレームも来る前に中断されました (たとえば、長時間考えているときにゲートウェイによって中断されました)。これは再試行可能な中断でもあります。 */
     @Test fun eventStreamCutBeforeAnyEventIsRetryable() = runTest {
         server.enqueue(stream())

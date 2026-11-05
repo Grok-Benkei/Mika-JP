@@ -1087,7 +1087,7 @@ class ProviderStore(
         private const val USE_NONE = "none"
 
         // プロバイダーへのクライアントはすべて NetProxy 経由で作る: 設定 › ネットワークプロキシを通り、本機と LAN アドレス（ローカルモデル）は直接接続する
-        private val http by lazy { NetProxy.shared.client(OkHttpClient.Builder().readTimeout(120, TimeUnit.SECONDS)) }
+        private val http by lazy { NetProxy.shared.client(OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).writeTimeout(120, TimeUnit.SECONDS).readTimeout(180, TimeUnit.SECONDS)) }
 
         /** 会話モデルと共有するコネクションプール; 同じプロバイダーへの他のリクエスト（音声の文字起こしなど）もこれを使う。 */
         val modelHttp: OkHttpClient get() = http
