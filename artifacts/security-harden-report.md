@@ -90,10 +90,12 @@ aapt dump badging app-universal-release.apk | grep application-debuggable
 
 - リポジトリ: https://github.com/Grok-Benkei/Mika-JP
 - ブランチ: `security/harden-android-release`
-- base: `fix/deepseek-flash-reliability`
+- base: `fix/deepseek-flash-reliability`（`main` ではない）
+- Draft PR: https://github.com/Grok-Benkei/Mika-JP/pull/2
 - 上流 `yebisu0529-ship-it/Mika-JP` と fork の `main` は変更していない
+- 最初に観測した Actions 実行（この文書の直前の push）: https://github.com/Grok-Benkei/Mika-JP/actions/runs/42011037376
 
-Draft PR と Actions の URL は、push 後にこのファイルの末尾を更新する。
+この節のあとに SHA と、成果物をアップロードする実行の URL を追記する。
 
 ## 5. 残るリスク（動的監査が必要）
 
