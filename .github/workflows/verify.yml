@@ -3,7 +3,7 @@ name: 検証
 on:
   pull_request:
   push:
-    branches: [main, fix/deepseek-flash-reliability, security/harden-android-release]
+    branches: [main, fix/deepseek-flash-reliability, security/harden-android-release, security/a-grade-hardening]
   workflow_dispatch:
 
 permissions:
@@ -21,6 +21,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: 上流の更新検知・差分取得ツール
         run: python3 -m unittest discover -s tools/upstream -p 'test_*.py' -v
   android-and-jvm:
@@ -33,6 +34,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
