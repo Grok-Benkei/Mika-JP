@@ -41,21 +41,57 @@ jobs:
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
       - name: 配布ソース作成ツール
         run: python3 -m unittest discover -s tools/release -p 'test_*.py'
-      - name: JVM・CLI・Android本体と画面テスト、debug と非デバッグ release
+      - name: JVM・CLI・Android単体テスト
+        run: |
+          set -euo pipefail
+          # Checksums only. Lockfiles and verification metadata are read, not rewritten.
+          bash ./gradlew --no-daemon --console=plain --max-workers=4 --dependency-verification=strict --continue \
+            :core:test :app:testDebugUnitTest :core:cliTest -PmikaPython=python3
+          python3 - <<'PY'
+          import glob, xml.etree.ElementTree as ET
+          groups = {
+              "core": "core/build/test-results/test/TEST-*.xml",
+              "app": "app/build/test-results/testDebugUnitTest/TEST-*.xml",
+              "cliContract": "core/build/test-results/cliContractTest/TEST-*.xml",
+          }
+          print("junit-summary")
+          for name, pattern in groups.items():
+              tests = failures = errors = skipped = 0
+              files = glob.glob(pattern)
+              for path in files:
+                  root = ET.parse(path).getroot()
+                  tests += int(root.attrib.get("tests", 0))
+                  failures += int(root.attrib.get("failures", 0))
+                  errors += int(root.attrib.get("errors", 0))
+                  skipped += int(root.attrib.get("skipped", 0))
+              print(f"{name} files={len(files)} tests={tests} failures={failures} errors={errors} skipped={skipped}")
+              if not files or failures or errors:
+                  raise SystemExit(f"FAIL {name} junit")
+          PY
+      - name: 署名付き release
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           MIKA_RELEASE_KEYSTORE_BASE64: ${{ secrets.MIKA_RELEASE_KEYSTORE_BASE64 }}
           MIKA_RELEASE_STORE_PASSWORD: ${{ secrets.MIKA_RELEASE_STORE_PASSWORD }}
           MIKA_RELEASE_KEY_ALIAS: ${{ secrets.MIKA_RELEASE_KEY_ALIAS }}
           MIKA_RELEASE_KEY_PASSWORD: ${{ secrets.MIKA_RELEASE_KEY_PASSWORD }}
+          EXPECTED_CERT_SHA256: b0a8f428f96164ceee83a34bcf22a4e4d21588251547cf448ccc4b13f3072f1e
+          SOURCE_SHA: ${{ github.sha }}
+          SOURCE_REF: ${{ github.ref }}
+          SOURCE_EVENT: ${{ github.event_name }}
         run: |
           set -euo pipefail
           umask 077
           keydir="$(mktemp -d)"
-          cleanup() { rm -rf "$keydir"; }
+          cleanup() {
+            set +e
+            if [ -n "${keydir:-}" ] && [ -d "$keydir" ]; then
+              if [ -f "$keydir/release.keystore" ]; then
+                shred -u "$keydir/release.keystore" 2>/dev/null || rm -f "$keydir/release.keystore"
+              fi
+              rm -rf "$keydir"
+            fi
+            unset MIKA_RELEASE_KEYSTORE MIKA_RELEASE_STORE_PASSWORD MIKA_RELEASE_KEY_ALIAS MIKA_RELEASE_KEY_PASSWORD
+          }
           trap cleanup EXIT
           strip_trailing_breaks() {
             local v=$1
@@ -64,86 +100,136 @@ jobs:
             done
             printf '%s' "$v"
           }
-          b64_raw="${MIKA_RELEASE_KEYSTORE_BASE64:-${ANDROID_KEYSTORE_BASE64:-}}"
-          store_pass="$(strip_trailing_breaks "${MIKA_RELEASE_STORE_PASSWORD:-${KEYSTORE_PASSWORD:-}}")"
-          alias="$(strip_trailing_breaks "${MIKA_RELEASE_KEY_ALIAS:-${KEY_ALIAS:-}}")"
-          key_pass="$(strip_trailing_breaks "${MIKA_RELEASE_KEY_PASSWORD:-${KEY_PASSWORD:-}}")"
-          b64="$(printf '%s' "$b64_raw" | tr -d ' \t\r\n')"
-          if [ -n "$b64" ] && [ -n "$store_pass" ] && [ -n "$alias" ] && [ -n "$key_pass" ]; then
-            printf '%s' "$b64" | base64 -d > "$keydir/release.keystore"
-            export MIKA_RELEASE_KEYSTORE="$keydir/release.keystore"
-            export MIKA_RELEASE_STORE_PASSWORD="$store_pass"
-            export MIKA_RELEASE_KEY_ALIAS="$alias"
-            export MIKA_RELEASE_KEY_PASSWORD="$key_pass"
-            bytes=$(wc -c < "$keydir/release.keystore" | tr -d ' ')
-            sig=$(od -An -tx1 -N2 "$keydir/release.keystore" | tr -d ' \n')
-            case "$sig" in
-              feed) container=jks ;;
-              308*) container=pkcs12 ;;
-              *) container=unknown ;;
-            esac
-            echo "release signing: decoded keystore bytes=${bytes} container=${container} (temp file deleted after the build; secret values are not printed)"
-            if [ "$container" = unknown ]; then
-              echo "release signing: decoded bytes are not a JKS or PKCS12 keystore"
-              exit 1
-            fi
-            signing=project-keystore
-          else
-            unset MIKA_RELEASE_KEYSTORE MIKA_RELEASE_STORE_PASSWORD MIKA_RELEASE_KEY_ALIAS MIKA_RELEASE_KEY_PASSWORD || true
-            echo "release signing: secrets absent. The release APK is unsigned and is NOT for personal or distribution use."
-            signing=unsigned-not-for-distribution
-          fi
-          # debug と release を同じ Gradle 起動に混ぜない。splits はタスク名に release があると debug も ABI 分割する。
-          bash ./gradlew --no-daemon --console=plain --max-workers=4 --continue :core:test :app:testDebugUnitTest :core:cliTest -PmikaPython=python3 :app:assembleDebug :app:assembleDebugAndroidTest
-          bash ./gradlew --no-daemon --console=plain --max-workers=4 :app:assembleRelease
-          AAPT="${ANDROID_HOME}/build-tools/35.0.0/aapt"
-          APKSIGNER="${ANDROID_HOME}/build-tools/35.0.0/apksigner"
-          info="app/build/outputs/security"
-          mkdir -p "$info"
-          {
-            echo "commit=$(git rev-parse HEAD)"
-            echo "signing=$signing"
-            echo "package=jp.studioyebisu.mika"
-          } > "$info/build-info.txt"
-          : > "$info/SHA256SUMS"
-          shopt -s nullglob
-          fail=0
-          for apk in app/build/outputs/apk/debug/*.apk app/build/outputs/apk/release/*.apk; do
-            sha256sum "$apk" | tee -a "$info/SHA256SUMS"
+          missing=""
+          for name in MIKA_RELEASE_KEYSTORE_BASE64 MIKA_RELEASE_STORE_PASSWORD MIKA_RELEASE_KEY_ALIAS MIKA_RELEASE_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then missing="$missing $name"; fi
           done
-          found=0
-          for apk in app/build/outputs/apk/release/*.apk; do
-            found=1
-            echo "---- $(basename "$apk") ----" | tee -a "$info/build-info.txt"
-            "$AAPT" dump badging "$apk" > "$info/$(basename "$apk").badging"
-            if grep -q "application-debuggable" "$info/$(basename "$apk").badging"; then
-              echo "FAIL android:debuggable is set on $apk" | tee -a "$info/build-info.txt"
-              fail=1
-            else
-              echo "OK android:debuggable=false $apk" | tee -a "$info/build-info.txt"
-            fi
-            if "$APKSIGNER" verify --print-certs "$apk" > "$info/$(basename "$apk").certs" 2> "$info/$(basename "$apk").signerr"; then
-              echo "apksigner: signed $apk" | tee -a "$info/build-info.txt"
-              grep -E "SHA-256|Signer" "$info/$(basename "$apk").certs" | tee -a "$info/build-info.txt" || true
-            else
-              echo "apksigner: UNSIGNED $apk — not a distribution build" | tee -a "$info/build-info.txt"
-              cat "$info/$(basename "$apk").signerr" >> "$info/build-info.txt" || true
-            fi
-          done
-          if [ "$found" -eq 0 ]; then
-            echo "FAIL no release APK" | tee -a "$info/build-info.txt"
-            fail=1
+          if [ -n "$missing" ]; then
+            echo "FAIL release signing: empty secret names:${missing}"
+            exit 1
           fi
-          echo "SHA256SUMS:"
-          cat "$info/SHA256SUMS"
-          if [ -n "${MIKA_RELEASE_KEYSTORE:-}" ]; then
-            find app/build -name '*.keystore' -o -name '*.jks' | tee "$info/keystore-leak-check.txt" || true
-            if [ -s "$info/keystore-leak-check.txt" ]; then
-              echo "FAIL keystore appeared under app/build"
-              fail=1
-            fi
+          b64="$(printf '%s' "$MIKA_RELEASE_KEYSTORE_BASE64" | tr -d ' \t\r\n')"
+          if ! printf '%s' "$b64" | base64 -d > "$keydir/release.keystore"; then
+            echo "FAIL release signing: keystore base64 did not decode"
+            exit 1
           fi
-          exit "$fail"
+          bytes=$(wc -c < "$keydir/release.keystore" | tr -d ' ')
+          sig=$(od -An -tx1 -N2 "$keydir/release.keystore" | tr -d ' \n')
+          case "$sig" in
+            feed) container=jks ;;
+            308*) container=pkcs12 ;;
+            *) container=unknown ;;
+          esac
+          echo "release signing: decoded keystore bytes=${bytes} container=${container} (temp file deleted after the build; secret values are not printed)"
+          if [ "$container" = unknown ]; then
+            echo "FAIL release signing: decoded bytes are not a JKS or PKCS12 keystore"
+            exit 1
+          fi
+          export MIKA_RELEASE_KEYSTORE="$keydir/release.keystore"
+          export MIKA_RELEASE_STORE_PASSWORD="$(strip_trailing_breaks "$MIKA_RELEASE_STORE_PASSWORD")"
+          export MIKA_RELEASE_KEY_ALIAS="$(strip_trailing_breaks "$MIKA_RELEASE_KEY_ALIAS")"
+          export MIKA_RELEASE_KEY_PASSWORD="$(strip_trailing_breaks "$MIKA_RELEASE_KEY_PASSWORD")"
+          bash ./gradlew --no-daemon --console=plain --max-workers=4 --dependency-verification=strict :app:assembleRelease
+          python3 - <<'PY'
+          import hashlib, os, pathlib, subprocess, sys
+          aapt = os.environ["ANDROID_HOME"] + "/build-tools/35.0.0/aapt"
+          apksigner = os.environ["ANDROID_HOME"] + "/build-tools/35.0.0/apksigner"
+          expected = os.environ["EXPECTED_CERT_SHA256"]
+          out = pathlib.Path("build/phase6-public")
+          if out.exists():
+              for child in out.rglob("*"):
+                  if child.is_file():
+                      child.unlink()
+          out.mkdir(parents=True, exist_ok=True)
+          release = pathlib.Path("app/build/outputs/apk/release")
+          wanted = ["app-arm64-v8a-release.apk", "app-universal-release.apk"]
+          lines = [
+              f"commit={subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip()}",
+              f"github_sha={os.environ.get('SOURCE_SHA','')}",
+              f"github_ref={os.environ.get('SOURCE_REF','')}",
+              f"github_event={os.environ.get('SOURCE_EVENT','')}",
+              "signing=project-keystore",
+              "package=jp.studioyebisu.mika",
+              "dependency_verification=strict",
+              "write_locks=false",
+              "write_verification_metadata=false",
+          ]
+          sums = []
+          for name in wanted:
+              apk = release / name
+              if not apk.is_file():
+                  print(f"FAIL missing signed apk {name}")
+                  sys.exit(1)
+              if "unsigned" in name:
+                  print(f"FAIL unsigned name {name}")
+                  sys.exit(1)
+              digest = hashlib.sha256(apk.read_bytes()).hexdigest()
+              sums.append(f"{digest}  {name}")
+              badging = subprocess.check_output([aapt, "dump", "badging", str(apk)], text=True, errors="replace")
+              xmltree = subprocess.check_output([aapt, "dump", "xmltree", str(apk), "AndroidManifest.xml"], text=True, errors="replace")
+              verify = subprocess.run([apksigner, "verify", "--verbose", "--print-certs", str(apk)], text=True, capture_output=True)
+              (out / f"{name}.badging").write_text(badging)
+              (out / f"{name}.xmltree").write_text(xmltree)
+              (out / f"{name}.certs").write_text(verify.stdout + ("\n" + verify.stderr if verify.stderr else ""))
+              debuggable_true = any("android:debuggable" in line and "0xffffffff" in line for line in xmltree.splitlines())
+              debuggable_false = any("android:debuggable" in line and "(type 0x12)0x0" in line for line in xmltree.splitlines())
+              debuggable_absent = not any("android:debuggable" in line for line in xmltree.splitlines())
+              if debuggable_true or (not debuggable_false and not debuggable_absent):
+                  print(f"FAIL binary manifest debuggable {name}")
+                  sys.exit(1)
+              if "application-debuggable" in badging:
+                  print(f"FAIL badging debuggable {name}")
+                  sys.exit(1)
+              if verify.returncode != 0:
+                  print(f"FAIL apksigner verify {name} exit {verify.returncode}")
+                  sys.exit(1)
+              certs = []
+              schemes = {}
+              signers = None
+              for raw in verify.stdout.splitlines():
+                  line = raw.strip()
+                  if line.startswith("Verified using v") and ":" in line:
+                      schemes[line.split(":", 1)[0]] = line.split(":", 1)[1].strip()
+                  if line.startswith("Number of signers:"):
+                      signers = line.split(":", 1)[1].strip()
+                  if "certificate SHA-256 digest:" in line:
+                      certs.append(line.split(":", 1)[1].strip().replace(":", "").lower())
+              if signers != "1" or certs != [expected]:
+                  print(f"FAIL certificate {name} signers={signers} digests={len(certs)}")
+                  sys.exit(1)
+              v2 = [v for k, v in schemes.items() if "v2 scheme" in k]
+              if v2 != ["true"]:
+                  print(f"FAIL v2 scheme {name}")
+                  sys.exit(1)
+              flag = "false" if debuggable_false else "absent-default-false"
+              lines.append(f"apk={name} sha256={digest} bytes={apk.stat().st_size} debuggable={flag} signers={signers}")
+              for key, value in schemes.items():
+                  lines.append(f"scheme {name} {key}={value}")
+              shutil_copy = out / name
+              shutil_copy.write_bytes(apk.read_bytes())
+          (out / "SHA256SUMS").write_text("\n".join(sums) + "\n")
+          (out / "build-info.txt").write_text("\n".join(lines) + "\n")
+          print("\n".join(lines))
+          print("SHA256SUMS:")
+          print("\n".join(sums))
+          markers = (b"BEGIN PRIVATE KEY", b"BEGIN RSA PRIVATE KEY", b"BEGIN OPENSSH PRIVATE KEY")
+          for path in out.rglob("*"):
+              if not path.is_file():
+                  continue
+              if path.suffix.lower() in {".keystore", ".jks", ".p12", ".pfx"}:
+                  print(f"FAIL signing file in artifact scope: {path.name}")
+                  sys.exit(1)
+              data = path.read_bytes()
+              for marker in markers:
+                  if marker in data:
+                      print(f"FAIL private-key marker in {path.name}")
+                      sys.exit(1)
+          leaked = list(pathlib.Path("app/build").rglob("*.keystore")) + list(pathlib.Path("app/build").rglob("*.jks"))
+          if leaked:
+              print("FAIL keystore appeared under app/build")
+              sys.exit(1)
+          print("OK signed release artifact scope")
+          PY
       - name: 検査結果
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -152,23 +238,13 @@ jobs:
           path: |
             core/build/test-results/
             app/build/test-results/
-            app/build/outputs/security/
           retention-days: 7
-      - name: Upload Debug APK
-        if: success()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: Mika-JP-DeepSeekFlash-Debug-APK
-          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          retention-days: 14
-      - name: Upload non-debuggable Release APK
+      - name: Upload signed Release APK
         if: success()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Mika-JP-Release-APK
-          path: |
-            app/build/outputs/apk/release/*.apk
-            app/build/outputs/security/
+          path: build/phase6-public/
           if-no-files-found: error
           retention-days: 14
