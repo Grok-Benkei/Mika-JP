@@ -62,7 +62,7 @@ Process log at start: `Not starting debugger since process cannot load the jdwp 
 | MCP, relay, and local server default off | PASS for listening and stored files in this snapshot | No mcp, relay, or otlp file under the app data dir. Root `ss -lntu` had no listener on 8765, 80, or 443 |
 | MCP enabled: auth, bind address, and restart | UNVERIFIED | The switch was not turned on |
 | Updater destination | UNVERIFIED | The update flow was not opened |
-| Exit, restart, and boot | PASS for force-stop and relaunch only | `am force-stop` left no pid. A later start resumed `MainActivity` as pid 5076. After force-stop, the accessibility setting read back as `null`. The emulator was not rebooted, so boot behavior is UNVERIFIED |
+| Exit, restart, and boot | PASS for process stop and relaunch. The accessibility readback is corrected below | A later controlled readback, not the first snapshot: before force-stop the component was set and `accessibility_enabled=1`. Immediately after `am force-stop` the process was gone, the component string was still `jp.studioyebisu.mika/com.wangzan101.mika.a11y.MikaAccessibilityService`, and `accessibility_enabled` was `0`. After relaunch those two setting reads were unchanged. The earlier “setting became null” note was not this readback. A full guest reboot left both reads `null` and `0` |
 | Arm64 sandbox launcher | UNVERIFIED as a sandbox test. The x86_64 miss is observed | `RuntimePreparer` logged `Cannot run program ".../lib/x86_64/libmikarun.so": error=2, No such file or directory` from `AndroidSandbox.launch`. That does not exercise the arm64 `libmikarun` / `libproot` binaries |
 | Release not debuggable | PASS | Package flags omit `DEBUGGABLE`. The process refused the JDWP agent |
 | Crash, log, and OTLP sentinels | UNVERIFIED beyond the log buffer that was read | The synthetic notice was absent from that logcat. No API key was present to leak. No OTLP file and no OTLP send were observed. The empty pcap cannot prove an export did not happen |
@@ -74,3 +74,25 @@ Process log at start: `Not starting debugger since process cannot load the jdwp 
 No dummy API token was submitted. No screen was sent to DeepSeek or any other external model. No production key was requested. An authentication failure was not treated as a successful model call. The release trust store was not patched. GitHub-hosted emulator CI was not added, because this guest did boot. `workflow_dispatch` was not retried.
 
 PR #2 remains the draft at `67217715`. PR #3 remains a draft. `gradlew.bat` was left unstaged.
+
+## Continuation
+
+The same AVD was booted again with `-accel off` and `-tcpdump /tmp/p7/boot3.pcap`. Installed `base.apk` still hashes to `da86ed527246e987b762c79e5c2fe690412cf337d53cb77cf02f75dd3ce4db86`.
+
+### Packet capture
+
+The first `-tcpdump` file stayed a header because guest `eth0` was DOWN (`state DOWN`, no carrier on `wlan0`). `ping 10.0.2.2` then returned `Network is unreachable`. After `ip link set eth0 up` and `ip addr add 10.0.2.15/24 dev eth0`, `ping -I eth0 -c 1 10.0.2.2` got one reply, and the capture grew. `ip route add default via 10.0.2.2` still returns `Network is unreachable`, so traffic that is not bound to `eth0` does not leave. Final `boot2.pcap` is 36897 bytes, SHA-256 `9e4edfd9537cc1c3a1b80ac3f5cb1a87965e57894b2be07690077757e71ab06b`. `boot3.pcap` after the later guest restart is 10230 bytes, SHA-256 `c4bf8e5f4579642054d29a837080d4721ed34094c210bfe346f6f35df1d527a5`. Neither file is committed. The qemu dump is attached to `netdev=mynet`. It does not see `adb reverse` traffic.
+
+Positive control for the loopback path: a guest `toybox nc` GET `http://127.0.0.1:11434/v1/models` through `adb reverse tcp:11434 tcp:11434` was logged by the host server bound only to `127.0.0.1`. That request had `Host: 127.0.0.1` and `Connection: close`, and no `Authorization`. A host `curl` is a separate log line and is not the guest. This proves that route only.
+
+### Model form
+
+The Ollama chip is the local endpoint the UI offers. After selecting it, the base URL field read `http://127.0.0.1:11434/v1`. A synthetic token `P7DUMMYTOKENNOTAREALKEY` was typed into the API key field. The field then showed bullets, not the token. `次へ` was tapped once while that URL and the bullets were on screen. The mock log gained no request from the app: no `Authorization` header and no token. No confirmation sheet (`この宛先を確認`) was read back. The activity later showed the onboarding screen again. Consent, save, redirects, and a model turn are UNVERIFIED. No external HTTPS call and no DeepSeek call were made.
+
+One mistyped attempt put `P7` into the URL (`http://127.0.0.1:11434P7/v1`). Reselecting Ollama restored `http://127.0.0.1:11434/v1`. That bad URL was not submitted.
+
+The software guest repeatedly raised “System UI isn't responding” and then “Process system isn't responding”. Wait did not clear the second dialog. Close app did, and `system_server` then had no pid: `input`, `settings`, and `activity` services were missing (`Can't find service`). The guest emulator was restarted. The host was not.
+
+### Not reached
+
+`com.p7.fixture` was installed. It was not brought to the foreground while Mika was subscribed, so bank, browser, WebView, password, unknown-package, screenshot, and OCR rows stay UNVERIFIED. A second fixture with package `jp.co.smbc.direct` did not build (`aapt` reported no manifest). High-risk taps, MCP-after-enable, and the updater were not reached. Arm64 `libmikarun` remains UNVERIFIED on this x86_64 guest, not a pass.
