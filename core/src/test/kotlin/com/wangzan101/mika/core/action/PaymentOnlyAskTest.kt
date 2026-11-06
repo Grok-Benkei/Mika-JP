@@ -221,7 +221,7 @@ class PaymentOnlyAskTest {
         }
         AgentLoop(flipping, toolDispatcher(s), "BASE", confirmations = ConfirmationGate(), approvals = approvals).run("t")
         assertEquals("confirmation_required", m.result(2).s("error"))
-        assertEquals(listOf("@e3"), s.taps)
+        assertTrue(s.taps.isEmpty())
     }
 
     @Test fun batchStepsSendButStopAtPayment() = runTest {

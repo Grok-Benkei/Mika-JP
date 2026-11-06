@@ -149,7 +149,13 @@ class RootCommandToolTest {
     fun autonomousModeDoesNotAsk() = runTest {
         val port = FakeRoot()
         val m = FakeModel(root("rm /sdcard/x"), FINISH)
-        loop(m, port, autonomous = true).run("t")
+        val l = loop(m, port, autonomous = true)
+        val run = async { l.run("t") }
+        advanceUntilIdle()
+        assertTrue(l.state.value is TaskState.WaitingConfirmation)
+        assertTrue(port.ran.isEmpty())
+        l.answerConfirmation(ConfirmChoice.Once)
+        run.await()
         assertEquals(listOf("rm /sdcard/x"), port.ran)
     }
 
@@ -159,8 +165,8 @@ class RootCommandToolTest {
         val m = FakeModel(root("rm /sdcard/x"), FINISH)
         val spec = RunSpec(RunId("r"), "t", "th", provenance = RunProvenance(RunOrigin.Trigger, Attendance.Unattended))
         loop(m, port, autonomous = true, sink = sink).run(spec, RunInbox())
-        assertEquals(listOf("rm /sdcard/x"), port.ran)
-        assertTrue(sink.all.none { it is RunEvent.Confirmation })
+        assertTrue(port.ran.isEmpty())
+        assertTrue(sink.all.any { it is RunEvent.Approval && it.decision == "denied" })
     }
 
     @Test

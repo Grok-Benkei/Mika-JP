@@ -137,7 +137,7 @@ class AgentLoopGateTest {
         val r = m.result(3)
         assertEquals("false", r.s("ok")); assertEquals("confirmation_required", r.s("error"))
         assertEquals("order", r.s("action")); assertEquals("提交订单", r.s("matched"))
-        assertTrue(r.s("message").startsWith("この操作（order）には支出が伴うため、実行していません。まずrequest_confirmation"))
+        assertTrue(r.s("message").startsWith("この操作（order）は確認が必要なため、実行していません。まずrequest_confirmation"))
         assertTrue(r.s("message"), "その成否にかかわらず使い切られる" in r.s("message"))
         // 送信するために入力した後、Enter キーを押します: メッセージの送信には料金はかかりません。画面上に金額が表示されていても、通常どおりに操作してください。
         assertEquals("confirmation_required", m.result(4)["error"]?.jsonPrimitive?.content)

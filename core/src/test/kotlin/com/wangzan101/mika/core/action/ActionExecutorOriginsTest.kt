@@ -92,9 +92,8 @@ class ActionExecutorOriginsTest(private val label: String, private val action: I
         tools.execute(Part.ToolCall("o", "phone_observe", "{}"))
         val executor = ActionExecutor(tools, OperationGuards(), null, gate = {}, recorder = ActionRecorder(sink), autonomous = true)
         val out = executor.run(Part.ToolCall("c3", "phone_tap", """{"ref":"@e1","snapshotId":"s1"}"""), origin)
-        assertTrue("$out", out is ActionOutcome.Ran)
-        assertEquals(listOf("@e1"), screen.taps)
-        assertTrue(events.none { it is RunEvent.Confirmation || it is RunEvent.Approval })
+        assertTrue("$label $origin $out", out is ActionOutcome.Refused)
+        assertTrue(screen.taps.isEmpty())
     }
 
     companion object {

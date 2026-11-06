@@ -17,6 +17,8 @@ import com.wangzan101.mika.core.uistate.ActionResult
 import com.wangzan101.mika.core.uistate.ScreenPort
 import com.wangzan101.mika.core.uistate.ScreenSnapshot
 import com.wangzan101.mika.core.uistate.UiElement
+import kotlinx.coroutines.async
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -117,8 +119,9 @@ class JapaneseOutputTest {
             assertTrue(end.reason, "同じ操作を繰り返さない" in end.reason)
             assertFalse(end.reason, "もう一度" in end.reason)
             assertFalse(end.reason, "操作はまだ開始していません" in end.reason)
-            assertEquals(1, sends)
-            assertEquals(1, recorded.filterIsInstance<RunEvent.Activity>().count { it.outward && !it.failed })
+            assertEquals(0, sends)
+            assertEquals(0, recorded.filterIsInstance<RunEvent.Activity>().count { it.outward && !it.failed })
+            assertTrue(recorded.filterIsInstance<RunEvent.ToolResult>().any { it.resultJson.contains("confirmation_required") })
             assertEquals(0, recorded.filterIsInstance<RunEvent.Approval>().count { it.decision == "allowed" })
             assertEquals(if (limit > 3) 5 else 4, model.requests.size)
         }

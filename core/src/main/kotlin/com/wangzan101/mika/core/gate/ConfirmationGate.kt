@@ -78,14 +78,16 @@ class ConfirmationGate {
         val g = grant ?: return Permit.NoGrant
         grant = null
         val r = g.request
+        val shown = screen ?: return Permit.Mismatch("approved in ${r.app} but the screen shows unknown")
+        val place = screenPlace(shown)
+        if (place != r.app) return Permit.Mismatch("approved in ${r.app} but the screen shows $place")
         val reason = when {
             hit.action == IrrevAction.pay -> "payment is never approved here"
             step - g.step > MAX_STEPS -> "the approval expired ($MAX_STEPS steps)"
             hit.action != r.action -> "approved ${r.action.name} but this step is ${hit.action.name}"
-            screen?.packageName == null || screen.packageName != r.app -> "approved in ${r.app} but the screen shows ${screen?.packageName ?: "unknown"}"
-            !targetShown(r, screen) && !(textless(screen) && seenShows(r, seen)) -> "the target \"${r.target}\" is not shown " + (if (r.action == IrrevAction.send) "in the title area" else "on the screen")
-            r.action == IrrevAction.send && !contentMatches(r.content, screen, typing) && !(textless(screen) && seenShows(r, seen)) -> "the text to send is not exactly what was approved"
-            amountBinds(hit, screen) && !amountShown(r.amount, screen, hit.matched) -> "the approved amount ${r.amount ?: "(none)"} is not on the screen"
+            !targetShown(r, shown) && !(textless(shown) && seenShows(r, seen)) -> "the target \"${r.target}\" is not shown " + (if (r.action == IrrevAction.send) "in the title area" else "on the screen")
+            r.action == IrrevAction.send && !contentMatches(r.content, shown, typing) && !(textless(shown) && seenShows(r, seen)) -> "the text to send is not exactly what was approved"
+            amountBinds(hit, shown) && !amountShown(r.amount, shown, hit.matched) -> "the approved amount ${r.amount ?: "(none)"} is not on the screen"
             else -> return Permit.Allowed
         }
         return Permit.Mismatch(reason)
@@ -104,6 +106,10 @@ class ConfirmationGate {
             else -> Permit.Allowed
         }
     }
+
+    /** アプリはパッケージ、ウェブページはホスト。どちらも承認先と一致しなければならない。 */
+    private fun screenPlace(screen: ScreenSnapshot?): String? =
+        screen?.packageName ?: screen?.web?.url?.let { com.wangzan101.mika.core.net.UrlHost.of(it) }
 
     /** 読み取り画面に文字のある要素が一つもない場合（独自描画やcanvas）。 */
     private fun textless(s: ScreenSnapshot) = s.elements.none { it.name.isNotBlank() }

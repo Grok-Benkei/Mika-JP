@@ -695,14 +695,18 @@ class ToolDispatcherWebTest {
         val t = toolDispatcher(FakeScreen(), web = web, workspacePath = { WorkspacePathCheck.Ok },
             webPacing = { PagePacing.human(kotlin.random.Random(1), limits = PagePacing.Limits(pageCap = 2)) })
         val sink = object : RunSink { override fun event(e: RunEvent) {} }
-        val executor = ActionExecutor(t, OperationGuards(), null, gate = {}, recorder = ActionRecorder(sink), autonomous = true)
+        val gate = com.wangzan101.mika.core.gate.ConfirmationGate()
+        val executor = ActionExecutor(t, OperationGuards(), gate, gate = {}, recorder = ActionRecorder(sink), autonomous = true)
         suspend fun run(name: String, args: String) = executor.run(Part.ToolCall("c", name, args), Origin.Model(1)).execution()
         t.go("https://jobs.example.com/a")
         t.go("https://jobs.example.com/b")
         var sid = t.execute(call("web_observe")).content.s("snapshotId")
-        // 閲覧のみ：上限に達しても何もしない
         assertEquals("page_limit", run("web_tap", """{"ref":"@e2","snapshotId":"$sid"}""").content.s("error"))
-        // は外部アクションをブロックしません
+        val req = com.wangzan101.mika.core.gate.ConfirmationRequest(
+            com.wangzan101.mika.core.risk.IrrevAction.submit, "立即沟通", "", null, "jobs.example.com",
+        )
+        gate.declare(req, "jobs.example.com")
+        gate.decide(com.wangzan101.mika.core.action.ConfirmChoice.Once, 1)
         assertEquals(JsonPrimitive(true), run("web_tap", """{"ref":"@e1","snapshotId":"$sid"}""").content["ok"])
         assertTrue(web.calls.any { it.startsWith("tapRef @e1") })
         // その後、この Web サイト上のページの変更は通常どおり機能し、変更されたページはそのまま残ります。
