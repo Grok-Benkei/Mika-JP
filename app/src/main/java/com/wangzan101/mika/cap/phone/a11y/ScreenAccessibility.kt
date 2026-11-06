@@ -78,8 +78,7 @@ open class ScreenAccessibility : AccessibilityService() {
         if (access.denial(event.packageName?.toString()) != null) return
         if (event.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED && notifications.subscriptionCount.value > 0) {
             val pkg = event.packageName?.toString()
-            val verdict = EgressPolicy.notification(pkg)
-            notifications.tryEmit(ScreenEvent("notification_withheld", pkg, "egress_blocked:${verdict.reason}"))
+            notifications.tryEmit(ScreenEvent("notification_withheld", pkg, EgressPolicy.withheldNotification(pkg)))
         }
         // 誰も購読しない場合、画面番号のコピーや確認は行われません。このイベントは極秘です。
         if (events.subscriptionCount.value == 0) return

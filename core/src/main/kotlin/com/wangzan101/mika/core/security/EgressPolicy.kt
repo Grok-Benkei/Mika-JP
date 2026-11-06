@@ -63,6 +63,9 @@ object EgressPolicy {
         return EgressVerdict.deny("notification_unclassifiable")
     }
 
+    /** Accessibility emits this string only. The notification body is not an argument. */
+    fun withheldNotification(packageName: String?): String = "egress_blocked:${notification(packageName).reason}"
+
     /** ブラウザ結果に載せてよいのはホストだけ。タイトル、パス、クエリは出さない。 */
     fun siteHost(url: String?): String? = url?.let { com.wangzan101.mika.core.net.UrlHost.of(it) }
 

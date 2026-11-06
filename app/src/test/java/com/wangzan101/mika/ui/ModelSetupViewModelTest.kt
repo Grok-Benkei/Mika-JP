@@ -1238,4 +1238,25 @@ class ModelSetupViewModelTest {
         assertEquals(setOf("deepseek-chat"), after.verifiedModels)
         assertFalse("確認済みのモデルがあれば、そのプロバイダーを未テストとは扱わない", after.savedUntested)
     }
+
+    @Test fun confirmingOneDestinationDoesNotAuthorizeADifferentUrl() = runTest {
+        listing[deepseekUrl] = deepseek
+        val qwen = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        val other = "https://other.example/v1"
+        listing[qwen] = ModelListResult.Ok(listOf(ListedModel("qwen-plus", toolCalls = true)))
+        listing[other] = ModelListResult.Ok(listOf(ListedModel("m", toolCalls = true)))
+        val store = store()
+        val vm = vm(store)
+        vm.setApiKey("sk"); vm.testAndSave(); runCurrent()
+        vm.openForm(); vm.selectPreset(ProviderPresets.custom.label)
+        vm.setBaseUrl(qwen); vm.setApiKey("qk")
+        vm.confirmDisplayedDestination()
+        vm.setBaseUrl(other)
+        vm.testAndSave(); runCurrent()
+        assertEquals(listOf("DeepSeek"), store.providers.value.map { it.name })
+        assertEquals("https://other.example:443/v1", vm.state.value.pendingDestination)
+        vm.confirmDisplayedDestination()
+        vm.testAndSave(); runCurrent()
+        assertEquals(listOf("DeepSeek", "other.example"), store.providers.value.map { it.name })
+    }
 }

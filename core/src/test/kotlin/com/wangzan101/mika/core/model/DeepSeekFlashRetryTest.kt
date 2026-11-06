@@ -1,8 +1,17 @@
 package com.wangzan101.mika.core.model
 
+import com.wangzan101.mika.core.agent.ModelCaller
 import com.wangzan101.mika.core.agent.RetryPolicy
+import com.wangzan101.mika.core.agent.SpeedFlags
+import com.wangzan101.mika.core.assembly.toolDispatcher
+import com.wangzan101.mika.core.tool.FakeScreen
+import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -30,5 +39,43 @@ class DeepSeekFlashRetryTest {
         assertNull(policy.delayFor(ModelError.Server(503), 5))
         assertNull(policy.delayFor(ModelError.Auth(), 0))
         assertNull(policy.delayFor(ModelError.QuotaExceeded(), 0))
+    }
+
+    @Test fun rateLimitThenEventStreamSendsExactlyTwoRequests() = runTest {
+        val server = MockWebServer()
+        server.start()
+        try {
+            server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "0").setBody("later"))
+            server.enqueue(
+                MockResponse().setHeader("Content-Type", "text/event-stream").setBody(
+                    "data: {\"choices\":[{\"delta\":{\"content\":\"ok-dummy\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n",
+                ),
+            )
+            val model = OpenAiCompatModel(
+                server.url("/v1").toString().trimEnd('/'),
+                "sk-test-not-real",
+                "deepseek-chat",
+                Capabilities(toolCalls = true, vision = false, contextTokens = 32_000, reasoning = false),
+                OkHttpClient(),
+            )
+            val caller = ModelCaller(model, toolDispatcher(FakeScreen()), null, SpeedFlags.OFF, RetryPolicy(jitter = { 1.0 }), {}, { 0L })
+            caller.reset("system")
+            val seen = mutableListOf<String>()
+            val reply = caller.ask(
+                listOf(Message(Role.User, listOf(Part.Text("hi")), Author.Mika)),
+                emptyList(),
+                1,
+                onText = { seen += it },
+            )
+            assertEquals(2, server.requestCount)
+            val first = server.takeRequest()
+            val second = server.takeRequest()
+            assertEquals("Bearer sk-test-not-real", first.getHeader("Authorization"))
+            assertEquals("text/event-stream", second.getHeader("Accept"))
+            assertTrue(reply.parts.filterIsInstance<Part.Text>().any { it.text == "ok-dummy" } || seen.any { it.contains("ok-dummy") })
+            assertNull(server.takeRequest(1, java.util.concurrent.TimeUnit.MILLISECONDS))
+        } finally {
+            server.shutdown()
+        }
     }
 }
