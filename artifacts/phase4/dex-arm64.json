@@ -1,0 +1,113 @@
+{
+  "apk": "app/build/outputs/apk/release/app-arm64-v8a-release-unsigned.apk",
+  "apkBytes": 79941660,
+  "apkSha256": "767be8515065e8986825852a4cebe93b5ae5d9350daada9923bb2703b0d50121",
+  "entryCount": 885,
+  "dexCount": 4,
+  "dex": [
+    {
+      "name": "classes.dex",
+      "bytes": 13385540,
+      "sha256": "5abfd236bf49b89ea1ddf5d33cdbcd65afbcdf94a3031d826a8b7e9135b044f2",
+      "header": {
+        "magic": "dex\n039\u0000",
+        "fileSize": 13385540,
+        "headerSize": 112,
+        "stringIds": 69668,
+        "typeIds": 10143,
+        "protoIds": 13466,
+        "fieldIds": 29847,
+        "methodIds": 65476,
+        "classDefs": 8882
+      }
+    },
+    {
+      "name": "classes2.dex",
+      "bytes": 9329324,
+      "sha256": "fd4a7e3e75153df19ed7ea7a2cf4cc9ed8e869b080abaadff113953173c7b238",
+      "header": {
+        "magic": "dex\n039\u0000",
+        "fileSize": 9329324,
+        "headerSize": 112,
+        "stringIds": 60446,
+        "typeIds": 11988,
+        "protoIds": 16647,
+        "fieldIds": 29431,
+        "methodIds": 64479,
+        "classDefs": 9501
+      }
+    },
+    {
+      "name": "classes3.dex",
+      "bytes": 12849524,
+      "sha256": "ca0a2fa661c2ed8c52ceb69cd0c20b789975430ffe95cff673ddeb94554a8e26",
+      "header": {
+        "magic": "dex\n039\u0000",
+        "fileSize": 12849524,
+        "headerSize": 112,
+        "stringIds": 66110,
+        "typeIds": 10658,
+        "protoIds": 15593,
+        "fieldIds": 27679,
+        "methodIds": 65501,
+        "classDefs": 9136
+      }
+    },
+    {
+      "name": "classes4.dex",
+      "bytes": 2614172,
+      "sha256": "0b8ed73b5e5a74bf1d034298d0a42ce8ef3c2a6d3ee3421354b76e057a44065c",
+      "header": {
+        "magic": "dex\n039\u0000",
+        "fileSize": 2614172,
+        "headerSize": 112,
+        "stringIds": 20985,
+        "typeIds": 3487,
+        "protoIds": 5819,
+        "fieldIds": 7639,
+        "methodIds": 21668,
+        "classDefs": 2850
+      }
+    }
+  ],
+  "packagedNative": [
+    {
+      "name": "lib/arm64-v8a/libandroidx.graphics.path.so",
+      "bytes": 10096,
+      "sha256": "41e9a793c43a0f4fddb19e33f346bace464f30f888ba7b9eaf96294ea115bfb6"
+    },
+    {
+      "name": "lib/arm64-v8a/libmikarun.so",
+      "bytes": 16472,
+      "sha256": "bbe3356d77ed174b36dcc88e90811ef4dcda9223ce60bbba22f48c487331ecbb"
+    },
+    {
+      "name": "lib/arm64-v8a/libmlkit_google_ocr_pipeline.so",
+      "bytes": 11064544,
+      "sha256": "fa41d509a661e8aa8b3e3ac1a28541f8823f308414fcad733fe26d61feea2646"
+    },
+    {
+      "name": "lib/arm64-v8a/libproot.so",
+      "bytes": 181824,
+      "sha256": "3184f54e363b560f128ce888c69d434fa6bfe80293c9fff47108456e79e48fe2"
+    },
+    {
+      "name": "lib/arm64-v8a/libproot_loader.so",
+      "bytes": 17672,
+      "sha256": "a73384d2f78b535936401ddee33909ae91966812e56437a16486934e0faa588c"
+    }
+  ],
+  "runtimeAssets": [
+    "assets/runtime/packages.json",
+    "assets/runtime/rootfs.tar.xz"
+  ],
+  "decompiler": {
+    "tool": "jadx 1.5.1",
+    "exit": 1,
+    "errorLines": [
+      "ERROR - finished with errors, count: 101"
+    ],
+    "errorCount": 1,
+    "outputKept": false
+  }
+}

@@ -1,0 +1,64 @@
+androidx.compose.animation.SharedTransitionScopeImpl.rememberSharedElementState(androidx.compose.animation.SharedElement, androidx.compose.animation.BoundsAnimation, androidx.compose.animation.SharedTransitionScope$PlaceHolderSize, boolean, androidx.compose.animation.SharedTransitionScope$SharedContentState, androidx.compose.animation.SharedTransitionScope$OverlayClip, float, boolean, androidx.compose.runtime.Composer, int):androidx.compose.animation.SharedElementInternalState
+androidx.compose.animation.core.InfiniteTransition$run$1$1.invokeSuspend(java.lang.Object):java.lang.Object
+androidx.compose.animation.core.InfiniteTransitionKt.animateValue(androidx.compose.animation.core.InfiniteTransition, T, T, androidx.compose.animation.core.TwoWayConverter<T, V extends androidx.compose.animation.core.AnimationVector>, androidx.compose.animation.core.InfiniteRepeatableSpec<T>, java.lang.String, androidx.compose.runtime.Composer, int, int):androidx.compose.runtime.State<T>
+androidx.compose.foundation.AndroidEdgeEffectOverscrollEffect$effectModifier$1.1.invokeSuspend(java.lang.Object):java.lang.Object
+androidx.compose.foundation.BasicTooltip_androidKt.handleGestures.2.1.1.invokeSuspend(java.lang.Object):java.lang.Object
+androidx.compose.foundation.MagnifierNode$onAttach$1.invokeSuspend(java.lang.Object):java.lang.Object
+androidx.compose.foundation.contextmenu.ContextMenuGestures_androidKt.awaitFirstRightClickDown(androidx.compose.ui.input.pointer.AwaitPointerEventScope, kotlin.coroutines.Continuation<? super androidx.compose.ui.input.pointer.PointerInputChange>):java.lang.Object
+androidx.compose.foundation.gestures.TapGestureDetectorKt$awaitSecondDown$2.invokeSuspend(java.lang.Object):java.lang.Object
+androidx.compose.foundation.text.input.internal.CursorAnimationState$snapToVisibleAndAnimate$2.1.invokeSuspend(java.lang.Object):java.lang.Object
+androidx.compose.foundation.text.input.internal.selection.TextFieldSelectionState$detectTouchMode$2.invokeSuspend(java.lang.Object):java.lang.Object
+androidx.compose.foundation.text.selection.SelectionGesturesKt$updateSelectionTouchMode$1.1.invokeSuspend(java.lang.Object):java.lang.Object
+androidx.compose.material3.internal.BasicTooltip_androidKt.handleGestures.2.1.1.invokeSuspend(java.lang.Object):java.lang.Object
+androidx.compose.runtime.Recomposer$runRecomposeAndApplyChanges$2.1.invoke(long):void
+androidx.compose.runtime.saveable.RememberSaveableKt.rememberSaveable(java.lang.Object[], androidx.compose.runtime.saveable.Saver<T, ? extends java.lang.Object>, java.lang.String, kotlin.jvm.functions.Function0<? extends T>, androidx.compose.runtime.Composer, int, int):T
+androidx.compose.ui.input.pointer.PointerInteropFilter_androidKt$motionEventSpy$1.1.invokeSuspend(java.lang.Object):java.lang.Object
+com.wangzan101.mika.cap.phone.a11y.AndroidScreen.waitFor.2.1.1.invokeSuspend(java.lang.Object):java.lang.Object
+com.wangzan101.mika.cap.web.WebScreen.scroll(java.lang.String, java.lang.String, boolean, kotlin.coroutines.Continuation<? super com.wangzan101.mika.core.uistate.ActionResult>):java.lang.Object
+com.wangzan101.mika.cap.web.cdp.PageScriptRunner$run$2.invokeSuspend(java.lang.Object):java.lang.Object
+com.wangzan101.mika.cap.web.cdp.WebDevtools.attach(com.wangzan101.mika.cap.web.cdp.WebDevtools$Link, kotlin.coroutines.Continuation<? super com.wangzan101.mika.core.cap.web.cdp.CdpSession>):java.lang.Object
+com.wangzan101.mika.capsule.CapsuleCardContentKt$KeptCard$now$2$1.invokeSuspend(java.lang.Object):java.lang.Object
+com.wangzan101.mika.core.action.ActionExecutor.aimed(com.wangzan101.mika.core.model.Part$ToolCall, com.wangzan101.mika.core.action.Origin, com.wangzan101.mika.core.action.FollowUp, com.wangzan101.mika.core.guard.GuardScope, kotlinx.serialization.json.JsonObject, boolean, com.wangzan101.mika.core.tool.Verb, kotlin.coroutines.Continuation<? super com.wangzan101.mika.core.action.ActionOutcome>):java.lang.Object
+com.wangzan101.mika.core.agent.AgentLoop.loop(java.lang.String, java.util.List<com.wangzan101.mika.core.agent.Turn>, com.wangzan101.mika.core.run.RunInbox, kotlin.coroutines.Continuation<? super com.wangzan101.mika.core.agent.TaskState>):java.lang.Object
+com.wangzan101.mika.core.agent.ModelCaller.complete(java.util.List<com.wangzan101.mika.core.model.Message>, java.util.List<com.wangzan101.mika.core.model.ToolSpec>, com.wangzan101.mika.core.model.ChatModel, com.wangzan101.mika.core.agent.RetryPolicy, int, kotlin.jvm.functions.Function1<? super java.lang.String, kotlin.Unit>, kotlin.coroutines.Continuation<? super com.wangzan101.mika.core.model.ModelReply>):java.lang.Object
+com.wangzan101.mika.core.cap.phone.AppPacing.<init>(kotlin.random.Random, com.wangzan101.mika.core.cap.phone.AppPacing$Limits, com.wangzan101.mika.core.cap.phone.AppPacing$Limits, int, int, kotlin.jvm.internal.DefaultConstructorMarker):void
+com.wangzan101.mika.core.cap.phone.GesturePacing.<init>(kotlin.random.Random, com.wangzan101.mika.core.cap.phone.GesturePacing$Limits, int, kotlin.jvm.internal.DefaultConstructorMarker):void
+com.wangzan101.mika.core.cap.phone.PhoneRun.runCommands(com.wangzan101.mika.core.tool.Args, com.wangzan101.mika.core.tool.ToolContext, kotlin.coroutines.Continuation<? super com.wangzan101.mika.core.tool.ToolExecution>):java.lang.Object
+com.wangzan101.mika.core.cap.web.cdp.InputPacing.<init>(kotlin.random.Random, com.wangzan101.mika.core.cap.web.cdp.InputPacing$Limits, int, kotlin.jvm.internal.DefaultConstructorMarker):void
+com.wangzan101.mika.core.device.DeviceAccess.unlock(kotlin.coroutines.Continuation<? super com.wangzan101.mika.core.device.DeviceAccessResult>):java.lang.Object
+com.wangzan101.mika.core.uistate.IdleScroll.<init>(kotlin.random.Random, com.wangzan101.mika.core.uistate.IdleScroll$Limits, int, kotlin.jvm.internal.DefaultConstructorMarker):void
+com.wangzan101.mika.task.DeviceStateWatcher$taskMovedAway$1.invokeSuspend(java.lang.Object):java.lang.Object
+com.wangzan101.mika.task.TaskGate.pass(kotlin.jvm.functions.Function0<java.lang.Boolean>, kotlin.jvm.functions.Function1<? super com.wangzan101.mika.core.agent.TaskState, kotlin.Unit>, kotlin.coroutines.Continuation<? super kotlin.Unit>):java.lang.Object
+com.wangzan101.mika.ui.AgentPipKt$PipWindow$springTo$1.invokeSuspend(java.lang.Object):java.lang.Object
+com.wangzan101.mika.ui.AppAccessScreenKt$AppAccessScreen$3.invoke(androidx.compose.foundation.layout.ColumnScope, androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.ChatDrawerKt$ChatWithDrawer$9$3.invoke(androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.ChatDrawerKt$RenameConversationDialog$2.1.invoke(androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.ChatScreenKt$ChatScreen$12.1.invoke(androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.ChatScreenKt$ChatScreen$12.invoke(androidx.compose.foundation.layout.BoxScope, androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.DeviceAccessSectionKt$DeviceAccessSection$3.5.invoke(androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.KeptPageRowKt$KeptLine$now$2$1.invokeSuspend(java.lang.Object):java.lang.Object
+com.wangzan101.mika.ui.LicensesScreenKt$LicensesScreen$3.1.invoke(androidx.compose.foundation.layout.ColumnScope, androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.LicensesScreenKt$LicensesScreen$3.2.invoke(androidx.compose.foundation.layout.ColumnScope, androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.MainActivity.onCreate.1.2.1.invoke(androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.McpScreenKt$McpScreen$1$1.invokeSuspend(java.lang.Object):java.lang.Object
+com.wangzan101.mika.ui.McpServersScreenKt$McpServerDialog$3.invoke(androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.McpServersScreenKt$McpServerDialog$4.invoke(androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.ModelSetupScreenKt$AddProviderForm$3.2.invoke(androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.ModelsScreenKt$ProviderDetailContent$1.1.invoke(androidx.compose.foundation.layout.ColumnScope, androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.ModelsScreenKt$ProviderDetailContent$1.5.invoke(androidx.compose.foundation.layout.ColumnScope, androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.ModelsScreenKt$ProviderDetailContent$1.7.invoke(androidx.compose.foundation.layout.ColumnScope, androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.ModelsScreenKt$ProviderDetailContent$4.1.invoke(androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.PlansScreenKt$PlansScreen$6$2.1.invoke(androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.SettingsSubPagesKt$CapsuleScreen$1.1.invoke(androidx.compose.foundation.layout.ColumnScope, androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.SettingsSubPagesKt$LanguageScreen$1.1.invoke(androidx.compose.foundation.layout.ColumnScope, androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.SettingsSubPagesKt$NotificationsScreen$1.1.invoke(androidx.compose.foundation.layout.ColumnScope, androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.SettingsSubPagesKt$PhoneOpsScreen$1.2.invoke(androidx.compose.foundation.layout.ColumnScope, androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.SettingsSubPagesKt.RoutesScreen.1.1.1.invoke(androidx.compose.foundation.layout.RowScope, androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.SkillsSectionKt$SkillsSection$11$2.1.invoke(androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.SkillsSectionKt$SkillsSection$8.1.invoke(androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.VoiceHoldKt.RecDot(boolean, androidx.compose.runtime.Composer, int):void
+com.wangzan101.mika.ui.viewer.FileViewerScreenKt$zoomable$1.1.invokeSuspend(java.lang.Object):java.lang.Object
+kotlinx.coroutines.channels.ChannelsKt.zip(kotlinx.coroutines.channels.ReceiveChannel, kotlinx.coroutines.channels.ReceiveChannel):kotlinx.coroutines.channels.ReceiveChannel
+kotlinx.coroutines.flow.FlowKt__DelayKt$fixedPeriodTicker$1.invokeSuspend(java.lang.Object):java.lang.Object
+kotlinx.coroutines.flow.FlowKt__DelayKt$timeoutInternal$1.invokeSuspend(java.lang.Object):java.lang.Object
+kotlinx.coroutines.selects.WhileSelectKt.whileSelect(kotlin.jvm.functions.Function1<? super kotlinx.coroutines.selects.SelectBuilder<? super java.lang.Boolean>, kotlin.Unit>, kotlin.coroutines.Continuation<? super kotlin.Unit>):java.lang.Object

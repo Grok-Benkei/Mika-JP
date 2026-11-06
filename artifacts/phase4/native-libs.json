@@ -1,0 +1,33 @@
+{
+  "directory": "app/src/main/jniLibs/arm64-v8a",
+  "libs": [
+    {
+      "bytes": 16472,
+      "file": "ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV), dynamically linked, interpreter /system/bin/linker64, stripped",
+      "name": "libmikarun.so",
+      "needed": [
+        "libdl.so",
+        "libc.so"
+      ],
+      "sha256": "bbe3356d77ed174b36dcc88e90811ef4dcda9223ce60bbba22f48c487331ecbb"
+    },
+    {
+      "bytes": 181824,
+      "file": "ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV), dynamically linked, interpreter /system/bin/linker64, stripped",
+      "name": "libproot.so",
+      "needed": [
+        "libdl.so",
+        "libc.so"
+      ],
+      "sha256": "3184f54e363b560f128ce888c69d434fa6bfe80293c9fff47108456e79e48fe2"
+    },
+    {
+      "bytes": 17672,
+      "file": "ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, stripped",
+      "name": "libproot_loader.so",
+      "needed": [],
+      "sha256": "a73384d2f78b535936401ddee33909ae91966812e56437a16486934e0faa588c"
+    }
+  ],
+  "rebuild": "UNVERIFIED: NDK 28.2.13676358 was not present, so build-native.sh --check was not run. Source lock hashes are recorded separately and were not re-downloaded in this step."
+}

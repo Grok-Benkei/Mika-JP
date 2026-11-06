@@ -1,0 +1,189 @@
+{
+    "project": ":core",
+    "configuration": "runtimeClasspath",
+    "componentCount": 14,
+    "components": [
+        {
+            "group": "com.google.protobuf",
+            "name": "protobuf-javalite",
+            "version": "4.36.2",
+            "classifier": "",
+            "extension": "jar",
+            "fileName": "protobuf-javalite-4.36.2.jar",
+            "bytes": 1022979,
+            "sha256": "8f4f93d08cb37130ecb0bc69d376d7d27c36ff04ddb1bb27430b06caa9fa062e",
+            "nativeLibraries": [
+                
+            ]
+        },
+        {
+            "group": "com.squareup.okhttp3",
+            "name": "okhttp",
+            "version": "4.12.0",
+            "classifier": "",
+            "extension": "jar",
+            "fileName": "okhttp-4.12.0.jar",
+            "bytes": 789531,
+            "sha256": "b1050081b14bb7a3a7e55a4d3ef01b5dcfabc453b4573a4fc019767191d5f4e0",
+            "nativeLibraries": [
+                
+            ]
+        },
+        {
+            "group": "com.squareup.okio",
+            "name": "okio-jvm",
+            "version": "3.6.0",
+            "classifier": "",
+            "extension": "jar",
+            "fileName": "okio-jvm-3.6.0.jar",
+            "bytes": 359580,
+            "sha256": "67543f0736fc422ae927ed0e504b98bc5e269fda0d3500579337cb713da28412",
+            "nativeLibraries": [
+                
+            ]
+        },
+        {
+            "group": "commons-codec",
+            "name": "commons-codec",
+            "version": "1.19.0",
+            "classifier": "",
+            "extension": "jar",
+            "fileName": "commons-codec-1.19.0.jar",
+            "bytes": 374716,
+            "sha256": "5c3881e4f556855e9c532927ee0c9dfde94cc66760d5805c031a59887070af5f",
+            "nativeLibraries": [
+                
+            ]
+        },
+        {
+            "group": "commons-io",
+            "name": "commons-io",
+            "version": "2.20.0",
+            "classifier": "",
+            "extension": "jar",
+            "fileName": "commons-io-2.20.0.jar",
+            "bytes": 563971,
+            "sha256": "df90bba0fe3cb586b7f164e78fe8f8f4da3f2dd5c27fa645f888100ccc25dd72",
+            "nativeLibraries": [
+                
+            ]
+        },
+        {
+            "group": "org.apache.commons",
+            "name": "commons-compress",
+            "version": "1.28.0",
+            "classifier": "",
+            "extension": "jar",
+            "fileName": "commons-compress-1.28.0.jar",
+            "bytes": 1117221,
+            "sha256": "e1522945218456f3649a39bc4afd70ce4bd466221519dba7d378f2141a4642ca",
+            "nativeLibraries": [
+                
+            ]
+        },
+        {
+            "group": "org.apache.commons",
+            "name": "commons-lang3",
+            "version": "3.18.0",
+            "classifier": "",
+            "extension": "jar",
+            "fileName": "commons-lang3-3.18.0.jar",
+            "bytes": 702952,
+            "sha256": "4eeeae8d20c078abb64b015ec158add383ac581571cddc45c68f0c9ae0230720",
+            "nativeLibraries": [
+                
+            ]
+        },
+        {
+            "group": "org.jetbrains.kotlin",
+            "name": "kotlin-stdlib-jdk7",
+            "version": "1.9.10",
+            "classifier": "",
+            "extension": "jar",
+            "fileName": "kotlin-stdlib-jdk7-1.9.10.jar",
+            "bytes": 959,
+            "sha256": "ac6361bf9ad1ed382c2103d9712c47cdec166232b4903ed596e8876b0681c9b7",
+            "nativeLibraries": [
+                
+            ]
+        },
+        {
+            "group": "org.jetbrains.kotlin",
+            "name": "kotlin-stdlib-jdk8",
+            "version": "1.9.10",
+            "classifier": "",
+            "extension": "jar",
+            "fileName": "kotlin-stdlib-jdk8-1.9.10.jar",
+            "bytes": 965,
+            "sha256": "a4c74d94d64ce1abe53760fe0389dd941f6fc558d0dab35e47c085a11ec80f28",
+            "nativeLibraries": [
+                
+            ]
+        },
+        {
+            "group": "org.jetbrains.kotlin",
+            "name": "kotlin-stdlib",
+            "version": "2.1.20",
+            "classifier": "",
+            "extension": "jar",
+            "fileName": "kotlin-stdlib-2.1.20.jar",
+            "bytes": 1724057,
+            "sha256": "1bcc74e8ce84e2c25eaafde10f1248349cce3062b6e36978cbeec610db1e930a",
+            "nativeLibraries": [
+                
+            ]
+        },
+        {
+            "group": "org.jetbrains.kotlinx",
+            "name": "kotlinx-coroutines-core-jvm",
+            "version": "1.10.2",
+            "classifier": "",
+            "extension": "jar",
+            "fileName": "kotlinx-coroutines-core-jvm-1.10.2.jar",
+            "bytes": 1479317,
+            "sha256": "5ca175b38df331fd64155b35cd8cae1251fa9ee369709b36d42e0a288ccce3fd",
+            "nativeLibraries": [
+                
+            ]
+        },
+        {
+            "group": "org.jetbrains.kotlinx",
+            "name": "kotlinx-serialization-core-jvm",
+            "version": "1.7.3",
+            "classifier": "",
+            "extension": "jar",
+            "fileName": "kotlinx-serialization-core-jvm-1.7.3.jar",
+            "bytes": 390987,
+            "sha256": "f0adde45864144475385cf4aa7e0b7feb27f61fcf9472665ed98cc971b06b1eb",
+            "nativeLibraries": [
+                
+            ]
+        },
+        {
+            "group": "org.jetbrains.kotlinx",
+            "name": "kotlinx-serialization-json-jvm",
+            "version": "1.7.3",
+            "classifier": "",
+            "extension": "jar",
+            "fileName": "kotlinx-serialization-json-jvm-1.7.3.jar",
+            "bytes": 270553,
+            "sha256": "b1e9138499ed8d20375edda3f2b1c95f3103a258eff6af9edc5ea07100f2b29c",
+            "nativeLibraries": [
+                
+            ]
+        },
+        {
+            "group": "org.jetbrains",
+            "name": "annotations",
+            "version": "23.0.0",
+            "classifier": "",
+            "extension": "jar",
+            "fileName": "annotations-23.0.0.jar",
+            "bytes": 29371,
+            "sha256": "7b0f19724082cbfcbc66e5abea2b9bc92cf08a1ea11e191933ed43801eb3cd05",
+            "nativeLibraries": [
+                
+            ]
+        }
+    ]
+}

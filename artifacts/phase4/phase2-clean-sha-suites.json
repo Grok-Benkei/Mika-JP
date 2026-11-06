@@ -1,0 +1,18 @@
+{
+  "purpose": "Clean detached worktree re-run of Phase 2 before treating the later full-suite result as historical sequencing proof.",
+  "sha": "a3e7f0eb73415a93a0165382484889e75c2505ee",
+  "worktree": "detached, outside the retained branch checkout",
+  "historicalGap": "Commit 77a20309 (Phase 3) is a descendant of a3e7f0eb, but no committed artifact before that commit recorded a clean-SHA suite. The combined green run on HEAD covers Phase 2 and Phase 3 together. This file is the later clean-SHA re-run.",
+  "commands": [
+    "bash ./gradlew --no-daemon --console=plain :core:test",
+    "bash ./gradlew --no-daemon --console=plain :app:testDebugUnitTest",
+    "bash ./gradlew --no-daemon --console=plain :core:cliTest"
+  ],
+  "jdk": "17",
+  "results": [
+    {"task": ":core:test", "tests": 2995, "failed": 0, "skipped": 2, "skippedNames": ["RescoreRecordedRuns.rescore", "RescoreEvalRun.rescore"], "gradleLog": "BUILD SUCCESSFUL in 3m 26s"},
+    {"task": ":app:testDebugUnitTest", "tests": 1487, "failed": 0, "skipped": 0, "gradleLog": "BUILD SUCCESSFUL in 1m 25s"},
+    {"task": ":core:cliTest", "tests": 1, "failed": 0, "skipped": 0, "gradleLog": "BUILD SUCCESSFUL in 20s"}
+  ],
+  "wrapperNote": "After each BUILD SUCCESSFUL line the Gradle client stayed alive. It was stopped so the next task could start. Core's observed shell exit was 137 because of that stop. The JUnit XML counts above were already written."
+}

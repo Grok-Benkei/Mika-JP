@@ -1,0 +1,2901 @@
+{
+  "archive": "/agent/repos/Mika-JP/app/src/main/assets/runtime/rootfs.tar.xz",
+  "archive_bytes": 31466196,
+  "archive_bytes_match_bundled": true,
+  "archive_sha256": "744047570fd84e94996623e8347efce9528da6d073966e040d064f0f2676f2a2",
+  "archive_sha_matches_bundled": true,
+  "bundled": {
+    "BYTES": 31466196,
+    "ENTRIES": 3238,
+    "FILE_BYTES": 128240382,
+    "SHA256": "744047570fd84e94996623e8347efce9528da6d073966e040d064f0f2676f2a2",
+    "VERSION": "3.22.7-744047570fd8"
+  },
+  "content_behavior": "UNVERIFIED: members were hashed and scanned as bytes. No member was executed.",
+  "elf_count": 172,
+  "entry_count": 3238,
+  "entry_count_matches_bundled": true,
+  "executable_count": 216,
+  "executable_paths": [
+    "usr/lib/libapk.so.2.14.10",
+    "usr/lib/libz.so.1.3.2",
+    "usr/lib/libssl.so.3",
+    "usr/lib/libcrypto.so.3",
+    "usr/lib/ossl-modules/legacy.so",
+    "usr/lib/engines-3/padlock.so",
+    "usr/lib/engines-3/loader_attic.so",
+    "usr/lib/engines-3/capi.so",
+    "usr/lib/engines-3/afalg.so",
+    "usr/bin/ldd",
+    "usr/bin/iconv",
+    "usr/bin/getent",
+    "usr/bin/getconf",
+    "usr/bin/scanelf",
+    "usr/bin/ssl_client",
+    "usr/share/udhcpc/default.script",
+    "sbin/ldconfig",
+    "sbin/apk",
+    "bin/busybox",
+    "lib/ld-musl-aarch64.so.1",
+    "etc/network/if-up.d/dad",
+    "usr/bin/2to3-3.12",
+    "usr/bin/pydoc3.12",
+    "usr/bin/python3.12",
+    "usr/lib/libpython3.12.so.1.0",
+    "usr/lib/libpython3.so",
+    "usr/lib/python3.12/base64.py",
+    "usr/lib/python3.12/cProfile.py",
+    "usr/lib/python3.12/cgi.py",
+    "usr/lib/python3.12/config-3.12-aarch64-linux-musl/install-sh",
+    "usr/lib/python3.12/config-3.12-aarch64-linux-musl/makesetup",
+    "usr/lib/python3.12/config-3.12-aarch64-linux-musl/python-config.py",
+    "usr/lib/python3.12/ctypes/macholib/fetch_macholib",
+    "usr/lib/python3.12/encodings/rot_13.py",
+    "usr/lib/python3.12/lib-dynload/_asyncio.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_bisect.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_blake2.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_bz2.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_codecs_cn.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_codecs_hk.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_codecs_iso2022.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_codecs_jp.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_codecs_kr.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_codecs_tw.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_contextvars.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_crypt.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_csv.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_ctypes_test.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_curses.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_curses_panel.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_datetime.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_dbm.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_decimal.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_elementtree.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_hashlib.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_heapq.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_json.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_lsprof.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_lzma.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_md5.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_multibytecodec.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_multiprocessing.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_opcode.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_pickle.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_posixshmem.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_posixsubprocess.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_queue.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_random.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_sha1.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_sha2.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_sha3.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_socket.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_sqlite3.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_ssl.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_statistics.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_struct.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_testbuffer.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_testcapi.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_testclinic.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_testimportmultiple.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_testinternalcapi.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_testmultiphase.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_testsinglephase.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_xxinterpchannels.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_xxsubinterpreters.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_xxtestfuzz.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/_zoneinfo.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/array.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/audioop.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/binascii.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/cmath.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/fcntl.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/grp.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/math.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/mmap.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/ossaudiodev.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/pyexpat.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/readline.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/resource.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/select.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/spwd.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/syslog.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/termios.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/unicodedata.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/xxlimited.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/xxlimited_35.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/xxsubtype.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib-dynload/zlib.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/lib2to3/pgen2/token.py",
+    "usr/lib/python3.12/pdb.py",
+    "usr/lib/python3.12/platform.py",
+    "usr/lib/python3.12/profile.py",
+    "usr/lib/python3.12/pydoc.py",
+    "usr/lib/python3.12/quopri.py",
+    "usr/lib/python3.12/smtplib.py",
+    "usr/lib/python3.12/tabnanny.py",
+    "usr/lib/python3.12/tarfile.py",
+    "usr/lib/python3.12/timeit.py",
+    "usr/lib/python3.12/trace.py",
+    "usr/lib/python3.12/turtledemo/__main__.py",
+    "usr/lib/python3.12/turtledemo/bytedesign.py",
+    "usr/lib/python3.12/turtledemo/clock.py",
+    "usr/lib/python3.12/turtledemo/forest.py",
+    "usr/lib/python3.12/turtledemo/fractalcurves.py",
+    "usr/lib/python3.12/turtledemo/lindenmayer.py",
+    "usr/lib/python3.12/turtledemo/minimal_hanoi.py",
+    "usr/lib/python3.12/turtledemo/paint.py",
+    "usr/lib/python3.12/turtledemo/peace.py",
+    "usr/lib/python3.12/turtledemo/penrose.py",
+    "usr/lib/python3.12/turtledemo/planet_and_moon.py",
+    "usr/lib/python3.12/turtledemo/sorting_animate.py",
+    "usr/lib/python3.12/turtledemo/tree.py",
+    "usr/lib/python3.12/turtledemo/yinyang.py",
+    "usr/lib/python3.12/uu.py",
+    "usr/lib/python3.12/webbrowser.py",
+    "usr/lib/libexpat.so.1.13.0",
+    "usr/lib/libbz2.so.1.0.8",
+    "usr/lib/libffi.so.8.1.4",
+    "usr/lib/libgdbm.so.6.0.0",
+    "usr/lib/libgdbm_compat.so.4.0.0",
+    "usr/lib/liblzma.so.5.8.4",
+    "usr/lib/libmpdec++.so.4.0.1",
+    "usr/lib/libmpdec.so.4.0.1",
+    "usr/lib/libgcc_s.so.1",
+    "usr/lib/libstdc++.so.6.0.33",
+    "usr/lib/libncursesw.so.6.5",
+    "usr/lib/libpanelw.so.6.5",
+    "usr/lib/libreadline.so.8.2",
+    "usr/lib/libsqlite3.so.3.49.2",
+    "usr/bin/node",
+    "etc/ca-certificates/update.d/certhash",
+    "usr/bin/c_rehash",
+    "usr/sbin/update-ca-certificates",
+    "usr/lib/libada.so.2.9.2",
+    "usr/lib/libbrotlicommon.so.1.1.1",
+    "usr/lib/libbrotlidec.so.1.1.1",
+    "usr/lib/libbrotlienc.so.1.1.1",
+    "usr/lib/libcares.so.2.19.8",
+    "usr/lib/libicudata.so.76.1",
+    "usr/lib/libicui18n.so.76.1",
+    "usr/lib/libicuio.so.76.1",
+    "usr/lib/libicuuc.so.76.1",
+    "usr/share/icu/76.1/icudt76l.dat",
+    "usr/lib/libnghttp2.so.14.29.4",
+    "usr/lib/libsimdjson.so.25.0.0",
+    "usr/lib/libsimdutf.so.24.0.0",
+    "usr/lib/libzstd.so.1.5.7",
+    "usr/lib/python3.12/site-packages/PIL/_imaging.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/site-packages/PIL/_imagingcms.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/site-packages/PIL/_imagingft.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/site-packages/PIL/_imagingmath.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/site-packages/PIL/_imagingmorph.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/site-packages/PIL/_imagingtk.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/python3.12/site-packages/PIL/_webp.cpython-312-aarch64-linux-musl.so",
+    "usr/lib/libfreetype.so.6.20.2",
+    "usr/lib/libpng16.so.16.59.0",
+    "usr/lib/libimagequant.so.0.0.4",
+    "usr/lib/libjpeg.so.8.3.2",
+    "usr/lib/liblcms2.so.2.0.19",
+    "usr/lib/libopenjp2.so.2.5.4",
+    "usr/lib/libtiff.so.6.3.0",
+    "usr/lib/libwebp.so.7.1.10",
+    "usr/lib/libsharpyuv.so.0.1.1",
+    "usr/lib/libwebpdemux.so.2.0.16",
+    "usr/lib/libwebpmux.so.3.1.1",
+    "usr/lib/libxcb-composite.so.0.0.0",
+    "usr/lib/libxcb-damage.so.0.0.0",
+    "usr/lib/libxcb-dbe.so.0.0.0",
+    "usr/lib/libxcb-dpms.so.0.0.0",
+    "usr/lib/libxcb-dri2.so.0.0.0",
+    "usr/lib/libxcb-dri3.so.0.1.0",
+    "usr/lib/libxcb-glx.so.0.0.0",
+    "usr/lib/libxcb-present.so.0.0.0",
+    "usr/lib/libxcb-randr.so.0.1.0",
+    "usr/lib/libxcb-record.so.0.0.0",
+    "usr/lib/libxcb-render.so.0.0.0",
+    "usr/lib/libxcb-res.so.0.0.0",
+    "usr/lib/libxcb-screensaver.so.0.0.0",
+    "usr/lib/libxcb-shape.so.0.0.0",
+    "usr/lib/libxcb-shm.so.0.0.0",
+    "usr/lib/libxcb-sync.so.1.0.0",
+    "usr/lib/libxcb-xf86dri.so.0.0.0",
+    "usr/lib/libxcb-xfixes.so.0.0.0",
+    "usr/lib/libxcb-xinerama.so.0.0.0",
+    "usr/lib/libxcb-xinput.so.0.1.0",
+    "usr/lib/libxcb-xkb.so.1.0.0",
+    "usr/lib/libxcb-xtest.so.0.0.0",
+    "usr/lib/libxcb-xv.so.0.0.0",
+    "usr/lib/libxcb-xvmc.so.0.0.0",
+    "usr/lib/libxcb.so.1.1.0",
+    "usr/lib/libXau.so.6.0.0",
+    "usr/lib/libXdmcp.so.6.0.0",
+    "usr/lib/libbsd.so.0.12.2",
+    "usr/lib/libmd.so.0.1.0",
+    "usr/local/bin/mika"
+  ],
+  "private_key_marker_paths": [],
+  "regular_file_bytes": 128240382,
+  "regular_file_bytes_match_bundled": true,
+  "shebangs": [
+    {
+      "path": "usr/bin/ldd",
+      "shebang": "/bin/sh"
+    },
+    {
+      "path": "usr/share/udhcpc/default.script",
+      "shebang": "/bin/sh"
+    },
+    {
+      "path": "sbin/ldconfig",
+      "shebang": "/bin/sh"
+    },
+    {
+      "path": "etc/network/if-up.d/dad",
+      "shebang": "/bin/sh"
+    },
+    {
+      "path": "usr/bin/2to3-3.12",
+      "shebang": "/usr/bin/python3.12"
+    },
+    {
+      "path": "usr/bin/pydoc3.12",
+      "shebang": "/usr/bin/python3.12"
+    },
+    {
+      "path": "usr/lib/python3.12/base64.py",
+      "shebang": " /usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/cProfile.py",
+      "shebang": " /usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/cgi.py",
+      "shebang": " /usr/local/bin/python"
+    },
+    {
+      "path": "usr/lib/python3.12/config-3.12-aarch64-linux-musl/install-sh",
+      "shebang": "/bin/sh"
+    },
+    {
+      "path": "usr/lib/python3.12/config-3.12-aarch64-linux-musl/makesetup",
+      "shebang": " /bin/sh"
+    },
+    {
+      "path": "usr/lib/python3.12/config-3.12-aarch64-linux-musl/python-config.py",
+      "shebang": "/usr/bin/python3.12"
+    },
+    {
+      "path": "usr/lib/python3.12/ctypes/macholib/fetch_macholib",
+      "shebang": "/bin/sh"
+    },
+    {
+      "path": "usr/lib/python3.12/encodings/rot_13.py",
+      "shebang": "/usr/bin/env python"
+    },
+    {
+      "path": "usr/lib/python3.12/lib2to3/pgen2/token.py",
+      "shebang": " /usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/pdb.py",
+      "shebang": " /usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/platform.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/profile.py",
+      "shebang": " /usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/pydoc.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/quopri.py",
+      "shebang": " /usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/smtplib.py",
+      "shebang": " /usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/tabnanny.py",
+      "shebang": " /usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/tarfile.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/timeit.py",
+      "shebang": " /usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/trace.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/turtledemo/__main__.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/turtledemo/bytedesign.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/turtledemo/clock.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/turtledemo/forest.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/turtledemo/fractalcurves.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/turtledemo/lindenmayer.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/turtledemo/minimal_hanoi.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/turtledemo/paint.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/turtledemo/peace.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/turtledemo/penrose.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/turtledemo/planet_and_moon.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/turtledemo/sorting_animate.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/turtledemo/tree.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/turtledemo/yinyang.py",
+      "shebang": "/usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/uu.py",
+      "shebang": " /usr/bin/env python3"
+    },
+    {
+      "path": "usr/lib/python3.12/webbrowser.py",
+      "shebang": " /usr/bin/env python3"
+    },
+    {
+      "path": "etc/ca-certificates/update.d/certhash",
+      "shebang": "/bin/sh"
+    },
+    {
+      "path": "usr/local/bin/mika",
+      "shebang": "/usr/bin/env python3"
+    }
+  ],
+  "startup_hook_paths": [
+    "etc/profile.d",
+    "etc/profile.d/color_prompt.sh.disabled",
+    "etc/profile.d/README",
+    "etc/profile.d/20locale.sh",
+    "etc/profile",
+    "etc/inittab",
+    "etc/apk/repositories"
+  ],
+  "suspicious": [
+    {
+      "mode": "0o1777",
+      "path": "var/tmp",
+      "reason": "world_writable"
+    },
+    {
+      "mode": "0o1777",
+      "path": "tmp",
+      "reason": "world_writable"
+    }
+  ],
+  "url_hosts": [
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/pydoc.py",
+          "url": "http://%s:%d/'"
+        }
+      ],
+      "host": "%s"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/urllib/request.py",
+          "url": "http://'"
+        },
+        {
+          "path": "usr/lib/python3.12/urllib/request.py",
+          "url": "http://'"
+        },
+        {
+          "path": "usr/lib/python3.12/urllib/request.py",
+          "url": "https://'"
+        }
+      ],
+      "host": "'"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "etc/ssl/openssl.cnf.dist",
+          "url": "http://192.168.1.1:8080"
+        },
+        {
+          "path": "etc/ssl/openssl.cnf",
+          "url": "http://192.168.1.1:8080"
+        }
+      ],
+      "host": "192.168.1.1"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/urllib/parse.py",
+          "url": "http://[fe80::822a:a8ff:fe49:470c%tESt]:1234/keys"
+        }
+      ],
+      "host": "[fe80"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/urllib/request.py",
+          "url": "http://acme.example.com/a"
+        }
+      ],
+      "host": "acme.example.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://ada-url.github.io/ada"
+        }
+      ],
+      "host": "ada-url.github.io"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/urllib/request.py",
+          "url": "http://ahad-haam:3128"
+        }
+      ],
+      "host": "ahad-haam"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/os-release",
+          "url": "https://alpinelinux.org/"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://alpinelinux.org"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://alpinelinux.org"
+        }
+      ],
+      "host": "alpinelinux.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://app.codecov.io/gh/python-pillow/Pillow"
+        }
+      ],
+      "host": "app.codecov.io"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/MspImagePlugin.py",
+          "url": "https://archive.org/details/gg243631"
+        }
+      ],
+      "host": "archive.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf-5.3.1.dist-info/METADATA",
+          "url": "https://badge.fury.io/py/pypdf.svg)](https://badge.fury.io/py/pypdf)"
+        }
+      ],
+      "host": "badge.fury.io"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://badges.gitter.im/python-pillow/Pillow.svg"
+        }
+      ],
+      "host": "badges.gitter.im"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/EpsImagePlugin.py",
+          "url": "https://bugs.ghostscript.com/show_bug.cgi?id=698272)"
+        }
+      ],
+      "host": "bugs.ghostscript.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/config-3.12-aarch64-linux-musl/Makefile",
+          "url": "https://bugs.llvm.org//show_bug.cgi?id=31928"
+        }
+      ],
+      "host": "bugs.llvm.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/_pydatetime.py",
+          "url": "https://bugs.python.org/msg352381"
+        },
+        {
+          "path": "usr/lib/python3.12/_pydecimal.py",
+          "url": "http://bugs.python.org/issue6857."
+        },
+        {
+          "path": "usr/lib/python3.12/asyncio/futures.py",
+          "url": "http://bugs.python.org/issue18699"
+        }
+      ],
+      "host": "bugs.python.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://busybox.net/"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://busybox.net/"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://busybox.net/"
+        }
+      ],
+      "host": "busybox.net"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://c-ares.org/"
+        }
+      ],
+      "host": "c-ares.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/random.py",
+          "url": "https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.47.8407&rep=rep1&type=pdf"
+        }
+      ],
+      "host": "citeseerx.ist.psu.edu"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/collections/__init__.py",
+          "url": "http://code.activestate.com/recipes/259174/"
+        },
+        {
+          "path": "usr/lib/python3.12/heapq.py",
+          "url": "http://code.activestate.com/recipes/577573-compare-algorithms-for-heapqsmallest"
+        },
+        {
+          "path": "usr/lib/python3.12/importlib/metadata/_functools.py",
+          "url": "http://code.activestate.com/recipes/577452-a-memoize-decorator-for-instance-methods/"
+        }
+      ],
+      "host": "code.activestate.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/IcoImagePlugin.py",
+          "url": "https://code.google.com/archive/p/casadebender/wikis/Win32IconImagePlugin.wiki"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/IcoImagePlugin.py",
+          "url": "https://code.google.com/archive/p/casadebender/wikis/Win32IconImagePlugin.wiki"
+        }
+      ],
+      "host": "code.google.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://codecov.io/gh/python-pillow/Pillow/branch/main/graph/badge.svg"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf-5.3.1.dist-info/METADATA",
+          "url": "https://codecov.io/gh/py-pdf/pypdf/branch/main/graph/badge.svg?token=id42cGNZ5Z)](https://codecov.io/gh/py-pdf/pypdf)"
+        }
+      ],
+      "host": "codecov.io"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/BlpImagePlugin.py",
+          "url": "https://creativecommons.org/publicdomain/zero/1.0/"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/DdsImagePlugin.py",
+          "url": "https://creativecommons.org/publicdomain/zero/1.0/"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/FtexImagePlugin.py",
+          "url": "https://creativecommons.org/publicdomain/zero/1.0/"
+        }
+      ],
+      "host": "creativecommons.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf/_crypt_providers/__init__.py",
+          "url": "https://cryptography.io/en/latest/changelog/#v3-1"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf/_crypt_providers/_cryptography.py",
+          "url": "https://cryptography.io/en/latest/changelog/#v43-0-0"
+        }
+      ],
+      "host": "cryptography.io"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/http/cookiejar.py",
+          "url": "http://curl.haxx.se/rfc/cookie_spec.html"
+        }
+      ],
+      "host": "curl.haxx.se"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/encodings/idna.py",
+          "url": "https://datatracker.ietf.org/doc/html/rfc5894#section-6"
+        }
+      ],
+      "host": "datatracker.ietf.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://developers.google.com/speed/webp"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://developers.google.com/speed/webp"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://developers.google.com/speed/webp"
+        }
+      ],
+      "host": "developers.google.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/lib2to3/Grammar.txt",
+          "url": "https://devguide.python.org/grammar/"
+        },
+        {
+          "path": "usr/lib/python3.12/locale.py",
+          "url": "https://devguide.python.org/triage/issue-tracker/"
+        }
+      ],
+      "host": "devguide.python.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "etc/apk/repositories",
+          "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main"
+        },
+        {
+          "path": "etc/apk/repositories",
+          "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/community"
+        }
+      ],
+      "host": "dl-cdn.alpinelinux.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/random.py",
+          "url": "https://dl.acm.org/doi/pdf/10.1145/42372.42381"
+        }
+      ],
+      "host": "dl.acm.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/subprocess.py",
+          "url": "https://docs.microsoft.com/en-us/windows/desktop/ProcThread/"
+        }
+      ],
+      "host": "docs.microsoft.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf/_codecs/_codecs.py",
+          "url": "http://docs.pdfsharp.net"
+        }
+      ],
+      "host": "docs.pdfsharp.net"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/asyncio/coroutines.py",
+          "url": "https://docs.python.org/3/library/asyncio-dev.html#asyncio-debug-mode."
+        },
+        {
+          "path": "usr/lib/python3.12/asyncio/transports.py",
+          "url": "http://docs.python.org/3/library/subprocess#subprocess.Popen.returncode"
+        },
+        {
+          "path": "usr/lib/python3.12/asyncio/transports.py",
+          "url": "http://docs.python.org/3/library/subprocess#subprocess.Popen.terminate"
+        }
+      ],
+      "host": "docs.python.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/ImageFont.py",
+          "url": "https://dotcolon.net/font/aileron,"
+        }
+      ],
+      "host": "dotcolon.net"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/ImageColor.py",
+          "url": "https://drafts.csswg.org/css-color-4/,"
+        }
+      ],
+      "host": "drafts.csswg.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/statistics.py",
+          "url": "http://dx.doi.org/10.1080/03610928908830127"
+        }
+      ],
+      "host": "dx.doi.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/collections/__init__.py",
+          "url": "http://en.wikipedia.org/wiki/Multiset"
+        },
+        {
+          "path": "usr/lib/python3.12/collections/__init__.py",
+          "url": "http://en.wikipedia.org/wiki/Multiset"
+        },
+        {
+          "path": "usr/lib/python3.12/colorsys.py",
+          "url": "http://en.wikipedia.org/wiki/YIQ"
+        }
+      ],
+      "host": "en.wikipedia.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/JpegPresets.py",
+          "url": "https://exiv2.org/tags.html)"
+        }
+      ],
+      "host": "exiv2.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://facebook.github.io/zstd/"
+        }
+      ],
+      "host": "facebook.github.io"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/venv/scripts/posix/activate.fish",
+          "url": "https://fishshell.com/)."
+        }
+      ],
+      "host": "fishshell.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/http/client.py",
+          "url": "http://foo.com:/"
+        },
+        {
+          "path": "usr/lib/python3.12/http/client.py",
+          "url": "http://foo.com/"
+        }
+      ],
+      "host": "foo.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://fosstodon.org/@pillow"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://fosstodon.org/@pillow"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://fosstodon.org/@pillow"
+        }
+      ],
+      "host": "fosstodon.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://gcc.gnu.org"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://gcc.gnu.org"
+        }
+      ],
+      "host": "gcc.gnu.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/socket.py",
+          "url": "https://gist.github.com/4325783,"
+        }
+      ],
+      "host": "gist.github.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://git.alpinelinux.org/cgit/aports/tree/main/alpine-baselayout"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://git.alpinelinux.org/cgit/aports/tree/main/alpine-baselayout"
+        }
+      ],
+      "host": "git.alpinelinux.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/asyncio/sslproto.py",
+          "url": "https://git.io/fj59P):"
+        }
+      ],
+      "host": "git.io"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/config-3.12-aarch64-linux-musl/Makefile",
+          "url": "https://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD'"
+        },
+        {
+          "path": "usr/lib/python3.12/config-3.12-aarch64-linux-musl/Makefile",
+          "url": "https://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=HEAD'"
+        },
+        {
+          "path": "usr/lib/python3.12/gettext.py",
+          "url": "http://git.savannah.gnu.org/cgit/gettext.git/tree/gettext-runtime/intl/plural.y"
+        }
+      ],
+      "host": "git.savannah.gnu.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://github.com/google/brotli"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://github.com/py-pdf/pypdf"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://github.com/py-pdf/pypdf"
+        }
+      ],
+      "host": "github.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/os-release",
+          "url": "https://gitlab.alpinelinux.org/alpine/aports/-/issues"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://gitlab.alpinelinux.org/alpine/apk-tools"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://gitlab.alpinelinux.org/alpine/apk-tools"
+        }
+      ],
+      "host": "gitlab.alpinelinux.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://gitlab.com/libtiff/libtiff"
+        }
+      ],
+      "host": "gitlab.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://gitter.im/python-pillow/Pillow?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://gitter.im/python-pillow/Pillow"
+        }
+      ],
+      "host": "gitter.im"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/venv/scripts/common/Activate.ps1",
+          "url": "https://go.microsoft.com/fwlink/?LinkID=135170"
+        }
+      ],
+      "host": "go.microsoft.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/LICENSE.txt",
+          "url": "http://hdl.handle.net/1895.22/1013"
+        }
+      ],
+      "host": "hdl.handle.net"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/turtledemo/forest.py",
+          "url": "http://homepage.univie.ac.at/erich.neuwirth/"
+        }
+      ],
+      "host": "homepage.univie.ac.at"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/share/zoneinfo/leap-seconds.list",
+          "url": "https://hpiers.obspm.fr/iers/bul/bulc/bulletinc.dat)"
+        },
+        {
+          "path": "usr/share/zoneinfo/leap-seconds.list",
+          "url": "https://hpiers.obspm.fr/iers/bul/bulc/ntp/sources/README"
+        }
+      ],
+      "host": "hpiers.obspm.fr"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/html/__init__.py",
+          "url": "https://html.spec.whatwg.org/multipage/parsing.html#numeric-character-reference-end-state"
+        },
+        {
+          "path": "usr/lib/python3.12/html/entities.py",
+          "url": "https://html.spec.whatwg.org/entities.json"
+        },
+        {
+          "path": "usr/lib/python3.12/html/entities.py",
+          "url": "https://html.spec.whatwg.org/multipage/named-characters.html."
+        }
+      ],
+      "host": "html.spec.whatwg.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://icu.unicode.org/"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://icu.unicode.org/"
+        }
+      ],
+      "host": "icu.unicode.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://img.shields.io/pypi/v/pillow.svg"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://img.shields.io/pypi/dm/pillow.svg"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://img.shields.io/badge/publish-on%20Mastodon-595aff.svg"
+        }
+      ],
+      "host": "img.shields.io"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://invisible-island.net/ncurses/"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://invisible-island.net/ncurses/"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://invisible-island.net/ncurses/"
+        }
+      ],
+      "host": "invisible-island.net"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf/_doc_common.py",
+          "url": "https://ipython.readthedocs.io/en/stable/config/integrating.html"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf/_reader.py",
+          "url": "https://ipython.readthedocs.io/en/stable/config/integrating.html"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf/_writer.py",
+          "url": "https://ipython.readthedocs.io/en/stable/config/integrating.html"
+        }
+      ],
+      "host": "ipython.readthedocs.io"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://issues.oss-fuzz.com/issues?q=title:pillow"
+        }
+      ],
+      "host": "issues.oss-fuzz.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/threading.py",
+          "url": "http://java.sun.com/j2se/1.5.0/docs/api/java/util/concurrent/"
+        }
+      ],
+      "host": "java.sun.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/xml/etree/ElementPath.py",
+          "url": "http://javascript.crockford.com/tdop/tdop.html"
+        }
+      ],
+      "host": "javascript.crockford.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/json/__init__.py",
+          "url": "https://json.org"
+        },
+        {
+          "path": "usr/lib/python3.12/json/decoder.py",
+          "url": "https://json.org"
+        },
+        {
+          "path": "usr/lib/python3.12/json/encoder.py",
+          "url": "https://json.org"
+        }
+      ],
+      "host": "json.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/pathlib.py",
+          "url": "https://learn.microsoft.com/en-gb/windows/win32/fileio/naming-a-file"
+        },
+        {
+          "path": "usr/lib/python3.12/socket.py",
+          "url": "https://learn.microsoft.com/windows/win32/winsock/using-so-reuseaddr-and-so-exclusiveaddruse"
+        },
+        {
+          "path": "usr/lib/python3.12/venv/__init__.py",
+          "url": "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_quoting_rules"
+        }
+      ],
+      "host": "learn.microsoft.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://libbsd.freedesktop.org/"
+        }
+      ],
+      "host": "libbsd.freedesktop.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://libexpat.github.io/"
+        }
+      ],
+      "host": "libexpat.github.io"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://libjpeg-turbo.org/"
+        }
+      ],
+      "host": "libjpeg-turbo.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/webbrowser.py",
+          "url": "http://links.twibright.com/"
+        }
+      ],
+      "host": "links.twibright.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/optparse.py",
+          "url": "http://lists.sourceforge.net/lists/listinfo/optik-users)."
+        }
+      ],
+      "host": "lists.sourceforge.net"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/wsgiref/simple_server.py",
+          "url": "http://localhost:8000/xyz?abc')"
+        },
+        {
+          "path": "usr/lib/python3.12/xmlrpc/client.py",
+          "url": "http://localhost:8000"
+        }
+      ],
+      "host": "localhost"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/webbrowser.py",
+          "url": "http://lynx.browser.org/"
+        }
+      ],
+      "host": "lynx.browser.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/webbrowser.py",
+          "url": "https://lynx.invisible-island.net/"
+        }
+      ],
+      "host": "lynx.invisible-island.net"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/asyncio/constants.py",
+          "url": "http://magic.io"
+        },
+        {
+          "path": "usr/lib/python3.12/asyncio/events.py",
+          "url": "http://magic.io"
+        },
+        {
+          "path": "usr/lib/python3.12/asyncio/sslproto.py",
+          "url": "http://magic.io"
+        }
+      ],
+      "host": "magic.io"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/urllib/request.py",
+          "url": "https://mahler:8092/site-updates.py',"
+        }
+      ],
+      "host": "mahler"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/random.py",
+          "url": "http://mail.python.org/pipermail/python-bugs-list/2001-January/003752.html"
+        }
+      ],
+      "host": "mail.python.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/statistics.py",
+          "url": "http://mathworld.wolfram.com/Variance.html"
+        },
+        {
+          "path": "usr/lib/python3.12/statistics.py",
+          "url": "http://mathworld.wolfram.com/SampleVariance.html"
+        }
+      ],
+      "host": "mathworld.wolfram.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf/_cmap.py",
+          "url": "http://mirrors.ctan.org/fonts/adobe/afm/Adobe-Core35_AFMs-229.tar.gz"
+        }
+      ],
+      "host": "mirrors.ctan.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/locale.py",
+          "url": "http://msdn.microsoft.com/library/default.asp?url=/library/en-us/intl/nls_238z.asp"
+        },
+        {
+          "path": "usr/lib/python3.12/subprocess.py",
+          "url": "http://msdn.microsoft.com/en-us/library/17w5ykft.aspx"
+        },
+        {
+          "path": "usr/lib/python3.12/subprocess.py",
+          "url": "http://msdn.microsoft.com"
+        }
+      ],
+      "host": "msdn.microsoft.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://musl.libc.org/"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://musl.libc.org/"
+        }
+      ],
+      "host": "musl.libc.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://nghttp2.org"
+        }
+      ],
+      "host": "nghttp2.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://nodejs.org/"
+        }
+      ],
+      "host": "nodejs.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/JpegImagePlugin.py",
+          "url": "http://ns.adobe.com/xap/1.0/"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/JpegImagePlugin.py",
+          "url": "http://ns.adobe.com/xap/1.0/"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/JpegImagePlugin.py",
+          "url": "http://ns.adobe.com/xap/1.0/"
+        }
+      ],
+      "host": "ns.adobe.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/pydoc_data/topics.py",
+          "url": "http://ocert.org/advisories/ocert-2011-003.html"
+        }
+      ],
+      "host": "ocert.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf/_writer.py",
+          "url": "https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/PDF32000_2008.pdf"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf/_writer.py",
+          "url": "https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/PDF32000_2008.pdf"
+        }
+      ],
+      "host": "opensource.adobe.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/plistlib.py",
+          "url": "http://opensource.apple.com/source/CF/CF-744.18/CFBinaryPList.c"
+        }
+      ],
+      "host": "opensource.apple.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/LICENSE.txt",
+          "url": "https://opensource.org"
+        },
+        {
+          "path": "usr/lib/python3.12/wsgiref/validate.py",
+          "url": "https://opensource.org/licenses/mit-license.php"
+        },
+        {
+          "path": "usr/lib/python3.12/wsgiref/validate.py",
+          "url": "https://opensource.org/licenses/apache2.0.php"
+        }
+      ],
+      "host": "opensource.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://oss-fuzz-build-logs.storage.googleapis.com/badges/pillow.svg"
+        }
+      ],
+      "host": "oss-fuzz-build-logs.storage.googleapis.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/importlib/metadata/__init__.py",
+          "url": "https://packaging.python.org/specifications/entry-points/"
+        }
+      ],
+      "host": "packaging.python.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/http/server.py",
+          "url": "http://path)"
+        }
+      ],
+      "host": "path)"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/dataclasses.py",
+          "url": "https://peps.python.org/pep-0487/#implementation-details."
+        },
+        {
+          "path": "usr/lib/python3.12/pydoc.py",
+          "url": "https://peps.python.org/pep-%04d/'"
+        },
+        {
+          "path": "usr/lib/python3.12/secrets.py",
+          "url": "https://peps.python.org/pep-0506/"
+        }
+      ],
+      "host": "peps.python.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/platform.py",
+          "url": "http://php.net/manual/en/function.version-compare.php"
+        }
+      ],
+      "host": "php.net"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://pillow.readthedocs.io"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://pillow.readthedocs.io/en/stable/releasenotes/index.html"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://pillow.readthedocs.io/?badge=latest"
+        }
+      ],
+      "host": "pillow.readthedocs.io"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://pngquant.org/lib/"
+        }
+      ],
+      "host": "pngquant.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/posixpath.py",
+          "url": "https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap04.html#tag_04_13"
+        }
+      ],
+      "host": "pubs.opengroup.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/xml/etree/ElementTree.py",
+          "url": "http://purl.org/dc/elements/1.1/"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf/xmp.py",
+          "url": "http://purl.org/dc/elements/1.1/"
+        }
+      ],
+      "host": "purl.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf-5.3.1.dist-info/METADATA",
+          "url": "https://pypdf.readthedocs.io/en/latest/meta/CHANGELOG.html"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf-5.3.1.dist-info/METADATA",
+          "url": "https://pypdf.readthedocs.io/en/latest/"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf-5.3.1.dist-info/METADATA",
+          "url": "https://pypdf.readthedocs.io/en/stable/user/merging-pdfs.html),"
+        }
+      ],
+      "host": "pypdf.readthedocs.io"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/unittest/mock.py",
+          "url": "https://pypi.org/project/mock"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://pypi.org/project/pillow/"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://pypi.org/project/pillow/"
+        }
+      ],
+      "host": "pypi.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://python-pillow.github.io"
+        }
+      ],
+      "host": "python-pillow.github.io"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://python-pillow.org/"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://python-pillow.org/"
+        }
+      ],
+      "host": "python-pillow.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/wsgiref/validate.py",
+          "url": "http://pythonpaste.org)"
+        }
+      ],
+      "host": "pythonpaste.org)"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://raw.githubusercontent.com/python-pillow/pillow-logo/main/pillow-logo-248x250.png"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf/_codecs/adobe_glyphs.py",
+          "url": "https://raw.githubusercontent.com/adobe-type-tools/agl-aglfn/master/glyphlist.txt"
+        }
+      ],
+      "host": "raw.githubusercontent.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://readthedocs.org/projects/pillow/badge/?version=latest"
+        }
+      ],
+      "host": "readthedocs.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/encodings/koi8_t.py",
+          "url": "http://ru.wikipedia.org/wiki/"
+        }
+      ],
+      "host": "ru.wikipedia.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/ImageFont.py",
+          "url": "https://savannah.nongnu.org/bugs/?56186"
+        }
+      ],
+      "host": "savannah.nongnu.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/xml/etree/ElementTree.py",
+          "url": "http://schemas.xmlsoap.org/wsdl/"
+        }
+      ],
+      "host": "schemas.xmlsoap.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "etc/secfixes.d/alpine",
+          "url": "https://secdb.alpinelinux.org/v3.22/main.json"
+        },
+        {
+          "path": "etc/secfixes.d/alpine",
+          "url": "https://secdb.alpinelinux.org/v3.22/community.json"
+        }
+      ],
+      "host": "secdb.alpinelinux.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://simdjson.org/"
+        }
+      ],
+      "host": "simdjson.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://simdutf.github.io/simdutf/"
+        }
+      ],
+      "host": "simdutf.github.io"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://sourceware.org/bzip2/"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://sourceware.org/libffi/"
+        },
+        {
+          "path": "usr/lib/python3.12/threading.py",
+          "url": "http://sourceware.org/pthreads-win32/manual/pthread_barrier_init.html"
+        }
+      ],
+      "host": "sourceware.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/_pydecimal.py",
+          "url": "http://speleotrove.com/decimal/"
+        },
+        {
+          "path": "usr/lib/python3.12/decimal.py",
+          "url": "http://speleotrove.com/decimal/decarith.html"
+        }
+      ],
+      "host": "speleotrove.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/SpiderImagePlugin.py",
+          "url": "https://spider.wadsworth.org/spider_doc/spider/docs/spider.html"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/SpiderImagePlugin.py",
+          "url": "https://spider.wadsworth.org/spider_doc/spider/docs/image_doc.html"
+        }
+      ],
+      "host": "spider.wadsworth.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/importlib/_bootstrap.py",
+          "url": "https://stackoverflow.com/questions/59509154"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf-5.3.1.dist-info/METADATA",
+          "url": "https://stackoverflow.com/questions/tagged/pypdf)"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf-5.3.1.dist-info/METADATA",
+          "url": "https://stackoverflow.com/questions/tagged/pypdf))."
+        }
+      ],
+      "host": "stackoverflow.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf/_xobj_image_helpers.py",
+          "url": "https://stcom/questions/38855022/conversion-from-cmyk-to-rgb-with-pillow-is-different-from-that-of-photoshop"
+        }
+      ],
+      "host": "stcom"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/platform.py",
+          "url": "http://support.microsoft.com/kb/888731"
+        }
+      ],
+      "host": "support.microsoft.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/ctypes/macholib/README.ctypes",
+          "url": "http://svn.red-bean.com/bob/macholib/trunk/macholib/"
+        },
+        {
+          "path": "usr/lib/python3.12/ctypes/macholib/fetch_macholib",
+          "url": "http://svn.red-bean.com/bob/macholib/trunk/macholib/"
+        },
+        {
+          "path": "usr/lib/python3.12/ctypes/macholib/fetch_macholib.bat",
+          "url": "http://svn.red-bean.com/bob/macholib/trunk/macholib/"
+        }
+      ],
+      "host": "svn.red-bean.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://tidelift.com/subscription/pkg/pypi-pillow?utm_source=pypi-pillow&utm_medium=pypi"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://tidelift.com/subscription/pkg/pypi-pillow?utm_source=pypi-pillow&utm_medium=readme&utm_campaign=enterprise)."
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://tidelift.com/subscription/pkg/pypi-pillow?utm_source=pypi-pillow&utm_medium=badge"
+        }
+      ],
+      "host": "tidelift.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://tiswww.cwru.edu/php/chet/readline/rltop.html"
+        }
+      ],
+      "host": "tiswww.cwru.edu"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/email/contentmanager.py",
+          "url": "http://tools.ietf.org/html/rfc2046#section-5.2.1"
+        },
+        {
+          "path": "usr/lib/python3.12/email/contentmanager.py",
+          "url": "http://tools.ietf.org/html/rfc2046#section-5.2.3"
+        },
+        {
+          "path": "usr/lib/python3.12/email/contentmanager.py",
+          "url": "http://tools.ietf.org/html/rfc2046#section-5.2.4"
+        }
+      ],
+      "host": "tools.ietf.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://tukaani.org/xz/"
+        }
+      ],
+      "host": "tukaani.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/unittest/suite.py",
+          "url": "http://twistedmatrix.com/trac/browser/trunk/twisted/trial/runner.py"
+        }
+      ],
+      "host": "twistedmatrix.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/urllib/parse.py",
+          "url": "https://url.spec.whatwg.org/"
+        },
+        {
+          "path": "usr/lib/python3.12/urllib/parse.py",
+          "url": "https://url.spec.whatwg.org/#concept-basic-url-parser"
+        }
+      ],
+      "host": "url.spec.whatwg.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/webbrowser.py",
+          "url": "http://w3m.sourceforge.net/"
+        }
+      ],
+      "host": "w3m.sourceforge.net"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/pathlib.py",
+          "url": "http://web.archive.org/web/20200623061726/https://bitbucket.org/pitrou/pathlib/issues/12/"
+        },
+        {
+          "path": "usr/lib/python3.12/pathlib.py",
+          "url": "http://web.archive.org/web/20200623061726/https://bitbucket.org/pitrou/pathlib/issues/12/"
+        },
+        {
+          "path": "usr/lib/python3.12/pathlib.py",
+          "url": "http://web.archive.org/web/20200623061726/https://bitbucket.org/pitrou/pathlib/issues/12/"
+        }
+      ],
+      "host": "web.archive.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "etc/motd",
+          "url": "https://wiki.alpinelinux.org/"
+        }
+      ],
+      "host": "wiki.alpinelinux.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://wiki.gentoo.org/wiki/Hardened/PaX_Utilities"
+        }
+      ],
+      "host": "wiki.gentoo.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/WmfImagePlugin.py",
+          "url": "https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-WMF/[MS-WMF].pdf"
+        }
+      ],
+      "host": "winprotocoldoc.blob.core.windows.net"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/WmfImagePlugin.py",
+          "url": "http://wvware.sourceforge.net/caolan/index.html"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/WmfImagePlugin.py",
+          "url": "http://wvware.sourceforge.net/caolan/ora-wmf.html"
+        }
+      ],
+      "host": "wvware.sourceforge.net"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/EpsImagePlugin.py",
+          "url": "https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/#50577413_pgfId-1035096"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/PdfParser.py",
+          "url": "https://www.adobe.com/content/dam/acom/en/devnet/acrobat/pdfs/PDF32000_2008.pdf"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/TiffImagePlugin.py",
+          "url": "https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/#50577409_pgfId-1037727"
+        }
+      ],
+      "host": "www.adobe.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/profile.py",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0"
+        },
+        {
+          "path": "usr/lib/python3.12/pstats.py",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "host": "www.apache.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/plistlib.py",
+          "url": "http://www.apple.com/DTDs/PropertyList-1.0.dtd"
+        }
+      ],
+      "host": "www.apple.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://www.bestpractices.dev/projects/6331"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://www.bestpractices.dev/projects/6331/badge"
+        }
+      ],
+      "host": "www.bestpractices.dev"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://www.bytereef.org/mpdecimal/index.html"
+        }
+      ],
+      "host": "www.bytereef.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/ImageCms.py",
+          "url": "https://www.cazabon.com"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/ImageCms.py",
+          "url": "https://www.cazabon.com/pyCMS"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/ImageOps.py",
+          "url": "https://www.cazabon.com"
+        }
+      ],
+      "host": "www.cazabon.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/_pydatetime.py",
+          "url": "http://www.cl.cam.ac.uk/~mgk25/iso-time.html"
+        }
+      ],
+      "host": "www.cl.cam.ac.uk"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/LICENSE.txt",
+          "url": "https://www.cnri.reston.va.us)"
+        }
+      ],
+      "host": "www.cnri.reston.va.us)"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/statistics.py",
+          "url": "https://www.cuemath.com/data/median-of-grouped-data/"
+        }
+      ],
+      "host": "www.cuemath.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/LICENSE.txt",
+          "url": "https://www.cwi.nl)"
+        }
+      ],
+      "host": "www.cwi.nl)"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf/generic/_image_inline.py",
+          "url": "https://www.digicamsoft.com/itu/itu-t81-36.html"
+        }
+      ],
+      "host": "www.digicamsoft.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/platform.py",
+          "url": "http://www.egenix.com/files/python/platform.py"
+        }
+      ],
+      "host": "www.egenix.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/http/server.py",
+          "url": "http://www.faqs.org/rfcs/rfc2616.html"
+        }
+      ],
+      "host": "www.faqs.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/MspImagePlugin.py",
+          "url": "https://www.fileformat.info/format/mspaint/egff.htm"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/MspImagePlugin.py",
+          "url": "https://www.fileformat.info/format/mspaint/egff.htm"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/SunImagePlugin.py",
+          "url": "https://www.fileformat.info/format/sunraster/egff.htm)"
+        }
+      ],
+      "host": "www.fileformat.info"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/WalImageFile.py",
+          "url": "https://www.flipcode.com/archives/Quake_2_BSP_File_Format.shtml"
+        }
+      ],
+      "host": "www.flipcode.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/platform.py",
+          "url": "https://www.freedesktop.org/software/systemd/man/os-release.html"
+        }
+      ],
+      "host": "www.freedesktop.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://www.freetype.org/"
+        }
+      ],
+      "host": "www.freetype.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/platform.py",
+          "url": "http://www.geocities.com/rick_lively/MANUALS/ENV/MSWIN/PROCESSI.HTM"
+        }
+      ],
+      "host": "www.geocities.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://www.gnu.org/software/gdbm/"
+        },
+        {
+          "path": "usr/lib/python3.12/collections/__init__.py",
+          "url": "http://www.gnu.org/software/smalltalk/manual-base/html_node/Bag.html"
+        },
+        {
+          "path": "usr/lib/python3.12/config-3.12-aarch64-linux-musl/install-sh",
+          "url": "https://www.gnu.org/software/automake/"
+        }
+      ],
+      "host": "www.gnu.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/ImageEnhance.py",
+          "url": "http://www.graficaobscura.com/interp/index.html"
+        }
+      ],
+      "host": "www.graficaobscura.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/gzip.py",
+          "url": "http://www.gzip.org/#faq8"
+        }
+      ],
+      "host": "www.gzip.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://www.hadrons.org/software/libmd/"
+        }
+      ],
+      "host": "www.hadrons.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://www.iana.org/time-zones"
+        },
+        {
+          "path": "etc/services",
+          "url": "https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml"
+        },
+        {
+          "path": "etc/protocols",
+          "url": "http://www.iana.org/assignments/protocol-numbers"
+        }
+      ],
+      "host": "www.iana.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/xml/sax/expatreader.py",
+          "url": "http://www.ibiblio.org/xml/examples/shakespeare/hamlet.xml"
+        }
+      ],
+      "host": "www.ibiblio.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/_aix_support.py",
+          "url": "https://www.ibm.com/"
+        },
+        {
+          "path": "usr/lib/python3.12/ctypes/_aix.py",
+          "url": "https://www.ibm.com/support/knowledgecenter/en/ssw_aix_61/com.ibm.aix.basetrf1/dlopen.htm"
+        },
+        {
+          "path": "usr/lib/python3.12/ctypes/_aix.py",
+          "url": "https://www.ibm.com/support/knowledgecenter/en/ssw_aix_61/com.ibm.aix.basetrf1/load.htm"
+        }
+      ],
+      "host": "www.ibm.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/http/server.py",
+          "url": "http://www.ics.uci.edu/pub/ietf/http/draft-ietf-http-v10-spec-00.txt"
+        }
+      ],
+      "host": "www.ics.uci.edu"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/share/zoneinfo/iso3166.tab",
+          "url": "https://www.iso.org/committee/48750.html?view=documents"
+        }
+      ],
+      "host": "www.iso.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/collections/__init__.py",
+          "url": "http://www.java2s.com/Tutorial/Cpp/0380__set-multiset/Catalog0380__set-multiset.htm"
+        }
+      ],
+      "host": "www.java2s.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "etc/modprobe.d/aliases.conf",
+          "url": "http://www.kerneli.org/)"
+        }
+      ],
+      "host": "www.kerneli.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "http://www.libpng.org"
+        }
+      ],
+      "host": "www.libpng.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://www.littlecms.com"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/ImageCms.py",
+          "url": "https://www.littlecms.com"
+        }
+      ],
+      "host": "www.littlecms.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/statistics.py",
+          "url": "https://www.lri.fr/~melquion/doc/05-imacs17_1-expose.pdf"
+        }
+      ],
+      "host": "www.lri.fr"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/GifImagePlugin.py",
+          "url": "https://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp"
+        }
+      ],
+      "host": "www.matthewflickinger.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/xml/sax/__init__.py",
+          "url": "http://www.megginson.com/SAX/."
+        }
+      ],
+      "host": "www.megginson.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/PIL/ImageFilter.py",
+          "url": "https://www.mia.uni-saarland.de/Publications/gwosdek-ssvm11.pdf"
+        }
+      ],
+      "host": "www.mia.uni-saarland.de"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://www.mozilla.org/en-US/about/governance/policies/security-group/certs/"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://www.mozilla.org/en-US/about/governance/policies/security-group/certs/"
+        }
+      ],
+      "host": "www.mozilla.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/logging/handlers.py",
+          "url": "http://www.nightmare.com/squirl/python-ext/misc/syslog.py"
+        }
+      ],
+      "host": "www.nightmare.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://www.openjpeg.org/"
+        }
+      ],
+      "host": "www.openjpeg.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/encodings/koi8_t.py",
+          "url": "http://www.opensource.apple.com/source/libiconv/libiconv-4/libiconv/tests/KOI8-T.TXT"
+        }
+      ],
+      "host": "www.opensource.apple.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://www.openssl.org/"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://www.openssl.org/"
+        }
+      ],
+      "host": "www.openssl.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/_pydatetime.py",
+          "url": "http://www.phys.uu.nl/~vgent/calendar/isocalendar.htm"
+        }
+      ],
+      "host": "www.phys.uu.nl"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/zipfile/__init__.py",
+          "url": "http://www.pkware.com/documents/casestudies/APPNOTE.TXT"
+        }
+      ],
+      "host": "www.pkware.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/_markupbase.py",
+          "url": "http://www.planetpublish.com/xmlarena/xap/Thursday/WordtoXML.pdf"
+        }
+      ],
+      "host": "www.planetpublish.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://www.python.org/"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://www.python.org/"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://www.python.org/"
+        }
+      ],
+      "host": "www.python.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/turtle.py",
+          "url": "https://www.python.org)"
+        }
+      ],
+      "host": "www.python.org)"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/LICENSE.txt",
+          "url": "http://www.pythonlabs.com/logos.html"
+        }
+      ],
+      "host": "www.pythonlabs.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/config-3.12-aarch64-linux-musl/Setup",
+          "url": "http://www.pythonware.com/products/pil/"
+        },
+        {
+          "path": "usr/lib/python3.12/xml/etree/ElementInclude.py",
+          "url": "http://www.pythonware.com"
+        },
+        {
+          "path": "usr/lib/python3.12/xml/etree/ElementPath.py",
+          "url": "http://www.pythonware.com"
+        }
+      ],
+      "host": "www.pythonware.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/encodings/idna.py",
+          "url": "https://www.rfc-editor.org/rfc/rfc3454#section-3.1"
+        },
+        {
+          "path": "usr/lib/python3.12/ipaddress.py",
+          "url": "https://www.rfc-editor.org/rfc/rfc9637.html#section-6-2.2"
+        },
+        {
+          "path": "usr/lib/python3.12/pydoc.py",
+          "url": "https://www.rfc-editor.org/rfc/rfc%d.txt'"
+        }
+      ],
+      "host": "www.rfc-editor.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/urllib/robotparser.py",
+          "url": "http://www.robotstxt.org/norobots-rfc.txt"
+        }
+      ],
+      "host": "www.robotstxt.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/urllib/robotparser.py",
+          "url": "http://www.sitemaps.org/protocol.html"
+        }
+      ],
+      "host": "www.sitemaps.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://www.sqlite.org/"
+        }
+      ],
+      "host": "www.sqlite.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/statistics.py",
+          "url": "https://www.statisticshowto.com/probability-and-statistics/z-score/"
+        }
+      ],
+      "host": "www.statisticshowto.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/pydoc_data/topics.py",
+          "url": "https://www.unicode.org/Public/15.0.0/ucd/DerivedCoreProperties.txt"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf/_codecs/symbol.py",
+          "url": "https://www.unicode.org/Public/MAPPINGS/VENDORS/ADOBE/symbol.txt"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pypdf/_codecs/zapfding.py",
+          "url": "https://www.unicode.org/Public/MAPPINGS/VENDORS/ADOBE/zdingbat.txt"
+        }
+      ],
+      "host": "www.unicode.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/difflib.py",
+          "url": "http://www.unix.org/single_unix_specification/"
+        },
+        {
+          "path": "usr/lib/python3.12/difflib.py",
+          "url": "http://www.unix.org/single_unix_specification/"
+        },
+        {
+          "path": "usr/lib/python3.12/difflib.py",
+          "url": "http://www.unix.org/single_unix_specification/"
+        }
+      ],
+      "host": "www.unix.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/_pydatetime.py",
+          "url": "http://www.w3.org/TR/NOTE-datetime"
+        },
+        {
+          "path": "usr/lib/python3.12/calendar.py",
+          "url": "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"
+        },
+        {
+          "path": "usr/lib/python3.12/difflib.py",
+          "url": "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"
+        }
+      ],
+      "host": "www.w3.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/xmlrpc/server.py",
+          "url": "http://www.xmlrpc.com/discuss/msgReader$1208"
+        },
+        {
+          "path": "usr/lib/python3.12/xmlrpc/server.py",
+          "url": "http://www.xmlrpc.com/discuss/msgReader$1208"
+        }
+      ],
+      "host": "www.xmlrpc.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/http/server.py",
+          "url": "https://www6.uniovi.es/~antonio/ncsa_httpd/cgi/env.html"
+        }
+      ],
+      "host": "www6.uniovi.es"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/http/cookiejar.py",
+          "url": "http://wwwsearch.sf.net/):"
+        }
+      ],
+      "host": "wwwsearch.sf.net"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://xcb.freedesktop.org/"
+        }
+      ],
+      "host": "xcb.freedesktop.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/antigravity.py",
+          "url": "https://xkcd.com/353/"
+        },
+        {
+          "path": "usr/lib/python3.12/antigravity.py",
+          "url": "https://xkcd.com/426/"
+        }
+      ],
+      "host": "xkcd.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/xml/sax/handler.py",
+          "url": "http://xml.org/sax/features/namespaces"
+        },
+        {
+          "path": "usr/lib/python3.12/xml/sax/handler.py",
+          "url": "http://xml.org/sax/features/external-general-entities"
+        },
+        {
+          "path": "usr/lib/python3.12/xml/sax/handler.py",
+          "url": "http://xml.org/sax/features/external-parameter-entities"
+        }
+      ],
+      "host": "xml.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/xml/dom/expatbuilder.py",
+          "url": "http://xml.python.org/entities/fragment-builder/internal"
+        }
+      ],
+      "host": "xml.python.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/xmlrpc/client.py",
+          "url": "http://xmlrpc-epi.sourceforge.net/specs/rfc.fault_codes.php)"
+        }
+      ],
+      "host": "xmlrpc-epi.sourceforge.net"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/xmlrpc/server.py",
+          "url": "http://xmlrpc.usefulinc.com/doc/reserved.html"
+        },
+        {
+          "path": "usr/lib/python3.12/xmlrpc/server.py",
+          "url": "http://xmlrpc.usefulinc.com/doc/sysmethodsig.html"
+        }
+      ],
+      "host": "xmlrpc.usefulinc.com"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://xorg.freedesktop.org/"
+        },
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://xorg.freedesktop.org/"
+        }
+      ],
+      "host": "xorg.freedesktop.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://zenodo.org/badge/latestdoi/17549/python-pillow/Pillow"
+        },
+        {
+          "path": "usr/lib/python3.12/site-packages/pillow-11.2.1.dist-info/METADATA",
+          "url": "https://zenodo.org/badge/17549/python-pillow/Pillow.svg"
+        }
+      ],
+      "host": "zenodo.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/base64.py",
+          "url": "http://zgp.org/pipermail/p2p-hackers/2001-September/000316.html"
+        }
+      ],
+      "host": "zgp.org"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "lib/apk/db/installed",
+          "url": "https://zlib.net/"
+        }
+      ],
+      "host": "zlib.net"
+    },
+    {
+      "example_cap": 3,
+      "examples": [
+        {
+          "path": "usr/lib/python3.12/trace.py",
+          "url": "http://zooko.com/"
+        }
+      ],
+      "host": "zooko.com"
+    }
+  ]
+}
