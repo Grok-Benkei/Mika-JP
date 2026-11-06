@@ -1,5 +1,7 @@
 # Mika-JP A-grade hardening, Phases 1–3 evidence
 
+Superseded for the corrective passes. The current record is `artifacts/phase2-3-corrective-checkpoint.md`. The sections below describe the first Phase 1–3 commits, including a `userConfirmed` default of true that the corrective commit removes. They are not the current security claim.
+
 This run is the implementation owner for Phases 1–3 only. It does not certify grade A. Phases 4–8 are not done. An independent auditor must review a frozen signed APK before any A grade.
 
 ## Preflight

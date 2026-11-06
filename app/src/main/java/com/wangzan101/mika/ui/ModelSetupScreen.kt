@@ -205,7 +205,7 @@ fun ModelSetupScreen(
                         vm.setAllowLanCleartext(on)
                     },
                     setModel = vm::setModel, setManual = vm::setManual, setName = vm::setName,
-                    testAndSave = vm::testAndSave, saveUntested = vm::saveWithoutTest,
+                    testAndSave = vm::testAndSave, confirmDestination = vm::confirmDisplayedDestination, saveUntested = vm::saveWithoutTest,
                     openForm = vm::openForm, closeForm = vm::closeForm,
                     openProvider = { openProvider = it; allModels = false }, pickRole = { picking = it }, next = onDone, openSpeech = onOpenSpeech,
                     openUsage = onOpenUsage,
@@ -253,6 +253,7 @@ class ModelSetupActions(
     val setManual: (Boolean) -> Unit = {},
     val setName: (String) -> Unit = {},
     val testAndSave: () -> Unit = {},
+    val confirmDestination: () -> Unit = {},
     /** はテストされず、直接保存されません ([ModelSetupViewModel.saveWithoutTest] を参照)。 */
     val saveUntested: () -> Unit = {},
     val openForm: () -> Unit = {},
@@ -348,6 +349,14 @@ private fun ProvidersSection(ui: ModelSetupUi, actions: ModelSetupActions) {
             ModelSetupCopy.PICK_MAIN,
             Modifier.padding(start = 16.dp, bottom = 12.dp).clickable { actions.pickRole(ModelRole.Main) }.testTag("setup-pick-main").padding(vertical = 4.dp),
             fontSize = 13.sp, fontWeight = FontWeight.Medium, color = c.accent,
+        )
+    }
+    ui.pendingDestination?.let { dest ->
+        FooterNote(dest, Modifier.testTag("setup-destination"), color = c.warn)
+        MikaButton(
+            "この宛先を確認",
+            actions.confirmDestination, Modifier.fillMaxWidth().padding(top = 2.dp).testTag("setup-confirm-destination"),
+            kind = ButtonKind.Secondary, size = ButtonSize.Medium,
         )
     }
     if (ui.showForm) AddProviderForm(ui, actions)

@@ -21,6 +21,7 @@ import okhttp3.Request
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
+import org.junit.Before
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -37,6 +38,10 @@ import javax.crypto.KeyGenerator
  * OpenRouter を押してデフォルトでサービスプロバイダーとして保存し、メインモデルを選択して詳細を開きます。終了し、本機のキーのみを削除してください。キーを変更するためのインターフェイスは、ローカルの偽のサービスです。
  */
 class OpenRouterSignInTest {
+    @Before fun freshDestination() {
+        com.wangzan101.mika.core.security.ModelEndpointWatch.previousKey = null
+    }
+
     @get:Rule val texts = ChineseTexts()
 
     @get:Rule val tmp = TemporaryFolder()

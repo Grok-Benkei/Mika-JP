@@ -211,6 +211,8 @@ data class AddForm(
 data class ModelSetupUi(
     val form: AddForm,
     val formOpen: Boolean = false,
+    /** 保存前に画面へ出した正規化宛先。ユーザーが確認するまで null ではない。 */
+    val pendingDestination: String? = null,
     val providers: List<Provider> = emptyList(),
     val configs: List<ProviderConfig> = emptyList(),
     val roles: RoleChoices = RoleChoices(),
@@ -335,6 +337,29 @@ class ModelSetupViewModel(
 ) {
     private val _state = MutableStateFlow(snapshot(ModelSetupUi(AddForm.of(ProviderPresets.all.first()))))
     val state: StateFlow<ModelSetupUi> = _state.asStateFlow()
+    /** ユーザーが画面上の正規化宛先を確認した値。保存ボタンの真偽値ではない。 */
+    private var confirmedOrigin: String? = null
+
+    fun confirmDisplayedDestination() {
+        val pending = _state.value.pendingDestination
+        val shown = pending ?: com.wangzan101.mika.core.security.ModelDestinationConsent.normalized(_state.value.form.baseUrl) ?: return
+        confirmedOrigin = shown
+        _state.update { it.copy(pendingDestination = null) }
+    }
+
+    private fun destinationAccepted(baseUrl: String): Boolean {
+        val shown = com.wangzan101.mika.core.security.ModelDestinationConsent.normalized(baseUrl) ?: return false
+        return shown == confirmedOrigin
+    }
+
+    private fun holdForDestination(baseUrl: String): Boolean {
+        val previous = com.wangzan101.mika.core.security.ModelEndpointWatch.previousKey
+        if (!com.wangzan101.mika.core.security.ModelDestinationConsent.needsConfirmation(previous, baseUrl)) return false
+        if (destinationAccepted(baseUrl)) return false
+        val shown = com.wangzan101.mika.core.security.ModelDestinationConsent.normalized(baseUrl) ?: baseUrl
+        _state.update { it.copy(pendingDestination = shown, form = it.form.copy(test = ListState.Idle)) }
+        return true
+    }
 
     private val _speechProbe = MutableStateFlow<Map<String, String>>(emptyMap())
 
@@ -514,9 +539,10 @@ class ModelSetupViewModel(
                     return@launch
                 }
                 val noTools = outcome is ProbeOutcome.NoToolCall
+                if (holdForDestination(baseUrl)) return@launch
                 withContext(io) {
                     val p = store.connect(
-                        f.providerName, f.kind, baseUrl, key, models, f.sessionHeader, setOf(typed), userConfirmed = true,
+                        f.providerName, f.kind, baseUrl, key, models, f.sessionHeader, setOf(typed), userConfirmed = destinationAccepted(baseUrl),
                         typed = if (listed == null) setOf(typed) else emptySet(),
                         explicitSelfHosted = f.isSelfHosted,
                     )
@@ -534,8 +560,9 @@ class ModelSetupViewModel(
                 is ListProbe.Done -> r
             }
             val noneUsable = probed.main == null && (probed.rejected.isNotEmpty() || probed.noAutomaticCandidate)
+            if (holdForDestination(baseUrl)) return@launch
             val saved = withContext(io) {
-                val p = store.connect(f.providerName, f.kind, baseUrl, key, models, f.sessionHeader, setOfNotNull(probed.main), explicitSelfHosted = f.isSelfHosted, userConfirmed = true)
+                val p = store.connect(f.providerName, f.kind, baseUrl, key, models, f.sessionHeader, setOfNotNull(probed.main), explicitSelfHosted = f.isSelfHosted, userConfirmed = destinationAccepted(baseUrl))
                 if (!noneUsable && store.roles.value.main == null) {
                     val options = ModelOptions.ofProvider(p, store.list())
                     (probed.main ?: ModelOptions.defaultMain(options, f.familyTokens, f.allowChineseModels) ?: ModelOptions.automaticFallback(options, f.familyTokens, f.allowChineseModels))
@@ -572,9 +599,10 @@ class ModelSetupViewModel(
             val key = f.apiKey.trim()
             val baseUrl = f.baseUrl.trim()
             val typed = f.typedModel
+            if (holdForDestination(baseUrl)) return@launch
             val saved = withContext(io) {
                 store.connect(
-                    f.providerName, f.kind, baseUrl, key.ifEmpty { null }, emptyList(), f.sessionHeader, untested = true, explicitSelfHosted = f.isSelfHosted, userConfirmed = true,
+                    f.providerName, f.kind, baseUrl, key.ifEmpty { null }, emptyList(), f.sessionHeader, untested = true, explicitSelfHosted = f.isSelfHosted, userConfirmed = destinationAccepted(baseUrl),
                 ).also { p -> if (typed.isNotEmpty()) store.markTyped(p.id, typed) }
             }
             _state.update {
@@ -826,6 +854,14 @@ class ModelSetupViewModel(
     fun signInWithAccount(provider: AccountProvider) {
         val browser = browser ?: return
         if (signIns.running.value || _state.value.accountSignIn.running || _state.value.chatGptSignIn == ListState.Running) return
+        val official = when (provider) {
+            AccountProvider.Xai -> XaiAuth.API_BASE
+            AccountProvider.OpenRouter -> OpenRouterAuth.API_BASE
+        }
+        if (holdForDestination(official)) {
+            _state.update { it.copy(accountSignIn = AccountSignInUi(), formOpen = true) }
+            return
+        }
         _state.update { it.copy(accountSignIn = AccountSignInUi(provider = provider, running = true)) }
         val started = signIns.start(
             target = provider.target,
@@ -867,8 +903,11 @@ class ModelSetupViewModel(
     private suspend fun connectXai(browser: SignInBrowser): Pair<Provider, ModelListResult> {
         val session = store.xaiAuth.signIn(openBrowser = browser::open, onChallenge = ::publishDevice)
         val existing = store.xaiProvider()
-        val listed = store.listModels(ProviderConfig.Kind.Xai, session.apiBase.ifBlank { XaiAuth.API_BASE }, session.accessToken)
-        return store.connectAccount(session, (listed as? ModelListResult.Ok)?.models ?: existing?.models.orEmpty()) to listed
+        val listed = store.listModels(ProviderConfig.Kind.Xai, XaiAuth.API_BASE, session.accessToken)
+        return store.connectAccount(
+            session, (listed as? ModelListResult.Ok)?.models ?: existing?.models.orEmpty(),
+            userConfirmed = destinationAccepted(XaiAuth.API_BASE),
+        ) to listed
     }
 
     /** OpenRouter ライセンス変更キーを入力し、モデルをリストし、[OpenRouter] をクリックしてデフォルトでモデルを保存 (または更新) します。 */
@@ -876,7 +915,10 @@ class ModelSetupViewModel(
         val key = signInWithOpenRouter(store.openRouterAuth, browser::open, page = { e -> browser.page(e?.let(ModelsCopy::accountFailure)) })
         val existing = store.openRouterAccount()
         val listed = store.listModels(ProviderConfig.Kind.OpenAiCompat, OpenRouterAuth.API_BASE, key)
-        return store.connectOpenRouter(key, (listed as? ModelListResult.Ok)?.models ?: existing?.models.orEmpty()) to listed
+        return store.connectOpenRouter(
+            key, (listed as? ModelListResult.Ok)?.models ?: existing?.models.orEmpty(),
+            userConfirmed = destinationAccepted(OpenRouterAuth.API_BASE),
+        ) to listed
     }
 
     /** インターフェイスにショート コードを残します。ブラウザを開くのはログインプロセスによって行われるため、ここでは再度開きません。 */

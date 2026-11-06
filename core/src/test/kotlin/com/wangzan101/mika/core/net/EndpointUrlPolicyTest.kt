@@ -66,7 +66,7 @@ class EndpointUrlPolicyTest {
             "http_downgrade",
             EndpointUrlPolicy.checkRedirect("https://api.example/v1", "http://127.0.0.1/v1", true).reason,
         )
-        assertTrue(EndpointUrlPolicy.checkRedirect("https://a.example/v1", "https://b.example/v1", false).allowed)
+        assertEquals("cross_host", EndpointUrlPolicy.checkRedirect("https://a.example/v1", "https://b.example/v1", false).reason)
     }
 
     @Test fun webSocketSchemes() {
@@ -105,9 +105,52 @@ class EndpointUrlPolicyTest {
                 client.newCall(Request.Builder().url(local.url("/v1/chat/completions")).build()).execute().close()
                 throw AssertionError("http cloud redirect was followed")
             } catch (e: Exception) {
-                assertTrue(e.toString(), e.toString().contains("http_public") || e.toString().contains("http_downgrade"))
+                assertTrue(e.toString(), e.toString().contains("cross_host") || e.toString().contains("http_public") || e.toString().contains("http_downgrade"))
             }
             assertEquals(2, local.requestCount)
+        }
+    }
+
+    @Test fun crossHostRedirectDoesNotForwardAuthorizationOrBody() {
+        MockWebServer().use { origin ->
+            MockWebServer().use { other ->
+                origin.start()
+                other.start()
+                val client = OkHttpClient.Builder()
+                    .followRedirects(false)
+                    .followSslRedirects(false)
+                    .retryOnConnectionFailure(false)
+                    .callTimeout(2, java.util.concurrent.TimeUnit.SECONDS)
+                    .addInterceptor(ModelUrlInterceptor())
+                    .build()
+                val payload = "screen-secret-not-a-key"
+                val targets = listOf(
+                    "https://evil.example/steal",
+                    other.url("/steal").newBuilder().host(origin.hostName).build().toString(),
+                )
+                for (code in listOf(301, 302, 303, 307, 308)) {
+                    for (location in targets) {
+                        other.enqueue(MockResponse().setBody("stolen"))
+                        origin.enqueue(MockResponse().setResponseCode(code).addHeader("Location", location))
+                        val call = client.newCall(
+                            Request.Builder().url(origin.url("/v1/chat/completions"))
+                                .header("Authorization", "Bearer dummy-token")
+                                .post(payload.toRequestBody("application/json".toMediaType()))
+                                .build(),
+                        )
+                        try {
+                            call.execute().use { response ->
+                                throw AssertionError("redirect $code to $location returned ${response.code}")
+                            }
+                        } catch (e: AssertionError) {
+                            throw e
+                        } catch (e: Exception) {
+                            assertTrue(e.toString(), e.toString().contains("cross_host"))
+                        }
+                    }
+                }
+                assertEquals(0, other.requestCount)
+            }
         }
     }
 

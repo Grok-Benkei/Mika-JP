@@ -33,6 +33,10 @@ import javax.crypto.KeyGenerator
  * リスト インターフェイスが 404 を受信したとき、「この会社は実際にはリストを提供していません」(手動入力モデルは正常に調整できます) および「アドレスとインターフェイスのタイプが間違って入力されました」(呼び出しも 404 を受け取りました) を受け取りました。
  */
 class ModelSetupNetworkTest {
+    @Before fun freshDestination() {
+        com.wangzan101.mika.core.security.ModelEndpointWatch.previousKey = null
+    }
+
     @get:Rule val texts = ChineseTexts()
 
     @get:Rule val tmp = TemporaryFolder()
