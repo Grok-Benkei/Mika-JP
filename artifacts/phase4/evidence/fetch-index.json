@@ -1,0 +1,211 @@
+[
+  {
+    "url": "https://api.osv.dev/v1/vulns/ALPINE-CVE-2024-3220",
+    "final": "https://api.osv.dev/v1/vulns/ALPINE-CVE-2024-3220",
+    "started": "2026-11-06T04:04:27Z",
+    "status": 200,
+    "bytes": 2177,
+    "sha256": "87f5d0e446c884041bb71f7878bfce81133092e2eeca3a6b59a3fa5c176795ef",
+    "headers": {
+      "Date": "Fri, 06 Nov 2026 04:04:27 GMT",
+      "Content-Type": "application/json",
+      "Server": "Google Frontend",
+      "Via": null,
+      "X-Cache": null,
+      "Age": null,
+      "ETag": null,
+      "Last-Modified": null
+    },
+    "path": "/tmp/phase4-reval/api.osv.dev_v1_vulns_ALPINE-CVE-2024-3220"
+  },
+  {
+    "url": "https://api.osv.dev/v1/vulns/ALPINE-CVE-2026-114583",
+    "final": "https://api.osv.dev/v1/vulns/ALPINE-CVE-2026-114583",
+    "started": "2026-11-06T04:04:27Z",
+    "status": 200,
+    "bytes": 2312,
+    "sha256": "1a6ca89d6bdf181e97cb9def518ce99e8cf9ac5de8967a52e41b7cd16275ae07",
+    "headers": {
+      "Date": "Fri, 06 Nov 2026 04:04:27 GMT",
+      "Content-Type": "application/json",
+      "Server": "Google Frontend",
+      "Via": null,
+      "X-Cache": null,
+      "Age": null,
+      "ETag": null,
+      "Last-Modified": null
+    },
+    "path": "/tmp/phase4-reval/api.osv.dev_v1_vulns_ALPINE-CVE-2026-114583"
+  },
+  {
+    "url": "https://api.osv.dev/v1/vulns/ALPINE-CVE-2026-115557",
+    "final": "https://api.osv.dev/v1/vulns/ALPINE-CVE-2026-115557",
+    "started": "2026-11-06T04:04:27Z",
+    "status": 200,
+    "bytes": 2093,
+    "sha256": "46126c33a4a32cdee5375f0949fe2a9805430651c3ff85701163492ba43afe2f",
+    "headers": {
+      "Date": "Fri, 06 Nov 2026 04:04:27 GMT",
+      "Content-Type": "application/json",
+      "Server": "Google Frontend",
+      "Via": null,
+      "X-Cache": null,
+      "Age": null,
+      "ETag": null,
+      "Last-Modified": null
+    },
+    "path": "/tmp/phase4-reval/api.osv.dev_v1_vulns_ALPINE-CVE-2026-115557"
+  },
+  {
+    "url": "https://api.osv.dev/v1/vulns/ALPINE-CVE-2026-12345",
+    "final": "https://api.osv.dev/v1/vulns/ALPINE-CVE-2026-12345",
+    "started": "2026-11-06T04:04:28Z",
+    "status": 200,
+    "bytes": 2325,
+    "sha256": "5b7a87b54902c32d96d3bc09eca0984b4e22b16c35e9e9d1306c51424596e7b0",
+    "headers": {
+      "Date": "Fri, 06 Nov 2026 04:04:28 GMT",
+      "Content-Type": "application/json",
+      "Server": "Google Frontend",
+      "Via": null,
+      "X-Cache": null,
+      "Age": null,
+      "ETag": null,
+      "Last-Modified": null
+    },
+    "path": "/tmp/phase4-reval/api.osv.dev_v1_vulns_ALPINE-CVE-2026-12345"
+  },
+  {
+    "url": "https://api.osv.dev/v1/vulns/CVE-2024-3220",
+    "final": "https://api.osv.dev/v1/vulns/CVE-2024-3220",
+    "started": "2026-11-06T04:04:28Z",
+    "status": 200,
+    "bytes": 6519,
+    "sha256": "a4a40c86dd128a676822eec80f37d59f54a094b078ba1bacfd3268def93aa4dc",
+    "headers": {
+      "Date": "Fri, 06 Nov 2026 04:04:28 GMT",
+      "Content-Type": "application/json",
+      "Server": "Google Frontend",
+      "Via": null,
+      "X-Cache": null,
+      "Age": null,
+      "ETag": null,
+      "Last-Modified": null
+    },
+    "path": "/tmp/phase4-reval/api.osv.dev_v1_vulns_CVE-2024-3220"
+  },
+  {
+    "url": "https://api.osv.dev/v1/vulns/CVE-2026-114583",
+    "final": "https://api.osv.dev/v1/vulns/CVE-2026-114583",
+    "started": "2026-11-06T04:04:28Z",
+    "status": 200,
+    "bytes": 6318,
+    "sha256": "e263ef68d10a53f3a8b557ba921a457d5023969b101fae1c61ed35f2044a9415",
+    "headers": {
+      "Date": "Fri, 06 Nov 2026 04:04:28 GMT",
+      "Content-Type": "application/json",
+      "Server": "Google Frontend",
+      "Via": null,
+      "X-Cache": null,
+      "Age": null,
+      "ETag": null,
+      "Last-Modified": null
+    },
+    "path": "/tmp/phase4-reval/api.osv.dev_v1_vulns_CVE-2026-114583"
+  },
+  {
+    "url": "https://api.osv.dev/v1/vulns/CVE-2026-115557",
+    "final": "https://api.osv.dev/v1/vulns/CVE-2026-115557",
+    "started": "2026-11-06T04:04:28Z",
+    "status": 200,
+    "bytes": 17121,
+    "sha256": "ae79e74c76d835aeeb0dd79f167fdecfa1f60d70214dd796a7a985c29799682c",
+    "headers": {
+      "Date": "Fri, 06 Nov 2026 04:04:28 GMT",
+      "Content-Type": "application/json",
+      "Server": "Google Frontend",
+      "Via": null,
+      "X-Cache": null,
+      "Age": null,
+      "ETag": null,
+      "Last-Modified": null
+    },
+    "path": "/tmp/phase4-reval/api.osv.dev_v1_vulns_CVE-2026-115557"
+  },
+  {
+    "url": "https://api.osv.dev/v1/vulns/CVE-2026-12345",
+    "final": "https://api.osv.dev/v1/vulns/CVE-2026-12345",
+    "started": "2026-11-06T04:04:28Z",
+    "status": 200,
+    "bytes": 6200,
+    "sha256": "261d58106eca9b308540edb3d556832be1e097bc9a52b23fe780f431c4d7ecca",
+    "headers": {
+      "Date": "Fri, 06 Nov 2026 04:04:28 GMT",
+      "Content-Type": "application/json",
+      "Server": "Google Frontend",
+      "Via": null,
+      "X-Cache": null,
+      "Age": null,
+      "ETag": null,
+      "Last-Modified": null
+    },
+    "path": "/tmp/phase4-reval/api.osv.dev_v1_vulns_CVE-2026-12345"
+  },
+  {
+    "url": "https://secdb.alpinelinux.org/v3.22/main.json",
+    "final": "https://secdb.alpinelinux.org/v3.22/main.json",
+    "started": "2026-11-06T04:04:28Z",
+    "status": 200,
+    "bytes": 92044,
+    "sha256": "d1da5e1bf1b7564a1cf29d98824347b88966718c0ff625149fa037e16fb28501",
+    "headers": {
+      "Date": "Fri, 06 Nov 2026 04:04:29 GMT",
+      "Content-Type": "application/json",
+      "Server": "nginx/1.29.0",
+      "Via": null,
+      "X-Cache": null,
+      "Age": null,
+      "ETag": "\"6aed1693-1678c\"",
+      "Last-Modified": "Thu, 05 Nov 2026 23:51:47 GMT"
+    },
+    "path": "/tmp/phase4-reval/secdb.alpinelinux.org_v3.22_main.json"
+  },
+  {
+    "url": "https://secdb.alpinelinux.org/v3.22/community.json",
+    "final": "https://secdb.alpinelinux.org/v3.22/community.json",
+    "started": "2026-11-06T04:04:29Z",
+    "status": 200,
+    "bytes": 149235,
+    "sha256": "a741f886727cbb022f1a9c4630bd6772a3b9f52fde672bb08a6c3bd0321d3024",
+    "headers": {
+      "Date": "Fri, 06 Nov 2026 04:04:30 GMT",
+      "Content-Type": "application/json",
+      "Server": "nginx/1.29.0",
+      "Via": null,
+      "X-Cache": null,
+      "Age": null,
+      "ETag": "\"6aed1694-246f3\"",
+      "Last-Modified": "Thu, 05 Nov 2026 23:51:48 GMT"
+    },
+    "path": "/tmp/phase4-reval/secdb.alpinelinux.org_v3.22_community.json"
+  },
+  {
+    "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/APKINDEX.tar.gz",
+    "final": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/APKINDEX.tar.gz",
+    "started": "2026-11-06T04:04:30Z",
+    "status": 200,
+    "bytes": 501422,
+    "sha256": "eee183e88196ff264f077742cc6059377847fff25947da5dd8e7e17b8e8de9ac",
+    "headers": {
+      "Date": "Fri, 06 Nov 2026 04:04:30 GMT",
+      "Content-Type": "application/octet-stream",
+      "Server": "nginx/1.29.0",
+      "Via": "1.1 varnish, 1.1 varnish",
+      "X-Cache": "HIT, HIT",
+      "Age": "0",
+      "ETag": "\"6aec4a33-7a6ae\"",
+      "Last-Modified": "Thu, 05 Nov 2026 09:19:47 GMT"
+    },
+    "path": "/tmp/phase4-reval/dl-cdn.alpinelinux.org_alpine_v3.22_main_aarch64_APKINDEX.tar.gz"
+  }
+]

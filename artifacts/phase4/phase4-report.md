@@ -1,5 +1,41 @@
 # Phase 4 supply-chain and binary inventory
 
+Validation checkpoint, 2026-11-06. This is not a security approval and not grade A. Phase 5 was not started. The Phase 2 suite in `phase2-clean-sha-suites.json` was run later, on a detached worktree. It is not proof those tests ran before the Phase 3 commit.
+
+## Advisory revalidation
+
+The earlier note that `python3` `3.12.15-r0` is inside the vulnerable range for all four Alpine ids is only half right. Raw responses were saved under `artifacts/phase4/evidence/` with SHA-256 in `evidence/sha256.json`. Retrieval was direct HTTPS on 2026-11-06 around 04:04–04:09 UTC. OSV and cvelistV5 returned HTTP 200. `https://gitlab.alpinelinux.org/.../APKBUILD` returned HTTP 418, so the APKBUILD text was not retrieved. Alpine’s signed package index was used instead.
+
+| Source | What it says about 3.12.15 |
+| --- | --- |
+| cvelist `CVE-2024-3220` (PSF, published 2025-02-14) | Affected `3.12.0` lessThan `3.12.16`. Windows `mimetypes` paths. CVSS 4.0 base 2.3 LOW. Not a Linux runtime bug. |
+| cvelist `CVE-2026-114583` (PSF, published 2026-10-22) | Affected `3.12.0` lessThan `3.12.16`. `tarfile` filter bypass. CVSS 4.0 base 6.9 MEDIUM, local, integrity high. |
+| cvelist `CVE-2026-115557` (PSF, published 2026-10-24) | Affected `3.12.0` lessThan `3.12.16`. `ssl` missing a compromised-certificate denylist. CNA score CVSS 4.0 base 9.4 CRITICAL, network, user interaction passive. |
+| cvelist `CVE-2026-12345` (PSF, published 2026-09-29) | Affected `0` lessThan `3.12.15`. **3.12.15 is the first fixed 3.12 release.** CVSS 4.0 base 5.9 MEDIUM. |
+| Alpine secdb `https://secdb.alpinelinux.org/v3.22/main.json` (HTTP 200, sha256 `d1da5e1bf1b7564a…`) | Those four CVE ids are listed on package `python3` version **3.12.16-r0**, which in Alpine’s secfixes map is the version that contains the fix. |
+| Signed aarch64 APKINDEX `v3.22/main` | Signature `.SIGN.RSA.alpine-devel@lists.alpinelinux.org-616ae350.rsa.pub` verified with the key inside the pinned minirootfs. `python3` `3.12.16-r0` is published. `libexpat-2.9.0-r0.apk` is HTTP 404. `libexpat` `2.10.0-r0` is published. |
+
+OSV `querybatch` on 2026-11-06 04:08:57 GMT, HTTP 200: `python3` `3.12.15-r0` returns the four `ALPINE-CVE-*` ids; `python3` `3.12.16-r0` returns none. That Alpine/OSV range still marks 3.12.15-r0 for `CVE-2026-12345`, which **disagrees** with the PSF cvelist (`lessThan 3.12.15`). The earlier report is retracted on that point: 3.12.15-r0 is not treated as vulnerable to `CVE-2026-12345`. The other three are confirmed against the current pin by both the PSF cvelist and the Alpine fix version.
+
+`libexpat` `2.9.0-r0` could not stay pinned: its apk URL returns 404, so a rebuild from the old lock is impossible. cvelist (assigner VulnCheck, not upstream libexpat) says `CVE-2026-113351`, `CVE-2026-115506`, `CVE-2026-117610`, and `CVE-2026-118370` affect libexpat through 2.9.0 (DoS or integer overflow, CVSS 4.0 high, scores 8.2–8.7). OSV `Alpine:v3.22` package `expat` `2.9.0-r0` returns those four ids; `2.10.0-r0` returns none. The signed `libexpat-2.10.0-r0.apk` was verified the same way as Python. `tzdata-2026e-r0` still returns HTTP 200, so it was not bumped.
+
+The rebuilt archive is `BundledRuntime` SHA-256 `fc08417a99d94fa4a2195d273565751969b90f227783ad7b4a94373c57c3caaa`, 31472744 bytes, 128249283 regular-file bytes, 3238 entries. `python3`, `python3-pyc`, `python3-pycache-pyc0`, and `pyc` are `3.12.16-r0`. `libexpat` is `2.10.0-r0`. No install script was executed. The three new Python apks had no `.post-install` or `.trigger`. `tzdata` stayed `2026e-r0` because that URL still returned HTTP 200.
+
+Suites on this tree, JDK 17, before the remediation commit. The core Gradle client was stopped after `BUILD SUCCESSFUL` (shell exit 137); the JUnit XML was already written.
+
+| Command | Result |
+| --- | --- |
+| `bash ./gradlew --no-daemon --console=plain :core:test` | `BUILD SUCCESSFUL in 2m 22s`. 2996 tests, 0 failed, 2 skipped. |
+| `bash ./gradlew --no-daemon --console=plain :app:testDebugUnitTest` | `BUILD SUCCESSFUL in 43s`. 1487 tests, 0 failed, 0 skipped. |
+| `bash ./gradlew --no-daemon --console=plain :core:cliTest --rerun-tasks` | `BUILD SUCCESSFUL in 1m 24s`. 1 test, 0 failed. |
+| `python3 tools/security/phase4_inventory.py --self-test` | passed. |
+
+Unsigned release rebuilt with no signing variables. Universal APK SHA-256 `84da4598ff3f7b8e129bcb641a3a0fb2badcff9ba85485677dd633c47e3c2db8` (92544743 bytes). arm64-v8a APK SHA-256 `4b9c2653ca7f5de03d199f79b5aeedd8e6d9f0f3698c5b3c69d6aa79cd66e1d5`. Still four DEX files and 30369 class defs. `classes.dex` and `classes4.dex` kept the previous hashes. `classes2.dex` and `classes3.dex` changed because `BundledRuntime` constants changed. `apksigner` is not a signature: these builds are unsigned. Maven SBOM coordinates did not change. The rootfs inventory was regenerated.
+
+## DEX cross-check
+
+jadx still fails to reconstruct the large coroutine methods. `dexdump -d` of `classes3.dex` from the unsigned APK built at `215db936` shows the methods are present. `ActionExecutor.aimed` invokes `ConfirmDecision.judge`, `OperationGuards.beforeAction`, `FollowUp.approve`, and `Decision.Required` / `Mismatch` / `Denied`. `AgentLoop.loop` invokes `ConfirmationGate.getHasGrant` and `OperationGuards.getStop`. That is a bytecode cross-check of the confirmation calls, not a full Java recovery. `PhoneRun.runCommands`, `DeviceAccess.unlock`, `TaskGate.pass`, and `ModelCaller.complete` are present as coroutine state machines; their security checks were not isolated in the failed method body and stay **UNVERIFIED**. The four DEX files are not marked PASS as a whole.
+
 This is an implementation inventory. It is not a security approval, not grade A, and not a signed release. Phases 5–8 were not started.
 
 ## Source and interim binary

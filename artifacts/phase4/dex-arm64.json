@@ -1,7 +1,7 @@
 {
   "apk": "app/build/outputs/apk/release/app-arm64-v8a-release-unsigned.apk",
-  "apkBytes": 79941660,
-  "apkSha256": "767be8515065e8986825852a4cebe93b5ae5d9350daada9923bb2703b0d50121",
+  "apkBytes": 79948600,
+  "apkSha256": "4b9c2653ca7f5de03d199f79b5aeedd8e6d9f0f3698c5b3c69d6aa79cd66e1d5",
   "entryCount": 885,
   "dexCount": 4,
   "dex": [
@@ -24,7 +24,7 @@
     {
       "name": "classes2.dex",
       "bytes": 9329324,
-      "sha256": "fd4a7e3e75153df19ed7ea7a2cf4cc9ed8e869b080abaadff113953173c7b238",
+      "sha256": "c9cc9eb64156b18909bb3ba37f55e8530302e0a1c91be1a0836119eb8296c352",
       "header": {
         "magic": "dex\n039\u0000",
         "fileSize": 9329324,
@@ -39,16 +39,16 @@
     },
     {
       "name": "classes3.dex",
-      "bytes": 12849524,
-      "sha256": "ca0a2fa661c2ed8c52ceb69cd0c20b789975430ffe95cff673ddeb94554a8e26",
+      "bytes": 12849908,
+      "sha256": "9820212cf5ac7e7523f9bb2ebb22ce9b3ca0f4bae41fe2c3ec2d067ff8a14dfc",
       "header": {
         "magic": "dex\n039\u0000",
-        "fileSize": 12849524,
+        "fileSize": 12849908,
         "headerSize": 112,
         "stringIds": 66110,
         "typeIds": 10658,
         "protoIds": 15593,
-        "fieldIds": 27679,
+        "fieldIds": 27680,
         "methodIds": 65501,
         "classDefs": 9136
       }

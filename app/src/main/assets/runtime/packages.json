@@ -1,5 +1,5 @@
 {
- "version": "3.22.7-744047570fd8",
+ "version": "3.22.7-fc08417a99d9",
  "alpine": "3.22.7",
  "packages": [
   {
@@ -193,12 +193,12 @@
   },
   {
    "name": "libexpat",
-   "version": "2.9.0-r0",
+   "version": "2.10.0-r0",
    "license": "MIT",
    "origin": "expat",
    "url": "https://libexpat.github.io/",
    "repo": "main",
-   "commit": "f71ec7147f3df6e984064717d4200875fc8834c4"
+   "commit": "e7473064be733caf6876525ecc41181e5137f399"
   },
   {
    "name": "libffi",
@@ -454,39 +454,39 @@
   },
   {
    "name": "pyc",
-   "version": "3.12.15-r0",
+   "version": "3.12.16-r0",
    "license": "PSF-2.0",
    "origin": "python3",
    "url": "https://www.python.org/",
    "repo": "main",
-   "commit": "18ae07d47fb83eecf3343ba1d41fddb4b70b116d"
+   "commit": "712199df117586aee4a5a8138360636deafcae27"
   },
   {
    "name": "python3",
-   "version": "3.12.15-r0",
+   "version": "3.12.16-r0",
    "license": "PSF-2.0",
    "origin": "python3",
    "url": "https://www.python.org/",
    "repo": "main",
-   "commit": "18ae07d47fb83eecf3343ba1d41fddb4b70b116d"
+   "commit": "712199df117586aee4a5a8138360636deafcae27"
   },
   {
    "name": "python3-pyc",
-   "version": "3.12.15-r0",
+   "version": "3.12.16-r0",
    "license": "PSF-2.0",
    "origin": "python3",
    "url": "https://www.python.org/",
    "repo": "main",
-   "commit": "18ae07d47fb83eecf3343ba1d41fddb4b70b116d"
+   "commit": "712199df117586aee4a5a8138360636deafcae27"
   },
   {
    "name": "python3-pycache-pyc0",
-   "version": "3.12.15-r0",
+   "version": "3.12.16-r0",
    "license": "PSF-2.0",
    "origin": "python3",
    "url": "https://www.python.org/",
    "repo": "main",
-   "commit": "18ae07d47fb83eecf3343ba1d41fddb4b70b116d"
+   "commit": "712199df117586aee4a5a8138360636deafcae27"
   },
   {
    "name": "readline",

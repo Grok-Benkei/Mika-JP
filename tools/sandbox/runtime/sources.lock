@@ -2,8 +2,8 @@
 # alpine <version> <minirootfs url> <sha256>
 # apk <repo> <name> <version> <APKINDEX checksum> <sha256 of the .apk>
 alpine 3.22.7 https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/aarch64/alpine-minirootfs-3.22.7-aarch64.tar.gz 7e9b34ff3304381909e566e2c93de450664ccc724191261423974fc121c11623
-apk main python3 3.12.15-r0 Q1Wdzd9uvPKc4WRzb5I1dz2q2bCIM= 553d2d36b845d9c1174f9bfa3fccd9d17f51c3df79375971a4c94ab3d3b11887
-apk main libexpat 2.9.0-r0 Q1AFLWv8tBpdkawzZShoIXaR3bDTs= 3a53825b470556ebd0c08b27dd6c23f6b039232f27951ca983f1b1540edf8d1b
+apk main python3 3.12.16-r0 Q1hMNCLt9bBmM3XedZcyiZLtHF9JQ= d21dd05b578d14c84a735d66d8623e9454bdc18a1b3841815b37948ce3e2aa92
+apk main libexpat 2.10.0-r0 Q1DlJTXJcF7L9tlIXAgKNnBaOFJqE= cceec3fb87a26a0d8fb5da40eaeb03db5c688c055bea0eb9502393d32510f37a
 apk main libbz2 1.0.8-r6 Q1RCSiyyDV+oISVSGFDCOPrSRS3bs= 1d588037cc45108acafdbb1507e9f683019a8816fb74d9aba9b0a2dc099463c4
 apk main libffi 3.4.8-r0 Q1q+9OCyehyHODbm71gRN5RkK7eY8= 9391f60a14c146655deaf65115563bc8dcd749cf0f93ec567e6443f2ed7d3bfc
 apk main gdbm 1.24-r0 Q1zmGlh77Pgu6M9Pgl6iEMQNUSBzQ= dd9525bc443d995b86bc0671f6ac4384cff9e3e3d28822ac6279d08796ed7acc
@@ -45,9 +45,9 @@ apk main libxdmcp 1.1.5-r1 Q1sHrqdje4pOU+1g5WFRKL/x8HyRc= 6988bfc23df3e551de62de
 apk main libbsd 0.12.2-r0 Q1x0rzB5TULDPPNEA9iN2cfAt/k0U= 8a51acec613887f12a294685465c17b0d03f2c9b1adfae805d8e6b8d8421cd77
 apk main libmd 1.1.0-r0 Q1oTonKCyzooVVAyCjc9kNNkEAvAQ= b1624431ed1932069c17b02f21e1fb2c8d4db42c3be1e2f8c5a22ccac27b78aa
 apk community py3-pypdf 5.3.1-r0 Q1KxSYaN7ovqxcjFq0Kwg23Ly4QDQ= ee63a78343be40e0b4404cc168347ef82e94cb60efad1ef473cd072c6d9bb6a6
-apk main python3-pyc 3.12.15-r0 Q12liD0I2qmc2ki7fFYV0NHM/kKgM= 026183e54cc16f69c2a2862fffdd06ee78fe08c0998d5491902abf87017f78f7
-apk main python3-pycache-pyc0 3.12.15-r0 Q1dkVxSVmrnilJvJp8ns43vHwkFPo= 77cdaeec5d316189bf9f258c0e753ce69e96b0d0176a8cf94d46da90b27b29d8
-apk main pyc 3.12.15-r0 Q17UIDWtfBxrWEaeEYLIk0E9tsK9w= 5a7af593be1ec8b0e8bda6d68c70033b1e39ac795668a94fc6873418fd9adccf
+apk main python3-pyc 3.12.16-r0 Q1ELX1tcK17irbEcKpzSOJXFSlSa8= cdd845907cd99484cc392d44277dc3b08b477406b90036d44b8729f3dca7dc98
+apk main python3-pycache-pyc0 3.12.16-r0 Q1oOpNb2ZOInuGksJRbzfWrQT/X2o= 024147092032dcbbbefd75d22d11a2b8b230627ee34952185fcd113b4a20d42a
+apk main pyc 3.12.16-r0 Q1kR6Mqbhtf9KTHYOqwV/yCUVxeto= 37bc97c9cfec3d5cfc5c83bb6d74dbab98ae2893e28970b7df7bcf37a10015c8
 apk community py3-pillow-pyc 11.2.1-r0 Q1Vh2qQgQFk7r4Ro/VePiZl6L1HOI= cc02680f80752162f2871cc1433d35485d1dc01442cfd47a3d679614d18b8c76
 apk community py3-pypdf-pyc 5.3.1-r0 Q18gGi7ILSQennJIdGWdc6nDAVBn4= 46a890ae9f0b8eafd9373519b5d88205a8de1163200d8c3e8211a4354d43cb7f
 apk main tzdata 2026e-r0 Q1tYOlftkLQhokOMVfdjJT/j2kPIU= b606a0e623c8206b099d0bec089e2f8916bf6ad8a9f23b77f1acf3387b607885

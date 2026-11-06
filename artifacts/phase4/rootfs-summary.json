@@ -1,15 +1,15 @@
 {
   "archive": "/agent/repos/Mika-JP/app/src/main/assets/runtime/rootfs.tar.xz",
-  "archive_bytes": 31466196,
+  "archive_bytes": 31472744,
   "archive_bytes_match_bundled": true,
-  "archive_sha256": "744047570fd84e94996623e8347efce9528da6d073966e040d064f0f2676f2a2",
+  "archive_sha256": "fc08417a99d94fa4a2195d273565751969b90f227783ad7b4a94373c57c3caaa",
   "archive_sha_matches_bundled": true,
   "bundled": {
-    "BYTES": 31466196,
+    "BYTES": 31472744,
     "ENTRIES": 3238,
-    "FILE_BYTES": 128240382,
-    "SHA256": "744047570fd84e94996623e8347efce9528da6d073966e040d064f0f2676f2a2",
-    "VERSION": "3.22.7-744047570fd8"
+    "FILE_BYTES": 128249283,
+    "SHA256": "fc08417a99d94fa4a2195d273565751969b90f227783ad7b4a94373c57c3caaa",
+    "VERSION": "3.22.7-fc08417a99d9"
   },
   "content_behavior": "UNVERIFIED: members were hashed and scanned as bytes. No member was executed.",
   "elf_count": 172,
@@ -153,7 +153,7 @@
     "usr/lib/python3.12/turtledemo/yinyang.py",
     "usr/lib/python3.12/uu.py",
     "usr/lib/python3.12/webbrowser.py",
-    "usr/lib/libexpat.so.1.13.0",
+    "usr/lib/libexpat.so.1.13.1",
     "usr/lib/libbz2.so.1.0.8",
     "usr/lib/libffi.so.8.1.4",
     "usr/lib/libgdbm.so.6.0.0",
@@ -235,7 +235,7 @@
     "usr/local/bin/mika"
   ],
   "private_key_marker_paths": [],
-  "regular_file_bytes": 128240382,
+  "regular_file_bytes": 128249283,
   "regular_file_bytes_match_bundled": true,
   "shebangs": [
     {
