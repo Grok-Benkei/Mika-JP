@@ -11,7 +11,7 @@ The resume found the branch `security/a-grade-hardening` intact. No reset, rebas
 | Phase 1 corrective | `8f82a16ccacc7cf1ab3850b57e5761f1e9a4e39d` | Ancestor. Not rewritten. |
 | Privacy gate | `791528e85518e3a60b3e74adc6202098aef26350` | Ancestor. Session change token, not a content hash. |
 | Phase 2 corrective (HEAD at recovery) | `a3e7f0eb73415a93a0165382484889e75c2505ee` | Already committed and pushed before this resume. |
-| Phase 3 corrective | The commit that adds this file | Uncommitted destination-consent edits were preserved and finished here. |
+| Phase 3 corrective | `77a2030906c3492cc080b6e67efd232dd8056f92` | Uncommitted destination-consent edits were preserved and finished here. |
 
 `gradlew.bat` stayed unstaged. Its diff is line endings only. Fork `main`, upstream, and PR #2 were not modified. PR #3 stays an open draft against `security/harden-android-release`.
 
