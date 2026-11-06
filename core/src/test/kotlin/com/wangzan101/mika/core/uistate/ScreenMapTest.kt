@@ -8,6 +8,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -31,11 +32,10 @@ class ScreenMapTest {
         }
         val result = toolDispatcher(port).executeRead(Part.ToolCall("o", "phone_observe", "{}"))
         val content = result.content
-        val link = content["screenMap"]!!.jsonObject["ocrToControl"]!!.jsonArray.single().jsonObject
-        assertEquals("w7/0", link["treePath"]!!.jsonPrimitive.content)
-        assertEquals("@e1", link["ref"]!!.jsonPrimitive.content)
-        assertEquals("0", link["ocrIndexes"]!!.jsonArray.single().jsonPrimitive.content)
-        assertEquals("搜索", content["visibleText"]!!.jsonArray.single().jsonObject["text"]!!.jsonPrimitive.content)
+        assertFalse("screenMap" in content)
+        assertFalse("visibleText" in content)
+        assertFalse(content.toString().contains("搜索"))
+        assertEquals("text_withheld", content["reason"]!!.jsonPrimitive.content)
         assertTrue(content["tree"]!!.jsonArray.single().jsonObject["nodes"]!!.jsonArray.single().jsonObject.containsKey("children"))
     }
 

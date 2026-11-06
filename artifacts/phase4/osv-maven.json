@@ -1,0 +1,20 @@
+{
+  "tool": "https://api.osv.dev/v1/querybatch",
+  "ecosystem": "Maven",
+  "httpDate": "Fri, 06 Nov 2026 04:00:16 GMT",
+  "coordinatesQueried": 107,
+  "affected": [],
+  "positiveControl": {
+    "coordinate": "org.apache.logging.log4j:log4j-core",
+    "version": "2.14.0",
+    "inAppGraph": false,
+    "returnedIds": 8,
+    "purpose": "Shows the same API returns known Maven advisories. This coordinate is not a Mika dependency."
+  },
+  "coverageGaps": [
+    "Gradle plugins and AGP are not on releaseRuntimeClasspath",
+    "Native libraries inside AARs are hashed but not queried as separate OSV packages",
+    "Android SDK platform android-36 is not an OSV package",
+    "NDK toolchain was not installed and was not queried"
+  ]
+}

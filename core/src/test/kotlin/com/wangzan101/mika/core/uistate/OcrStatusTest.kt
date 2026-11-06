@@ -67,8 +67,9 @@ class OcrStatusTest {
 
     @Test fun textIsReadEvenWhenTheTreeChangedDuringTheRead() = runTest {
         val r = observe(Screen({ listOf(VisibleTextLine("明天见", listOf(200, 150, 500, 190))) }, changing = true))
-        assertEquals(listOf("明天见"), r["visibleText"]!!.jsonArray.map { (it as JsonObject).s("text") })
-        assertFalse("ocr" in r)
-        assertTrue(r.s("hint")!!.startsWith(Feedback["tree_poor"]))
+        assertFalse("visibleText" in r)
+        assertFalse(r.toString().contains("明天见"))
+        assertEquals("text_withheld", r.s("reason"))
+        assertEquals("true", r.s("screenChangedDuringRead"))
     }
 }

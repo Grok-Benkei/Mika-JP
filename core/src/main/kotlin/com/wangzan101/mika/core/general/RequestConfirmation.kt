@@ -63,15 +63,13 @@ internal object RequestConfirmation : SurfaceAware {
                 a.str("amount", max = 10000)?.let(::capField), a.str("app")!!.trim())
             return fail("payment_requires_takeover", HINT_PAYMENT_TAKEOVER)
         }
-        // お金だけお願いします: 金額を書けない場合は申請する必要はありません、直接申請してください
-        if (a.str("amount")?.any(Char::isDigit) != true) throw ArgError("amount",
-            "required: the total the user will pay, as shown on screen. An action that spends no money needs no approval: do it directly")
         val app = ctx.confirmTarget(a.str("app")!!.trim())
         val req = ConfirmationRequest(
             kind, capField(a.str("target", max = 10000)!!), capField(a.str("content", max = 10000)!!),
             a.str("amount", max = 10000)?.let(::capField), app,
         )
-        val fg = ctx.session.peek()?.packageName ?: ctx.lastSnapshot?.packageName
+        val shown = ctx.session.peek() ?: ctx.lastSnapshot
+        val fg = shown?.packageName ?: shown?.web?.url?.let { com.wangzan101.mika.core.net.UrlHost.of(it) }
         return ToolExecution(okObj { put("asked", true) }, outcome = Outcome.Confirm(req, fg))
     }
 }

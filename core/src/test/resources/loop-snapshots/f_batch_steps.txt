@@ -1,4 +1,4 @@
-outcome: Succeeded(answer=咖啡豆 ¥89, verified=true, note=null, sources=[AnswerSource(obsId=2, kind=read, place=com.x, title=null, step=3, mediaIds=[], source=phone)], unconfirmed=[], reviewed=true)
+outcome: Succeeded(answer=画面の価格は送られていないので、価格は確認できません。, verified=false, note=null, sources=[AnswerSource(obsId=2, kind=read, place=com.x, title=null, step=3, mediaIds=[], source=phone)], unconfirmed=[], reviewed=false)
 
 ## main #1
 system: len=7535 #2ee6f9d1 | あなたは Mika JP です。ユーザーのスマートフォンで動くパーソナルアシスタントとして、依頼された作業を完了し、実際に使っているアプリやサービスの中で結果を…
@@ -14,7 +14,7 @@ tools: #d2cc5c4b [wait, ask_user, request_confirmation, end_not_done, view_past_
 assistant:
   call main_1 phone_observe {}
 tool:
-  result main_1 #8dabeca4 | {"ok":true,"currentApp":"com.x","snapshotId":"s1","screenshotId":1,"screenChangedDuringRead":false,"viewport":{"width":1080,"height":2400},"elements":[{"ref":"@e1","role":"edit","name":"搜索商品","center"…
+  result main_1 #d1eaf245 | {"ok":true,"currentApp":"com.x","snapshotId":"s1","screenshotId":1,"screenChangedDuringRead":false,"viewport":{"width":1080,"height":2400},"elements":[{"ref":"@e1","role":"edit","center":{"x":500,"y":…
   ctx:runtime_state source="runtime" #94f862d0 | Current place: app com.x ⏎…
 
 ## main #3
@@ -30,5 +30,13 @@ tool:
 assistant:
   call main_3 phone_observe {}
 tool:
-  result main_3 #0652fac9 | {"ok":true,"currentApp":"com.x","snapshotId":"s2","screenshotId":2,"screenChangedDuringRead":false,"viewport":{"width":1080,"height":2400},"elements":[{"ref":"@e1","role":"text","name":"咖啡豆 ¥89","cent…
+  result main_3 #118849f1 | {"ok":true,"currentApp":"com.x","snapshotId":"s2","screenshotId":2,"screenChangedDuringRead":false,"viewport":{"width":1080,"height":2400},"elements":[{"ref":"@e1","role":"text","center":{"x":500,"y":…
   ctx:runtime_state source="runtime" #3040a50e | Current place: app com.x ⏎…
+
+## main #5
+… 7 messages unchanged
+assistant:
+  text #c96a69ee | 咖啡豆 ¥89
+user:
+  ctx:notice source="回答の確認" #c72ea6d6 | この回答がユーザーへ渡る前に: ⏎…
+  ctx:runtime_state source="runtime" #f8d5a57b | Current place: app com.x ⏎…

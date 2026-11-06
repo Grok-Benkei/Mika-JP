@@ -80,7 +80,13 @@ class ActionEffectTest {
         val item = screen("shop.example.com", el("加入购物车", listOf(0, 0, 999, 100)), web = WebInfo("https://shop.example.com/item/1", "商品一", "t1", 200))
         val e = classify(Verb.Tap, list, item)
         assertEquals(EffectKind.PlaceChanged, e.kind)
-        assertEquals("https://shop.example.com/item/1", e.toJson()["web"]!!.jsonObject["url"]!!.jsonPrimitive.content)
+        val web = e.toJson()["web"]!!.jsonObject
+        assertFalse("url" in web)
+        assertFalse("title" in web)
+        assertFalse(web.toString().contains("/item/1"))
+        assertFalse(web.toString().contains("商品一"))
+        assertEquals("shop.example.com", web["currentSite"]!!.jsonPrimitive.content)
+        assertEquals("browser_or_webview", web["reason"]!!.jsonPrimitive.content)
         // #: を変更しただけで同じページ、構造で判断
         val anchored = list.copy(web = list.web!!.copy(url = "https://shop.example.com/list#reviews"))
         assertEquals(EffectKind.NoEffect, classify(Verb.Tap, list, anchored).kind)

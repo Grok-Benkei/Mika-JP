@@ -1,0 +1,77 @@
+import java.security.MessageDigest
+import java.util.zip.ZipFile
+
+def digest = { File file ->
+    def md = MessageDigest.getInstance("SHA-256")
+    file.withInputStream { input ->
+        def buf = new byte[1 << 20]
+        int n
+        while ((n = input.read(buf)) >= 0) {
+            md.update(buf, 0, n)
+        }
+    }
+    md.digest().collect { String.format("%02x", it) }.join()
+}
+
+def nativeInside = { File file ->
+    if (!(file.name.endsWith(".aar") || file.name.endsWith(".jar"))) return []
+    def found = []
+    def zip = new ZipFile(file)
+    try {
+        zip.entries().each { entry ->
+            if (entry.directory || !entry.name.endsWith(".so")) return
+            def md = MessageDigest.getInstance("SHA-256")
+            zip.getInputStream(entry).withCloseable { input ->
+                def buf = new byte[1 << 16]
+                int n
+                while ((n = input.read(buf)) >= 0) md.update(buf, 0, n)
+            }
+            found << [path: entry.name, bytes: entry.size, sha256: md.digest().collect { String.format("%02x", it) }.join()]
+        }
+    } finally {
+        zip.close()
+    }
+    return found
+}
+
+gradle.projectsEvaluated {
+    [
+        [":app", "releaseRuntimeClasspath"],
+        [":core", "runtimeClasspath"],
+    ].each { spec ->
+        def path = spec[0]
+        def confName = spec[1]
+        def target = gradle.rootProject.project(path)
+        target.tasks.register("phase4RuntimeResolve") {
+            doLast {
+                def conf = target.configurations.getByName(confName)
+                def artifacts = conf.resolvedConfiguration.resolvedArtifacts.collect { art ->
+                    def id = art.moduleVersion.id
+                    def file = art.file
+                    [
+                        group: id.group,
+                        name: id.name,
+                        version: id.version,
+                        classifier: art.classifier ?: "",
+                        extension: art.extension,
+                        fileName: file.name,
+                        bytes: file.length(),
+                        sha256: digest(file),
+                        nativeLibraries: nativeInside(file),
+                    ]
+                }.sort { a, b -> (a.group + ":" + a.name + ":" + a.version) <=> (b.group + ":" + b.name + ":" + b.version) }
+                def outDir = new File(rootProject.projectDir, "artifacts/phase4")
+                outDir.mkdirs()
+                def out = new File(outDir, "resolved-${target.name}-${confName}.json")
+                def payload = [
+                    project: target.path,
+                    configuration: confName,
+                    componentCount: artifacts.size(),
+                    components: artifacts,
+                ]
+                out.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(payload)) + "\n"
+                println("wrote ${out.absolutePath} (${artifacts.size()})")
+            }
+        }
+    }
+}

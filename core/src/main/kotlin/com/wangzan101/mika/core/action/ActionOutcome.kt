@@ -59,7 +59,7 @@ internal object Refusals {
     fun content(code: String, style: RefusalStyle, before: List<GuardVerdict>, hit: Irreversible?, reason: String?): JsonObject = when (style) {
         // モデルがガードによって 1 ステップで停止されると、タスクは終了し、説明は不要です。
         RefusalStyle.Model -> if (code == "approval_unavailable") notRun(code,
-            "この操作には支出が伴いますが、この実行ではユーザーの承認を受け付けられないため、実行していません。" +
+            "この操作は確認が必要ですが、この実行ではユーザーの承認を受け付けられないため、実行していません。" +
                 "この実行中は再試行せず、制約をユーザーへ説明してください。") {
             hit?.let { put("action", it.action.name); put("matched", it.matched) }
             put("counts_as_failure", false)
@@ -71,9 +71,9 @@ internal object Refusals {
             val message = when (code) {
                 "guard_stopped" -> "Mikaの操作保護機能がタスクを停止しました。"
                 "guard_warning" -> "Mikaの操作保護機能がこの操作に警告したため、実行していません。"
-                "confirmation_required" -> "この操作には支出が伴います（${hit?.matched}）"
-                "confirmation_mismatch" -> "この支払い操作（${hit?.matched}）はユーザーが承認した内容と一致しません（$reason）"
-                "approval_unavailable" -> "この操作には支出が伴いますが、この実行ではユーザーの承認を受け付けられないため、実行していません"
+                "confirmation_required" -> "この操作には確認が必要です（${hit?.matched}）"
+                "confirmation_mismatch" -> "この操作（${hit?.matched}）はユーザーが承認した内容と一致しません（$reason）"
+                "approval_unavailable" -> "この操作は確認が必要ですが、この実行ではユーザーの承認を受け付けられないため、実行していません"
                 "target_unresolved" -> "そのrefは最新のスナップショットにありません。mika.snapshot()を再度呼んでください"
                 OWN_APP -> Feedback["own_app"]
                 else -> error("不明な停止理由: $code")
@@ -93,7 +93,7 @@ internal object Refusals {
         put("ok", false); put("error", "confirmation_required")
         put("action", hit.action.name); put("matched", hit.matched)
         put("message", if (hit.action == IrrevAction.pay) "支払いに当たるため、この操作は実行していません。$PAYMENT_TAKEOVER"
-            else "この操作（${hit.action.name}）には支出が伴うため、実行していません。まずrequest_confirmationで支払先・購入内容・金額を示し、ユーザーの承認後に実行してください。$SINGLE_USE")
+            else "この操作（${hit.action.name}）は確認が必要なため、実行していません。まずrequest_confirmationで操作の対象と内容を正確に示し、ユーザーの承認後に実行してください。$SINGLE_USE")
         put("recoverable", true); put("counts_as_failure", false)
     }
 

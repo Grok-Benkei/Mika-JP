@@ -62,17 +62,8 @@ class ConfirmDecision(
     /** 画面をロックして待機した後、判定が行われます。この時点で画面判定再読み込みを押します。 */
     suspend fun judge(tool: String, args: JsonObject, origin: Origin): Decision {
         outwardSite = null
-        if (autonomous || approvals.autonomous()) {
-            // 確認待ち中に自律へ切り替わっても、その操作への承認を次回へ持ち越さない。
-            // 自律モードでは照合結果にかかわらず実行できるが、既存の1回限りの承認は消費する。
-            tools.approvalRisk(tool, args)?.ask?.let { confirmations?.permitsExactly(it, origin.step) }
-            val target = tools.gateTarget(tool)
-            if (IrreversibleDetector.needsCheck(target, args)) {
-                val aim = tools.interfaces.actionTarget(tools.declared(tool), args)
-                outwardSite = outward(IrreversibleDetector.classify(target, aim.args, aim.aimed), aim.aimed)
-            }
-            return Decision.Clear
-        }
+        // 自律モードでも高リスク操作の確認は省かない。低リスクは従来どおり ApprovalPolicy が許可する。
+        val skippingWouldHideRisk = autonomous || approvals.autonomous()
         val policy = origin.policy
         val target = tools.gateTarget(tool)
         // このステップがどこに該当するかは、インターフェイス側で指定されます。画像をクリックして @vN を見つけると、パラメータは登録された座標と探しているテキストに置き換えられます。
@@ -82,7 +73,7 @@ class ConfirmDecision(
         tools.approvalRisk(tool, checked)?.let { declared ->
             return approve(tool, checked, origin, null, declared, null, null, null) ?: Decision.Clear
         }
-        if (confirmations == null && !policy.judgeWithoutGate) return Decision.Clear
+        if (confirmations == null && !policy.judgeWithoutGate && !skippingWouldHideRisk) return Decision.Clear
         val verb = tools.verb(tool)
         val typing = if (verb == Verb.TypeText) (args["text"] as? JsonPrimitive)?.contentOrNull else null
         // 取り消し不能な言葉のないアクション (一般的な変更、インターフェイス間の移動) には費用がかからず、問い合わせる必要もありません

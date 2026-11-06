@@ -79,26 +79,28 @@ class ToolDispatcherRecallTest {
         // ステップは、ループによって与えられるラウンド番号です (折り畳まれた概要の「N 番目のステップ」と一致します)。
         assertEquals("1", s.s("id")); assertEquals("com.app1", s.s("app")); assertEquals("4", s.s("step"))
         assertFalse(d.keepsRecallImages())
-        assertTrue(s.s("elementsText"), "第1屏" in s.s("elementsText"))
+        assertFalse(s.s("elementsText").contains("第1屏"))
+        assertTrue(s.s("elementsText").contains("text_withheld") || s.s("elementsText").contains("egress_blocked"))
         assertTrue(r.images.isEmpty()); assertNull(r.image)
         // は 6000 ワードで終わります
         val long = CountingScreen().apply { names = { "字".repeat(9000) } }
         val dl = toolDispatcher(long)
         dl.execute(call("phone_list_elements"))
-        assertTrue(shots(dl.recall(1)).single().s("elementsText").length <= 6000)
+        val stored = shots(dl.recall(1)).single().s("elementsText")
+        assertFalse(stored.contains("字字字"))
+        assertTrue(stored.length <= 6000)
     }
 
     @Test fun visionModelGetsImagesAttached() = runTest {
         val d = toolDispatcher(CountingScreen(), visionEnabled = true)
         repeat(3) { d.execute(call("phone_observe")) }
         val r = d.recall(3, 1)
-        assertEquals(2, r.images.size)
-        assertArrayEquals(byteArrayOf(3), r.images[0]); assertArrayEquals(byteArrayOf(1), r.images[1])
-        assertTrue(shots(r).all { it.s("imageAttached") == "true" && it["elementsText"] == null })
-        // 読み取り専用要素 (phone_list_elements) スクリーンショットなし: テキストを提供
+        assertTrue(r.images.isEmpty())
+        assertTrue(shots(r).all { it["imageAttached"] == null && "第1屏" !in it.toString() && "第3屏" !in it.toString() })
         d.execute(call("phone_list_elements"))
         val t = d.recall(4)
-        assertTrue(t.images.isEmpty()); assertTrue("第4屏" in shots(t).single().s("elementsText"))
+        assertTrue(t.images.isEmpty())
+        assertFalse(shots(t).single().s("elementsText").contains("第4屏"))
     }
 
     @Test fun protectedScreenIsHiddenButPaymentScreenCanBeRecalled() = runTest {
@@ -106,10 +108,12 @@ class ToolDispatcherRecallTest {
         val d = toolDispatcher(s, visionEnabled = true, recordFrames = true)
         repeat(3) { d.execute(call("phone_observe")) }
         val r = d.recall(1, 2, 3)
-        assertEquals(2, r.images.size); assertArrayEquals(byteArrayOf(3), r.images.last())
+        assertTrue(r.images.isEmpty())
+        assertFalse(r.content.toString().contains("确认支付"))
         val byId = shots(r).associateBy { it.s("id") }
         assertFalse(byId.getValue("1").containsKey("imageAttached"))
-        assertTrue(byId.getValue("2").containsKey("imageAttached"))
+        assertFalse(byId.getValue("2").containsKey("imageAttached"))
+        assertFalse(byId.getValue("2").toString().contains("确认支付"))
     }
 
     @Test fun badIdsAreBadArgs() = runTest {
@@ -125,7 +129,7 @@ class ToolDispatcherRecallTest {
     @Test fun recallImagesKeptOnlyForVisionModel() = runTest {
         val vision = toolDispatcher(CountingScreen(), visionEnabled = true)
         vision.execute(call("phone_observe"))
-        assertTrue(vision.keepsRecallImages())
+        assertFalse(vision.keepsRecallImages())
         val text = toolDispatcher(CountingScreen(), recordFrames = true)
         text.execute(call("phone_observe"))
         assertFalse(text.keepsRecallImages())

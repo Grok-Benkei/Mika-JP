@@ -12,7 +12,7 @@ import android.os.Build
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityWindowInfo
-import com.wangzan101.mika.core.security.SensitiveApps
+import com.wangzan101.mika.core.security.EgressPolicy
 import com.wangzan101.mika.core.uistate.ScreenEvent
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
@@ -78,14 +78,7 @@ open class ScreenAccessibility : AccessibilityService() {
         if (access.denial(event.packageName?.toString()) != null) return
         if (event.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED && notifications.subscriptionCount.value > 0) {
             val pkg = event.packageName?.toString()
-            // パッケージ不明または銀行・認証・パスワードマネージャは通知本文を送らない。
-            if (!SensitiveApps.withholdSend(pkg)) {
-                val notification = event.parcelableData as? Notification
-                val title = notification?.extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()
-                val body = notification?.extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString()
-                val text = listOfNotNull(title, body).joinToString(" ").ifBlank { event.text.joinToString(" ") }
-                notifications.tryEmit(ScreenEvent("notification", pkg, text.take(2_000)))
-            }
+            notifications.tryEmit(ScreenEvent("notification_withheld", pkg, EgressPolicy.withheldNotification(pkg)))
         }
         // 誰も購読しない場合、画面番号のコピーや確認は行われません。このイベントは極秘です。
         if (events.subscriptionCount.value == 0) return

@@ -31,6 +31,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.After
+import org.junit.Before
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -42,6 +43,10 @@ import javax.crypto.KeyGenerator
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ModelSetupViewModelTest {
+    @Before fun freshDestination() {
+        com.wangzan101.mika.core.security.ModelEndpointWatch.previousKey = null
+    }
+
     @After fun lanCleartextOff() = CleartextPolicy.setAllowLanHttp(false)
 
     @get:Rule val texts = ChineseTexts()
@@ -205,6 +210,7 @@ class ModelSetupViewModelTest {
             "Ollama" to "https://owned-model.example.com/v1",
         )
         for ((label, url) in connections) {
+            com.wangzan101.mika.core.security.ModelEndpointWatch.previousKey = null
             val dir = tmp.newFolder()
             val saved = store(dir)
             listing[url] = ModelListResult.Ok(listOf(ListedModel("qwen3.5", toolCalls = true)))
@@ -218,6 +224,7 @@ class ModelSetupViewModelTest {
             assertTrue(label, p.explicitSelfHosted)
             assertEquals(p.id, saved.configFor(ModelRole.Main)?.providerId)
             val reloaded = store(dir)
+            com.wangzan101.mika.core.security.ModelEndpointWatch.previousKey = null
             val other = reloaded.connect("Other", ProviderConfig.Kind.OpenAiCompat, "https://relay.test/v1", "test-key", listOf(ListedModel("chat-model")))
             reloaded.use(ModelRole.Main, other.id, "chat-model", ProviderPresets.custom.capabilities)
             val reused = vm(reloaded)
@@ -822,7 +829,12 @@ class ModelSetupViewModelTest {
         assertEquals(emptyList<String>(), vm.state.value.unverified(vm.state.value.providers.single()))
         // サービスプロバイダーにリストを通知しないでください
         listing[deepseekUrl] = deepseek
-        vm.openForm(); vm.selectPreset("DeepSeek"); vm.setApiKey("sk"); vm.testAndSave(); runCurrent()
+        vm.openForm(); vm.selectPreset("DeepSeek"); vm.setApiKey("sk")
+        vm.testAndSave(); runCurrent()
+        assertEquals("https://api.deepseek.com:443/", vm.state.value.pendingDestination)
+        assertEquals(1, store.providers.value.size)
+        vm.confirmDisplayedDestination()
+        vm.testAndSave(); runCurrent()
         val ds = vm.state.value.providers.first { it.name == "DeepSeek" }
         vm.pick(ModelRole.Light, ds.id, "deepseek-coder"); runCurrent()
         assertEquals(emptyList<String>(), vm.state.value.unverified(vm.state.value.providers.first { it.name == "DeepSeek" }))
@@ -860,6 +872,10 @@ class ModelSetupViewModelTest {
         assertTrue(vm.state.value.showForm)
         vm.selectPreset("通义千问")
         vm.setApiKey("qk"); vm.testAndSave(); runCurrent()
+        assertEquals("https://dashscope.aliyuncs.com:443/compatible-mode/v1", vm.state.value.pendingDestination)
+        assertEquals(listOf("DeepSeek"), vm.state.value.providers.map { it.name })
+        vm.confirmDisplayedDestination()
+        vm.testAndSave(); runCurrent()
         assertEquals(listOf("DeepSeek", "Qwen（中国・北京）"), vm.state.value.providers.map { it.name })
         assertEquals(listOf("sk", "qk"), store.providers.value.map { store.providerKey(it.id) })
         assertEquals("2 件目のプロバイダー追加ではメインモデルを変更しない", main, store.roles.value.main)
@@ -873,7 +889,8 @@ class ModelSetupViewModelTest {
         val store = store()
         val vm = vm(store)
         vm.setApiKey("sk"); vm.testAndSave(); runCurrent()
-        vm.openForm(); vm.selectPreset("通义千问"); vm.setApiKey("qk"); vm.testAndSave(); runCurrent()
+        vm.openForm(); vm.selectPreset("通义千问"); vm.setApiKey("qk")
+        vm.confirmDisplayedDestination(); vm.testAndSave(); runCurrent()
         val qwen = vm.state.value.providers.first { it.name == "Qwen（中国・北京）" }
         // 選択ページには、機能によるフィルタリングを行わずに、すべてのサービス プロバイダーのすべてのモデルがリストされます。
         assertEquals(listOf(3, 2), vm.state.value.providers.map { vm.state.value.options(it).size })
@@ -1220,5 +1237,26 @@ class ModelSetupViewModelTest {
         assertEquals("取得済みの一覧を保持する", listOf("deepseek-chat", "deepseek-reasoner", "deepseek-coder"), after.models!!.map { it.id })
         assertEquals(setOf("deepseek-chat"), after.verifiedModels)
         assertFalse("確認済みのモデルがあれば、そのプロバイダーを未テストとは扱わない", after.savedUntested)
+    }
+
+    @Test fun confirmingOneDestinationDoesNotAuthorizeADifferentUrl() = runTest {
+        listing[deepseekUrl] = deepseek
+        val qwen = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        val other = "https://other.example/v1"
+        listing[qwen] = ModelListResult.Ok(listOf(ListedModel("qwen-plus", toolCalls = true)))
+        listing[other] = ModelListResult.Ok(listOf(ListedModel("m", toolCalls = true)))
+        val store = store()
+        val vm = vm(store)
+        vm.setApiKey("sk"); vm.testAndSave(); runCurrent()
+        vm.openForm(); vm.selectPreset(ProviderPresets.custom.label)
+        vm.setBaseUrl(qwen); vm.setApiKey("qk")
+        vm.confirmDisplayedDestination()
+        vm.setBaseUrl(other)
+        vm.testAndSave(); runCurrent()
+        assertEquals(listOf("DeepSeek"), store.providers.value.map { it.name })
+        assertEquals("https://other.example:443/v1", vm.state.value.pendingDestination)
+        vm.confirmDisplayedDestination()
+        vm.testAndSave(); runCurrent()
+        assertEquals(listOf("DeepSeek", "other.example"), store.providers.value.map { it.name })
     }
 }

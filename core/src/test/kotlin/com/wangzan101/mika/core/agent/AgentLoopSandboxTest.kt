@@ -7,6 +7,9 @@ import com.wangzan101.mika.core.model.StopReason
 import com.wangzan101.mika.core.cap.sandbox.CommandResult
 import com.wangzan101.mika.core.cap.sandbox.FakeSandbox
 import com.wangzan101.mika.core.tool.FakeScreen
+import com.wangzan101.mika.core.gate.ConfirmationGate
+import kotlinx.coroutines.async
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -31,7 +34,19 @@ private fun toolResults(m: FakeModel): List<JsonObject> = m.requests.last().filt
 class AgentLoopSandboxTest {
     private val sb = FakeSandbox()
     private fun loop(model: FakeModel, gate: suspend ((TaskState?) -> Unit) -> Unit = {}) =
-        AgentLoop(model, toolDispatcher(FakeScreen(), sandbox = sb), "BASE", gate = gate)
+        AgentLoop(model, toolDispatcher(FakeScreen(), sandbox = sb), "BASE", gate = gate, confirmations = ConfirmationGate())
+
+    private suspend fun kotlinx.coroutines.test.TestScope.finish(model: FakeModel, goal: String, gate: suspend ((TaskState?) -> Unit) -> Unit = {}): TaskState {
+        val l = loop(model, gate)
+        val run = async { l.run(goal) }
+        while (!run.isCompleted) {
+            advanceUntilIdle()
+            if (run.isCompleted) break
+            if (l.state.value is TaskState.WaitingConfirmation) l.answerConfirmation(true)
+            else break
+        }
+        return run.await()
+    }
 
     @Test fun sandboxToolsSkipGate() = runTest {
         var gated = 0
@@ -39,7 +54,7 @@ class AgentLoopSandboxTest {
         // 6 つの異なるコマンドの失敗: 画面のヒューズの失敗 (5 回連続失敗) はカウントされません。
         val m = FakeModel(*(1..6).map { cmd("false $it") }.toTypedArray(),
             tools(call("write_file", buildJsonObject { put("path", "a.txt"); put("content", "1") })), finish())
-        val r = loop(m) { gated++ }.run("算一下")
+        val r = finish(m, "算一下") { gated++ }
         assertTrue(r.toString(), r is TaskState.Succeeded)
         assertEquals(0, gated)
         assertEquals(6, sb.runs.size)
@@ -49,7 +64,7 @@ class AgentLoopSandboxTest {
     @Test fun fiveIdenticalFailuresStop() = runTest {
         sb.next = { CommandResult(2, false, false, 10, "No such file", 0, false) }
         val m = FakeModel(cmd("python3 x.py"), repeatLast = true)
-        val r = loop(m).run("跑脚本")
+        val r = finish(m, "跑脚本")
         assertTrue(r.toString(), r is TaskState.Failed)
         r as TaskState.Failed
         assertTrue(r.reason, r.reason.startsWith("操作を停止しました（sandbox_loop）"))
@@ -65,7 +80,7 @@ class AgentLoopSandboxTest {
     @Test fun budgetExhausted() = runTest {
         sb.next = { CommandResult(0, false, false, 20 * 60_000L, "ok", 0, false) }
         val m = FakeModel(cmd("a"), cmd("b"), cmd("c"), finish())
-        val r = loop(m).run("长任务")
+        val r = finish(m, "长任务")
         assertTrue(r is TaskState.Succeeded)
         assertEquals(2, sb.runs.size)
         val last = toolResults(m).last()
@@ -75,7 +90,7 @@ class AgentLoopSandboxTest {
     @Test fun timeoutCappedToRemainingBudget() = runTest {
         sb.next = { CommandResult(0, false, false, 25 * 60_000L, "ok", 0, false) }
         val m = FakeModel(cmd("a"), tools(call("run_command", buildJsonObject { put("command", "b"); put("timeoutSec", 600) })), cmd("c"), finish())
-        loop(m).run("长任务")
+        finish(m, "长任务")
         assertEquals(60_000L, sb.runs[0].timeoutMs)
         // には 25 分かかりましたが、残りは 5 分のみです
         assertEquals(300_000L, sb.runs[1].timeoutMs)

@@ -19,6 +19,7 @@
     <string name="result_effective">効果あり</string>
     <string name="result_unchanged">変化なし</string>
     <string name="result_completed">完了</string>
+    <string name="result_egress_blocked">画面は送っていません（%1$s）</string>
     <string name="guard_stop">ガードが停止しました</string>
     <string name="guard_warn">ガードの警告</string>
     <string name="guard_with_what">%1$s: %2$s</string>

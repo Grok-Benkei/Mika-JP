@@ -87,18 +87,20 @@ class LoopScenarioTest {
             call("phone_tap", "ref" to "@e2", "snapshotId" to "s1")
             call("phone_observe")
             answer("Bluetoothは有効です。Bluetoothの画面に「已开启」と表示されています。")
+            answer("画面の文字は受け取っていないので、オンかどうかは確認できません。")
         }
-        val checker = fakeModel("checker") { }
+        val checker = fakeModel("checker") { verdict("fail", "画面の文言は証拠にない", "看看蓝牙开没开" to "已开启") }
         val end = loop(main, toolDispatcher(screen, skills = catalog), checker = checker,
             knowledge = bundled, skills = catalog, installed = listOf(SETTINGS to "设置")).run("看看蓝牙开没开")
         end as TaskState.Succeeded
-        assertEquals("Bluetoothは有効です。Bluetoothの画面に「已开启」と表示されています。", end.answer)
-        assertTrue(end.verified)
+        assertEquals("画面の文字は受け取っていないので、オンかどうかは確認できません。", end.answer)
+        assertFalse(end.verified)
+        val toolResults = main.requests.flatMap { it.messages }.flatMap { it.parts }.filterIsInstance<com.wangzan101.mika.core.model.Part.ToolResult>()
+        assertTrue(toolResults.none { it.content.contains("已开启") })
         // のソースは、「有効」と表示された画面です (手順 3)
-        assertEquals(listOf(3), end.sources.map { it.step })
         assertEquals(listOf("tap @e2 s1"), screen.calls)
-        assertTrue(checker.requests.isEmpty())
-        snapshot("a_simple_phone", end, "main" to main)
+        assertEquals(1, checker.requests.size)
+        snapshot("a_simple_phone", end, "main" to main, "verifier" to checker)
     }
 
     // (b) Web ページ: サイトを開いた後、ドメイン名によってサイトの知識を注入します。サンドボックスは中にあります
@@ -110,7 +112,7 @@ class LoopScenarioTest {
         val main = fakeModel("main") {
             call("web_navigate", "url" to "https://www.zhihu.com/hot")
             call("web_read_page")
-            answer("知乎の人気ランキング1位は「今日话题」です。")
+            answer("知乎を開きました。ページ本文は送られないのでランキングは読み取れません。")
         }
         val tools = toolDispatcher(FakeScreen(), skills = catalog, web = web, sandbox = FakeSandbox())
         val end = loop(main, tools, knowledge = bundled, skills = catalog).run("用网页看一下知乎热榜")
@@ -194,10 +196,13 @@ class LoopScenarioTest {
             // はバッチ終了後にこの画面に戻りません (写真を見ずにモデルを作成): 読んだ後にのみ価格を知ることができます
             call("phone_observe")
             answer("咖啡豆 ¥89")
+            answer("画面の価格は送られていないので、価格は確認できません。")
         }
         val end = loop(main, toolDispatcher(screen), flags = SpeedFlags(batchSteps = true)).run("搜咖啡看价格")
-        assertTrue("$end", end is TaskState.Succeeded)
+        end as TaskState.Succeeded
+        assertFalse(end.verified)
         assertEquals(listOf("type @e1 咖啡", "tap @e2 s1"), screen.calls)
+        assertTrue(main.requests.flatMap { it.messages }.flatMap { it.parts }.filterIsInstance<Part.ToolResult>().none { "¥89" in it.content })
         snapshot("f_batch_steps", end, "main" to main)
     }
 
@@ -314,14 +319,12 @@ class LoopScenarioTest {
             call("phone_observe")
             call("phone_type_text", "text" to "明天见", "ref" to "@e2", "snapshotId" to "s1")
             call("phone_tap", "ref" to "@e3", "snapshotId" to "s1")
-            call("phone_observe")
-            answer("张三へ「明天见」を送信しました。チャットには「已发送」と表示されています。")
+            answer("送信は確認が必要なので、まだ送っていません。")
         }
-        val checker = fakeModel("checker") { verdict("pass", "聊天里显示已发送", "给张三发明天见" to "已发送") }
-        val end = loop(main, toolDispatcher(screen), checker = checker).run("给张三发明天见")
-        assertTrue("$end", end is TaskState.Succeeded && end.verified)
-        assertTrue(screen.calls.any { it.startsWith("tap @e3") })
-        snapshot("m_irreversible_verified", end, "main" to main, "verifier" to checker)
+        val end = loop(main, toolDispatcher(screen)).run("给张三发明天见")
+        assertTrue("$end", end is TaskState.Succeeded)
+        assertTrue(screen.calls.none { it.startsWith("tap @e3") })
+        snapshot("m_irreversible_verified", end, "main" to main)
     }
 
     // (n) 英語の入力でも目標は日本語。中国語の回答を1回差し戻し、日本語に直した回答を渡す。
@@ -332,10 +335,13 @@ class LoopScenarioTest {
             call("phone_observe")
             answer(CHINESE_ANSWER)
             answer("Androidのバージョンは14です。「关于手机」によると、ストレージは512 GB中250.53 GBを使用しています。")
+            answer("画面の数値は送られていないので、バージョンと容量は確認できません。")
         }
         val end = loop(main, toolDispatcher(screen)).run("What Android version is this phone on, and how much storage is used?")
         end as TaskState.Succeeded
-        assertTrue(end.answer, end.answer.startsWith("Androidのバージョンは14"))
+        assertFalse(end.verified)
+        assertEquals("画面の数値は送られていないので、バージョンと容量は確認できません。", end.answer)
+        assertTrue(main.requests.flatMap { it.messages }.flatMap { it.parts }.filterIsInstance<Part.ToolResult>().none { "250.53" in it.content })
         val notice = main.requests[2].messages.withoutRuntime().last()
         assertEquals(ContextKind.Notice, ContextBuilder.kindOf(notice))
         assertTrue("日本語訳（原文）" in (notice.parts.single() as Part.Text).text)
@@ -365,7 +371,7 @@ class LoopScenarioTest {
             title = attached.title
             page = pageText(attached.url, attached.title, "入耳式降噪耳机 B2 Pro 649 元\n头戴式降噪耳机 C3 Max 899 元")
         }
-        val answer = "このページで700元以内なのは、カナル型のB2 Pro（649元）です。ヘッドホン型のC3 Maxは899元で予算を超えるため、B2 Proを選びます。"
+        val answer = "ページ本文は送られないので、このページから商品は選べません。"
         val main = fakeModel("main") {
             call("web_read_page")
             answer(answer)
@@ -502,6 +508,7 @@ class LoopScenarioTest {
         val main = fakeModel("main") {
             call("phone_observe")
             answer("Bluetoothは有効です。Bluetoothの画面に「已开启」と表示されています。")
+            answer("画面の文字は受け取っていないので、オンかどうかは確認できません。")
         }
         val model = InterruptibleStream(main, listOf("まず確認します", "まずWLANが有効か確認します"))
         val inbox = RunInbox()
@@ -513,7 +520,9 @@ class LoopScenarioTest {
         inbox.send(RunInput.Steer("m1", "不是 WLAN,是蓝牙"))
         val end = running.await()
         assertTrue(model.cancelled)
-        assertEquals("Bluetoothは有効です。Bluetoothの画面に「已开启」と表示されています。", (end as TaskState.Succeeded).answer)
+        end as TaskState.Succeeded
+        assertFalse(end.verified)
+        assertEquals("画面の文字は受け取っていないので、オンかどうかは確認できません。", end.answer)
         val seen = main.requests[0].messages
         val kept = seen.indexOfFirst { it.role == Role.Assistant }
         assertEquals(listOf(Part.Text("まずWLANが有効か確認します")), seen[kept].parts)

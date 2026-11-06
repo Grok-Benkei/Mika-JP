@@ -30,7 +30,7 @@ class RealTaskFailuresTest {
     private fun JsonObject.s(k: String) = this[k]!!.jsonPrimitive.content
 
     /** アプリを開いたものの、ウィンドウ (セキュリティ ウィンドウ、起動画面) を読み取ることができませんでした。画面にはパッケージ名のみが読み取られましたが、要素はありませんでした。 */
-    private class UnreadableScreen(private val inner: FakeScreen = FakeScreen(), var unreadable: String? = "com.bank") : ScreenPort by inner {
+    private class UnreadableScreen(private val inner: FakeScreen = FakeScreen(), var unreadable: String? = "com.example.reader") : ScreenPort by inner {
         override suspend fun snapshot() = ScreenSnapshot("p${++reads}", null, emptyList(), 1080, 2400, unreadableApp = unreadable)
         override suspend fun peek() = snapshot()
         var reads = 0
@@ -39,16 +39,16 @@ class RealTaskFailuresTest {
     @Test fun openButUnreadableWindowIsNotNothingOpen() = runTest {
         val d = toolDispatcher(UnreadableScreen())
         val o = d.execute(call("phone_observe")).content
-        assertEquals("com.bank", o.s("currentApp"))
+        assertEquals("com.example.reader", o.s("currentApp"))
         assertEquals("false", o.s("readable"))
         val hint = o.s("hint")
         assertTrue(hint, "再度起動しない" in hint && "hand_to_user" in hint)
         assertFalse("戻る操作を1回" in hint)
-        val l = d.execute(call("phone_launch_app", """{"package":"com.bank"}""")).content
+        val l = d.execute(call("phone_launch_app", """{"package":"com.example.reader"}""")).content
         assertEquals("true", l.s("ok")); assertEquals("false", l.s("readable"))
         assertTrue(l.s("hint"), "再度起動しない" in l.s("hint"))
         val c = d.execute(call("phone_diagnose")).content
-        assertEquals("com.bank", c.s("currentApp"))
+        assertEquals("com.example.reader", c.s("currentApp"))
         assertTrue(c.s("hint"), "再度起動しない" in c.s("hint"))
     }
 
@@ -84,12 +84,15 @@ class RealTaskFailuresTest {
     @Test fun cleartextUpgradeAndDownloadsAreSaid() = runTest {
         val up = NavWeb { it.copy(upgradedFrom = "http://shop.example.com/") }
         val u = toolDispatcher(FakeScreen(), web = up).execute(call("web_navigate", """{"url":"http://shop.example.com/"}""")).content
-        assertEquals("true", u.s("ok")); assertEquals("true", u.s("upgradedToHttps")); assertEquals("http://shop.example.com/", u.s("requestedUrl"))
+        assertEquals("true", u.s("ok")); assertEquals("true", u.s("upgradedToHttps"))
+        assertFalse(u.toString().contains("http://shop.example.com/"))
+        assertEquals("shop.example.com", u.s("currentSite"))
         val dl = NavWeb { it.copy(loaded = false, download = DownloadInfo("/workspace/downloads/a.pdf", 0, "application/pdf", "running", null)) }
         val d = toolDispatcher(FakeScreen(), web = dl).execute(call("web_navigate", """{"url":"https://shop.example.com/a.pdf"}""")).content
         assertEquals("true", d.s("ok")); assertEquals("false", d.s("loaded"))
-        val info = d["download"]!!.jsonObject
-        assertEquals("/workspace/downloads/a.pdf", info.s("file")); assertEquals("running", info.s("status"))
+        assertEquals("running", d["download"]!!.jsonObject.s("status"))
+        assertFalse(d.toString().contains("a.pdf"))
+        assertFalse(d.toString().contains("/workspace"))
         assertTrue(d.s("hint"), "ページとして開かれる代わりにダウンロードされた" in d.s("hint") && "status=done" in d.s("hint"))
     }
 

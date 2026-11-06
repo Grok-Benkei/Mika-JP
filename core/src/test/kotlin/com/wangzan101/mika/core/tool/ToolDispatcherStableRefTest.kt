@@ -55,8 +55,12 @@ class ToolDispatcherStableRefTest {
         val a = d.execute(call("phone_observe")).content
         val b = d.execute(call("phone_list_elements")).content
         assertEquals("p1", a.s("snapshotId")); assertEquals("p2", b.s("snapshotId"))
-        assertEquals(a.refOf("搜索"), b.refOf("搜索"))
-        assertEquals("@e3", b.refOf("新的"))
+        assertFalse(a.toString().contains("搜索"))
+        assertFalse(b.toString().contains("新的"))
+        val aRefs = a["elements"]!!.jsonArray.map { it.jsonObject.s("ref") }
+        val bRefs = b["elements"]!!.jsonArray.map { it.jsonObject.s("ref") }
+        assertTrue(aRefs.all { it in bRefs })
+        assertEquals(aRefs.size + 1, bRefs.size)
     }
 
     @Test fun tapTranslatesToPortRef() = runTest {

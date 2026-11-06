@@ -13,7 +13,8 @@ import com.wangzan101.mika.core.tool.ToolExecution
 import com.wangzan101.mika.core.tool.Verb
 import com.wangzan101.mika.core.tool.fail
 import com.wangzan101.mika.core.tool.okObj
-import com.wangzan101.mika.core.security.SensitiveApps
+import com.wangzan101.mika.core.security.EgressPolicy
+import com.wangzan101.mika.core.uistate.egressScene
 import com.wangzan101.mika.core.uistate.screenText
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -59,9 +60,10 @@ internal class Screenshot(f: ScreenFamily) : ScreenTool(f, "screenshot") {
             put("message", HINT_PROTECTED); put("recoverable", true)
         })
         val known = ctx.lastSnapshot ?: screen.snapshot()
-        if (SensitiveApps.withholdScreenshot(known.packageName, known.web != null)) return fail(
-            "capture_withheld",
-            "Screenshot was not sent. The foreground app is sensitive or could not be identified.",
+        val verdict = EgressPolicy.assess(known.egressScene())
+        if (!verdict.allowScreenshot) return fail(
+            "egress_blocked",
+            "Screenshot was not sent (${verdict.reason}).",
         )
         val png = screen.screenshotPng() ?: return fail("screenshot_unavailable", Feedback["screenshot_unavailable"])
         val s = ctx.lastSnapshot

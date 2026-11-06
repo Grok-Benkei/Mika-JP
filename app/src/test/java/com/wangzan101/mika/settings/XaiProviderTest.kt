@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -18,6 +19,10 @@ import javax.crypto.KeyGenerator
 
 /** サブスクリプション ログインは、API キーと同じ暗号化されたファイルに保存されます。モデルをリストする場合、アクセス トークンが使用されますが、トークンは構成には書き込まれません。 */
 class XaiProviderTest {
+    @Before fun freshDestination() {
+        com.wangzan101.mika.core.security.ModelEndpointWatch.previousKey = null
+    }
+
     @get:Rule val tmp = TemporaryFolder()
 
     private val key = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()

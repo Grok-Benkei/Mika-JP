@@ -1,7 +1,11 @@
 package com.wangzan101.mika.core.action
 
 import com.wangzan101.mika.core.assembly.toolDispatcher
+import com.wangzan101.mika.core.gate.ConfirmationGate
+import com.wangzan101.mika.core.gate.ConfirmationRequest
+import com.wangzan101.mika.core.gate.DeclareResult
 import com.wangzan101.mika.core.guard.OperationGuards
+import com.wangzan101.mika.core.risk.IrrevAction
 import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.record.RunEvent
 import com.wangzan101.mika.core.record.RunSink
@@ -87,14 +91,22 @@ class OutwardPacingTest {
         val tools = toolDispatcher(screen)
         tools.execute(Part.ToolCall("o", "phone_observe", "{}"))
         val pacing = OutwardPacing.human(Random(9))
-        val executor = ActionExecutor(tools, OperationGuards(), null, gate = {}, recorder = ActionRecorder(sink, { currentTime }), autonomous = true, pacing = pacing)
+        val gate = ConfirmationGate()
+        fun allowSend() {
+            val req = ConfirmationRequest(IrrevAction.submit, "立即沟通", "", null, "com.jobs")
+            assertEquals(DeclareResult.Pending, gate.declare(req, "com.jobs"))
+            gate.decide(ConfirmChoice.Once, 1)
+        }
+        val executor = ActionExecutor(tools, OperationGuards(), gate, gate = {}, recorder = ActionRecorder(sink, { currentTime }), autonomous = true, pacing = pacing)
         suspend fun tap(id: String, ref: String) = executor.run(Part.ToolCall(id, "phone_tap", """{"ref":"$ref","snapshotId":"s1"}"""), Origin.Model(1))
+        allowSend()
         tap("c1", "@e1")
         val gap = pacing.waitBefore("com.jobs", currentTime)
         assertTrue("$gap", gap in limits.firstGapMs)
         val before = currentTime
         tap("c2", "@e2")
         val spent = currentTime - before
+        allowSend()
         tap("c3", "@e1")
         assertEquals(listOf("@e1", "@e2", "@e1"), screen.taps)
         val results = events.filterIsInstance<RunEvent.ToolResult>().associateBy { it.callId }

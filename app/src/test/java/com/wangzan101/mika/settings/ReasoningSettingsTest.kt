@@ -8,12 +8,17 @@ import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import javax.crypto.KeyGenerator
 
 class ReasoningSettingsTest {
+    @Before fun freshDestination() {
+        com.wangzan101.mika.core.security.ModelEndpointWatch.previousKey = null
+    }
+
     @get:Rule val tmp = TemporaryFolder()
     private val key = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
     private val caps = Capabilities(toolCalls = true, vision = true, contextTokens = 100_000, reasoning = true)

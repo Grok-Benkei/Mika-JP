@@ -1,5 +1,9 @@
 package com.wangzan101.mika.core.cap.sandbox
 
+import com.wangzan101.mika.core.action.ActionRisk
+import com.wangzan101.mika.core.action.Risk as ApprovalRisk
+import com.wangzan101.mika.core.gate.ConfirmationRequest
+import com.wangzan101.mika.core.risk.IrrevAction
 import com.wangzan101.mika.core.tool.Entry
 import com.wangzan101.mika.core.observation.ObsKind
 import com.wangzan101.mika.core.observation.Observation
@@ -29,6 +33,11 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 
 internal const val SANDBOX = "sandbox"
+
+private val SANDBOX_READERS = setOf(
+    "cat", "ls", "head", "tail", "wc", "pwd", "echo", "printf", "stat", "du", "df", "grep", "id", "whoami", "uname",
+    "true", "false",
+)
 
 private const val TIMEOUT = "Time limit in seconds, 1-600 (default 60). The command is stopped when it runs out."
 
@@ -63,6 +72,22 @@ internal object RunCommand : SandboxTool {
             "cwd" to str("Optional working directory, a relative path under /workspace."),
         ), listOf("command"))
 
+    override fun approvalRisk(args: JsonObject): ApprovalRisk {
+        val command = (args["command"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        return if (sandboxReadOnly(command)) ApprovalRisk(ActionRisk.Read)
+        else ApprovalRisk(ActionRisk.Irreversible, ask = ConfirmationRequest(IrrevAction.other, "run_command", command, null, "sandbox"))
+    }
+
+    /** 明らかな読み取りだけ確認を省く。リダイレクト、パイプ、変数、未知のコマンドは確認する。 */
+    private fun sandboxReadOnly(command: String): Boolean {
+        val trimmed = command.trim()
+        if (trimmed.isEmpty()) return false
+        if (trimmed.any { it in "|&;<>`$()" }) return false
+        val parts = trimmed.split(Regex("\\s+"))
+        val name = parts[0].substringAfterLast('/')
+        return name in SANDBOX_READERS
+    }
+
     override suspend fun execute(a: Args, ctx: ToolContext) = ctx.sandboxRunner!!.run { ws, _ -> runCommand(a, ws, ctx.callId, ctx.sub, ctx.tools) }
     override fun logTarget(o: JsonObject, r: ToolExecution, ctx: ToolContext) = o.argStr("command")
     override fun observations(o: JsonObject, r: ToolExecution, log: EvidenceLog) =
@@ -85,6 +110,13 @@ internal object RunBundledScript : SandboxTool {
             "args" to strArray("Arguments, at most 50, each passed unchanged.", 50),
             "timeoutSec" to int(TIMEOUT, 1, 600),
         ), listOf("source", "script"))
+
+    override fun approvalRisk(args: JsonObject): ApprovalRisk {
+        val source = (args["source"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        val script = (args["script"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        val scriptArgs = args["args"]?.toString().orEmpty()
+        return ApprovalRisk(ActionRisk.Irreversible, ask = ConfirmationRequest(IrrevAction.other, "$source/$script", scriptArgs, null, "sandbox"))
+    }
 
     override suspend fun execute(a: Args, ctx: ToolContext) = ctx.sandboxRunner!!.run { ws, ready -> runScript(a, ws, ready.network, ctx.callId, ctx.sub, ctx.tools) }
     override fun logTarget(o: JsonObject, r: ToolExecution, ctx: ToolContext) = listOfNotNull(o.argStr("source"), o.argStr("script")).joinToString("/")
@@ -124,6 +156,13 @@ internal object WriteFile : SandboxTool {
             "content" to str("The text to write, at most 1 MB."),
             "append" to bool("Append instead of replacing (default false)."),
         ), listOf("path", "content"))
+
+    override fun approvalRisk(args: JsonObject): ApprovalRisk {
+        val path = (args["path"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        val content = (args["content"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        val append = (args["append"] as? JsonPrimitive)?.contentOrNull ?: "false"
+        return ApprovalRisk(ActionRisk.Irreversible, ask = ConfirmationRequest(IrrevAction.other, path, "$append\n$content", null, "sandbox"))
+    }
 
     override suspend fun execute(a: Args, ctx: ToolContext) = ctx.sandboxRunner!!.run { ws, _ -> tree.shared { withContext(Dispatchers.IO) { writeFile(a, ws) } } }
     override fun logTarget(o: JsonObject, r: ToolExecution, ctx: ToolContext) = o.argStr("path")
@@ -169,6 +208,12 @@ internal object ShareFile : SandboxTool {
             "path" to str("Sandbox path of the file under /workspace."),
             "name" to str("Optional file name to save as (default: the file's own name)."),
         ), listOf("path"))
+
+    override fun approvalRisk(args: JsonObject): ApprovalRisk {
+        val path = (args["path"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        val name = (args["name"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        return ApprovalRisk(ActionRisk.External, ask = ConfirmationRequest(IrrevAction.send, path, name, null, "sandbox"))
+    }
 
     override suspend fun execute(a: Args, ctx: ToolContext) = ctx.sandboxRunner!!.run { ws, _ -> shareFile(a, ws) }
     override fun logTarget(o: JsonObject, r: ToolExecution, ctx: ToolContext) = o.argStr("path")

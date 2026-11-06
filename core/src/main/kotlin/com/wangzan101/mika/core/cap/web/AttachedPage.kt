@@ -43,12 +43,8 @@ object AttachedPage {
     /** 説明が最初にあり、その後に単語が続きます。言葉が空の場合は、説明だけが存在します。 */
     fun compose(page: Page, words: String): String {
         val lines = mutableListOf(HEADER)
-        oneLine(page.title).take(MAX_TITLE).takeIf(String::isNotEmpty)?.let { lines += TITLE + it }
-        lines += URL + oneLine(page.url).take(MAX_URL)
-        clip(page.selection)?.let { sel ->
-            lines += SELECTED
-            sel.lines().forEach { lines += SELECTED_LINE + it }
-        }
+        com.wangzan101.mika.core.security.EgressPolicy.siteHost(page.url)?.let { lines += URL + it }
+        lines += "egress_blocked:browser_or_webview"
         lines += END
         val block = lines.joinToString("\n")
         val w = words.trim()

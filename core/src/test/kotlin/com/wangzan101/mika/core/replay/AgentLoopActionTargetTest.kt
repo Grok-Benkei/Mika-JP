@@ -76,8 +76,8 @@ class AgentLoopActionTargetTest {
         assertFalse(targets.any { it.incomplete })
         // 変更されたインターフェイスの各サブステップは 1 つの画面を保存し (待機には画面がありません)、ツールの結果には番号が付けられます。
         val subResults = got.filterIsInstance<RunEvent.ToolResult>().filter { it.source == "batch" }
-        assertEquals(2, subResults.count { it.screenshotId != null })
-        assertTrue(shots.containsAll(subResults.mapNotNull { it.screenshotId }))
-        assertEquals(subResults.mapNotNull { it.screenshotId }, got.filterIsInstance<RunEvent.Media>().map { it.mediaId }.filter { it in subResults.mapNotNull { r -> r.screenshotId } })
+        assertEquals(0, subResults.count { it.screenshotId != null })
+        assertTrue(shots.isEmpty())
+        assertTrue(m.requests.all { req -> req.none { msg -> msg.parts.any { it is com.wangzan101.mika.core.model.Part.Image } } })
     }
 }

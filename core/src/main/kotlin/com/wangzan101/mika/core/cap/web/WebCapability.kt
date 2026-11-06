@@ -21,7 +21,6 @@ import com.wangzan101.mika.core.uistate.DwellStop
 import com.wangzan101.mika.core.uistate.IdleScroll
 import com.wangzan101.mika.core.uistate.PlacePace
 
-private const val EVIDENCE_PAGE_CHARS = 3000
 private val HOST_RE = Regex("^[a-z0-9-]+(\\.[a-z0-9-]+)+$")
 
 /**
@@ -81,8 +80,8 @@ internal class WebCapability(
 
     /** もう一度見てください: 現時点でのこのページのインターフェイス ステータスと、ページ全体のテキストの先頭 (インターフェイス ステータスにはビューポート内の要素のみが含まれます)。 */
     override suspend fun freshLook(ctx: ToolContext, withImage: Boolean): Look? {
-        val p = port ?: return null
-        return ctx.sessions[id]?.freshLook(withImage) { pageStart(p)?.let { webRead(it, null) } }
+        if (port == null) return null
+        return ctx.sessions[id]?.freshLook(withImage)
     }
 
     /** 宣言されたアプリが Web ページ上のサイト ホスト名 (国際化ドメイン名は ASCII 形式) であり、Web ページ スクリーン リーダーのパッケージ名と一致していることを確認します。 */
@@ -91,12 +90,6 @@ internal class WebCapability(
         if (host == null || !HOST_RE.matches(host))
             throw ArgError("app", "on the web surface, must be the site host shown as currentSite, e.g. shop.example.com")
         return host
-    }
-
-    /** テキストのページ全体の始まり。 */
-    private suspend fun pageStart(p: WebPort): String? {
-        val text = try { p.readPage(EVIDENCE_PAGE_CHARS, 0, scrollLazy = false).text } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
-        return text?.takeIf { it.isNotBlank() }?.let { "Webページ本文（冒頭）:\n$it" }
     }
 
     /** 現時点で現在のタグで使用されているバージョン (モバイル/デスクトップ)。読み取られない場合は null です。 */

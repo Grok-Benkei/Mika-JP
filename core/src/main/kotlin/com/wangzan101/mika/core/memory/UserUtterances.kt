@@ -38,6 +38,29 @@ class UserUtterances {
 
     private fun comparable(s: String) = PERSON.replace(NumberText.collapse(s), "")
 
+    /**
+     * 画面本文はモデルへ出さない。ユーザー発話の区切り語と引用だけを、画面上にあったものとして返す。
+     * 文の途中をずらして切り出すことはしない。モデルやページ由来の文字列は受け取らない。
+     */
+    @Synchronized fun seenOnScreen(screenText: String): List<String> {
+        val hay = norm(screenText)
+        if (hay.isEmpty()) return emptyList()
+        val found = LinkedHashSet<String>()
+        for (said in texts) {
+            val piece = norm(said)
+            for (quoted in QUOTED.findAll(piece)) {
+                val q = quoted.groupValues[1].trim()
+                if (q.length in MIN_QUOTE..MAX_PHRASE && q in hay) found += q
+            }
+            for (tok in piece.split(TOKEN_SPLIT)) {
+                val t = tok.trim()
+                if (t.length in MIN_QUOTE..MAX_PHRASE && t in hay && t.any { it.isLetterOrDigit() || it.code > 127 }) found += t
+            }
+            if (found.size >= MAX_SEEN) break
+        }
+        return found.take(MAX_SEEN)
+    }
+
     /** 2 単語未満の引用はカウントされません。どの文にも 1 つまたは 2 つの単語が含まれます。 */
     @Synchronized fun contains(quote: String): Boolean {
         val q = norm(quote)
@@ -49,10 +72,13 @@ class UserUtterances {
 
     private companion object {
         const val MIN_QUOTE = 2
+        const val MAX_PHRASE = 8
+        const val MAX_SEEN = 8
         val QUOTED = Regex("[「『“\"]([^「」『』“”\"\n]+)[」』”\"]")
         val DIGITS = Regex("\\d+")
         val LATIN = Regex("[A-Za-z][A-Za-z0-9._-]{2,}")
         val PLACE = Regex("\\p{IsHan}{2}(?:小区|大厦|广场|公寓|花园|单元|路|街|巷|弄|镇|村|号|楼|栋|室|区|县|市|省|园|苑|城|道|里|湾)")
         val PERSON = Regex("用户的|用户|我的|我")
+        val TOKEN_SPLIT = Regex("[\\s\\p{P}]+")
     }
 }

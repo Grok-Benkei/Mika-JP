@@ -225,8 +225,10 @@ class RunTimelineViewModel(
         // 結果が不正な JSON に切り詰められる可能性があります: ok / error はトップレベルのキーの記述方法に従ってのみ検出されます (要素テキスト内の引用符はエスケープされており、誤ってヒットすることはありません)
         private val NOT_OK = Regex(""""ok"\s*:\s*false""")
         private val ERROR = Regex(""""error"\s*:\s*"([a-z_]+)"""")
+        private val REASON = Regex(""""reason"\s*:\s*"([a-z_]+)"""")
 
         private fun resultLabel(json: String, changed: Boolean?): String = when {
+            json.contains("\"egressBlocked\":true") -> tr(R.string.result_egress_blocked, REASON.find(json)?.groupValues?.get(1) ?: "unclassifiable_screen")
             NOT_OK.containsMatchIn(json) -> ERROR.find(json)?.groupValues?.get(1)?.let { ERROR_LABELS[it] }?.let { tr(R.string.result_error_detail, it) } ?: tr(R.string.result_error)
             changed == true -> tr(R.string.result_effective)
             changed == false -> tr(R.string.result_unchanged)

@@ -1,6 +1,10 @@
 package com.wangzan101.mika.core.settings
 
+import com.wangzan101.mika.core.action.ActionRisk
+import com.wangzan101.mika.core.action.Risk as ApprovalRisk
+import com.wangzan101.mika.core.gate.ConfirmationRequest
 import com.wangzan101.mika.core.prompt.Prompts
+import com.wangzan101.mika.core.risk.IrrevAction
 import com.wangzan101.mika.core.tool.AgentTool
 import com.wangzan101.mika.core.tool.Args
 import com.wangzan101.mika.core.tool.Concurrency
@@ -12,7 +16,10 @@ import com.wangzan101.mika.core.tool.Verb
 import com.wangzan101.mika.core.tool.fail
 import com.wangzan101.mika.core.tool.ok
 import com.wangzan101.mika.core.tool.str
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -72,6 +79,12 @@ internal object SettingsSet : AgentTool {
     override val risk = Risk.Write
     /** は画面を移動しません。変更はミカ自身の設定であり、現在のタスクの画面とは関係ありません。 */
     override val offScreen = true
+
+    override fun approvalRisk(args: JsonObject): ApprovalRisk {
+        val key = (args["key"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        val value = (args["value"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        return ApprovalRisk(ActionRisk.Irreversible, ask = ConfirmationRequest(IrrevAction.other, key, value, null, "settings"))
+    }
 
     override fun available(ctx: ToolContext) = ctx.config.selfConfig != null
 

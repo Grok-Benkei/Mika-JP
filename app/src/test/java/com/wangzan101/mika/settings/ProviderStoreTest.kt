@@ -18,6 +18,7 @@ import com.wangzan101.mika.core.usage.UsagePurpose
 import com.wangzan101.mika.core.usage.UsageSource
 import kotlinx.coroutines.test.runTest
 import org.junit.After
+import org.junit.Before
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -29,6 +30,10 @@ import java.io.File
 import javax.crypto.KeyGenerator
 
 class ProviderStoreTest {
+    @Before fun freshDestination() {
+        com.wangzan101.mika.core.security.ModelEndpointWatch.previousKey = null
+    }
+
     @After fun lanCleartextOff() = CleartextPolicy.setAllowLanHttp(false)
 
     @get:Rule val tmp = TemporaryFolder()
@@ -102,8 +107,10 @@ class ProviderStoreTest {
         assertTrue(choose(ModelRole.Main, RoleChoice.Model(c.id)))
     }
 
-    private fun connected(s: ProviderStore, name: String = "P", key: String = "k") =
-        s.connect(name, ProviderConfig.Kind.OpenAiCompat, "https://${name.lowercase()}.test/v1", key, listOf(ListedModel("m1"), ListedModel("m2")))
+    private fun connected(s: ProviderStore, name: String = "P", key: String = "k"): Provider {
+        com.wangzan101.mika.core.security.ModelEndpointWatch.previousKey = null
+        return s.connect(name, ProviderConfig.Kind.OpenAiCompat, "https://${name.lowercase()}.test/v1", key, listOf(ListedModel("m1"), ListedModel("m2")))
+    }
 
     // ---------- アプリケーションの選択 ----------
 
@@ -450,6 +457,7 @@ class ProviderStoreTest {
         assertTrue(p.savedUntested)
         assertTrue("再読み込み後も保持される", store().provider(p.id)!!.savedUntested)
         // テストをスキップせずに保存したものにはこのマークがつきません
+        com.wangzan101.mika.core.security.ModelEndpointWatch.previousKey = null
         val other = s.connect("Y", ProviderConfig.Kind.OpenAiCompat, "https://y.test/v1", "k", emptyList())
         assertFalse(other.savedUntested)
         assertFalse(store().provider(other.id)!!.savedUntested)
@@ -463,6 +471,7 @@ class ProviderStoreTest {
         s.rememberModels(listed.id, listOf(ListedModel("m1")))
         assertFalse("一覧を取得できたらテスト済みとする", store().provider(listed.id)!!.savedUntested)
 
+        com.wangzan101.mika.core.security.ModelEndpointWatch.previousKey = null
         val verified = s.connect("Z", ProviderConfig.Kind.OpenAiCompat, "https://z.test/v1", "k", emptyList(), untested = true)
         assertTrue(s.provider(verified.id)!!.savedUntested)
         s.markVerified(verified.id, "m1")
@@ -481,6 +490,7 @@ class ProviderStoreTest {
         assertEquals(p.id, s.untestedMainProvider()?.id)
         s.markVerified(p.id, "m1")
         assertNull("テストに合格した", s.untestedMainProvider())
+        com.wangzan101.mika.core.security.ModelEndpointWatch.previousKey = null
         val listed = s.connect("Y", ProviderConfig.Kind.OpenAiCompat, "https://y.test/v1", "k", listOf(ListedModel("m2")))
         s.use(ModelRole.Main, listed.id, "m2", none)
         assertNull("一覧から選んだものは対象外", s.untestedMainProvider())
@@ -897,6 +907,26 @@ class ProviderStoreTest {
     }
 
     // ---------- 投与量 ----------
+
+    @Test fun unconfirmedDestinationChangeIsNotSaved() {
+        val watch = com.wangzan101.mika.core.security.ModelEndpointWatch
+        val saved = watch.previousKey
+        try {
+            watch.previousKey = "DeepSeek|api.deepseek.com|true"
+            val s = store()
+            try {
+                s.connect("Other", ProviderConfig.Kind.OpenAiCompat, "https://evil.example/v1", "dummy-key-not-real", emptyList(), userConfirmed = false)
+                org.junit.Assert.fail("destination change without confirmation")
+            } catch (e: IllegalArgumentException) {
+                assertEquals("destination_unconfirmed", e.message)
+            }
+            assertTrue(s.providers.value.isEmpty())
+            val same = s.connect("DeepSeek", ProviderConfig.Kind.OpenAiCompat, "https://api.deepseek.com/v1", "dummy-key-not-real", emptyList(), userConfirmed = false)
+            assertEquals("api.deepseek.com", com.wangzan101.mika.core.security.ModelDestination.parse(same.name, same.baseUrl)?.host)
+        } finally {
+            watch.previousKey = saved
+        }
+    }
 
     @Test
     fun everyModelHandedOutIsMeteredUnderTheRoleItWasAskedFor() = runTest {

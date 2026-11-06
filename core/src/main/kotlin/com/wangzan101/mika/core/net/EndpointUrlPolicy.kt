@@ -31,6 +31,7 @@ object EndpointUrlPolicy {
         val to = classify(toUrl)
         if (from == null || to == null) return Verdict.reject("bad_url")
         if (from.secure && !to.secure) return Verdict.reject("http_downgrade")
+        if (!from.host.equals(to.host, ignoreCase = true) || from.port != to.port) return Verdict.reject("cross_host")
         return checkModel(toUrl, allowLanCleartext)
     }
 
@@ -53,7 +54,7 @@ object EndpointUrlPolicy {
         return Verdict.reject("http_public")
     }
 
-    private data class Kind(val scheme: String, val secure: Boolean, val loopback: Boolean, val lan: Boolean, val userInfo: Boolean)
+    private data class Kind(val scheme: String, val secure: Boolean, val host: String, val port: Int, val loopback: Boolean, val lan: Boolean, val userInfo: Boolean)
 
     private fun classify(raw: String): Kind? {
         val trimmed = raw.trim()
@@ -73,6 +74,8 @@ object EndpointUrlPolicy {
         return Kind(
             scheme = trimmed.substringBefore("://").lowercase(),
             secure = url.isHttps || trimmed.startsWith("wss://", ignoreCase = true),
+            host = url.host,
+            port = url.port,
             loopback = LocalHosts.isLoopback(url.host),
             lan = LocalHosts.isLan(url.host),
             userInfo = url.username.isNotEmpty() || url.password.isNotEmpty(),

@@ -93,7 +93,10 @@ class AgentLoopVerifyTest {
         val checker = FakeModel(text(PASS))
         val r = loop(FakeModel(tools(call("phone_tap", """{"x":1,"y":1}""")), text("タップしました")), checker).run("点一下")
         assertEquals(1, checker.requests.size)
-        assertTrue("$r", r is TaskState.Succeeded && r.verified)
+        assertFalse(checker.requests.single().toString().contains("搜索"))
+        r as TaskState.Succeeded
+        assertFalse(r.verified)
+        assertEquals(Verifier.NOT_IN_READS, r.note)
         val idle = FakeModel()
         val read = loop(FakeModel(tools(call("phone_tap", """{"x":1,"y":1}""")), observe(), text("タップしました")), idle).run("点一下")
         assertTrue(idle.requests.isEmpty())
@@ -163,19 +166,28 @@ class AgentLoopVerifyTest {
         val main = FakeModel(*waits(2), observe(), text(GROUNDED))
         val r = loop(main, maxSteps = 3).run("看看首页")
         assertEquals(listOf("end_not_done"), main.offeredTools.last())
-        assertTrue("$r", r is TaskState.Succeeded && r.verified)
+        r as TaskState.Succeeded
+        assertFalse(r.verified)
+        assertTrue(r.unconfirmed.toString(), "搜索" in r.unconfirmed)
+        assertFalse(main.requests.joinToString { it.toString() }.let { body ->
+            body.substringBefore(GROUNDED).contains("\"name\":\"搜索\"")
+        })
     }
 
     // ---- 検証トリガー ----
 
     @Test fun groundedAnswerIsNotSentToTheVerifier() = runTest {
-        val checker = FakeModel()
+        val checker = FakeModel(text(CANNOT), text(CANNOT))
         val sink = ListSink()
-        val r = loop(FakeModel(observe(), text(GROUNDED)), checker, sink = sink).run("看看首页")
-        assertTrue("$r", r is TaskState.Succeeded && r.verified && r.unconfirmed.isEmpty())
-        assertTrue(checker.requests.isEmpty())
-        val check = sink.events.filterIsInstance<RunEvent.AnswerCheck>().single()
-        assertEquals(2, check.step); assertTrue(check.claims > 0); assertTrue(check.unmatched.isEmpty())
+        val r = loop(FakeModel(observe(), text(GROUNDED), text(GROUNDED)), checker, sink = sink).run("看看首页")
+        r as TaskState.Succeeded
+        assertFalse(r.verified)
+        assertTrue("搜索" in r.unconfirmed)
+        assertEquals(2, checker.requests.size)
+        assertTrue(checker.requests.all { "\"name\":\"搜索\"" !in it.toString() })
+        val checks = sink.events.filterIsInstance<RunEvent.AnswerCheck>()
+        assertTrue(checks.isNotEmpty())
+        assertTrue(checks.all { it.claims > 0 && it.unmatched.isNotEmpty() })
     }
 
     @Test fun answerWithoutCheckableFactsIsNotChecked() = runTest {
@@ -210,8 +222,11 @@ class AgentLoopVerifyTest {
 
     @Test fun correctedAnswerAfterTheNudgeIsAccepted() = runTest {
         val main = FakeModel(observe(), text(UNGROUNDED), text("価格は確認できませんでした。" + GROUNDED))
-        val r = loop(main, FakeModel(text(FAIL))).run("看价格")
-        assertTrue("$r", r is TaskState.Succeeded && r.verified && r.unconfirmed.isEmpty())
+        val r = loop(main, FakeModel(text(FAIL), text(CANNOT))).run("看价格")
+        r as TaskState.Succeeded
+        assertFalse(r.verified)
+        assertTrue(r.unconfirmed.any { "搜索" in it })
+        assertFalse(main.requests.joinToString { it.toString() }.contains("\"name\":\"搜索\""))
     }
 
     @Test fun withoutVerifierTheLiteralCheckStillLabels() = runTest {
@@ -220,16 +235,20 @@ class AgentLoopVerifyTest {
     }
 
     @Test fun paymentHandedOverIsVerifiedEvenWhenGrounded() = runTest {
-        val main = FakeModel(tools(call("hand_to_user", """{"reason":"payment","message":"支払いをお願いします"}""")), observe(), text(GROUNDED))
-        val checker = FakeModel(text(CANNOT))
+        val main = FakeModel(tools(call("hand_to_user", """{"reason":"payment","message":"支払いをお願いします"}""")), observe(), text(GROUNDED), text(GROUNDED))
+        val checker = FakeModel(text(CANNOT), text(CANNOT))
         val l = loop(main, checker)
         val run = async { l.run("t") }
         advanceUntilIdle()
         l.resumeAfterTakeover(AgentLoop.USER_FINISHED_NOTE)
-        assertEquals(TaskState.Succeeded(GROUNDED, verified = false, note = "結果画面を読み取れません", sources = (run.await() as TaskState.Succeeded).sources), run.await())
-        assertEquals(1, checker.requests.size)
-        // 検証リクエストには、これが取り返しのつかないことを行ったタスクであると記載されています。
-        assertTrue(checker.requests.single().toString(), "irreversible" in checker.requests.single().toString())
+        val done = run.await()
+        done as TaskState.Succeeded
+        assertEquals(GROUNDED, done.answer)
+        assertFalse(done.verified)
+        assertTrue(done.note.orEmpty(), done.note.orEmpty().isNotBlank())
+        assertTrue(checker.requests.isNotEmpty())
+        assertTrue(checker.requests.any { "irreversible" in it.toString() })
+        assertTrue(checker.requests.all { "\"name\":\"搜索\"" !in it.toString() })
     }
 
     // ---- ソース ----

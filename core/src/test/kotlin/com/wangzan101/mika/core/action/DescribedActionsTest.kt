@@ -19,7 +19,9 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -86,8 +88,9 @@ class DescribedActionsTest {
         assertEquals(IrrevAction.order, o.hit?.action)
         assertTrue(screen.calls.isEmpty())
         // 削除には費用はかかりません。説明に従って見つけてください。 説明によると、
-        assertTrue(run(executor(toolDispatcher(screen)), "phone_tap", """{"element":"删除"}""") is ActionOutcome.Ran)
-        assertEquals(listOf("tap @e4"), screen.calls)
+        val deleted = run(executor(toolDispatcher(screen)), "phone_tap", """{"element":"删除"}""")
+        assertTrue(deleted is ActionOutcome.Refused && deleted.code == "confirmation_required")
+        assertTrue(screen.calls.isEmpty())
     }
 
     @Test fun descriptionWithARefIsRejected() = runTest {
@@ -158,12 +161,11 @@ class DescribedActionsTest {
         val web = FakeWebPort().apply { dialog = PageDialog(PageDialog.CONFIRM, "确定删除这条记录吗?") }
         val tools = toolDispatcher(FakeScreen(), web = web)
         val seen = tools.execute(Part.ToolCall("o", "web_observe", "{}")).content
-        assertEquals(JsonPrimitive("确定删除这条记录吗?"), (seen["dialog"] as JsonObject)["message"])
+        assertEquals("true", seen["egressBlocked"]!!.jsonPrimitive.content)
+        assertFalse("确定删除这条记录吗?" in seen.toString())
         val e = executor(tools)
         val accept = run(e, "web_interact", """{"action":"dialog","answer":"accept"}""")
-        assertTrue("$accept", accept is ActionOutcome.Ran)
-        assertTrue(web.calls.toString(), "dialog true -" in web.calls)
-        val none = content(run(e, "web_interact", """{"action":"dialog","answer":"accept"}"""))
-        assertEquals(JsonPrimitive("no_dialog"), none["error"])
+        assertTrue("$accept", accept is ActionOutcome.Refused && accept.code == "confirmation_required")
+        assertTrue(web.calls.none { it.startsWith("dialog") })
     }
 }

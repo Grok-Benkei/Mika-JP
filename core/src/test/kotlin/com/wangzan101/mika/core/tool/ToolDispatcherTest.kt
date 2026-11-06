@@ -1,5 +1,6 @@
 package com.wangzan101.mika.core.tool
 
+import com.wangzan101.mika.core.memory.UserUtterances
 import com.wangzan101.mika.core.observation.ObsKind
 import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.uistate.ActionResult
@@ -250,8 +251,54 @@ class ToolDispatcherTest {
         assertEquals(1, off.content["elements"]!!.jsonArray.size)
         assertFalse(off.content["truncated"]!!.jsonPrimitive.boolean)
         val on = toolDispatcher(FakeScreen(), visionEnabled = true).execute(call("phone_observe"))
-        assertArrayEquals(byteArrayOf(1, 2, 3), on.image)
+        assertNull(on.image)
+        assertEquals("text_withheld", on.content.s("reason"))
+        assertFalse(on.content.toString().contains("搜索"))
         assertNull(toolDispatcher(FakeScreen()).execute(call("phone_list_elements")).image)
+    }
+
+    @Test fun userPhraseIsMatchedLocallyAndTheRestOfTheScreenStays() = runTest {
+        val said = UserUtterances().apply { add("蓝牙") }
+        val screen = object : ScreenPort by FakeScreen() {
+            override suspend fun snapshot() = ScreenSnapshot("s1", "com.android.settings", listOf(
+                UiElement("@e1", "text", "蓝牙", 10, 10, listOf(0, 0, 10, 10), null, false, false, false),
+                UiElement("@e2", "text", "已开启", 10, 40, listOf(0, 30, 10, 50), null, false, false, false),
+            ), 1080, 2400)
+        }
+        val first = toolDispatcher(screen, utterances = said)
+        val seen = first.execute(call("phone_observe")).content
+        val again = first.execute(call("phone_observe")).content
+        assertEquals("text_withheld", seen.s("reason"))
+        assertEquals(listOf("蓝牙"), seen["userTextOnScreen"]!!.jsonArray.map { it.jsonPrimitive.content })
+        assertEquals(seen.s("screenChange"), again.s("screenChange"))
+        assertEquals("t1", seen.s("screenChange"))
+        assertFalse(seen.toString().contains("已开启"))
+        assertFalse(seen.toString().contains("screenDigest"))
+        val other = object : ScreenPort by FakeScreen() {
+            override suspend fun snapshot() = ScreenSnapshot("s9", "com.android.settings", listOf(
+                UiElement("@e1", "text", "已开启", 10, 40, listOf(0, 30, 10, 50), null, false, false, false),
+            ), 1080, 2400)
+        }
+        val changed = toolDispatcher(other, utterances = said).execute(call("phone_observe")).content
+        assertEquals("t1", changed.s("screenChange"))
+        assertFalse("userTextOnScreen" in changed)
+        val embedded = UserUtterances().apply { add("看看蓝牙开没开") }
+        val sliced = toolDispatcher(screen, utterances = embedded).execute(call("phone_observe")).content
+        assertFalse("userTextOnScreen" in sliced)
+        assertFalse(sliced.toString().contains("蓝牙"))
+        val browser = object : ScreenPort by FakeScreen() {
+            override suspend fun snapshot() = ScreenSnapshot("s1", "com.android.chrome", listOf(
+                UiElement("@e1", "text", "蓝牙", 10, 10, listOf(0, 0, 10, 10), null, false, false, false),
+                UiElement("@e2", "text", "已开启", 10, 40, listOf(0, 30, 10, 50), null, false, false, false),
+            ), 1080, 2400)
+        }
+        val blocked = toolDispatcher(browser, utterances = said).execute(call("phone_observe")).content
+        assertEquals("browser_or_webview", blocked.s("reason"))
+        assertFalse("userTextOnScreen" in blocked)
+        assertFalse("screenChange" in blocked)
+        assertFalse("screenDigest" in blocked)
+        assertFalse(blocked.toString().contains("蓝牙"))
+        assertFalse(blocked.toString().contains("已开启"))
     }
 
     @Test fun definitionsFollowVision() {
@@ -356,10 +403,11 @@ class ToolDispatcherTest {
         // right, dist 200: x 600 -> 400 (px 648 -> 432), y 500 -> 1201
         assertEquals("swipe 648 1201 432 1201", s.calls[1])
         val shot = d.execute(call("phone_screenshot"))
-        assertArrayEquals(byteArrayOf(1, 2, 3), shot.image)
-        assertTrue(shot.content["ok"]!!.jsonPrimitive.boolean)
+        assertNull(shot.image)
+        assertEquals("egress_blocked", shot.content.s("error"))
+        assertFalse(shot.content.toString().contains("搜索"))
         s.png = null
-        assertEquals("screenshot_unavailable", d.execute(call("phone_screenshot")).content.s("error"))
+        assertEquals("egress_blocked", d.execute(call("phone_screenshot")).content.s("error"))
     }
 
     private val lookupTools = listOf("knowledge_search", "knowledge_read", "skill_search", "skill_read")
@@ -414,12 +462,13 @@ class ToolDispatcherTest {
         val before = s.snapshots
         val e = d.evidence()
         assertEquals(before + 1, s.snapshots) // この時点で画面をもう一度読み取ります
-        assertEquals("現在のアプリ:com.x\n搜索", e.freshText)
+        assertFalse(e.freshText.contains("搜索"))
+        assertTrue(e.freshText.contains("text_withheld") || e.freshText.contains("egress_blocked"))
         assertEquals(e.read(ObsKind.Read).distinct(), e.read(ObsKind.Read)) // 同じ画面読みは 1 回だけ記憶されます
         assertNull(e.freshImage)
         // パスワードボックスに元のテキストが書き込まれません
         assertEquals(listOf("ステップ5 phone_tap(搜索) 操作を反映", "ステップ6 phone_type_text(「天气」) 操作を反映", "ステップ7 phone_type_text() 画面に変化なし", "ステップ8 phone_back() 画面に変化なし"), e.actions)
-        assertNotNull(d.evidence(withImage = true).freshImage)
+        assertNull(d.evidence(withImage = true).freshImage)
     }
 
     @Test fun evidenceSurvivesScreenshotFailure() = runTest {
@@ -428,7 +477,8 @@ class ToolDispatcherTest {
         }
         val e = toolDispatcher(s).evidence(withImage = true)
         assertNull(e.freshImage)
-        assertEquals("現在のアプリ:com.x\n搜索", e.freshText)
+        assertFalse(e.freshText.contains("搜索"))
+        assertTrue(e.freshText.contains("text_withheld") || e.freshText.contains("egress_blocked"))
     }
 
     /** 仮想画面がない場合のポート: 画面の読み取りは空の画面であり、書き込み操作は no_app_open に失敗します。 */

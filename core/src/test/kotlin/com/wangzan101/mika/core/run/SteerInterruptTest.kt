@@ -212,15 +212,24 @@ class SteerInterruptTest {
         val tools = toolDispatcher(screen)
         tools.execute(Part.ToolCall("o", "phone_observe", "{}"))
         val pacing = OutwardPacing.human(Random(9))
-        val executor = ActionExecutor(tools, OperationGuards(), null, gate = {}, recorder = ActionRecorder(RunSink.NONE, { currentTime }), autonomous = true, pacing = pacing)
+        val gate = com.wangzan101.mika.core.gate.ConfirmationGate()
+        fun allow() {
+            val req = com.wangzan101.mika.core.gate.ConfirmationRequest(
+                com.wangzan101.mika.core.risk.IrrevAction.submit, "立即沟通", "", null, "com.jobs")
+            gate.declare(req, "com.jobs")
+            gate.decide(com.wangzan101.mika.core.action.ConfirmChoice.Once, 1)
+        }
+        val executor = ActionExecutor(tools, OperationGuards(), gate, gate = {}, recorder = ActionRecorder(RunSink.NONE, { currentTime }), autonomous = true, pacing = pacing)
         suspend fun tap(id: String) = withContext(inbox.signal) {
             executor.run(Part.ToolCall(id, "phone_tap", """{"ref":"@e1","snapshotId":"s1"}"""), Origin.Model(1))
         }
+        allow()
         tap("c1")
         val gap = pacing.waitBefore("com.jobs", currentTime)
         assertTrue("$gap", gap > 2_000)
         val t0 = currentTime
         val sent = launch { delay(1_000); inbox.send(RunInput.Steer("m1", "先别发")) }
+        allow()
         val cut = tap("c2") as ActionOutcome.Ran
         sent.join()
         assertEquals(JsonPrimitive(SKIPPED_FOR_NEW_MESSAGE), cut.exec.content["error"])
@@ -229,6 +238,7 @@ class SteerInterruptTest {
         // モデルは、間投詞を読んだ後に投稿する必要があります。投稿する前に、残りのギャップを埋める必要があります。
         inbox.takeSteers()
         assertEquals(gap - 1_000, pacing.waitBefore("com.jobs", currentTime))
+        allow()
         tap("c3")
         assertTrue(currentTime - t0 >= gap)
         assertEquals(listOf("@e1", "@e1"), screen.taps)

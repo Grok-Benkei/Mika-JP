@@ -1,0 +1,2699 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "mika-release-runtime",
+  "documentNamespace": "https://github.com/Grok-Benkei/Mika-JP/phase4/2026-11-06T03:58:48Z",
+  "creationInfo": {
+    "created": "2026-11-06T03:58:48Z",
+    "creators": [
+      "Tool: tools/security/phase4_sbom.py"
+    ]
+  },
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-APPLICATION",
+      "name": "jp.studioyebisu.mika",
+      "versionInfo": "0.1.36-jp.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "SPDXID": "SPDXRef-Package-1",
+      "name": "Mika:core",
+      "versionInfo": "unspecified",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d563de7222a3a988f3b1609dead71e77a7ef3e5dd137e44efb693549dcac9d90"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/Mika/core@unspecified"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-2",
+      "name": "androidx.activity:activity",
+      "versionInfo": "1.9.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "7e45d2023dc17d715ffff3dc5792f798642c4ae11c948006b1752ab9edda5707"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.activity/activity@1.9.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-3",
+      "name": "androidx.activity:activity-compose",
+      "versionInfo": "1.9.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "0f5098a9e2b173a6c5a48f08251e7e949be12e6ee8b3a587b13b0830f1639297"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.activity/activity-compose@1.9.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-4",
+      "name": "androidx.activity:activity-ktx",
+      "versionInfo": "1.9.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "e2da34f68cac557986280198e5c1546b8a245269b050b1cc90b56916dbf69201"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.activity/activity-ktx@1.9.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-5",
+      "name": "androidx.annotation:annotation-experimental",
+      "versionInfo": "1.4.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "6bd4c7c7476f8260cd3bdbb81183583e93fc9f790c27dea7dc314181cbf87aa0"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.annotation/annotation-experimental@1.4.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-6",
+      "name": "androidx.annotation:annotation-jvm",
+      "versionInfo": "1.8.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "9aab326d9492800991854360ac248f493ce7f7c3183519309b78ace9e240f6f6"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.annotation/annotation-jvm@1.8.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-7",
+      "name": "androidx.appcompat:appcompat",
+      "versionInfo": "1.6.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "7ea5573b93ababd3bd32312451c6ea48a662b03a140dda81aebe75776a20a422"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.appcompat/appcompat@1.6.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-8",
+      "name": "androidx.appcompat:appcompat-resources",
+      "versionInfo": "1.6.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "db915dbf49357863de1669ff9fdd8e9008d65fe357af6cce9ae63043ad5f6617"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.appcompat/appcompat-resources@1.6.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-9",
+      "name": "androidx.arch.core:core-common",
+      "versionInfo": "2.2.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "65308a06b1c00ee186cb9e19321383f043b993813f1522c47f4a3e3303bdba41"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.arch.core/core-common@2.2.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-10",
+      "name": "androidx.arch.core:core-runtime",
+      "versionInfo": "2.2.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "a1be5e0caa2b07623862af6ae21b3ab0718123245184d0e30dea81b53f990a47"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.arch.core/core-runtime@2.2.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-11",
+      "name": "androidx.autofill:autofill",
+      "versionInfo": "1.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "c9468f56e05006ea151a426c54957cd0799b8b83a579d2846dd22061f33e5ecd"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.autofill/autofill@1.0.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-12",
+      "name": "androidx.collection:collection-jvm",
+      "versionInfo": "1.4.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "539a43428df8a337622fb781401f5f0cdcd52d8b3615f0085af51c90002ff333"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.collection/collection-jvm@1.4.4"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-13",
+      "name": "androidx.collection:collection-ktx",
+      "versionInfo": "1.4.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "c6deada2fac53b8ea6523dbda77597b128006674616f140f04df23264c6d1aa3"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.collection/collection-ktx@1.4.4"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-14",
+      "name": "androidx.compose.animation:animation-android",
+      "versionInfo": "1.7.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "01f349d54cf9ec41cd0adf5d8c2a869c2c245b8dbb6be5a57e7ebe3d68d31791"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.compose.animation/animation-android@1.7.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-15",
+      "name": "androidx.compose.animation:animation-core-android",
+      "versionInfo": "1.7.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "9722d4fccd4a9e95910baa16652563ba92a5829f9d6e09194850447e3cd9983a"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.compose.animation/animation-core-android@1.7.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-16",
+      "name": "androidx.compose.foundation:foundation-android",
+      "versionInfo": "1.7.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "5ccb96bab040a70f7fdd577faaad75343261c006d42fcc5723a38f50a82f597c"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.compose.foundation/foundation-android@1.7.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-17",
+      "name": "androidx.compose.foundation:foundation-layout-android",
+      "versionInfo": "1.7.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "296e14e2b37f7ba09e4185637f71409199bced21d5a070fe26f6dc6b26d588b6"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.compose.foundation/foundation-layout-android@1.7.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-18",
+      "name": "androidx.compose.material:material-icons-core-android",
+      "versionInfo": "1.7.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "48d182051236b1dfec829b33bf4d3fd06d03c2876d532208e3f7490159d65c46"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.compose.material/material-icons-core-android@1.7.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-19",
+      "name": "androidx.compose.material:material-ripple-android",
+      "versionInfo": "1.7.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "4f4b176d09191141e43023c85bb9f5a7de8f519efdd90c3d0a7dc953b3b2a8da"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.compose.material/material-ripple-android@1.7.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-20",
+      "name": "androidx.compose.material3:material3-android",
+      "versionInfo": "1.3.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "752473d4ea271f822858c313ec0d857ab05249021906f3005b30f2b1fcd0dcc0"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.compose.material3/material3-android@1.3.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-21",
+      "name": "androidx.compose.runtime:runtime-android",
+      "versionInfo": "1.7.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "482942683274e1961727b2a76d68fe4ab4abb8145fd8b3146142144ce0b25311"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.compose.runtime/runtime-android@1.7.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-22",
+      "name": "androidx.compose.runtime:runtime-saveable-android",
+      "versionInfo": "1.7.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "802c98303c250a91b89d6b703c3eab73bff6cd220a85fdd10e17ca126f954879"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.compose.runtime/runtime-saveable-android@1.7.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-23",
+      "name": "androidx.compose.ui:ui-android",
+      "versionInfo": "1.7.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "42df06e3390808c85256a7efd74d448da71cbc168b41497a30535045c926f5b0"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.compose.ui/ui-android@1.7.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-24",
+      "name": "androidx.compose.ui:ui-geometry-android",
+      "versionInfo": "1.7.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "63eb3d049a8c819e3805d51ce15b9203249ce960ecfd53251126592047bc2ff0"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.compose.ui/ui-geometry-android@1.7.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-25",
+      "name": "androidx.compose.ui:ui-graphics-android",
+      "versionInfo": "1.7.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "00c96a2e54b03bc0b72b8fc4327bd2a75b689c689aa01295d870141eb9ddddd0"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.compose.ui/ui-graphics-android@1.7.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-26",
+      "name": "androidx.compose.ui:ui-text-android",
+      "versionInfo": "1.7.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d2291842f1c3e8e70c4cb5c962c0754e463e023fef906f3437c209a096c09ec7"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.compose.ui/ui-text-android@1.7.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-27",
+      "name": "androidx.compose.ui:ui-unit-android",
+      "versionInfo": "1.7.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "9ed6214fdd4da272b0b2582c428f8c3dce5ce6a186c47daaf9fc01aec226a199"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.compose.ui/ui-unit-android@1.7.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-28",
+      "name": "androidx.compose.ui:ui-util-android",
+      "versionInfo": "1.7.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "f74120949fd8f82fbfbcc3793246108f9554df0f51ecc7fb5d721ac971c4394a"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.compose.ui/ui-util-android@1.7.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-29",
+      "name": "androidx.concurrent:concurrent-futures",
+      "versionInfo": "1.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "0ce067c514a0d1049d1bebdf709e344ed3266fe9744275682937cdcb13334e9e"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.concurrent/concurrent-futures@1.1.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-30",
+      "name": "androidx.core:core",
+      "versionInfo": "1.13.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "2c27de199535675005553066597a4b20fa1eea7c228ab4ef6b32b5fe39ca1f59"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.core/core@1.13.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-31",
+      "name": "androidx.core:core-ktx",
+      "versionInfo": "1.13.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "19ba50d094c7368ede1b4ccf1195ceb83e35970736593f823e5af716f8d05d70"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.core/core-ktx@1.13.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-32",
+      "name": "androidx.cursoradapter:cursoradapter",
+      "versionInfo": "1.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "a81c8fe78815fa47df5b749deb52727ad11f9397da58b16017f4eb2c11e28564"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.cursoradapter/cursoradapter@1.0.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-33",
+      "name": "androidx.customview:customview",
+      "versionInfo": "1.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "20e5b8f6526a34595a604f56718da81167c0b40a7a94a57daa355663f2594df2"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.customview/customview@1.0.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-34",
+      "name": "androidx.customview:customview-poolingcontainer",
+      "versionInfo": "1.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "3584102fc49bf399c56e3b7be4bfe12000c46112320cd8cf85cc0a8f93f3e752"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.customview/customview-poolingcontainer@1.0.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-35",
+      "name": "androidx.drawerlayout:drawerlayout",
+      "versionInfo": "1.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "9402442cdc5a43cf62fb14f8cf98c63342d4d9d9b805c8033c6cf7e802749ac1"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.drawerlayout/drawerlayout@1.0.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-36",
+      "name": "androidx.emoji2:emoji2",
+      "versionInfo": "1.3.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "2bf23818b23a996ddaa1b5fd5bb32129daff6bbb2dce15166e2fccdd2010b1a5"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.emoji2/emoji2@1.3.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-37",
+      "name": "androidx.emoji2:emoji2-views-helper",
+      "versionInfo": "1.3.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "9a1351295a4f739df0efe8344adaa9afb34856c3af584d4a9afbec105a45b90b"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.emoji2/emoji2-views-helper@1.3.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-38",
+      "name": "androidx.exifinterface:exifinterface",
+      "versionInfo": "1.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "ee48be10aab8f54efff4c14b77d11e10b9eeee4379d5ef6bf297a2923c55cc11"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.exifinterface/exifinterface@1.0.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-39",
+      "name": "androidx.fragment:fragment",
+      "versionInfo": "1.3.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "12f0831b4f08092d5dda272c1923c11a022ff20ceffed3e801751e21bb8d1c1e"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.fragment/fragment@1.3.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-40",
+      "name": "androidx.graphics:graphics-path",
+      "versionInfo": "1.0.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "8ca4032b6d79b351f0b59ad4b580eddbb9423e1652f7c958830687f1eee2ec03"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.graphics/graphics-path@1.0.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-41",
+      "name": "androidx.interpolator:interpolator",
+      "versionInfo": "1.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "33193135a64fe21fa2c35eec6688f1a76e512606c0fc83dc1b689e37add7732a"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.interpolator/interpolator@1.0.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-42",
+      "name": "androidx.lifecycle:lifecycle-common-java8",
+      "versionInfo": "2.8.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "c6deada2fac53b8ea6523dbda77597b128006674616f140f04df23264c6d1aa3"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.lifecycle/lifecycle-common-java8@2.8.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-43",
+      "name": "androidx.lifecycle:lifecycle-common-jvm",
+      "versionInfo": "2.8.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "61c873a7327c946ec033c310bb98f3f92eeabcede0e1a5200ab8a1896483c7bf"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.lifecycle/lifecycle-common-jvm@2.8.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-44",
+      "name": "androidx.lifecycle:lifecycle-livedata",
+      "versionInfo": "2.8.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "fdbf70620b48550ab23fcf04d9ee59123bf8c31db26016ca74d3332a79444aee"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.lifecycle/lifecycle-livedata@2.8.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-45",
+      "name": "androidx.lifecycle:lifecycle-livedata-core",
+      "versionInfo": "2.8.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "01779694b1e822d2eeb9decec86f40dc2983806b985fb48ee116c860534e7ac5"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.lifecycle/lifecycle-livedata-core@2.8.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-46",
+      "name": "androidx.lifecycle:lifecycle-livedata-core-ktx",
+      "versionInfo": "2.8.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d6bedec258e3bfc86d2cba27fea4c03d82872057bfca2a4342461e6defb2d35e"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.lifecycle/lifecycle-livedata-core-ktx@2.8.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-47",
+      "name": "androidx.lifecycle:lifecycle-process",
+      "versionInfo": "2.8.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d3fa2257cd4cf512717dc08c13338872b136b97d2d510fce373b9cc391ea19b9"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.lifecycle/lifecycle-process@2.8.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-48",
+      "name": "androidx.lifecycle:lifecycle-runtime-android",
+      "versionInfo": "2.8.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "e761ff6f4f07093558b7cd370928f31d53b46ea91441f52dd535da96d4708c2b"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.lifecycle/lifecycle-runtime-android@2.8.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-49",
+      "name": "androidx.lifecycle:lifecycle-runtime-compose-android",
+      "versionInfo": "2.8.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "caceffd076b9874f75eac720ae48cb2e8bfa55631395b97fb0f682d279342a15"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.lifecycle/lifecycle-runtime-compose-android@2.8.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-50",
+      "name": "androidx.lifecycle:lifecycle-runtime-ktx-android",
+      "versionInfo": "2.8.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d3f5d1423bc6dc0c7343a72389425be4b6ef832ef461faf1542bbc624bdb3918"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.lifecycle/lifecycle-runtime-ktx-android@2.8.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-51",
+      "name": "androidx.lifecycle:lifecycle-viewmodel",
+      "versionInfo": "2.8.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "43d28a6c6da9c1cb72bfb5cc1b511a7937b2db8b79d52f37d0b7f14c79b090dd"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.lifecycle/lifecycle-viewmodel@2.8.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-52",
+      "name": "androidx.lifecycle:lifecycle-viewmodel-android",
+      "versionInfo": "2.8.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "bbf54dcc300c81ea91f5667ac0b85934b2cbcaffc0806d8389df146cc2148a5c"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.lifecycle/lifecycle-viewmodel-android@2.8.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-53",
+      "name": "androidx.lifecycle:lifecycle-viewmodel-ktx",
+      "versionInfo": "2.8.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "e17b0cd40081a86ca3adcb8b135ee82f3dd842db42072eb2901c64a2773a6d75"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.lifecycle/lifecycle-viewmodel-ktx@2.8.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-54",
+      "name": "androidx.lifecycle:lifecycle-viewmodel-savedstate",
+      "versionInfo": "2.8.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "839dd12453c4e05116732831ff49f210893cc99b7091bb9a124988911c537734"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.lifecycle/lifecycle-viewmodel-savedstate@2.8.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-55",
+      "name": "androidx.loader:loader",
+      "versionInfo": "1.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "11f735cb3b55c458d470bed9e25254375b518b4b1bad6926783a7026db0f5025"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.loader/loader@1.0.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-56",
+      "name": "androidx.profileinstaller:profileinstaller",
+      "versionInfo": "1.3.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d0e402ec31f24028a1dc7eb6a0a3f9d9635c1459392cd734396343b73d673948"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.profileinstaller/profileinstaller@1.3.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-57",
+      "name": "androidx.resourceinspection:resourceinspection-annotation",
+      "versionInfo": "1.0.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "8cff870ec6fb31db48a52f4a792335b4bf8de07e03bd37823181526433ccd5cb"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.resourceinspection/resourceinspection-annotation@1.0.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-58",
+      "name": "androidx.savedstate:savedstate",
+      "versionInfo": "1.2.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "21a7d4bcf6bdb94ad7b9283801529300b4fbb8808ca4f191e0cdce6fd8e4705a"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.savedstate/savedstate@1.2.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-59",
+      "name": "androidx.savedstate:savedstate-ktx",
+      "versionInfo": "1.2.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "8553f87e7136c24ec5243560f48f1c32cba56daa77722f89589a5cafcb8f7894"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.savedstate/savedstate-ktx@1.2.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-60",
+      "name": "androidx.startup:startup-runtime",
+      "versionInfo": "1.1.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "e0a6329a371262fe4c450372b70fdaf33b769ef6917094723787cfce896b1dd3"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.startup/startup-runtime@1.1.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-61",
+      "name": "androidx.tracing:tracing",
+      "versionInfo": "1.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "07b8b6139665b884a162eccf97891ca50f7f56831233bf25168ae04f7b568612"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.tracing/tracing@1.0.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-62",
+      "name": "androidx.vectordrawable:vectordrawable",
+      "versionInfo": "1.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "46fd633ac01b49b7fcabc263bf098c5a8b9e9a69774d234edcca04fb02df8e26"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.vectordrawable/vectordrawable@1.1.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-63",
+      "name": "androidx.vectordrawable:vectordrawable-animated",
+      "versionInfo": "1.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "76da2c502371d9c38054df5e2b248d00da87809ed058f3363eae87ce5e2403f8"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.vectordrawable/vectordrawable-animated@1.1.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-64",
+      "name": "androidx.versionedparcelable:versionedparcelable",
+      "versionInfo": "1.1.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "57e8d93260d18d5b9007c9eed3c64ad159de90c8609ebfc74a347cbd514535a4"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.versionedparcelable/versionedparcelable@1.1.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-65",
+      "name": "androidx.viewpager:viewpager",
+      "versionInfo": "1.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "147af4e14a1984010d8f155e5e19d781f03c1d70dfed02a8e0d18428b8fc8682"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.viewpager/viewpager@1.0.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-66",
+      "name": "androidx.webkit:webkit",
+      "versionInfo": "1.12.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "18a0a51ad129e0c8563f031d46c8a7e61169f56ae84e562a0d75686941262111"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.webkit/webkit@1.12.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-67",
+      "name": "com.google.android.datatransport:transport-api",
+      "versionInfo": "2.2.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "e62f73ba1c7f5d15f5d86d8e9a298c42ccd0648e7ce60b9e312f2ecd123b5ed0"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.android.datatransport/transport-api@2.2.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-68",
+      "name": "com.google.android.datatransport:transport-backend-cct",
+      "versionInfo": "2.3.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "b22a14d560a590dc875e902424b29a13a02d1faf297b7c39a9007967ffadccbd"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.android.datatransport/transport-backend-cct@2.3.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-69",
+      "name": "com.google.android.datatransport:transport-runtime",
+      "versionInfo": "2.2.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d83ad23c134429691161c92476a3c83df236cd1f8badbfd4f00723b4eccd741c"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.android.datatransport/transport-runtime@2.2.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-70",
+      "name": "com.google.android.gms:play-services-base",
+      "versionInfo": "18.5.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "59a5c0c2da12311d75d965ce1f419498536b1a167fb28ff7dfc2dfd9cefa4157"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.android.gms/play-services-base@18.5.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-71",
+      "name": "com.google.android.gms:play-services-basement",
+      "versionInfo": "18.4.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "ce5c936fd66814b3602f5c6a5e929911ff973d4b05f6de9996da596bef97cad2"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.android.gms/play-services-basement@18.4.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-72",
+      "name": "com.google.android.gms:play-services-mlkit-text-recognition",
+      "versionInfo": "19.0.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "6b504dc053758407a507883fa9495bcb4c1c2bae8069012ff3a8f70f93bc89d4"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.android.gms/play-services-mlkit-text-recognition@19.0.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-73",
+      "name": "com.google.android.gms:play-services-mlkit-text-recognition-common",
+      "versionInfo": "19.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "3be02b3c3c829476100f01d0ab79f0b4a923da23909d3ac63e486d1a63381c58"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.android.gms/play-services-mlkit-text-recognition-common@19.1.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-74",
+      "name": "com.google.android.gms:play-services-mlkit-text-recognition-japanese",
+      "versionInfo": "16.0.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "9e6b7a378bbdeddd467cc30112ac43b2d8966de34555222c0520de1f83666365"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.android.gms/play-services-mlkit-text-recognition-japanese@16.0.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-75",
+      "name": "com.google.android.gms:play-services-tasks",
+      "versionInfo": "18.2.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "7f2aaa8f502068eaf54356ca92aec04271d6e7c416c52c45c0d23440fcbd1654"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.android.gms/play-services-tasks@18.2.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-76",
+      "name": "com.google.android.odml:image",
+      "versionInfo": "1.0.0-beta1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "2e71aa31f83a9415277f119de67195726f07d1760e9542c111778c320e3aa1f2"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.android.odml/image@1.0.0-beta1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-77",
+      "name": "com.google.firebase:firebase-annotations",
+      "versionInfo": "16.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "8830f2e8a5e434cbc5e4bd18133073b6e8518a8ce8ec2ce6f3b273c91d9664c2"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.firebase/firebase-annotations@16.0.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-78",
+      "name": "com.google.firebase:firebase-components",
+      "versionInfo": "16.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "82e91aa5ed186eedaf1f2210f5d241ba6e4456cf0c32949d5cdbe152b0e2e88b"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.firebase/firebase-components@16.1.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-79",
+      "name": "com.google.firebase:firebase-encoders",
+      "versionInfo": "16.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "8f89a74298bbccc2c543385208a2f0c67f603ce67e6ec21cc772e98e688f7cf5"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.firebase/firebase-encoders@16.1.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-80",
+      "name": "com.google.firebase:firebase-encoders-json",
+      "versionInfo": "17.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "8295c755bcadc87a2aaee5b9e568f27fd138fd45ff1159a8ee747cf4c3a38d85"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.firebase/firebase-encoders-json@17.1.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-81",
+      "name": "com.google.guava:listenablefuture",
+      "versionInfo": "1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "e4ad7607e5c0477c6f890ef26a49cb8d1bb4dffb650bab4502afee64644e3069"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.guava/listenablefuture@1.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-82",
+      "name": "com.google.mlkit:common",
+      "versionInfo": "18.11.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "66408a08dbb2465687ff5dd0c8f6410b56549ce3ecf449d9096f3712282131d0"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.mlkit/common@18.11.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-83",
+      "name": "com.google.mlkit:text-recognition",
+      "versionInfo": "16.0.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "da753265d02479a8cfe4dbf891ba7d189248e7c8430b6f72bd4d532c757a69b3"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.mlkit/text-recognition@16.0.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-84",
+      "name": "com.google.mlkit:text-recognition-bundled-common",
+      "versionInfo": "17.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "fb1d4e26d69125659b6f5a94f03cce145544b0116807d04333335a9775636e05"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.mlkit/text-recognition-bundled-common@17.0.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-85",
+      "name": "com.google.mlkit:text-recognition-japanese",
+      "versionInfo": "16.0.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "649df0daffd87c17ad177eb12840704c7b6847acf987c614a0faf88fd49868bf"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.mlkit/text-recognition-japanese@16.0.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-86",
+      "name": "com.google.mlkit:vision-common",
+      "versionInfo": "17.3.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "c0085ca5fba00f11529c0a83b12851ea6c599bbcc8affd927e914b29a743459f"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.mlkit/vision-common@17.3.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-87",
+      "name": "com.google.mlkit:vision-interfaces",
+      "versionInfo": "16.3.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "8f0192a26d01b728a01a15a620d829fff7095822822694438a93127c04cb16fb"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.mlkit/vision-interfaces@16.3.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-88",
+      "name": "com.google.protobuf:protobuf-javalite",
+      "versionInfo": "4.36.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "8f4f93d08cb37130ecb0bc69d376d7d27c36ff04ddb1bb27430b06caa9fa062e"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.google.protobuf/protobuf-javalite@4.36.2"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-89",
+      "name": "com.squareup.okhttp3:okhttp",
+      "versionInfo": "4.12.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "b1050081b14bb7a3a7e55a4d3ef01b5dcfabc453b4573a4fc019767191d5f4e0"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.squareup.okhttp3/okhttp@4.12.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-90",
+      "name": "com.squareup.okio:okio-jvm",
+      "versionInfo": "3.6.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "67543f0736fc422ae927ed0e504b98bc5e269fda0d3500579337cb713da28412"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/com.squareup.okio/okio-jvm@3.6.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-91",
+      "name": "commons-codec:commons-codec",
+      "versionInfo": "1.19.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "5c3881e4f556855e9c532927ee0c9dfde94cc66760d5805c031a59887070af5f"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/commons-codec/commons-codec@1.19.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-92",
+      "name": "commons-io:commons-io",
+      "versionInfo": "2.20.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "df90bba0fe3cb586b7f164e78fe8f8f4da3f2dd5c27fa645f888100ccc25dd72"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/commons-io/commons-io@2.20.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-93",
+      "name": "javax.inject:javax.inject",
+      "versionInfo": "1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "91c77044a50c481636c32d916fd89c9118a72195390452c81065080f957de7ff"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/javax.inject/javax.inject@1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-94",
+      "name": "org.apache.commons:commons-compress",
+      "versionInfo": "1.28.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "e1522945218456f3649a39bc4afd70ce4bd466221519dba7d378f2141a4642ca"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/org.apache.commons/commons-compress@1.28.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-95",
+      "name": "org.apache.commons:commons-lang3",
+      "versionInfo": "3.18.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "4eeeae8d20c078abb64b015ec158add383ac581571cddc45c68f0c9ae0230720"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/org.apache.commons/commons-lang3@3.18.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-96",
+      "name": "org.commonmark:commonmark",
+      "versionInfo": "0.30.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "9b0d20064975a17e876fcb4b599c6b3667f46a7739ed61e2f06c96f44b50629f"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/org.commonmark/commonmark@0.30.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-97",
+      "name": "org.commonmark:commonmark-ext-gfm-strikethrough",
+      "versionInfo": "0.30.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "825a45a1b196f8e0351baf8eb140d657cbf3fd3e17ab34155aa99056db82f099"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/org.commonmark/commonmark-ext-gfm-strikethrough@0.30.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-98",
+      "name": "org.commonmark:commonmark-ext-gfm-tables",
+      "versionInfo": "0.30.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "c375b6d5b71efe179e5763a6d83fcf10e303c0bf82031310a46769727ac90da0"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/org.commonmark/commonmark-ext-gfm-tables@0.30.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-99",
+      "name": "org.jetbrains:annotations",
+      "versionInfo": "23.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "7b0f19724082cbfcbc66e5abea2b9bc92cf08a1ea11e191933ed43801eb3cd05"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/org.jetbrains/annotations@23.0.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-100",
+      "name": "org.jetbrains.kotlin:kotlin-stdlib",
+      "versionInfo": "2.1.20",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "1bcc74e8ce84e2c25eaafde10f1248349cce3062b6e36978cbeec610db1e930a"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/org.jetbrains.kotlin/kotlin-stdlib@2.1.20"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-101",
+      "name": "org.jetbrains.kotlin:kotlin-stdlib-jdk7",
+      "versionInfo": "1.9.10",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "ac6361bf9ad1ed382c2103d9712c47cdec166232b4903ed596e8876b0681c9b7"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/org.jetbrains.kotlin/kotlin-stdlib-jdk7@1.9.10"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-102",
+      "name": "org.jetbrains.kotlin:kotlin-stdlib-jdk8",
+      "versionInfo": "1.9.10",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "a4c74d94d64ce1abe53760fe0389dd941f6fc558d0dab35e47c085a11ec80f28"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/org.jetbrains.kotlin/kotlin-stdlib-jdk8@1.9.10"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-103",
+      "name": "org.jetbrains.kotlinx:kotlinx-coroutines-android",
+      "versionInfo": "1.10.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "e713f1f874244115a07571065cffa0f24f5e78300e9720fea16de3af1d75fd41"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/org.jetbrains.kotlinx/kotlinx-coroutines-android@1.10.2"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-104",
+      "name": "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm",
+      "versionInfo": "1.10.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "5ca175b38df331fd64155b35cd8cae1251fa9ee369709b36d42e0a288ccce3fd"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm@1.10.2"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-105",
+      "name": "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm",
+      "versionInfo": "1.7.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "f0adde45864144475385cf4aa7e0b7feb27f61fcf9472665ed98cc971b06b1eb"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/org.jetbrains.kotlinx/kotlinx-serialization-core-jvm@1.7.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-106",
+      "name": "org.jetbrains.kotlinx:kotlinx-serialization-json-jvm",
+      "versionInfo": "1.7.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "b1e9138499ed8d20375edda3f2b1c95f3103a258eff6af9edc5ea07100f2b29c"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/org.jetbrains.kotlinx/kotlinx-serialization-json-jvm@1.7.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-107",
+      "name": "org.tukaani:xz",
+      "versionInfo": "1.10",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "95c63c1a55b22dd6453890a419cc1a640f790bbf7d8ae82db1e30aefefb08888"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/org.tukaani/xz@1.10"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-1",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-2",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-3",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-4",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-5",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-6",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-7",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-8",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-9",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-10",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-11",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-12",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-13",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-14",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-15",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-16",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-17",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-18",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-19",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-20",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-21",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-22",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-23",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-24",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-25",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-26",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-27",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-28",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-29",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-30",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-31",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-32",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-33",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-34",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-35",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-36",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-37",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-38",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-39",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-40",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-41",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-42",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-43",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-44",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-45",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-46",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-47",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-48",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-49",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-50",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-51",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-52",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-53",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-54",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-55",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-56",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-57",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-58",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-59",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-60",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-61",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-62",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-63",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-64",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-65",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-66",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-67",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-68",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-69",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-70",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-71",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-72",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-73",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-74",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-75",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-76",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-77",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-78",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-79",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-80",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-81",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-82",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-83",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-84",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-85",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-86",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-87",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-88",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-89",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-90",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-91",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-92",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-93",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-94",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-95",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-96",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-97",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-98",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-99",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-100",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-101",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-102",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-103",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-104",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-105",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-106",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-APPLICATION",
+      "relatedSpdxElement": "SPDXRef-Package-107",
+      "relationshipType": "DEPENDS_ON"
+    }
+  ]
+}

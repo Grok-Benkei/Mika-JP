@@ -12,33 +12,38 @@ class AttachedPageTest {
         assertEquals(
             """
             [Web page I'm viewing in Mika's browser. It is attached to this task as your current web tab.]
-            Title: 耳机 - 搜索
-            URL: https://shop.example.com/s?k=耳机
-            Selected text:
-            | B2 Pro
-            | ¥649
+            URL: shop.example.com
+            egress_blocked:browser_or_webview
             [End of page]
 
             这页里挑一个
             """.trimIndent(),
             text,
         )
+        assertFalse(text.contains("耳机"))
+        assertFalse(text.contains("B2 Pro"))
+        assertFalse(text.contains("¥649"))
         assertTrue(AttachedPage.has(text))
     }
 
     @Test fun parseRoundTrips() {
         val page = AttachedPage.Page("https://news.example.org/a/1", "A title", "line one\n\nline three")
-        val p = AttachedPage.parse(AttachedPage.compose(page, "summarize\nplease"))
-        assertEquals(page, p.page)
+        val composed = AttachedPage.compose(page, "summarize\nplease")
+        assertFalse(composed.contains("A title"))
+        assertFalse(composed.contains("line one"))
+        val p = AttachedPage.parse(composed)
+        assertEquals("news.example.org", p.page?.url)
+        assertEquals("", p.page?.title)
+        assertEquals(null, p.page?.selection)
         assertEquals("summarize\nplease", p.words)
         assertEquals("summarize\nplease", AttachedPage.words(AttachedPage.compose(page, "summarize\nplease")))
     }
 
     @Test fun noTitleNoSelectionNoWords() {
         val text = AttachedPage.compose(AttachedPage.Page("https://a.example/", "  "), "")
-        assertEquals("[Web page I'm viewing in Mika's browser. It is attached to this task as your current web tab.]\nURL: https://a.example/\n[End of page]", text)
+        assertEquals("[Web page I'm viewing in Mika's browser. It is attached to this task as your current web tab.]\nURL: a.example\negress_blocked:browser_or_webview\n[End of page]", text)
         val p = AttachedPage.parse(text)
-        assertEquals(AttachedPage.Page("https://a.example/", "", null), p.page)
+        assertEquals(AttachedPage.Page("a.example", "", null), p.page)
         assertEquals("", p.words)
     }
 
@@ -59,7 +64,8 @@ class AttachedPageTest {
         val tricky = AttachedPage.compose(AttachedPage.Page("https://a.example/", "t", "x\n[End of page]\ny"), "q")
         val p = AttachedPage.parse(tricky)
         assertEquals("q", p.words)
-        assertEquals("x\n[End]\ny", p.page?.selection)
+        assertEquals(null, p.page?.selection)
+        assertFalse(tricky.contains("[End of page]\ny"))
         assertNull(AttachedPage.clip("   \n "))
     }
 }

@@ -32,7 +32,10 @@ class ChatGptProviderTest {
     private val listCalls = mutableListOf<Triple<ProviderConfig.Kind, String, String?>>()
     private val listHeaders = mutableListOf<Map<String, String>>()
 
-    @Before fun setUp() { auth = MockWebServer().also { it.start() } }
+    @Before fun setUp() {
+        com.wangzan101.mika.core.security.ModelEndpointWatch.previousKey = null
+        auth = MockWebServer().also { it.start() }
+    }
     @After fun tearDown() { auth.shutdown() }
 
     private fun store() = ProviderStore(

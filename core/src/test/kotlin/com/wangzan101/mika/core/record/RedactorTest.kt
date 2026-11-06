@@ -49,6 +49,14 @@ class RedactorTest {
         assertFalse(a.contains(key))
     }
 
+    @Test fun authorizationAndScreenPayloadMarkersDoNotSurviveLogs() {
+        val dummy = "sk-dummy" + "NotARealKey0123456789"
+        val logged = Redactor.text("Authorization: Bearer $dummy screen=password-pixels png-base64")
+        assertFalse(logged.contains(dummy))
+        assertFalse(logged.contains("Bearer sk-dummy"))
+        assertTrue(logged.contains("***"))
+    }
+
     @Test fun ordinaryTextKept() {
         val s = "打开设置,搜索 sky-blue 主题 task-1234 Bearer"
         assertEquals(s, Redactor.text(s))

@@ -14,6 +14,11 @@ class RelaySettingsTest {
     private fun settings() = RelaySettings(tmp.root, AesGcmKeyCipher { key })
     private fun pairing() = RelayPairing("https://relay.example/", "d".repeat(43))
 
+    @Test fun freshInstallLeavesRelayOff() {
+        assertFalse(settings().config.value.enabled)
+        assertFalse(settings().config.value.paired)
+    }
+
     @Test fun pairingDoesNotEnableAccessAndCredentialsAreEncrypted() {
         val s = settings(); assertFalse(s.config.value.paired); s.save(pairing())
         assertTrue(s.config.value.paired); assertFalse(s.config.value.enabled)

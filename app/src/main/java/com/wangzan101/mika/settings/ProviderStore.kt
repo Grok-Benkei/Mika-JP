@@ -369,9 +369,14 @@ class ProviderStore(
         typed: Set<String> = emptySet(),
         untested: Boolean = false,
         explicitSelfHosted: Boolean = false,
+        userConfirmed: Boolean = false,
     ): Provider {
         val verdict = com.wangzan101.mika.core.net.EndpointUrlPolicy.checkModel(baseUrl, com.wangzan101.mika.core.net.CleartextPolicy.allowLanHttp())
         if (!verdict.allowed) throw IllegalArgumentException(verdict.reason)
+        val previousKey = com.wangzan101.mika.core.security.ModelEndpointWatch.previousKey
+        if (!userConfirmed && com.wangzan101.mika.core.security.ModelDestinationConsent.needsConfirmation(previousKey, baseUrl)) {
+            throw IllegalArgumentException("destination_unconfirmed")
+        }
         val found = findOrAddProvider(name, kind, baseUrl, signIn)
         // テストをスキップするときに保存するリストがありません。以前にリストされたリストを保持してください。既存のリストを隠すために空のテーブルを使用しないでください。
         val listed = if (untested && models.isEmpty()) found.models ?: models else models
@@ -693,13 +698,19 @@ class ProviderStore(
      * ログイン成功: ログインとリストされたモデルを保存します。同じアカウントでログインした場合、サービスプロバイダーは 1 つだけとなり、再ログイン時に更新されます。
      */
     @Synchronized
-    fun connectAccount(session: AccountSession, models: List<ListedModel>): Provider {
+    fun connectAccount(session: AccountSession, models: List<ListedModel>, userConfirmed: Boolean = false): Provider {
         val (name, kind, base) = when (session.provider) {
             XaiAuth.PROVIDER -> Triple(XAI_NAME, ProviderConfig.Kind.Xai, XaiAuth.API_BASE)
             else -> throw IllegalArgumentException("unknown account provider")
         }
         val existing = _providers.value.firstOrNull { it.kind == kind }
-        if (existing == null) return connect(name, kind, base, session.toJson(), models)
+        if (existing == null) return connect(name, kind, base, session.toJson(), models, userConfirmed = userConfirmed)
+        if (existing.baseUrl != base && !userConfirmed) {
+            val key = com.wangzan101.mika.core.security.ModelDestinationConsent.keyOf(existing.name, existing.baseUrl)
+            if (key == null || com.wangzan101.mika.core.security.ModelDestinationConsent.needsConfirmation(key, base)) {
+                throw IllegalArgumentException("destination_unconfirmed")
+            }
+        }
         val p = existing.copy(name = name, baseUrl = base, models = models)
         _providers.value = _providers.value.map { if (it.id == p.id) p else it }
         _configs.value = _configs.value.map { if (it.providerId == p.id) it.copy(baseUrl = base, name = name) else it }
@@ -719,12 +730,14 @@ class ProviderStore(
     private fun saveAccount(providerId: String, session: AccountSession) {
         if (provider(providerId) == null) return
         setKey(providerId, session.toJson())
+        val current = provider(providerId) ?: return
         val base = session.apiBase
-        if (base.isNotBlank() && provider(providerId)?.baseUrl != base) {
-            _providers.value = _providers.value.map { if (it.id == providerId) it.copy(baseUrl = base) else it }
-            _configs.value = _configs.value.map { if (it.providerId == providerId) it.copy(baseUrl = base) else it }
-            writeConfig()
-        }
+        if (base.isBlank() || current.baseUrl == base) return
+        val key = com.wangzan101.mika.core.security.ModelDestinationConsent.keyOf(current.name, current.baseUrl) ?: return
+        if (com.wangzan101.mika.core.security.ModelDestinationConsent.needsConfirmation(key, base)) return
+        _providers.value = _providers.value.map { if (it.id == providerId) it.copy(baseUrl = base) else it }
+        _configs.value = _configs.value.map { if (it.providerId == providerId) it.copy(baseUrl = base) else it }
+        writeConfig()
     }
 
     // ---------- OpenRouter アカウントでログイン ---------- 1 つの
@@ -737,8 +750,8 @@ class ProviderStore(
      * 承認された方が更新します。ユーザーが自分でKeyを入力するOpenRouterは動かず、両社が共存します。
      */
     @Synchronized
-    fun connectOpenRouter(apiKey: String, models: List<ListedModel>): Provider =
-        connect(OPENROUTER_NAME, ProviderConfig.Kind.OpenAiCompat, OpenRouterAuth.API_BASE, apiKey, models, signIn = OPENROUTER_SIGN_IN)
+    fun connectOpenRouter(apiKey: String, models: List<ListedModel>, userConfirmed: Boolean = false): Provider =
+        connect(OPENROUTER_NAME, ProviderConfig.Kind.OpenAiCompat, OpenRouterAuth.API_BASE, apiKey, models, signIn = OPENROUTER_SIGN_IN, userConfirmed = userConfirmed)
 
     /** OpenRouter を終了してログインします。この電話機のキーを削除します。サービスプロバイダー、モデル、目的を保持します。 OpenRouter のキーを使用するには、ユーザーが [キー] ページでキーを削除する必要があります。 */
     @Synchronized

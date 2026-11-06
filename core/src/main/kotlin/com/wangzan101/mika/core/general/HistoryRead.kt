@@ -6,6 +6,7 @@ import com.wangzan101.mika.core.observation.Observation
 import com.wangzan101.mika.core.observation.Trust
 import com.wangzan101.mika.core.observation.Untrusted
 import com.wangzan101.mika.core.prompt.Feedback
+import com.wangzan101.mika.core.security.EgressPolicy
 import com.wangzan101.mika.core.prompt.Prompts
 import com.wangzan101.mika.core.record.RunEvent
 import com.wangzan101.mika.core.record.RunRecords
@@ -124,8 +125,10 @@ internal object HistoryRead : AgentTool {
                     buildJsonObject {
                         put("n", offset + i)
                         put("kind", item.kind)
-                        item.where?.let { put("where", it) }
-                        put("text", if (item.untrusted) Untrusted.wrap(item.text) else item.text)
+                        val replay = EgressPolicy.replayBody(item.untrusted, item.source, item.where)
+                        val body = if (replay) item.text else "egress_blocked:replay"
+                        if (replay) item.where?.let { put("where", it) }
+                        put("text", if (item.untrusted) Untrusted.wrap(body) else body)
                     }
                 }))
                 if (next < items.size) put("nextOffset", next)
@@ -133,13 +136,14 @@ internal object HistoryRead : AgentTool {
         }
         // 私が読んだ原文は検証のために提出されます。回答が以前のラウンドで読んだ内容を使用している場合、それは十分に文書化されています（出典も歴史として記録され、当時の場面を参照していません）
         val observations = page.mapNotNull { item ->
-            item.obsKind?.let { Observation(it, item.text, source = SOURCE, title = item.where, trust = if (item.untrusted) Trust.Untrusted else Trust.Trusted) }
+            val body = if (EgressPolicy.replayBody(item.untrusted, item.source, item.where)) item.text else "egress_blocked:replay"
+            item.obsKind?.let { Observation(it, body, source = SOURCE, title = if (body.startsWith("egress_blocked")) null else item.where, trust = if (item.untrusted) Trust.Untrusted else Trust.Trusted) }
         }
         return ToolExecution(content, observations = observations)
     }
 
     /** 記録内の読み取り可能なもの: ミカの進行状況の説明 (メモ、電話の応答の言葉)、または読み取られた元のテキスト (観察の種類)。 */
-    private class Item(val kind: String, val text: String, val where: String?, val untrusted: Boolean, val obsKind: ObsKind?)
+    private class Item(val kind: String, val text: String, val where: String?, val untrusted: Boolean, val obsKind: ObsKind?, val source: String? = null)
 
     private fun items(events: List<RunEvent>): List<Item> {
         val seen = mutableSetOf<String>()
@@ -150,7 +154,7 @@ internal object HistoryRead : AgentTool {
                     ?.let { Item(NOTE, clip(it, ITEM_CHARS), null, false, null) }
                 is RunEvent.Observed -> e.text.trim().takeIf { it.isNotEmpty() && seen.add(it) }?.let {
                     val o = e.observation()
-                    Item(o.kind.wire, clip(it, ITEM_CHARS), o.title ?: o.place?.name, e.untrusted, o.kind)
+                    Item(o.kind.wire, clip(it, ITEM_CHARS), o.title ?: o.place?.name, e.untrusted, o.kind, o.source)
                 }
                 else -> null
             }

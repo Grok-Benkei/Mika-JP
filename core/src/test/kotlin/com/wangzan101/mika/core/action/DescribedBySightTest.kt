@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -55,22 +56,18 @@ class DescribedBySightTest {
         val screen = Blind()
         val vision = model("""{"bbox_2d":[0,880,800,940],"seen":"输入框"}""", "是")
         val c = content(type(executor(screen, vision), """{"element":"底部的消息输入框","text":"明天见"}"""))
-        assertEquals(c.toString(), "true", c.s("ok"))
-        // 0～999のフレームの中心をピクセルに変更し、クリックして貼り付けます
-        assertEquals(listOf("typeAt 432,2183 明天见"), screen.calls)
-        assertEquals("true", c.s("foundBySight"))
-        assertEquals("底部的消息输入框", c.s("resolvedFrom"))
-        assertEquals("输入框", c.s("seen"))
-        // 写真を見てください。裏付けとなる証拠はありません。とにかくマークを付けてください。
-        assertEquals("true", c.s("unverifiedPoint"))
-        assertEquals(2, vision.requests.size)
+        assertEquals("element_not_found", c.s("error"))
+        assertTrue(c.s("message"), "egress_blocked" in c.s("message"))
+        assertTrue(screen.calls.isEmpty())
+        assertTrue(vision.requests.isEmpty())
+        assertFalse("seen" in c)
     }
 
     @Test fun notSeenIsReportedAndNothingIsTyped() = runTest {
         val screen = Blind()
         val c = content(type(executor(screen, model("null")), """{"element":"底部的消息输入框","text":"明天见"}"""))
         assertEquals("element_not_found", c.s("error"))
-        assertTrue(c.s("message"), "not_found" in c.s("message") && Feedback["described.not_seen.retry"] in c.s("message"))
+        assertTrue(c.s("message"), "egress_blocked" in c.s("message"))
         assertTrue(screen.calls.isEmpty())
     }
 
@@ -79,8 +76,10 @@ class DescribedBySightTest {
         val screen = Blind()
         val vision = model("""{"bbox_2d":[800,880,999,940],"seen":"发送"}""", "是")
         val o = type(executor(screen, vision), """{"element":"右下角的框","text":"明天见"}""")
-        assertTrue("$o", o is ActionOutcome.Ran)
-        assertTrue(screen.calls.isNotEmpty())
+        val c = content(o)
+        assertEquals("element_not_found", c.s("error"))
+        assertTrue(screen.calls.isEmpty())
+        assertTrue(vision.requests.isEmpty())
     }
 
     @Test fun readableTreeWithoutAMatchDoesNotLookBySight() = runTest {
