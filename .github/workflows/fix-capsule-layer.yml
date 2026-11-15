@@ -1,0 +1,36 @@
+name: カプセル表示レイヤー修正
+on:
+  push:
+    branches: [fix/capsule-overlay-layer]
+permissions:
+  contents: write
+concurrency:
+  group: capsule-layer-fix
+  cancel-in-progress: false
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: 修正を作成
+        run: |
+          python3 -c "import base64,zlib;exec(zlib.decompress(base64.b64decode('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')))"
+      - name: SDK
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
+      - name: 単体テストとAndroidビルド
+        run: bash ./gradlew --no-daemon --console=plain --max-workers=4 :app:testDebugUnitTest :app:assembleDebug
+      - name: テスト成功時だけ修正ブランチを更新
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app docs/capsule-overlay-compatibility.md
+          git diff --cached --check
+          git commit -m "fix: lower capsule overlays with optional application overlay permission"
+          git push origin HEAD:fix/capsule-overlay-layer
