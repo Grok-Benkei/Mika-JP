@@ -288,6 +288,7 @@ fun SettingsContent(
                 RowValue(CapsuleSettingsCopy.label(capsuleMode))
                 RowChevron()
             }
+            CapsuleOverlayPermissionRow()
             ListRow(MikaIcons.Globe, stringResource(R.string.settings_language_appearance), onClick = onOpenLanguage) {
                 RowValue(languageLabel(language))
                 RowChevron()
