@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- カプセルを通常のフローティングレイヤーに置く任意の互換性設定。ユーザーが設定で許可する。 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- 長押しすると、話しながら録音し、テキストに変換します。 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- ユーザーは、バージョン情報ページで新しいバージョンをダウンロードした後、それをシステム インストーラーに送信して、オーバーレイのインストールを確認します。 -->

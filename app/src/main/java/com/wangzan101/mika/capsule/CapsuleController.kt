@@ -203,6 +203,7 @@ class CapsuleController(
      * 切り替えでウィンドウを移動するとシステムの移動アニメーションが出るため、位置は固定し、
      * 使わないウィンドウを明示的に非表示にしてから内容を空にする。
      */
+    private var applicationLayer = false
     private var window: OverlayWindow? = null
     private var cardWindow: OverlayWindow? = null
     /** 話すときは、カプセルの窓の下にあるパネルを押し続けます (暗いですが、カプセルは覆われていません)。通常は空で、サイズはありません。追加できない場合は、長押しして話すことはできません。 */
@@ -310,6 +311,19 @@ class CapsuleController(
     private fun render(s: Snapshot) {
         last = s
         val service = s.service
+        val nextLayer = android.provider.Settings.canDrawOverlays(context)
+        if (applicationLayer != nextLayer) {
+            // 設定画面から戻った時は3枚を同じレイヤーで作り直す。ドラッグ中には作り直さない。
+            talk.abort()
+            cardWindow?.close()
+            window?.close()
+            panelWindow?.close()
+            cardWindow = null
+            window = null
+            panelWindow = null
+            failedOn = null
+            applicationLayer = nextLayer
+        }
         if (windowOn != null && windowOn !== service) {
             talk.abort()
             window = null
@@ -362,9 +376,9 @@ class CapsuleController(
     private fun openWindows(service: ScreenAccessibility): OverlayWindow? {
         val overlays = service.overlays()
         // パネルは最初にカプセルの下に追加されます。カプセルを覆わないように暗いレイヤーを押します。
-        val panel = overlays.open(OverlayPlacement(Gravity.TOP or Gravity.LEFT), touchable = false) { VoicePanelOverlay() }
-        val ball = overlays.open(OverlayPlacement(Gravity.TOP or Gravity.RIGHT)) { CapsuleOverlay() }
-        val cardW = ball?.let { overlays.open(OverlayPlacement(Gravity.TOP or Gravity.CENTER_HORIZONTAL), ::outside) { CardOverlay() } }
+        val panel = overlays.open(OverlayPlacement(Gravity.TOP or Gravity.LEFT), touchable = false, applicationLayer = applicationLayer) { VoicePanelOverlay() }
+        val ball = overlays.open(OverlayPlacement(Gravity.TOP or Gravity.RIGHT), applicationLayer = applicationLayer) { CapsuleOverlay() }
+        val cardW = ball?.let { overlays.open(OverlayPlacement(Gravity.TOP or Gravity.CENTER_HORIZONTAL), ::outside, applicationLayer = applicationLayer) { CardOverlay() } }
         if (ball == null || cardW == null) {
             ball?.close()
             panel?.close()
