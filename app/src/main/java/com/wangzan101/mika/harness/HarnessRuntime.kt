@@ -10,6 +10,11 @@ import com.github.luben.zstd.ZstdInputStream
 import com.wangzan101.mika.harness.tar.TarExtractor
 import com.wangzan101.mika.harness.tar.FsTree
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
@@ -58,6 +63,7 @@ class HarnessRuntime private constructor(context: Context) {
     )
     val state = _state.asStateFlow()
     @Volatile private var process: Process? = null
+    @Volatile private var installation: Job? = null
 
     fun installed(): Boolean = ready.isFile && base.isDirectory &&
         File(harness, "opt/dsh").isDirectory && File(harness, "usr/local/bin/dsh").isFile
@@ -74,20 +80,31 @@ class HarnessRuntime private constructor(context: Context) {
         }
         keepAlive()
         _state.value = Status(Phase.DOWNLOADING, "ランタイムを準備しています")
-        scope.launch {
-            lock.withLock {
-                if (installed()) {
-                    _state.value = Status(Phase.INSTALLED, "インストール済み")
-                    return@withLock
+        installation = scope.launch {
+            try {
+                lock.withLock {
+                    if (installed()) {
+                        app.stopService(Intent(app, HarnessService::class.java))
+                        _state.value = Status(Phase.INSTALLED, "インストール済み")
+                        return@withLock
+                    }
+                    try {
+                        installNow()
+                        // Stop the install service before exposing the Start button to avoid a lifecycle race.
+                        app.stopService(Intent(app, HarnessService::class.java))
+                        _state.value = Status(Phase.INSTALLED, "インストール完了。起動できます")
+                    } catch (e: CancellationException) {
+                        app.stopService(Intent(app, HarnessService::class.java))
+                        _state.value = Status(Phase.NOT_INSTALLED, "導入を中止しました")
+                        throw e
+                    } catch (e: Exception) {
+                        app.stopService(Intent(app, HarnessService::class.java))
+                        _state.value = Status(Phase.FAILED, "導入失敗: " + (e.message ?: e.javaClass.simpleName))
+                    }
                 }
-                try {
-                    installNow()
-                    _state.value = Status(Phase.INSTALLED, "インストール完了。起動できます")
-                } catch (e: Exception) {
-                    _state.value = Status(Phase.FAILED, "導入失敗: " + (e.message ?: e.javaClass.simpleName))
-                }
+            } finally {
+                installation = null
             }
-            app.stopService(Intent(app, HarnessService::class.java))
         }
     }
 
@@ -112,6 +129,13 @@ class HarnessRuntime private constructor(context: Context) {
                     }.start()
                     process = proc
                     scope.launch { watchOutput(proc, port) }
+                    scope.launch {
+                        delay(240_000)
+                        if (process === proc && _state.value.phase == Phase.STARTING) {
+                            stop()
+                            _state.value = Status(Phase.FAILED, "Harnessの起動がタイムアウトしました")
+                        }
+                    }
                     scope.launch {
                         val code = proc.waitFor()
                         if (process === proc) {
@@ -145,6 +169,8 @@ class HarnessRuntime private constructor(context: Context) {
     }
 
     fun stop() {
+        installation?.cancel()
+        client.dispatcher.cancelAll()
         stopProcess()
         app.stopService(Intent(app, HarnessService::class.java))
     }
@@ -171,12 +197,13 @@ class HarnessRuntime private constructor(context: Context) {
         Layer("dsh-runtime-harness-arm64-v8a.tar.zst", 86_054_370L, "6866a922c6a7abf39f97aa106d3dc490ac735f4e350146d686c08533bad67252"),
     )
 
-    private fun installNow() {
+    private suspend fun installNow() {
+        val jobContext = currentCoroutineContext()
         root.mkdirs()
         downloads.mkdirs()
         if (StatFs(root.path).availableBytes < 1_400_000_000L)
             error("1.4GB以上の空き容量が必要です")
-        val archives = layers.map { downloadVerified(it) }
+        val archives = layers.map { jobContext.ensureActive(); downloadVerified(it, jobContext) }
         val stagedBase = File(root, ".base-stage")
         val stagedHarness = File(root, ".harness-stage")
         try {
@@ -185,7 +212,8 @@ class HarnessRuntime private constructor(context: Context) {
                 check(dest.mkdirs()) { "展開ディレクトリを作成できません" }
                 _state.value = Status(Phase.UNPACKING, "ランタイムを展開中 (" + (index + 1) + "/2)")
                 ZstdInputStream(BufferedInputStream(FileInputStream(archives[index]))).use { stream ->
-                    TarExtractor(AndroidFsOps).extract(stream, dest)
+                    TarExtractor(AndroidFsOps).extract(stream, dest,
+                        checkCancelled = { jobContext.ensureActive() })
                 }
             }
             check(File(stagedHarness, "opt/dsh").isDirectory)
@@ -209,7 +237,7 @@ class HarnessRuntime private constructor(context: Context) {
         }
     }
 
-    private fun downloadVerified(layer: Layer): File {
+    private fun downloadVerified(layer: Layer, jobContext: CoroutineContext): File {
         val dest = File(downloads, layer.name)
         if (dest.isFile && dest.length() == layer.size && digest(dest) == layer.sha256) return dest
         val part = File(downloads, layer.name + ".partial")
@@ -225,6 +253,7 @@ class HarnessRuntime private constructor(context: Context) {
                         val buffer = ByteArray(64 * 1024)
                         var bytes = 0L
                         while (true) {
+                            jobContext.ensureActive()
                             val n = it.read(buffer)
                             if (n < 0) break
                             bytes += n
