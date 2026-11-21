@@ -349,7 +349,7 @@ class HarnessRuntime private constructor(context: Context) {
             File(harness, "usr/local/bin/dsh").path + ":/usr/local/bin/dsh",
         )
         // Shell prints its PID before exec'ing proot; PID survives exec for targeted shutdown.
-        return listOf("/system/bin/sh", "-c", "echo \\$\\$; exec \\\"\\$@\\\"", "sh", lib.path,
+        return listOf("/system/bin/sh", "-c", "echo \$\$; exec \"\$@\"", "sh", lib.path,
             "--kill-on-exit", "--link2symlink", "-0", "-r", base.path) +
             binds.flatMap { listOf("-b", it) } +
             listOf("-w", "/root", "/usr/bin/env", "-i",
