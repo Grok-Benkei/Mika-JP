@@ -63,6 +63,7 @@ class HarnessRuntime private constructor(context: Context) {
     )
     val state = _state.asStateFlow()
     @Volatile private var process: Process? = null
+    @Volatile private var prootPid: Int? = null
     @Volatile private var installation: Job? = null
 
     fun installed(): Boolean = ready.isFile && base.isDirectory &&
@@ -155,8 +156,19 @@ class HarnessRuntime private constructor(context: Context) {
     /** Never persist or log the one-time URL bearing the browser launch token. */
     private fun watchOutput(proc: Process, expectedPort: Int) {
         proc.inputStream.bufferedReader().useLines { lines ->
+            var firstLine = true
             lines.forEach { line ->
-                val raw = line.substringAfter("dsh web: ", "").trim()
+                if (firstLine) {
+                    firstLine = false
+                    val pid = line.trim().toIntOrNull()
+                    if (pid != null && pid > 1) {
+                        if (process === proc) prootPid = pid
+                        return@forEach
+                    }
+                }
+                // Harness may print colour sequences around the startup URL.
+                val raw = line.replace(Regex("\u001B\\[[0-9;?]*[ -/]*[@-~]"), "")
+                    .substringAfter("dsh web: ", "").trim().substringBefore(' ')
                 if (raw.isEmpty()) return@forEach
                 val url = runCatching { Uri.parse(raw) }.getOrNull() ?: return@forEach
                 if (url.scheme == "http" && url.host in listOf("127.0.0.1", "localhost") &&
@@ -177,14 +189,33 @@ class HarnessRuntime private constructor(context: Context) {
 
     internal fun stopProcess() {
         val p = process
+        val pid = prootPid
         process = null
-        p?.destroy()
+        prootPid = null
+        p?.destroy() // PRoot normally ignores SIGTERM, so follow with SIGQUIT.
         if (p != null) scope.launch {
+            delay(1_500)
+            if (p.isAlive && pid != null) signalTrackedProot(pid)
             delay(1_500)
             if (p.isAlive) p.destroyForcibly()
         }
         if (_state.value.phase in setOf(Phase.RUNNING, Phase.STARTING))
             _state.value = Status(Phase.INSTALLED, "停止しました")
+    }
+
+    /** Refuse to signal any unrelated or recycled PID. */
+    private fun signalTrackedProot(pid: Int) {
+        runCatching {
+            val expected = File(app.applicationInfo.nativeLibraryDir, "libproot.so").path
+            val command = File("/proc/$pid/cmdline").readBytes()
+                .takeWhile { it != 0.toByte() }.toByteArray().toString(Charsets.UTF_8)
+            if (command != expected) return
+            val uid = File("/proc/$pid/status").useLines { lines ->
+                lines.firstOrNull { it.startsWith("Uid:") }?.trim()?.split(Regex("\\s+"))?.getOrNull(1)?.toIntOrNull()
+            }
+            if (uid != android.os.Process.myUid()) return
+            android.os.Process.sendSignal(pid, 3) // SIGQUIT: PRoot kills traced children.
+        }
     }
 
     private fun keepAlive() {
@@ -317,7 +348,9 @@ class HarnessRuntime private constructor(context: Context) {
             File(harness, "opt/dsh").path + ":/opt/dsh",
             File(harness, "usr/local/bin/dsh").path + ":/usr/local/bin/dsh",
         )
-        return listOf(lib.path, "--kill-on-exit", "--link2symlink", "-0", "-r", base.path) +
+        // Shell prints its PID before exec'ing proot; PID survives exec for targeted shutdown.
+        return listOf("/system/bin/sh", "-c", "echo \\$\\$; exec \\\"\\$@\\\"", "sh", lib.path,
+            "--kill-on-exit", "--link2symlink", "-0", "-r", base.path) +
             binds.flatMap { listOf("-b", it) } +
             listOf("-w", "/root", "/usr/bin/env", "-i",
                 "HOME=/root", "USER=root", "LOGNAME=root", "LANG=C.UTF-8", "TERM=dumb",
