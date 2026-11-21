@@ -15,6 +15,7 @@ import com.wangzan101.mika.core.shell.HelperHandoff
 import com.wangzan101.mika.core.shell.HelperRestoreReport
 import com.wangzan101.mika.core.shell.NonceSlots
 import com.wangzan101.mika.core.shell.NonceStore
+import com.wangzan101.mika.quit.MikaQuit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,6 +38,10 @@ class HelperHub(context: Context) {
     private val _restores = MutableStateFlow<HelperRestoreReport?>(null)
     /** アシスタント引き継ぎ時間からの「ミカが殺された後に引き上げられた」記録（診断情報用）。プルされない場合は null です。 */
     val restores: StateFlow<HelperRestoreReport?> = _restores.asStateFlow()
+
+    /** 最近一次交接拒绝的固定枚举;不含口令、Binder、包路径或调用方数据。 */
+    @Volatile var lastHandoffRejection: String? = null
+        private set
 
     /** は、アシスタントを通じてこのプロセスの WebView デバッグ ソケットに接続します。アシスタントが利用できない場合は IOException がスローされ、アシスタントが拒否するか接続できない場合は null がスローされます。 */
     fun openDevtoolsSocket(endpoint: String): ParcelFileDescriptor? {
@@ -69,6 +74,7 @@ class HelperHub(context: Context) {
      */
     @Synchronized
     fun offer(extras: Bundle?, callingUid: Int, callingPid: Int): Bundle {
+        if (MikaQuit.requested(app)) return Bundle()
         val binder = extras?.getBinder(HelperHandoff.KEY_BINDER)
         HelperHandoff.check(
             callingUid, callingPid,
@@ -109,6 +115,7 @@ class HelperHub(context: Context) {
     }
 
     private fun reject(why: HelperHandoff.Reject): Bundle {
+        lastHandoffRejection = why.name
         Log.w(TAG, "helper handoff rejected: $why")
         return Bundle().apply {
             putBoolean(HelperHandoff.KEY_ACCEPTED, false)

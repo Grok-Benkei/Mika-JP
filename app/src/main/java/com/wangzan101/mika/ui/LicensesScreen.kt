@@ -112,6 +112,8 @@ object Licenses {
         Entry("scrcpy", "Apache-2.0", "シェルユーザーでシステムの Context を取得する方法は scrcpy を参考にしています。該当ソースの冒頭に出典を保持しています。"),
         Entry("Alpine Linux", "各パッケージのライセンス", RUNTIME_NOTE),
         Entry("XZ for Java", "0BSD", "バージョン1.10。同梱の実行環境の解凍に使います。https://tukaani.org/xz/java.html"),
+        Entry("DeepSeek Harness runtime and DSH Mobile code", "MIT", "DeepSeek Harnessの別途取得ランタイムと、MITライセンスのDSH Mobile由来tar展開コード。ソースとライセンスはdocs/harness-integration.mdおよび第三者NOTICEを参照。"),
+        Entry("zstd-jni", "BSD-2-Clause / BSD-3-Clause または GPL-2.0", "バージョン1.5.7-12。Harness用zstdランタイムの解凍に使用。https://github.com/luben/zstd-jni"),
         Entry("commonmark-java", "BSD-2-Clause", "バージョン0.30.1。表と取消線の拡張を含み、回答のMarkdown表示に使います。Copyright (c) 2015, Atlassian Pty Ltd. https://github.com/commonmark/commonmark-java"),
     )
 }

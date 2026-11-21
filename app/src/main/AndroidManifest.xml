@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- カプセルを通常のフローティングレイヤーに置く任意の互換性設定。ユーザーが設定で許可する。 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- 長押しすると、話しながら録音し、テキストに変換します。 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- ユーザーは、バージョン情報ページで新しいバージョンをダウンロードした後、それをシステム インストーラーに送信して、オーバーレイのインストールを確認します。 -->
@@ -100,6 +102,22 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".quit.CompleteStopActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.DeviceDefault.Dialog.NoActionBar" />
+
+        <!-- Opt-in local DeepSeek Harness: private to this APK. -->
+        <activity android:name=".harness.HarnessActivity"
+            android:exported="false" android:theme="@style/Theme.Mika"
+            android:windowSoftInputMode="adjustResize" />
+        <service android:name=".harness.HarnessService"
+            android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-started local DeepSeek Harness runtime" />
+        </service>
         <!-- 通知内の引き継ぎボタンの配置ポイント: 通知からアクティビティが開始された場合にのみ通知バーが閉じられ、ユーザーはホーム画面に移動したアプリを直接確認できます。 -->
         <activity
             android:name=".takeover.TakeoverActivity"
@@ -229,6 +247,8 @@
         <receiver
             android:name=".setup.PairingCodeReceiver"
             android:exported="false" />
+
+        <receiver android:name=".payment.PaymentPauseReceiver" android:exported="false" />
 
         <!-- 組み込みアシスタント (シェル ID) ハンドオーバー バインダーの入り口: シェルにはこの権限がありますが、通常のアプリにはありません。
              入力後、発信者 UID、ワンタイム パスワード、APK を確認する必要があります。HelperHub.offer を参照してください。 -->

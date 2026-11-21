@@ -39,6 +39,7 @@ import com.wangzan101.mika.cap.phone.shell.adb.NsdAdbServiceFinder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -71,11 +72,20 @@ class BuiltinShellManager(context: Context, private val hub: HelperHub, private 
     val root = RootControl(app, scope) { engine.rootChanged() }
 
     private val platform: AndroidPlatform by lazy {
-        AndroidPlatform(app, hub, root, { lastConnectCandidates = it }, { _scanningPorts.value = it })
+        AndroidPlatform(
+            app, hub, root,
+            { lastConnectCandidates = it },
+            { _scanningPorts.value = it },
+            { lastHelperLaunchStage = it },
+        )
     }
 
     /** 前回接続ポートを検索したとき、さまざまなソースからいくつかの候補が提供されました (診断情報用)。今回は、プロセス内で接続が接続されていない場合は null でした。 */
     @Volatile var lastConnectCandidates: ConnectCandidates? = null
+        private set
+
+    /** 最近一次启动助手走到的确定阶段;不包含口令、地址、命令行或异常原文。 */
+    @Volatile var lastHelperLaunchStage: String? = null
         private set
 
     /** アシスタントを開始するときにユーザーのワイヤレス デバッグをオンにします。アプリ自体のみがシステム設定を書き込みます (アシスタントを開始するときに他の接続は使用できません)。 */
@@ -121,6 +131,8 @@ class BuiltinShellManager(context: Context, private val hub: HelperHub, private 
         engine.retry()
     }
 
+    fun stop() = scope.cancel()
+
     @Synchronized
     fun start() {
         if (started || Build.VERSION.SDK_INT < MIN_SDK) return
@@ -154,6 +166,7 @@ class BuiltinShellManager(context: Context, private val hub: HelperHub, private 
         private val root: RootControl,
         private val candidates: (ConnectCandidates) -> Unit,
         private val scanning: (Boolean) -> Unit,
+        private val launchStage: (String) -> Unit,
     ) : BuiltinShellPlatform {
         /** ユーザーが入力したポートは、次回の接続から削除されます。 */
         val manualPort = AtomicReference<Int?>(null)
@@ -235,16 +248,22 @@ class BuiltinShellManager(context: Context, private val hub: HelperHub, private 
         }
 
         override suspend fun launchHelper() {
+            launchStage("preparing")
             val tls = AndroidAdb.tls(AndroidAdb.identity(app))
             // アシスタントは引き継ぎの前にミカの署名をチェックします
             val command = HelperHandoff.command(app.applicationInfo.sourceDir, app.packageName, Process.myUid(), ownCertPin(app))
+            launchStage("adb_connecting")
             val connection = connect(tls)
+            launchStage("adb_connected")
             // sh ストリームが開いている場合は待機します。ハンドオーバーされる (またはタイムアウトになる) と、再びオフになります。ハンドオーバー結果は引き続き HelperHub からのエンジンによって判断されます。
             val before = hub.shell.value
             connection.use {
                 val stream = it.exec(command)
+                launchStage("exec_opened")
                 stream.write(HelperHandoff.stdinLine(hub.issueLaunchNonce()))
-                withTimeoutOrNull(HANDOFF_WAIT_MS) { hub.shell.first { s -> s != null && s !== before } }
+                launchStage("launch_nonce_written")
+                val handedOff = withTimeoutOrNull(HANDOFF_WAIT_MS) { hub.shell.first { s -> s != null && s !== before } }
+                launchStage(if (handedOff != null) "handoff_received" else "handoff_timeout")
             }
         }
 

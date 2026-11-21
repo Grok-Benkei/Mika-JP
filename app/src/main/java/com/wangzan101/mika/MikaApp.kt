@@ -51,6 +51,7 @@ import com.wangzan101.mika.ui.TaskActions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.combine
@@ -88,6 +89,9 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
 
     val remoteTasks by lazy { RemoteTaskHub(this) }
 
+    /** 本人が許可したメイン画面の起動・ロック解除。PC接続と定時タスクで同じ処理を共有する。 */
+    val deviceAccess by lazy { com.wangzan101.mika.device.AndroidDeviceAccess(this) { phone.hub.shell.value } }
+
     /**
      * コンピューター接続 (MCP): スイッチ、アクセス トークン (サービス プロバイダーのキーと同様に暗号化および保存)、モニタリング。 LAN タイプはデフォルトではオフになっています。
      * USB は、今度はシャットダウンされるまで、adb 経由でコンピューターによって開かれます (ブート番号は、シェルで読み取られた `settings get global boot_count` と同じです)。
@@ -99,7 +103,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             com.wangzan101.mika.settings.McpUsbSettings(settingsDir,
                 bootId = { android.provider.Settings.Global.getString(contentResolver, android.provider.Settings.Global.BOOT_COUNT) ?: "null" },
                 infoFile = { getExternalFilesDir(null)?.let { java.io.File(it, com.wangzan101.mika.core.mcp.McpUsb.INFO_FILE) } }),
-            remoteTasks, com.wangzan101.mika.device.AndroidDeviceAccess(this) { phone.hub.shell.value },
+            remoteTasks, deviceAccess,
             com.wangzan101.mika.settings.RelaySettings(settingsDir, com.wangzan101.mika.settings.KeystoreKeyCipher("mika-remote-relay")))
     }
     val childRuns by lazy { FileChildRunStore(java.io.File(filesDir, "children-v3.json")) }
@@ -242,6 +246,20 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
     /** 他のアプリの上に浮かぶ浮遊カプセル。 */
     val capsule: CapsuleController by lazy { CapsuleController(this, taskState, foreground, resources.takeoverQueue) }
 
+    val paymentPause by lazy {
+        com.wangzan101.mika.core.shell.PaymentPauseController(
+            phone.recoverySettings,
+            shouldRestoreAccessibility = {
+                phone.recovery.accessibility.value.enabled ||
+                    phone.recoverySettings.consent.value.wants(com.wangzan101.mika.core.shell.RecoveryCapability.Accessibility)
+            },
+            disableAccessibility = { phone.recovery.setAccessibilityForPayment(false) },
+            enableAccessibility = { phone.recovery.setAccessibilityForPayment(true) },
+            resumeAllowed = { !com.wangzan101.mika.quit.MikaQuit.blocksWork(this) },
+        )
+    }
+    val paymentNotifications by lazy { com.wangzan101.mika.payment.PaymentPauseNotifications(this) }
+
     /** ダイアログ ページのステータスはプロセスに従います。インターフェイスが閉じられてから開かれた後も、実行中のタスクのステップはそのまま残ります。 */
     val chat: ChatViewModel by lazy {
         val app = this
@@ -275,6 +293,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
                 override fun answerIn(conversationId: String, text: String) { key(conversationId)?.let { TaskService.answer(app, text, it) } }
                 override fun approveIn(conversationId: String, key: Int) { key(conversationId)?.let { TaskService.approve(app, key, it) } }
                 override fun declineIn(conversationId: String, key: Int) { key(conversationId)?.let { TaskService.decline(app, key, it) } }
+                override fun unmuteIn(conversationId: String) { taskState.run(conversationId)?.unmute() }
             },
             conversations,
             taskState.busy,
@@ -322,6 +341,14 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
         AppLanguage.applyDefaultLocale(this)
     }
 
+    private var runtimeStarted = false
+    private val restoreWishSync by lazy {
+        com.wangzan101.mika.cap.phone.setup.RestoreWishSync(
+            phone.hub, FeatureFlags.get(this).capsuleModeChanges(), taskState.busy,
+            phone.recoverySettings.consent, phone.recovery.accessibility,
+        )
+    }
+
     override fun onCreate() {
         super.onCreate()
         // インターフェース以外のテキスト（通知、サービス、フローティングカプセル）はアプリ言語に従って取得されます。
@@ -329,6 +356,12 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
         AppLanguage.applyDefaultLocale(this)
         UiText.source = ResourceTexts { AppLanguage.resources(this) }
         registerActivityLifecycleCallbacks(foreground)
+        startRuntime()
+    }
+
+    internal fun startRuntime() {
+        if (runtimeStarted || com.wangzan101.mika.quit.MikaQuit.requested(this)) return
+        runtimeStarted = true
         // 設定 › ネットワーク プロキシ: 最初のリクエストからミカ自身の接続が渡されます。 SOCKS プロキシのアカウント パスワードは、プロセス全体の認証者によって与えられます。
         com.wangzan101.mika.settings.NetProxyStore.get(this)
         com.wangzan101.mika.core.net.NetProxy.shared.installSocksAuth()
@@ -340,9 +373,8 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
         // は、接続が利用可能になるとすぐにデフォルトで有効になるいくつかの機能を追加します。
         phone.recovery.start()
         // 内蔵アシスタントに指示: 殺された後にミカを引き上げるかどうか (これはカプセルが常に表示されている場合、またはタスクが実行されている場合にのみ必要です)
-        com.wangzan101.mika.cap.phone.setup.RestoreWishSync(
-            phone.hub, FeatureFlags.get(this).capsuleModeChanges(), taskState.busy, phone.recoverySettings.consent, phone.recovery.accessibility,
-        ).start()
+        restoreWishSync.start()
+        paymentNotifications.start()
         // 前回の異常終了（アプリがミュート）時に残された変更がここに復元されます。
         scope.launch { taskRecovery.recover() }
         // 最後のプロセスが強制終了されたときに操作は終了しませんでした。現在中断としてマークして通知し、タスクが処理されるのを待ちます。
@@ -365,5 +397,14 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             val state = SandboxState.get(this@MikaApp)
             runCatching { SkillsSync.sync(SandboxDirs(this@MikaApp)) { state.status.value is SandboxStatus.Ready } }
         }
+    }
+
+    internal suspend fun stopRuntimeForQuit() {
+        scope.cancel()
+        capsule.stopNow()
+        phone.shellManager.stop()
+        phone.recovery.stop()
+        paymentNotifications.stop()
+        restoreWishSync.stop()
     }
 }

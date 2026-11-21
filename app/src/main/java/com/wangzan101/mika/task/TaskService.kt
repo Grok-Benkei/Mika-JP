@@ -178,6 +178,10 @@ class TaskService : Service() {
     private fun waitKeyOf(intent: Intent) = intent.getIntExtra(EXTRA_WAIT_KEY, -1).takeIf { it >= 0 }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (com.wangzan101.mika.quit.MikaQuit.blocksWork(this)) {
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
         lastStartId = startId
         // 通知ボタンにはタスク番号が含まれており、そのタスクに対してのみ動作します (タスクが終了すると有効になりません)。アプリケーションのボタンは表示されたタスクに作用します
         val run = if (intent?.hasExtra(EXTRA_RUN) == true) intent.getStringExtra(EXTRA_RUN)?.let(center::byKey) else taskState.shownRun
@@ -331,6 +335,8 @@ class TaskService : Service() {
             } catch (e: RemoteException) {
                 run.shellDied = true
                 TaskState.Failed(SHELL_DIED, FailKind.Environment)
+            } catch (e: UnattendedLockException) {
+                TaskState.Failed(e.message, FailKind.Environment)
             } catch (e: com.wangzan101.mika.core.access.AppAccessDenied) {
                 val reason = when (e.code) {
                     "app_blocked" -> tr(R.string.task_app_blocked, e.packageName ?: tr(R.string.task_app_this_app))

@@ -26,8 +26,8 @@ android {
         applicationId = "jp.studioyebisu.mika"
         minSdk = 30
         targetSdk = 35
-        versionCode = 38
-        versionName = "0.1.36-jp.1"
+        versionCode = 41
+        versionName = "0.1.40-jp.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "GIT_HASH", "\"$gitHash\"")
         // 正式版に移行したら、バージョン番号の後ろに付けるベータ表示を無効にする。
@@ -111,6 +111,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.xz)
+    implementation("com.github.luben:zstd-jni:1.5.7-12")
     implementation(libs.commonmark)
     implementation(libs.commonmark.ext.gfm.tables)
     implementation(libs.commonmark.ext.gfm.strikethrough)

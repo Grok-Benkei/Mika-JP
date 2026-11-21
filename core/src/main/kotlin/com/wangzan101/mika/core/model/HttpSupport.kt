@@ -2,6 +2,7 @@ package com.wangzan101.mika.core.model
 
 import com.wangzan101.mika.core.net.NetProxy
 import com.wangzan101.mika.core.net.ProxyFailure
+import com.wangzan101.mika.core.usage.ModelHttpAttempts
 import com.wangzan101.mika.core.trace.TraceCall
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -53,6 +54,7 @@ internal object HttpSupport {
     }
 
     private suspend fun executeRaw(http: OkHttpClient, req: Request, attempt: TraceCall.Attempt?): RawResponse = suspendCancellableCoroutine { cont ->
+        if (req.tag(InferenceRequest::class.java) != null) cont.context[ModelHttpAttempts]?.start()
         val call = http.newCall(req)
         cont.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
@@ -79,6 +81,7 @@ internal object HttpSupport {
         observe(req) { attempt -> streamRaw(http, req, attempt, onEvent) }.also(::requireProxyAccepted)
 
     private suspend fun streamRaw(http: OkHttpClient, req: Request, attempt: TraceCall.Attempt?, onEvent: (String) -> Boolean): RawResponse = suspendCancellableCoroutine { cont ->
+        if (req.tag(InferenceRequest::class.java) != null) cont.context[ModelHttpAttempts]?.start()
         val call = http.newCall(req)
         cont.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
@@ -133,5 +136,11 @@ internal object HttpSupport {
         })
     }
 
-    fun retryAfterMs(header: String?): Long? = header?.trim()?.toDoubleOrNull()?.let { (it * 1000).toLong() }
+    private val RETRY_AFTER_BODY = Regex("""(?:try again in|retry after|wait|retry in)\s+(\d+(?:\.\d+)?)\s*(?:seconds?|secs?|s)\b""", RegexOption.IGNORE_CASE)
+
+    fun retryAfterMs(header: String?, body: String? = null): Long? {
+        fun milliseconds(text: String?): Long? = text?.trim()?.toDoubleOrNull()
+            ?.takeIf { it.isFinite() && it >= 0.0 }?.let { (it * 1000).toLong() }
+        return milliseconds(header) ?: milliseconds(body?.let { RETRY_AFTER_BODY.find(it)?.groupValues?.get(1) })
+    }
 }
