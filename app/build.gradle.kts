@@ -111,6 +111,8 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.xz)
+    // DSH Mobile's pinned Debian runtime layers are zstd-compressed.
+    implementation("com.github.luben:zstd-jni:1.5.7-12")
     implementation(libs.commonmark)
     implementation(libs.commonmark.ext.gfm.tables)
     implementation(libs.commonmark.ext.gfm.strikethrough)
