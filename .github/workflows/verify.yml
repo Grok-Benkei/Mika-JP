@@ -40,6 +40,17 @@ jobs:
         run: python3 -m unittest discover -s tools/release -p 'test_*.py'
       - name: JVM・CLI・Android本体と画面テストのビルド
         run: bash ./gradlew --no-daemon --console=plain --max-workers=4 --continue :core:test :app:testDebugUnitTest :core:cliTest -PmikaPython=python3 :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Harness 検証専用APK（通常版とは別アプリID）
+        if: github.event_name == 'pull_request'
+        run: bash ./gradlew --no-daemon --console=plain --max-workers=4 -PdevInstall :app:assembleDebug
+      - name: 検証専用APKを保存
+        if: github.event_name == 'pull_request' && success()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mika-harness-dev-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
       - name: 検査結果
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

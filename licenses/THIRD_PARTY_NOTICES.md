@@ -243,3 +243,39 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 - ライセンス: ML Kit Terms of Service
 - 利用規約: https://developers.google.com/ml-kit/terms
 - 利用方法: 日本語とラテン文字の端末内 OCR に使います。正式なライセンス名と URL は配布 POM に基づきます。
+
+
+## DeepSeek Harness runtime and DSH Mobile code
+
+- DeepSeek Harness runtime: https://github.com/deepseek-ai/deepseek-harness
+- Runtime layers: https://github.com/sorsama/dsh-mobile-runtime (release 2026.11.15-1)
+- Safe archive extraction code (adapted) and Android filesystem adapter:
+  DSH Mobile v0.24.0, https://github.com/sorsama/deepseek-harness-mobile (MIT)
+- Copyright (c) 2026 DSH Mobile contributors
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## zstd-jni
+
+- Version: 1.5.7-12 (com.github.luben:zstd-jni)
+- Source: https://github.com/luben/zstd-jni
+- JNI license: BSD-2-Clause; native zstd: BSD-3-Clause or GPL-2.0 (dual).
+- Usage: Decompress the pinned DeepSeek Harness runtime layer archives.
