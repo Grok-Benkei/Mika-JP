@@ -100,6 +100,21 @@
             </intent-filter>
         </activity>
 
+        <!-- Opt-in local DeepSeek Harness: never exported to other apps. -->
+        <activity
+            android:name=".harness.HarnessActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Mika"
+            android:windowSoftInputMode="adjustResize" />
+        <service
+            android:name=".harness.HarnessService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-started local DeepSeek Harness runtime" />
+        </service>
+
         <!-- 通知内の引き継ぎボタンの配置ポイント: 通知からアクティビティが開始された場合にのみ通知バーが閉じられ、ユーザーはホーム画面に移動したアプリを直接確認できます。 -->
         <activity
             android:name=".takeover.TakeoverActivity"
