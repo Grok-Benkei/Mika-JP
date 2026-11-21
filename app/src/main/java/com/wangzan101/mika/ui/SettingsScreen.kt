@@ -5,6 +5,7 @@ import com.wangzan101.mika.i18n.tr
 import androidx.compose.ui.res.stringResource
 import com.wangzan101.mika.settings.ProviderConnection
 import android.app.ActivityManager
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import com.wangzan101.mika.ui.components.MikaDialog
 import androidx.compose.material3.Text
@@ -149,6 +150,7 @@ fun SettingsScreen(
             status = status, androidRelease = androidRelease,
             mainModel = roles.main?.let { id -> configs.firstOrNull { it.id == id } }?.let(ProviderConnection::displayName),
             onBack = onBack, onProblem = onProblem, onOpenModels = onOpenModels,
+            onOpenHarness = { context.startActivity(Intent(context, com.wangzan101.mika.harness.HarnessActivity::class.java)) },
             onOpenPhoneOps = { page = SettingsPage.PhoneOps },
             onOpenAppAccess = { page = SettingsPage.AppAccess },
             onOpenDuringWork = { page = SettingsPage.DuringWork },
@@ -242,6 +244,7 @@ fun SettingsContent(
     onBack: () -> Unit,
     onProblem: (Problem) -> Unit,
     onOpenModels: () -> Unit,
+    onOpenHarness: () -> Unit = {},
     onOpenPhoneOps: () -> Unit = {},
     onOpenAppAccess: () -> Unit = {},
     onOpenDuringWork: () -> Unit = {},
@@ -268,6 +271,7 @@ fun SettingsContent(
                 RowValue(mainModel ?: stringResource(R.string.settings_not_set))
                 RowChevron()
             }
+            ListRow(MikaIcons.Terminal, "DeepSeek Harness", "プラグイン・MCP・サブエージェント", onClick = onOpenHarness) { RowChevron() }
             ListRow(MikaIcons.Phone, stringResource(R.string.settings_phone_ops), onClick = onOpenPhoneOps) {
                 PhoneOpsPill(status)
                 RowChevron()
